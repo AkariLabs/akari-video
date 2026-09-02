@@ -27,6 +27,7 @@ import {
   legacyTransformOpFor,
   telopParamControlKind
 } from '../lib/browser/inspector/field-mappings.js';
+import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -133,6 +134,34 @@ test('節合成は時間→変形→外観→種別固有→情報の順に固�
   assert.deepEqual(sections.map(section => section.id), [
     'time', 'transform', 'appearance', 'style', 'knobs:color', 'info'
   ]);
+});
+
+test('cut の動画タブだけにフレーミングがクロップの直後へ出る', () => {
+  assert.deepEqual(composeInspectorSections([
+    { id: 'appearance' }, { id: 'framing' }, { id: 'crop' }, { id: 'transform' }
+  ]).map(section => section.id), ['transform', 'crop', 'framing', 'appearance']);
+  assert.equal(assignSectionToTab('cut', 'framing'), 'video');
+
+  const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
+  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'/u);
+  assert.match(cutFactory, /cutFramingFields\(snapshot, requestWrite\)/u);
+  for (const [start, end] of [
+    ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
+    ['function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS('],
+    ['function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS('],
+    ['function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('],
+    ['function TREE_ITEM_SECTIONS(', '@injectable()']
+  ]) {
+    assert.doesNotMatch(sourceBetween(start, end), /label: 'フレーミング'/u);
+  }
+});
+
+test('ズーム KF がある間はフレーミング窓 4 行を disabled + title にする', () => {
+  const framingFields = sourceBetween('function cutFramingFields(', 'function CUT_SECTIONS(');
+  assert.match(framingFields, /const cropDisabled = keyframes\.length > 0/u);
+  assert.match(framingFields, /disabled: cropDisabled/u);
+  assert.match(framingFields, /title: cropDisabled \? CUT_FRAMING_CROP_DISABLED_TITLE/u);
+  assert.match(inspectorWidgetSource, /querySelectorAll\('button, input'\)[\s\S]{0,180}\.disabled = true/u);
 });
 
 test('イージング節は外観の直後に入り、KF 席から disabled 属性を除く', () => {

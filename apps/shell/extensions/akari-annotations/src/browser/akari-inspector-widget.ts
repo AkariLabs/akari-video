@@ -33,6 +33,14 @@ import {
     normalizeInspectorCrop,
     type InspectorCropAxis
 } from './inspector/crop-fields';
+import {
+    addCutFramingKeyframe,
+    createCutFramingCropWriteRequest,
+    readCutFraming,
+    removeCutFramingKeyframe,
+    replaceCutFramingKeyframe,
+    type CutFramingKeyframe
+} from './inspector/framing-fields';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
@@ -89,8 +97,14 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     unit?: string;
     displayScale?: number;
     removable?: boolean;
+    disabled?: boolean;
+    title?: string;
     actionLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    menuAction?: {
+        label: string;
+        action: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    };
     reset?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
@@ -269,6 +283,127 @@ function CROP_FIELDS<TSnapshot extends { id: string; crop?: unknown }>(
     }));
 }
 
+const CUT_FRAMING_CROP_DISABLED_TITLE = 'ズーム KF があるときは窓は無視されます';
+
+function cutFramingFields(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TimelineCutSelection>[] {
+    const framing = readCutFraming(snapshot.framing);
+    const crop = normalizeInspectorCrop(framing.crop);
+    const keyframes = framing.keyframes ?? [];
+    const cropDisabled = keyframes.length > 0;
+    const duration = Math.max(0, snapshot.outputEnd - snapshot.outputStart);
+    const cropRows: ReadonlyArray<{ axis: InspectorCropAxis; label: string }> = [
+        { axis: 'x', label: '左' },
+        { axis: 'y', label: '上' },
+        { axis: 'w', label: '幅' },
+        { axis: 'h', label: '高さ' }
+    ];
+    const fields: InspectorFieldDef<TimelineCutSelection>[] = cropRows.map(({ axis, label }) => ({
+        name: `framing-crop-${axis}`,
+        label,
+        unit: '%',
+        displayScale: INSPECTOR_CROP_DISPLAY_SCALE,
+        getValue: () => String(crop[axis]),
+        getEditValue: () => String(crop[axis]),
+        inputKind: 'scrub-number',
+        scrubStep: INSPECTOR_CROP_SCRUB_STEP,
+        min: 0,
+        max: inspectorCropAxisMaximum(crop, axis),
+        disabled: cropDisabled,
+        title: cropDisabled ? CUT_FRAMING_CROP_DISABLED_TITLE : undefined,
+        write: async (_snapshot, value) => requestWrite(
+            createCutFramingCropWriteRequest(snapshot.index, axis, Number(value))
+        ),
+        reset: () => requestWrite(createCutFramingCropWriteRequest(snapshot.index, axis, null))
+    }));
+
+    const replace = async (
+        index: number,
+        patch: Partial<CutFramingKeyframe>
+    ): Promise<InspectorWriteResult> => {
+        try {
+            return requestWrite({
+                kind: 'cut-framing-keyframes',
+                index: snapshot.index,
+                value: replaceCutFramingKeyframe(keyframes, index, patch)
+            });
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    };
+    keyframes.forEach((point, index) => {
+        const prefix = `framing-keyframe-${index}`;
+        const remove = {
+            label: 'この KF を削除',
+            action: async (): Promise<InspectorWriteResult> => requestWrite({
+                kind: 'cut-framing-keyframes',
+                index: snapshot.index,
+                value: removeCutFramingKeyframe(keyframes, index)
+            })
+        };
+        fields.push({
+            name: `${prefix}-t`, label: `KF ${index + 1} 時刻`, unit: '秒',
+            getValue: () => String(point.t), getEditValue: () => String(point.t),
+            inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: duration,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const t = Number(value);
+                return !Number.isFinite(t) || t < 0 || t > duration
+                    ? { ok: false, message: `KF 時刻は 0〜${duration} 秒の範囲で入力してください。` }
+                    : replace(index, { t });
+            }
+        }, {
+            name: `${prefix}-scale`, label: `KF ${index + 1} 倍率`, unit: '×',
+            getValue: () => String(point.scale), getEditValue: () => String(point.scale),
+            inputKind: 'scrub-number', scrubStep: 0.01, min: 1, max: 10,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const scale = Number(value);
+                return !Number.isFinite(scale) || scale < 1 || scale > 10
+                    ? { ok: false, message: 'KF 倍率は 1〜10 の範囲で入力してください。' }
+                    : replace(index, { scale });
+            }
+        }, ...(['cx', 'cy'] as const).map((axis): InspectorFieldDef<TimelineCutSelection> => ({
+            name: `${prefix}-${axis}`,
+            label: `KF ${index + 1} 中心 ${axis === 'cx' ? 'X' : 'Y'}`,
+            unit: '%', displayScale: 100,
+            getValue: () => String(point[axis] ?? 0.5),
+            getEditValue: () => String(point[axis] ?? 0.5),
+            inputKind: 'scrub-number', scrubStep: 0.005, min: 0, max: 1,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const coordinate = Number(value);
+                return !Number.isFinite(coordinate) || coordinate < 0 || coordinate > 1
+                    ? { ok: false, message: `KF 中心 ${axis === 'cx' ? 'X' : 'Y'} は 0〜100% の範囲で入力してください。` }
+                    : replace(index, { [axis]: coordinate });
+            },
+            reset: () => replace(index, { [axis]: undefined })
+        })));
+    });
+    fields.push({
+        name: 'framing-keyframe-add', label: '追加', actionLabel: '＋ ズーム KF を追加',
+        getValue: () => '',
+        action: async () => {
+            const playhead = Math.max(0, Math.min(
+                duration,
+                (snapshot.playheadSeconds ?? snapshot.outputStart) - snapshot.outputStart
+            ));
+            try {
+                return requestWrite({
+                    kind: 'cut-framing-keyframes',
+                    index: snapshot.index,
+                    value: addCutFramingKeyframe(keyframes, playhead, duration)
+                });
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        }
+    });
+    return fields;
+}
+
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -331,6 +466,7 @@ function CUT_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -2209,6 +2345,7 @@ export class AkariInspectorWidget extends BaseWidget {
     ): void {
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
+        if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';
@@ -2220,6 +2357,8 @@ export class AkariInspectorWidget extends BaseWidget {
             action.type = 'button';
             action.className = 'akari-inspector-row-input';
             action.textContent = field.actionLabel ?? field.label;
+            action.disabled = field.disabled === true;
+            if (field.title) action.title = field.title;
             action.setAttribute('data-akari-ui', `action:inspector-${fieldName}`);
             action.addEventListener('click', () => void field.action!(snapshot).then(result => {
                 if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
@@ -2272,14 +2411,21 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             const numericValue = Number(editValue);
             if (Number.isFinite(numericValue)) {
-                row.appendChild(createNumberField({
+                const numberField = createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
                     displayScale: field.displayScale,
                     onPreview: sendLive,
                     onCommit: value => commitValue(String(value), () => undefined),
                     keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
-                }));
+                });
+                if (field.disabled) {
+                    for (const control of Array.from(numberField.querySelectorAll('button, input'))) {
+                        (control as HTMLButtonElement | HTMLInputElement).disabled = true;
+                    }
+                    if (field.title) numberField.title = field.title;
+                }
+                row.appendChild(numberField);
             }
             this.attachRowMenu(row, field, snapshot, kind);
             parent.appendChild(row);
@@ -2391,6 +2537,8 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         row.appendChild(input);
+        input.disabled = field.disabled === true;
+        if (field.title) input.title = field.title;
         input.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
         if (field.previewOption && field.options?.length) {
             const previews = document.createElement('div');
@@ -2422,7 +2570,7 @@ export class AkariInspectorWidget extends BaseWidget {
         snapshot: InspectorSnapshot,
         kind: string
     ): void {
-        if (!field.reset && !field.removable) return;
+        if (field.disabled || (!field.reset && !field.removable && !field.menuAction)) return;
         row.addEventListener('contextmenu', event => {
             event.preventDefault();
             const menu = document.createElement('div');
@@ -2454,6 +2602,18 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.render();
                 });
                 menu.appendChild(remove);
+            }
+            if (field.menuAction) {
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.textContent = field.menuAction.label;
+                action.addEventListener('click', () => {
+                    menu.remove();
+                    void field.menuAction!.action(snapshot).then(result => {
+                        if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                    });
+                });
+                menu.appendChild(action);
             }
             const dismiss = (pointerEvent: PointerEvent): void => {
                 if (pointerEvent.target instanceof Node && menu.contains(pointerEvent.target)) return;

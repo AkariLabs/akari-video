@@ -2,6 +2,7 @@ import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
+import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -14,7 +15,9 @@ export interface TimelineCutSelection {
     sourceOut: number;
     outputStart: number;
     outputEnd: number;
+    playheadSeconds?: number;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    framing?: CutFraming;
     opacity?: number;
     speed?: number;
     transitionOut?: {
@@ -207,6 +210,11 @@ type InspectorWriteOperation =
     | { kind: 'cut-scale'; index: number; value: number | null }
     | { kind: 'cut-rotate'; index: number; value: number | null }
     | { kind: 'cut-opacity'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-x'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-y'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-w'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-h'; index: number; value: number | null }
+    | { kind: 'cut-framing-keyframes'; index: number; value: CutFramingKeyframe[] | null }
     | { kind: 'cut-source-in'; index: number; value: number }
     | { kind: 'cut-source-out'; index: number; value: number }
     | { kind: 'layer-transform-x'; id: string; value: number | null }

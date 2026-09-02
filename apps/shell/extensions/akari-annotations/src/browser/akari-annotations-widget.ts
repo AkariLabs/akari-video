@@ -234,6 +234,12 @@ import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
+import {
+    isCutFramingWriteRequest,
+    readCutFraming,
+    updateCutFraming,
+    type CutFramingWriteRequest
+} from './inspector/framing-fields';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
@@ -2368,6 +2374,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
+        if (isCutFramingWriteRequest(request) && this.legacyReadOnly) {
+            return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
+        }
+        if (isCutFramingWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
+            return this.handleLegacyCutFramingWrite(request);
+        }
         const v2Result = await this.handleInspectorWriteV2(request);
         if (v2Result) return v2Result;
         try {
@@ -2764,13 +2776,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    protected async handleLegacyCutFramingWrite(
+        request: CutFramingWriteRequest
+    ): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, any>;
+            const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
+            if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
+                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+            }
+            const framing = updateCutFraming(cut.framing, request);
+            if (JSON.stringify(cut.framing ?? null) === JSON.stringify(framing)) {
+                return { ok: true };
+            }
+            if (framing) cut.framing = framing;
+            else delete cut.framing;
+            const after = `${JSON.stringify(document, null, 2)}\n`;
+            await this.writeEditSnapshotGuarded(after);
+            const label = request.kind === 'cut-framing-keyframes'
+                ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
     protected async handleInspectorWriteV2(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
         if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
-            'cut-opacity', 'cut-source-in', 'cut-source-out'
+            'cut-opacity', 'cut-source-in', 'cut-source-out',
+            'cut-framing-crop-x', 'cut-framing-crop-y',
+            'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes'
         ]);
         const layerKinds = new Set([
             'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
@@ -2790,6 +2848,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const legacyDocument = this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks);
+        if (legacyDocument && isCutFramingWriteRequest(request)) return undefined;
         if (envelopeKinds.has(request.kind)) {
             if (legacyDocument || this.editDocument?.version !== 2) return undefined;
             const bgmRequest = request.kind.startsWith('bgm-')
@@ -2899,6 +2958,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else if (request.kind === 'cut-opacity') {
                     patch = { opacity: request.value };
                     label = 'クリップの不透明度を変更';
+                } else if (isCutFramingWriteRequest(request)) {
+                    const raw = this.rawV2Item(itemId);
+                    const framing = updateCutFraming(raw?.source?.framing, request);
+                    patch = { source: { framing } };
+                    label = request.kind === 'cut-framing-keyframes'
+                        ? 'ズーム KF を変更' : 'フレーミング窓を変更';
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
@@ -3197,11 +3262,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 clipName: this.cutSourceName(cut) || this.cutItemId(selection.index),
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
+                playheadSeconds: this.playheadT,
                 ...(cut.src !== undefined ? {
                     src: cut.src,
                     sourcePath: this.sourceMap.get(cut.src)?.path
                 } : {}),
                 ...(cut.transform !== undefined ? { transform: cut.transform } : {}),
+                ...((cut as EditCut & { framing?: unknown }).framing !== undefined
+                    ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
                 ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
