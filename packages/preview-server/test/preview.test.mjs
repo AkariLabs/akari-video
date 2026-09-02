@@ -811,7 +811,7 @@ async function main() {
   console.log('\n🧊 3D runtime wiring');
   const outJsonBackup3d = fs.existsSync(OUT_JSON) ? fs.readFileSync(OUT_JSON, 'utf-8') : null;
   try {
-    for (const route of ['/three-bundle.js', '/three-runtime.js']) {
+    for (const route of ['/three-bundle.js', '/three-runtime.js', '/slot-params.js']) {
       const r = await fetch(`${BASE}${route}`);
       const body = r.ok ? await r.text() : '';
       (r.ok && body.length > 1000)

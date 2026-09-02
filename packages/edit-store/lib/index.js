@@ -22,8 +22,11 @@ exports.LegacyEditVersionError = exports.parseEdit = void 0;
  */
 __exportStar(require("./edit-store"), exports);
 __exportStar(require("./caption-store"), exports);
+__exportStar(require("./caption-style-preset"), exports);
+__exportStar(require("./generated/textstyle-catalog"), exports);
 __exportStar(require("./caption-words-rederive"), exports);
 __exportStar(require("./caption-window"), exports);
+__exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
 __exportStar(require("./edit-v2"), exports);
@@ -42,6 +45,8 @@ __exportStar(require("./envelope"), exports);
 __exportStar(require("./audio-schedule"), exports);
 __exportStar(require("./canonical"), exports);
 __exportStar(require("./tree-ops"), exports);
+__exportStar(require("./item-anchor"), exports);
+__exportStar(require("./cut-ranges"), exports);
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

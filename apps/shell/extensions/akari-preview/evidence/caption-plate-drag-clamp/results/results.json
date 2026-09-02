@@ -1,0 +1,1032 @@
+{
+  "status": "PASS",
+  "label": "after",
+  "startedAt": "2026-09-01T16:41:22.944Z",
+  "steps": [
+    {
+      "step": "open-preview",
+      "result": "seeked"
+    },
+    {
+      "step": "collapse-side-panels",
+      "collapsed": "left,right,bottom"
+    },
+    {
+      "step": "calibration",
+      "iframe": {
+        "left": 49,
+        "top": 35,
+        "width": 1502,
+        "height": 1043
+      },
+      "probe": {
+        "x": 800,
+        "y": 557
+      },
+      "webviewClient": {
+        "x": 751,
+        "y": 522
+      },
+      "offset": {
+        "x": 49,
+        "y": 35
+      }
+    },
+    {
+      "step": "baseline",
+      "frameRatio": {
+        "left": 0.35394287109375006,
+        "right": 0.6460571289062501,
+        "top": 0.8466254340277778,
+        "bottom": 0.9300021701388889,
+        "width": 0.29211425781250006,
+        "height": 0.08337673611111111
+      },
+      "frameClient": {
+        "left": 35.99999999999999,
+        "top": 79.31249999999999,
+        "width": 1429.9999999999998,
+        "height": 804.375,
+        "right": 1465.9999999999998,
+        "bottom": 883.6875
+      },
+      "plateText": "二行目だけを動かす"
+    },
+    {
+      "step": "step1-write",
+      "path": "immediate"
+    },
+    {
+      "step": "step1-written",
+      "cue": "c-0002",
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7079,
+          "y": 0.8344
+        }
+      },
+      "default_text_style": {
+        "zone": "bottom"
+      },
+      "applied": {
+        "dx": 200,
+        "dy": -150
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-01-cue-drag.png"
+    },
+    {
+      "step": "step2-write",
+      "path": "immediate"
+    },
+    {
+      "step": "step2-written",
+      "default_text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.8759,
+          "y": 0.564
+        }
+      },
+      "cue2": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7079,
+          "y": 0.8344
+        }
+      },
+      "altBadge": "全字幕が動く"
+    },
+    {
+      "step": "screenshot",
+      "name": "after-02-alt-group-drag.png"
+    },
+    {
+      "step": "step3-write",
+      "path": "immediate"
+    },
+    {
+      "step": "step3-written",
+      "anchor": "bc",
+      "position": {
+        "x": 0.7681,
+        "y": 1
+      },
+      "plateWRatio": 0.23193359375,
+      "plateHRatio": 0.08337680213967771,
+      "applied": {
+        "dx": 165.66937255859375,
+        "dy": 106.96310424804688
+      },
+      "requested": {
+        "dx": 879.6126342773439,
+        "dy": 424.6166748046876
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-03-clamp-on.png"
+    },
+    {
+      "step": "step4-chip-before",
+      "active": true,
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+      "chipText": "🧲 はみ出し防止 ON",
+      "chipOn": true,
+      "chipRect": {
+        "left": 1001.484375,
+        "top": 687.0625,
+        "width": 111.5625,
+        "height": 21,
+        "cx": 1057.265625,
+        "cy": 697.5625
+      },
+      "resetHidden": false,
+      "resetVisible": true,
+      "resetRect": {
+        "left": 1118.046875,
+        "top": 687.0625,
+        "width": 78.8046875,
+        "height": 21,
+        "cx": 1157.44921875,
+        "cy": 697.5625
+      }
+    },
+    {
+      "step": "click-chip",
+      "attempts": [
+        {
+          "round": 0,
+          "rect": {
+            "left": 1001.484375,
+            "top": 687.0625,
+            "width": 111.5625,
+            "height": 21,
+            "cx": 1057.265625,
+            "cy": 697.5625
+          },
+          "point": {
+            "x": 1018.21875,
+            "y": 697.5625
+          },
+          "hit": {
+            "tag": "BUTTON",
+            "cls": "akari-caption-clamp-chip on",
+            "pointerEvents": "auto",
+            "text": "🧲 はみ出し防止 ON"
+          }
+        }
+      ],
+      "path": "real-mouse",
+      "after": {
+        "active": true,
+        "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+        "chipText": "🧲 はみ出し防止 OFF",
+        "chipOn": false,
+        "chipRect": {
+          "left": 1001.484375,
+          "top": 687.0625,
+          "width": 116.5546875,
+          "height": 21,
+          "cx": 1059.76171875,
+          "cy": 697.5625
+        },
+        "resetHidden": false,
+        "resetVisible": true,
+        "resetRect": {
+          "left": 1123.0390625,
+          "top": 687.0625,
+          "width": 78.8046875,
+          "height": 21,
+          "cx": 1162.44140625,
+          "cy": 697.5625
+        }
+      }
+    },
+    {
+      "step": "step4-chip-after",
+      "active": true,
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+      "chipText": "🧲 はみ出し防止 OFF",
+      "chipOn": false,
+      "chipRect": {
+        "left": 1001.484375,
+        "top": 687.0625,
+        "width": 116.5546875,
+        "height": 21,
+        "cx": 1059.76171875,
+        "cy": 697.5625
+      },
+      "resetHidden": false,
+      "resetVisible": true,
+      "resetRect": {
+        "left": 1123.0390625,
+        "top": 687.0625,
+        "width": 78.8046875,
+        "height": 21,
+        "cx": 1162.44140625,
+        "cy": 697.5625
+      },
+      "clickPath": "real-mouse",
+      "clickOk": true
+    },
+    {
+      "step": "step4-write",
+      "path": "immediate"
+    },
+    {
+      "step": "step4-written",
+      "position": {
+        "x": 0.7681,
+        "y": 1.0273
+      },
+      "anchor": "bc",
+      "applied": {
+        "dx": 0,
+        "dy": 15.12139892578125
+      }
+    },
+    {
+      "step": "step4-rendered",
+      "frameRatio": {
+        "left": 0.768096923828125,
+        "right": 0.9446471796558062,
+        "top": 0.9166233079079333,
+        "bottom": 1,
+        "width": 0.1765502558276813,
+        "height": 0.08337669209206672
+      },
+      "savedPosition": {
+        "x": 0.7681,
+        "y": 1.0273
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-04-clamp-off.png"
+    },
+    {
+      "step": "step5-reposition-write",
+      "path": "immediate"
+    },
+    {
+      "step": "step5-reset-before",
+      "active": true,
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+      "chipText": "🧲 はみ出し防止 OFF",
+      "chipOn": false,
+      "chipRect": {
+        "left": 283.578125,
+        "top": 631.6015625,
+        "width": 116.5546875,
+        "height": 21,
+        "cx": 341.85546875,
+        "cy": 642.1015625
+      },
+      "resetHidden": false,
+      "resetVisible": true,
+      "resetRect": {
+        "left": 405.1328125,
+        "top": 631.6015625,
+        "width": 78.8046875,
+        "height": 21,
+        "cx": 444.53515625,
+        "cy": 642.1015625
+      }
+    },
+    {
+      "step": "click-reset",
+      "attempts": [
+        {
+          "round": 0,
+          "rect": {
+            "left": 405.1328125,
+            "top": 631.6015625,
+            "width": 78.8046875,
+            "height": 21,
+            "cx": 444.53515625,
+            "cy": 642.1015625
+          },
+          "point": {
+            "x": 444.53515625,
+            "y": 642.1015625
+          },
+          "hit": {
+            "tag": "BUTTON",
+            "cls": "akari-caption-position-reset",
+            "pointerEvents": "auto",
+            "text": "↺ 既定に戻す"
+          }
+        }
+      ],
+      "path": "real-mouse",
+      "after": {
+        "active": true,
+        "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+        "chipText": "🧲 はみ出し防止 OFF",
+        "chipOn": false,
+        "chipRect": {
+          "left": 1107.78125,
+          "top": 445.25,
+          "width": 116.5546875,
+          "height": 21,
+          "cx": 1166.05859375,
+          "cy": 455.75
+        },
+        "resetHidden": true,
+        "resetVisible": false,
+        "resetRect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0,
+          "cx": 0,
+          "cy": 0
+        }
+      }
+    },
+    {
+      "step": "step5-reset-click",
+      "path": "real-mouse",
+      "ok": true
+    },
+    {
+      "step": "step5-written",
+      "cue2": {
+        "id": "c-0002",
+        "start": 2.5,
+        "end": 4,
+        "text": "二行目だけを動かす",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 2.5,
+            "end": 2.667,
+            "text": "二"
+          },
+          {
+            "start": 2.667,
+            "end": 2.833,
+            "text": "行"
+          },
+          {
+            "start": 2.833,
+            "end": 3,
+            "text": "目"
+          },
+          {
+            "start": 3,
+            "end": 3.167,
+            "text": "だ"
+          },
+          {
+            "start": 3.167,
+            "end": 3.333,
+            "text": "け"
+          },
+          {
+            "start": 3.333,
+            "end": 3.5,
+            "text": "を"
+          },
+          {
+            "start": 3.5,
+            "end": 3.667,
+            "text": "動"
+          },
+          {
+            "start": 3.667,
+            "end": 3.833,
+            "text": "か"
+          },
+          {
+            "start": 3.833,
+            "end": 4,
+            "text": "す"
+          }
+        ]
+      }
+    },
+    {
+      "step": "step5-reset-after",
+      "active": true,
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+      "chipText": "🧲 はみ出し防止 OFF",
+      "chipOn": false,
+      "chipRect": {
+        "left": 1107.78125,
+        "top": 445.25,
+        "width": 116.5546875,
+        "height": 21,
+        "cx": 1166.05859375,
+        "cy": 455.75
+      },
+      "resetHidden": true,
+      "resetVisible": false,
+      "resetRect": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0,
+        "cx": 0,
+        "cy": 0
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-05-after-reset.png"
+    },
+    {
+      "step": "step6-closed"
+    },
+    {
+      "step": "step6-reopen",
+      "result": "seeked"
+    },
+    {
+      "step": "collapse-side-panels",
+      "collapsed": "left,right,bottom"
+    },
+    {
+      "step": "calibration",
+      "iframe": {
+        "left": 49,
+        "top": 35,
+        "width": 1502,
+        "height": 1043
+      },
+      "probe": {
+        "x": 800,
+        "y": 557
+      },
+      "webviewClient": {
+        "x": 751,
+        "y": 522
+      },
+      "offset": {
+        "x": 49,
+        "y": 35
+      }
+    },
+    {
+      "step": "step6-chip",
+      "active": true,
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+      "chipText": "🧲 はみ出し防止 ON",
+      "chipOn": true,
+      "chipRect": {
+        "left": 1107.78125,
+        "top": 445.25,
+        "width": 111.5625,
+        "height": 21,
+        "cx": 1163.5625,
+        "cy": 455.75
+      },
+      "resetHidden": false,
+      "resetVisible": true,
+      "resetRect": {
+        "left": 1224.34375,
+        "top": 445.25,
+        "width": 78.8046875,
+        "height": 21,
+        "cx": 1263.74609375,
+        "cy": 455.75
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-06-reopened-clamp-on.png"
+    }
+  ],
+  "checks": [
+    {
+      "ok": true,
+      "message": "手順1: 対象は 2 行目（c-0002）",
+      "id": "c-0002"
+    },
+    {
+      "ok": true,
+      "message": "手順1: 行 2 に text_style.text_anchor が入る",
+      "anchor": "bc"
+    },
+    {
+      "ok": true,
+      "message": "手順1: position の各軸が 0..1",
+      "position": {
+        "x": 0.7079,
+        "y": 0.8344
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順1: default_text_style がバイト不変",
+      "before": {
+        "zone": "bottom"
+      },
+      "after": {
+        "zone": "bottom"
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順1: 他 4 行がバイト不変"
+    },
+    {
+      "ok": true,
+      "message": "手順1: バッジ文言が「この字幕だけ動く — ⌥ドラッグで全字幕」",
+      "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕"
+    },
+    {
+      "ok": true,
+      "message": "手順1: プレートが実際に動いた（再読込後の描画）",
+      "before": {
+        "left": 0.35394287109375006,
+        "right": 0.6460571289062501,
+        "top": 0.8466254340277778,
+        "bottom": 0.9300021701388889,
+        "width": 0.29211425781250006,
+        "height": 0.08337673611111111
+      },
+      "after": {
+        "left": 0.7078979368383937,
+        "right": 0.9398315305883937,
+        "top": 0.7510308159722222,
+        "bottom": 0.8344076181118999,
+        "width": 0.23193359375,
+        "height": 0.08337680213967771
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順2: ⌥ドラッグで default_text_style.text_anchor/position が変わる",
+      "before": {
+        "zone": "bottom"
+      },
+      "after": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.8759,
+          "y": 0.564
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順2: 行 2 の text_style はバイト不変",
+      "before": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7079,
+          "y": 0.8344
+        }
+      },
+      "after": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7079,
+          "y": 0.8344
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順2: ⌥ドラッグ中はバッジが「全字幕が動く」",
+      "altBadge": "全字幕が動く"
+    },
+    {
+      "ok": true,
+      "message": "手順3: ドラッグが実際に書き込まれた（クランプ判定が空振りでない）",
+      "before": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7079,
+          "y": 0.8344
+        }
+      },
+      "after": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7681,
+          "y": 1
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順3: クランプ ON — 箱の右端がフレーム内（x + plateW/frameW ≤ 1）",
+      "x": 0.7681,
+      "plateWRatio": 0.23193359375,
+      "sum": 1.00003359375
+    },
+    {
+      "ok": true,
+      "message": "手順3: クランプ ON — 箱の下端がフレーム内（y ≤ 1）",
+      "y": 1
+    },
+    {
+      "ok": true,
+      "message": "手順3: クランプ ON — 箱の上端がフレーム内（bc の y ≥ plateH/frameH）",
+      "y": 1,
+      "plateHRatio": 0.08337680213967771
+    },
+    {
+      "ok": true,
+      "message": "手順3: 描画されたプレートもフレーム内に張り付く",
+      "frameRatio": {
+        "left": 0.768096923828125,
+        "right": 0.9446471796558062,
+        "top": 0.9166233079079333,
+        "bottom": 1,
+        "width": 0.1765502558276813,
+        "height": 0.08337669209206672
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順4: 🧲 クリックで「はみ出し防止 OFF」表示になる",
+      "chipText": "🧲 はみ出し防止 OFF",
+      "chipOn": false,
+      "clickPath": "real-mouse"
+    },
+    {
+      "ok": true,
+      "message": "手順4: クランプ解除でフレーム外の値が保存される",
+      "position": {
+        "x": 0.7681,
+        "y": 1.0273
+      },
+      "plateWRatio": 0.23193359375
+    },
+    {
+      "ok": true,
+      "message": "手順4: ファイルが更新された = lint を通っている（lint 不合格なら write されない）",
+      "before": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7681,
+          "y": 1
+        }
+      },
+      "after": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.7681,
+          "y": 1.0273
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順5: 行固有の位置がある字幕に ↺ が出る",
+      "reset": {
+        "active": true,
+        "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+        "chipText": "🧲 はみ出し防止 OFF",
+        "chipOn": false,
+        "chipRect": {
+          "left": 283.578125,
+          "top": 631.6015625,
+          "width": 116.5546875,
+          "height": 21,
+          "cx": 341.85546875,
+          "cy": 642.1015625
+        },
+        "resetHidden": false,
+        "resetVisible": true,
+        "resetRect": {
+          "left": 405.1328125,
+          "top": 631.6015625,
+          "width": 78.8046875,
+          "height": 21,
+          "cx": 444.53515625,
+          "cy": 642.1015625
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順5: 行 2 の text_anchor / position が消える"
+    },
+    {
+      "ok": true,
+      "message": "手順5: text_style の残り（あれば）は不変",
+      "remainderBefore": {},
+      "remainderAfter": {}
+    },
+    {
+      "ok": true,
+      "message": "手順5: default_text_style は不変"
+    },
+    {
+      "ok": true,
+      "message": "手順5: ↺ が消える",
+      "reset": {
+        "active": true,
+        "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+        "chipText": "🧲 はみ出し防止 OFF",
+        "chipOn": false,
+        "chipRect": {
+          "left": 1107.78125,
+          "top": 445.25,
+          "width": 116.5546875,
+          "height": 21,
+          "cx": 1166.05859375,
+          "cy": 455.75
+        },
+        "resetHidden": true,
+        "resetVisible": false,
+        "resetRect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0,
+          "cx": 0,
+          "cy": 0
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順6: 開き直したあと行 2 を選択できる",
+      "selectBox": {
+        "active": true,
+        "badgeText": "この字幕だけ動く — ⌥ドラッグで全字幕",
+        "chipText": "🧲 はみ出し防止 ON",
+        "chipOn": true,
+        "chipRect": {
+          "left": 1107.78125,
+          "top": 445.25,
+          "width": 111.5625,
+          "height": 21,
+          "cx": 1163.5625,
+          "cy": 455.75
+        },
+        "resetHidden": false,
+        "resetVisible": true,
+        "resetRect": {
+          "left": 1224.34375,
+          "top": 445.25,
+          "width": 78.8046875,
+          "height": 21,
+          "cx": 1263.74609375,
+          "cy": 455.75
+        }
+      }
+    },
+    {
+      "ok": true,
+      "message": "手順6: 🧲 が既定 ON に戻る（クランプ状態は永続化しない）",
+      "chipText": "🧲 はみ出し防止 ON",
+      "chipOn": true
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "クランプ解除で保存された position（フレーム外）は共有描画カーネル captionAnchorPositionVars が 0..1 へクランプして描くため、見た目はフレーム端に留まる（4 出口共通。カーネル変更は本票の範囲外）。実測: 保存 y=1.0273 に対し描画下端比 1.0000。"
+  ],
+  "captionsFinal": {
+    "default_text_style": {
+      "text_anchor": "bc",
+      "position": {
+        "x": 0.8759,
+        "y": 0.564
+      }
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0.5,
+        "end": 2,
+        "text": "一行目の字幕",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 0.5,
+            "end": 0.75,
+            "text": "一"
+          },
+          {
+            "start": 0.75,
+            "end": 1,
+            "text": "行"
+          },
+          {
+            "start": 1,
+            "end": 1.25,
+            "text": "目"
+          },
+          {
+            "start": 1.25,
+            "end": 1.5,
+            "text": "の"
+          },
+          {
+            "start": 1.5,
+            "end": 1.75,
+            "text": "字"
+          },
+          {
+            "start": 1.75,
+            "end": 2,
+            "text": "幕"
+          }
+        ]
+      },
+      {
+        "id": "c-0002",
+        "start": 2.5,
+        "end": 4,
+        "text": "二行目だけを動かす",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 2.5,
+            "end": 2.667,
+            "text": "二"
+          },
+          {
+            "start": 2.667,
+            "end": 2.833,
+            "text": "行"
+          },
+          {
+            "start": 2.833,
+            "end": 3,
+            "text": "目"
+          },
+          {
+            "start": 3,
+            "end": 3.167,
+            "text": "だ"
+          },
+          {
+            "start": 3.167,
+            "end": 3.333,
+            "text": "け"
+          },
+          {
+            "start": 3.333,
+            "end": 3.5,
+            "text": "を"
+          },
+          {
+            "start": 3.5,
+            "end": 3.667,
+            "text": "動"
+          },
+          {
+            "start": 3.667,
+            "end": 3.833,
+            "text": "か"
+          },
+          {
+            "start": 3.833,
+            "end": 4,
+            "text": "す"
+          }
+        ]
+      },
+      {
+        "id": "c-0003",
+        "start": 4.5,
+        "end": 6,
+        "text": "三行目の字幕",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 4.5,
+            "end": 4.75,
+            "text": "三"
+          },
+          {
+            "start": 4.75,
+            "end": 5,
+            "text": "行"
+          },
+          {
+            "start": 5,
+            "end": 5.25,
+            "text": "目"
+          },
+          {
+            "start": 5.25,
+            "end": 5.5,
+            "text": "の"
+          },
+          {
+            "start": 5.5,
+            "end": 5.75,
+            "text": "字"
+          },
+          {
+            "start": 5.75,
+            "end": 6,
+            "text": "幕"
+          }
+        ]
+      },
+      {
+        "id": "c-0004",
+        "start": 6.5,
+        "end": 8,
+        "text": "四行目の字幕",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 6.5,
+            "end": 6.75,
+            "text": "四"
+          },
+          {
+            "start": 6.75,
+            "end": 7,
+            "text": "行"
+          },
+          {
+            "start": 7,
+            "end": 7.25,
+            "text": "目"
+          },
+          {
+            "start": 7.25,
+            "end": 7.5,
+            "text": "の"
+          },
+          {
+            "start": 7.5,
+            "end": 7.75,
+            "text": "字"
+          },
+          {
+            "start": 7.75,
+            "end": 8,
+            "text": "幕"
+          }
+        ]
+      },
+      {
+        "id": "c-0005",
+        "start": 8.5,
+        "end": 9.8,
+        "text": "五行目の字幕",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "words": [
+          {
+            "start": 8.5,
+            "end": 8.717,
+            "text": "五"
+          },
+          {
+            "start": 8.717,
+            "end": 8.933,
+            "text": "行"
+          },
+          {
+            "start": 8.933,
+            "end": 9.15,
+            "text": "目"
+          },
+          {
+            "start": 9.15,
+            "end": 9.367,
+            "text": "の"
+          },
+          {
+            "start": 9.367,
+            "end": 9.583,
+            "text": "字"
+          },
+          {
+            "start": 9.583,
+            "end": 9.8,
+            "text": "幕"
+          }
+        ]
+      }
+    ]
+  },
+  "finishedAt": "2026-09-01T16:41:54.712Z",
+  "checkCount": 25,
+  "failCount": 0
+}

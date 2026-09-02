@@ -1,8 +1,8 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'child_process';
-import { existsSync, promises as fs } from 'fs';
-import { join, resolve } from 'path';
+import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import { dirname, join, resolve } from 'path';
 import {
     AkariQuickExportService,
     QuickExportLintFinding,
@@ -21,8 +21,14 @@ import {
     QuickExportRenderSettings,
     summarizeStderrTail
 } from '../common/quick-export-cli';
-import { estimateElapsedAndRemaining, latestQuickExportProgress } from '../common/quick-export-progress';
-import { bundledMediaBinCandidate, packagedCliCandidates } from './packaged-cli-candidates';
+import {
+    createQuickExportProgressTracker,
+    estimateElapsedAndRemaining,
+    QuickExportProgressTracker
+} from '../common/quick-export-progress';
+import { copyArtifactCommand, copyArtifactStdin } from '../common/export-share';
+import { packagedCliCandidates } from './packaged-cli-candidates';
+import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
 const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
@@ -32,6 +38,24 @@ interface SpawnResult {
     readonly exitCode: number | null;
     readonly stdout: string;
     readonly stderr: string;
+}
+
+export interface RevealArtifactCommand {
+    readonly command: string;
+    readonly args: readonly string[];
+}
+
+export function buildRevealArtifactCommand(
+    platform: NodeJS.Platform,
+    artifactPath: string
+): RevealArtifactCommand {
+    if (platform === 'darwin') {
+        return { command: 'open', args: ['-R', artifactPath] };
+    }
+    if (platform === 'win32') {
+        return { command: 'explorer', args: [`/select,${artifactPath}`] };
+    }
+    return { command: 'xdg-open', args: [dirname(artifactPath)] };
 }
 
 /**
@@ -47,6 +71,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected logBuffer = '';
     /** render-cut フェーズ開始時刻（--progress の経過/残り時間見積もりに使う）。 */
     protected renderStartedAt: number | undefined;
+    protected progressTracker: QuickExportProgressTracker = createQuickExportProgressTracker();
+    protected renderStageStartedAt: number | undefined;
+    protected activeChild: ChildProcessWithoutNullStreams | undefined;
+    protected cancelRequested = false;
+    protected currentProjectRoot: string | undefined;
     /** テストからの上書き用（実 CLI を起動しない）。 */
     protected readonly fsImpl: typeof fs = fs;
 
@@ -55,7 +84,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             return { accepted: false, reason: 'already-running' };
         }
         this.running = true;
+        this.cancelRequested = false;
+        this.currentProjectRoot = this.fsPath(request.projectRootUri);
         this.logBuffer = '';
+        this.progressTracker = createQuickExportProgressTracker();
+        this.renderStageStartedAt = undefined;
         this.status = { phase: request.rerunLint ? 'linting' : 'rendering', logTail: '' };
         void this.run(request)
             .catch(error => {
@@ -73,6 +106,84 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         return this.status;
     }
 
+    async cancel(): Promise<{ cancelled: boolean }> {
+        if (!this.running) {
+            return { cancelled: false };
+        }
+        this.cancelRequested = true;
+        const child = this.activeChild;
+        this.updateStatus({ phase: 'cancelled', failureSummary: undefined });
+        if (!child) {
+            return { cancelled: true };
+        }
+        const exited = await new Promise<boolean>(resolvePromise => {
+            let settled = false;
+            const timeout = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                resolvePromise(false);
+            }, 5000);
+            child.once('close', () => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
+                resolvePromise(true);
+            });
+            child.kill('SIGTERM');
+        });
+        if (!exited && this.activeChild === child) {
+            child.kill('SIGKILL');
+        }
+        return { cancelled: true };
+    }
+
+    async revealArtifact(): Promise<{ revealed: boolean }> {
+        if (this.status.phase !== 'done' || !this.status.artifactPath || !this.currentProjectRoot) {
+            return { revealed: false };
+        }
+        const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
+        const request = buildRevealArtifactCommand(this.platform(), artifactPath);
+        try {
+            await this.spawnRevealCommand(request.command, request.args);
+            return { revealed: true };
+        } catch (error) {
+            this.appendLog(`${describeUnexpectedQuickExportFailure(error, '成果物をファイル管理画面で表示できませんでした')}\n`);
+            return { revealed: false };
+        }
+    }
+
+    async copyArtifact(): Promise<{ copied: boolean; reason?: string }> {
+        if (this.status.phase !== 'done' || !this.status.artifactPath || !this.currentProjectRoot) {
+            return { copied: false, reason: 'コピーできる書き出し済み動画がありません' };
+        }
+        const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
+        const platform = this.platform();
+        const request = copyArtifactCommand(platform, artifactPath);
+        if (!request) {
+            return { copied: false, reason: 'この OS ではクリップボードへのコピーに対応していません' };
+        }
+        try {
+            const exitCode = await this.spawnCopyCommand(
+                request.command,
+                request.args,
+                copyArtifactStdin(platform, artifactPath)
+            );
+            if (exitCode === 0) {
+                return { copied: true };
+            }
+            return {
+                copied: false,
+                reason: `コピー用コマンドが exit code ${exitCode ?? '不明'} で終了しました`
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                copied: false,
+                reason: `コピー用コマンドを起動できませんでした: ${message.replace(/\s+/gu, ' ')}`
+            };
+        }
+    }
+
     protected async run(request: QuickExportStartRequest): Promise<void> {
         const projectRoot = this.fsPath(request.projectRootUri);
 
@@ -81,6 +192,10 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             if (lintOutcome !== 'pass') {
                 return;
             }
+        }
+
+        if (this.cancelRequested) {
+            return;
         }
 
         await this.runRenderCutPhase(projectRoot, {
@@ -105,6 +220,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             return 'error';
         }
         const result = await this.spawnNodeScript(cli, buildEditLintArgs(projectRoot), chunk => this.appendLog(chunk));
+        if (this.cancelRequested) {
+            return 'error';
+        }
         const outcome = determineLintOutcome(result.exitCode);
         if (outcome === 'pass') {
             return 'pass';
@@ -144,6 +262,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         }
         this.renderStartedAt = Date.now();
         const result = await this.spawnNodeScript(cli, buildRenderCutArgs(projectRoot, settings), chunk => this.appendRenderLog(chunk));
+        if (this.cancelRequested) {
+            return;
+        }
         const outputRelativePath = buildRenderCutOutputPath(settings.outputName, settings.outputDirectory);
         const outputAbsolutePath = resolve(projectRoot, outputRelativePath);
         const outputStat = await this.statOrUndefined(outputAbsolutePath);
@@ -218,21 +339,40 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     /**
      * render-cut フェーズ専用の onChunk（edit-lint フェーズは appendLog のみを使う —
      * lint の stdout に PROGRESS 行が混じることはないため、進捗解析はここだけで十分）。
-     * ログ蓄積は appendLog に委ね、そのうえで直近の PROGRESS 行から % と経過/残り
-     * 時間を見積もって status に反映する。
+     * ログ蓄積は appendLog に委ね、状態つきトラッカーへチャンクを逐次渡して % と
+     * 経過/残り時間を見積もり、status に反映する。
      */
     protected appendRenderLog(chunk: string): void {
         this.appendLog(chunk);
-        const snapshot = latestQuickExportProgress(this.logBuffer);
+        const previousSnapshot = this.progressTracker.snapshot();
+        this.progressTracker.push(chunk);
+        const snapshot = this.progressTracker.snapshot();
         if (!snapshot || this.renderStartedAt === undefined) {
             return;
         }
-        const elapsedMs = Date.now() - this.renderStartedAt;
-        const { remainingMs } = estimateElapsedAndRemaining(snapshot, elapsedMs);
+        const nowMs = Date.now();
+        const renderRestarted = snapshot.stage === 'render'
+            && previousSnapshot?.stage === 'render'
+            && (
+                (snapshot.frame === 0 && previousSnapshot.frame !== 0)
+                || snapshot.engine !== previousSnapshot.engine
+            );
+        if (snapshot.stage === 'render' && (this.renderStageStartedAt === undefined || renderRestarted)) {
+            this.renderStageStartedAt = nowMs;
+        }
+        const elapsedMs = nowMs - this.renderStartedAt;
+        const renderStage = snapshot.stage === 'render' && this.renderStageStartedAt !== undefined
+            ? { startedAtMs: this.renderStageStartedAt, nowMs }
+            : undefined;
+        const { remainingMs } = estimateElapsedAndRemaining(snapshot, elapsedMs, renderStage);
         this.updateStatus({
             progressPercent: snapshot.percent,
             progressElapsedMs: elapsedMs,
-            progressRemainingMs: remainingMs
+            progressRemainingMs: remainingMs,
+            progressStage: snapshot.stage,
+            progressFrame: snapshot.frame,
+            progressTotalFrames: snapshot.totalFrames,
+            progressEngine: snapshot.engine
         });
     }
 
@@ -259,7 +399,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     /** Electron が packaged 時のみ設定する `Contents/Resources`（開発起動では undefined）。 */
     protected resourcesPath(): string | undefined {
-        return (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        return electronResourcesPath();
     }
 
     /**
@@ -285,48 +425,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     /**
      * 子プロセス（edit-lint / render-cut。render-cut はさらに bake-layer を spawn する）へ渡す環境。
-     *
-     * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せるのが要点。Finder / Dock から
-     * 起動されたアプリの PATH は launchd 既定（`/usr/bin:/bin:/usr/sbin:/sbin`）で、
-     * Homebrew 等の ffmpeg は載っていない。packages/media-bin の探索順は
-     * 「明示指定 env → PATH → 同梱バイナリ」だが、同梱バイナリの置き場は
-     * `packages/media-bin/vendor/`（npm install の postinstall が作る開発配置）であって
-     * パッケージ版の `Contents/Resources/media-bin/` ではないため、env を渡さないと
-     * どの段にも当たらず `ffmpeg が見つかりませんでした` で書き出しが落ちる。
-     * 優先順位は media-bin / akari-partner-server の resolveMediaBinPath と同一。
+     * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せる理由と優先順位は
+     * child-node-process.ts（preview-server バックエンドと共有）のコメント参照。
      */
     protected childEnvironment(): NodeJS.ProcessEnv {
-        const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
-        for (const [name, variable] of [['ffmpeg', 'AKARI_FFMPEG_BIN'], ['ffprobe', 'AKARI_FFPROBE_BIN']] as const) {
-            const resolved = this.resolveMediaBinPath(name, variable);
-            if (resolved !== undefined) {
-                env[variable] = resolved;
-            }
-        }
-        return env;
-    }
-
-    protected resolveMediaBinPath(
-        name: 'ffmpeg' | 'ffprobe',
-        explicitEnvVariable: 'AKARI_FFMPEG_BIN' | 'AKARI_FFPROBE_BIN'
-    ): string | undefined {
-        const explicit = process.env[explicitEnvVariable];
-        if (explicit) {
-            return explicit;
-        }
-        if (this.canRunOnPath(name)) {
-            return name;
-        }
-        const bundled = bundledMediaBinCandidate(name, this.resourcesPath());
-        return bundled !== undefined && existsSync(bundled) ? bundled : undefined;
-    }
-
-    protected canRunOnPath(command: string): boolean {
-        try {
-            return spawnSync(command, ['-version'], { stdio: 'ignore' }).status === 0;
-        } catch {
-            return false;
-        }
+        return childNodeEnvironment(this.resourcesPath());
     }
 
     /**
@@ -358,6 +461,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 settle({ exitCode: 2, stdout, stderr: message });
                 return;
             }
+            this.activeChild = child;
             child.stdout.on('data', chunk => {
                 const text = chunk.toString();
                 stdout += text;
@@ -374,7 +478,53 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             });
             // `exit` より `close` を待つ。close は stdout/stderr が閉じた後なので、
             // 失敗理由の末尾を取りこぼした状態で GUI を終端させない。
-            child.on('close', code => settle({ exitCode: code, stdout, stderr }));
+            child.on('close', code => {
+                if (this.activeChild === child) {
+                    this.activeChild = undefined;
+                }
+                settle({ exitCode: code, stdout, stderr });
+            });
+        });
+    }
+
+    protected platform(): NodeJS.Platform {
+        return process.platform;
+    }
+
+    protected spawnRevealCommand(command: string, args: readonly string[]): Promise<void> {
+        return new Promise((resolvePromise, rejectPromise) => {
+            let child;
+            try {
+                child = spawn(command, [...args], { detached: true, stdio: 'ignore' });
+            } catch (error) {
+                rejectPromise(error);
+                return;
+            }
+            child.once('error', rejectPromise);
+            child.once('spawn', () => {
+                child.unref();
+                resolvePromise();
+            });
+        });
+    }
+
+    protected spawnCopyCommand(command: string, args: readonly string[], stdin?: string): Promise<number | null> {
+        return new Promise((resolvePromise, rejectPromise) => {
+            let child;
+            try {
+                child = spawn(command, [...args], { stdio: ['pipe', 'ignore', 'ignore'] });
+            } catch (error) {
+                rejectPromise(error);
+                return;
+            }
+            child.once('error', rejectPromise);
+            child.once('close', resolvePromise);
+            child.stdin.once('error', rejectPromise);
+            if (stdin !== undefined) {
+                child.stdin.end(stdin);
+            } else {
+                child.stdin.end();
+            }
         });
     }
 

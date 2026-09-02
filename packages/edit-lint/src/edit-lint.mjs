@@ -12,6 +12,7 @@ import {
 import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
@@ -28,9 +29,11 @@ const {
   planTransitionHandleWindow,
   projectLegacyEdit,
   readInternalEdit,
+  resolveItemAnchors,
   resolveCaptionDisplay,
   visualContentEndSeconds,
   TRANSITION_TYPE_IDS,
+  withoutItemAnchors,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
   "../../edit-store/lib/migrate/index.js",
@@ -38,6 +41,7 @@ const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
 
 const VERSION = 1;
 const EPSILON = 1e-6;
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
   new URL("../../schemas/captions.schema.json", import.meta.url),
   "utf8",
@@ -57,12 +61,27 @@ const CAPTION_TEXTANIM_IDS = new Set(
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line).id),
 );
-const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
+const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json] [--engine gpu|osr|auto]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
        [--declarations PATH] [--ffprobe PATH]
 
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
+
+export function loadTextstylePresetIds(repoRoot) {
+  try {
+    return new Set(
+      readFileSync(join(repoRoot, "presets/textstyle/index.jsonl"), "utf8")
+        .split(/\r?\n/u)
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line).id)
+        .filter((id) => typeof id === "string"),
+    );
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return null;
+    throw error;
+  }
+}
 
 export class ExecutionError extends Error {}
 
@@ -121,6 +140,15 @@ export async function lintProject(input, options = {}) {
     throw new ExecutionError(`edit.json is not valid JSON: ${messageOf(error)}`);
   }
 
+  const engine = parseEngine(options.engine ?? null);
+  const engineCapabilities = engine === null ? null : readEngineCapabilities(options);
+  if (engineCapabilities !== null) {
+    inputs.engine_capabilities_sha256 = sha256(engineCapabilities.text);
+    if (!isRecord(edit) || edit.version !== 2) {
+      addSkipped(skipped, "engine.capabilities", "v2 のみ対応");
+    }
+  }
+
   if (isRecord(edit) && Number.isInteger(edit.version) && edit.version > 2) {
     addFinding(findings, {
       severity: "error",
@@ -147,6 +175,9 @@ export async function lintProject(input, options = {}) {
   const rawEdit = edit;
   const internalEdit = readInternalEdit(rawEdit);
   const legacyEdit = projectLegacyEdit(internalEdit);
+  if (engineCapabilities !== null && rawEdit.version === 2) {
+    validateEngineCapabilities(rawEdit, internalEdit, engine, engineCapabilities.value, findings);
+  }
   validateTransitionLayerEvacuations(rawEdit, internalEdit, findings);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
   if (rawEdit.version === 2) {
@@ -207,6 +238,9 @@ export async function lintProject(input, options = {}) {
     }
   } else {
     addSkipped(skipped, "captions", "captions.json is absent");
+  }
+  if (isRecord(rawEdit) && rawEdit.version === 2) {
+    validateV2ItemAnchors(rawEdit, captionsState, findings);
   }
   validateCaptionTrackDeclaration(rawEdit, captionsState.value, findings);
 
@@ -318,6 +352,7 @@ export async function lintProject(input, options = {}) {
       findings,
       paths,
       cutsEndSeconds,
+      loadTextstylePresetIds(options.textstyleRepositoryRoot ?? REPOSITORY_ROOT),
     );
   }
 
@@ -404,7 +439,7 @@ function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
 function validateTransitionLayerEvacuations(rawEdit, internalEdit, findings) {
   if (!isRecord(rawEdit) || rawEdit.version !== 2) return;
   const crossTrackCauses = new Map();
-  for (const cause of findCrossTrackLayerEvacuations(rawEdit)) {
+  for (const cause of findCrossTrackLayerEvacuations(withoutItemAnchors(rawEdit))) {
     if (!crossTrackCauses.has(cause.itemId)) crossTrackCauses.set(cause.itemId, cause);
   }
   const rawLocations = new Map();
@@ -560,6 +595,7 @@ export function parseArguments(argv) {
     captionSilenceWarnPercent: null,
     declarationsPath: null,
     ffprobeCommand: null,
+    engine: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -571,6 +607,16 @@ export function parseArguments(argv) {
     }
     if (argument === "--json") {
       options.json = true;
+      continue;
+    }
+    if (argument === "--engine") {
+      options.engine = parseEngine(argv[++index]);
+      if (options.engine === null) throw new ExecutionError("--engine requires gpu, osr, or auto");
+      continue;
+    }
+    if (argument.startsWith("--engine=")) {
+      options.engine = parseEngine(argument.slice("--engine=".length));
+      if (options.engine === null) throw new ExecutionError("--engine requires gpu, osr, or auto");
       continue;
     }
     if (argument === "--silence-error-seconds") {
@@ -647,6 +693,210 @@ export function parseArguments(argv) {
 
   if (input === null) throw new ExecutionError("An input path is required");
   return { input, ...options };
+}
+
+function parseEngine(value) {
+  if (value === null || value === undefined) return null;
+  if (["gpu", "osr", "auto"].includes(value)) return value;
+  throw new ExecutionError("--engine requires gpu, osr, or auto");
+}
+
+function readEngineCapabilities(options) {
+  let text;
+  try {
+    if (typeof options.engineCapabilitiesText === "string") {
+      text = options.engineCapabilitiesText;
+    } else if (isRecord(options.engineCapabilities)) {
+      text = `${JSON.stringify(options.engineCapabilities, null, 2)}\n`;
+    } else if (typeof options.engineCapabilitiesPath === "string") {
+      text = readFileSync(options.engineCapabilitiesPath, "utf8");
+    } else {
+      text = readFileSync(new URL("../../schemas/engine-capabilities.json", import.meta.url), "utf8");
+    }
+  } catch (error) {
+    throw new ExecutionError(`engine capability table cannot be read: ${messageOf(error)}`);
+  }
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    throw new ExecutionError(`engine capability table is not valid JSON: ${messageOf(error)}`);
+  }
+  if (!isRecord(value) || !Array.isArray(value.fields) || !Array.isArray(value.engines)) {
+    throw new ExecutionError("engine capability table has an invalid shape");
+  }
+  return { text, value };
+}
+
+function validateEngineCapabilities(rawEdit, internalEdit, engine, table, findings) {
+  const internalItems = new Map();
+  const visitInternal = (item) => {
+    internalItems.set(String(item.id), item);
+    for (const child of item.children ?? []) visitInternal(child);
+  };
+  for (const track of internalEdit.tracks) {
+    for (const item of track.items) visitInternal(item);
+  }
+  const rowsByPath = new Map();
+  for (const row of table.fields) {
+    if (!isRecord(row) || typeof row.path !== "string") continue;
+    const rows = rowsByPath.get(row.path) ?? [];
+    rows.push(row);
+    rowsByPath.set(row.path, rows);
+  }
+
+  const visitItems = (items, trackIndex, parentPath, lane) => {
+    for (const [itemIndex, item] of items.entries()) {
+      if (!isRecord(item)) continue;
+      const actualPath = `${parentPath}[${itemIndex}]`;
+      const internalItem = internalItems.get(String(item.id));
+      const appliesTo = engineAppliesTo(item, internalItem, lane);
+      for (const key of Object.keys(item)) {
+        checkEngineField({
+          canonicalPath: `tracks[].items[].${key}`,
+          actualPath: `${actualPath}.${key}`,
+          appliesTo,
+          engine,
+          table,
+          rowsByPath,
+          findings,
+        });
+      }
+      if (isRecord(item.source)) {
+        for (const key of Object.keys(item.source)) {
+          checkEngineField({
+            canonicalPath: `tracks[].items[].source.${key}`,
+            actualPath: `${actualPath}.source.${key}`,
+            appliesTo,
+            engine,
+            table,
+            rowsByPath,
+            findings,
+          });
+        }
+      }
+      if (Array.isArray(item.keyframes)) {
+        for (const [keyframeIndex, keyframe] of item.keyframes.entries()) {
+          if (!isRecord(keyframe)) continue;
+          for (const key of Object.keys(keyframe)) {
+            checkEngineField({
+              canonicalPath: `tracks[].items[].keyframes[].${key}`,
+              actualPath: `${actualPath}.keyframes[${keyframeIndex}].${key}`,
+              appliesTo,
+              engine,
+              table,
+              rowsByPath,
+              findings,
+            });
+          }
+        }
+      }
+      if (Array.isArray(item.items)) {
+        visitItems(item.items, trackIndex, `${actualPath}.items`, lane);
+      }
+    }
+  };
+
+  for (const [trackIndex, track] of rawEdit.tracks.entries()) {
+    if (!isRecord(track) || !Array.isArray(track.items)) continue;
+    visitItems(track.items, trackIndex, `tracks[${trackIndex}].items`, track.lane);
+  }
+}
+
+function engineAppliesTo(item, internalItem, lane) {
+  if (lane === "audio") return "audio";
+  switch (item.source?.kind) {
+    case "media":
+      return internalItem?.legacy?.collection === "layers" ? "layers" : "cuts";
+    case "html": return "overlays";
+    case "telop": return "baked";
+    case "filter": return "layers";
+    case "captions":
+    case "caption": return "captions";
+    case "group": return "group";
+    default: return String(internalItem?.legacy?.collection ?? "group");
+  }
+}
+
+function checkEngineField({
+  canonicalPath,
+  actualPath,
+  appliesTo,
+  engine,
+  table,
+  rowsByPath,
+  findings,
+}) {
+  const row = (rowsByPath.get(canonicalPath) ?? []).find((candidate) =>
+    Array.isArray(candidate.applies_to) && candidate.applies_to.includes(appliesTo));
+  const engines = engine === "auto" ? table.engines.filter((value) => value === "gpu" || value === "osr") : [engine];
+  if (!row) {
+    addEngineFinding(findings, {
+      check: "engine.capability-unknown",
+      severity: "warning",
+      engines,
+      auto: engine === "auto",
+      body: `${canonicalPath} は対応表 packages/schemas/engine-capabilities.json に無いフィールドです（表の更新漏れ）`,
+      actualPath,
+    });
+    return;
+  }
+  const actionable = engines.flatMap((engineName) => {
+    const status = row[engineName];
+    if (status === "ignored") {
+      return [{
+        engine: engineName,
+        check: "engine.unsupported-field",
+        severity: "error",
+        body: `${canonicalPath} を消費しません（${actualPath}・描画には反映されません）${row.hint ? `。hint: ${row.hint}` : ""}`,
+      }];
+    }
+    if (status === "partial") {
+      return [{
+        engine: engineName,
+        check: "engine.partial-field",
+        severity: "warning",
+        body: `${canonicalPath} は近似です（${row.note ?? "一部の宣言だけが反映されます"}）`,
+      }];
+    }
+    return [];
+  });
+  if (actionable.length === 0) return;
+  const first = actionable[0];
+  if (engine === "auto" && actionable.length === engines.length
+    && actionable.every((entry) => entry.check === first.check
+      && entry.severity === first.severity && entry.body === first.body)) {
+    addFinding(findings, {
+      check: first.check,
+      severity: first.severity,
+      message: `gpu/osr: ${first.body}`,
+      path: `edit.json#${actualPath}`,
+    });
+    return;
+  }
+  for (const entry of actionable) {
+    addFinding(findings, {
+      check: entry.check,
+      severity: entry.severity,
+      message: engine === "auto" ? `${entry.engine}: ${entry.body}` : `${entry.engine} 経路は ${entry.body}`,
+      path: `edit.json#${actualPath}`,
+    });
+  }
+}
+
+function addEngineFinding(findings, { check, severity, engines, auto, body, actualPath }) {
+  if (auto && engines.length === 2) {
+    addFinding(findings, { check, severity, message: `gpu/osr: ${body}`, path: `edit.json#${actualPath}` });
+    return;
+  }
+  for (const engine of engines) {
+    addFinding(findings, {
+      check,
+      severity,
+      message: auto ? `${engine}: ${body}` : `${engine} 経路では ${body}`,
+      path: `edit.json#${actualPath}`,
+    });
+  }
 }
 
 async function resolveInput(input, options = {}) {
@@ -1037,6 +1287,98 @@ function validateEditV2(edit, findings) {
       }
       if (!furthest || interval.end > furthest.end) furthest = interval;
     }
+  }
+}
+
+function validateV2ItemAnchors(edit, captionsState, findings) {
+  const rows = Array.isArray(captionsState.value)
+    ? captionsState.value
+    : isRecord(captionsState.value) && Array.isArray(captionsState.value.captions)
+      ? captionsState.value.captions : [];
+  const captions = rows.filter(caption => isRecord(caption)
+    && isNonEmptyString(caption.id)
+    && isFiniteNumber(caption.start)
+    && isFiniteNumber(caption.end))
+    .map(caption => ({
+      id: caption.id,
+      start: caption.start,
+      end: caption.end,
+      ...(caption.time_domain === "output" ? { timeDomain: "output" } : {}),
+    }));
+  const captionById = new Map(captions.map(caption => [caption.id, caption]));
+  const entries = [];
+  const visit = (items, parentPath) => {
+    if (!Array.isArray(items)) return;
+    for (const [index, item] of items.entries()) {
+      if (!isRecord(item)) continue;
+      const path = `${parentPath}[${index}]`;
+      if (Object.hasOwn(item, "anchor")) entries.push({ item, path });
+      visit(item.items, `${path}.items`);
+    }
+  };
+  for (const [trackIndex, track] of (Array.isArray(edit.tracks) ? edit.tracks : []).entries()) {
+    if (isRecord(track)) visit(track.items, `edit.json#tracks[${trackIndex}].items`);
+  }
+
+  for (const { item, path } of entries) {
+    const kind = isRecord(item.source) ? item.source.kind : undefined;
+    if (kind === "captions" || kind === "caption") {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.item-anchor-kind",
+        message: `source kind ${String(kind)} cannot declare anchor`,
+        path: `${path}.anchor`,
+      });
+      continue;
+    }
+    const anchor = isRecord(item.anchor) ? item.anchor : {};
+    const caption = captionById.get(anchor.caption);
+    if (!caption) {
+      addFinding(findings, {
+        severity: captionsState.exists ? "error" : "warning",
+        check: "v2.item-anchor-ref",
+        message: captionsState.exists
+          ? `anchor.caption does not reference captions.json: ${String(anchor.caption)}`
+          : `captions.json is absent; anchor.caption cannot be resolved: ${String(anchor.caption)}`,
+        path: `${path}.anchor.caption`,
+      });
+      continue;
+    }
+    if (Object.hasOwn(anchor, "range")) {
+      const range = isRecord(anchor.range) ? anchor.range : {};
+      if (!isFiniteNumber(range.start) || !isFiniteNumber(range.end)
+        || range.start < caption.start - EPSILON
+        || range.end > caption.end + EPSILON
+        || range.end <= range.start) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.item-anchor-range",
+          message: `anchor range [${String(range.start)}, ${String(range.end)}] must satisfy ${caption.start} <= start < end <= ${caption.end}`,
+          path: `${path}.anchor.range`,
+        });
+      }
+    }
+  }
+
+  if (entries.length === 0) return;
+  const resolved = resolveItemAnchors(edit, captions);
+  const pathById = new Map(entries.map(entry => [entry.item.id, entry.path]));
+  for (const change of resolved.changes) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "v2.item-anchor-stale",
+      message: `anchor resolves to at=${change.after.at}, duration=${change.after.duration}; cached at=${change.before.at}, duration=${change.before.duration}`,
+      path: `${pathById.get(change.id) ?? "edit.json#tracks"}.anchor`,
+    });
+  }
+  for (const warning of resolved.warnings) {
+    if (warning.reason !== "removed-range" && warning.reason !== "no-source-segments") continue;
+    addFinding(findings, {
+      severity: "warning",
+      check: "v2.item-anchor-unresolvable",
+      message: `anchor interval is not visible on the output timeline (${warning.reason})`,
+      path: `${pathById.get(warning.id) ?? "edit.json#tracks"}.anchor`,
+    });
   }
 }
 
@@ -2877,7 +3219,7 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
   return { sourceExists };
 }
 
-function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds) {
+function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
   let displayPolicy;
@@ -2948,7 +3290,7 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "style", "display_text", "display_fragments", "text_style"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "style_preset", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -3042,11 +3384,33 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
     if (Object.hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       captionFinding(findings, "captions.schema", "display_fragments must be an array when present", itemPath);
     }
+    if (Object.hasOwn(caption, "style_preset")) {
+      if (typeof caption.style_preset !== "string"
+        || !/^[a-z0-9][a-z0-9-]*$/.test(caption.style_preset)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          "style_preset must match ^[a-z0-9][a-z0-9-]*$ when present",
+          itemPath,
+        );
+      } else if (textstylePresetIds && !textstylePresetIds.has(caption.style_preset)) {
+        const candidates = [...textstylePresetIds].sort().slice(0, 5);
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.style-preset-unknown",
+          message: `unknown style_preset id: ${caption.style_preset}${candidates.length > 0 ? `; candidates: ${candidates.join(", ")}` : ""}`,
+          path: itemPath,
+        });
+      }
+    }
     if (Object.hasOwn(caption, "text_style")) {
       validateTextStyle(caption.text_style, "text_style", findings, itemPath);
     }
     if (Object.hasOwn(caption, "words")) {
       validateCaptionWords(caption.words, caption, findings, itemPath);
+    }
+    if (Object.hasOwn(caption, "unrecognized")) {
+      validateCaptionUnrecognized(caption.unrecognized, caption, findings, itemPath);
     }
     const timesValid =
       isFiniteNumber(caption.start) &&
@@ -3285,6 +3649,85 @@ function validateCaptionWords(words, caption, findings, itemPath) {
     }
     if (!isNonEmptyString(word.text)) {
       captionFinding(findings, "captions.schema", "text must be a non-empty string", wordPath);
+    }
+  });
+}
+
+const CAPTION_UNRECOGNIZED_FIELDS = ["start", "end"];
+
+function validateCaptionUnrecognized(spans, caption, findings, itemPath) {
+  if (!Array.isArray(spans)) {
+    captionFinding(findings, "captions.schema", "unrecognized must be an array", itemPath);
+    return;
+  }
+  const hasCaptionRange = isFiniteNumber(caption.start) && isFiniteNumber(caption.end);
+  let previous = null;
+  spans.forEach((span, spanIndex) => {
+    const spanPath = `${itemPath}.unrecognized[${spanIndex}]`;
+    if (!isRecord(span)) {
+      captionFinding(findings, "captions.schema", "unrecognized span must be an object", spanPath);
+      return;
+    }
+    for (const field of CAPTION_UNRECOGNIZED_FIELDS) {
+      if (!Object.hasOwn(span, field)) {
+        captionFinding(findings, "captions.schema", `${field} is required`, spanPath);
+      }
+    }
+    for (const field of Object.keys(span)) {
+      if (!CAPTION_UNRECOGNIZED_FIELDS.includes(field)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          `${field} is not defined by captions v0 unrecognized[]`,
+          spanPath,
+        );
+      }
+    }
+    const spanTimesValid = isFiniteNumber(span.start)
+      && isFiniteNumber(span.end)
+      && span.start >= 0
+      && span.end >= span.start;
+    if (!spanTimesValid) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "unrecognized span must satisfy 0 <= start <= end",
+        spanPath,
+      );
+      return;
+    }
+    if (previous && span.start < previous.end) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "unrecognized spans must be sorted by start and not overlap",
+        spanPath,
+      );
+    }
+    previous = span;
+    if (hasCaptionRange
+      && (span.start < caption.start - EPSILON || span.end > caption.end + EPSILON)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "captions.unrecognized-range",
+        message: "unrecognized span falls outside the caption's [start, end] range",
+        path: spanPath,
+        range: { start: span.start, end: span.end },
+      });
+    }
+    if (Array.isArray(caption.words) && caption.words.some((word) =>
+      isRecord(word)
+      && isFiniteNumber(word.start)
+      && isFiniteNumber(word.end)
+      && span.start < word.end
+      && span.end > word.start)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "captions.unrecognized-overlaps-word",
+        message: "unrecognized span overlaps a caption word",
+        path: spanPath,
+        range: { start: span.start, end: span.end },
+      });
     }
   });
 }

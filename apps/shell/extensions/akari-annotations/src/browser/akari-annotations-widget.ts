@@ -59,6 +59,8 @@ import {
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
 import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
+import { createRafThrottle } from './raf-throttle';
+import { createRevisionMemo } from './revision-memo';
 import {
     layoutPercent as anchoredLayoutPercent,
     panTranslatePx,
@@ -215,6 +217,7 @@ import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/key
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
+import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { ReviewModel } from './review-model';
 import {
     InspectorWriteRequest,
@@ -233,7 +236,6 @@ import {
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
-const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const MINIMUM_SFX_TRIM_DURATION = 0.1;
@@ -439,12 +441,6 @@ export interface PreviewPlaybackTick {
     videoUri?: string;
     time?: number;
     playing?: boolean;
-}
-
-interface HistoryEntry {
-    undo: () => Promise<void>;
-    redo: () => Promise<void>;
-    label: string;
 }
 
 type TimelineClipboard =
@@ -662,6 +658,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(TimelineSelectionModel)
     protected readonly selectionModel!: TimelineSelectionModel;
 
+    @inject(AkariEditHistoryService)
+    protected readonly historyService!: AkariEditHistoryService;
+
     @inject(AkariAnnotationsClientImpl)
     protected readonly annotationsClient!: AkariAnnotationsClientImpl;
 
@@ -779,8 +778,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         source: TimelineTreeRow; rows: readonly TimelineTreeRow[];
     }>();
     protected readonly treeRowDragInstalled = new WeakSet<HTMLDivElement>();
-    protected past: HistoryEntry[] = [];
-    protected future: HistoryEntry[] = [];
     protected contextPopup: HTMLDivElement | undefined;
     protected deferredLintFooterMessage: HTMLSpanElement | undefined;
     protected viewStart = 0;
@@ -790,6 +787,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected layoutViewDuration = 0;
     protected panOffsetPx = 0;
     protected panSettleHandle: number | undefined;
+    /**
+     * ズーム（wheel / スライダー）と RPC 到着（サムネイル・チャンク・波形）の描画を「1 フレーム 1 回」に
+     * 折りたたむ（task/2026-09-02-preview-perf）。トラックパッドのピンチは wheel が 60〜120 Hz で届き、
+     * 従来は 1 イベント = 1 回のフル renderStrip() だった。
+     */
+    protected readonly stripRenderThrottle = createRafThrottle(() => this.renderStrip());
+    /** cuts / overlays / layers / audio / captions / 実尺が変わるたびに進める。contentEndMemo のキー。 */
+    protected contentExtentRevision = 0;
+    protected readonly contentEndMemo = createRevisionMemo(() => this.computeContentEndDuration());
+    /** 再利用 cut ノードが最後にフィルムストリップを描いた filmstripContentRevision。 */
+    protected readonly clipMediaRevisions = new WeakMap<HTMLDivElement, number>();
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
@@ -942,6 +950,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         this.updateToolModeButtons();
         this.updateSnapButton();
+        this.toDispose.push(this.historyService.onDidChange(() => this.updateHistoryButtons()));
+        this.toDispose.push(this.historyService.onDidExecute(execution => this.applyHistoryExecution(execution)));
         Object.assign(this.zoomHud.style, {
             display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
         });
@@ -1081,7 +1091,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
         // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
-        this.strip.addEventListener('pointerdown', () => this.settlePan(), true);
+        this.strip.addEventListener('pointerdown', () => {
+            // 押下位置→時刻の換算は確定済みの幾何を読むため、保留中のズーム描画を先に流す。
+            this.flushStripRender();
+            this.settlePan();
+        }, true);
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => {
@@ -1594,6 +1608,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             nudgeValue = undefined;
         };
         const keydown = (event: KeyboardEvent): void => {
+            // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
+            this.flushStripRender();
             if (event.key === 'Escape' && this.dragState) {
                 event.preventDefault();
                 this.cancelDrag(this.dragState);
@@ -1758,16 +1774,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.pasteClipboard();
                 return;
             }
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-                event.preventDefault();
-                event.stopPropagation();
-                if (event.shiftKey) {
-                    void this.performRedo();
-                } else {
-                    void this.performUndo();
-                }
-                return;
-            }
             if (!event.metaKey && !event.ctrlKey && !event.altKey) {
                 const key = event.key.toLowerCase();
                 if (key === ' ' || event.code === 'Space') {
@@ -1857,6 +1863,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('keydown', keydown, true);
             window.removeEventListener('keyup', keyup, true);
+            this.stripRenderThrottle.cancel();
             this.closeAnnotationPopup();
             if (this.dragState) {
                 this.cancelDrag(this.dragState);
@@ -4195,7 +4202,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
-            undo.disabled = this.past.length === 0;
+            undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
             this.deferredLintFooterMessage = message;
@@ -4216,7 +4223,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
-            undo.disabled = this.past.length === 0;
+            undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
             this.messages.warn(message.textContent);
@@ -4360,6 +4367,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadEdit(): Promise<void> {
+        this.invalidateContentExtent();
         this.editDocument = undefined;
         this.itemLocations.clear();
         this.cutItemIds = [];
@@ -4713,6 +4721,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadCaptions(): Promise<void> {
+        this.invalidateContentExtent();
         this.captions = [];
         this.captionSources.clear();
         this.defaultTextStyle = undefined;
@@ -4737,6 +4746,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** cuts[].at / track と後方互換の連結規則から出力秒セグメントを再構築する。 */
     protected rebuildSegments(): void {
+        this.invalidateContentExtent();
         this.segments = computeCutTrackSegments(this.cuts).map(segment => {
             const cut = this.cuts[segment.index];
             const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
@@ -4815,7 +4825,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    /**
+     * 尺の集計は O(items) で、ズーム 1 イベントあたり totalDuration() 経由で 8 回前後呼ばれていた。
+     * モデル（cuts / overlays / layers / audio / captions / 実尺）が変わるまではメモした値を返す。
+     * renderStrip() の先頭で必ず進めるので、描画ごとに 1 回は再集計される。
+     */
     protected contentEndDuration(): number {
+        return this.contentEndMemo.read(this.contentExtentRevision);
+    }
+
+    protected invalidateContentExtent(): void {
+        this.contentExtentRevision++;
+    }
+
+    protected computeContentEndDuration(): number {
         if (this.cuts.length > 0) {
             // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
             const cutsDuration = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
@@ -5368,6 +5391,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderStrip(): void {
+        // 同期描画が別経路で走ったら、次フレームに予約済みの重複描画は 1 回ぶん省く。
+        this.stripRenderThrottle.cancel();
+        // 尺の集計（O(items)）は 1 描画につき 1 回だけ。ズーム 1 イベントで 8 回前後呼ばれていた。
+        this.invalidateContentExtent();
         // keyed 差分でも drag target の mount 状態を固定し、pointer capture を守るため終了まで延期する。
         if (this.dragState) {
             this.renderStripPending = true;
@@ -5893,9 +5920,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const barWidthPercent = Math.max(this.layoutPercent(end) - this.layoutPercent(sfx.t), 0.3);
             const barWidthPx = stripLayoutWidthPx * barWidthPercent / 100;
             const sfxWaveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
+            const sfxTrimmerActive = this.trimmerAudioId === sfx.id;
+            const sfxMediaGate = barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && itemHeight >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
+            // cut と同じ規律: ズーム幾何は署名に入れず、再利用ノードは updateSfxWaveformGeometry が
+            // 既存 canvas へ描き直す。トリマー中の 1 本だけは幾何込みで作り直す。
             const audioSignature = JSON.stringify([
-                sfx, actualDuration, this.trimmerAudioId === sfx.id, itemHeight,
-                Array.isArray(sfxWaveform) ? `ready:${sfxWaveform.length}` : sfxWaveform
+                sfx, actualDuration, sfxTrimmerActive, itemHeight,
+                sfxTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx] : 0,
+                Array.isArray(sfxWaveform) ? `ready:${sfxWaveform.length}` : sfxWaveform,
+                sfxMediaGate
             ]);
             const { element, created } = this.keyedStripSegment(
                 `audio:${sfx.id}`, audioSignature, sfx.t, end, top, itemHeight,
@@ -5998,12 +6031,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             const clipWidth = stripLayoutWidthPx * widthPercent / 100;
             const cutWaveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
+            const cutTrimmerActive = this.trimmerItemId === segment.index;
+            const cutMediaGate = clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX
+                && cutLayout.height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
+            // ズーム幾何（layoutViewDuration / stripLayoutWidthPx）とチャンク到着リビジョンは署名に入れない:
+            // 再利用ノードは updateClipMediaGeometry が CSS / canvas だけを更新する（パンと同じ経路）。
+            // 以前はズーム 1 イベントごとに全 cut チップ（フィルムストリップ最大 160 セル・波形 canvas・
+            // ドラッグリスナー）を破棄・再生成していた。トリマー中の 1 本だけはウィング描画が幅依存なので
+            // 従来どおり幾何込みで作り直す。メディア表示のゲート境界（幅 / 高さ）を跨ぐときは作り直す。
             const cutSignature = JSON.stringify([
-                cut, segment, cutLayout.height, this.trimmerItemId === segment.index,
-                this.layoutViewDuration, stripLayoutWidthPx,
+                cut, segment, cutLayout.height, cutTrimmerActive,
+                cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
-                unsupportedDeclaredTransitions.has(segment.index), this.filmstripContentRevision,
-                clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && cutLayout.height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX
+                unsupportedDeclaredTransitions.has(segment.index),
+                cutMediaGate
             ]);
             const { element, created } = this.keyedStripSegment(
                 `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,
@@ -6017,9 +6058,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = cutLayout.id ?? 'clips';
             const dimForTrimmer = trimmerActiveIndex !== undefined && trimmerActiveIndex !== segment.index;
             element.style.opacity = cutLayout.hidden ? '.28' : dimForTrimmer ? '.6' : '';
-            if (clipWidth < MICRO_CLIP_WIDTH_PX) {
-                element.classList.add('akari-annotations-strip-clip-micro');
-            }
+            // 再利用ノードでもズームで幅が変わるため、付け外しの両方向を毎回反映する。
+            element.classList.toggle('akari-annotations-strip-clip-micro', clipWidth < MICRO_CLIP_WIDTH_PX);
             // ソーストリマー（R6c2r2・外側延長方式）: dblclick でこのクリップが選ばれている間だけ、
             // クリップ本体（通常表示と同一スケール）の左右に in より前 / out より後の素材を
             // ウィングとして延長表示する。実尺（sourceDuration）が解決できない間は素材の場所を
@@ -8061,6 +8101,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const geometry = this.clipLocalGeometry(segment);
         if (geometry) {
             this.clipMediaGeometries.set(element, { clipWidth, ...geometry, trackHeightPx });
+            this.clipMediaRevisions.set(element, this.filmstripContentRevision);
             const filmstripStatus = this.renderFilmstripCells(element, clipWidth, segment, videoUri, geometry, trackHeightPx);
             if (filmstripStatus === 'all-unavailable') {
                 // 可視範囲に必要な全チャンクが失敗した（ffmpeg 不在等）場合のみ、
@@ -8109,10 +8150,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const next = { clipWidth, ...geometry, trackHeightPx };
         const previous = this.clipMediaGeometries.get(element);
-        if (previous && sameClipMediaGeometry(previous, next)) {
+        // チャンク / サムネイル到着（filmstripContentRevision）は署名に入れないので、再利用ノードは
+        // ここで「最後に描いたリビジョン」との差でセルだけ描き直す。
+        const contentStale = this.clipMediaRevisions.get(element) !== this.filmstripContentRevision;
+        if (previous && sameClipMediaGeometry(previous, next) && !contentStale) {
             return;
         }
         this.clipMediaGeometries.set(element, next);
+        this.clipMediaRevisions.set(element, this.filmstripContentRevision);
 
         const filmstripStatus = this.renderFilmstripCells(
             element, clipWidth, segment, videoUri, geometry, trackHeightPx
@@ -8762,11 +8807,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showFfmpegMissingNotice(result.reason);
             }
             this.filmstripContentRevision++;
-            this.renderStrip();
+            this.scheduleStripRender();
         }).catch(() => {
             this.thumbnailCache.set(key, 'unavailable');
             this.filmstripContentRevision++;
-            this.renderStrip();
+            this.scheduleStripRender();
         });
     }
 
@@ -8793,11 +8838,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showFfmpegMissingNotice(result.reason);
             }
             this.filmstripContentRevision++;
-            this.renderStrip();
+            this.scheduleStripRender();
         }).catch(() => {
             this.filmstripChunkCache.set(key, 'unavailable');
             this.filmstripContentRevision++;
-            this.renderStrip();
+            this.scheduleStripRender();
         });
     }
 
@@ -8818,10 +8863,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.waveformCache.set(key, 'unavailable');
                 this.showFfmpegMissingNotice(result.reason);
             }
-            this.renderStrip();
+            this.scheduleStripRender();
         }).catch(() => {
             this.waveformCache.set(key, 'unavailable');
-            this.renderStrip();
+            this.scheduleStripRender();
         });
     }
 
@@ -9174,10 +9219,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.waveformCache.set(key, 'unavailable');
                 this.showFfmpegMissingNotice(result.reason);
             }
-            this.renderStrip();
+            this.scheduleStripRender();
         }).catch(() => {
             this.waveformCache.set(key, 'unavailable');
-            this.renderStrip();
+            this.scheduleStripRender();
         });
     }
 
@@ -9285,6 +9330,56 @@ export class AkariAnnotationsWidget extends BaseWidget {
             opacity: '.55',
             pointerEvents: 'none'
         });
+        this.updateSfxWaveformCanvas(canvas, peaks, widthPx, itemHeightPx);
+        return canvas;
+    }
+
+    /**
+     * 再利用 sfx ノードのズーム追従: 既存の波形 canvas をバー幅へ描き直す（ノードは作らない）。
+     * 実尺未解決や波形未着なら何もしない（作成側 renderSfxWaveform と同じ条件）。
+     */
+    protected updateSfxWaveformGeometry(
+        element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
+        inSeconds: number, outSeconds: number, actualDuration: number | undefined
+    ): void {
+        const canvas = element.querySelector<HTMLCanvasElement>(':scope > canvas');
+        if (!canvas) {
+            if (this.location && barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX
+                && itemHeightPx >= MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
+                // 作成時に波形が未着だったノード: 到着後の最初の描画でだけ canvas を足す。
+                this.renderSfxWaveform(element, sfx, barWidthPx, itemHeightPx, inSeconds, outSeconds, actualDuration);
+            }
+            return;
+        }
+        if (actualDuration === undefined || actualDuration <= 0) {
+            return;
+        }
+        const waveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
+        if (!Array.isArray(waveform)) {
+            return;
+        }
+        const slice = this.sfxWaveformSlice(waveform, inSeconds, outSeconds, actualDuration);
+        if (slice.length === 0) {
+            return;
+        }
+        const visibleWidthPx = Math.max(1, Math.round(barWidthPx));
+        if (canvas.width === visibleWidthPx && canvas.height === WAVEFORM_BAND_HEIGHT_PX
+            && canvas.dataset.akariSfxSlice === `${slice.length}:${itemHeightPx}`) {
+            return;
+        }
+        this.updateSfxWaveformCanvas(canvas, slice, barWidthPx, itemHeightPx);
+    }
+
+    protected updateSfxWaveformCanvas(
+        canvas: HTMLCanvasElement, peaks: readonly number[], widthPx: number, itemHeightPx: number
+    ): void {
+        const visibleWidthPx = Math.max(1, Math.round(widthPx));
+        canvas.width = visibleWidthPx;
+        canvas.height = WAVEFORM_BAND_HEIGHT_PX;
+        canvas.style.top = `${itemHeightPx - WAVEFORM_BAND_HEIGHT_PX}px`;
+        canvas.style.width = `${visibleWidthPx}px`;
+        canvas.style.height = `${WAVEFORM_BAND_HEIGHT_PX}px`;
+        canvas.dataset.akariSfxSlice = `${peaks.length}:${itemHeightPx}`;
         const context = canvas.getContext('2d');
         const sourceRect = audioWaveformSourceRect({
             masterWidthPx: master.width,
@@ -9356,6 +9451,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * （ensureVideoDurationFetch と同型。トリムの Out クランプ確定時の「未取得なら保留」に使う）。
      */
     protected ensureAudioDurationFetch(key: string, audioUri: string): Promise<number | 'unavailable'> {
+        // 実尺が解決すると SE / ナレーションの終端（尺の集計）が変わる。取得の開始時点で進めておき、
+        // 解決後の描画で再集計させる。
+        this.invalidateContentExtent();
         if (!audioUri || !this.location) {
             return Promise.resolve('unavailable');
         }
@@ -10725,9 +10823,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected pushHistory(entry: HistoryEntry): void {
-        this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
-        this.future = [];
-        this.updateHistoryButtons();
+        this.historyService.push(entry);
     }
 
     protected overlayTrackState(): Record<string, number | null> {
@@ -10795,50 +10891,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateHistoryButtons(): void {
-        this.undoButton.disabled = this.past.length === 0;
-        this.redoButton.disabled = this.future.length === 0;
+        this.undoButton.disabled = this.historyService.canUndo === false;
+        this.redoButton.disabled = this.historyService.canRedo === false;
     }
 
     protected async performUndo(): Promise<void> {
-        const entry = this.past.pop();
-        if (!entry) {
+        if (!this.historyService.canUndo) {
             return;
         }
         this.undoButton.disabled = true;
         this.redoButton.disabled = true;
         try {
-            await entry.undo();
-            this.future = [...this.future, entry].slice(-HISTORY_LIMIT);
-            this.hideNotice();
-            this.revealOutputPreview();
-            this.footer.textContent = `${entry.label}を元に戻しました。`;
+            await this.historyService.undo();
         } catch (error) {
             console.warn('[akari-annotations] undo entry is no longer applicable', error);
-            this.footer.textContent = '元に戻せませんでした（対象が変更されています）';
         } finally {
             this.updateHistoryButtons();
         }
     }
 
     protected async performRedo(): Promise<void> {
-        const entry = this.future.pop();
-        if (!entry) {
+        if (!this.historyService.canRedo) {
             return;
         }
         this.undoButton.disabled = true;
         this.redoButton.disabled = true;
         try {
-            await entry.redo();
-            this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
-            this.hideNotice();
-            this.revealOutputPreview();
-            this.footer.textContent = `${entry.label}をやり直しました。`;
+            await this.historyService.redo();
         } catch (error) {
             console.warn('[akari-annotations] redo entry is no longer applicable', error);
-            this.footer.textContent = 'やり直せませんでした（対象が変更されています）';
         } finally {
             this.updateHistoryButtons();
         }
+    }
+
+    protected applyHistoryExecution(execution: HistoryExecution): void {
+        if ('error' in execution) {
+            this.footer.textContent = execution.kind === 'undo'
+                ? '元に戻せませんでした（対象が変更されています）'
+                : 'やり直せませんでした（対象が変更されています）';
+            return;
+        }
+        this.hideNotice();
+        this.revealOutputPreview();
+        this.footer.textContent = execution.kind === 'undo'
+            ? `${execution.entry.label}を元に戻しました。`
+            : `${execution.entry.label}をやり直しました。`;
     }
 
     protected copySelectedItem(): boolean {
@@ -11042,7 +11140,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.viewDuration = clamped;
             this.viewStart = Math.min(Math.max(0, proposedStart), Math.max(0, maxDuration - clamped));
         }
-        this.renderStrip();
+        // 倍率表示は即時、帯の描画は次フレームへ折りたたむ（ピンチ中の wheel は 60〜120 Hz で届く）。
+        this.updateZoomHud();
+        this.scheduleStripRender();
+    }
+
+    /** renderStrip() を次の animation frame まで最大 1 回に折りたたむ（最新の状態で描く）。 */
+    protected scheduleStripRender(): void {
+        this.stripRenderThrottle.call();
+    }
+
+    /** 保留中の描画があれば今すぐ同期実行する（直後にレイアウト幾何を読む経路の入口で呼ぶ）。 */
+    protected flushStripRender(): void {
+        this.stripRenderThrottle.flush();
     }
 
     protected setViewStart(candidate: number): void {
@@ -11053,6 +11163,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.viewStart = next;
         const visibleDuration = this.visibleDuration();
+        // ズーム描画が予約済みなら、その描画が最新の viewStart で組み直す（transform を重ねない）。
+        if (this.stripRenderThrottle.pending()) {
+            return;
+        }
         if (!this.dragState
             && this.layoutViewDuration > 0
             && Math.abs(visibleDuration - this.layoutViewDuration) < 1e-9

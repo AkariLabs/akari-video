@@ -18,13 +18,18 @@ import {
 } from '../../edit-store/lib/write-gate.js';
 import { serializeCaptions, serializeEdit } from '../../edit-store/lib/canonical.js';
 import { openProject } from '../../edit-store/lib/project.js';
-import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
+import {
+  applyCaptionStylePresets,
+  projectSpeechDeclarations,
+  TEXTSTYLE_CATALOG,
+} from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   ensurePreviewAudioSidecar,
   hasAudioClipFx,
   probePreviewAudioSource,
+  probePreviewAudioSourceAsync,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
 import {
@@ -90,6 +95,10 @@ const THREE_ROUTES = {
   // 素の vw はウィンドウ幅基準になり書き出しとずれる。app.js が mount 時に断片へ適用し、
   // updateStageScale がステージ変数（--akari-vw 等）を定義する。shell も同じ物をインライン注入する。
   '/viewport-units.js': fileURLToPath(new URL('../../overlay-runtime/src/viewport-units.js', import.meta.url)),
+  // params + data-akari-slot の差し込み（shell の runtimeJavaScript と render-cut rasterize が使う
+  // 唯一の注入実装）。Web UI だけ未配信で placeholder 文字がそのまま出ていた
+  // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
+  '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
@@ -449,7 +458,8 @@ async function readFrameEnginePreviewEdit(filePath) {
     const needsClipFx = hasAudioClipFx(clipFx);
     const isHeavyWav = path.extname(sourcePath).toLowerCase() === '.wav' && stat.size > 8 * 1024 * 1024;
     if (!needsClipFx && !isHeavyWav) return raw;
-    const probe = probePreviewAudioSource(sourcePath);
+    // Awaited (spawn) so this single-threaded server keeps serving media while ffprobe runs.
+    const probe = await probePreviewAudioSourceAsync(sourcePath);
     if (!probe.ok) {
       const warning = needsClipFx
         ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${probe.reason}`
@@ -570,7 +580,7 @@ function addOutputRoutes(routes) {
     const cf = captionsFile();
     const r = outReadJson(fs.existsSync(cf) ? cf : null);
     if (!r || r.error) return respond(res, 200, []);
-    respond(res, 200, r.data);
+    respond(res, 200, applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root);
   };
 }
 
@@ -675,13 +685,14 @@ const router = {
   'GET /api/captions.json': (req, res) => {
     const r = readJson(path.join(projectRoot, 'captions.json'));
     if (r.error) return respond(res, 200, []);
-    if (Array.isArray(r.data) || !r.data || typeof r.data !== 'object' || r.data.display_policy === undefined) {
-      return respond(res, 200, r.data);
+    const captionsRoot = applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root;
+    if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object' || captionsRoot.display_policy === undefined) {
+      return respond(res, 200, captionsRoot);
     }
     const edit = readJson(path.join(projectRoot, 'edit.json'));
     if (edit.error) return respond(res, 422, { error: 'edit.json is required to resolve caption display policy' });
     try {
-      respond(res, 200, resolveCaptionApiPayload(r.data, edit.data));
+      respond(res, 200, resolveCaptionApiPayload(captionsRoot, edit.data));
     } catch (error) {
       respond(res, 422, { error: error instanceof Error ? error.message : String(error) });
     }

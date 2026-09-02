@@ -35,6 +35,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
   同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。
 - 静止画は生成物として保存し、provenance とともにチャットで提示する。i2v、アバター、その他の動画生成は対応静止画・素材計画・実行の承認がすべて揃うまで行わない。
 - **生成素材は `<project>/assets/generated/` に保存する（素材パネルの守備範囲。2026-08-12 改訂）**。プロジェクト外や `<plan-dir>/` 配下に置かない。生成はプロジェクト内でのみ行う（技術的強制はスコープ外。規約として明記）。
+- 生成素材には由来を再検証できるよう `<file>.meta.json` を添え、`provenance.origin` と `provenance.generator` を記録する。
 - **静止画はタイムラインへ直接置ける**: 画像（png / jpg / webp / bmp / gif）は visual 段の `items[]` に media クリップとして置く（[execution.md](execution.md) §静止画素材の扱い）。静止画を並べるためだけに ffmpeg で連結して 1 本の動画へ焼き込まない — 個々の画像の編集性が失われ、`edit.json` の SSOT が壊れる。
 - 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
 - `edit.json` は **v2（`sources[]` + `tracks[].items[]`）だけを書く**。段は `lane` と配列順、クリップの内容は `source.kind` で表し、旧 `cuts` / `layers` / `overlays` キーを作らない。足してよいのは v2 公開契約が定めたフィールドだけである。

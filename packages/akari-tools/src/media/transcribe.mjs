@@ -14,6 +14,17 @@ import {
   sha256File,
 } from "./common.mjs";
 import { recordObservation } from "./record.mjs";
+import {
+  classifyWhisperMarker,
+  detectUnrecognizedSpans,
+  UNRECOGNIZED_DEFAULTS,
+} from "./unrecognized-spans.mjs";
+import { parseSilences } from "./waveform.mjs";
+import {
+  applyWordBook,
+  buildMatcher,
+  resolveWordBook,
+} from "../../../word-book/src/index.mjs";
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
@@ -37,7 +48,8 @@ export async function transcribeMedia(targetArgument, options = {}) {
 
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
-    const result = { ...cached, cache: { hit: true, key } };
+    const rawResult = { ...cached, cache: { hit: true, key } };
+    const result = await applyResolvedWordBook(rawResult, target, options);
     await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
     return result;
   }
@@ -57,7 +69,8 @@ export async function transcribeMedia(targetArgument, options = {}) {
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
       if (existsSync(cachePath)) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
-        const result = { ...cached, cache: { hit: true, key } };
+        const rawResult = { ...cached, cache: { hit: true, key } };
+        const result = await applyResolvedWordBook(rawResult, target, options);
         await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
         return result;
       }
@@ -67,7 +80,8 @@ export async function transcribeMedia(targetArgument, options = {}) {
     }
   }
   segments = normalizeSegments(segments, range);
-  const result = {
+  segments = await attachUnrecognizedSpans(segments, target.inputPath, range, ffmpeg, options);
+  const rawResult = {
     path: target.displayPath,
     range,
     backend,
@@ -76,9 +90,33 @@ export async function transcribeMedia(targetArgument, options = {}) {
     cache: { hit: false, key },
     generated_at: generatedAt(options),
   };
-  await writeFile(cachePath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+  await writeFile(cachePath, `${JSON.stringify(rawResult, null, 2)}\n`, "utf8");
+  const result = await applyResolvedWordBook(rawResult, target, options);
   await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
   return result;
+}
+
+async function applyResolvedWordBook(result, target, options) {
+  if (options.wordBook === false) return result;
+  const resolved = await resolveWordBook({
+    projectRoot: target.projectRoot,
+    extraPath: options.wordBookPath,
+    env: options.env ?? process.env,
+  });
+  for (const layer of resolved.layers) {
+    if (!layer.error) continue;
+    writeWordBookLog(options, `単語帳: ${layer.scope} を読めません（${layer.error.message}）`);
+  }
+  const applied = applyWordBook(result.segments, buildMatcher(resolved.entries), { mode: "transcript" });
+  if (applied.stats.replaced > 0) {
+    writeWordBookLog(options, `単語帳: ${applied.stats.replaced} 語を置換（layers: ${resolved.layers.map((layer) => layer.scope).join(", ")}）`);
+  }
+  return { ...result, segments: applied.records };
+}
+
+function writeWordBookLog(options, message) {
+  if (typeof options.stderr === "function") options.stderr(message);
+  else process.stderr.write(`${message}\n`);
 }
 
 function normalizeRange(input, output, duration) {
@@ -253,14 +291,26 @@ export function normalizeWhisperJson(value) {
   return source.map((segment) => {
     const start = Number(segment.offsets?.from ?? segment.start) / (segment.offsets ? 1000 : 1);
     const end = Number(segment.offsets?.to ?? segment.end) / (segment.offsets ? 1000 : 1);
+    const markers = [];
     const words = (segment.tokens ?? segment.words ?? []).flatMap((token) => {
-      if (String(token.text ?? "").startsWith("[")) return [];
       const wordStart = Number(token.offsets?.from ?? token.start) / (token.offsets ? 1000 : 1);
       const wordEnd = Number(token.offsets?.to ?? token.end) / (token.offsets ? 1000 : 1);
+      const markerKind = classifyWhisperMarker(token.text);
+      if (markerKind === "non-speech" && wordEnd > wordStart) {
+        markers.push({ start: wordStart, end: wordEnd });
+        return [];
+      }
+      if (markerKind === "control") return [];
       const text = String(token.text ?? "").replace(/\uFFFD/g, "").trim();
       return text && wordEnd > wordStart ? [{ start: wordStart, end: wordEnd, text }] : [];
     });
-    return { start, end, text: String(segment.text ?? "").replace(/\uFFFD/g, "").trim(), ...(words.length ? { words } : {}) };
+    return {
+      start,
+      end,
+      text: String(segment.text ?? "").replace(/\uFFFD/g, "").trim(),
+      ...(words.length ? { words } : {}),
+      ...(markers.length ? { markers } : {}),
+    };
   });
 }
 
@@ -283,8 +333,76 @@ function normalizeSegments(segments, range) {
         : [];
     }).filter((word) => word.end > word.start);
     if (words.length) normalized.words = words;
+    const markers = (segment.markers ?? []).flatMap((marker) => {
+      const markerStart = Number(marker.start) + offset;
+      const markerEnd = Number(marker.end) + offset;
+      return Number.isFinite(markerStart) && Number.isFinite(markerEnd) && markerEnd > markerStart
+        ? [{
+            start: formatNumber(Math.max(normalized.start, markerStart)),
+            end: formatNumber(Math.min(normalized.end, markerEnd)),
+          }]
+        : [];
+    }).filter((marker) => marker.end > marker.start);
+    if (markers.length) normalized.markers = markers;
     return normalized.end > normalized.start ? [normalized] : [];
   }).sort((left, right) => left.start - right.start);
+}
+
+async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, options) {
+  if (options.unrecognized === false || segments.length === 0) {
+    return segments.map(withoutInternalMarkers);
+  }
+  const minGapSec = numericOption(
+    options.unrecognizedMinGap,
+    UNRECOGNIZED_DEFAULTS.minGapSec,
+    "--unrecognized-min-gap",
+  );
+  const minVoicedSec = numericOption(
+    options.unrecognizedMinVoiced,
+    UNRECOGNIZED_DEFAULTS.minVoicedSec,
+    "--unrecognized-min-voiced",
+  );
+  const silenceDb = numericOption(options.silenceDb, UNRECOGNIZED_DEFAULTS.silenceDb, "silenceDb", false);
+  const silenceMinSec = numericOption(
+    options.silenceMinSec,
+    UNRECOGNIZED_DEFAULTS.silenceMinSec,
+    "silenceMinSec",
+  );
+  const runner = options.silencesRunner ?? runSilenceDetect;
+  const detected = await runner({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options });
+  const silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+  return segments.map((segment) => {
+    const unrecognized = detectUnrecognizedSpans(segment, silences, { minGapSec, minVoicedSec });
+    const clean = withoutInternalMarkers(segment);
+    return unrecognized.length ? { ...clean, unrecognized } : clean;
+  });
+}
+
+function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
+  const result = runChecked(ffmpeg, [
+    "-hide_banner", "-nostdin",
+    "-ss", String(range.in), "-to", String(range.out), "-i", inputPath,
+    "-af", `silencedetect=noise=${silenceDb}dB:d=${silenceMinSec}`,
+    "-f", "null", "-",
+  ], options);
+  const duration = range.out - range.in;
+  return parseSilences(result.stderr, duration).map((silence) => ({
+    start: formatNumber(silence.start + range.in),
+    end: formatNumber(silence.end + range.in),
+  }));
+}
+
+function withoutInternalMarkers(segment) {
+  const { markers: _markers, ...clean } = segment;
+  return clean;
+}
+
+function numericOption(value, fallback, label, positive = true) {
+  const resolved = value ?? fallback;
+  if (!Number.isFinite(resolved) || (positive ? resolved <= 0 : false)) {
+    throw new Error(`${label} は${positive ? " 0 より大きい" : ""}数値で指定してください`);
+  }
+  return resolved;
 }
 
 async function recordTranscribe(target, result, range, backend, lang, noRecord) {

@@ -50,6 +50,36 @@ test("analysis.json は additive な観察キーを持っても妥当", () => {
   assert.equal(validate(withObservations), true, JSON.stringify(validate.errors));
 });
 
+test("analysis transcript segment は unrecognized 区間を受理する", () => {
+  const value = {
+    ...minimal,
+    transcript: [{
+      start: 0,
+      end: 2,
+      text: "聞き取れた語",
+      words: [{ start: 0, end: 0.5, text: "聞き取れた語" }],
+      unrecognized: [{ start: 0.5, end: 0.9 }],
+    }],
+  };
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+});
+
+test("analysis unrecognized span は追加プロパティを拒否する", () => {
+  const value = {
+    ...minimal,
+    transcript: [{
+      start: 0,
+      end: 2,
+      text: "聞き取れた語",
+      unrecognized: [{ start: 0.5, end: 0.9, confidence: 0.2 }],
+    }],
+  };
+  assert.equal(validate(value), false);
+  assert.ok(validate.errors?.some((error) =>
+    error.keyword === "additionalProperties"
+      && error.instancePath.endsWith("/unrecognized/0")));
+});
+
 test("analysis schema の正典と shell 写しはバイト同一", (t) => {
   if (!existsSync(shellCopyPath)) return t.skip("shell のビルド生成物が未生成");
   assert.equal(readFileSync(shellCopyPath, "utf8"), canonicalText);

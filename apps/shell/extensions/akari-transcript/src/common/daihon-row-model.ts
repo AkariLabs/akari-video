@@ -12,6 +12,7 @@ export interface DaihonCaptionLike {
     start: number;
     end: number;
     text: string;
+    style: string | null;
     words?: readonly DaihonCaptionWord[];
     displayFragments?: readonly string[];
     display_fragments?: readonly string[];
@@ -27,6 +28,7 @@ export interface DaihonRow {
     outStart: number | null;
     outEnd: number | null;
     text: string;
+    style: string | null;
     words: DaihonCaptionWord[] | null;
     fragmentBreakWordIndex: number | null;
     edited: boolean;
@@ -93,6 +95,7 @@ export function buildDaihonRows(
             outStart,
             outEnd,
             text: caption.text,
+            style: caption.style ?? null,
             words,
             fragmentBreakWordIndex: fragmentBreak(caption, words),
             edited: caption.edited === true,

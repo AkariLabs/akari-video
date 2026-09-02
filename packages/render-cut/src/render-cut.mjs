@@ -29,6 +29,7 @@ import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import { isImageLayerSource } from "./layers.mjs";
 import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
+import { createProgressReporter } from "./progress.mjs";
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
@@ -43,6 +44,11 @@ import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
 } from "./internal-render.mjs";
+import {
+  judgeAudioLevel,
+  judgeMotion,
+  measureAudioLevel,
+} from "./verify-declared.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -67,8 +73,8 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
-output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
-encoding, followed by "PROGRESS done total_ms=<n>".
+output.fps; --progress emits stage lines, engine-originated "PROGRESS frame=<n> total=<n>" lines,
+audio-cut "PROGRESS out_time_ms=<n> total_ms=<n>" lines, then "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 --gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
 export child process: auto (default; gpu engine only, skipped when the user pinned a preference), off,
@@ -123,8 +129,7 @@ export async function runCli(argv, io = console) {
       io.log(`PLAN: ${state.plan.output} (${state.plan.predicted_duration_seconds}s)`);
       return 0;
     }
-    io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
-    return state.verify.verdict === "pass" ? 0 : 1;
+    return logVerificationResult(state, io);
   } catch (error) {
     if (error instanceof RefusalError) {
       io.error(`render-cut refused: ${error.message}`);
@@ -286,21 +291,19 @@ export async function renderProject(input, options = {}, io = console) {
   }
   assertOsrLauncherAvailable(osrLauncher);
   const progressEnabled = options.progress === true;
-  const progressPhases = ["cut", "composite"];
-  const progressPhaseDurationMs = Math.max(0, Math.round(plan.predicted_duration_seconds * 1000));
-  const progressTotalMs = progressPhases.length * progressPhaseDurationMs;
-  const emitProgress = (phaseName, elapsedSeconds) => {
-    if (!progressEnabled) return;
-    const phaseIndex = progressPhases.indexOf(phaseName);
-    if (phaseIndex === -1) return;
-    const clampedMs = Math.min(progressPhaseDurationMs, Math.max(0, Math.round(elapsedSeconds * 1000)));
-    io.log(`PROGRESS out_time_ms=${phaseIndex * progressPhaseDurationMs + clampedMs} total_ms=${progressTotalMs}`);
-  };
+  const reporter = createProgressReporter({
+    enabled: progressEnabled,
+    io,
+    totalMs: plan.predicted_duration_seconds * 2 * 1000,
+  });
 
   try {
+    reporter.stageStart("prepare");
     for (const command of plan.commands.telops ?? []) {
       runChecked(command.command, command.args, { cwd: projectRoot });
     }
+    reporter.stageEnd("prepare");
+    reporter.stageStart("audio-cut");
     const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
     const cutCommand = plan.commands.cut_audio;
     for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
@@ -313,7 +316,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (progressEnabled) {
       await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
         cwd: projectRoot,
-        onProgress: (seconds) => emitProgress("cut", seconds),
+        onProgress: (seconds) => reporter.cutTime(seconds, plan.predicted_duration_seconds),
       });
     } else {
       runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
@@ -324,6 +327,7 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
     }
     const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
+    reporter.stageEnd("audio-cut");
     const compositePath = join(temporaryDirectory, "composite.mp4");
     const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
@@ -344,6 +348,7 @@ export async function renderProject(input, options = {}, io = console) {
       io,
     };
 
+    reporter.stageStart("render", { engine: resolvedEngine });
     if (resolvedEngine === "gpu") {
       const execution = await runGpuWithRuntimeFallback({
         engineRequested,
@@ -355,6 +360,7 @@ export async function renderProject(input, options = {}, io = console) {
         runOsr: async () => {
           osrLauncher = await resolveOsrLauncher();
           assertOsrLauncherAvailable(osrLauncher);
+          reporter.stageStart("render", { engine: "osr" });
           return exportWithOsr({
             ...commonV2Options,
             encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
@@ -387,8 +393,9 @@ export async function renderProject(input, options = {}, io = console) {
       state.provenance.rasterizer.adopted = "osr";
       state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
     }
-    emitProgress("composite", plan.predicted_duration_seconds);
+    reporter.stageEnd("render");
 
+    reporter.stageStart("audio-mix");
     const finalPath = join(temporaryDirectory, "final.mp4");
     const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
     const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
@@ -404,6 +411,8 @@ export async function renderProject(input, options = {}, io = console) {
       const failedVerification = verifyArtifact({
         outputPath: failedArtifactPath,
         plan,
+        inputs: state.provenance.sources,
+        edit,
         ffprobeCommand: capabilities.ffprobeCommand,
         ffmpegCommand: capabilities.ffmpegCommand,
       });
@@ -457,13 +466,18 @@ export async function renderProject(input, options = {}, io = console) {
         addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
       }
     }
+    reporter.stageEnd("audio-mix");
+    reporter.stageStart("verify");
     const verification = verifyArtifact({
       outputPath,
       plan,
+      inputs: state.provenance.sources,
+      edit,
       ffprobeCommand: capabilities.ffprobeCommand,
       ffmpegCommand: capabilities.ffmpegCommand,
     });
     state.verify = verification;
+    reporter.stageEnd("verify");
     state.artifacts = [
       {
         path: relativeOrAbsolute(projectRoot, outputPath),
@@ -534,7 +548,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (verification.verdict === "pass") {
       await rm(temporaryDirectory, { recursive: true, force: true });
     }
-    if (progressEnabled) io.log(`PROGRESS done total_ms=${progressTotalMs}`);
+    reporter.done();
     return state;
   } catch (error) {
     state.phase = "error";
@@ -776,12 +790,15 @@ export async function loadOverlays(projectRoot, edit) {
 
 /** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
 export async function loadCaptions(projectRoot, edit) {
+  const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = packageRequire("../../edit-store/lib/index.js");
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
   }
+  const parsedCaptionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
+  const presetResolution = applyCaptionStylePresets(parsedCaptionsRoot, TEXTSTYLE_CATALOG);
   const captionsRoot = filterCaptionRootByExcludedIds(
-    parseJson(await readFile(captionsPath, "utf8"), "captions.json"),
+    presetResolution.root,
     collectExcludedCaptionIds(edit),
   );
   const captions = Array.isArray(captionsRoot)
@@ -795,7 +812,9 @@ export async function loadCaptions(projectRoot, edit) {
   const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), { output: edit.output });
   if (resolved) {
     return {
-      overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved,
+      overlays: generateResolvedCaptionOverlays(resolved),
+      warnings: presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`),
+      layout: resolved,
       captions, defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
       emphasisWords: Array.isArray(captionsRoot) ? edit.emphasis_words ?? [] : captionsRoot.emphasis_words ?? edit.emphasis_words ?? [],
     };
@@ -807,7 +826,7 @@ export async function loadCaptions(projectRoot, edit) {
     && Object.prototype.hasOwnProperty.call(captionsRoot, "emphasis_words")
     ? captionsRoot.emphasis_words
     : edit.emphasis_words;
-  const warnings = [];
+  const warnings = presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`);
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
     emphasisWords,
     defaultTextStyle,
@@ -944,8 +963,16 @@ async function cleanupStaleRunDirectories(renderTmpRoot) {
   );
 }
 
-export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfprobe(), ffmpegCommand = resolveFfmpeg() }) {
-  const measured = probeMedia(ffprobeCommand, outputPath);
+export function verifyArtifact({
+  outputPath,
+  plan,
+  inputs = [],
+  edit = null,
+  ffprobeCommand = resolveFfprobe(),
+  ffmpegCommand = resolveFfmpeg(),
+  spawnSyncImpl = spawnSync,
+}) {
+  const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
   const actualDuration = Number(measured.format?.duration ?? video?.duration);
@@ -964,7 +991,7 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
   // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
   // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
-  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath);
+  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
   const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
   const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
   compare(
@@ -1016,6 +1043,34 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
     decodePass.ok,
     decodePass.ok ? "all frames decoded without error" : `decode error: ${decodePass.errorExcerpt}`,
   );
+  const audioReasons = declaredAudioReasons({ plan, inputs, edit });
+  const declaredAudio = plan.commands.audio_mix?.hasAudibleAudio === true
+    || inputs.some((input) => input?.has_audio === true || input?.hasAudio === true);
+  const audioMeasurement = audio
+    ? measureAudioLevel({
+        outputPath,
+        durationSeconds: actualDuration,
+        ffmpegCommand,
+        spawnSyncImpl,
+      })
+    : null;
+  const audioLevel = judgeAudioLevel({
+    declared: declaredAudio,
+    reasons: audioReasons,
+    hasAudioStream: Boolean(audio),
+    measurement: audioMeasurement,
+  });
+  if (audioLevel.finding) findings.push(audioLevel.finding);
+
+  const motion = judgeMotion({
+    outputPath,
+    cuts: edit?.cuts ?? [],
+    fps: expected.fps,
+    durationSeconds: actualDuration,
+    ffmpegCommand,
+    spawnSyncImpl,
+  });
+  findings.push(...motion.findings);
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
@@ -1031,6 +1086,10 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
       audio_codec: audio?.codec_name ?? null,
       frame_count: decodePass.frameCount,
     },
+    declared: {
+      audio_level: audioLevel.record,
+      motion: motion.records,
+    },
   };
 }
 
@@ -1039,8 +1098,8 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
 // `-progress pipe:1` を足し、stdout に構造化された frame=N の進捗行（常に映像フレーム数）を
 // 吐かせつつ stderr は `-v error` のみ（デコードエラーだけが載る）にすることで、1 回の全デコード
 // から実フレーム数とデコード成否の両方を取り出す（検査 1 + 2 の統合。task 契約が許容する範囲）。
-function decodeAllFramesAndCount(ffmpegCommand, outputPath) {
-  const result = spawnSync(
+function decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(
     ffmpegCommand,
     [
       "-hide_banner",
@@ -1151,8 +1210,8 @@ function validateEditShape(edit) {
   if (!Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
 }
 
-function probeMedia(command, path) {
-  const result = spawnSync(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
+function probeMedia(command, path, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
   if (result.error) throw new ExecutionError(messageOf(result.error));
   if (result.status !== 0) throw new ExecutionError(`ffprobe failed for ${basename(path)}: ${result.stderr.trim()}`);
   return parseJson(result.stdout, `ffprobe ${basename(path)}`);
@@ -1178,6 +1237,14 @@ export function ffmpegInstallHint(platform = process.platform) {
 function addWarning(state, warning) {
   state.warnings ??= [];
   if (!state.warnings.includes(warning)) state.warnings.push(warning);
+}
+
+export function logVerificationResult(state, io = console) {
+  for (const finding of state.verify?.findings ?? []) {
+    if (finding.severity === "warning") io.log(`WARN ${finding.check}: ${finding.message}`);
+  }
+  io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
+  return state.verify.verdict === "pass" ? 0 : 1;
 }
 
 async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state }) {
@@ -1335,6 +1402,22 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
 function usedSources(edit) {
   const referencedIds = new Set(edit.cuts.map((cut) => cut.src));
   return edit.sources.filter((source) => referencedIds.has(source.id));
+}
+
+function declaredAudioReasons({ plan, inputs, edit }) {
+  const reasons = [];
+  const audioPlan = plan.commands.audio_mix ?? {};
+  if (audioPlan.hasAudibleAudio === true) {
+    if (edit?.audio?.bgm) reasons.push("bgm");
+    if (Array.isArray(edit?.audio?.sfx) && edit.audio.sfx.length > 0) reasons.push("sfx");
+    if (audioPlan.hasNarration === true) reasons.push("narration");
+    if (edit?.audio?.master && typeof edit.audio.master === "object") reasons.push("master");
+    if (reasons.length === 0) reasons.push("audio_mix");
+  }
+  if (inputs.some((input) => input?.has_audio === true || input?.hasAudio === true)) {
+    reasons.push("素材音声");
+  }
+  return [...new Set(reasons)];
 }
 
 function compare(findings, check, passed, message) {

@@ -163,6 +163,12 @@ copy し、音声がない場合は `frames / fps` 秒の無音 carrier を付�
 `-t frames/fps` を必須とする。最終 MP4 の映像コマ数は要求値と厳密一致し、不一致は fail-closed とする。
 A/V 終端差は 1 コマ以内を要求する。
 
+2026-09-02 追記（issue #43）: 上記の無音 carrier は、**明示された音声ソース**に音声ストリームが
+無い場合だけ付ける。音声ソース未指定時は audio muxer を呼ばず、video-only 中間物を成果物へ copy して
+音声トラックのない「映像のみ」とする。この場合は音声 presence と A/V 終端差を検査対象にしない。
+低レベル CLI の `--audio <path>` は書き出し前に音声ストリームを probe し、無ければ carrier を作らず
+exit code 2 で中止する。edit.json の音声を混ぜる製品経路は §11 の `render-cut --engine gpu` である。
+
 ## 6. 決定論とパリティ gate
 
 | mode | 必須条件 |
@@ -188,6 +194,11 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
     "mux": "incremental-mp4",
     "video_reencode": false
   },
+  "audio": {
+    "mode": "copy",
+    "source": "cut-audio.mp4",
+    "source_has_audio": true
+  },
   "gpu": {
     "platform": "win32",
     "chromium": "140.0.0.0",
@@ -205,6 +216,10 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
   }
 }
 ```
+
+`audio.mode` は `copy`（明示ソースの音声を copy）、`silent-carrier`（明示ソースに音声が無く §5 の
+carrier を付与）、`none`（音声ソース未指定・映像のみ）のいずれかである。`source` は basename だけを
+記録し、絶対パスは残さない。`none` の `source` と `source_has_audio` はともに `null` とする。
 
 `gpu.eligibility[]` は overlay/caption/edit の id、4 分類、理由、検出条件を省略せず並べる。memory は
 OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--engine gpu` は receipt 以外の

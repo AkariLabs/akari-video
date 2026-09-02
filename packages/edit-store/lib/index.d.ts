@@ -5,8 +5,11 @@
  */
 export * from './edit-store';
 export * from './caption-store';
+export * from './caption-style-preset';
+export * from './generated/textstyle-catalog';
 export * from './caption-words-rederive';
 export * from './caption-window';
+export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
@@ -25,5 +28,7 @@ export * from './envelope';
 export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';
+export * from './item-anchor';
+export * from './cut-ranges';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';

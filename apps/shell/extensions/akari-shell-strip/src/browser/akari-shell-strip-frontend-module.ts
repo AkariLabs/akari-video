@@ -2,6 +2,7 @@ import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
+import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSettingsContribution } from './akari-settings-contribution';
@@ -13,14 +14,29 @@ import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
 import { AkariRightPanelCuration } from './akari-right-panel-curation';
 import { AkariExportPreferenceContribution } from './akari-export-preferences';
+import { AkariExportSessionService } from './akari-export-session-service';
+import { AkariExportDialog } from './export-dialog/akari-export-dialog';
+import { AkariExportBackgroundChip } from './export-dialog/export-background-chip';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
+    bind(AkariExportSessionService).toSelf().inSingletonScope();
+    // ReactDialog 自身の DialogProps コンストラクタ注入を通さず、必要な依存を明示して生成する。
+    bind(AkariExportDialog).toDynamicValue(ctx =>
+        new AkariExportDialog(ctx.container.get(AkariExportSessionService))
+    ).inSingletonScope();
+    bind(AkariExportBackgroundChip).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariExportBackgroundChip);
 
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)
+    ).inSingletonScope();
+
+    // 「ブラウザプレビュー」バックエンド（preview-server 子プロセス起動・URL 表示）。
+    bind(AkariPreviewServerService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_PREVIEW_SERVER_SERVICE_PATH)
     ).inSingletonScope();
 
     // S15: activity bar curation（起動時一括 + onDidAddWidget 常時フィルタ）

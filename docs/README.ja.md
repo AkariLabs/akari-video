@@ -86,6 +86,7 @@
 | [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 演出（direction） |
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 強調ワード |
 | [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（edit.json v1 席は後方互換フォールバック） |
+| [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` の id 参照・解決順・生成 textstyle カタログ・無料字幕テンプレ 3 種 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |
@@ -133,8 +134,12 @@
 | [contract-2026-08-29-media-inspect-cli-v0.md](./contract-2026-08-29-media-inspect-cli-v0.md) | `akari media` 観察コマンド契約 v0 — probe / grab / filmstrip / waveform / transcribe（分析をプル駆動に: 見たいときに見る・見た結果はディスクに残る） |
 | [contract-2026-08-29-capture-v0.md](./contract-2026-08-29-capture-v0.md) | `akari capture` 契約 v0 — 今の edit.json の完成フレームを、書き出さずに見る |
 | [contract-2026-08-30-edit-json-v2-object-tree-v0.md](./contract-2026-08-30-edit-json-v2-object-tree-v0.md) | edit.json v2 オブジェクトツリー v0 — 再帰 `items`（group）・タグで写す袋グループ（HTML 部品 / captions.json）・部品アイテム（`source.part`）・段の不変条件・1 レコード 1 行の正規直列化・edit-store スクリプト API・AI の読み方（`version: 2` 据え置き） |
+| [contract-2026-09-02-item-caption-anchor-v0.md](./contract-2026-09-02-item-caption-anchor-v0.md) | edit.json v2 アイテムの行アンカー — 字幕行 / source 秒区間への時刻従属・at / duration は解決キャッシュ・親相対の解決・mutation・lint 規則 |
 | [contract-2026-08-30-motion-and-keyframes-v0.md](./contract-2026-08-30-motion-and-keyframes-v0.md) | 動きとキーフレーム v0 — 4 段階（L0 プリセット `motion` / L1 `keyframes` inline または `motion/<group-id>.json` 袋 / L2 範囲セレクタ `animator` / L3 コード）・easing 語彙・「キーフレームに展開」・タイムライン / インスペクターの表示規則 |
+| [contract-2026-09-02-transcript-unrecognized-spans-v0.md](./contract-2026-09-02-transcript-unrecognized-spans-v0.md) | 文字起こしできなかった音声区間の `unrecognized[]` — analysis.json から captions.json へ持ち越し、`words[]` は不変 |
+| [contract-2026-09-02-word-book-v0.md](./contract-2026-09-02-word-book-v0.md) | 単語帳 v0 — 語彙項目（`surface` / `variants` / `reading` / `kind`）を project < channel < workspace < builtin の 4 層で解決し、STT 直後に `words[]` 語境界で `text` と `words[]` を同時に直す。`edited: true` は不可侵・`protected_terms` への軟らかい供給・edit-lint 規則（ドラフト・要オーナーレビュー） |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | transform キーフレーム v0（2026-08-30 にスキーマ `$comment` から復元。motion-and-keyframes v0 §2 が後継） |
+| [contract-2026-09-02-export-verify-declared-vs-measured-v0.md](./contract-2026-09-02-export-verify-declared-vs-measured-v0.md) | 書き出し後の宣言 vs 実測検証 v0 — 区間音量は fail closed、カメラワーク静止相関は warning |
 
 ### 方向性メモ
 

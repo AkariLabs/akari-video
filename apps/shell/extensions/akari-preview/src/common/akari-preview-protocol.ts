@@ -22,7 +22,37 @@ export interface OverlayRuntimeAssets {
     // file:// を同一オリジンで読めない（render-cut の rasterize.mjs は Puppeteer が file:// ページを
     // 直接 goto するため pathToFileURL がそのまま使えるが、こちらは Theia WebviewWidget 経由で
     // 別オリジンに描画される）ため、data: URI として埋め込む。
+    // 2026-09-02（task/2026-09-02-preview-perf）以降、shell の prepareHtml() はこの形を使わず
+    // getOverlayRuntimeAssetUrls() の URL 配信を使う。文字列形はテストと互換のために残す。
     captionFontDataUri: string;
+}
+
+/**
+ * オーバーレイ実行系・字幕フォント・frame-engine を webview へ「URL で」渡す形。
+ *
+ * getOverlayRuntimeAssets() は各資産を文字列（フォントは base64 data: URI）で返すため、
+ * prepareHtml() が組み立てる HTML が開くたびに約 15 MB（字幕フォントだけで 12.8 MB）になり、
+ * setHTML の IPC と Chromium のパースが毎回掛かっていた（task/2026-09-02-preview-perf）。
+ * こちらは資産を素材配信サーバー（127.0.0.1 の Range サーバー）の固定ルート
+ * `/static/<content-hash>/<name>` で配り、HTML には <script src> と @font-face url() だけを
+ * 埋める。パスに内容ハッシュを含むので immutable キャッシュが効き、2 回目以降の setHTML は
+ * 資産の転送もパースも起こさない。interactionCss だけは style-src 'unsafe-inline' の既定に
+ * 合わせて文字列のまま返す（数十 KB）。
+ */
+export interface OverlayRuntimeAssetUrls {
+    /** 資産を配るオリジン（http://127.0.0.1:<port>）。CSP の script-src / font-src に載せる。 */
+    origin: string;
+    threeJavaScriptUrl: string;
+    threeTextJavaScriptUrl: string;
+    threeRuntimeJavaScriptUrl: string;
+    videoFxJavaScriptUrl: string;
+    runtimeJavaScriptUrl: string;
+    interactionJavaScriptUrl: string;
+    interactionCss: string;
+    webviewKernelJavaScriptUrl: string;
+    /** includeFrameEngine 指定時のみ。バンドルが無い（legacy 明示）時は undefined。 */
+    frameEngineJavaScriptUrl?: string;
+    captionFontUrl: string;
 }
 
 export interface ReadVideoFxLutRequest {
@@ -269,6 +299,7 @@ export interface ResolvedCaptionDisplayPayload {
 
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;
+    getOverlayRuntimeAssetUrls(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssetUrls>;
     readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;

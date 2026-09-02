@@ -222,6 +222,7 @@ test("決定論 envelope 化により narration 区間だけ BGM が下がり si
       });
       assert.equal(command.operation, "ffmpeg");
       assert.equal(command.hasNarration, true);
+      assert.equal(command.hasAudibleAudio, true);
       assert.doesNotMatch(command.args.join(" "), /sidechaincompress|asplit/u);
       assert.equal(command.args.join(" ").includes("amultiply"), ducking,
         `amultiply should only appear when ducking is true (ducking=${ducking})`);
@@ -349,6 +350,7 @@ test("a narration file that cannot be decoded is skipped with a warning; the ren
     assert.ok(state.warnings.includes(expectedWarning));
     assert.equal(state.plan.commands.audio_mix.operation, "ffmpeg");
     assert.equal(state.plan.commands.audio_mix.hasNarration, false);
+    assert.equal(state.plan.commands.audio_mix.hasAudibleAudio, true);
     assert.equal(state.plan.commands.audio_mix.args.includes(join(project, "audio", "n-0001.wav")), false);
     assert.doesNotMatch(state.plan.commands.audio_mix.args.join(" "), /nar_raw|\[narration\]/);
   } finally {
@@ -382,6 +384,7 @@ process.stdout.write(JSON.stringify({ streams: [{ codec_type: "video" }], format
       ffprobeCommand: probePath,
     });
     assert.equal(command.hasNarration, false);
+    assert.equal(command.hasAudibleAudio, true);
     assert.deepEqual(command.warnings, [
       "narration n-0001: file could not be decoded as audio at voice.mp4; skipped",
     ]);

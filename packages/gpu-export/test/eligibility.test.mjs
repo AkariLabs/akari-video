@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
+
+const require = createRequire(import.meta.url);
+const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 
 function evaluate(overlays, captions = [], extra = {}) {
   return evaluateGpuEligibility({ edit: { overlays, output: {} }, captions, ...extra });
@@ -176,6 +180,20 @@ test("supported caption motion remains eligible", () => {
   const result = evaluate([], [{ id: "caption", text_style: { animation: { in: { id: "zoom-pop" } } } }]);
   assert.equal(result.eligible, true);
   assert.equal(result.entries[0].classification, "same");
+});
+
+test("GPU eligibility は style_preset 参照と値焼き込みを同じ分類にする", () => {
+  const record = { id: "caption", start: 0, end: 1, text: "x" };
+  for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
+    const referenced = applyCaptionStylePresets([{ ...record, style_preset: id }], TEXTSTYLE_CATALOG).root;
+    const byReference = evaluateGpuEligibility({ edit: { overlays: [], output: {} }, captions: referenced });
+    const burned = evaluateGpuEligibility({
+      edit: { overlays: [], output: {} },
+      captions: [{ ...record, text_style: preset.style }],
+    });
+    assert.deepEqual(byReference.entries, burned.entries, id);
+    assert.deepEqual(byReference.summary, burned.summary, id);
+  }
 });
 
 test("per-cue animation merges slots over the default style", () => {

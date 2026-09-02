@@ -5,8 +5,11 @@
  */
 export * from './edit-store';
 export * from './caption-store';
+export * from './caption-style-preset';
+export * from './generated/textstyle-catalog';
 export * from './caption-words-rederive';
 export * from './caption-window';
+export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
@@ -25,6 +28,8 @@ export * from './envelope';
 export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';
+export * from './item-anchor';
+export * from './cut-ranges';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

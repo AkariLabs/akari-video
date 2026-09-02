@@ -11,6 +11,7 @@
 | 2026-08-02 | v0 | Web UI と shell の挙動仕様を統合 |
 | 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR と GPU 直結の 2 本に固定し、互換経路を退役節へ移動 |
 | 2026-08-31 | v2.1 | §5.2 に断片 CSS の `vw` / `vh` 系単位の出力サイズ基準化（`viewport-units.js`。プレビューがウィンドウ幅基準で解いていた実機報告の修正）を追記 |
+| 2026-09-02 | v2.2 | §2.8 に字幕時計の規約（active cue の判定は両プレビューとも出力秒。共有カーネル `caption-clock`）を追記。Web UI を shell に揃えた 4 点（字幕時計・字幕フォント名・`slot-params.js` の差し込み・最下段 cut の track 規則）の記録 |
 
 ## 1. 役割分担
 
@@ -128,6 +129,12 @@ finalFrameNumber **239**、lookahead hits **8**を要求する。
 shell のプレビューでは DOM 層として提示し、書き出しでは同じ DOM 規約から overlay sheet を構成する。
 器専用の字幕 HTML や出口専用の再レイアウトを持たない。
 
+active cue の判定は両プレビューとも**出力秒**で行う。source 秒の cue（`time_domain: "source"` と未宣言の
+legacy）は共有カーネル `packages/edit-store/src/caption-clock.ts` の `normalizeCaptionClock` が cut map
+で出力秒へ射影し、削除区間をまたぐ cue は 1 本ずつに分割する（`<id>-output-<n>`、元 id は
+`sourceCueId`）。shell は `normalizePreviewCaptionClock`、Web UI は `updateCaption` がこの正規化済み表を
+読み、描画層は domain 判定を行わない（2026-09-02。それまで Web UI は source 秒で判定していた）。
+
 **検収:** OSR ソフト描画の同一 fixture 2 走について、字幕を含む全コマ raw BGRA の SHA-256 一致を要求する。
 
 ### 2.9 overlays
@@ -158,7 +165,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | cuts の crop / transform / opacity keyframes（v2 media item・layer-style） | ✅ 評価（2026-09-01） | 🟡 `public/frame-engine.bundle.js` の再生成待ち | ✅ DOM 層（`applyLayerStyleMediaLayout`） | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
-| cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ | 🟡 warning を run.json へ |
+| cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ（seek の warning を回収） | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
 | LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
@@ -169,6 +176,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 
 未完項目の移管先は [エンジン v2 残課題](./notes-2026-08-28-engine-v2-open-items.md)、近似の判定正本は
 [エンジン v2 恒久近似清算表](./contract-2026-08-28-v2-approximation-ledger.md) とする。
+フィールド単位の適合性の正本は `packages/schemas/engine-capabilities.json` とし、`edit-lint --engine` が読む。
 
 ## 4. 検収と退役
 

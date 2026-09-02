@@ -210,6 +210,7 @@ export function buildAudioMixCommand({
   if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
+      hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
       envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
     };
   }
@@ -407,6 +408,7 @@ export function buildAudioMixCommand({
   );
   return {
     operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
+    hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
     envelopes,
     envelope: envelopeProvenance(),
     clip_fx: clipFxProvenance(),

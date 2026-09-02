@@ -35,7 +35,8 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
 test('AudioContext.currentTime が描画クロックを支配し、観測窓が同期差を返す', () => {
   assert.match(supplySource, /anchorTimelineSec \+ Math\.max\(0, context\.currentTime - anchorContextSec\)/u);
   assert.match(source, /const audioClockSeconds = this\.audio\.playbackTime\(seconds\)/u);
-  assert.match(source, /pauseWatchdogMs: 150/u);
+  // 150 ms では 3D / 字幕の重いフレームで watchdog が音を止めていた（2026-09-02: 600 ms へ）
+  assert.match(source, /pauseWatchdogMs: 600/u);
   assert.match(source, /akariFrameEngineAudioDebug/u);
   assert.match(supplySource, /lastAudioPositionAtRenderSec = context && playing/u);
   assert.match(supplySource, /const audioPositionSec = lastAudioPositionAtRenderSec/u);

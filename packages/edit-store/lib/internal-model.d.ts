@@ -4,6 +4,7 @@
  */
 import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
 import { KeyframesReferenceV2 } from './edit-v2';
+import { AnchorCaption } from './item-anchor';
 export type InternalLane = 'visual' | 'audio';
 /** 素材の出どころ。1 アイテム = 1 種別で、種別ごとの分岐はここ 1 軸に集約する。 */
 export interface InternalMediaSource {
@@ -176,6 +177,8 @@ export interface InternalEdit {
 export interface InternalReadOptions {
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
+    /** 行アンカーを再解決するときの字幕。省略時はキャッシュ済み at / duration をそのまま読む。 */
+    captions?: AnchorCaption[];
 }
 /**
  * edit.json v2 を内部表現へ読む。v0/v1 は凍結変換ユニットのみが読む。

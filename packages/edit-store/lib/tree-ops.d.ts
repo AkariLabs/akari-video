@@ -1,4 +1,5 @@
 import type { EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
+import { type AnchorCaption, type ItemAnchorV2, type ItemAnchorChange, type ItemAnchorWarning } from './item-anchor';
 export type JsonRecord = Record<string, unknown>;
 export type ProjectItemV2 = Omit<ItemV2, 'items' | 'keyframes'> & {
     items?: ProjectItemV2[];
@@ -62,6 +63,18 @@ export interface ItemLocation {
 }
 export declare function attachEditHelpers(edit: EditableEditV2): void;
 export declare function updateItem(edit: EditableEditV2, id: string, patch: JsonRecord): ProjectItemV2;
+export declare function setItemAnchor(edit: EditableEditV2, id: string, anchor: ItemAnchorV2, captions: readonly AnchorCaption[]): {
+    edit: EditableEditV2;
+    item: ProjectItemV2;
+    changes: ItemAnchorChange[];
+    warnings: ItemAnchorWarning[];
+};
+export declare function clearItemAnchor(edit: EditableEditV2, id: string): ProjectItemV2;
+export declare function refreshItemAnchors(edit: EditableEditV2, captions: readonly AnchorCaption[]): {
+    edit: EditableEditV2;
+    changes: ItemAnchorChange[];
+    warnings: ItemAnchorWarning[];
+};
 /** inline 点列へ値を打つ。最初の点では反対側の端にも同じ値を置き minItems:2 を守る。 */
 export declare function setKeyframe(edit: EditableEditV2, id: string, property: KeyframeProperty, t: number, value: unknown): ProjectItemV2;
 /** 指定プロパティの点だけを消し、空点を除去する。2 点未満なら点列自体を外す。 */

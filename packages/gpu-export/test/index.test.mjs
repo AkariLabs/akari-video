@@ -52,6 +52,7 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
   await mkdir(renderDirectory, { recursive: true });
   let muxOptions;
   let launchOptions;
+  let finalVerifyOptions;
   const result = await exportWithGpu({
     projectRoot,
     out,
@@ -76,23 +77,115 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
       await writeFile(options.outputPath, "final-with-audio");
       return true;
     },
-    finalVerifier: async () => ({
-      matched: true,
-      checks: { frames: true },
-      measured: { streams: [{ codec_type: "video", duration: "1" }, { codec_type: "audio", duration: "1" }] },
-    }),
+    finalVerifier: async (options) => {
+      finalVerifyOptions = options;
+      return {
+        matched: true,
+        checks: { frames: true },
+        measured: { streams: [{ codec_type: "video", duration: "1" }, { codec_type: "audio", duration: "1" }] },
+      };
+    },
   });
   assert.equal(muxOptions.videoPath, `${out}.gpu-video.mp4`);
+  assert.equal(muxOptions.audioPath, join(projectRoot, "cut.mp4"));
   assert.equal(muxOptions.outputPath, out);
+  assert.equal(finalVerifyOptions.requireAudio, true);
   assert.equal(launchOptions.quality, "high");
   assert.equal(launchOptions.bitrate, 12_000_000);
   assert.deepEqual(launchOptions.dumpFrames, [0, 29]);
   assert.equal(result.receipt.gpu.quality, "high");
   assert.equal(result.receipt.gpu.bitrate, 12_000_000);
   assert.equal(result.receipt.provenance.video_reencode, false);
+  assert.deepEqual(result.run.audio, { mode: "copy", source: "cut.mp4", source_has_audio: true });
+  assert.deepEqual(result.receipt.audio, { mode: "copy", source: "cut.mp4", source_has_audio: true });
   assert.equal(await readFile(out, "utf8"), "final-with-audio");
   await assert.rejects(access(`${out}.gpu-video.mp4`));
   await rm(projectRoot, { recursive: true, force: true });
+});
+
+test("GPU export without an audio source copies the video-only result and records audio mode none", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-index-video-only-"));
+  const renderDirectory = join(projectRoot, "render");
+  const out = join(renderDirectory, "composite.mp4");
+  await mkdir(renderDirectory, { recursive: true });
+  try {
+    let muxCalls = 0;
+    let finalVerifyOptions;
+    const result = await exportWithGpu({
+      projectRoot, out, fps: 30, width: 320, height: 180, duration: 1, frames: 30,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        await writeFile(options.out, "encoded-video");
+        await writeFile(join(renderDirectory, "run.json"), JSON.stringify({ status: "completed", gpu: {}, memory: {} }));
+      },
+      audioMuxer: async () => { muxCalls += 1; },
+      finalVerifier: async (options) => {
+        finalVerifyOptions = options;
+        return {
+          matched: true,
+          checks: { frames: true, audioPresence: true },
+          measured: { streams: [{ codec_type: "video", duration: "1" }] },
+        };
+      },
+    });
+    const expectedAudio = { mode: "none", source: null, source_has_audio: null };
+    assert.equal(muxCalls, 0);
+    assert.equal(finalVerifyOptions.requireAudio, false);
+    assert.equal(await readFile(out, "utf8"), "encoded-video");
+    assert.deepEqual(result.run.audio, expectedAudio);
+    assert.deepEqual(result.receipt.audio, expectedAudio);
+    assert.deepEqual(result.run.finalVerify.avTermination, { matched: true, skipped: "no-audio" });
+    assert.equal(result.run.finalVerify.checks.avTermination, true);
+    const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "gpu-run.json"), "utf8"));
+    assert.deepEqual(persistentRun.audio, expectedAudio);
+    assert.deepEqual(persistentRun.finalVerify.avTermination, { matched: true, skipped: "no-audio" });
+    await assert.rejects(access(`${out}.gpu-video.mp4`));
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("GPU export records and reports a silent carrier when an explicit source has no audio stream", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-index-silent-carrier-"));
+  const renderDirectory = join(projectRoot, "render");
+  const out = join(renderDirectory, "composite.mp4");
+  const audioSourcePath = join(projectRoot, "mute.mp4");
+  const errors = [];
+  await mkdir(renderDirectory, { recursive: true });
+  try {
+    let finalVerifyOptions;
+    const result = await exportWithGpu({
+      projectRoot, out, audioSourcePath, fps: 30, width: 320, height: 180, duration: 1, frames: 30,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        await writeFile(options.out, "encoded-video");
+        await writeFile(join(renderDirectory, "run.json"), JSON.stringify({ status: "completed", gpu: {}, memory: {} }));
+      },
+      audioMuxer: async (options) => { await writeFile(options.outputPath, "final-with-silence"); return false; },
+      finalVerifier: async (options) => {
+        finalVerifyOptions = options;
+        return {
+          matched: true,
+          checks: { frames: true, audioPresence: true },
+          measured: { streams: [{ codec_type: "video", duration: "1" }, { codec_type: "audio", duration: "1" }] },
+        };
+      },
+      io: { log() {}, error(message) { errors.push(message); } },
+    });
+    const expectedAudio = { mode: "silent-carrier", source: "mute.mp4", source_has_audio: false };
+    assert.equal(finalVerifyOptions.requireAudio, true);
+    assert.deepEqual(result.run.audio, expectedAudio);
+    assert.deepEqual(result.receipt.audio, expectedAudio);
+    assert.deepEqual(errors, [
+      "gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: mute.mp4",
+    ]);
+    const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "gpu-run.json"), "utf8"));
+    assert.deepEqual(persistentRun.audio, expectedAudio);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("GPU export preserves a failed run and attaches its closed reason to the error", async () => {

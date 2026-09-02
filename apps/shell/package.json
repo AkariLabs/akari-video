@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -216,6 +216,15 @@
         "filter": [
           "package.json",
           "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/preview-server",
+        "to": "packages/preview-server",
+        "filter": [
+          "package.json",
+          "src/**/*",
+          "public/**/*"
         ]
       },
       {

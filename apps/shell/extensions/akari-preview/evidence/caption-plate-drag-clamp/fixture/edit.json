@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "a",
+      "path": "assets/base-10s.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "Base",
+      "items": [
+        {
+          "id": "cut-base",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "media",
+            "src": "a",
+            "in": 0,
+            "out": 10,
+            "speed": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-captions",
+      "lane": "visual",
+      "name": "字幕",
+      "items": [
+        {
+          "id": "captions",
+          "name": "字幕",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "captions",
+            "path": "captions.json"
+          },
+          "items": []
+        }
+      ]
+    }
+  ]
+}

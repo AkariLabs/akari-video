@@ -29,6 +29,7 @@ function equalWords(left: DaihonRow['words'], right: DaihonRow['words']): boolea
 
 function needsUpdate(left: DaihonRow, right: DaihonRow): boolean {
     return left.text !== right.text
+        || left.style !== right.style
         || !equalWords(left.words, right.words)
         || left.edited !== right.edited
         || left.outStart !== right.outStart

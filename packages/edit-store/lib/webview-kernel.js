@@ -25,13 +25,16 @@ var AkariEditKernel = (() => {
     DEFAULT_DUCK_KEYS: () => DEFAULT_DUCK_KEYS,
     DEFAULT_DUCK_RELEASE_SEC: () => DEFAULT_DUCK_RELEASE_SEC,
     STATIC_DUCK_GAIN_DB: () => STATIC_DUCK_GAIN_DB,
+    TEXTSTYLE_CATALOG: () => TEXTSTYLE_CATALOG,
     TRANSITION_BY_ID: () => TRANSITION_BY_ID,
     TRANSITION_CATEGORIES: () => TRANSITION_CATEGORIES,
     TRANSITION_TYPE_IDS: () => TRANSITION_TYPE_IDS,
     TRANSITION_VOCABULARY: () => TRANSITION_VOCABULARY,
+    applyCaptionStylePresets: () => applyCaptionStylePresets,
     buildTimelineMap: () => buildTimelineMap,
     buildWebAudioSchedule: () => buildWebAudioSchedule,
     captionAnchorPositionVars: () => captionAnchorPositionVars,
+    captionClockDomainOf: () => captionClockDomainOf,
     captionWindowSeconds: () => captionWindowSeconds,
     composeEnvelopesDb: () => composeEnvelopesDb,
     computeDuckEnvelope: () => computeDuckEnvelope,
@@ -44,11 +47,18 @@ var AkariEditKernel = (() => {
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isTransitionType: () => isTransitionType,
     isWithinDuckInterval: () => isWithinDuckInterval,
+    mergePresetTextStyle: () => mergePresetTextStyle,
+    normalizeCaptionClock: () => normalizeCaptionClock,
     outputToSource: () => outputToSource,
     projectSpeechDeclarations: () => projectSpeechDeclarations,
     projectSpeechKeyIntervals: () => projectSpeechKeyIntervals,
+    resolveCaptionStylePreset: () => resolveCaptionStylePreset,
+    resolveItemAnchor: () => resolveItemAnchor,
+    resolveItemAnchors: () => resolveItemAnchors,
     sampleEnvelopeLinear: () => sampleEnvelopeLinear,
-    transitionProgressAt: () => transitionProgressAt
+    sourceToOutput: () => sourceToOutput,
+    transitionProgressAt: () => transitionProgressAt,
+    withoutItemAnchors: () => withoutItemAnchors
   });
 
   // src/transition-vocabulary.ts
@@ -136,6 +146,10 @@ var AkariEditKernel = (() => {
       halfSeconds: effectiveSeconds / 2,
       outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
     };
+  }
+  var STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+  function isStillImageSourcePath(path) {
+    return typeof path === "string" && STILL_IMAGE_SOURCE_PATTERN.test(path);
   }
 
   // src/timeline-map.ts
@@ -341,6 +355,22 @@ var AkariEditKernel = (() => {
     }
     return { segment: null, sourceT: null };
   }
+  function sourceToOutput(segments, sourceT) {
+    const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
+    if (sources.length === 0 || !Number.isFinite(sourceT)) {
+      return null;
+    }
+    for (const segment of sources) {
+      const start = segment.in;
+      const end = segment.out;
+      if (start <= sourceT && sourceT < end) {
+        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+        return segment.outStart + (sourceT - start) / speed;
+      }
+    }
+    const next = sources.find((segment) => segment.in > sourceT);
+    return next?.outStart ?? sources[sources.length - 1].outEnd;
+  }
 
   // src/caption-window.ts
   function captionWindowSeconds(caption) {
@@ -355,6 +385,371 @@ var AkariEditKernel = (() => {
       return window.start <= sourceSeconds && sourceSeconds < window.end;
     });
   }
+
+  // src/caption-clock.ts
+  var EPSILON = 1e-6;
+  function normalizeCaptionClock(captions, segments) {
+    const output = [];
+    for (const caption of captions) {
+      const legacyOutputCue = caption.clockDomain === "legacy" && segments.some(
+        (segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON
+      );
+      const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+      if (domain === "output" || segments.length === 0) {
+        output.push({ ...caption, clockDomain: "output" });
+        continue;
+      }
+      let occurrence = 0;
+      for (const segment of segments) {
+        if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0) continue;
+        if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId) continue;
+        const sourceStart = Math.max(caption.start, segment.in);
+        const sourceEnd = Math.min(caption.end, segment.out);
+        if (!(sourceEnd - sourceStart > EPSILON)) continue;
+        const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+        const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+        occurrence += 1;
+        const sourceCueId = caption.sourceCueId ?? caption.id;
+        const words = caption.words?.flatMap((word) => {
+          const wordStart = Math.max(word.start, sourceStart);
+          const wordEnd = Math.min(word.end, sourceEnd);
+          return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+        });
+        output.push({
+          ...caption,
+          ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+          ...sourceCueId ? { sourceCueId } : {},
+          start: projectTime(sourceStart),
+          end: projectTime(sourceEnd),
+          ...words && words.length > 0 ? { words } : { words: void 0 },
+          clockDomain: "output"
+        });
+      }
+    }
+    return output.sort((left, right) => left.start - right.start || left.end - right.end);
+  }
+  function captionClockDomainOf(raw) {
+    const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+    return {
+      clockDomain,
+      ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+    };
+  }
+
+  // src/caption-style-preset.ts
+  var NESTED_STYLE_FIELDS = [
+    "stroke",
+    "background",
+    "shadow",
+    "glow",
+    "position",
+    "animation"
+  ];
+  function mergePresetTextStyle(presetStyle, recordStyle) {
+    const override = isRecord(recordStyle) ? recordStyle : {};
+    const merged = {
+      ...presetStyle,
+      ...override
+    };
+    for (const field of NESTED_STYLE_FIELDS) {
+      const base = isRecord(presetStyle[field]) ? presetStyle[field] : void 0;
+      const nestedOverride = isRecord(override[field]) ? override[field] : void 0;
+      if (base || nestedOverride) {
+        const nested = { ...base, ...nestedOverride };
+        if (Object.keys(nested).length > 0) merged[field] = nested;
+        else delete merged[field];
+      }
+    }
+    return merged;
+  }
+  function resolveCaptionStylePreset(record, catalog) {
+    const presetId = record.style_preset;
+    if (typeof presetId !== "string") return { record, resolved: false };
+    const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
+    if (!preset) return { record, resolved: false };
+    return {
+      record: {
+        ...record,
+        text_style: mergePresetTextStyle(preset.style, record.text_style)
+      },
+      resolved: true
+    };
+  }
+  function applyCaptionStylePresets(root, catalog) {
+    const values = Array.isArray(root) ? root : isRecord(root) && Array.isArray(root.captions) ? root.captions : null;
+    if (!values) return { root, unresolved: [] };
+    let sawPreset = false;
+    let changed = false;
+    const unresolved = /* @__PURE__ */ new Set();
+    const captions = values.map((value) => {
+      if (!isRecord(value) || !Object.prototype.hasOwnProperty.call(value, "style_preset")) {
+        return value;
+      }
+      sawPreset = true;
+      const result = resolveCaptionStylePreset(value, catalog);
+      if (result.resolved) changed = true;
+      else if (typeof value.style_preset === "string") unresolved.add(value.style_preset);
+      return result.record;
+    });
+    if (!sawPreset || !changed) {
+      return { root, unresolved: [...unresolved] };
+    }
+    return {
+      root: Array.isArray(root) ? captions : { ...root, captions },
+      unresolved: [...unresolved]
+    };
+  }
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  // src/generated/textstyle-catalog.ts
+  var TEXTSTYLE_CATALOG = {
+    "discount-text": {
+      "id": "discount-text",
+      "name": "\u5272\u5F15\u30D0\u30C3\u30B8\u30C6\u30AD\u30B9\u30C8",
+      "category": "price",
+      "style": {
+        "size_px": 72,
+        "weight": 400,
+        "color": "#FF2D55",
+        "letter_spacing_em": 0.04,
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 3
+        }
+      }
+    },
+    "emphasis-red": {
+      "id": "emphasis-red",
+      "name": "\u5F37\u8ABF",
+      "category": "emphasis",
+      "style": {
+        "size_px": 92,
+        "weight": 700,
+        "color": "#ff1744",
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 6
+        },
+        "animation": {
+          "in": {
+            "id": "pop"
+          }
+        }
+      }
+    },
+    "glitch": {
+      "id": "glitch",
+      "name": "\u30B0\u30EA\u30C3\u30C1\u98A8",
+      "category": "decorative",
+      "style": {
+        "size_px": 116,
+        "weight": 700,
+        "color": "#f5f5f5",
+        "letter_spacing_em": 0.06,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#ff0066",
+          "opacity": 0.9,
+          "blur_px": 0,
+          "distance_px": 8,
+          "angle_deg": 0
+        },
+        "animation": {
+          "in": {
+            "id": "glitch"
+          }
+        }
+      }
+    },
+    "narration-caption": {
+      "id": "narration-caption",
+      "name": "\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "font_family": "'Noto Serif JP', serif",
+        "size_px": 28,
+        "weight": 400,
+        "letter_spacing_em": 0.06,
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.55,
+          "blur_px": 6,
+          "distance_px": 1,
+          "angle_deg": 90
+        }
+      }
+    },
+    "neon": {
+      "id": "neon",
+      "name": "\u30CD\u30AA\u30F3",
+      "category": "decorative",
+      "style": {
+        "size_px": 120,
+        "weight": 700,
+        "color": "#aefcff",
+        "letter_spacing_em": 0.12,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#00e5ff",
+          "opacity": 0.9,
+          "blur_px": 24,
+          "distance_px": 0,
+          "angle_deg": 90
+        },
+        "glow": {
+          "color": "#00e5ff",
+          "density": 80,
+          "spread": 60
+        },
+        "animation": {
+          "in": {
+            "id": "soft-fade"
+          },
+          "loop": {
+            "id": "neon-flicker"
+          },
+          "out": {
+            "id": "soft-fade"
+          }
+        }
+      }
+    },
+    "subtitle-commentary": {
+      "id": "subtitle-commentary",
+      "name": "\u5B9F\u6CC1\u30C6\u30ED\u30C3\u30D7",
+      "category": "subtitle",
+      "style": {
+        "size_px": 60,
+        "weight": 700,
+        "color": "#00e676",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 7
+        },
+        "animation": {
+          "in": {
+            "id": "caption-rise"
+          }
+        }
+      }
+    },
+    "subtitle-interview": {
+      "id": "subtitle-interview",
+      "name": "\u30A4\u30F3\u30BF\u30D3\u30E5\u30FC\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#fffde7",
+        "stroke": {
+          "color": "#33691e",
+          "width_px": 6
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.5,
+          "blur_px": 6,
+          "distance_px": 4,
+          "angle_deg": 90
+        }
+      }
+    },
+    "subtitle-news": {
+      "id": "subtitle-news",
+      "name": "\u30CB\u30E5\u30FC\u30B9\u98A8",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#ffffff",
+        "background": {
+          "color": "#c62828",
+          "opacity": 1,
+          "padding_px": 16,
+          "radius_px": 0
+        }
+      }
+    },
+    "subtitle-standard": {
+      "id": "subtitle-standard",
+      "name": "\u6A19\u6E96\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#ffffff",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 4
+        }
+      }
+    },
+    "subtitle-variety": {
+      "id": "subtitle-variety",
+      "name": "\u30D0\u30E9\u30A8\u30C6\u30A3",
+      "category": "subtitle",
+      "style": {
+        "size_px": 80,
+        "weight": 700,
+        "color": "#fff200",
+        "stroke": {
+          "color": "#1a1a1a",
+          "width_px": 9
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.6,
+          "blur_px": 6,
+          "distance_px": 6,
+          "angle_deg": 90
+        }
+      }
+    },
+    "title-impact": {
+      "id": "title-impact",
+      "name": "\u30A4\u30F3\u30D1\u30AF\u30C8",
+      "category": "title",
+      "style": {
+        "size_px": 168,
+        "weight": 700,
+        "color": "#ffeb3b",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 10
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.7,
+          "blur_px": 14,
+          "distance_px": 8,
+          "angle_deg": 90
+        }
+      }
+    },
+    "verdict-badge": {
+      "id": "verdict-badge",
+      "name": "\u5224\u5B9A\u30D0\u30C3\u30B8",
+      "category": "emphasis",
+      "style": {
+        "size_px": 80,
+        "weight": 400,
+        "letter_spacing_em": -0.02,
+        "stroke": {
+          "color": "#E53935",
+          "width_px": 4
+        },
+        "shadow": {
+          "color": "rgba(229,57,53,0.6)",
+          "opacity": 0.6,
+          "blur_px": 16,
+          "distance_px": 0,
+          "angle_deg": 90
+        }
+      }
+    }
+  };
 
   // src/transition-visual.ts
   function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
@@ -1311,6 +1706,1672 @@ var AkariEditKernel = (() => {
     return [...new Set(values)].sort((left, right) => left - right);
   }
 
+  // src/edit-v2.ts
+  var BLEND_MODES = /* @__PURE__ */ new Set([
+    "normal",
+    "screen",
+    "multiply",
+    "add",
+    "difference",
+    "darken",
+    "lighten",
+    "overlay",
+    "hardlight",
+    "softlight"
+  ]);
+  var ITEM_KEYS = /* @__PURE__ */ new Set([
+    "id",
+    "name",
+    "hidden",
+    "locked",
+    "at",
+    "duration",
+    "transform",
+    "opacity",
+    "blend",
+    "crop",
+    "perspective",
+    "motion",
+    "animator",
+    "keyframes",
+    "items",
+    "mask",
+    "source"
+  ]);
+  var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
+    "id",
+    "name",
+    "hidden",
+    "locked",
+    "at",
+    "duration",
+    "role",
+    "source",
+    "gain_db",
+    "keyframes",
+    "fade_in",
+    "fade_out",
+    "ducking",
+    "duck_db",
+    "duck_attack",
+    "duck_release",
+    "denoise",
+    "lowcut_hz",
+    "script",
+    "reading",
+    "provenance"
+  ]);
+  function readEditV2(json) {
+    const parsed = parseInput(json);
+    requireRecord(parsed, "edit.json");
+    requireExactKeys(parsed, /* @__PURE__ */ new Set(["version", "output", "sources", "tracks", "audio", "captions", "thumbnail"]), "edit.json");
+    if (parsed.version !== 2) {
+      throw invalid("edit.json.version", "2 \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\uFF08v0/v1 \u306F\u3053\u306E reader \u306E\u5BFE\u8C61\u5916\u3067\u3059\uFF09");
+    }
+    validateOutput(parsed.output);
+    if (!Array.isArray(parsed.sources)) {
+      throw invalid("edit.json.sources", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (!Array.isArray(parsed.tracks)) {
+      throw invalid("edit.json.tracks", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(parsed, "audio")) {
+      requireRecord(parsed.audio, "edit.json.audio");
+      if (hasOwn(parsed.audio, "duck_keys")) {
+        if (!Array.isArray(parsed.audio.duck_keys)) throw invalid("edit.json.audio.duck_keys", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        const keys = parsed.audio.duck_keys;
+        if (keys.some((key) => key !== "narration" && key !== "speech")) {
+          throw invalid("edit.json.audio.duck_keys", "narration/speech \u306E\u307F\u6307\u5B9A\u3067\u304D\u307E\u3059");
+        }
+        if (new Set(keys).size !== keys.length) throw invalid("edit.json.audio.duck_keys", "\u91CD\u8907\u3067\u304D\u307E\u305B\u3093");
+      }
+    }
+    if (hasOwn(parsed, "captions") && !Array.isArray(parsed.captions)) {
+      throw invalid("edit.json.captions", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(parsed, "thumbnail")) requireRecord(parsed.thumbnail, "edit.json.thumbnail");
+    const sourceIds = /* @__PURE__ */ new Set();
+    parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
+    const trackIds = /* @__PURE__ */ new Set();
+    const itemIds = /* @__PURE__ */ new Set();
+    parsed.tracks.forEach((track, index) => validateTrack(track, index, trackIds, itemIds, sourceIds));
+    const edit = parsed;
+    return {
+      version: 2,
+      output: { ...edit.output },
+      sources: edit.sources.map((source) => ({ ...source })),
+      ...edit.audio !== void 0 ? { audio: edit.audio } : {},
+      ...edit.captions !== void 0 ? { captions: edit.captions } : {},
+      ...edit.thumbnail !== void 0 ? { thumbnail: { ...edit.thumbnail } } : {},
+      tracks: edit.tracks.map((track, z) => {
+        if ("items" in track) {
+          return {
+            ...track,
+            z,
+            items: track.items.map((item) => cloneItem(item))
+          };
+        }
+        return { ...track, z, content: { ...track.content } };
+      })
+    };
+  }
+  function cloneItem(item) {
+    return {
+      ...item,
+      source: { ...item.source },
+      ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
+    };
+  }
+  function parseInput(json) {
+    if (typeof json !== "string") return json;
+    try {
+      return JSON.parse(json);
+    } catch (error) {
+      throw invalid("edit.json", `JSON \u3068\u3057\u3066\u8AAD\u3081\u307E\u305B\u3093: ${messageOf(error)}`);
+    }
+  }
+  function validateOutput(value) {
+    requireRecord(value, "edit.json.output");
+    requirePositiveNumber(value.width, "edit.json.output.width");
+    requirePositiveNumber(value.height, "edit.json.output.height");
+    requireInteger(value.fps, 1, "edit.json.output.fps");
+  }
+  function validateEditSource(value, index, ids) {
+    const path = `edit.json.sources[${index}]`;
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "path", "proxy", "chroma_key"]), path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id)) throw invalid(`${path}.id`, `source id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
+    ids.add(value.id);
+    requireText(value.path, `${path}.path`);
+    if (hasOwn(value, "proxy") && value.proxy !== null) requireText(value.proxy, `${path}.proxy`);
+    if (hasOwn(value, "chroma_key") && value.chroma_key !== null) {
+      requireRecord(value.chroma_key, `${path}.chroma_key`);
+    }
+  }
+  function validateTrack(value, index, trackIds, itemIds, sourceIds) {
+    const path = `edit.json.tracks[${index}]`;
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "items", "content"]), path);
+    requireText(value.id, `${path}.id`);
+    if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
+    trackIds.add(value.id);
+    if (value.lane !== "visual" && value.lane !== "audio") {
+      throw invalid(`${path}.lane`, "visual \u307E\u305F\u306F audio \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "name") && typeof value.name !== "string") {
+      throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    const hasItems = hasOwn(value, "items");
+    const hasContent = hasOwn(value, "content");
+    if (hasItems === hasContent) {
+      throw invalid(path, "items \u3068 content \u306E\u3069\u3061\u3089\u304B\u4E00\u65B9\u3060\u3051\u304C\u5FC5\u8981\u3067\u3059");
+    }
+    if (hasItems) {
+      if (!Array.isArray(value.items)) throw invalid(`${path}.items`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      value.items.forEach((item, itemIndex) => {
+        const itemPath = `${path}.items[${itemIndex}]`;
+        if (value.lane === "audio") validateAudioItem(item, itemPath, itemIds, sourceIds);
+        else validateItem(item, itemPath, itemIds, sourceIds);
+      });
+      return;
+    }
+    requireRecord(value.content, `${path}.content`);
+    requireExactKeys(value.content, /* @__PURE__ */ new Set(["from"]), `${path}.content`);
+    if (value.content.from !== "captions.json") {
+      throw invalid(`${path}.content.from`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateAudioItem(value, path, ids, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, AUDIO_ITEM_KEYS, path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
+    ids.add(value.id);
+    validateItemMetadata(value, path);
+    requireInteger(value.at, 0, `${path}.at`);
+    requireInteger(value.duration, 0, `${path}.duration`);
+    if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
+      throw invalid(`${path}.role`, "sfx/narration/bgm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "gain_db")) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+    if (hasOwn(value, "denoise")) validateAudioClipDenoise(value.denoise, `${path}.denoise`);
+    if (hasOwn(value, "lowcut_hz")) requireRange(value.lowcut_hz, 0, 400, `${path}.lowcut_hz`);
+    if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`, true);
+    if (hasOwn(value, "fade_in")) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
+    if (hasOwn(value, "fade_out")) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
+      throw invalid(`${path}.ducking`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "duck_db")) requireRange(value.duck_db, -40, 0, `${path}.duck_db`);
+    if (hasOwn(value, "duck_attack")) requireRange(value.duck_attack, 0, 2, `${path}.duck_attack`);
+    if (hasOwn(value, "duck_release")) requireRange(value.duck_release, 0, 5, `${path}.duck_release`);
+    if (hasOwn(value, "script") && typeof value.script !== "string") {
+      throw invalid(`${path}.script`, "string \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "reading") && typeof value.reading !== "string") {
+      throw invalid(`${path}.reading`, "string \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "provenance")) validateNarrationProvenance(value.provenance, `${path}.provenance`);
+    validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
+  }
+  function validateNarrationProvenance(value, path) {
+    requireRecord(value, path);
+    requireText(value.provider, `${path}.provider`);
+    for (const key of ["engine", "voice", "credit", "generated_at"]) {
+      if (hasOwn(value, key) && typeof value[key] !== "string") {
+        throw invalid(`${path}.${key}`, "string \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+    }
+    if (value.provider === "voicevox" && (!hasOwn(value, "credit") || typeof value.credit !== "string" || value.credit.trim().length === 0)) {
+      throw invalid(`${path}.credit`, "provider \u304C voicevox \u306E\u3068\u304D\u306F\u7A7A\u3067\u306A\u3044\u6587\u5B57\u5217\u304C\u5FC5\u8981\u3067\u3059");
+    }
+  }
+  function validateAudioMediaSource(value, path, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out", "speed", "pitch_semitones", "formant"]), path);
+    if (value.kind !== "media") throw invalid(`${path}.kind`, "media \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    requireText(value.src, `${path}.src`);
+    if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.src}`);
+    if (hasOwn(value, "in")) requireNonNegativeNumber(value.in, `${path}.in`);
+    if (hasOwn(value, "out")) {
+      requireNonNegativeNumber(value.out, `${path}.out`);
+      const inSeconds = hasOwn(value, "in") ? value.in : 0;
+      if (value.out <= inSeconds) throw invalid(path, "audio media source \u306F out > in \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "speed")) {
+      requireRange(value.speed, 0.25, 4, `${path}.speed`);
+      if (value.speed === 0.25) throw invalid(`${path}.speed`, "0.25 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "pitch_semitones")) requireRange(value.pitch_semitones, -24, 24, `${path}.pitch_semitones`);
+    if (hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+      throw invalid(`${path}.formant`, "preserve/shift \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateAudioClipDenoise(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["method", "strength"]), path);
+    if (value.method !== "fft" && value.method !== "nlm") {
+      throw invalid(`${path}.method`, "fft/nlm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    requireRange(value.strength, 0, 1, `${path}.strength`);
+  }
+  function validateItem(value, path, ids, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, ITEM_KEYS, path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
+    ids.add(value.id);
+    validateItemMetadata(value, path);
+    requireInteger(value.at, 0, `${path}.at`);
+    requireInteger(value.duration, 0, `${path}.duration`);
+    if (hasOwn(value, "transform")) validateTransform(value.transform, `${path}.transform`);
+    if (hasOwn(value, "opacity")) requireRange(value.opacity, 0, 1, `${path}.opacity`);
+    if (hasOwn(value, "blend") && !BLEND_MODES.has(value.blend)) {
+      throw invalid(`${path}.blend`, "\u672A\u5BFE\u5FDC\u306E blend mode \u3067\u3059");
+    }
+    if (hasOwn(value, "crop")) validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, "perspective")) requireRecord(value.perspective, `${path}.perspective`);
+    if (hasOwn(value, "motion")) validateMotion(value.motion, `${path}.motion`);
+    if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
+    if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
+    validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, "mask")) {
+      if (value.source.kind !== "media") throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+      requireText(value.mask, `${path}.mask`);
+      if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+    }
+    if (hasOwn(value, "items")) {
+      if (!Array.isArray(value.items)) throw invalid(`${path}.items`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      value.items.forEach((child, index) => validateItem(child, `${path}.items[${index}]`, ids, sourceIds));
+    }
+  }
+  function validateItemMetadata(value, path) {
+    if (hasOwn(value, "name") && typeof value.name !== "string") throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    for (const key of ["hidden", "locked"]) {
+      if (hasOwn(value, key) && typeof value[key] !== "boolean") throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateItemSource(value, path, sourceIds) {
+    requireRecord(value, path);
+    switch (value.kind) {
+      case "media":
+        requireExactKeys(value, /* @__PURE__ */ new Set([
+          "kind",
+          "src",
+          "in",
+          "out",
+          "framing",
+          "transition_out",
+          "freeze",
+          "fx",
+          "speed",
+          "chroma_key"
+        ]), path);
+        requireText(value.src, `${path}.src`);
+        if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.src}`);
+        requireNonNegativeNumber(value.in, `${path}.in`);
+        requireNonNegativeNumber(value.out, `${path}.out`);
+        if (value.out <= value.in) throw invalid(path, "media source \u306F out > in \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        for (const key of ["framing", "transition_out", "freeze", "chroma_key"]) {
+          if (hasOwn(value, key) && value[key] !== null) requireRecord(value[key], `${path}.${key}`);
+        }
+        if (hasOwn(value, "fx") && !Array.isArray(value.fx)) throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        if (hasOwn(value, "speed")) requirePositiveNumber(value.speed, `${path}.speed`);
+        return;
+      case "html":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
+        requireText(value.path, `${path}.path`);
+        for (const key of ["part", "derivedFrom"]) if (hasOwn(value, key)) requireText(value[key], `${path}.${key}`);
+        if (hasOwn(value, "text") && typeof value.text !== "string") throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        if (hasOwn(value, "style")) validateStringMap(value.style, `${path}.style`);
+        if (hasOwn(value, "exclude")) validateStringList(value.exclude, `${path}.exclude`);
+        if (hasOwn(value, "vars")) requireRecord(value.vars, `${path}.vars`);
+        if (hasOwn(value, "params")) {
+          requireRecord(value.params, `${path}.params`);
+          for (const [name, text] of Object.entries(value.params)) {
+            if (typeof text !== "string") throw invalid(`${path}.params.${name}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+        }
+        return;
+      case "telop":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
+        requireText(value.preset, `${path}.preset`);
+        if (hasOwn(value, "params")) requireRecord(value.params, `${path}.params`);
+        if (hasOwn(value, "baked")) requireText(value.baked, `${path}.baked`);
+        if (hasOwn(value, "from")) requireText(value.from, `${path}.from`);
+        return;
+      case "filter":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "filter"]), path);
+        validateFilter(value.filter, `${path}.filter`);
+        return;
+      case "group":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind"]), path);
+        return;
+      case "captions":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "exclude"]), path);
+        if (value.path !== "captions.json") throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        if (hasOwn(value, "exclude")) validateStringList(value.exclude, `${path}.exclude`);
+        return;
+      case "caption":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "id"]), path);
+        if (value.path !== "captions.json") throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        requireText(value.id, `${path}.id`);
+        return;
+      default:
+        throw invalid(`${path}.kind`, "media/html/telop/filter/group/captions/caption \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateStringMap(value, path) {
+    requireRecord(value, path);
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry !== "string") throw invalid(`${path}.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateStringList(value, path) {
+    if (!Array.isArray(value)) throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    const seen = /* @__PURE__ */ new Set();
+    value.forEach((entry, index) => {
+      requireText(entry, `${path}[${index}]`);
+      if (seen.has(entry)) throw invalid(path, `\u5024\u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${entry}`);
+      seen.add(entry);
+    });
+  }
+  function validateFilter(value, path) {
+    requireRecord(value, path);
+    switch (value.type) {
+      case "invert":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["type"]), path);
+        return;
+      case "lut":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["type", "id", "intensity"]), path);
+        requireText(value.id, `${path}.id`);
+        if (hasOwn(value, "intensity")) requireRange(value.intensity, 0, 1, `${path}.intensity`);
+        return;
+      case "saturation":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["type", "value"]), path);
+        requireRange(value.value, 0, 3, `${path}.value`);
+        return;
+      default:
+        throw invalid(`${path}.type`, "invert/lut/saturation \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function validateTransform(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate"]), path);
+    for (const key of ["x", "y", "rotate"]) {
+      if (hasOwn(value, key)) requireNumber(value[key], `${path}.${key}`);
+    }
+    if (hasOwn(value, "scale")) requirePositiveNumber(value.scale, `${path}.scale`);
+  }
+  function validateCrop(value, path) {
+    requireRecord(value, path);
+    for (const key of ["x", "y"]) requireRange(value[key], 0, 1, `${path}.${key}`);
+    for (const key of ["w", "h"]) {
+      requireRange(value[key], 0, 1, `${path}.${key}`);
+      if (value[key] === 0) throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  var EASINGS = /* @__PURE__ */ new Set([
+    "linear",
+    "ease-in-out",
+    "in-quad",
+    "out-quad",
+    "in-out-quad",
+    "in-cubic",
+    "out-cubic",
+    "in-out-cubic",
+    "in-quart",
+    "out-quart",
+    "in-out-quart",
+    "in-expo",
+    "out-expo",
+    "in-out-expo",
+    "in-back",
+    "out-back",
+    "in-out-back",
+    "out-bounce",
+    "out-elastic",
+    "hold"
+  ]);
+  var CUBIC_BEZIER = /^cubic-bezier\(\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$/;
+  function validateEasing(value, path) {
+    const validateOne = (entry, entryPath) => {
+      if (typeof entry !== "string" || !EASINGS.has(entry) && !CUBIC_BEZIER.test(entry)) {
+        throw invalid(entryPath, "\u672A\u5BFE\u5FDC\u306E easing \u3067\u3059");
+      }
+    };
+    if (typeof value === "string") return validateOne(value, path);
+    requireRecord(value, path);
+    for (const [key, entry] of Object.entries(value)) validateOne(entry, `${path}.${key}`);
+  }
+  function validateKeyframes(value, path, audio = false) {
+    if (!Array.isArray(value)) {
+      requireRecord(value, path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["path", "count"]), path);
+      requireText(value.path, `${path}.path`);
+      if (!/^motion\/.+\.json$/.test(value.path)) throw invalid(`${path}.path`, "motion/ \u914D\u4E0B\u306E JSON \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      requireInteger(value.count, 2, `${path}.count`);
+      return;
+    }
+    if (!Array.isArray(value) || value.length < 2) throw invalid(path, "2 \u8981\u7D20\u4EE5\u4E0A\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    value.forEach((entry, index) => {
+      const itemPath = `${path}[${index}]`;
+      requireRecord(entry, itemPath);
+      requireInteger(entry.t, 0, `${itemPath}.t`);
+      if (audio) {
+        if (!hasOwn(entry, "gain_db")) throw invalid(`${itemPath}.gain_db`, "audio keyframe \u306B\u5FC5\u8981\u3067\u3059");
+        requireRange(entry.gain_db, -60, 12, `${itemPath}.gain_db`);
+      }
+      if (hasOwn(entry, "transform")) validateTransform(entry.transform, `${itemPath}.transform`);
+      if (hasOwn(entry, "crop")) validateCrop(entry.crop, `${itemPath}.crop`);
+      if (hasOwn(entry, "perspective")) requireRecord(entry.perspective, `${itemPath}.perspective`);
+      if (hasOwn(entry, "opacity")) requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+      if (hasOwn(entry, "animator")) {
+        requireRecord(entry.animator, `${itemPath}.animator`);
+        for (const [id, state] of Object.entries(entry.animator)) {
+          requireRecord(state, `${itemPath}.animator.${id}`);
+          requireExactKeys(state, /* @__PURE__ */ new Set(["offset", "start", "end"]), `${itemPath}.animator.${id}`);
+          if (hasOwn(state, "offset")) requireRange(state.offset, -1, 1, `${itemPath}.animator.${id}.offset`);
+          for (const key of ["start", "end"]) if (hasOwn(state, key)) requireRange(state[key], 0, 1, `${itemPath}.animator.${id}.${key}`);
+        }
+      }
+      if (hasOwn(entry, "easing")) validateEasing(entry.easing, `${itemPath}.easing`);
+    });
+  }
+  function validateMotion(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["in", "out", "loop"]), path);
+    for (const slot of ["in", "out", "loop"]) {
+      if (!hasOwn(value, slot)) continue;
+      const entry = value[slot];
+      requireRecord(entry, `${path}.${slot}`);
+      requireExactKeys(entry, /* @__PURE__ */ new Set(["preset", slot === "loop" ? "period" : "duration", "ease", "amount"]), `${path}.${slot}`);
+      requireText(entry.preset, `${path}.${slot}.preset`);
+      requireInteger(entry[slot === "loop" ? "period" : "duration"], slot === "loop" ? 1 : 0, `${path}.${slot}.${slot === "loop" ? "period" : "duration"}`);
+      if (hasOwn(entry, "ease")) validateEasing(entry.ease, `${path}.${slot}.ease`);
+      if (hasOwn(entry, "amount")) requireNumber(entry.amount, `${path}.${slot}.amount`);
+    }
+  }
+  function validateAnimators(value, path) {
+    if (!Array.isArray(value)) throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    value.forEach((entry, index) => {
+      const entryPath = `${path}[${index}]`;
+      requireRecord(entry, entryPath);
+      requireExactKeys(entry, /* @__PURE__ */ new Set(["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"]), entryPath);
+      requireText(entry.id, `${entryPath}.id`);
+      if (!["chars", "words", "lines", "segments"].includes(String(entry.basis))) throw invalid(`${entryPath}.basis`, "\u672A\u5BFE\u5FDC\u306E basis \u3067\u3059");
+      if (!["ramp", "triangle", "round", "smooth", "square", "ramp-down"].includes(String(entry.shape))) throw invalid(`${entryPath}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+      requireRange(entry.start, 0, 1, `${entryPath}.start`);
+      requireRange(entry.end, 0, 1, `${entryPath}.end`);
+      requireRange(entry.offset, -1, 1, `${entryPath}.offset`);
+      if (hasOwn(entry, "randomize")) {
+        requireRecord(entry.randomize, `${entryPath}.randomize`);
+        requireExactKeys(entry.randomize, /* @__PURE__ */ new Set(["seed"]), `${entryPath}.randomize`);
+        if (!Number.isInteger(entry.randomize.seed)) throw invalid(`${entryPath}.randomize.seed`, "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+      requireRecord(entry.amount, `${entryPath}.amount`);
+      requireExactKeys(entry.amount, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate", "opacity", "letterSpacing", "blur"]), `${entryPath}.amount`);
+      for (const [key, amount] of Object.entries(entry.amount)) {
+        if (key === "opacity") requireRange(amount, -1, 1, `${entryPath}.amount.opacity`);
+        else requireNumber(amount, `${entryPath}.amount.${key}`);
+      }
+      if (hasOwn(entry, "ease")) validateEasing(entry.ease, `${entryPath}.ease`);
+    });
+  }
+  function requireRecord(value, path) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw invalid(path, "object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+  }
+  function hasOwn(value, key) {
+    return Object.prototype.hasOwnProperty.call(value, key);
+  }
+  var UNKNOWN_KEY_GUIDANCE = {
+    emphasis_words: "\u8A9E\u30EC\u30D9\u30EB\u6F14\u51FA\u306F captions.json \u306E\u30C8\u30C3\u30D7\u30EC\u30D9\u30EB emphasis_words[] \u3078\u79FB\u3057\u3066\u304F\u3060\u3055\u3044\uFF08\u5951\u7D04 contract-2026-08-23-captions-emphasis-words-v0.md\uFF09"
+  };
+  var DEFAULT_UNKNOWN_KEY_GUIDANCE = "\u3053\u306E\u30AD\u30FC\u306F v2 \u306E\u8A9E\u5F59\u306B\u3042\u308A\u307E\u305B\u3093\u3002\u624B\u3067\u7DE8\u96C6\u3057\u305F\u5834\u5408\u306F\u53D6\u308A\u9664\u304F\u304B\u3001.akari/backup/ \u306E\u539F\u672C\u304B\u3089\u5FA9\u5143\u3057\u3066\u304F\u3060\u3055\u3044";
+  function requireExactKeys(value, allowed, path) {
+    const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+    if (unknown.length > 0) {
+      const guidance = unknown.map((key) => `${key}: ${UNKNOWN_KEY_GUIDANCE[key] ?? DEFAULT_UNKNOWN_KEY_GUIDANCE}`).join(" / ");
+      throw invalid(path, `\u672A\u5B9A\u7FA9\u30AD\u30FC\u3092\u4F7F\u7528\u3067\u304D\u307E\u305B\u3093: ${unknown.join(", ")}\u3002\u6848\u5185: ${guidance}`);
+    }
+  }
+  function requireText(value, path) {
+    if (typeof value !== "string" || value.trim().length === 0) throw invalid(path, "\u7A7A\u3067\u306A\u3044\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  function requireNumber(value, path) {
+    if (typeof value !== "number" || !Number.isFinite(value)) throw invalid(path, "\u6709\u9650\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  function requirePositiveNumber(value, path) {
+    requireNumber(value, path);
+    if (value <= 0) throw invalid(path, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  function requireNonNegativeNumber(value, path) {
+    requireNumber(value, path);
+    if (value < 0) throw invalid(path, "0 \u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  function requireInteger(value, minimum, path) {
+    if (!Number.isInteger(value) || value < minimum) {
+      throw invalid(path, `${minimum} \u4EE5\u4E0A\u306E\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`);
+    }
+  }
+  function requireRange(value, minimum, maximum, path) {
+    requireNumber(value, path);
+    if (value < minimum || value > maximum) throw invalid(path, `${minimum}..${maximum} \u306E\u7BC4\u56F2\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`);
+  }
+  function invalid(path, message) {
+    return new Error(`edit.json v2 \u304C\u4E0D\u6B63\u3067\u3059 (${path}): ${message}`);
+  }
+  function messageOf(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  // src/migrate/error.ts
+  var LegacyEditVersionError = class extends Error {
+    constructor(version) {
+      super(
+        `\u3053\u306E\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306F\u53E4\u3044\u5F62\u5F0F\u3067\u3059\uFF08edit.json version ${version}\uFF09\u3002\`akari migrate <dir>\` \u3067\u5909\u63DB\u3057\u3066\u304B\u3089\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002\u5C06\u6765\u672C\u4F53\u304B\u3089\u5909\u63DB\u5668\u304C\u5916\u308C\u305F\u5F8C\u306F \`npx akari-migrate@<\u7248> <dir>\` \u3092\u4F7F\u3044\u307E\u3059\u3002`
+      );
+      this.version = version;
+      this.name = "LegacyEditVersionError";
+    }
+  };
+
+  // src/internal-model.ts
+  function readInternalEdit(source, options) {
+    const text = typeof source === "string" ? source : JSON.stringify(source);
+    if (typeof text !== "string") {
+      throw new Error("\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+    }
+    const raw = JSON.parse(text);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error("\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
+    }
+    const record = raw;
+    if (record.version !== 2) {
+      throw new LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
+    }
+    const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
+    return readV2Internal(withoutItemAnchors(resolved));
+  }
+  function readV2Internal(raw) {
+    const edit = readEditV2(raw);
+    const fps = edit.output.fps;
+    const sources = edit.sources.map((entry) => ({
+      id: entry.id,
+      declaredPath: entry.path,
+      path: entry.path,
+      declaredProxy: entry.proxy,
+      proxy: entry.proxy ?? null,
+      ...entry.chroma_key !== void 0 && entry.chroma_key !== null ? { chromaKey: entry.chroma_key } : {},
+      declarationPath: `sources[${entry.id}]`,
+      isDefault: false
+    }));
+    const pathOf = (id) => sources.find((entry) => entry.id === id)?.path;
+    const chromaKeyOf = (id) => sources.find((entry) => entry.id === id)?.chromaKey;
+    const warnings = [];
+    const refCounters = /* @__PURE__ */ new Map();
+    const legacyIndexCounters = /* @__PURE__ */ new Map();
+    const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(
+      (track) => "items" in track && track.lane === "visual" ? [track.items] : []
+    ), pathOf);
+    const contentDurationFrames = edit.tracks.reduce((maximum, track) => "items" in track && track.lane === "visual" ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
+    const tracks = edit.tracks.map((track) => {
+      const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
+      const ref = kind === "captions" ? void 0 : nextRef(refCounters, kind);
+      const items = [];
+      if ("items" in track) {
+        track.items.forEach((item) => {
+          const built = buildV2Item(
+            item,
+            fps,
+            ref ?? 0,
+            track.lane,
+            pathOf,
+            chromaKeyOf,
+            legacyIndexCounters,
+            overlappingItemIds.has(item.id)
+          );
+          if (built.warning) {
+            warnings.push(built.warning);
+          }
+          items.push(built.item);
+        });
+      } else {
+        const normalized = buildV2Item(
+          {
+            id: track.id,
+            at: 0,
+            duration: contentDurationFrames,
+            source: { kind: "captions", path: "captions.json" }
+          },
+          fps,
+          0,
+          "visual",
+          pathOf,
+          chromaKeyOf,
+          legacyIndexCounters
+        ).item;
+        items.push(normalized);
+        Object.defineProperty(items, "toJSON", { value: () => [], enumerable: false });
+      }
+      return {
+        id: track.id,
+        lane: track.lane,
+        z: track.z,
+        ...track.name !== void 0 ? { name: track.name } : {},
+        origin: "declared",
+        ..."content" in track ? { content: { from: "captions.json" } } : {},
+        items,
+        legacy: { kind, ...ref === void 0 ? {} : { ref } }
+      };
+    });
+    addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+    hideEmptyChildrenForCompatibility(tracks);
+    synthesizeHiddenTransitionHandlesForRender(tracks, fps);
+    return {
+      output: {
+        width: edit.output.width,
+        height: edit.output.height,
+        fps,
+        ...edit.output.look !== void 0 ? { look: edit.output.look } : {}
+      },
+      sources,
+      sourceTableDeclared: true,
+      emptyProject: sources.length === 0,
+      tracks,
+      tracksDeclared: true,
+      warnings,
+      declaration: {
+        ...edit.audio !== void 0 ? { audio: edit.audio } : {},
+        ...edit.captions !== void 0 ? { captions: edit.captions } : {}
+      }
+    };
+  }
+  function hideEmptyChildrenForCompatibility(tracks) {
+    const visit = (item) => {
+      for (const child of item.children) visit(child);
+      if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, "children")) return;
+      delete item.children;
+      Object.defineProperty(item, "children", { value: [], enumerable: false, writable: true });
+    };
+    for (const track of tracks) for (const item of track.items) visit(item);
+  }
+  function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
+    const speedOf = (item) => {
+      const speed = item.declaration.speed;
+      return typeof speed === "number" && Number.isFinite(speed) && speed > 0 ? speed : 1;
+    };
+    for (const track of tracks) {
+      if (track.lane !== "visual") continue;
+      const cuts = track.items.filter(
+        (item) => item.legacy.collection === "cuts" && item.source.kind === "media"
+      );
+      for (let index = 0; index + 1 < cuts.length; index++) {
+        const outgoing = cuts[index];
+        const incoming = cuts[index + 1];
+        if (cutOverlapFrames(
+          { tlEnd: outgoing.at + outgoing.duration },
+          { tlStart: incoming.at },
+          fps
+        ) !== 0) continue;
+        const transition = outgoing.declaration.transition_out;
+        if (!isRecord2(transition) || typeof transition.duration !== "number" || !Number.isFinite(transition.duration) || transition.duration <= 0) continue;
+        const incomingSpeed = speedOf(incoming);
+        const incomingStill = isStillImageSourcePath(incoming.source.path);
+        const plan = planTransitionHandleWindow({
+          declaredSeconds: transition.duration,
+          outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
+          incomingHeadRoomSeconds: incomingStill ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
+          outgoingDurationSeconds: outgoing.duration,
+          incomingDurationSeconds: incoming.duration
+        });
+        if (plan.effectiveSeconds <= 0) continue;
+        const outgoingSpeed = speedOf(outgoing);
+        outgoing.declaration = {
+          ...outgoing.declaration,
+          out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
+          transition_out: { ...transition, duration: plan.effectiveSeconds }
+        };
+        incoming.declaration = incomingStill ? {
+          ...incoming.declaration,
+          at: Number(incoming.declaration.at) - plan.halfSeconds,
+          out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+        } : {
+          ...incoming.declaration,
+          at: Number(incoming.declaration.at) - plan.halfSeconds,
+          in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+        };
+      }
+    }
+  }
+  function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
+    if (!("items" in track)) {
+      return "captions";
+    }
+    if (track.lane === "audio") {
+      return "audio";
+    }
+    const first = track.items[0];
+    switch (first?.source.kind) {
+      case "html":
+        return "overlays";
+      case "captions":
+        return "captions";
+      case "telop":
+      case "filter":
+      case "group":
+      case "caption":
+        return "layers";
+      // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
+      // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
+      // しまい、後続の実際に中身がある cuts トラックの ref 番号がずれる
+      // （旧 track: N を見る needsGapAwareCutTimeline が誤って gap-aware 経路へ倒れる）。
+      // 'layers' は別カウンタなので、空トラックの存在が実クリップの分類・ref に影響しない
+      // （P0 2026-08-20 track-identity-and-duration r1 で踏んだのと同じ罠）。
+      default:
+        return first === void 0 || track.items.some((item) => overlappingItemIds.has(item.id)) || needsLayersEngine(first, chromaKeyOf, overlappingItemIds.has(first.id)) ? "layers" : "cuts";
+    }
+  }
+  function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
+    if (item.source.kind !== "media") return false;
+    if ("mask" in item && item.mask !== void 0) return true;
+    if (item.blend !== void 0 && item.blend !== "normal") return true;
+    if (Array.isArray(item.keyframes) && item.keyframes.some(
+      (point) => point && typeof point === "object" && "perspective" in point && point.perspective !== void 0
+    )) return true;
+    const chromaKey = item.source.chroma_key ?? chromaKeyOf?.(item.source.src);
+    if (chromaKey !== void 0 && chromaKey !== null) {
+      const hasBackground = typeof chromaKey === "object" && typeof chromaKey.background === "string" && chromaKey.background.length > 0;
+      if (!hasBackground) return true;
+    }
+    if (hasOverlappingSibling) return true;
+    return false;
+  }
+  function analyzeOverlappingItems(itemGroups, pathOf) {
+    const overlapping = /* @__PURE__ */ new Set();
+    const crossTrackEvacuations = [];
+    const entries = itemGroups.flatMap(
+      (group, trackIndex) => group.items.map((item) => ({ item, trackIndex, trackId: group.trackId }))
+    );
+    for (let i = 0; i < entries.length; i++) {
+      const { item: a, trackIndex: aTrackIndex, trackId: aTrackId } = entries[i];
+      if (a.source.kind !== "media") continue;
+      for (let j = i + 1; j < entries.length; j++) {
+        const { item: b, trackIndex: bTrackIndex, trackId: bTrackId } = entries[j];
+        if (b.source.kind !== "media") continue;
+        if (!(a.at < b.at + b.duration && b.at < a.at + a.duration)) continue;
+        const sameTrack = aTrackIndex === bTrackIndex;
+        if (sameTrack && (a.source.transition_out !== void 0 || b.source.transition_out !== void 0)) continue;
+        if (sameTrack) {
+          overlapping.add(a.id);
+          overlapping.add(b.id);
+        } else {
+          const upperIsA = aTrackIndex > bTrackIndex;
+          const upper = upperIsA ? a : b;
+          const lower = upperIsA ? b : a;
+          if (needsCrossTrackLayers(upper, pathOf)) {
+            overlapping.add(upper.id);
+            crossTrackEvacuations.push({
+              itemId: upper.id,
+              trackId: upperIsA ? aTrackId : bTrackId,
+              causeItemId: lower.id,
+              causeTrackId: upperIsA ? bTrackId : aTrackId,
+              overlapStartFrames: Math.max(a.at, b.at),
+              overlapEndFrames: Math.min(a.at + a.duration, b.at + b.duration)
+            });
+          }
+        }
+      }
+    }
+    return { itemIds: overlapping, crossTrackEvacuations };
+  }
+  function computeOverlappingItemIds(itemGroups, pathOf) {
+    return analyzeOverlappingItems(itemGroups.map((items, index) => ({
+      items,
+      trackId: String(index)
+    })), pathOf).itemIds;
+  }
+  var ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
+  function isAlphaCapableMediaSourcePath(path) {
+    return typeof path === "string" && ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN.test(path);
+  }
+  function needsCrossTrackLayers(item, pathOf) {
+    const transform = item.transform;
+    return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+  }
+  function nextRef(counters, kind) {
+    const ref = counters.get(kind) ?? 0;
+    counters.set(kind, ref + 1);
+    return ref;
+  }
+  function nextLegacyIndex(counters, collection) {
+    const index = counters.get(collection) ?? 0;
+    counters.set(collection, index + 1);
+    return index;
+  }
+  function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+    const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(
+      item,
+      fps,
+      ref,
+      pathOf,
+      chromaKeyOf,
+      legacyIndexCounters,
+      hasOverlappingSibling,
+      parentAtFrames,
+      parentId
+    );
+    const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(
+      child,
+      fps,
+      ref,
+      "visual",
+      pathOf,
+      chromaKeyOf,
+      legacyIndexCounters,
+      false,
+      built.item.atFrames,
+      built.item.id
+    ).item) : [];
+    if (children.length > 0 || "items" in item && Array.isArray(item.items)) {
+      built.item.children = children;
+    } else {
+      delete built.item.children;
+      Object.defineProperty(built.item, "children", { value: children, enumerable: false, writable: true });
+    }
+    if (parentId !== void 0) built.item.parentId = parentId;
+    return built;
+  }
+  function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+    const atFrames = parentAtFrames + item.at;
+    const durationFrames = item.duration;
+    const at = atFrames / fps;
+    const duration = durationFrames / fps;
+    const declaredKeyframes = item.keyframes;
+    const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
+    const common = {
+      ...item.transform !== void 0 ? { transform: item.transform } : {},
+      ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
+      ...item.blend !== void 0 ? { blend: item.blend } : {},
+      ...item.crop !== void 0 ? { crop: item.crop } : {},
+      ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
+      ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
+      ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
+      ...keyframes !== void 0 ? { keyframes } : {},
+      ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+    };
+    const finish = (built) => {
+      if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
+        built.item.keyframesRef = { ...declaredKeyframes };
+      }
+      if (parentId !== void 0) {
+        const relativeSeconds = item.at / fps;
+        switch (item.source.kind) {
+          case "media":
+            built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
+            break;
+          case "html":
+            built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
+            break;
+          case "telop":
+          case "filter":
+            built.item.declaration = { ...built.item.declaration, t: relativeSeconds };
+            break;
+          default:
+            break;
+        }
+      }
+      return built;
+    };
+    switch (item.source.kind) {
+      case "media": {
+        const path = pathOf(item.source.src);
+        const source = {
+          kind: "media",
+          sourceId: item.source.src,
+          ...path !== void 0 ? { path } : {},
+          in: item.source.in,
+          out: item.source.out
+        };
+        const span = item.source.out - item.source.in;
+        const freezeSeconds = isRecord2(item.source.freeze) && typeof item.source.freeze.duration_sec === "number" && Number.isFinite(item.source.freeze.duration_sec) ? Math.max(0, item.source.freeze.duration_sec) : 0;
+        const playbackDuration = Math.max(0, duration - freezeSeconds);
+        const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
+        const cutOut = durationFrames === 0 ? item.source.in : alignsDuration ? item.source.in + playbackDuration : item.source.out;
+        const speed = playbackDuration > 0 && !alignsDuration ? span / playbackDuration : void 0;
+        if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
+          const declaration = {
+            id: item.id,
+            t: at,
+            duration,
+            kind: "video",
+            src: path ?? item.source.src,
+            track: ref,
+            ...common,
+            ...copyMediaSourceFields(item.source)
+          };
+          const value2 = declaration;
+          return finish({
+            item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at,
+              duration,
+              children: [],
+              source,
+              declaration,
+              legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value: value2 }
+            }
+          });
+        }
+        const value = {
+          in: item.source.in,
+          out: cutOut,
+          src: item.source.src,
+          at,
+          track: ref,
+          ...speed !== void 0 ? { speed } : {},
+          ...item.transform !== void 0 ? { transform: item.transform } : {},
+          ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
+          ...copyMediaSourceFields(item.source)
+        };
+        return finish({
+          item: {
+            id: item.id,
+            atFrames,
+            durationFrames,
+            at,
+            duration,
+            children: [],
+            source,
+            declaration: {
+              id: item.id,
+              src: item.source.src,
+              in: item.source.in,
+              out: cutOut,
+              at,
+              track: ref,
+              ...common,
+              ...copyMediaSourceFields(item.source),
+              ...speed !== void 0 ? { speed } : {}
+            },
+            legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
+          }
+        });
+      }
+      case "html": {
+        const declaration = {
+          id: item.id,
+          html: item.source.path,
+          start: at,
+          duration,
+          track: ref,
+          ...item.source.vars !== void 0 ? { vars: item.source.vars } : {},
+          ...item.source.params !== void 0 ? { params: item.source.params } : {},
+          ...common
+        };
+        const value = {
+          id: item.id,
+          start: at,
+          duration,
+          track: ref,
+          payload: declaration
+        };
+        return finish({
+          item: {
+            id: item.id,
+            atFrames,
+            durationFrames,
+            at,
+            duration,
+            children: [],
+            source: {
+              kind: "html",
+              html: item.source.path,
+              ...item.source.params !== void 0 ? { params: item.source.params } : {},
+              ...item.source.part !== void 0 ? { part: item.source.part } : {},
+              ...item.source.style !== void 0 ? { style: item.source.style } : {},
+              ...item.source.text !== void 0 ? { text: item.source.text } : {},
+              ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
+              ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
+            },
+            declaration,
+            legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
+          }
+        });
+      }
+      case "telop": {
+        const source = {
+          kind: "telop",
+          preset: item.source.preset,
+          ...item.source.params !== void 0 ? { params: item.source.params } : {},
+          ...item.source.baked !== void 0 ? { baked: item.source.baked } : {},
+          ...item.source.from !== void 0 ? { from: item.source.from } : {}
+        };
+        const declaration = {
+          id: item.id,
+          t: at,
+          duration,
+          kind: "baked",
+          src: item.source.baked,
+          preset: item.source.preset,
+          params: item.source.params,
+          track: ref,
+          ...common
+        };
+        if (item.source.baked === void 0) {
+          return finish({
+            item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") } }
+          });
+        }
+        const value = {
+          id: item.id,
+          t: at,
+          duration,
+          kind: "baked",
+          src: item.source.baked,
+          track: ref,
+          ...item.source.preset !== void 0 ? { preset: item.source.preset } : {},
+          ...item.transform !== void 0 ? { transform: item.transform } : {},
+          ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
+          ...item.blend !== void 0 ? { blend: item.blend } : {}
+        };
+        return finish({
+          item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value } }
+        });
+      }
+      case "filter": {
+        const source = { kind: "filter", filter: item.source.filter };
+        return finish({
+          item: {
+            id: item.id,
+            atFrames,
+            durationFrames,
+            at,
+            duration,
+            children: [],
+            source,
+            declaration: {
+              id: item.id,
+              t: at,
+              duration,
+              kind: "filter",
+              filter: item.source.filter,
+              track: ref,
+              ...common
+            },
+            legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") }
+          }
+        });
+      }
+      case "group":
+        return finish({ item: {
+          id: item.id,
+          atFrames,
+          durationFrames,
+          at,
+          duration,
+          children: [],
+          source: { kind: "group" },
+          declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+          legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+        } });
+      case "captions":
+        return finish({ item: {
+          id: item.id,
+          atFrames,
+          durationFrames,
+          at,
+          duration,
+          children: [],
+          source: { kind: "captions", path: "captions.json", ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {} },
+          declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+          legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+        } });
+      case "caption":
+        return finish({ item: {
+          id: item.id,
+          atFrames,
+          durationFrames,
+          at,
+          duration,
+          children: [],
+          source: { kind: "caption", path: "captions.json", id: item.source.id },
+          declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+          legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+        } });
+    }
+  }
+  function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
+    const atFrames = item.at;
+    const durationFrames = item.duration;
+    const at = atFrames / fps;
+    const duration = durationFrames / fps;
+    const inSeconds = item.source.in ?? 0;
+    const sourceClipFx = {
+      ...item.source.speed !== void 0 ? { speed: item.source.speed } : {},
+      ...item.source.pitch_semitones !== void 0 ? { pitch_semitones: item.source.pitch_semitones } : {},
+      ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
+    };
+    const itemClipFx = {
+      ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
+      ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
+    };
+    const path = pathOf(item.source.src);
+    const source = {
+      kind: "media",
+      sourceId: item.source.src,
+      ...path !== void 0 ? { path } : {},
+      in: inSeconds,
+      out: item.source.out ?? inSeconds,
+      ...sourceClipFx
+    };
+    const resolvedPath = path ?? item.source.src;
+    const role = item.role ?? "sfx";
+    if (role === "narration") {
+      const value2 = {
+        id: item.id,
+        t: at,
+        path: resolvedPath,
+        track: ref,
+        ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+        ...sourceClipFx,
+        ...itemClipFx,
+        ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+        ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+        ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+        ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+        ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {},
+        ...item.source.in !== void 0 ? { in: item.source.in } : {},
+        ...item.source.out !== void 0 ? { out: item.source.out } : {},
+        ...item.script !== void 0 ? { script: item.script } : {},
+        ...item.reading !== void 0 ? { reading: item.reading } : {},
+        ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
+      };
+      return {
+        item: {
+          id: item.id,
+          atFrames,
+          durationFrames,
+          at,
+          duration,
+          children: [],
+          source,
+          declaration: {
+            id: item.id,
+            t: at,
+            path: resolvedPath,
+            ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+            ...sourceClipFx,
+            ...itemClipFx,
+            ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+            ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+            ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+            ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+            ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {},
+            ...item.source.in !== void 0 ? { in: item.source.in } : {},
+            ...item.source.out !== void 0 ? { out: item.source.out } : {},
+            ...item.script !== void 0 ? { script: item.script } : {},
+            ...item.reading !== void 0 ? { reading: item.reading } : {},
+            ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
+          },
+          legacy: {
+            collection: "narration",
+            index: nextLegacyIndex(legacyIndexCounters, "narration"),
+            value: value2
+          }
+        }
+      };
+    }
+    if (role === "bgm") {
+      const value2 = {
+        id: "bgm",
+        path: resolvedPath,
+        track: ref,
+        ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
+        ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
+        ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+        ...sourceClipFx,
+        ...itemClipFx,
+        ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+        ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+        ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+        ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+        ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
+      };
+      return {
+        item: {
+          id: item.id,
+          atFrames,
+          durationFrames,
+          at,
+          duration,
+          children: [],
+          source,
+          declaration: {
+            path: resolvedPath,
+            ...item.source.in !== void 0 ? { in: item.source.in } : {},
+            ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
+            ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
+            ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+            ...sourceClipFx,
+            ...itemClipFx,
+            ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+            ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+            ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+            ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+            ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
+          },
+          legacy: { collection: "bgm", index: 0, value: value2 }
+        }
+      };
+    }
+    const value = {
+      id: item.id,
+      t: at,
+      duration,
+      path: resolvedPath,
+      track: ref,
+      in: inSeconds,
+      ...item.source.out !== void 0 ? { out: item.source.out } : {},
+      ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+      ...sourceClipFx,
+      ...itemClipFx,
+      ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+      ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+      ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+      ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+      ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
+    };
+    return {
+      item: {
+        id: item.id,
+        atFrames,
+        durationFrames,
+        at,
+        duration,
+        children: [],
+        source,
+        declaration: {
+          id: item.id,
+          t: at,
+          duration,
+          path: resolvedPath,
+          track: ref,
+          in: inSeconds,
+          ...item.source.out !== void 0 ? { out: item.source.out } : {},
+          ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+          ...sourceClipFx,
+          ...itemClipFx,
+          ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+          ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
+          ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
+          ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+          ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+          ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+          ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
+        },
+        legacy: { collection: "sfx", index: nextLegacyIndex(legacyIndexCounters, "sfx"), value }
+      }
+    };
+  }
+  function copyMediaSourceFields(source) {
+    return {
+      ...source.framing !== void 0 ? { framing: source.framing } : {},
+      ...source.transition_out !== void 0 ? { transition_out: source.transition_out } : {},
+      ...source.freeze !== void 0 ? { freeze: source.freeze } : {},
+      ...source.fx !== void 0 ? { fx: source.fx } : {},
+      ...source.speed !== void 0 ? { speed: source.speed } : {},
+      ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
+    };
+  }
+  function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
+    const audio = isRecord2(audioValue) ? audioValue : void 0;
+    if (!audio) return;
+    const ensureTrack = (ref) => {
+      let track = tracks.find((candidate) => candidate.lane === "audio" && (candidate.legacy.ref ?? 0) === ref);
+      if (!track) {
+        track = {
+          id: `implicit-audio-${ref}`,
+          lane: "audio",
+          z: tracks.length,
+          origin: "implicit",
+          items: [],
+          legacy: { kind: "audio", ref }
+        };
+        tracks.push(track);
+      }
+      return track;
+    };
+    const sfx = Array.isArray(audio.sfx) ? audio.sfx : [];
+    sfx.forEach((entry, index) => {
+      if (!isRecord2(entry) || typeof entry.path !== "string" || !entry.path.trim() || typeof entry.t !== "number") return;
+      const ref = normalizeTrackNumber(entry.track);
+      const start = typeof entry.in === "number" ? entry.in : 0;
+      const end = typeof entry.out === "number" && entry.out > start ? entry.out : start + 1;
+      const duration = Math.max(0, end - start);
+      const value = {
+        id: typeof entry.id === "string" ? entry.id : `sfx-${index}`,
+        t: entry.t,
+        duration,
+        path: entry.path,
+        track: ref,
+        in: start,
+        ...end > start ? { out: end } : {},
+        ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+        ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+        ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+        ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+        ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+        ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {}
+      };
+      ensureTrack(ref).items.push({
+        id: value.id,
+        atFrames: Math.round(value.t * fps),
+        durationFrames: Math.round(duration * fps),
+        at: value.t,
+        duration,
+        children: [],
+        source: { kind: "media", path: value.path, in: start, out: end },
+        declaration: entry,
+        legacy: { collection: "sfx", index: nextLegacyIndex(legacyIndexCounters, "sfx"), value }
+      });
+    });
+    const narration = Array.isArray(audio.narration) ? audio.narration : [];
+    narration.forEach((entry, index) => {
+      if (!isRecord2(entry) || typeof entry.path !== "string" || typeof entry.t !== "number") return;
+      const start = typeof entry.in === "number" ? entry.in : 0;
+      const end = typeof entry.out === "number" ? entry.out : start;
+      const duration = Math.max(0, end - start);
+      const value = {
+        id: typeof entry.id === "string" ? entry.id : `n-${String(index + 1).padStart(4, "0")}`,
+        t: entry.t,
+        path: entry.path,
+        ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+        ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+        ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+        ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+        ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+        ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {},
+        ...typeof entry.in === "number" ? { in: entry.in } : {},
+        ...typeof entry.out === "number" ? { out: entry.out } : {},
+        ...typeof entry.script === "string" ? { script: entry.script } : {},
+        ...typeof entry.reading === "string" ? { reading: entry.reading } : {},
+        ...isRecord2(entry.provenance) ? { provenance: structuredClone(entry.provenance) } : {}
+      };
+      ensureTrack(0).items.push({
+        id: value.id,
+        atFrames: Math.round(value.t * fps),
+        durationFrames: Math.round(duration * fps),
+        at: value.t,
+        duration,
+        children: [],
+        source: { kind: "media", path: value.path, in: start, out: end },
+        declaration: entry,
+        legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
+      });
+    });
+    if (isRecord2(audio.bgm) && typeof audio.bgm.path === "string") {
+      const entry = audio.bgm;
+      const value = {
+        id: "bgm",
+        path: entry.path,
+        ...typeof entry.fadeIn === "number" ? { fadeIn: entry.fadeIn } : {},
+        ...typeof entry.fadeOut === "number" ? { fadeOut: entry.fadeOut } : {},
+        ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+        ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+        ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+        ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+        ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+        ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {}
+      };
+      ensureTrack(0).items.push({
+        id: "bgm",
+        atFrames: 0,
+        durationFrames: 0,
+        at: 0,
+        duration: 0,
+        children: [],
+        source: { kind: "media", path: value.path, in: 0, out: 0 },
+        declaration: entry,
+        legacy: { collection: "bgm", index: 0, value }
+      });
+    }
+    tracks.forEach((track, index) => {
+      track.z = index;
+    });
+  }
+  function projectLegacyEdit(internal) {
+    const cuts = [];
+    const overlays = [];
+    const layers = [];
+    const audioSfx = [];
+    const audioNarration = [];
+    let audioBgm;
+    for (const track of internal.tracks) {
+      for (const item of track.items) {
+        const value = item.legacy.value;
+        if (value === void 0) {
+          if (item.source.kind === "telop" || item.source.kind === "filter") {
+            layers.push({ index: item.legacy.index, value: item.declaration });
+          }
+          continue;
+        }
+        switch (item.source.kind) {
+          case "media":
+            switch (item.legacy.collection) {
+              case "sfx":
+                audioSfx.push({ index: item.legacy.index, value });
+                break;
+              case "narration":
+                audioNarration.push({ index: item.legacy.index, value });
+                break;
+              case "bgm":
+                audioBgm = value;
+                break;
+              case "layers":
+                layers.push({ index: item.legacy.index, value });
+                break;
+              default:
+                cuts.push({ index: item.legacy.index, value });
+                break;
+            }
+            break;
+          case "html":
+            overlays.push({ index: item.legacy.index, value });
+            break;
+          case "telop":
+          case "filter":
+            layers.push({ index: item.legacy.index, value });
+            break;
+          default:
+            break;
+        }
+      }
+    }
+    const declaredTracks = internal.tracks.filter((track) => track.origin === "declared").map(toLegacyTrack);
+    return {
+      cuts: byDeclarationOrder(cuts),
+      ...internal.sourceTableDeclared ? {
+        sources: internal.sources.filter((entry) => entry.path !== void 0).map((entry) => ({ id: entry.id, path: entry.path, proxy: entry.proxy }))
+      } : {},
+      overlays: byDeclarationOrder(overlays),
+      ...internal.beats !== void 0 ? { beats: internal.beats } : {},
+      layers: byDeclarationOrder(layers),
+      audioSfx: byDeclarationOrder(audioSfx),
+      audioNarration: byDeclarationOrder(audioNarration),
+      ...audioBgm ? { audioBgm } : {},
+      ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
+      fps: internal.output.fps,
+      warnings: internal.warnings
+    };
+  }
+  function toLegacyTrack(track) {
+    return {
+      id: track.id,
+      kind: track.legacy.kind,
+      ...track.legacy.ref === void 0 ? {} : { ref: track.legacy.ref },
+      ...track.name === void 0 ? {} : { label: track.name },
+      ...track.muted === void 0 ? {} : { muted: track.muted },
+      ...track.hidden === void 0 ? {} : { hidden: track.hidden },
+      ...track.locked === void 0 ? {} : { locked: track.locked }
+    };
+  }
+  function byDeclarationOrder(entries) {
+    return [...entries].sort((left, right) => left.index - right.index).map((entry) => entry.value);
+  }
+  function isRecord2(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+  function normalizeTrackNumber(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+  }
+
+  // src/item-anchor.ts
+  function resolveItemAnchor(item, context) {
+    const start = item.anchor.range?.start ?? context.caption.start;
+    const end = item.anchor.range?.end ?? context.caption.end;
+    const startOut = context.caption.timeDomain === "output" ? start : sourceToOutput(context.segments, start);
+    const endOut = context.caption.timeDomain === "output" ? end : sourceToOutput(context.segments, end);
+    if (startOut === null || endOut === null) {
+      return { unresolvable: "no-source-segments" };
+    }
+    if (startOut === endOut) {
+      return { unresolvable: "removed-range" };
+    }
+    const startFrames = Math.round(startOut * context.fps);
+    const endFrames = Math.round(endOut * context.fps);
+    return {
+      at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+      duration: (item.anchor.duration ?? "caption") === "caption" ? Math.max(1, endFrames - startFrames) : item.duration
+    };
+  }
+  function withoutItemAnchors(edit) {
+    if (!isRecord3(edit) || !Array.isArray(edit.tracks)) return edit;
+    let tracksChanged = false;
+    const tracks = edit.tracks.map((track) => {
+      if (!isRecord3(track) || !Array.isArray(track.items)) return track;
+      const items = stripItems(track.items);
+      if (items === track.items) return track;
+      tracksChanged = true;
+      return { ...track, items };
+    });
+    return tracksChanged ? { ...edit, tracks } : edit;
+  }
+  function resolveItemAnchors(edit, captions, options) {
+    if (!hasItemAnchor(edit)) return { edit, changes: [], warnings: [] };
+    const fps = validFps(options?.fps) ?? validFps(edit.output?.fps) ?? 30;
+    const anchorFreeEdit = withoutItemAnchors(edit);
+    const internal = readInternalEdit(anchorFreeEdit);
+    const legacy = projectLegacyEdit(internal);
+    const segments = buildTimelineMap(legacy.cuts, { fps: legacy.fps }).segments;
+    const captionById = new Map(captions.map((caption) => [caption.id, caption]));
+    const changes = [];
+    const warnings = [];
+    let tracksChanged = false;
+    const tracks = edit.tracks.map((track) => {
+      if (!("items" in track) || !Array.isArray(track.items) || track.lane !== "visual") return track;
+      const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
+      if (items === track.items) return track;
+      tracksChanged = true;
+      return { ...track, items };
+    });
+    return {
+      edit: tracksChanged ? { ...edit, tracks } : edit,
+      changes,
+      warnings
+    };
+  }
+  function resolveItems(items, parentAtFrames, captionById, segments, fps, changes, warnings) {
+    let changed = false;
+    const result = items.map((item) => {
+      let next = item;
+      if (item.anchor) {
+        if (item.source.kind === "captions" || item.source.kind === "caption") {
+          warnings.push({ id: item.id, reason: "unsupported-kind" });
+        } else {
+          const caption = captionById.get(item.anchor.caption);
+          if (!caption) {
+            warnings.push({ id: item.id, reason: "caption-not-found" });
+          } else {
+            const resolution = resolveItemAnchor(item, {
+              caption,
+              segments,
+              fps,
+              parentAtFrames
+            });
+            if ("unresolvable" in resolution) {
+              warnings.push({ id: item.id, reason: resolution.unresolvable });
+            } else if (item.at !== resolution.at || item.duration !== resolution.duration) {
+              changes.push({
+                id: item.id,
+                before: { at: item.at, duration: item.duration },
+                after: resolution
+              });
+              next = { ...item, ...resolution };
+              changed = true;
+            }
+          }
+        }
+      }
+      const absoluteAtFrames = parentAtFrames + next.at;
+      if (Array.isArray(next.items)) {
+        const children = resolveItems(
+          next.items,
+          absoluteAtFrames,
+          captionById,
+          segments,
+          fps,
+          changes,
+          warnings
+        );
+        if (children !== next.items) {
+          next = { ...next, items: children };
+          changed = true;
+        }
+      }
+      return next;
+    });
+    return changed ? result : items;
+  }
+  function stripItems(items) {
+    let changed = false;
+    const result = items.map((item) => {
+      if (!isRecord3(item)) return item;
+      let next = item;
+      if (Object.prototype.hasOwnProperty.call(item, "anchor")) {
+        const { anchor: _anchor, ...rest } = item;
+        next = rest;
+        changed = true;
+      }
+      if (Array.isArray(next.items)) {
+        const children = stripItems(next.items);
+        if (children !== next.items) {
+          next = { ...next, items: children };
+          changed = true;
+        }
+      }
+      return next;
+    });
+    return changed ? result : items;
+  }
+  function hasItemAnchor(edit) {
+    const visit = (items) => items.some(
+      (item) => item.anchor !== void 0 || Array.isArray(item.items) && visit(item.items)
+    );
+    return edit.tracks.some((track) => "items" in track && track.lane === "visual" && visit(track.items));
+  }
+  function validFps(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  }
+  function isRecord3(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
   // src/caption-display.ts
   var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
   var CAPTION_TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
@@ -1327,7 +3388,7 @@ var AkariEditKernel = (() => {
   var CAPTION_LAYOUT_REQUIRED_KEYS = [...CAPTION_LAYOUT_KEYS];
   function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
     const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
-    const position = isRecord(positionValue) ? positionValue : void 0;
+    const position = isRecord4(positionValue) ? positionValue : void 0;
     const verticalAlign = typeof verticalAlignValue === "string" && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : void 0;
     if (!anchor && !position && !verticalAlign) return {};
     const vars = {};
@@ -1366,7 +3427,7 @@ var AkariEditKernel = (() => {
     }
     return vars;
   }
-  function isRecord(value) {
+  function isRecord4(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
 

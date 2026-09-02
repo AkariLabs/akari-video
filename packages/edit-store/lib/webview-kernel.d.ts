@@ -8,11 +8,15 @@
  */
 export * from './timeline-map';
 export * from './caption-window';
+export * from './caption-clock';
+export * from './caption-style-preset';
+export * from './generated/textstyle-catalog';
 export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';
 export * from './envelope';
 export * from './audio-schedule';
+export * from './item-anchor';
 export { captionAnchorPositionVars } from './caption-display';
 /** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */
 export declare function findActiveResolvedCaption<T extends {

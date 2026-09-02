@@ -9,6 +9,7 @@ import test from "node:test";
 
 import {
   INTAKE_ROOT_FIELDS,
+  lintProject,
   validateCaptionTrackDeclaration,
   validateTrackTransitionOutCompatibility,
 } from "../src/edit-lint.mjs";
@@ -174,6 +175,51 @@ test("output-domain caption beyond the cuts duration warns about render clamping
   });
 });
 
+test("既知の caption style_preset は finding を出さない", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "subtitle-standard",
+    }])}\n`, "utf8");
+    const result = parseResult(run(project));
+    assert.ok(!result.findings.some(finding => finding.check === "captions.style-preset-unknown"));
+    assert.ok(!result.findings.some(finding => finding.check === "captions.schema"));
+  });
+});
+
+test("未知の caption style_preset は warning 1 件と候補最大 5 件を出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "missing-style",
+    }])}\n`, "utf8");
+    const result = parseResult(run(project));
+    const findings = result.findings.filter(finding => finding.check === "captions.style-preset-unknown");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /missing-style/u);
+    const candidates = findings[0].message.split("candidates: ")[1]?.split(", ") ?? [];
+    assert.ok(candidates.length <= 5);
+  });
+});
+
+test("presets が無い bundled CLI 相当では存在検査をスキップする", async () => {
+  await withFixtures(async (fixtures, root) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "missing-style",
+    }])}\n`, "utf8");
+    const result = await lintProject(project, {
+      writeReports: false,
+      textstyleRepositoryRoot: join(root, "bundle-without-presets"),
+    });
+    assert.ok(!result.findings.some(finding => finding.check === "captions.style-preset-unknown"));
+  });
+});
+
 test("version 3 stops with an honest too-new message", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "version-3"));
@@ -200,6 +246,96 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
       path: "edit.json#tracks[2].content",
     }]);
     assert.ok(!result.skipped.some((item) => item.check === "edit.v2.extended-validation"));
+  });
+});
+
+async function writeAnchorCaptions(project, overrides = {}) {
+  const row = {
+    id: "c-0001", start: 13, end: 14, text: "アンカー字幕",
+    speaker: null, sourceRef: null, edited: false, ...overrides,
+  };
+  await writeFile(join(project, "captions.json"), `${JSON.stringify([row])}\n`, "utf8");
+}
+
+function anchoredHtml(edit, anchor, cache = { at: 30, duration: 60 }) {
+  const item = edit.tracks.find(track => track.id === "v-html").items[0];
+  Object.assign(item, cache, { anchor });
+  return item;
+}
+
+test("v2.item-anchor-ref errors when anchor.caption is absent from captions.json", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-9999" });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-ref"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-range rejects an interval outside the caption", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-0001", range: { start: 12.5, end: 13.5 } });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-range"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-kind rejects anchor on a captions item", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    const item = anchoredHtml(edit, { caption: "c-0001" });
+    item.source = { kind: "captions", path: "captions.json" };
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-kind"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-stale warns with resolved and cached values", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-0001" }, { at: 1, duration: 2 });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    const finding = result.findings.find(entry => entry.check === "v2.item-anchor-stale");
+    assert.equal(finding.severity, "warning", JSON.stringify(result.findings, null, 2));
+    assert.match(finding.message, /resolves to at=30, duration=30; cached at=1, duration=2/u);
+  });
+});
+
+test("v2.item-anchor-unresolvable warns when the whole interval is cut", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.tracks.find(track => track.id === "v-main").items = [
+      { id: "clip-1", at: 0, duration: 30, source: { kind: "media", src: "main", in: 12, out: 13 } },
+      { id: "clip-2", at: 30, duration: 210, source: { kind: "media", src: "main", in: 15, out: 22 } },
+    ];
+    anchoredHtml(edit, { caption: "c-0001" }, { at: 30, duration: 30 });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project, { start: 13.5, end: 14.5 });
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-unresolvable"
+      && finding.severity === "warning"), JSON.stringify(result.findings, null, 2));
   });
 });
 
@@ -734,6 +870,57 @@ test("captions-word-out-of-range fixture warns without failing", async () => {
         .filter((finding) => finding.check === "captions.words-range")
         .every((finding) => finding.severity === "warning"),
     );
+  });
+});
+
+test("malformed caption unrecognized[] is a captions.schema error", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false, unrecognized: [{ start: 2.2, end: "2.5" }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(result.findings.some((finding) =>
+      finding.check === "captions.schema" && /unrecognized span/.test(finding.message)));
+  });
+});
+
+test("caption 範囲外の unrecognized は warning だけを出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false, unrecognized: [{ start: 1.8, end: 2.2 }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find((item) => item.check === "captions.unrecognized-range");
+    assert.equal(finding?.severity, "warning");
+    assert.deepEqual(finding?.range, { start: 1.8, end: 2.2 });
+  });
+});
+
+test("word と重なる unrecognized は warning だけを出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false,
+      words: [{ start: 2.1, end: 2.5, text: "字幕" }],
+      unrecognized: [{ start: 2.4, end: 2.7 }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find(
+      (item) => item.check === "captions.unrecognized-overlaps-word",
+    );
+    assert.equal(finding?.severity, "warning");
+    assert.deepEqual(finding?.range, { start: 2.4, end: 2.7 });
   });
 });
 

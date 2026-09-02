@@ -50,7 +50,9 @@ DL・sha256 検証・適用まで実行。それ以外（npm グローバル / g
 配布物の取得ができる。`src/store-command.mjs`）/
 `akari assets <list|fetch|sync|...>`（素材カタログの一覧・取得・同期。
 `packages/asset-resolver` の CLI への薄い委譲で、カタログ合成・entitlements 判定・
-sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-command.mjs`）。
+sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-command.mjs`）/
+`akari clean [project-dir] [--dry-run] [--yes] [--json]`（使い捨ての中間ファイル、保持する
+正本、判断が必要なものを容量付きで一覧する。既定は一覧のみで、削除可能なものだけを承認後に削除）。
 
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。

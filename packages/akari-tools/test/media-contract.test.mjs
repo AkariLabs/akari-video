@@ -17,8 +17,9 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { runMediaCli } from "../bin/media.mjs";
 import { formatTimecode } from "../src/media/common.mjs";
 import { probeMedia } from "../src/media/probe.mjs";
-import { transcribeMedia } from "../src/media/transcribe.mjs";
+import { normalizeWhisperJson, transcribeMedia } from "../src/media/transcribe.mjs";
 import { waveformMedia } from "../src/media/waveform.mjs";
+import { writeWordBookFile } from "../../word-book/src/index.mjs";
 
 const ffmpeg = resolveFfmpeg();
 const ffprobe = resolveFfprobe();
@@ -138,6 +139,80 @@ test("transcribe の 2 回目は内容ハッシュ cache hit で backend を起�
   assert.equal(backendCalls, 1);
 });
 
+test("transcribe は単語帳を words 境界で適用して analysis.json に記録する", async () => {
+  const project = await createProjectFixture("word-book-project");
+  const wordBookPath = path.join(project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }] });
+  const result = await transcribeMedia("assets/source.wav", {
+    cwd: project,
+    ffmpegCommand: ffmpeg,
+    ffprobeCommand: ffprobe,
+    backend: "speech-analyzer",
+    lang: "word-book-apply",
+    speechAnalyzerAvailable: true,
+    wordBookPath,
+    unrecognized: false,
+    stderr: () => {},
+    backendRunner: async () => [{
+      start: 0, end: 1.2, text: "あかり ビデオです",
+      words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }, { start: 0.9, end: 1.2, text: "です" }],
+    }],
+  });
+  assert.deepEqual(result.segments[0].words[0], { start: 0, end: 0.9, text: "AKARI Video" });
+  assert.equal(result.segments[0].text, "AKARI Videoです");
+  const analysisPath = path.join(project, ".akari", "sidecars", "assets", "source.wav.analysis", "analysis.json");
+  const analysis = JSON.parse(readFileSync(analysisPath, "utf8"));
+  assert.deepEqual(analysis.transcript[0].words[0], { start: 0, end: 0.9, text: "AKARI Video" });
+});
+
+test("transcribe cache は単語帳適用前の生 segments を保存する", async () => {
+  const project = await createProjectFixture("word-book-cache-raw-project");
+  const wordBookPath = path.join(project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }] });
+  const result = await transcribeMedia("assets/source.wav", {
+    cwd: project, ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe,
+    backend: "speech-analyzer", lang: "word-book-cache-raw", speechAnalyzerAvailable: true,
+    wordBookPath, unrecognized: false, stderr: () => {},
+    backendRunner: async () => [{ start: 0, end: 0.9, text: "あかり ビデオ", words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }] }],
+  });
+  assert.equal(result.segments[0].text, "AKARI Video");
+  const cached = JSON.parse(readFileSync(path.join(project, ".akari", "cache", "transcribe", `${result.cache.key}.json`), "utf8"));
+  assert.equal(cached.segments[0].text, "あかり ビデオ");
+  assert.deepEqual(cached.segments[0].words.map((word) => word.text), ["あかり", "ビデオ"]);
+});
+
+test("wordBook: false は単語帳を適用せず生出力を記録する", async () => {
+  const project = await createProjectFixture("word-book-disabled-project");
+  const wordBookPath = path.join(project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }] });
+  const result = await transcribeMedia("assets/source.wav", {
+    cwd: project, ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe,
+    backend: "speech-analyzer", lang: "word-book-disabled", speechAnalyzerAvailable: true,
+    wordBookPath, wordBook: false, unrecognized: false,
+    backendRunner: async () => [{ start: 0, end: 0.9, text: "あかり ビデオ", words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }] }],
+  });
+  assert.equal(result.segments[0].text, "あかり ビデオ");
+  const analysisPath = path.join(project, ".akari", "sidecars", "assets", "source.wav.analysis", "analysis.json");
+  assert.equal(JSON.parse(readFileSync(analysisPath, "utf8")).transcript[0].text, "あかり ビデオ");
+});
+
+test("transcribe CLI は --word-book と --no-word-book を解釈する", async () => {
+  const project = await createProjectFixture("word-book-cli-flags-project");
+  const wordBookPath = path.join(project, "word-book.json");
+  await writeWordBookFile(wordBookPath, { version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }] });
+  const common = {
+    cwd: project, ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe,
+    speechAnalyzerAvailable: true, unrecognized: false, stderr: () => {},
+    backendRunner: async () => [{ start: 0, end: 0.9, text: "あかり ビデオ", words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }] }],
+  };
+  const applied = [];
+  assert.equal(await runMediaCli(["transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "word-book-cli-on", "--word-book", wordBookPath, "--no-record"], { ...common, stdout: (line) => applied.push(line) }), 0);
+  assert.equal(JSON.parse(applied[0]).segments[0].text, "AKARI Video");
+  const disabled = [];
+  assert.equal(await runMediaCli(["transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "word-book-cli-off", "--word-book", wordBookPath, "--no-word-book", "--no-record"], { ...common, stdout: (line) => disabled.push(line) }), 0);
+  assert.equal(JSON.parse(disabled[0]).segments[0].text, "あかり ビデオ");
+});
+
 test("transcribe は backend 不在なら exit 1 相当で推測しない", async () => {
   await assert.rejects(
     transcribeMedia(wavPath, { ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe, speechAnalyzerAvailable: false, whisperAvailable: false, noRecord: true }),
@@ -196,6 +271,105 @@ test("帳面は probe → waveform → transcribe の順で追記し、--no-reco
   const before = readFileSync(analysisPath, "utf8");
   await probeMedia(target, { cwd: project, ffprobeCommand: ffprobe, noRecord: true });
   assert.equal(readFileSync(analysisPath, "utf8"), before);
+});
+
+test("transcribe は非無音の語間隙を unrecognized として結果と analysis.json に記録する", async () => {
+  const project = await createProjectFixture("unrecognized-project");
+  const result = await transcribeMedia("assets/source.wav", {
+    cwd: project,
+    ffmpegCommand: ffmpeg,
+    ffprobeCommand: ffprobe,
+    backend: "speech-analyzer",
+    speechAnalyzerAvailable: true,
+    backendRunner: async () => [{
+      start: 0,
+      end: 2,
+      text: "前 後",
+      words: [{ start: 0.1, end: 0.5, text: "前" }, { start: 1.5, end: 1.9, text: "後" }],
+    }],
+    silencesRunner: async () => [{ start: 0.5, end: 1.1 }],
+  });
+  assert.deepEqual(result.segments[0].unrecognized, [{ start: 1.1, end: 1.5 }]);
+  const analysisPath = path.join(
+    project, ".akari", "sidecars", "assets", "source.wav.analysis", "analysis.json",
+  );
+  const analysis = JSON.parse(readFileSync(analysisPath, "utf8"));
+  assert.deepEqual(analysis.transcript[0].unrecognized, [{ start: 1.1, end: 1.5 }]);
+});
+
+test("unrecognized: false は無音検出を呼ばず内部 markers も出力しない", async () => {
+  const project = await createProjectFixture("unrecognized-disabled-project");
+  let silenceCalls = 0;
+  const result = await transcribeMedia("assets/source.wav", {
+    cwd: project,
+    ffmpegCommand: ffmpeg,
+    ffprobeCommand: ffprobe,
+    backend: "speech-analyzer",
+    speechAnalyzerAvailable: true,
+    unrecognized: false,
+    backendRunner: async () => [{
+      start: 0, end: 1, text: "前", markers: [{ start: 0.5, end: 0.8 }],
+    }],
+    silencesRunner: async () => { silenceCalls += 1; return []; },
+  });
+  assert.equal(silenceCalls, 0);
+  assert.equal(Object.hasOwn(result.segments[0], "unrecognized"), false);
+  assert.equal(Object.hasOwn(result.segments[0], "markers"), false);
+});
+
+test("normalizeWhisperJson は control を捨て non-speech の時刻だけ markers に残す", () => {
+  const [segment] = normalizeWhisperJson({
+    transcription: [{
+      offsets: { from: 0, to: 2000 },
+      text: "聞き取り",
+      tokens: [
+        { offsets: { from: 0, to: 100 }, text: "[_SOT_]" },
+        { offsets: { from: 100, to: 500 }, text: "聞き" },
+        { offsets: { from: 500, to: 900 }, text: "[inaudible]" },
+        { offsets: { from: 900, to: 1300 }, text: "取\uFFFDり" },
+      ],
+    }],
+  });
+  assert.deepEqual(segment.words, [
+    { start: 0.1, end: 0.5, text: "聞き" },
+    { start: 0.9, end: 1.3, text: "取り" },
+  ]);
+  assert.deepEqual(segment.markers, [{ start: 0.5, end: 0.9 }]);
+});
+
+test("transcribe CLI は unrecognized の無効化と閾値フラグを解釈する", async () => {
+  const project = await createProjectFixture("unrecognized-cli-project");
+  let silenceCalls = 0;
+  const common = {
+    cwd: project,
+    ffmpegCommand: ffmpeg,
+    ffprobeCommand: ffprobe,
+    speechAnalyzerAvailable: true,
+    backendRunner: async () => [{
+      start: 0,
+      end: 1.5,
+      text: "前 後",
+      words: [{ start: 0, end: 0.5, text: "前" }, { start: 1, end: 1.5, text: "後" }],
+    }],
+    silencesRunner: async () => { silenceCalls += 1; return []; },
+    stderr: () => {},
+  };
+  const thresholdLines = [];
+  const thresholdExit = await runMediaCli([
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "threshold",
+    "--unrecognized-min-gap", "0.6", "--unrecognized-min-voiced", "0.2", "--no-record",
+  ], { ...common, stdout: (line) => thresholdLines.push(line) });
+  assert.equal(thresholdExit, 0);
+  assert.equal(Object.hasOwn(JSON.parse(thresholdLines[0]).segments[0], "unrecognized"), false);
+
+  const disabledLines = [];
+  const disabledExit = await runMediaCli([
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "disabled",
+    "--no-unrecognized", "--no-record",
+  ], { ...common, stdout: (line) => disabledLines.push(line) });
+  assert.equal(disabledExit, 0);
+  assert.equal(Object.hasOwn(JSON.parse(disabledLines[0]).segments[0], "unrecognized"), false);
+  assert.equal(silenceCalls, 1);
 });
 
 test("edit.json 未宣言のプロジェクト内素材にも帳面を作る", async () => {

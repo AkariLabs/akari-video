@@ -30,8 +30,13 @@ if (range !== "missing") video.color_range = range;
 console.log(JSON.stringify({ streams: [video, { codec_type: "audio", codec_name: "aac" }], format: { duration: "1" } }));
 `);
     await writeFile(ffmpegPath, `#!/usr/bin/env node
-console.log("frame=10");
-console.log("progress=end");
+if (process.argv.includes("volumedetect")) {
+  console.error("mean_volume: -20.0 dB");
+  console.error("max_volume: -3.0 dB");
+} else {
+  console.log("frame=10");
+  console.log("progress=end");
+}
 `);
     await chmod(ffprobePath, 0o755);
     await chmod(ffmpegPath, 0o755);
@@ -49,7 +54,7 @@ console.log("progress=end");
         height: 180,
         fps: 10,
       },
-      commands: { audio_mix: { hasNarration: false } },
+      commands: { audio_mix: { hasNarration: false, hasAudibleAudio: true } },
     };
     const previous = process.env.AKARI_TEST_COLOR_RANGE;
     try {

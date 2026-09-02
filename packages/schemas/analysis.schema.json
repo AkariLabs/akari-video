@@ -157,6 +157,16 @@
         }
       }
     },
+    "unrecognizedSpan": {
+      "$comment": "音はあるが文字にできなかった区間。無音ではなく、transcriptSegment.words とは重ならない。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/seconds" },
+        "end": { "$ref": "#/$defs/seconds" }
+      }
+    },
     "transcriptSegment": {
       "type": "object",
       "additionalProperties": false,
@@ -184,6 +194,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/word"
+          }
+        },
+        "unrecognized": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unrecognizedSpan"
           }
         }
       }

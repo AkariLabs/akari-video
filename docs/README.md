@@ -90,6 +90,7 @@ All contracts follow the
 | [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 direction |
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 emphasis words |
 | [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | `emphasis_words[]` seat for word-level emphasis in the captions.json object root, with the edit.json v1 seat retained as a backward-compatible fallback |
+| [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, and the three free caption presets (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |
@@ -137,8 +138,12 @@ All contracts follow the
 | [contract-2026-08-29-media-inspect-cli-v0.md](./contract-2026-08-29-media-inspect-cli-v0.md) | `akari media` observation commands v0 — probe / grab / filmstrip / waveform / transcribe (pull-driven analysis: look when you want to, results stay on disk) |
 | [contract-2026-08-29-capture-v0.md](./contract-2026-08-29-capture-v0.md) | `akari capture` v0 — render finished frames of the current edit.json without exporting |
 | [contract-2026-08-30-edit-json-v2-object-tree-v0.md](./contract-2026-08-30-edit-json-v2-object-tree-v0.md) | edit.json v2 object tree v0 — recursive `items` (groups), bag groups (HTML parts / captions.json) projected by tags, part items (`source.part`), track invariants, canonical one-record-per-line serialization, edit-store script API, AI read rules (`version: 2` unchanged) |
+| [contract-2026-09-02-item-caption-anchor-v0.md](./contract-2026-09-02-item-caption-anchor-v0.md) | edit.json v2 item caption anchors — source-second caption/range dependency, cached `at` / `duration`, parent-relative resolution, mutations, and lint rules |
 | [contract-2026-08-30-motion-and-keyframes-v0.md](./contract-2026-08-30-motion-and-keyframes-v0.md) | Motion & keyframes v0 — four levels (L0 presets `motion` / L1 `keyframes` inline or `motion/<group-id>.json` bag / L2 range-selector `animator` / L3 code), easing vocabulary, "expand to keyframes", timeline / inspector display rules |
+| [contract-2026-09-02-transcript-unrecognized-spans-v0.md](./contract-2026-09-02-transcript-unrecognized-spans-v0.md) | `unrecognized[]` spans for audio that could not be transcribed, carried from analysis.json into captions.json without changing `words[]` |
+| [contract-2026-09-02-word-book-v0.md](./contract-2026-09-02-word-book-v0.md) | Word book v0 — vocabulary entries (`surface` / `variants` / `reading` / `kind`) layered project < channel < workspace < builtin, word-boundary STT post-pass that rewrites `text` and `words[]` together, `edited: true` untouched, soft supply into `protected_terms`, edit-lint rules (Japanese; draft, owner review) |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | Transform keyframes v0 (restored 2026-08-30 from schema `$comment`s; superseded by motion-and-keyframes v0 §2) |
+| [contract-2026-09-02-export-verify-declared-vs-measured-v0.md](./contract-2026-09-02-export-verify-declared-vs-measured-v0.md) | Post-export declared-vs-measured verification v0 — sampled audio level fails closed; static camera-work correlation warns (Japanese) |
 
 ### Direction notes
 

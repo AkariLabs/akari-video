@@ -1472,6 +1472,344 @@ var require_caption_words_rederive = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-style-preset.js
+var require_caption_style_preset = __commonJS({
+  "../edit-store/lib/caption-style-preset.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.mergePresetTextStyle = mergePresetTextStyle;
+    exports.resolveCaptionStylePreset = resolveCaptionStylePreset;
+    exports.applyCaptionStylePresets = applyCaptionStylePresets;
+    var NESTED_STYLE_FIELDS = [
+      "stroke",
+      "background",
+      "shadow",
+      "glow",
+      "position",
+      "animation"
+    ];
+    function mergePresetTextStyle(presetStyle, recordStyle) {
+      const override = isRecord2(recordStyle) ? recordStyle : {};
+      const merged = {
+        ...presetStyle,
+        ...override
+      };
+      for (const field of NESTED_STYLE_FIELDS) {
+        const base = isRecord2(presetStyle[field]) ? presetStyle[field] : void 0;
+        const nestedOverride = isRecord2(override[field]) ? override[field] : void 0;
+        if (base || nestedOverride) {
+          const nested = { ...base, ...nestedOverride };
+          if (Object.keys(nested).length > 0)
+            merged[field] = nested;
+          else
+            delete merged[field];
+        }
+      }
+      return merged;
+    }
+    function resolveCaptionStylePreset(record, catalog) {
+      const presetId = record.style_preset;
+      if (typeof presetId !== "string")
+        return { record, resolved: false };
+      const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
+      if (!preset)
+        return { record, resolved: false };
+      return {
+        record: {
+          ...record,
+          text_style: mergePresetTextStyle(preset.style, record.text_style)
+        },
+        resolved: true
+      };
+    }
+    function applyCaptionStylePresets(root, catalog) {
+      const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : null;
+      if (!values)
+        return { root, unresolved: [] };
+      let sawPreset = false;
+      let changed = false;
+      const unresolved = /* @__PURE__ */ new Set();
+      const captions = values.map((value) => {
+        if (!isRecord2(value) || !Object.prototype.hasOwnProperty.call(value, "style_preset")) {
+          return value;
+        }
+        sawPreset = true;
+        const result = resolveCaptionStylePreset(value, catalog);
+        if (result.resolved)
+          changed = true;
+        else if (typeof value.style_preset === "string")
+          unresolved.add(value.style_preset);
+        return result.record;
+      });
+      if (!sawPreset || !changed) {
+        return { root, unresolved: [...unresolved] };
+      }
+      return {
+        root: Array.isArray(root) ? captions : { ...root, captions },
+        unresolved: [...unresolved]
+      };
+    }
+    function isRecord2(value) {
+      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
+// ../edit-store/lib/generated/textstyle-catalog.js
+var require_textstyle_catalog = __commonJS({
+  "../edit-store/lib/generated/textstyle-catalog.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.TEXTSTYLE_CATALOG = void 0;
+    exports.TEXTSTYLE_CATALOG = {
+      "discount-text": {
+        "id": "discount-text",
+        "name": "\u5272\u5F15\u30D0\u30C3\u30B8\u30C6\u30AD\u30B9\u30C8",
+        "category": "price",
+        "style": {
+          "size_px": 72,
+          "weight": 400,
+          "color": "#FF2D55",
+          "letter_spacing_em": 0.04,
+          "stroke": {
+            "color": "#ffffff",
+            "width_px": 3
+          }
+        }
+      },
+      "emphasis-red": {
+        "id": "emphasis-red",
+        "name": "\u5F37\u8ABF",
+        "category": "emphasis",
+        "style": {
+          "size_px": 92,
+          "weight": 700,
+          "color": "#ff1744",
+          "stroke": {
+            "color": "#ffffff",
+            "width_px": 6
+          },
+          "animation": {
+            "in": {
+              "id": "pop"
+            }
+          }
+        }
+      },
+      "glitch": {
+        "id": "glitch",
+        "name": "\u30B0\u30EA\u30C3\u30C1\u98A8",
+        "category": "decorative",
+        "style": {
+          "size_px": 116,
+          "weight": 700,
+          "color": "#f5f5f5",
+          "letter_spacing_em": 0.06,
+          "text_transform": "uppercase",
+          "shadow": {
+            "color": "#ff0066",
+            "opacity": 0.9,
+            "blur_px": 0,
+            "distance_px": 8,
+            "angle_deg": 0
+          },
+          "animation": {
+            "in": {
+              "id": "glitch"
+            }
+          }
+        }
+      },
+      "narration-caption": {
+        "id": "narration-caption",
+        "name": "\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u5B57\u5E55",
+        "category": "subtitle",
+        "style": {
+          "font_family": "'Noto Serif JP', serif",
+          "size_px": 28,
+          "weight": 400,
+          "letter_spacing_em": 0.06,
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.55,
+            "blur_px": 6,
+            "distance_px": 1,
+            "angle_deg": 90
+          }
+        }
+      },
+      "neon": {
+        "id": "neon",
+        "name": "\u30CD\u30AA\u30F3",
+        "category": "decorative",
+        "style": {
+          "size_px": 120,
+          "weight": 700,
+          "color": "#aefcff",
+          "letter_spacing_em": 0.12,
+          "text_transform": "uppercase",
+          "shadow": {
+            "color": "#00e5ff",
+            "opacity": 0.9,
+            "blur_px": 24,
+            "distance_px": 0,
+            "angle_deg": 90
+          },
+          "glow": {
+            "color": "#00e5ff",
+            "density": 80,
+            "spread": 60
+          },
+          "animation": {
+            "in": {
+              "id": "soft-fade"
+            },
+            "loop": {
+              "id": "neon-flicker"
+            },
+            "out": {
+              "id": "soft-fade"
+            }
+          }
+        }
+      },
+      "subtitle-commentary": {
+        "id": "subtitle-commentary",
+        "name": "\u5B9F\u6CC1\u30C6\u30ED\u30C3\u30D7",
+        "category": "subtitle",
+        "style": {
+          "size_px": 60,
+          "weight": 700,
+          "color": "#00e676",
+          "stroke": {
+            "color": "#000000",
+            "width_px": 7
+          },
+          "animation": {
+            "in": {
+              "id": "caption-rise"
+            }
+          }
+        }
+      },
+      "subtitle-interview": {
+        "id": "subtitle-interview",
+        "name": "\u30A4\u30F3\u30BF\u30D3\u30E5\u30FC\u5B57\u5E55",
+        "category": "subtitle",
+        "style": {
+          "size_px": 56,
+          "weight": 700,
+          "color": "#fffde7",
+          "stroke": {
+            "color": "#33691e",
+            "width_px": 6
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.5,
+            "blur_px": 6,
+            "distance_px": 4,
+            "angle_deg": 90
+          }
+        }
+      },
+      "subtitle-news": {
+        "id": "subtitle-news",
+        "name": "\u30CB\u30E5\u30FC\u30B9\u98A8",
+        "category": "subtitle",
+        "style": {
+          "size_px": 56,
+          "weight": 700,
+          "color": "#ffffff",
+          "background": {
+            "color": "#c62828",
+            "opacity": 1,
+            "padding_px": 16,
+            "radius_px": 0
+          }
+        }
+      },
+      "subtitle-standard": {
+        "id": "subtitle-standard",
+        "name": "\u6A19\u6E96\u5B57\u5E55",
+        "category": "subtitle",
+        "style": {
+          "size_px": 56,
+          "weight": 700,
+          "color": "#ffffff",
+          "stroke": {
+            "color": "#000000",
+            "width_px": 4
+          }
+        }
+      },
+      "subtitle-variety": {
+        "id": "subtitle-variety",
+        "name": "\u30D0\u30E9\u30A8\u30C6\u30A3",
+        "category": "subtitle",
+        "style": {
+          "size_px": 80,
+          "weight": 700,
+          "color": "#fff200",
+          "stroke": {
+            "color": "#1a1a1a",
+            "width_px": 9
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 6,
+            "distance_px": 6,
+            "angle_deg": 90
+          }
+        }
+      },
+      "title-impact": {
+        "id": "title-impact",
+        "name": "\u30A4\u30F3\u30D1\u30AF\u30C8",
+        "category": "title",
+        "style": {
+          "size_px": 168,
+          "weight": 700,
+          "color": "#ffeb3b",
+          "stroke": {
+            "color": "#000000",
+            "width_px": 10
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.7,
+            "blur_px": 14,
+            "distance_px": 8,
+            "angle_deg": 90
+          }
+        }
+      },
+      "verdict-badge": {
+        "id": "verdict-badge",
+        "name": "\u5224\u5B9A\u30D0\u30C3\u30B8",
+        "category": "emphasis",
+        "style": {
+          "size_px": 80,
+          "weight": 400,
+          "letter_spacing_em": -0.02,
+          "stroke": {
+            "color": "#E53935",
+            "width_px": 4
+          },
+          "shadow": {
+            "color": "rgba(229,57,53,0.6)",
+            "opacity": 0.6,
+            "blur_px": 16,
+            "distance_px": 0,
+            "angle_deg": 90
+          }
+        }
+      }
+    };
+  }
+});
+
 // ../edit-store/lib/caption-store.js
 var require_caption_store = __commonJS({
   "../edit-store/lib/caption-store.js"(exports) {
@@ -1488,6 +1826,8 @@ var require_caption_store = __commonJS({
     exports.removeCaptionLine = removeCaptionLine;
     var edit_store_1 = require_edit_store();
     var caption_words_rederive_1 = require_caption_words_rederive();
+    var caption_style_preset_1 = require_caption_style_preset();
+    var textstyle_catalog_1 = require_textstyle_catalog();
     exports.CAPTION_ZONES = [
       "top-left",
       "top",
@@ -1501,7 +1841,8 @@ var require_caption_store = __commonJS({
     ];
     var JSON_NUMBER = "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
     function parseCaptions(source) {
-      const root = JSON.parse(source);
+      let root = JSON.parse(source);
+      root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, textstyle_catalog_1.TEXTSTYLE_CATALOG).root;
       const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : void 0;
       if (!values) {
         throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
@@ -2475,6 +2816,65 @@ var require_caption_window = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-clock.js
+var require_caption_clock = __commonJS({
+  "../edit-store/lib/caption-clock.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.normalizeCaptionClock = normalizeCaptionClock;
+    exports.captionClockDomainOf = captionClockDomainOf;
+    var EPSILON = 1e-6;
+    function normalizeCaptionClock(captions, segments) {
+      const output = [];
+      for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === "legacy" && segments.some((segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON);
+        const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+        if (domain === "output" || segments.length === 0) {
+          output.push({ ...caption, clockDomain: "output" });
+          continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
+            continue;
+          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
+            continue;
+          const sourceStart = Math.max(caption.start, segment.in);
+          const sourceEnd = Math.min(caption.end, segment.out);
+          if (!(sourceEnd - sourceStart > EPSILON))
+            continue;
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+          occurrence += 1;
+          const sourceCueId = caption.sourceCueId ?? caption.id;
+          const words = caption.words?.flatMap((word) => {
+            const wordStart = Math.max(word.start, sourceStart);
+            const wordEnd = Math.min(word.end, sourceEnd);
+            return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+          });
+          output.push({
+            ...caption,
+            ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+            ...sourceCueId ? { sourceCueId } : {},
+            start: projectTime(sourceStart),
+            end: projectTime(sourceEnd),
+            ...words && words.length > 0 ? { words } : { words: void 0 },
+            clockDomain: "output"
+          });
+        }
+      }
+      return output.sort((left, right) => left.start - right.start || left.end - right.end);
+    }
+    function captionClockDomainOf(raw) {
+      const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+      return {
+        clockDomain,
+        ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+      };
+    }
+  }
+});
+
 // ../edit-store/lib/cut-adjacency.js
 var require_cut_adjacency = __commonJS({
   "../edit-store/lib/cut-adjacency.js"(exports) {
@@ -2527,6 +2927,7 @@ var require_timeline_map = __commonJS({
     exports.transitionProgressAt = transitionProgressAt2;
     exports.buildTimelineMap = buildTimelineMap2;
     exports.outputToSource = outputToSource2;
+    exports.sourceToOutput = sourceToOutput;
     var edit_store_1 = require_edit_store();
     var cut_adjacency_1 = require_cut_adjacency();
     function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
@@ -2734,6 +3135,22 @@ var require_timeline_map = __commonJS({
         }
       }
       return { segment: null, sourceT: null };
+    }
+    function sourceToOutput(segments, sourceT) {
+      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
+      if (sources.length === 0 || !Number.isFinite(sourceT)) {
+        return null;
+      }
+      for (const segment of sources) {
+        const start = segment.in;
+        const end = segment.out;
+        if (start <= sourceT && sourceT < end) {
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          return segment.outStart + (sourceT - start) / speed;
+        }
+      }
+      const next = sources.find((segment) => segment.in > sourceT);
+      return next?.outStart ?? sources[sources.length - 1].outEnd;
     }
   }
 });
@@ -4477,6 +4894,155 @@ var require_edit_v2_item_write = __commonJS({
   }
 });
 
+// ../edit-store/lib/item-anchor.js
+var require_item_anchor = __commonJS({
+  "../edit-store/lib/item-anchor.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.resolveItemAnchor = resolveItemAnchor;
+    exports.withoutItemAnchors = withoutItemAnchors;
+    exports.resolveItemAnchors = resolveItemAnchors;
+    var internal_model_1 = require_internal_model();
+    var timeline_map_1 = require_timeline_map();
+    function resolveItemAnchor(item, context) {
+      const start = item.anchor.range?.start ?? context.caption.start;
+      const end = item.anchor.range?.end ?? context.caption.end;
+      const startOut = context.caption.timeDomain === "output" ? start : (0, timeline_map_1.sourceToOutput)(context.segments, start);
+      const endOut = context.caption.timeDomain === "output" ? end : (0, timeline_map_1.sourceToOutput)(context.segments, end);
+      if (startOut === null || endOut === null) {
+        return { unresolvable: "no-source-segments" };
+      }
+      if (startOut === endOut) {
+        return { unresolvable: "removed-range" };
+      }
+      const startFrames = Math.round(startOut * context.fps);
+      const endFrames = Math.round(endOut * context.fps);
+      return {
+        at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+        duration: (item.anchor.duration ?? "caption") === "caption" ? Math.max(1, endFrames - startFrames) : item.duration
+      };
+    }
+    function withoutItemAnchors(edit) {
+      if (!isRecord2(edit) || !Array.isArray(edit.tracks))
+        return edit;
+      let tracksChanged = false;
+      const tracks = edit.tracks.map((track) => {
+        if (!isRecord2(track) || !Array.isArray(track.items))
+          return track;
+        const items = stripItems(track.items);
+        if (items === track.items)
+          return track;
+        tracksChanged = true;
+        return { ...track, items };
+      });
+      return tracksChanged ? { ...edit, tracks } : edit;
+    }
+    function resolveItemAnchors(edit, captions, options) {
+      if (!hasItemAnchor(edit))
+        return { edit, changes: [], warnings: [] };
+      const fps = validFps(options?.fps) ?? validFps(edit.output?.fps) ?? 30;
+      const anchorFreeEdit = withoutItemAnchors(edit);
+      const internal = (0, internal_model_1.readInternalEdit)(anchorFreeEdit);
+      const legacy = (0, internal_model_1.projectLegacyEdit)(internal);
+      const segments = (0, timeline_map_1.buildTimelineMap)(legacy.cuts, { fps: legacy.fps }).segments;
+      const captionById = new Map(captions.map((caption) => [caption.id, caption]));
+      const changes = [];
+      const warnings = [];
+      let tracksChanged = false;
+      const tracks = edit.tracks.map((track) => {
+        if (!("items" in track) || !Array.isArray(track.items) || track.lane !== "visual")
+          return track;
+        const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
+        if (items === track.items)
+          return track;
+        tracksChanged = true;
+        return { ...track, items };
+      });
+      return {
+        edit: tracksChanged ? { ...edit, tracks } : edit,
+        changes,
+        warnings
+      };
+    }
+    function resolveItems(items, parentAtFrames, captionById, segments, fps, changes, warnings) {
+      let changed = false;
+      const result = items.map((item) => {
+        let next = item;
+        if (item.anchor) {
+          if (item.source.kind === "captions" || item.source.kind === "caption") {
+            warnings.push({ id: item.id, reason: "unsupported-kind" });
+          } else {
+            const caption = captionById.get(item.anchor.caption);
+            if (!caption) {
+              warnings.push({ id: item.id, reason: "caption-not-found" });
+            } else {
+              const resolution = resolveItemAnchor(item, {
+                caption,
+                segments,
+                fps,
+                parentAtFrames
+              });
+              if ("unresolvable" in resolution) {
+                warnings.push({ id: item.id, reason: resolution.unresolvable });
+              } else if (item.at !== resolution.at || item.duration !== resolution.duration) {
+                changes.push({
+                  id: item.id,
+                  before: { at: item.at, duration: item.duration },
+                  after: resolution
+                });
+                next = { ...item, ...resolution };
+                changed = true;
+              }
+            }
+          }
+        }
+        const absoluteAtFrames = parentAtFrames + next.at;
+        if (Array.isArray(next.items)) {
+          const children = resolveItems(next.items, absoluteAtFrames, captionById, segments, fps, changes, warnings);
+          if (children !== next.items) {
+            next = { ...next, items: children };
+            changed = true;
+          }
+        }
+        return next;
+      });
+      return changed ? result : items;
+    }
+    function stripItems(items) {
+      let changed = false;
+      const result = items.map((item) => {
+        if (!isRecord2(item))
+          return item;
+        let next = item;
+        if (Object.prototype.hasOwnProperty.call(item, "anchor")) {
+          const { anchor: _anchor, ...rest } = item;
+          next = rest;
+          changed = true;
+        }
+        if (Array.isArray(next.items)) {
+          const children = stripItems(next.items);
+          if (children !== next.items) {
+            next = { ...next, items: children };
+            changed = true;
+          }
+        }
+        return next;
+      });
+      return changed ? result : items;
+    }
+    function hasItemAnchor(edit) {
+      const visit = (items) => items.some((item) => item.anchor !== void 0 || Array.isArray(item.items) && visit(item.items));
+      return edit.tracks.some((track) => "items" in track && track.lane === "visual" && visit(track.items));
+    }
+    function validFps(value) {
+      return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+    }
+    function isRecord2(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/error.js
 var require_error = __commonJS({
   "../edit-store/lib/migrate/error.js"(exports) {
@@ -4508,6 +5074,7 @@ var require_internal_model = __commonJS({
     exports.toLegacyTrack = toLegacyTrack;
     exports.derivedLegacyTracks = derivedLegacyTracks;
     var edit_v2_1 = require_edit_v2();
+    var item_anchor_1 = require_item_anchor();
     var cut_adjacency_1 = require_cut_adjacency();
     var error_1 = require_error();
     function readInternalEdit(source, options) {
@@ -4523,7 +5090,8 @@ var require_internal_model = __commonJS({
       if (record.version !== 2) {
         throw new error_1.LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
       }
-      return readV2Internal(record);
+      const resolved = options?.captions === void 0 ? record : (0, item_anchor_1.resolveItemAnchors)(record, options.captions).edit;
+      return readV2Internal((0, item_anchor_1.withoutItemAnchors)(resolved));
     }
     function readInternalSources(source) {
       const raw = toRecord(source);
@@ -6834,7 +7402,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -6849,6 +7417,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6868,6 +7437,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6886,6 +7456,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6904,6 +7475,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6922,6 +7494,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -7295,6 +7868,9 @@ var require_tree_ops = __commonJS({
     exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
     exports.attachEditHelpers = attachEditHelpers;
     exports.updateItem = updateItem;
+    exports.setItemAnchor = setItemAnchor;
+    exports.clearItemAnchor = clearItemAnchor;
+    exports.refreshItemAnchors = refreshItemAnchors;
     exports.setKeyframe = setKeyframe;
     exports.removeKeyframe = removeKeyframe;
     exports.moveKeyframe = moveKeyframe;
@@ -7326,6 +7902,7 @@ var require_tree_ops = __commonJS({
     exports.relativeTransform = relativeTransform;
     exports.ensureChildren = ensureChildren;
     exports.clone = clone;
+    var item_anchor_1 = require_item_anchor();
     var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
       "linear",
       "ease-in-out",
@@ -7378,6 +7955,25 @@ var require_tree_ops = __commonJS({
         }
       }
       return location2.item;
+    }
+    function setItemAnchor(edit, id, anchor, captions) {
+      const item = requireLocation(edit, id).item;
+      item.anchor = clone(anchor);
+      const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
+      for (const change of refreshed.changes) {
+        const changedItem = requireLocation(edit, change.id).item;
+        changedItem.at = change.after.at;
+        changedItem.duration = change.after.duration;
+      }
+      return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
+    }
+    function clearItemAnchor(edit, id) {
+      const item = requireLocation(edit, id).item;
+      delete item.anchor;
+      return item;
+    }
+    function refreshItemAnchors(edit, captions) {
+      return (0, item_anchor_1.resolveItemAnchors)(edit, captions);
     }
     function setKeyframe(edit, id, property, t, value) {
       const item = requireLocation(edit, id).item;
@@ -8000,6 +8596,205 @@ var require_tree_ops = __commonJS({
   }
 });
 
+// ../edit-store/lib/cut-ranges.js
+var require_cut_ranges = __commonJS({
+  "../edit-store/lib/cut-ranges.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.detectEditVersion = detectEditVersion;
+    exports.applyCutRanges = applyCutRanges;
+    var edit_store_1 = require_edit_store();
+    var edit_v2_1 = require_edit_v2();
+    var LEGACY_EDGE_SECONDS = 0.15;
+    function detectEditVersion(source) {
+      const version = JSON.parse(source).version;
+      if (typeof version !== "number" || !(/* @__PURE__ */ new Set([0, 1, 2])).has(version)) {
+        throw new Error("edit.json.version \u306F 0\u30FB1\u30FB2 \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002");
+      }
+      return version;
+    }
+    function applyCutRanges(source, ranges, opts = {}) {
+      const version = detectEditVersion(source);
+      const normalized = normalizeRanges(ranges);
+      if (normalized.length === 0)
+        return { source, removedFrames: 0, warnings: [] };
+      return version === 2 ? applyV2(source, normalized, opts) : applyLegacy(source, normalized, opts);
+    }
+    function applyLegacy(initialSource, ranges, opts) {
+      let source = initialSource;
+      let removedFrames = 0;
+      const warnings = [];
+      const affectedTracks = /* @__PURE__ */ new Set();
+      const parsed = JSON.parse(initialSource);
+      const fps = requireFps(opts.fps ?? parsed.output?.fps ?? parsed.fps ?? 30);
+      for (const range of ranges) {
+        const before = readLegacyCuts(source);
+        let matched = false;
+        for (let index = before.cuts.length - 1; index >= 0; index--) {
+          const cut = before.cuts[index];
+          const overlapIn = Math.max(cut.in, range.in);
+          const overlapOut = Math.min(cut.out, range.out);
+          if (!(overlapOut > overlapIn))
+            continue;
+          matched = true;
+          const track = normalizeTrack(cut.track);
+          affectedTracks.add(track);
+          const speed = validSpeed(cut.speed);
+          removedFrames += Math.round((overlapOut - overlapIn) / speed * fps);
+          const effectiveIn = overlapIn <= cut.in + LEGACY_EDGE_SECONDS ? cut.in : overlapIn;
+          const effectiveOut = overlapOut >= cut.out - LEGACY_EDGE_SECONDS ? cut.out : overlapOut;
+          const keepBefore = effectiveIn - cut.in;
+          const keepAfter = cut.out - effectiveOut;
+          if (keepBefore < LEGACY_EDGE_SECONDS && keepAfter < LEGACY_EDGE_SECONDS) {
+            source = (0, edit_store_1.deleteCutInSource)(source, index).source;
+          } else if (keepBefore < LEGACY_EDGE_SECONDS) {
+            source = (0, edit_store_1.trimCutInSource)(source, index, effectiveOut, cut.out);
+          } else if (keepAfter < LEGACY_EDGE_SECONDS) {
+            source = (0, edit_store_1.trimCutInSource)(source, index, cut.in, effectiveIn);
+          } else {
+            source = (0, edit_store_1.splitCutInSource)(source, index, effectiveIn);
+            source = (0, edit_store_1.splitCutInSource)(source, index + 1, effectiveOut);
+            source = (0, edit_store_1.deleteCutInSource)(source, index + 1).source;
+          }
+        }
+        if (!matched)
+          warnings.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
+      }
+      if (affectedTracks.size > 0) {
+        const after = readLegacyCuts(source);
+        source = (0, edit_store_1.setCutAtValuesInSource)(source, after.cuts.flatMap((cut, cutIndex) => affectedTracks.has(normalizeTrack(cut.track)) ? [{ cutIndex, at: null }] : []));
+      }
+      return { source, removedFrames, warnings };
+    }
+    function applyV2(source, ranges, opts) {
+      const raw = JSON.parse(source);
+      const validated = (0, edit_v2_1.readEditV2)(raw);
+      const fps = requireFps(opts.fps ?? validated.output.fps);
+      const edit = JSON.parse(JSON.stringify(raw));
+      const warnings = [];
+      const affectedTrackIds = /* @__PURE__ */ new Set();
+      let removedFrames = 0;
+      for (const range of ranges) {
+        const matchingSourceExists = visualTracks(edit).some((track) => track.items.some((item) => item.source.kind === "media" && item.source.src === range.captionId));
+        let matched = false;
+        for (const track of visualTracks(edit)) {
+          for (let index = track.items.length - 1; index >= 0; index--) {
+            const item = track.items[index];
+            if (item.source.kind !== "media")
+              continue;
+            if (matchingSourceExists && item.source.src !== range.captionId)
+              continue;
+            const overlapIn = Math.max(item.source.in, range.in);
+            const overlapOut = Math.min(item.source.out, range.out);
+            if (!(overlapOut > overlapIn))
+              continue;
+            matched = true;
+            affectedTrackIds.add(track.id);
+            const replacement = splitAndRemove(item, overlapIn, overlapOut, edit);
+            removedFrames += replacement.removedFrames;
+            track.items.splice(index, 1, ...replacement.items);
+          }
+        }
+        if (!matched)
+          warnings.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
+      }
+      for (const track of visualTracks(edit)) {
+        if (!affectedTrackIds.has(track.id))
+          continue;
+        let cursor = 0;
+        for (const item of track.items) {
+          if (item.source.kind !== "media")
+            continue;
+          item.at = cursor;
+          cursor += item.duration;
+        }
+      }
+      (0, edit_v2_1.readEditV2)(edit);
+      return { source: `${JSON.stringify(edit, null, 2)}
+`, removedFrames, warnings };
+    }
+    function splitAndRemove(item, overlapIn, overlapOut, edit) {
+      if (item.source.kind !== "media")
+        return { items: [item], removedFrames: 0 };
+      const mediaItem = item;
+      const sourceDuration = mediaItem.source.out - mediaItem.source.in;
+      if (!(sourceDuration > 0) || !(item.duration > 0)) {
+        return { items: [item], removedFrames: 0 };
+      }
+      const startOffset = clampFrame(Math.round((overlapIn - mediaItem.source.in) / sourceDuration * mediaItem.duration), mediaItem.duration);
+      const endOffset = clampFrame(Math.round((overlapOut - mediaItem.source.in) / sourceDuration * mediaItem.duration), mediaItem.duration);
+      if (endOffset <= startOffset)
+        return { items: [item], removedFrames: 0 };
+      const items = [];
+      if (startOffset > 0) {
+        const first = cloneItem(mediaItem);
+        first.duration = startOffset;
+        first.source.out = mediaItem.source.in + sourceDuration * startOffset / mediaItem.duration;
+        items.push(first);
+      }
+      if (endOffset < mediaItem.duration) {
+        const second = cloneItem(mediaItem);
+        second.id = nextItemId(edit, `${mediaItem.id}-split`);
+        second.at = mediaItem.at + endOffset;
+        second.duration = mediaItem.duration - endOffset;
+        second.source.in = mediaItem.source.in + sourceDuration * endOffset / mediaItem.duration;
+        items.push(second);
+      }
+      return { items, removedFrames: endOffset - startOffset };
+    }
+    function cloneItem(item) {
+      return JSON.parse(JSON.stringify(item));
+    }
+    function nextItemId(edit, base) {
+      const ids = /* @__PURE__ */ new Set();
+      for (const track of visualTracks(edit))
+        for (const item of track.items)
+          collectIds(item, ids);
+      if (!ids.has(base))
+        return base;
+      let serial = 2;
+      while (ids.has(`${base}-${serial}`))
+        serial++;
+      return `${base}-${serial}`;
+    }
+    function collectIds(item, ids) {
+      ids.add(item.id);
+      for (const child of item.items ?? [])
+        collectIds(child, ids);
+    }
+    function visualTracks(edit) {
+      return edit.tracks.filter((track) => track.lane === "visual" && "items" in track);
+    }
+    function readLegacyCuts(source) {
+      const parsed = JSON.parse(source);
+      const cuts = Array.isArray(parsed.cuts) ? parsed.cuts : [];
+      return { cuts, segments: (0, edit_store_1.computeCutTrackSegments)(cuts) };
+    }
+    function normalizeRanges(ranges) {
+      return ranges.map((range) => {
+        if (!Number.isFinite(range.in) || !Number.isFinite(range.out) || range.in < 0 || range.out <= range.in) {
+          throw new Error("\u30AB\u30C3\u30C8\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        return { ...range };
+      }).sort((left, right) => right.in - left.in || right.out - left.out);
+    }
+    function normalizeTrack(track) {
+      return Number.isInteger(track) && track >= 0 ? track : 0;
+    }
+    function validSpeed(speed) {
+      return typeof speed === "number" && Number.isFinite(speed) && speed > 0 ? speed : 1;
+    }
+    function requireFps(value) {
+      if (!Number.isFinite(value) || value <= 0)
+        throw new Error("fps \u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      return value;
+    }
+    function clampFrame(value, duration) {
+      return Math.max(0, Math.min(duration, value));
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
   "../edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -8499,8 +9294,11 @@ var require_lib = __commonJS({
     exports.LegacyEditVersionError = exports.parseEdit = void 0;
     __exportStar(require_edit_store(), exports);
     __exportStar(require_caption_store(), exports);
+    __exportStar(require_caption_style_preset(), exports);
+    __exportStar(require_textstyle_catalog(), exports);
     __exportStar(require_caption_words_rederive(), exports);
     __exportStar(require_caption_window(), exports);
+    __exportStar(require_caption_clock(), exports);
     __exportStar(require_timeline_map(), exports);
     __exportStar(require_caption_display(), exports);
     __exportStar(require_edit_v2(), exports);
@@ -8519,6 +9317,8 @@ var require_lib = __commonJS({
     __exportStar(require_audio_schedule(), exports);
     __exportStar(require_canonical(), exports);
     __exportStar(require_tree_ops(), exports);
+    __exportStar(require_item_anchor(), exports);
+    __exportStar(require_cut_ranges(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;
@@ -17401,6 +18201,50 @@ async function evaluateFrame(plan, context) {
 // ../frame-engine/src/timeline/plan.ts
 var import_edit_store2 = __toESM(require_lib(), 1);
 var import_edit_store3 = __toESM(require_lib(), 1);
+var KNOWN_CUT_KEY_LIST = [
+  "in",
+  "out",
+  "src",
+  "transform",
+  "opacity",
+  "speed",
+  "transitionOut",
+  "at",
+  "track",
+  "transition_out",
+  "framing",
+  "freeze",
+  "id",
+  "crop",
+  "keyframes",
+  "perspective"
+];
+var KNOWN_LAYER_KEY_LIST = [
+  "id",
+  "t",
+  "duration",
+  "kind",
+  "src",
+  "mask",
+  "transform",
+  "crop",
+  "perspective",
+  "keyframes",
+  "opacity",
+  "blend",
+  "filter"
+];
+var KNOWN_KEYFRAME_KEY_LIST = [
+  "t",
+  "transform",
+  "crop",
+  "perspective",
+  "opacity",
+  "easing"
+];
+var KNOWN_CUT_KEYS = new Set(KNOWN_CUT_KEY_LIST);
+var KNOWN_LAYER_KEYS = new Set(KNOWN_LAYER_KEY_LIST);
+var KNOWN_KEYFRAME_KEYS = new Set(KNOWN_KEYFRAME_KEY_LIST);
 var DEFAULT_TRACK_Z = (track) => track;
 var DEFAULT_VISUAL = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
@@ -17428,7 +18272,37 @@ function hasCutLayerStyleVisual(cut) {
 function cutDeclaresPerspective(cut) {
   return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
 }
+function warnUnknownFields(value, label, knownKeys, warn) {
+  for (const key of Object.keys(value)) {
+    if (knownKeys.has(key)) continue;
+    warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
+  }
+}
+function warnUnknownKeyframes(keyframes, owner, warn) {
+  if (!Array.isArray(keyframes)) return;
+  keyframes.forEach((keyframe, index) => {
+    if (!keyframe || typeof keyframe !== "object") return;
+    warnUnknownFields(keyframe, `${owner} keyframe ${index}`, KNOWN_KEYFRAME_KEYS, warn);
+  });
+}
 function buildResolvedTimelinePlan(cuts, options = {}) {
+  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+  const warned = /* @__PURE__ */ new Set();
+  const warn = (message) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    onWarning?.(message);
+  };
+  cuts.forEach((cut, index) => {
+    const id = String(cut.id ?? `cut-${index}`);
+    warnUnknownFields(cut, `cut ${id}`, KNOWN_CUT_KEYS, warn);
+    warnUnknownKeyframes(cut.keyframes, `cut ${id}`, warn);
+  });
+  layers.forEach((layer, index) => {
+    const id = String(layer.id ?? `layer-${index}`);
+    warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
+    warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
+  });
   if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
   }
@@ -17441,7 +18315,6 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       transitionOut: normalizeTransition(cut)
     };
   });
-  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
   const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, { trackZ: DEFAULT_TRACK_Z, ...timelineOptions });
   const trackSegments = (0, import_edit_store2.computeCutTrackSegments)(virtualCuts);
   const placements = cuts.map((cut, index) => {
@@ -17461,12 +18334,6 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     };
   });
   const visibleLayers = layers;
-  const warned = /* @__PURE__ */ new Set();
-  const warn = (message) => {
-    if (warned.has(message)) return;
-    warned.add(message);
-    onWarning?.(message);
-  };
   cuts.forEach((cut, index) => {
     if (!cutDeclaresPerspective(cut)) return;
     warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
@@ -17712,7 +18579,10 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
       });
       return;
     }
-    if (!layer.src) return;
+    if (!layer.src) {
+      timeline.warn(`layer ${id}: src is missing; skipping`);
+      return;
+    }
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
     const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
@@ -20938,6 +21808,12 @@ var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
+function resolveOptimizeForLatencyDefault() {
+  const runtime = globalThis;
+  const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  if (explicit === void 0 || explicit === null || explicit === "") return false;
+  return explicit === true || explicit === "1" || explicit === "true";
+}
 function uint323(bytes, offset) {
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
 }
@@ -21013,7 +21889,10 @@ var HttpRangeReader = class {
     maxDecodeQueueSize: 0,
     fullBodyFallback: false,
     fullBodyBytes: 0,
-    maxFutureFrames: 0
+    maxFutureFrames: 0,
+    graceWaits: 0,
+    targetSkips: 0,
+    droppedTargets: 0
   };
   fetchImpl;
   onWarning;
@@ -21225,7 +22104,7 @@ async function selectSupportedDecoderConfig(table, requested, knownSupport, call
     description: table.description,
     codedWidth: table.codedWidth,
     codedHeight: table.codedHeight,
-    optimizeForLatency: true
+    optimizeForLatency: callbacks.optimizeForLatency ?? resolveOptimizeForLatencyDefault()
   };
   const attempts = requested === "prefer-software" ? ["prefer-software"] : ["prefer-hardware", "prefer-software"];
   const support = knownSupport ?? await evaluateCodecSupport(table.codec, {
@@ -21260,7 +22139,7 @@ var DecoderExecutionError = class extends Error {
     this.name = "DecoderExecutionError";
   }
 };
-function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
+function futureFrameTimestampsToEvict(timestamps, limit, targetUs, futureLimit = Number.POSITIVE_INFINITY) {
   const evicted = [];
   let retained = timestamps.length;
   for (const timestamp of timestamps) {
@@ -21269,8 +22148,13 @@ function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
     evicted.push(timestamp);
     retained -= 1;
   }
+  if (Number.isFinite(futureLimit)) {
+    const future = timestamps.filter((timestamp) => timestamp >= targetUs && !evicted.includes(timestamp)).sort((left, right) => left - right);
+    for (const timestamp of future.slice(Math.max(0, Math.floor(futureLimit)))) evicted.push(timestamp);
+  }
   return evicted;
 }
+var FUTURE_FRAME_LIMIT = 16;
 var TargetFrameUnavailableError = class extends Error {
   constructor(targetUs) {
     super(`target frame ${targetUs}us was not produced`);
@@ -21342,7 +22226,8 @@ var RangeMp4Source = class _RangeMp4Source {
       this.options.codecSupport,
       {
         onCodecSupport: this.options.onCodecSupport,
-        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied
+        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
+        optimizeForLatency: this.options.optimizeForLatency
       }
     );
     this.decoderError = null;
@@ -21410,6 +22295,15 @@ var RangeMp4Source = class _RangeMp4Source {
     }
     if (frame.timestamp > target) {
       this.storeFutureFrame(frame);
+      const waiter = this.outputWaiter;
+      if (waiter && !waiter.isSettled()) {
+        waiter.laterFrames += 1;
+        const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
+        if (waiter.laterFrames > reorderWindow && !(this.activeCandidate && frameCovers(this.activeCandidate, waiter.targetUs))) {
+          this.shared.reader.stats.targetSkips += 1;
+          waiter.resolve();
+        }
+      }
       return;
     }
     if (!this.activeCandidate || frame.timestamp >= this.activeCandidate.timestamp) {
@@ -21430,7 +22324,8 @@ var RangeMp4Source = class _RangeMp4Source {
     for (const timestamp of futureFrameTimestampsToEvict(
       [...this.futureFrames.keys()],
       limit,
-      targetUs
+      targetUs,
+      FUTURE_FRAME_LIMIT
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -21450,6 +22345,7 @@ var RangeMp4Source = class _RangeMp4Source {
       promise,
       targetUs,
       sampleTimestampUs,
+      laterFrames: 0,
       isSettled: () => settled,
       resolve() {
         if (settled) return;
@@ -21499,7 +22395,8 @@ var RangeMp4Source = class _RangeMp4Source {
         this.options.onWarning?.(
           `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`
         );
-        await this.resetDecoder();
+        this.shared.reader.stats.droppedTargets += 1;
+        await this.resetDecoder({ keepFutureFrames: true });
       }
     }
     throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
@@ -21656,6 +22553,8 @@ var RangeMp4Source = class _RangeMp4Source {
     if (waiter.isSettled()) return "target-or-dequeue";
     if (decoder.decodeQueueSize === 0) {
       if (canSupply) return "needs-supply";
+      if (waiter.laterFrames > 0) return "grace-expired";
+      this.shared.reader.stats.graceWaits += 1;
       let graceTimer = null;
       const graceExpired = new Promise((resolve) => {
         graceTimer = setTimeout(() => resolve("grace-expired"), OUTPUT_GRACE_MS);
@@ -21724,7 +22623,7 @@ var RangeMp4Source = class _RangeMp4Source {
       if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
     }
   }
-  async resetDecoder() {
+  async resetDecoder(options = {}) {
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -21733,8 +22632,10 @@ var RangeMp4Source = class _RangeMp4Source {
     this.decoder = null;
     this.decoderFailure = null;
     this.rejectDecoderFailure = null;
-    for (const frame of this.futureFrames.values()) frame.close();
-    this.futureFrames.clear();
+    if (!options.keepFutureFrames) {
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+    }
     await this.configureDecoder();
   }
   async fork(id) {
@@ -23148,6 +24049,11 @@ var EditStoreKernel = __toESM(require_lib(), 1);
 var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
 var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
 var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
+var DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
+var DEFAULT_COMPACT_SAMPLE_RATE = 24e3;
+var FAILED_DECODE_RETRY_MS = 5e3;
+var RESTART_BACKOFF_MS = 500;
+var MIB = 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
   const declarations = [...options.declarations ?? []];
@@ -23157,6 +24063,10 @@ function createPreviewAudioSupply(options) {
   const scheduleBuilder = options.scheduleBuilder ?? import_edit_store4.buildWebAudioSchedule;
   const warn = options.onWarning ?? ((message, reason) => console.warn(message, reason));
   const cacheLimit = finitePositive2(options.decodeCacheBytes) ? options.decodeCacheBytes : DEFAULT_DECODE_CACHE_BYTES;
+  const compactThreshold = finitePositive2(options.compactDecodeThresholdBytes) ? options.compactDecodeThresholdBytes : DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES;
+  const compactSampleRate = finitePositive2(options.compactSampleRate) ? options.compactSampleRate : DEFAULT_COMPACT_SAMPLE_RATE;
+  const offlineContextFactory = options.offlineContextFactory ?? defaultOfflineContextFactory;
+  const now = options.nowImpl ?? nowMs;
   const watchdogMs = options.pauseWatchdogMs === false ? false : finitePositive2(options.pauseWatchdogMs) ? options.pauseWatchdogMs : false;
   let context = null;
   if (timelineDurationSec > 0 && (declarations.length > 0 || speech.length > 0)) {
@@ -23170,10 +24080,15 @@ function createPreviewAudioSupply(options) {
   const warned = /* @__PURE__ */ new Set();
   const speechMetrics = /* @__PURE__ */ new Map();
   let decodedBytes = 0;
-  let prefetchPromise = null;
+  let overBudgetWarned = false;
+  let prefetchInFlight = null;
+  let prefetchEverRan = false;
   let prefetchStartedAt = 0;
   let prefetchElapsedMs = 0;
   let prefetchPending = 0;
+  let lastStartAttemptMs = 0;
+  let lastStartOutcome = null;
+  let skippedAtSchedule = [];
   let regularDecoded = [];
   let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
@@ -23222,23 +24137,26 @@ function createPreviewAudioSupply(options) {
       }
     }
   };
-  const evictFarthest = () => {
-    while (decodedBytes > cacheLimit) {
-      const candidate = [...decoded.entries()].filter(([, entry]) => entry.bytes > 0).sort((left, right) => right[1].nextUseSec - left[1].nextUseSec)[0];
-      if (!candidate) return;
-      decoded.delete(candidate[0]);
-      decodedBytes -= candidate[1].bytes;
+  const noteDecodedBytes = (entry, buffer) => {
+    entry.bytes = buffer.length * buffer.numberOfChannels * 4;
+    decodedBytes += entry.bytes;
+    if (decodedBytes > cacheLimit && !overBudgetWarned) {
+      overBudgetWarned = true;
+      warn(`[frame-engine] preview audio holds ${(decodedBytes / MIB).toFixed(0)} MiB of decoded PCM, over the ${(cacheLimit / MIB).toFixed(0)} MiB budget; keeping every buffer so playback stays complete`);
     }
   };
-  const decodeUrl = (url, nextUseSec, label, restrictSpeechSource = false, suppressWarning = false) => {
+  const decodeCompact = async (encoded) => {
+    const offline = offlineContextFactory(compactSampleRate);
+    if (!offline) return null;
+    const full = await offline.decodeAudioData(encoded);
+    return downmixToMono(full, context);
+  };
+  const decodeUrl = (url, label, restrictSpeechSource = false, suppressWarning = false) => {
     if (!context || !fetchImpl) return Promise.resolve(null);
     const cacheKey = decodeCacheKey(url, restrictSpeechSource);
     const cached = decoded.get(cacheKey);
-    if (cached) {
-      cached.nextUseSec = Math.min(cached.nextUseSec, nextUseSec);
-      return cached.promise;
-    }
-    const entry = { bytes: 0, nextUseSec, promise: Promise.resolve(null) };
+    if (cached) return cached.promise;
+    const entry = { bytes: 0, compact: false, promise: Promise.resolve(null) };
     entry.promise = (async () => {
       try {
         const response = await fetchImpl(url);
@@ -23251,11 +24169,18 @@ function createPreviewAudioSupply(options) {
         if (restrictSpeechSource && encoded.byteLength >= MAX_SPEECH_SOURCE_FALLBACK_BYTES) {
           throw new Error(`source is ${encoded.byteLength} bytes (64 MB fallback limit)`);
         }
-        const buffer = await context.decodeAudioData(encoded);
+        let buffer = null;
+        if (estimateDecodedBytes(encoded, context.sampleRate) > compactThreshold) {
+          try {
+            buffer = await decodeCompact(encoded);
+            entry.compact = buffer !== null;
+          } catch (reason) {
+            warn(`[frame-engine] ${label}: compact decode failed; decoding at full rate`, reason);
+          }
+        }
+        if (!buffer) buffer = await context.decodeAudioData(encoded);
         if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-        entry.bytes = buffer.length * buffer.numberOfChannels * 4;
-        decodedBytes += entry.bytes;
-        evictFarthest();
+        noteDecodedBytes(entry, buffer);
         return buffer;
       } catch (reason) {
         decoded.delete(cacheKey);
@@ -23273,16 +24198,11 @@ function createPreviewAudioSupply(options) {
     const sidecar = validSidecar(declaration.spec.sidecar);
     let buffer = await decodeUrl(
       declaration.url,
-      firstUseRegular(declaration),
       `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
     );
     let usedSidecar = Boolean(sidecar && buffer);
     if (!buffer && sidecar && declaration.sourceUrl) {
-      buffer = await decodeUrl(
-        declaration.sourceUrl,
-        firstUseRegular(declaration),
-        `${declaration.kind} ${declaration.id}`
-      );
+      buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
     if (!buffer) return;
@@ -23300,12 +24220,11 @@ function createPreviewAudioSupply(options) {
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
     const bakedPath = sidecar?.path ?? legacy?.path;
-    let buffer = bakedPath ? await decodeUrl(bakedPath, firstUseSpeech(declaration), `speech sidecar ${declaration.id}`) : null;
+    let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
     let usedSidecar = Boolean(bakedPath && buffer);
     if (!buffer) {
       buffer = await decodeUrl(
         declaration.url,
-        firstUseSpeech(declaration),
         `speech ${declaration.src}`,
         true,
         Boolean(bakedPath || declaration.sidecarWarningEmitted)
@@ -23327,38 +24246,60 @@ function createPreviewAudioSupply(options) {
       ok: previous?.ok === false ? false : Boolean(buffer)
     });
   };
+  const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
   const tasks = [
-    ...declarations.map((item) => ({ at: firstUseRegular(item), run: () => resolveRegular(item) })),
-    ...speech.map((item) => ({ at: firstUseSpeech(item), run: () => resolveSpeech(item) }))
+    ...declarations.map((item) => ({
+      key: `${item.kind}:${item.id}`,
+      at: firstUseRegular(item),
+      failedAtMs: null,
+      run: () => resolveRegular(item),
+      resolved: () => regularResolved(item)
+    })),
+    ...speech.map((item) => ({
+      key: `speech:${item.id}`,
+      at: firstUseSpeech(item),
+      failedAtMs: null,
+      run: () => resolveSpeech(item),
+      resolved: () => speechDecoded.has(item.id)
+    }))
   ].sort((left, right) => left.at - right.at);
-  const runPrefetch = async () => {
-    regularDecoded = [];
-    speechDecoded = /* @__PURE__ */ new Map();
-    prefetchPending = tasks.length;
+  const pendingTasks = () => {
+    const at2 = now();
+    return tasks.filter((task) => !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+  };
+  const runPrefetch = async (queue) => {
+    prefetchPending = queue.length;
     let cursor = 0;
     const worker = async () => {
-      while (cursor < tasks.length) {
-        const task = tasks[cursor++];
+      while (cursor < queue.length) {
+        const task = queue[cursor++];
         if (!task) break;
         try {
           await task.run();
+          task.failedAtMs = task.resolved() ? null : now();
+        } catch (reason) {
+          task.failedAtMs = now();
+          warn(`[frame-engine] ${task.key} prefetch failed`, reason);
         } finally {
           prefetchPending -= 1;
         }
       }
     };
     await Promise.all([worker(), worker()]);
-    regularDecoded = regularDecoded.filter((item) => decoded.has(item.cacheKey));
-    speechDecoded = new Map([...speechDecoded].filter(([, item]) => decoded.has(item.cacheKey)));
   };
-  const ensurePrefetch = () => {
-    if (prefetchPromise) return prefetchPromise;
-    prefetchStartedAt = nowMs();
-    prefetchPromise = runPrefetch().finally(() => {
-      prefetchElapsedMs = nowMs() - prefetchStartedAt;
+  const ensureDecoded = () => {
+    if (prefetchInFlight) return prefetchInFlight;
+    const queue = pendingTasks();
+    if (queue.length === 0) return Promise.resolve();
+    const first = !prefetchEverRan;
+    prefetchEverRan = true;
+    if (first) prefetchStartedAt = now();
+    prefetchInFlight = runPrefetch(queue).finally(() => {
+      if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
+      prefetchInFlight = null;
     });
-    return prefetchPromise;
+    return prefetchInFlight;
   };
   const applyGainEvents = (param, events, startTime) => {
     if (events.length === 0) {
@@ -23374,10 +24315,10 @@ function createPreviewAudioSupply(options) {
     }
   };
   const startItem = (item, contextStart) => {
-    if (!context) return;
+    if (!context) return false;
     const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
     const buffer = regular?.buffer ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : void 0);
-    if (!buffer) return;
+    if (!buffer) return false;
     try {
       const source = context.createBufferSource();
       const baseGain = context.createGain();
@@ -23410,8 +24351,10 @@ function createPreviewAudioSupply(options) {
         } catch {
         }
       };
+      return true;
     } catch (reason) {
       warn(`[frame-engine] ${item.kind} ${item.id} could not be scheduled`, reason);
+      return false;
     }
   };
   const regularScheduleDeclaration = () => {
@@ -23432,60 +24375,73 @@ function createPreviewAudioSupply(options) {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
-    const alreadyPrefetched = prefetchPromise !== null;
-    await ensurePrefetch();
-    if (alreadyPrefetched && regularDecoded.length + speechDecoded.size < tasks.length) {
-      await runPrefetch();
-    }
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
-    }
+    lastStartAttemptMs = now();
+    let outcome = "failed";
     try {
-      await context.resume();
-    } catch (reason) {
-      warn("[frame-engine] AudioContext resume failed; keeping wall-clock playback", reason);
-      starting = false;
-      return;
+      await ensureDecoded();
+      if (thisGeneration !== generation) return;
+      try {
+        await context.resume();
+      } catch (reason) {
+        warn("[frame-engine] AudioContext resume failed; keeping wall-clock playback", reason);
+        return;
+      }
+      if (thisGeneration !== generation) return;
+      const speechForSchedule = speech.flatMap((item) => {
+        const resolved = speechDecoded.get(item.id);
+        if (!resolved) return [];
+        return [{
+          ...item,
+          ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
+          materialDurationSec: resolved.buffer.duration
+        }];
+      });
+      const plan = scheduleBuilder({
+        timelineDurationSec,
+        startAtSec: clamp3(latestRequestedSec || seconds),
+        audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
+      });
+      for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
+      if (plan.items.length === 0) {
+        outcome = "empty";
+        return;
+      }
+      stopSources();
+      const contextStart = context.currentTime + 0.02;
+      anchorTimelineSec = plan.startAtSec;
+      anchorContextSec = contextStart;
+      lastSchedule = plan.items;
+      lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
+      const skipped = [];
+      for (const item of lastSchedule) {
+        if (!startItem(item, contextStart)) skipped.push(`${item.kind}:${item.id}`);
+      }
+      skippedAtSchedule = skipped;
+      if (skipped.length > 0) {
+        warn(`[frame-engine] audio: ${skipped.length} scheduled item(s) have no decoded buffer and stay silent: ${skipped.join(", ")}`);
+      }
+      playing = true;
+      outcome = "started";
+    } finally {
+      if (thisGeneration === generation) {
+        starting = false;
+        lastStartOutcome = outcome;
+      }
     }
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
-    }
-    const speechForSchedule = speech.flatMap((item) => {
-      const resolved = speechDecoded.get(item.id);
-      if (!resolved) return [];
-      return [{
-        ...item,
-        ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
-        materialDurationSec: resolved.buffer.duration
-      }];
-    });
-    const plan = scheduleBuilder({
-      timelineDurationSec,
-      startAtSec: clamp3(latestRequestedSec || seconds),
-      audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
-    });
-    for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-    if (plan.items.length === 0) {
-      starting = false;
-      return;
-    }
-    stopSources();
-    const contextStart = context.currentTime + 0.02;
-    anchorTimelineSec = plan.startAtSec;
-    anchorContextSec = contextStart;
-    lastSchedule = plan.items;
-    lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
-    for (const item of lastSchedule) startItem(item, contextStart);
-    playing = true;
-    starting = false;
   };
+  const launch = (seconds) => {
+    lastStartOutcome = null;
+    startFrom(seconds).catch((reason) => {
+      warn("[frame-engine] audio start failed", reason);
+    });
+  };
+  const restartAllowed = () => lastStartOutcome === null || now() - lastStartAttemptMs >= RESTART_BACKOFF_MS;
   const pause = () => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
     playing = false;
     starting = false;
+    lastStartOutcome = null;
     stopSources();
   };
   const armPauseWatchdog = () => {
@@ -23511,13 +24467,17 @@ function createPreviewAudioSupply(options) {
         bgm: lastSchedule.filter((item) => item.kind === "bgm").length,
         sfx: lastSchedule.filter((item) => item.kind === "sfx").length,
         narration: lastSchedule.filter((item) => item.kind === "narration").length,
-        speech: lastSchedule.filter((item) => item.kind === "speech").length
+        speech: lastSchedule.filter((item) => item.kind === "speech").length,
+        skipped: [...skippedAtSchedule]
       },
       prefetch: {
         items: tasks.length,
         decodedBytes,
-        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? nowMs() - prefetchStartedAt : 0),
-        pending: prefetchPending
+        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
+        pending: prefetchPending,
+        failed: tasks.filter((task) => task.failedAtMs !== null && !task.resolved()).map((task) => task.key),
+        compact: [...decoded.values()].filter((entry) => entry.compact).length,
+        overBudget: decodedBytes > cacheLimit
       },
       sidecars: {
         generated: uniqueSidecars.filter((item) => item.skipped === false).length,
@@ -23543,11 +24503,13 @@ function createPreviewAudioSupply(options) {
   };
   return {
     prime() {
-      void ensurePrefetch();
+      ensureDecoded().catch((reason) => {
+        warn("[frame-engine] audio prefetch failed", reason);
+      });
     },
     playFrom(seconds) {
       latestRequestedSec = clamp3(seconds);
-      if (context && !playing && !starting) void startFrom(latestRequestedSec);
+      if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
       latestRequestedSec = clamp3(fallbackSeconds);
@@ -23557,7 +24519,7 @@ function createPreviewAudioSupply(options) {
       latestRequestedSec = clamp3(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
-      if (!playing && !starting) void startFrom(latestRequestedSec);
+      if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
       return playing ? audioPosition() : latestRequestedSec;
     },
     seek(seconds, continuePlaying = false) {
@@ -23565,8 +24527,9 @@ function createPreviewAudioSupply(options) {
       generation += 1;
       playing = false;
       starting = false;
+      lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) void startFrom(latestRequestedSec);
+      if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
     noteRendered(seconds) {
@@ -23608,6 +24571,84 @@ function finiteNonNegative(value) {
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+function defaultOfflineContextFactory(sampleRate) {
+  const scope = globalThis;
+  const Ctor = scope.OfflineAudioContext ?? scope.webkitOfflineAudioContext;
+  if (typeof Ctor !== "function") return null;
+  try {
+    return new Ctor(1, 1, sampleRate);
+  } catch {
+    return null;
+  }
+}
+var COMPRESSED_DECODE_EXPANSION = 16;
+function estimateDecodedBytes(encoded, contextSampleRate) {
+  const view = new DataView(encoded);
+  const ratio = (sourceRate) => finitePositive2(contextSampleRate) && finitePositive2(sourceRate) ? contextSampleRate / sourceRate : 1;
+  const wav = parseWavHeader(view);
+  if (wav) return wav.frames * ratio(wav.sampleRate) * wav.channels * 4;
+  const flac = parseFlacStreamInfo(view);
+  if (flac) return flac.frames * ratio(flac.sampleRate) * flac.channels * 4;
+  return encoded.byteLength * COMPRESSED_DECODE_EXPANSION;
+}
+function readAscii(view, offset, length) {
+  if (offset + length > view.byteLength) return "";
+  let text = "";
+  for (let index = 0; index < length; index += 1) text += String.fromCharCode(view.getUint8(offset + index));
+  return text;
+}
+function parseWavHeader(view) {
+  if (view.byteLength < 12 || readAscii(view, 0, 4) !== "RIFF" || readAscii(view, 8, 4) !== "WAVE") return null;
+  let offset = 12;
+  let format = null;
+  while (offset + 8 <= view.byteLength) {
+    const id = readAscii(view, offset, 4);
+    const size = view.getUint32(offset + 4, true);
+    const body = offset + 8;
+    if (id === "fmt " && body + 16 <= view.byteLength) {
+      const channels = view.getUint16(body + 2, true);
+      const sampleRate = view.getUint32(body + 4, true);
+      const blockAlign = view.getUint16(body + 12, true);
+      if (channels > 0 && sampleRate > 0 && blockAlign > 0) format = { sampleRate, channels, blockAlign };
+    } else if (id === "data") {
+      if (!format) return null;
+      const dataBytes = Math.min(size, Math.max(0, view.byteLength - body));
+      return {
+        sampleRate: format.sampleRate,
+        channels: format.channels,
+        frames: Math.floor(dataBytes / format.blockAlign)
+      };
+    }
+    offset = body + size + size % 2;
+  }
+  return null;
+}
+function parseFlacStreamInfo(view) {
+  if (view.byteLength < 42 || readAscii(view, 0, 4) !== "fLaC") return null;
+  if ((view.getUint8(4) & 127) !== 0) return null;
+  const base = 8;
+  const b10 = view.getUint8(base + 10);
+  const b11 = view.getUint8(base + 11);
+  const b12 = view.getUint8(base + 12);
+  const b13 = view.getUint8(base + 13);
+  const sampleRate = b10 << 12 | b11 << 4 | b12 >> 4;
+  const channels = (b12 >> 1 & 7) + 1;
+  const frames = (b13 & 15) * 4294967296 + view.getUint32(base + 14, false);
+  if (!(sampleRate > 0) || !(frames > 0)) return null;
+  return { sampleRate, channels, frames };
+}
+function downmixToMono(buffer, context) {
+  if (buffer.numberOfChannels <= 1) return buffer;
+  if (typeof context.createBuffer !== "function" || typeof buffer.getChannelData !== "function") return buffer;
+  const mono = context.createBuffer(1, buffer.length, buffer.sampleRate);
+  const out = mono.getChannelData(0);
+  const scale = 1 / buffer.numberOfChannels;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    for (let index = 0; index < out.length; index += 1) out[index] = (out[index] ?? 0) + (data[index] ?? 0) * scale;
+  }
+  return mono;
 }
 
 // ../frame-engine/src/metrics/collector.ts
@@ -23910,9 +24951,11 @@ function audioDeclarations(edit) {
 }
 function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+  const declaredTracks = cuts.map((cut) => cut?.track).filter((value) => Number.isInteger(value) && value >= 0);
+  const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
-    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
     const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
     return {
       ...sequential,
@@ -24244,7 +25287,10 @@ var FrameEngineRuntime = class {
       timelineDurationSec: this.totalDuration,
       declarations: audioDeclarations(edit),
       speech,
-      pauseWatchdogMs: 150
+      // playbackTime() が rAF ループからしか呼ばれないため、1 フレームがこの時間を超えると
+      // 音声が pause → 次フレームで再開になる。150 ms では 3D / 字幕の重いフレームで
+      // 途切れが慢性化していたので、タブ非表示の検知が少し遅れるのを受け入れて広げる。
+      pauseWatchdogMs: 600
     });
     this.segments = this.timeline.cuts.map((placement, index) => {
       const cut = placement.cut ?? cuts[index] ?? {};

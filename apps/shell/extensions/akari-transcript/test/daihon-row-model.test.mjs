@@ -6,12 +6,17 @@ const require = createRequire(import.meta.url);
 const { buildDaihonRows } = require('../lib/common/daihon-row-model.js');
 
 const base = {
-    id: 'c-0001', start: 0, end: 2, text: 'こんにちは世界', edited: false,
+    id: 'c-0001', start: 0, end: 2, text: 'こんにちは世界', style: null, edited: false,
     words: [
         { text: 'こんにちは', start: 0, end: 1 },
         { text: '世界', start: 1, end: 2 }
     ]
 };
+
+test('caption の style を行へ写す', () => {
+    const [row] = buildDaihonRows([{ ...base, style: 'karaoke' }], null);
+    assert.equal(row.style, 'karaoke');
+});
 
 test('2断片の切れ目を単語 index に変換する', () => {
     const [row] = buildDaihonRows([{ ...base, display_fragments: ['こんにちは', '世界'] }], null);

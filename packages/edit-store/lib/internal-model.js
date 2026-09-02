@@ -13,6 +13,7 @@ exports.projectLegacyEdit = projectLegacyEdit;
 exports.toLegacyTrack = toLegacyTrack;
 exports.derivedLegacyTracks = derivedLegacyTracks;
 const edit_v2_1 = require("./edit-v2");
+const item_anchor_1 = require("./item-anchor");
 const cut_adjacency_1 = require("./cut-adjacency");
 const error_1 = require("./migrate/error");
 /**
@@ -32,7 +33,10 @@ function readInternalEdit(source, options) {
     if (record.version !== 2) {
         throw new error_1.LegacyEditVersionError(typeof record.version === 'number' ? record.version : -1);
     }
-    return readV2Internal(record);
+    const resolved = options?.captions === undefined
+        ? record
+        : (0, item_anchor_1.resolveItemAnchors)(record, options.captions).edit;
+    return readV2Internal((0, item_anchor_1.withoutItemAnchors)(resolved));
 }
 /**
  * 素材表だけを読む軽い入口（版を知るのは同じくここだけ）。アイテムまで要らない照合

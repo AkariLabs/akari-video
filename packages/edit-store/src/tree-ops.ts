@@ -1,4 +1,11 @@
 import type { EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
+import {
+    type AnchorCaption,
+    type ItemAnchorV2,
+    type ItemAnchorChange,
+    type ItemAnchorWarning,
+    resolveItemAnchors
+} from './item-anchor';
 
 export type JsonRecord = Record<string, unknown>;
 export type ProjectItemV2 = Omit<ItemV2, 'items' | 'keyframes'> & {
@@ -104,6 +111,40 @@ export function updateItem(edit: EditableEditV2, id: string, patch: JsonRecord):
         }
     }
     return location.item;
+}
+
+export function setItemAnchor(
+    edit: EditableEditV2,
+    id: string,
+    anchor: ItemAnchorV2,
+    captions: readonly AnchorCaption[]
+): { edit: EditableEditV2; item: ProjectItemV2; changes: ItemAnchorChange[]; warnings: ItemAnchorWarning[] } {
+    const item = requireLocation(edit, id).item;
+    item.anchor = clone(anchor);
+    const refreshed = resolveItemAnchors(edit as unknown as EditV2, captions);
+    for (const change of refreshed.changes) {
+        const changedItem = requireLocation(edit, change.id).item;
+        changedItem.at = change.after.at;
+        changedItem.duration = change.after.duration;
+    }
+    return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
+}
+
+export function clearItemAnchor(edit: EditableEditV2, id: string): ProjectItemV2 {
+    const item = requireLocation(edit, id).item;
+    delete item.anchor;
+    return item;
+}
+
+export function refreshItemAnchors(
+    edit: EditableEditV2,
+    captions: readonly AnchorCaption[]
+): { edit: EditableEditV2; changes: ItemAnchorChange[]; warnings: ItemAnchorWarning[] } {
+    return resolveItemAnchors(edit as unknown as EditV2, captions) as {
+        edit: EditableEditV2;
+        changes: ItemAnchorChange[];
+        warnings: ItemAnchorWarning[];
+    };
 }
 
 /** inline 点列へ値を打つ。最初の点では反対側の端にも同じ値を置き minItems:2 を守る。 */

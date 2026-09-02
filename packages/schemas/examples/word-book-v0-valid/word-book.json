@@ -1,0 +1,27 @@
+{
+  "version": 0,
+  "entries": [
+    {
+      "surface": "AKARI Video",
+      "variants": ["あかりビデオ", "アカリビデオ", "灯りビデオ", "明かり ビデオ"],
+      "reading": "アカリビデオ",
+      "kind": "term",
+      "protect_break": true,
+      "source": "daihon-panel",
+      "added_at": "2026-09-02T10:00:00.000Z",
+      "hits": 0
+    },
+    {
+      "surface": "動画",
+      "variants": ["ムービー"],
+      "kind": "notation",
+      "source": "manual"
+    },
+    {
+      "surface": "KYO工房",
+      "reading": "キョウコウボウ",
+      "kind": "reading-only",
+      "protect_break": true
+    }
+  ]
+}

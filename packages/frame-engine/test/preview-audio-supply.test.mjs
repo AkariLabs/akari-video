@@ -33,6 +33,17 @@ class FakeGain {
   disconnect() {}
 }
 
+class FakeBuffer {
+  constructor(numberOfChannels, length, sampleRate) {
+    this.numberOfChannels = numberOfChannels;
+    this.length = length;
+    this.sampleRate = sampleRate;
+    this.duration = length / sampleRate;
+    this.channels = Array.from({ length: numberOfChannels }, () => new Float32Array(length));
+  }
+  getChannelData(index) { return this.channels[index]; }
+}
+
 class FakeContext {
   currentTime = 0;
   state = 'suspended';
@@ -48,6 +59,9 @@ class FakeContext {
     if (value instanceof Error) throw value;
     return value;
   }
+  createBuffer(numberOfChannels, length, sampleRate) {
+    return new FakeBuffer(numberOfChannels, length, sampleRate);
+  }
   createBufferSource() {
     const source = new FakeSource();
     this.sources.push(source);
@@ -56,6 +70,30 @@ class FakeContext {
   createGain() { const gain = new FakeGain(); this.gains.push(gain); return gain; }
   async resume() { this.state = 'running'; }
   async close() { this.state = 'closed'; }
+}
+
+class FakeOfflineContext {
+  decodeCalls = 0;
+  constructor(sampleRate, produce) { this.sampleRate = sampleRate; this.produce = produce; }
+  async decodeAudioData(data) {
+    this.decodeCalls += 1;
+    return this.produce(this.sampleRate, data);
+  }
+}
+
+/** 16bit PCM の RIFF/WAVE ヘッダ + 無音 data。長さの見積もりだけに使う。 */
+function wavBytes({ sampleRate = 48000, channels = 2, frames = 150, bits = 16 } = {}) {
+  const blockAlign = channels * bits / 8;
+  const dataBytes = frames * blockAlign;
+  const bytes = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(bytes);
+  const ascii = (offset, text) => { for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i)); };
+  ascii(0, 'RIFF'); view.setUint32(4, 36 + dataBytes, true); ascii(8, 'WAVE');
+  ascii(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true); view.setUint16(34, bits, true);
+  ascii(36, 'data'); view.setUint32(40, dataBytes, true);
+  return bytes;
 }
 
 const buffer = (duration, length = 10, numberOfChannels = 2) => ({
@@ -183,17 +221,19 @@ test('atempo decode 失敗は警告一行で元ソースの playbackRate 経路�
   supply.dispose();
 });
 
-test('speech decode cache は byte 上限を越えると LRU を捨てる', async () => {
+test('byte 予算を越えても buffer は捨てず、警告 1 行で全 item を鳴らし、次の再生で再 decode しない', async () => {
   const context = new FakeContext(new Map([
     [1, buffer(2, 10, 2)],
     [2, buffer(2, 10, 2)],
   ]));
   const counts = new Map();
+  const warnings = [];
   const supply = createPreviewAudioSupply({
     timelineDurationSec: 2,
     scheduleBuilder,
     contextFactory: () => context,
     decodeCacheBytes: 100,
+    onWarning: message => warnings.push(message),
     fetchImpl: async url => {
       counts.set(url, (counts.get(url) ?? 0) + 1);
       return response(url === '/a.mp4' ? 1 : 2);
@@ -205,13 +245,190 @@ test('speech decode cache は byte 上限を越えると LRU を捨てる', asyn
   });
   supply.playFrom(0);
   await settle();
+  // 80 + 80 = 160 bytes > 予算 100 でも両方鳴る（以前は後で使う方が黙って予定表から消えていた）
+  assert.equal(context.sources.length, 2);
+  assert.equal(supply.debug().prefetch.decodedBytes, 160);
+  assert.equal(supply.debug().prefetch.overBudget, true);
+  assert.equal(supply.debug().scheduled.skipped.length, 0);
+  assert.equal(warnings.filter(message => /keeping every buffer/u.test(message)).length, 1);
+
   supply.pause();
   supply.playFrom(0);
   await settle();
+  assert.equal([...counts.values()].reduce((sum, value) => sum + value, 0), 2, '再生ごとの再 fetch が無い');
+  assert.equal(context.decodeCalls, 2, '再生ごとの再 decode が無い');
+  assert.equal(context.sources.length, 4);
+  supply.dispose();
+});
 
-  assert.equal([...counts.values()].reduce((sum, value) => sum + value, 0), 3);
-  assert.ok([...counts.values()].some(value => value === 2), '最古の 1 ソースが再 decode される');
-  assert.equal(supply.debug().speechDecode.bytes, 80);
+test('展開後の見積もりが閾値を超える WAV は OfflineAudioContext で低レート・モノに落として保持する', async () => {
+  const context = new FakeContext(new Map());
+  const offlineContexts = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    compactDecodeThresholdBytes: 1000,
+    compactSampleRate: 24000,
+    offlineContextFactory: sampleRate => {
+      const offline = new FakeOfflineContext(sampleRate, rate => {
+        const decoded = new FakeBuffer(2, 75, rate);
+        decoded.channels[0].fill(0.5);
+        decoded.channels[1].fill(-0.25);
+        return decoded;
+      });
+      offlineContexts.push(offline);
+      return offline;
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => null },
+      // 48 kHz ステレオ 150 frames → 1,200 bytes の見積もり > 閾値 1,000
+      arrayBuffer: async () => wavBytes({ frames: 150 }),
+    }),
+    declarations: [{ kind: 'bgm', id: 'bgm', url: '/bgm.wav', spec: { path: 'bgm.wav' } }],
+  });
+  supply.playFrom(0);
+  await settle();
+
+  assert.equal(context.decodeCalls, 0, '等倍 decode は走らない');
+  assert.equal(offlineContexts.length, 1);
+  assert.equal(offlineContexts[0].sampleRate, 24000);
+  const source = context.sources[0];
+  assert.ok(source, 'bgm が予定される');
+  assert.equal(source.buffer.numberOfChannels, 1);
+  assert.equal(source.buffer.sampleRate, 24000);
+  assert.ok(Math.abs(source.buffer.getChannelData(0)[0] - 0.125) < 1e-6, 'L/R の平均でモノ化');
+  const debug = supply.debug();
+  assert.equal(debug.prefetch.compact, 1);
+  assert.equal(debug.prefetch.decodedBytes, 75 * 4);
+  supply.dispose();
+});
+
+test('閾値未満の WAV は従来どおり context で等倍 decode する', async () => {
+  const context = new FakeContext(new Map([[0x52, buffer(1, 10, 2)]]));
+  let offlineCalls = 0;
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    compactDecodeThresholdBytes: 1000,
+    offlineContextFactory: () => { offlineCalls += 1; return null; },
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => null },
+      // 100 frames → 800 bytes < 1,000
+      arrayBuffer: async () => wavBytes({ frames: 100 }),
+    }),
+    declarations: [{ kind: 'bgm', id: 'bgm', url: '/bgm.wav', spec: { path: 'bgm.wav' } }],
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.equal(offlineCalls, 0);
+  assert.equal(context.decodeCalls, 1);
+  assert.equal(supply.debug().prefetch.compact, 0);
+  assert.equal(context.sources.length, 1);
+  supply.dispose();
+});
+
+test('startFrom の例外は警告に落ち、starting が残らず次の playFrom で鳴る', async () => {
+  const context = new FakeContext(new Map([[1, buffer(2, 10, 2)]]));
+  let failOnce = true;
+  const warnings = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    contextFactory: () => context,
+    onWarning: message => warnings.push(message),
+    scheduleBuilder: input => {
+      if (failOnce) { failOnce = false; throw new Error('boom'); }
+      return scheduleBuilder(input);
+    },
+    fetchImpl: async () => response(1),
+    speech: [speech('a', 'source-a', '/a.mp4')],
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.equal(supply.debug().playing, false);
+  assert.ok(warnings.some(message => /audio start failed/u.test(message)));
+
+  supply.playFrom(0);
+  await settle();
+  assert.equal(supply.debug().playing, true);
+  assert.equal(context.sources.length, 1);
+  supply.dispose();
+});
+
+test('playbackTime は空の予定表の直後は 500 ms 空けて再試行し、seek 後は即再開する', async () => {
+  let clock = 0;
+  let builds = 0;
+  const context = new FakeContext(new Map([[1, buffer(1, 10, 2)]]));
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 10,
+    contextFactory: () => context,
+    nowImpl: () => clock,
+    scheduleBuilder: input => {
+      builds += 1;
+      return input.startAtSec >= 5
+        ? { startAtSec: input.startAtSec, items: [], warnings: [] }
+        : scheduleBuilder(input);
+    },
+    fetchImpl: async () => response(1),
+    speech: [speech('a', 'source-a', '/a.mp4')],
+  });
+  supply.playbackTime(6);
+  await settle();
+  assert.equal(builds, 1);
+  assert.equal(supply.debug().playing, false);
+
+  supply.playbackTime(6.1);
+  await settle();
+  assert.equal(builds, 1, '500 ms 以内は予定表を組み直さない');
+
+  clock = 600;
+  supply.playbackTime(6.2);
+  await settle();
+  assert.equal(builds, 2, '500 ms 空けば再試行する');
+
+  supply.seek(0, false);
+  supply.playbackTime(0);
+  await settle();
+  assert.equal(supply.debug().playing, true, 'seek 後は backoff を待たずに鳴る');
+  supply.dispose();
+});
+
+test('decode 失敗は prefetch.failed に出て、5 秒空けた次の再生で再試行する', async () => {
+  let clock = 0;
+  let attempts = 0;
+  const context = new FakeContext(new Map([[1, buffer(1, 10, 2)]]));
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    nowImpl: () => clock,
+    onWarning: () => {},
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? { ok: false, status: 404, headers: { get: () => null } }
+        : response(1);
+    },
+    speech: [speech('a', 'source-a', '/a.mp4')],
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(supply.debug().prefetch.failed, ['speech:a']);
+  assert.equal(supply.debug().playing, false);
+
+  supply.playFrom(0);
+  await settle();
+  assert.equal(attempts, 1, '5 秒以内は 404 を叩き直さない');
+
+  clock = 5000;
+  supply.playFrom(0);
+  await settle();
+  assert.equal(attempts, 2);
+  assert.deepEqual(supply.debug().prefetch.failed, []);
+  assert.equal(supply.debug().playing, true);
   supply.dispose();
 });
 

@@ -296,6 +296,19 @@
           "type": "array",
           "items": { "$ref": "#/$defs/captionWord" }
         },
+        "unrecognized": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start", "end"],
+            "properties": {
+              "start": { "type": "number", "minimum": 0 },
+              "end": { "type": "number", "minimum": 0 }
+            }
+          },
+          "$comment": "音はあるが文字にできなかった区間。既定は source 秒で、caption の time_domain 宣言がある場合は同じ時刻ドメインに従う。"
+        },
         "style": { "enum": ["karaoke", "pop", "reveal", "reveal-word"] },
         "display_text": { "type": "string" },
         "display_fragments": {
@@ -303,6 +316,11 @@
           "minItems": 1,
           "maxItems": 2,
           "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        },
+        "style_preset": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "$comment": "解決順は default_text_style < style_preset の style < 同じレコードの text_style。未知 id は値を適用せず、edit-lint が warning を出す。"
         },
         "text_style": { "$ref": "#/$defs/textStyle" }
       },

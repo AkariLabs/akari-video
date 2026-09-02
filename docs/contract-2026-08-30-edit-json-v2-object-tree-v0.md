@@ -110,6 +110,7 @@ updated: 2026-08-30
 | `motion` | object | L0 プリセット動き（姉妹契約 §1）|
 | `animator` | object[] | L2 アニメーター（姉妹契約 §4）|
 | `keyframes` | array **or** `{ path, count }` | L1。inline 配列（既存 `keyframeV2[]`）または `motion/` 袋への参照（姉妹契約 §2-§3）|
+| `anchor` | `{ caption, range?, offset?, duration? }` | 字幕行または source 秒の部分区間に時刻を従属させる（[行アンカー契約](contract-2026-09-02-item-caption-anchor-v0.md)）|
 
 - 折りたたみ・選択・フォーカス中のスコープは**表示状態**で、edit.json に保存しない
 - `id` は木全体で一意（袋から写した子の id は `<袋 id>.<名札>` を UI が合成する。明示アイテムにした時点でその id が edit.json に書かれる）
@@ -286,6 +287,9 @@ await p.save();                         // 正規直列化 → lint ゲート �
 | `v2.caption-overlap` | warning | 分離した字幕行と袋の写しが同時刻に重なる |
 | `v2.keyframes-ref` | error | `keyframes: { path, count }` の袋が無い / `count` が実数と違う |
 | `v2.empty-track` | info | 空の段（保存時に自動削除される旨）|
+| `engine.unsupported-field` | error | 選択した GPU / OSR 出口が `ignored` とするフィールドを item が宣言している |
+| `engine.partial-field` | warning | 選択した出口でフィールドが近似・部分対応（`partial`）になる |
+| `engine.capability-unknown` | warning | 正準キーに対応する `path` / `applies_to` がエンジン適合性表に無い |
 
 ## 8. 版管理・移行
 

@@ -13,7 +13,9 @@ case "$ISO" in
 esac
 if [ "$KEEP" != "keep" ]; then rm -rf "$ISO"; fi
 mkdir -p "$ISO" "${LOG:h}"
-THEIA_CONFIG_DIR="$ISO" nohup "$SHELL_DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" \
+# ELECTRON_RUN_AS_NODE が環境（zsh 起動ファイル等）に残っていると Electron が Node として起動して CDP が立たない。
+# 2026-09-02: 本機で再現（launch-shell が "Node.js v20" を吐いて target unavailable）。exec 直前で必ず外す。
+THEIA_CONFIG_DIR="$ISO" nohup env -u ELECTRON_RUN_AS_NODE "$SHELL_DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" \
   "$SHELL_DIR" "$PROJ" --remote-debugging-port="$PORT" --user-data-dir="$ISO" --no-sandbox \
   > "$LOG" 2>&1 &
 echo $!

@@ -78,6 +78,7 @@ export async function runOsrExport(options) {
     duration,
     stampRow: true,
   });
+  const rendererWarnings = new Set((built.warnings ?? []).map(String));
   const server = await startStaticServer({
     pageHtml: built.html,
     overlaySheetHtml: built.overlaySheetHtml,
@@ -155,6 +156,7 @@ export async function runOsrExport(options) {
       gpu,
       viewport,
       warm_up: warmUp,
+      warnings: [...rendererWarnings],
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     encoderSession = startRawVideoEncoder({ ffmpegCommand, outputPath: out, width, height, fps, quality, encoder, edit: built.edit, queueDepth });
@@ -174,6 +176,7 @@ export async function runOsrExport(options) {
         emptyPaints,
         viewport: viewportContext,
         activeDevice,
+        rendererWarnings,
       });
       stages.seek.push(capturedFrame.seekMs);
       stages.paint.push(capturedFrame.paintMs);
@@ -244,6 +247,7 @@ export async function runOsrExport(options) {
       viewport,
       warm_up: warmUp,
       ffprobe,
+      warnings: [...rendererWarnings],
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
     return run;
@@ -262,6 +266,7 @@ export async function runOsrExport(options) {
       memory: memorySampler.stop("failed"),
       viewport,
       warm_up: warmUp,
+      warnings: [...rendererWarnings],
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
@@ -317,6 +322,7 @@ export async function runOsrCapture(options) {
     duration,
     stampRow: true,
   });
+  const rendererWarnings = new Set((built.warnings ?? []).map(String));
   const server = await startStaticServer({
     pageHtml: built.html,
     overlaySheetHtml: built.overlaySheetHtml,
@@ -370,6 +376,7 @@ export async function runOsrCapture(options) {
       gpu,
       viewport,
       warm_up: warmUp,
+      warnings: [...rendererWarnings],
     }, null, 2)}\n`, "utf8").catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     for (const [index, frame] of requestedFrames.entries()) {
@@ -386,6 +393,7 @@ export async function runOsrCapture(options) {
         emptyPaints,
         viewport: viewportContext,
         activeDevice,
+        rendererWarnings,
       });
       const pixels = stripStampRow(captured.bitmap, width, height);
       const outputPath = join(outputDirectory, `frame-${frame}.png`);
@@ -427,6 +435,7 @@ export async function runOsrCapture(options) {
       viewport,
       warm_up: warmUp,
       elapsedMs: performance.now() - started,
+      warnings: [...rendererWarnings],
     };
     await writeFile(out, `${JSON.stringify(run, null, 2)}\n`, "utf8");
     return run;
@@ -443,6 +452,7 @@ export async function runOsrCapture(options) {
       emptyPaints,
       viewport,
       warm_up: warmUp,
+      warnings: [...rendererWarnings],
     }, null, 2)}\n`, "utf8").catch(() => {});
     throw error;
   } finally {
@@ -500,9 +510,11 @@ async function captureFrameBitmap({
   emptyPaints,
   viewport = null,
   activeDevice = null,
+  rendererWarnings = null,
 }) {
   const seekStarted = performance.now();
-  await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
+  const seekResult = await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
+  collectRendererWarnings(rendererWarnings, seekResult);
   const seekMs = performance.now() - seekStarted;
   const nonEmpty = { windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport, activeDevice };
   let captured = await captureFrameNonEmpty(nonEmpty);
@@ -532,6 +544,13 @@ async function captureFrameBitmap({
     toBitmapMs,
     verifyMs: performance.now() - verifyStarted,
   };
+}
+
+/** Adds renderer warnings in first-seen order; repeated seeks never duplicate run.json entries. */
+export function collectRendererWarnings(target, seekResult) {
+  if (!(target instanceof Set) || !Array.isArray(seekResult?.warnings)) return target;
+  for (const warning of seekResult.warnings) target.add(String(warning));
+  return target;
 }
 
 // One frame's non-empty bitmap. Empty paints go to run.json emptyPaints[] as { frame, attempts, elapsed_ms }

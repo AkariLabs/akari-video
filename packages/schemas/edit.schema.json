@@ -24,7 +24,27 @@
     },
     "itemAtV2": {
       "$ref": "#/$defs/frames",
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10。v2 Phase 0 では絶対フレーム整数だけを受け付ける。将来はこの $def を oneOf: [frames, string] に拡張し、明示的な相対参照を追加する。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10。v2 Phase 0 では絶対フレーム整数だけを受け付ける。相対参照は anchor（契約 2026-09-02）で実現し、この $def の oneOf: [frames, string] 拡張は保留する。"
+    },
+    "itemAnchorV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caption"],
+      "properties": {
+        "caption": { "type": "string", "pattern": "^c-\\d{4}$" },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "$ref": "#/$defs/seconds" },
+            "end": { "$ref": "#/$defs/seconds" }
+          }
+        },
+        "offset": { "type": "integer" },
+        "duration": { "enum": ["caption", "own"], "default": "caption" }
+      },
+      "$comment": "source 秒で宣言する。range は参照字幕の [start, end] 内に置き、at / duration は解決キャッシュとする。正本は docs/contract-2026-09-02-item-caption-anchor-v0.md。"
     },
     "nonNegativeInteger": {
       "type": "integer",
@@ -911,6 +931,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "transform": { "$ref": "#/$defs/layerTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
@@ -936,6 +957,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "transform": { "$ref": "#/$defs/layerTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
@@ -959,6 +981,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "transform": { "$ref": "#/$defs/layerTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
@@ -982,6 +1005,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "transform": { "$ref": "#/$defs/layerTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
@@ -1005,6 +1029,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "transform": { "$ref": "#/$defs/layerTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },

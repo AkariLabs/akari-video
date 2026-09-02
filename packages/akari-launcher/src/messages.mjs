@@ -330,6 +330,7 @@ export function describeCliHelp() {
     '  update [--force]       更新を確認する（--force で install.sh 経路の本体を入れ直す）',
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
+    '  akari clean [dir]      使い捨ての中間ファイルを一覧・削除（既定は一覧のみ）',
     '',
     '開発者向け:',
     '  --opencode              Claude Code の代わりに opencode を起動する',

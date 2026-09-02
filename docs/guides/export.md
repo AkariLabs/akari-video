@@ -23,7 +23,7 @@ Renders the final MP4 from an approved `edit.json`. The skill is `render-cut`.
 4. **render** — renders locally with ffmpeg. Video is cut and encoded from the source
    footage; expression (titles, captions) is composited from the same HTML as the preview
    via per-frame capture
-5. **verify** — verifies the output with ffprobe, and the agent looks at keyframes
+5. **verify** — checks the container with ffprobe, then compares declared content with measured output (audio level and camera-work motion)
 
 ## What it produces
 
@@ -45,6 +45,8 @@ same save data**, so what you saw is exactly what comes out.
   The report shows FAIL reasons with counts
 - **verify FAIL** → check the stderr summary in the report. You can ask "investigate the
   render failure" for diagnosis
+- **`verify.audio-level` FAIL** → declared audio was silent in every sampled interval, or its
+  level could not be measured; check the declared BGM/SFX/narration/source audio and the report
 
 ## Next steps
 

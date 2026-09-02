@@ -33,6 +33,32 @@ test('readInternalEdit accepts v2 and keeps integer frames authoritative', () =>
   assert.equal(internal.tracks[0].items[0].duration, 2);
 });
 
+test('readInternalEdit options.captions re-resolves anchored item caches', () => {
+  const edit = base();
+  edit.tracks.push({ id: 'overlay', lane: 'visual', items: [{
+    id: 'box', at: 3, duration: 4,
+    anchor: { caption: 'c-0001' },
+    source: { kind: 'html', path: 'overlays/box.html' },
+  }] });
+  const internal = readInternalEdit(edit, {
+    captions: [{ id: 'c-0001', start: 1, end: 1.5 }],
+  });
+  const item = internal.tracks.find(track => track.id === 'overlay').items[0];
+  assert.deepEqual({ at: item.atFrames, duration: item.durationFrames }, { at: 30, duration: 15 });
+});
+
+test('readInternalEdit without options.captions keeps the cached timing behavior unchanged', () => {
+  const edit = base();
+  edit.tracks.push({ id: 'overlay', lane: 'visual', items: [{
+    id: 'box', at: 3, duration: 4,
+    anchor: { caption: 'c-0001' },
+    source: { kind: 'html', path: 'overlays/box.html' },
+  }] });
+  const cacheOnly = structuredClone(edit);
+  delete cacheOnly.tracks[2].items[0].anchor;
+  assert.deepEqual(readInternalEdit(edit), readInternalEdit(cacheOnly));
+});
+
 test('v2 media mask resolves through sources and forces layers projection', () => {
   const edit = base();
   edit.sources.push({ id: 'person-mask', path: 'matte/person.mask.mp4', proxy: null });
