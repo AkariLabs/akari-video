@@ -280,13 +280,19 @@ test("60 fps・196 コマ・音声 3.4 秒の copy mux を許容する", async (
   }
 });
 
-test("resolveOsrLauncher はインストール済みデスクトップアプリを既定で候補に含める（entry 方式・明示 opt-out も可）", async () => {
+test("resolveOsrLauncher はパッケージ配置でインストール済みアプリを候補に含める（明示 opt-out も可）", async () => {
+  const packagedLayout = {
+    repoRoot: "/resources",
+    readTextFile: async () => JSON.stringify({ name: "packaged-resources" }),
+  };
   const included = await resolveOsrLauncher({
+    ...packagedLayout,
     env: {}, platform: "darwin", homeDirectory: "/opt/akari-test",
     probe: async () => true, resolveElectron: () => null,
   });
   assert.equal(included.tier, 1);
   const skipped = await resolveOsrLauncher({
+    ...packagedLayout,
     allowInstalledDesktop: false,
     env: {}, platform: "darwin", homeDirectory: "/opt/akari-test",
     probe: async () => true, resolveElectron: () => null,
