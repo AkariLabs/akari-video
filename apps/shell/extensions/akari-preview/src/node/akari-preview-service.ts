@@ -907,6 +907,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const captionsRoot = JSON.parse(await this.readWorkspaceRegularFile(
             request.captionsUri, roots, 'captions.json'
         ));
+        if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
+            || captionsRoot.display_policy === undefined) {
+            return null;
+        }
+        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
         const legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
@@ -918,11 +923,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             rawEdit = JSON.parse(planned.nextText);
         }
         const internal = readInternalEdit(rawEdit, { captions: toAnchorCaptions(captionsRoot) });
-        if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
-            || captionsRoot.display_policy === undefined) {
-            return null;
-        }
-        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const legacy = projectLegacyEdit(internal);
         const edit = {
             output: internal.output,
