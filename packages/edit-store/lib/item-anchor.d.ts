@@ -6,6 +6,8 @@ export type AnchorCaption = {
     end: number;
     timeDomain?: 'source' | 'output';
 };
+/** captions.json / CaptionRecord[] をアンカー解決用の最小形へ正規化する。 */
+export declare function toAnchorCaptions(raw: unknown): AnchorCaption[];
 export type ItemAnchorV2 = NonNullable<ItemV2['anchor']>;
 export type ItemAnchorWarningReason = 'caption-not-found' | 'removed-range' | 'no-source-segments' | 'unsupported-kind';
 export type ItemAnchorResolution = {

@@ -17,6 +17,7 @@ import {
     serializeMotion,
     TRANSITION_CATEGORIES,
     TRANSITION_VOCABULARY,
+    toAnchorCaptions,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
 import type { InternalTrack, TransitionType } from '@akari-video/edit-store';
@@ -3885,7 +3886,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** edit.json（版を問わない）を内部表現へ読む。版を知る呼び出しはこの 1 メソッドに閉じる。 */
     protected readEdit(source: string): InternalEdit {
-        return readInternalEdit(source, { hasCaptions: this.captions.length > 0 });
+        return readInternalEdit(source, { hasCaptions: this.captions.length > 0, captions: toAnchorCaptions(this.captions) });
     }
 
     /**

@@ -9,6 +9,31 @@ export type AnchorCaption = {
     timeDomain?: 'source' | 'output';
 };
 
+/** captions.json / CaptionRecord[] をアンカー解決用の最小形へ正規化する。 */
+export function toAnchorCaptions(raw: unknown): AnchorCaption[] {
+    const rows = Array.isArray(raw)
+        ? raw
+        : isRecord(raw) && Array.isArray(raw.captions)
+            ? raw.captions
+            : [];
+    return rows.filter((row): row is Record<string, unknown> => isRecord(row)
+        && typeof row.id === 'string'
+        && row.id.trim().length > 0
+        && typeof row.start === 'number'
+        && Number.isFinite(row.start)
+        && typeof row.end === 'number'
+        && Number.isFinite(row.end))
+        .map(row => ({
+            id: row.id as string,
+            start: row.start as number,
+            end: row.end as number,
+            ...((row.timeDomain === 'output'
+                || (row.timeDomain === undefined && row.time_domain === 'output'))
+                ? { timeDomain: 'output' as const }
+                : {})
+        }));
+}
+
 export type ItemAnchorV2 = NonNullable<ItemV2['anchor']>;
 
 export type ItemAnchorWarningReason =

@@ -1,5 +1,6 @@
 import {
     outputToSource as mapOutputToSource,
+    sourceToOutput as mapSourceToOutput,
     type TimelineSegment
 } from '@akari-video/edit-store';
 import type { DaihonRow } from './daihon-row-model';
@@ -9,33 +10,11 @@ export interface DaihonHighlight {
     wordIndex: number | null;
 }
 
-function sourceSegments(segments: readonly TimelineSegment[]): TimelineSegment[] {
-    return segments.filter(segment => segment.kind === 'src'
-        && typeof segment.in === 'number'
-        && typeof segment.out === 'number');
-}
-
 /** Source seconds to output seconds, with removed ranges snapping to the next kept range. */
 export function sourceToOutput(
     segments: readonly TimelineSegment[], sourceT: number
 ): number | null {
-    const sources = sourceSegments(segments);
-    if (sources.length === 0 || !Number.isFinite(sourceT)) {
-        return null;
-    }
-    for (const segment of sources) {
-        const start = segment.in!;
-        const end = segment.out!;
-        if (start <= sourceT && sourceT < end) {
-            const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
-            return segment.outStart + (sourceT - start) / speed;
-        }
-    }
-    const next = sources.find(segment => segment.in! > sourceT);
-    if (next) {
-        return next.outStart;
-    }
-    return sources[sources.length - 1].outEnd;
+    return mapSourceToOutput(segments, sourceT);
 }
 
 /** Keep the edit-store output-to-source contract as the sole inverse implementation. */

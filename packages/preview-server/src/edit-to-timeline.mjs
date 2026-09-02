@@ -2,10 +2,11 @@
 // 経路だけは edit-store の正本射影で同じ互換形へ揃える。
 
 import path from 'node:path';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { readInternalEdit, projectLegacyEdit } = require('../../edit-store/lib/index.js');
+const { readInternalEdit, projectLegacyEdit, toAnchorCaptions } = require('../../edit-store/lib/index.js');
 
 // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: 判定は拡張子のみ（png/jpe?g/webp/
 // bmp/gif、大小無視）。packages/render-cut/src/layers.mjs の IMAGE_LAYER_SOURCE_PATTERN /
@@ -27,7 +28,15 @@ export function editToTimeline(edit, projectRoot) {
   if (!Array.isArray(edit?.cuts) && Array.isArray(edit?.tracks)) {
     let legacy;
     try {
-      legacy = projectLegacyEdit(readInternalEdit(edit));
+      const captionsPath = path.join(projectRoot, 'captions.json');
+      let captions;
+      try {
+        captions = fs.existsSync(captionsPath)
+          ? toAnchorCaptions(JSON.parse(fs.readFileSync(captionsPath, 'utf8'))) : undefined;
+      } catch {
+        captions = undefined;
+      }
+      legacy = projectLegacyEdit(readInternalEdit(edit, { captions }));
     } catch {
       // output preview は raw v2 に overlays 等の互換フィールドを付けた中間文書も読む。
       // v2 として厳密に読めない場合は、着手前の v0/v1 変換へ fail-soft に戻す。

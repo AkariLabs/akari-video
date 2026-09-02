@@ -4,16 +4,20 @@
 // 「どのアイテムが要約のどのバケットへ、どの順で入るか」をそのまま単体テストできる。
 // これは edit-summary-fields.ts と同じ狙い（配線そのものを検査可能にする）。
 
-import { InternalEdit, InternalItem, readInternalEdit } from '@akari-video/edit-store';
+import { AnchorCaption, InternalEdit, InternalItem, readInternalEdit } from '@akari-video/edit-store';
 
 /**
  * preview 用の正規化読込。timeline.tracks 未宣言時は captions.json と埋め込み字幕の
  * どちらも captions 段の導出条件にする。
  */
-export function readPreviewInternalEdit(source: string, hasExternalCaptions: boolean): InternalEdit {
+export function readPreviewInternalEdit(
+    source: string,
+    hasExternalCaptions: boolean,
+    captions?: AnchorCaption[]
+): InternalEdit {
     const raw = JSON.parse(source) as { captions?: unknown };
     const hasInline = Array.isArray(raw?.captions) && raw.captions.length > 0;
-    return readInternalEdit(source, { hasCaptions: hasExternalCaptions || hasInline });
+    return readInternalEdit(source, { hasCaptions: hasExternalCaptions || hasInline, captions });
 }
 
 /** プレビュー要約が持つ 3 つのバケット（旧 edit.json の種別別配列に対応）。 */

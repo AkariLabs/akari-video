@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [{ "id": "main", "path": "assets/source.mp4" }],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        { "id": "main", "at": 0, "duration": 120, "source": { "kind": "media", "src": "main", "in": 0, "out": 4 } }
+      ]
+    },
+    {
+      "id": "v-overlay",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "anchored-box",
+          "at": 45,
+          "duration": 30,
+          "anchor": { "caption": "c-0003" },
+          "source": { "kind": "html", "path": "overlays/box.html" }
+        }
+      ]
+    }
+  ]
+}

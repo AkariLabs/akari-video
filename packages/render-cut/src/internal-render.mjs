@@ -21,9 +21,9 @@ export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", 
  * expandParts は既定 true。compatibility / osr / gpu / preview の全経路で同じ袋展開を使い、
  * 非展開は互換性を明示的に調べる呼び出しだけが `{ expandParts: false }` で選ぶ。
  */
-export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts, onWarning } = {}) {
+export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts, onWarning, captions } = {}) {
   const raw = typeof source === "string" ? JSON.parse(source) : source;
-  const internal = readInternalEdit(source);
+  const internal = readInternalEdit(source, { captions });
   hiddenItemIds.set(internal, collectHiddenItemIds(raw));
   projectRoots.set(internal, projectRoot === undefined
     ? projectRootFromTemporaryDirectory(temporaryDirectory)

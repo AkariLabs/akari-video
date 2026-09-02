@@ -35,6 +35,30 @@ const intakeSchema = JSON.parse(await readFile(
 const require = createRequire(import.meta.url);
 const { projectLegacyEdit, readInternalEdit, TRANSITION_TYPE_IDS } = require("../../edit-store/lib/index.js");
 
+test('time_domain: output のアンカー stale 判定は edit-store 正本と一致する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'edit-lint-anchor-output-'));
+  try {
+    const edit = {
+      version: 2,
+      output: { width: 320, height: 180, fps: 30 },
+      sources: [{ id: 'main', path: 'main.mp4' }],
+      tracks: [
+        { id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 5, out: 15 } }] },
+        { id: 'overlay', lane: 'visual', items: [{ id: 'box', at: 30, duration: 30, source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' } }] },
+      ],
+    };
+    await writeFile(join(root, 'edit.json'), `${JSON.stringify(edit, null, 2)}\n`);
+    await writeFile(join(root, 'captions.json'), `${JSON.stringify([
+      { id: 'c-0003', start: 1, end: 2, text: 'output', time_domain: 'output' },
+    ], null, 2)}\n`);
+    const result = await lintProject(root);
+    assert.equal(result.findings.filter(finding => finding.check === 'v2.item-anchor-stale').length, 0);
+    assert.equal(result.findings.filter(finding => finding.check === 'v2.item-anchor-unresolvable').length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function withFixtures(callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-test-"));
   const copied = join(root, "fixtures");

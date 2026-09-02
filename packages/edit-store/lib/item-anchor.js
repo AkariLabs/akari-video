@@ -1,10 +1,35 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.toAnchorCaptions = toAnchorCaptions;
 exports.resolveItemAnchor = resolveItemAnchor;
 exports.withoutItemAnchors = withoutItemAnchors;
 exports.resolveItemAnchors = resolveItemAnchors;
 const internal_model_1 = require("./internal-model");
 const timeline_map_1 = require("./timeline-map");
+/** captions.json / CaptionRecord[] をアンカー解決用の最小形へ正規化する。 */
+function toAnchorCaptions(raw) {
+    const rows = Array.isArray(raw)
+        ? raw
+        : isRecord(raw) && Array.isArray(raw.captions)
+            ? raw.captions
+            : [];
+    return rows.filter((row) => isRecord(row)
+        && typeof row.id === 'string'
+        && row.id.trim().length > 0
+        && typeof row.start === 'number'
+        && Number.isFinite(row.start)
+        && typeof row.end === 'number'
+        && Number.isFinite(row.end))
+        .map(row => ({
+        id: row.id,
+        start: row.start,
+        end: row.end,
+        ...((row.timeDomain === 'output'
+            || (row.timeDomain === undefined && row.time_domain === 'output'))
+            ? { timeDomain: 'output' }
+            : {})
+    }));
+}
 function resolveItemAnchor(item, context) {
     const start = item.anchor.range?.start ?? context.caption.start;
     const end = item.anchor.range?.end ?? context.caption.end;

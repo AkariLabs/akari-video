@@ -27,6 +27,7 @@ import {
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
     STATIC_DUCK_GAIN_DB,
+    toAnchorCaptions,
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
@@ -3227,6 +3228,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // edit.json 読み出しとは先に並走させる。正規化時には captions 段の導出へ必要なので
         // await する（loadPreviewCaptions は内部で catch して [] を返すため reject しない）。
         const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
+        const rawCaptionsPromise = captionsUri
+            ? this.readText(captionsUri).catch(() => '') : Promise.resolve('');
         const assetStreams = new Map<string, { id: string; url: string }>();
         const previewAudioKeepKeys = new Set<string>();
         const assetUris: URI[] = [];
@@ -3282,7 +3285,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
             const loadedCaptions = await captionsPromise;
-            const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0);
+            const rawCaptionsText = await rawCaptionsPromise;
+            const anchorCaptions = (() => {
+                try { return rawCaptionsText ? toAnchorCaptions(JSON.parse(rawCaptionsText)) : undefined; }
+                catch { return undefined; }
+            })();
+            const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0, anchorCaptions);
             const excludedCaptionIds = collectExcludedCaptionIds(internal);
             const captions = loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id));
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(

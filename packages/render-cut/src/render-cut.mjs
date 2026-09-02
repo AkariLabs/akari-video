@@ -55,6 +55,7 @@ const {
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
   resolveCaptionDisplay,
+  toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
 // A stale run directory belongs to a process that crashed/was killed without cleaning up after
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
@@ -147,7 +148,9 @@ export async function renderProject(input, options = {}, io = console) {
   const editText = await readRequired(editPath, options.editPath ?? "edit.json");
   const parsedEdit = parseJson(editText, options.editPath ?? "edit.json");
   const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
-  const renderRead = readRenderEdit(editText, renderTmpRoot);
+  const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"));
+  const captions = captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot);
+  const renderRead = readRenderEdit(editText, renderTmpRoot, { captions });
   let edit = renderRead.edit;
   const internalEdit = renderRead.internal;
   validateEditShape(edit);
@@ -823,6 +826,16 @@ export async function loadCaptions(projectRoot, edit) {
     onWarning: (warning) => warnings.push(warning),
   });
   return { overlays, warnings, layout: null, captions, defaultTextStyle: defaultTextStyle ?? null, emphasisWords: emphasisWords ?? [] };
+}
+
+async function readJsonIfPresent(path) {
+  try {
+    if (!(await isRegularFile(path))) return undefined;
+    return parseJson(await readFile(path, "utf8"), "captions.json");
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 function captionDisplayEdit(edit) {
