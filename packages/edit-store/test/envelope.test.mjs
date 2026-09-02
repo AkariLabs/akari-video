@@ -4,6 +4,8 @@ import { interpolateKeyframes } from '../../overlay-runtime/src/keyframes.mjs';
 import {
   composeEnvelopesDb,
   computeDuckEnvelope,
+  DEFAULT_DUCK_ATTACK_SEC,
+  DEFAULT_DUCK_RELEASE_SEC,
   easingProgress,
   envelopeToGainEvents,
   evaluateEnvelopeDb,
@@ -116,6 +118,17 @@ test('computeDuckEnvelope は attack と release を含む', () => {
   assert.equal(evaluateEnvelopeDb(envelope, 2.2), 0);
 });
 
+test('既定値変更 2026-09-02: 宣言省略時は attack 0.3 / release 0.8 のランプになる', () => {
+  const envelope = computeDuckEnvelope([{ startSec: 1, endSec: 2 }], {
+    clipStartSec: 0, clipDurationSec: 3, duckDb: -12,
+  });
+  assert.equal(DEFAULT_DUCK_ATTACK_SEC, 0.3);
+  assert.equal(DEFAULT_DUCK_RELEASE_SEC, 0.8);
+  assert.deepEqual(envelope.map(point => point.t), [0, 0.7, 1, 2, 2.8, 3]);
+  approx(evaluateEnvelopeDb(envelope, 0.85), -6);
+  approx(evaluateEnvelopeDb(envelope, 2.4), -6);
+});
+
 test('computeDuckEnvelope は近接区間を統合して復帰の揺れを作らない', () => {
   const envelope = computeDuckEnvelope([
     { startSec: 1, endSec: 2 },
@@ -138,11 +151,11 @@ test('computeDuckEnvelope は無関係な区間なら空配列を返す', () => 
   }), []);
 });
 
-test('computeDuckEnvelope は不正な設定値を既定値へ戻す', () => {
+test('既定値変更 2026-09-02: computeDuckEnvelope は不正な設定値を既定値へ戻す', () => {
   const envelope = computeDuckEnvelope([{ startSec: 1, endSec: 2 }], {
     clipStartSec: 0, clipDurationSec: 3, duckDb: -99, attackSec: -1, releaseSec: 99,
   });
-  assert.ok(envelope.some(point => point.t === 0.95));
-  assert.ok(envelope.some(point => point.t === 2.3));
+  assert.ok(envelope.some(point => point.t === 0.7));
+  assert.ok(envelope.some(point => point.t === 2.8));
   assert.equal(evaluateEnvelopeDb(envelope, 1), -12);
 });

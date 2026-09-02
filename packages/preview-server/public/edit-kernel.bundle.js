@@ -435,8 +435,8 @@ function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
 
 // ../edit-store/src/envelope.ts
 var DEFAULT_DUCK_DB = -12;
-var DEFAULT_DUCK_ATTACK_SEC = 0.05;
-var DEFAULT_DUCK_RELEASE_SEC = 0.3;
+var DEFAULT_DUCK_ATTACK_SEC = 0.3;
+var DEFAULT_DUCK_RELEASE_SEC = 0.8;
 var DEFAULT_DUCK_KEYS = ["narration", "speech"];
 var SAMPLE_STEP_SEC = 0.02;
 var MIN_LINEAR_GAIN = 1e-4;

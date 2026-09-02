@@ -793,7 +793,7 @@ function MULTI_CAPTION_SECTIONS(
     ];
 }
 
-const AUDIO_DUCK_DEFAULTS = { duckDb: -12, duckAttack: 0.05, duckRelease: 0.3 } as const;
+const AUDIO_DUCK_DEFAULTS = { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 } as const;
 const AUDIO_KEYFRAME_EASING_OPTIONS = ['linear', 'hold', 'ease-in-out'] as const;
 
 function duckingFields(

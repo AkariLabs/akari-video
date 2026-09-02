@@ -31,9 +31,11 @@ v2 の visual 用キーは audio item では無視し、lint warning を出す�
 |---|---|---|---|
 | `ducking` | boolean | `false` | bgm / sfx を対象にする |
 | `duck_db` | `[-40, 0]` dB | `-12` | 減衰量 |
-| `duck_attack` | `[0, 2]` 秒 | `0.05` | 鍵開始前の下降時間 |
-| `duck_release` | `[0, 5]` 秒 | `0.3` | 鍵終了後の復帰時間 |
+| `duck_attack` | `[0, 2]` 秒 | `0.3` | 鍵開始前の下降時間 |
+| `duck_release` | `[0, 5]` 秒 | `0.8` | 鍵終了後の復帰時間 |
 | `audio.duck_keys` | `narration` / `speech` の配列 | 両方 | 鍵の選択 |
+
+2026-09-02 のオーナー実機フィードバック「切り替わりが急」を受け、既定の attack / release をよりなだらかに変更した。
 
 `narration` 鍵は配置時刻とデコード／probe 実尺から作る。`speech` 鍵はプロジェクト直下の
 `analysis.json` にある source 秒の transcript を、cut の in / out / speed と timeline map で写像する。

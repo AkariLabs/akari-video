@@ -40,7 +40,8 @@ test('trim / fade / gain / track / ducking を一つの決定論的予定表へ�
   closeTo(bgm.gainEvents[0].value, 0);
   closeTo(bgm.gainEvents[1].value, Math.pow(10, -6 / 20));
   closeTo(bgm.gainEvents[3].value, 0);
-  assert.deepEqual(bgm.envelopeEvents.map(event => event.offsetSec), [0, 4.95, 5, 7, 7.3, 20]);
+  // 既定値変更 2026-09-02: attack 0.3 / release 0.8 のランプ端点。
+  assert.deepEqual(bgm.envelopeEvents.map(event => event.offsetSec), [0, 4.7, 5, 7, 7.8, 20]);
   closeTo(bgm.envelopeEvents[0].value, 1);
   closeTo(bgm.envelopeEvents[2].value, Math.pow(10, STATIC_DUCK_GAIN_DB / 20));
   closeTo(bgm.envelopeEvents[4].value, 1);

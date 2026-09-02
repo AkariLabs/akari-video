@@ -13,8 +13,8 @@ export interface EnvelopeGainEvent {
     method: 'set' | 'linear' | 'exponential';
 }
 export declare const DEFAULT_DUCK_DB = -12;
-export declare const DEFAULT_DUCK_ATTACK_SEC = 0.05;
-export declare const DEFAULT_DUCK_RELEASE_SEC = 0.3;
+export declare const DEFAULT_DUCK_ATTACK_SEC = 0.3;
+export declare const DEFAULT_DUCK_RELEASE_SEC = 0.8;
 export declare const DEFAULT_DUCK_KEYS: readonly ["narration", "speech"];
 /** overlay-runtime の keyframe easing と数値同一の係数関数。 */
 export declare function easingProgress(easing: EasingV2 | undefined, progress: number): number;
