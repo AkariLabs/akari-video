@@ -17,6 +17,7 @@ import {
     serializeMotion,
     TRANSITION_CATEGORIES,
     TRANSITION_VOCABULARY,
+    toAnchorCaptions,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
 import type { InternalTrack, TransitionType } from '@akari-video/edit-store';
@@ -36,6 +37,7 @@ import {
     AudioLoudnessEnvelope,
     AudioWaveformDebounceGate,
     AudioWaveformPaintState,
+    AudioWaveformT1RetryGate,
     AudioWaveformTier,
     AudioWaveformTierLru,
     AudioWaveformWindow,
@@ -46,11 +48,14 @@ import {
     audioLoopTilePeaks,
     audioSourceSliceWindow,
     audioWaveformBandLayout,
+    AudioWaveformCanvasPlacement,
+    audioWaveformCanvasPlacement,
     audioWaveformMasterKey,
     audioWaveformRepaintNeeded,
     audioWaveformSourceRect,
     audioWaveformTierBucketCount,
     audioWaveformTierCacheKey,
+    audioWaveformViewKey,
     audioWaveformVisibleSourceWindow,
     filmstripChunkIndexFor,
     nextAudioWaveformTier,
@@ -144,6 +149,7 @@ import {
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
 import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
+import { clampCaptionRangeToNeighbors, CaptionNeighborRange } from '../common/caption-overlap-guard';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -167,6 +173,18 @@ import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } fro
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
 import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
+import {
+    collectEdgeCandidates,
+    readStoredSnapEnabled,
+    resolveSnapRange,
+    resolveSnapTime,
+    snapThresholdSecondsFor,
+    writeStoredSnapEnabled,
+    SnapCandidate,
+    SnapEdgeItem,
+    SnapExclusion,
+    SnapResolution as SnapResult
+} from '../common/timeline-snap';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     computeMaterialGhostRange,
@@ -247,7 +265,6 @@ const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const TRACK_INSERT_LINE_COLOR = '#22c55e';
 const SNAP_THRESHOLD_PX = 6;
-const SNAP_GRID_SECONDS = 0.25;
 const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
 const SNAP_GUIDE_COLOR_PLAYHEAD = '#f59e0b';
 const MIN_VIEW_DURATION_FRAMES = 4;
@@ -362,8 +379,8 @@ interface AudioWaveformDetailSource {
     readonly fullPeaks: readonly number[];
     readonly sliceKey: string;
     readonly peaksFactory: () => readonly number[];
-    readonly clipStartSec: number;
-    readonly displayDurationSec: number;
+    readonly waveformStartSec: number;
+    readonly waveformDisplayDurationSec: number;
 }
 
 interface AudioWaveformDetailMapping {
@@ -429,15 +446,7 @@ type TimelineSelection =
 
 type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
 
-interface SnapCandidate {
-    time: number;
-    isPlayhead?: boolean;
-}
-
-interface SnapResult {
-    time: number;
-    snapped: boolean;
-}
+// SnapCandidate / SnapResult は common/timeline-snap.ts の型を使う（純関数側でテストする）。
 
 export interface PreviewPlaybackTick {
     videoUri?: string;
@@ -815,6 +824,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         number[] | 'pending' | 'unavailable'
     >(200);
     protected readonly waveformT1Requested = new Set<string>();
+    protected readonly waveformT1RetryGate = new AudioWaveformT1RetryGate();
     protected readonly waveformT2DebounceGates = new Map<string, AudioWaveformDebounceGate>();
     protected readonly waveformT2DebounceTimers = new Map<string, { key: string; handle: number }>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
@@ -828,7 +838,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected videoDurationNoticeShown = false;
     protected lastManualScrollAt = 0;
     protected toolMode: ToolMode = 'select';
-    protected snapEnabled = true;
+    /**
+     * マグネット（スナップ）。既定 OFF・ユーザー設定として localStorage に永続化する
+     * （task 2026-09-02-timeline-undo-snap-fixes: 起動のたびに ON へ戻っていたのが
+     * 「つけてないのに反応する」の真因）。
+     */
+    protected snapEnabled = readStoredSnapEnabled(typeof localStorage === 'undefined' ? undefined : localStorage);
     protected selection: TimelineSelection;
     protected multiSelection: TimelineSelectionItem[] = [];
     /**
@@ -1938,10 +1953,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected setSnapEnabled(value: boolean): void {
         this.snapEnabled = value;
+        writeStoredSnapEnabled(typeof localStorage === 'undefined' ? undefined : localStorage, value);
         this.updateSnapButton();
         if (!value) {
             this.hideSnapGuide();
         }
+        this.footer.textContent = value ? 'マグネット ON（見えている端にだけ吸着します）' : 'マグネット OFF';
     }
 
     protected updateSnapButton(): void {
@@ -2265,14 +2282,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
                 fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
             });
-            const keyframes = await dialog.open();
-            if (keyframes === undefined) return;
-            const result = await this.handleInspectorWrite({
-                kind: 'audio-keyframes', id, audioKind,
-                value: keyframes.length > 0 ? keyframes : null
-            });
-            if (!result.ok) {
-                this.showNotice(`音量キーフレームを変更できません: ${result.message ?? '不明なエラー'}`);
+            const dialogValue = await dialog.open();
+            if (dialogValue === undefined) return;
+            let keyframeResult: InspectorWriteResult;
+            try {
+                keyframeResult = await this.handleInspectorWrite({
+                    kind: 'audio-keyframes', id, audioKind,
+                    value: dialogValue.keyframes.length > 0 ? dialogValue.keyframes : null
+                });
+            } catch (error) {
+                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                return;
+            }
+            if (!keyframeResult.ok) {
+                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${keyframeResult.message ?? '不明なエラー'}`);
+                return;
+            }
+            if (dialogValue.gainDb === (audio.gainDb ?? 0)) return;
+            let gainResult: InspectorWriteResult;
+            try {
+                gainResult = audioKind === 'bgm'
+                    ? await this.handleInspectorWrite({ kind: 'bgm-gain', value: dialogValue.gainDb })
+                    : audioKind === 'narration'
+                        ? await this.handleInspectorWrite({
+                            kind: 'narration-gain', id, value: dialogValue.gainDb
+                        })
+                        : await this.handleInspectorWrite({ kind: 'sfx-gain', id, value: dialogValue.gainDb });
+            } catch (error) {
+                this.showNotice(`全体ゲインの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                return;
+            }
+            if (!gainResult.ok) {
+                this.showNotice(`全体ゲインの書き込みに失敗しました: ${gainResult.message ?? '不明なエラー'}`);
             }
         } catch (error) {
             this.showNotice(`音量キーフレームを開けません: ${this.errorMessage(error)}`);
@@ -3389,12 +3430,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            if (selection.kind === "caption") {
-                const caption = this.captions.find(candidate => candidate.id === selection.id);
+            // 右クリックメニューは字幕チップを captions 袋の写し（tree item・id "…#<captionId>"）として
+            // 選択するため、そのまま removeTreeV2Item へ渡すと「item が見つかりません」になる
+            // （実機 2026-09-02 再現）。写しは captions.json の行として削除する。
+            const projectedCaptionId = selection.kind === 'item' && selection.itemKind === 'caption'
+                ? captionIdForTreeSelection(selection, (() => {
+                    const raw = this.rawV2Item(selection.id);
+                    return raw?.source?.kind === 'caption' ? raw.source.id : undefined;
+                })())
+                : undefined;
+            const captionId = selection.kind === "caption" ? selection.id : projectedCaptionId;
+            if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
+                const caption = this.captions.find(candidate => candidate.id === captionId);
                 if (!caption) throw new Error("字幕が見つかりません。");
+                // undo は captions.json の行を丸ごと戻す（time_domain / text_style を落とさない。
+                // 2026-09-02 実機: output 時間軸の字幕が source 扱いで戻り、スタイルも消えていた）。
                 const payload: CaptionWritePayload = {
                     id: caption.id, start: caption.start, end: caption.end, text: caption.text,
-                    speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
+                    speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited,
+                    ...(caption.timeDomain === undefined ? {} : { timeDomain: caption.timeDomain }),
+                    ...(caption.textStyle === undefined ? {} : { textStyle: caption.textStyle })
                 };
                 const result = await this.annotationsService.removeCaption({
                     captionsUri: location.captionsUri.toString(),
@@ -4373,7 +4428,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** edit.json（版を問わない）を内部表現へ読む。版を知る呼び出しはこの 1 メソッドに閉じる。 */
     protected readEdit(source: string): InternalEdit {
-        return readInternalEdit(source, { hasCaptions: this.captions.length > 0 });
+        return readInternalEdit(source, { hasCaptions: this.captions.length > 0, captions: toAnchorCaptions(this.captions) });
     }
 
     /**
@@ -4974,6 +5029,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    /**
+     * lint（captions.overlap）と同じ時間群の字幕を返す: output 時間軸は output 同士、
+     * source 時間軸は同じ src（captionSourceForMapping）同士。自分は含めない。
+     */
+    protected captionOverlapNeighbors(captionId: string, timeDomain: 'source' | 'output'): CaptionNeighborRange[] {
+        if (timeDomain === 'output') {
+            return this.captions
+                .filter(candidate => candidate.id !== captionId && candidate.timeDomain === 'output')
+                .map(candidate => ({ id: candidate.id, start: candidate.start, end: candidate.end }));
+        }
+        const source = this.captionSourceForMapping(captionId);
+        return this.captions
+            .filter(candidate => candidate.id !== captionId && candidate.timeDomain !== 'output'
+                && this.captionSourceForMapping(candidate.id) === source)
+            .map(candidate => ({ id: candidate.id, start: candidate.start, end: candidate.end }));
+    }
+
     protected captionRangeToOutputRanges(
         captionId: string, start: number, end: number
     ): Array<[number, number]> {
@@ -5526,38 +5598,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.audioSfx.map(item => item.id),
             ...this.audioNarration.map(item => item.id),
         ]);
-        for (const bag of this.timelineTreeRows.filter(row => row.hasChildren
-            && (row.sourceKind === 'captions' || row.sourceKind === 'html'))) {
+        // captions 袋（sourceKind 'captions'）の帯チップと目盛りは描かない: 字幕チップ自体が常に描かれるため
+        // 二重表示になり、オーナー実機 2026-09-02「謎のグループの茶色い帯、いらない」。html 袋は従来どおり
+        // トラック帯へ目盛りを載せる。
+        for (const bag of this.timelineTreeRows.filter(row => row.hasChildren && row.sourceKind === 'html')) {
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === bag.trackId);
             if (!layout || !this.isRangeMounted(bag.at, bag.at + bag.duration)) continue;
             let element = this.strip.querySelector<HTMLElement>(
                 `[data-akari-item-id="${CSS.escape(bag.id)}"]`
             );
-            if (!element && bag.sourceKind === 'captions') {
-                const keyed = this.keyedStripSegment(
-                    `tree-bag:${bag.id}`, JSON.stringify(bag), bag.at, bag.at + bag.duration,
-                    layout.top, SUBROW_HEIGHT,
-                    'akari-annotations-strip-overlay akari-timeline-tree-bag', bag.label
-                );
-                element = keyed.element;
-                element.dataset.akariItemId = bag.id;
-                element.dataset.akariItemKind = 'item';
-                element.dataset.akariTreeItemKind = bag.itemKind;
-                element.dataset.akariTreeTrackId = bag.trackId;
-                element.style.pointerEvents = 'auto';
-                if (keyed.created) {
-                    element.appendChild(this.segmentLabel(bag.label));
-                    element.addEventListener('click', event => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (this.detectTreeDoubleClick(bag.id, event.clientX, event.clientY)) {
-                            this.enterTreeItem(bag);
-                            return;
-                        }
-                        this.applySelection(this.selectionForTreeRow(bag));
-                    });
-                }
-            }
             const usesTrackBand = !element;
             if (!element) {
                 element = this.strip.querySelector<HTMLElement>(
@@ -5565,7 +5614,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 );
             }
             if (!element) continue;
-            if (bag.sourceKind === 'captions') element.dataset.akariTreeRowId = bag.id;
             for (const marker of Array.from(element.querySelectorAll(
                 `[data-akari-tree-bag-tick="${CSS.escape(bag.id)}"]`
             ))) marker.remove();
@@ -8480,8 +8528,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.updateAudioWaveformCanvas(
                         wing, fullPeaks, `wing:${sfx.path}:${startSec}:${inSeconds}:${sourceDuration}`,
                         () => this.sfxWaveformSlice(fullPeaks, startSec, inSeconds, sourceDuration),
-                        wingWidthPx, itemHeightPx,
-                        { fullClipWidthPx: wingWidthPx, clipLocalOffsetPx: 0 }
+                        itemHeightPx, {
+                            canvasLeftPx: 0, canvasWidthPx: wingWidthPx,
+                            waveformFullWidthPx: wingWidthPx, waveformOffsetPx: 0
+                        }
                     );
                 }
                 content.appendChild(wing);
@@ -8499,8 +8549,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.updateAudioWaveformCanvas(
                         wing, fullPeaks, `wing:${sfx.path}:${outSeconds}:${endSec}:${sourceDuration}`,
                         () => this.sfxWaveformSlice(fullPeaks, outSeconds, endSec, sourceDuration),
-                        wingWidthPx, itemHeightPx,
-                        { fullClipWidthPx: wingWidthPx, clipLocalOffsetPx: 0 }
+                        itemHeightPx, {
+                            canvasLeftPx: 0, canvasWidthPx: wingWidthPx,
+                            waveformFullWidthPx: wingWidthPx, waveformOffsetPx: 0
+                        }
                     );
                 }
                 content.appendChild(wing);
@@ -8948,7 +9000,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const t0DisplayPeaks = displayPeaks(t0Peaks);
         let selected: AudioWaveformDetailSource = {
             tier: 'T0', fullPeaks: t0Peaks, sliceKey: baseSliceKey,
-            peaksFactory: () => t0DisplayPeaks, clipStartSec, displayDurationSec
+            peaksFactory: () => t0DisplayPeaks,
+            waveformStartSec: clipStartSec, waveformDisplayDurationSec: displayDurationSec
         };
         if (nextAudioWaveformTier('T0', visibleWidthPx, t0DisplayPeaks.length) !== 'T1') {
             return selected;
@@ -8958,9 +9011,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const t1BucketCount = audioWaveformTierBucketCount('T1', fullDurationSeconds);
         const t1Key = audioWaveformTierCacheKey(path, 'T1', fullWindow, t1BucketCount);
         let t1 = this.waveformTierCache.get(t1Key);
-        if (t1 === undefined && !this.waveformT1Requested.has(path)) {
+        const t1ViewKey = audioWaveformViewKey(this.viewStart, this.visibleDuration());
+        const retryT1 = t1 === 'unavailable' && this.waveformT1RetryGate.shouldRetry(path, t1ViewKey);
+        if ((t1 === undefined || retryT1) && !this.waveformT1Requested.has(path)) {
+            if (retryT1) this.waveformTierCache.delete(t1Key);
             this.waveformT1Requested.add(path);
-            this.fetchAudioWaveformTier(t1Key, 'T1', audioUri, fullWindow, t1BucketCount);
+            this.fetchAudioWaveformTier(t1Key, 'T1', audioUri, fullWindow, t1BucketCount, path);
             t1 = 'pending';
         }
         if (!Array.isArray(t1)) return selected;
@@ -8969,7 +9025,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (t1DisplayPeaks.length > t0DisplayPeaks.length) {
             selected = {
                 tier: 'T1', fullPeaks: t1, sliceKey: `${baseSliceKey}:${t1Key}`,
-                peaksFactory: () => t1DisplayPeaks, clipStartSec, displayDurationSec
+                peaksFactory: () => t1DisplayPeaks,
+                waveformStartSec: clipStartSec, waveformDisplayDurationSec: displayDurationSec
             };
         }
         const selectedBucketCount = Math.max(t0DisplayPeaks.length, t1DisplayPeaks.length);
@@ -9016,8 +9073,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return {
             tier: 'T2', fullPeaks: t2, sliceKey: `${baseSliceKey}:${t2Key}`,
             peaksFactory: () => t2,
-            clipStartSec: coverageClipStart,
-            displayDurationSec: coverageDisplayDuration
+            waveformStartSec: coverageClipStart,
+            waveformDisplayDurationSec: coverageDisplayDuration
         };
     }
 
@@ -9027,7 +9084,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audioUri: string,
         sourceWindow: AudioWaveformWindow,
         bucketCount: number,
-        debouncePath?: string
+        requestPath?: string
     ): void {
         if (!this.location) return;
         this.waveformTierCache.set(key, tier, 'pending');
@@ -9040,15 +9097,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }).then(result => {
             if (result.status === 'ready' && result.peaks) {
                 this.waveformTierCache.set(key, tier, result.peaks);
+                if (tier === 'T1' && requestPath) this.waveformT1RetryGate.recordSuccess(requestPath);
             } else {
                 this.waveformTierCache.set(key, tier, 'unavailable');
+                if (tier === 'T1' && requestPath) {
+                    this.waveformT1RetryGate.recordFailure(
+                        requestPath, audioWaveformViewKey(this.viewStart, this.visibleDuration())
+                    );
+                }
                 this.showFfmpegMissingNotice(result.reason);
             }
-            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
-            this.renderStrip();
         }).catch(() => {
             this.waveformTierCache.set(key, tier, 'unavailable');
-            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
+            if (tier === 'T1' && requestPath) {
+                this.waveformT1RetryGate.recordFailure(
+                    requestPath, audioWaveformViewKey(this.viewStart, this.visibleDuration())
+                );
+            }
+        }).finally(() => {
+            if (tier === 'T1' && requestPath) this.waveformT1Requested.delete(requestPath);
+            if (tier === 'T2' && requestPath) this.waveformT2DebounceGates.get(requestPath)?.release(key);
             this.renderStrip();
         });
     }
@@ -9114,14 +9182,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                0, timelineDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: bgm.gainDb,
                     keyframes: bgm.keyframes,
                     fadeInSeconds: bgm.fadeIn,
                     fadeOutSeconds: bgm.fadeOut,
                     durationSeconds: timelineDurationSec,
-                    bucketStartSeconds: detail.clipStartSec,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.editDocument !== undefined
                         && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined,
                     fps: this.fps
@@ -9163,12 +9233,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                narration.t, displayDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: narration.gainDb,
                     keyframes: narration.keyframes,
                     durationSeconds: displayDurationSec,
-                    bucketStartSeconds: detail.clipStartSec - narration.t,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec - narration.t,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.rawV2Item(narration.id) !== undefined,
                     fps: this.fps
                 }
@@ -9204,14 +9276,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                sfx.t, displayDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: sfx.gainDb,
                     keyframes: sfx.keyframes,
                     fadeInSeconds: sfx.fadeIn,
                     fadeOutSeconds: sfx.fadeOut,
                     durationSeconds: displayDurationSec,
-                    bucketStartSeconds: detail.clipStartSec - sfx.t,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec - sfx.t,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
                     fps: this.fps
                 }
@@ -9274,7 +9348,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         sliceKey: string,
         peaksFactory: () => readonly number[],
         clipStartSec: number,
-        displayDurationSec: number,
+        clipDisplayDurationSec: number,
+        waveformStartSec: number,
+        waveformDisplayDurationSec: number,
         visibleWidthPx: number,
         itemHeightPx: number,
         envelope: AudioLoudnessEnvelope
@@ -9289,7 +9365,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const layoutViewStartSec = this.layoutViewDuration > 0 ? this.layoutViewStart : this.viewStart;
         const geometry = audioClipLocalGeometry({
             clipStartSec,
-            displayDurationSec,
+            displayDurationSec: clipDisplayDurationSec,
             layoutViewStartSec,
             viewDurationSec,
             stripWidthPx
@@ -9298,8 +9374,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.removeAudioWaveformCanvas(element);
             return;
         }
+        const placement = audioWaveformCanvasPlacement({
+            clipStartSec,
+            clipDisplayDurationSec,
+            waveformStartSec,
+            waveformDisplayDurationSec,
+            visibleWidthPx,
+            ...geometry
+        });
+        if (!placement) {
+            this.removeAudioWaveformCanvas(element);
+            return;
+        }
         this.updateAudioWaveformCanvas(
-            element, fullPeaks, sliceKey, peaksFactory, visibleWidthPx, itemHeightPx, geometry, envelope
+            element, fullPeaks, sliceKey, peaksFactory, itemHeightPx, placement, envelope
         );
     }
 
@@ -9308,9 +9396,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         fullPeaks: readonly number[],
         sliceKey: string,
         peaksFactory: () => readonly number[],
-        visibleWidth: number,
         itemHeightPx: number,
-        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number },
+        placement: AudioWaveformCanvasPlacement,
         envelope: AudioLoudnessEnvelope = { durationSeconds: 0 }
     ): void {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
@@ -9330,11 +9417,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             canvas.className = 'akari-annotations-strip-audio-waveform';
             element.appendChild(canvas);
         }
-        const visibleWidthPx = Math.max(1, Math.round(visibleWidth));
+        const visibleWidthPx = Math.max(1, Math.round(placement.canvasWidthPx));
+        const canvasLeftPx = Math.round(placement.canvasLeftPx * 1000) / 1000;
         const next: AudioWaveformPaintState = {
             sliceKey: masterKey,
             visibleWidth: visibleWidthPx,
-            offset: Math.round(geometry.clipLocalOffsetPx * 1000) / 1000,
+            offset: Math.round(placement.waveformOffsetPx * 1000) / 1000,
+            left: canvasLeftPx,
             bandTop: band.topPx,
             bandHeight: band.heightPx
         };
@@ -9344,7 +9433,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         canvas.height = band.heightPx;
         Object.assign(canvas.style, {
             position: 'absolute',
-            left: '0',
+            left: `${canvasLeftPx}px`,
             top: `${band.topPx}px`,
             width: `${visibleWidthPx}px`,
             height: `${band.heightPx}px`,
@@ -9354,9 +9443,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const context = canvas.getContext('2d');
         const sourceRect = audioWaveformSourceRect({
             masterWidthPx: master.width,
-            fullClipWidthPx: geometry.fullClipWidthPx,
-            clipLocalOffsetPx: geometry.clipLocalOffsetPx,
-            visibleWidthPx
+            fullClipWidthPx: placement.waveformFullWidthPx,
+            clipLocalOffsetPx: placement.waveformOffsetPx,
+            visibleWidthPx: placement.canvasWidthPx
         });
         if (context && sourceRect) {
             context.drawImage(
@@ -9796,16 +9885,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const rawSpanEnd = state.edge === 'right'
                     ? segment.tlStart + rawDuration / segment.speed : segment.tlEnd;
                 const movingEdge = state.edge === 'left' ? rawSpanStart : rawSpanEnd;
+                // 候補は見えている端だけ（自クリップの元の両端 + 他アイテムの端 + 再生ヘッド）。
+                // 単語境界は画面に無いので吸着先にしない（2026-09-02 実機報告「変なところで効く」）。
                 const snap = durationClamped
                     ? { time: movingEdge, snapped: false }
                     : this.snapTimeInOutputSpaceWithResult(
                         movingEdge,
                         showGuide,
-                        [
-                            { time: segment.tlStart },
-                            { time: segment.tlEnd },
-                            ...this.wordBoundaries.map(time => ({ time: this.sourceToOutput(time) }))
-                        ]
+                        [{ time: segment.tlStart }, { time: segment.tlEnd }],
+                        { kind: 'cut', id: String(state.index) }
                     );
                 snapped = snap.snapped;
                 if (durationClamped) {
@@ -9925,7 +10013,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const snap = this.snapTimeInSourceSpaceWithResult(
                     state.originalStart + delta, showGuide, originalEdges
                 );
-                start = snap.time;
+                // 0 秒より前へは置けない（2026-09-02 実機: 0:00 へ寄せると -0:00 になっていた）
+                start = Math.max(0, snap.time);
                 snapped = snap.snapped;
                 end = state.originalEnd + (start - state.originalStart);
             } else {
@@ -9958,17 +10047,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     outputEnd = resolved.outputEnd;
                     if (resolved.convertsToOutput) timeDomain = 'output';
                 } else if (edge === 'start') {
-                    start = snap.time;
+                    start = Math.max(0, snap.time);
                 } else {
                     end = snap.time;
                 }
             }
+            start = Math.max(0, start);
             if (timeDomain === 'output') {
                 const clamped = clampCaptionOutputRange(start, end, this.totalDuration());
                 start = clamped.start;
                 end = clamped.end;
                 outputStart = start;
                 outputEnd = end;
+            }
+            // 同じ時間群の隣の字幕へ食い込まない位置で止める（拒否はしない）。lint captions.overlap が
+            // error にする重なりを、書き込む前に作らない（task 2026-09-02-timeline-caption-overlap-guard）。
+            const guard = clampCaptionRangeToNeighbors({
+                id: state.id, start, end, mode: state.mode,
+                neighbors: this.captionOverlapNeighbors(state.id, timeDomain),
+                minDuration: MINIMUM_ITEM_DURATION,
+                // 正当な位置が作れないときはドラッグ前の区間へ戻す（0 秒側へ押し出さない）
+                fallback: timeDomain === 'output' && state.originalTimeDomain !== 'output'
+                    ? { start: originalOutputStart ?? state.originalStart, end: originalOutputEnd ?? state.originalEnd }
+                    : { start: state.originalStart, end: state.originalEnd }
+            });
+            const blockedByNeighbor = guard.clamped;
+            if (guard.clamped) {
+                start = guard.start;
+                end = guard.end;
+                if (timeDomain === 'output') {
+                    outputStart = start;
+                    outputEnd = end;
+                } else {
+                    // source 時間軸はクランプ後の区間を出力秒へ写し直す
+                    outputStart = undefined;
+                    outputEnd = undefined;
+                }
             }
             if (outputStart === undefined || outputEnd === undefined) {
                 const ranges = timeDomain === 'output'
@@ -9980,11 +10094,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (outputStart !== undefined && outputEnd !== undefined) {
                 this.setGhostRange(state.ghost, outputStart, outputEnd);
             }
-            this.setGhostSnapped(state.ghost, snapped);
+            this.setGhostSnapped(state.ghost, snapped && !blockedByNeighbor);
             this.setGhostOutputDomain(state.ghost, timeDomain === 'output');
-            this.updateDragFeedback(state, timeDomain === 'output' && state.originalTimeDomain !== 'output'
+            const rangeText = timeDomain === 'output' && state.originalTimeDomain !== 'output'
                 ? `出力時間の字幕に変換 ${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`
-                : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
+                : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`;
+            this.updateDragFeedback(state, blockedByNeighbor ? `${rangeText}（隣の字幕で止まりました）` : rangeText);
             return {
                 kind: 'caption', id: state.id,
                 start, end, timeDomain,
@@ -10103,8 +10218,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? ' ⚠ 実尺不明のため無制限' : durationPending ? ' (実尺確認中…)' : '';
             let input = state.originalIn;
             let output = state.originalOut;
+            let snapped = false;
+            // 動かしている端を出力秒に写してマグネットへ通す（2026-09-02 実機報告「下の素材の IN/OUT で
+            // マグネットが効かない」= 音声クリップの端トリムだけ吸着が無かった）。吸着後に素材の
+            // 実尺・最小尺・0 秒の制約を掛け直す。
+            const originalEdges = [
+                { time: state.originalT },
+                { time: state.originalT + (state.originalOut - state.originalIn) }
+            ];
             if (state.edge === 'left') {
-                const rawInput = state.originalIn + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    state.originalT + delta, showGuide, originalEdges, { kind: 'audio', id: state.id }
+                );
+                snapped = snap.snapped;
+                const rawInput = state.originalIn + (snap.time - state.originalT);
                 const minInputForT = Math.max(0, state.originalIn - state.originalT);
                 input = Math.min(
                     Math.max(rawInput, minInputForT),
@@ -10112,7 +10239,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 );
                 input = Math.max(0, input);
             } else {
-                const rawOutput = state.originalOut + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    state.originalT + (state.originalOut - state.originalIn) + delta, showGuide, originalEdges,
+                    { kind: 'audio', id: state.id }
+                );
+                snapped = snap.snapped;
+                const rawOutput = state.originalIn + (snap.time - state.originalT);
                 const cappedOutput = maxOutSeconds !== undefined ? Math.min(rawOutput, maxOutSeconds) : rawOutput;
                 output = Math.max(cappedOutput, input + MINIMUM_SFX_TRIM_DURATION);
             }
@@ -10121,6 +10253,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : state.originalT;
             this.setGhostRange(state.ghost, t, t + Math.max(0, output - input));
             this.setGhostRejected(state.ghost, false);
+            this.setGhostSnapped(state.ghost, snapped);
             this.updateDragFeedback(state,
                 `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} `
                 + `/ 尺 ${(output - input).toFixed(2)} 秒${durationWarningSuffix}`
@@ -10384,17 +10517,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * トリム・字幕ドラッグ用。候補は source 空間（単語境界・他 cuts の in/out・現在の再生/選択位置）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする（スナップ有効時は常に何かへ吸着する）。
+     * 字幕（source 時間軸）ドラッグ用。候補は source 秒に写した「見えている端」だけ:
+     * cuts の in/out・source 時間軸の他の字幕の両端・再生ヘッド・0 秒。
+     * 閾値内に候補が無ければ **そのままの値** を返す（旧: 0.25 秒グリッドへ落としていた）。
      */
     protected snapTimeInSourceSpace(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): number {
-        return this.snapTimeInSourceSpaceWithResult(value, showGuide, extraCandidates).time;
+        return this.snapTimeInSourceSpaceWithResult(value, showGuide, extraCandidates, exclude).time;
     }
 
     protected snapTimeInSourceSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10404,40 +10540,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates: SnapCandidate[] = [
-            ...this.wordBoundaries.map(time => ({ time })),
-            ...this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }]),
-            { time: this.outputToSource(this.playheadT), isPlayhead: true },
-            { time: this.selectedSourceT },
-            { time: 0 },
-            ...extraCandidates
-        ].filter(candidate => Number.isFinite(candidate.time));
-        const nearest = this.nearestCandidate(candidates, value);
-        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(this.sourceToOutput(nearest.time), nearest.isPlayhead === true);
-            }
-            return { time: nearest.time, snapped: true };
-        }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(this.sourceToOutput(grid), false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapTime(value, this.sourceSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => this.sourceToOutput(time));
+        return result;
     }
 
     /**
-     * 位置移動・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
+     * 位置移動・トリム・重ね物ドラッグ用（出力時間軸）。候補は「見えている端」だけ。
+     * 閾値内に候補が無ければ **そのままの値** を返す。
      */
     protected snapTimeInOutputSpace(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): number {
-        return this.snapTimeInOutputSpaceWithResult(value, showGuide, extraCandidates).time;
+        return this.snapTimeInOutputSpaceWithResult(value, showGuide, extraCandidates, exclude).time;
     }
 
     protected snapTimeInOutputSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10447,26 +10568,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
-        const nearest = this.nearestCandidate(candidates, value);
-        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
-            }
-            return { time: nearest.time, snapped: true };
-        }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapTime(value, this.outputSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => time);
+        return result;
     }
 
     protected snapMovingRangeInOutputSpace(
         start: number,
         duration: number,
         showGuide: boolean,
-        extraCandidates: readonly SnapCandidate[] = []
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10476,63 +10588,119 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: start, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
-        const nearestStart = this.nearestCandidate(candidates, start);
-        const end = start + duration;
-        const nearestEnd = this.nearestCandidate(candidates, end);
-        const startDistance = nearestStart ? Math.abs(nearestStart.time - start) : Number.POSITIVE_INFINITY;
-        const endDistance = nearestEnd ? Math.abs(nearestEnd.time - end) : Number.POSITIVE_INFINITY;
-        const useStart = startDistance <= endDistance;
-        const nearest = useStart ? nearestStart : nearestEnd;
-        const distance = useStart ? startDistance : endDistance;
-        if (nearest && distance <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
-            }
-            return {
-                time: useStart ? nearest.time : nearest.time - duration,
-                snapped: true
-            };
-        }
-        const grid = this.snapToGrid(start);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapRange(start, duration, this.outputSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => time);
+        return result;
     }
 
-    protected outputSnapCandidates(extraCandidates: readonly SnapCandidate[] = []): SnapCandidate[] {
+    /** 吸着したときだけガイド線を出す（候補が無いときは何も描かない）。 */
+    protected reflectSnapGuide(result: SnapResult, showGuide: boolean, toOutput: (time: number) => number): void {
+        if (result.snapped && result.candidate && showGuide) {
+            this.showSnapGuideAt(toOutput(result.candidate.time), result.candidate.isPlayhead === true);
+        } else {
+            this.hideSnapGuide();
+        }
+    }
+
+    /**
+     * 出力時間軸で「見えている端」を集める: cuts のセグメント・v2 ツリーの行（重ね物・テロップ等）・
+     * 字幕の出力区間・効果音・ナレーション、再生ヘッド、0 秒。ドラッグ中の本人（exclude）は除く。
+     * 直前のクリック位置（selectedSourceT）や単語境界のような画面に無い点は入れない。
+     */
+    protected outputSnapCandidates(
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
+    ): SnapCandidate[] {
+        const items: SnapEdgeItem[] = [];
+        for (const segment of this.segments) {
+            items.push({ kind: 'cut', id: String(segment.index), start: segment.tlStart, end: segment.tlEnd });
+        }
+        for (const row of this.timelineTreeRows) {
+            items.push({ kind: 'item', id: row.id, start: row.at, end: row.at + row.duration });
+        }
+        for (const caption of this.captions) {
+            for (const [start, end] of this.captionRangeToOutputRanges(caption.id, caption.start, caption.end)) {
+                items.push({ kind: 'caption', id: caption.id, start, end });
+            }
+        }
+        for (const sfx of this.audioSfx) {
+            items.push({ kind: 'audio', id: sfx.id, start: sfx.t, end: sfx.t + sfx.duration });
+        }
+        for (const narration of this.audioNarration) {
+            items.push({
+                kind: 'audio', id: narration.id, start: narration.t,
+                end: narration.t + this.narrationDisplayDuration(narration)
+            });
+        }
+        const excluded = exclude ? this.snapExclusionsFor(exclude) : [];
+        const candidates = collectEdgeCandidates(items.filter(item =>
+            !excluded.some(entry => entry.kind === item.kind && entry.id === item.id)));
         return [
-            ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
+            ...candidates,
             { time: this.playheadT, isPlayhead: true },
-            { time: this.sourceToOutput(this.selectedSourceT) },
             { time: 0 },
             ...extraCandidates
         ].filter(candidate => Number.isFinite(candidate.time));
     }
 
-    protected snapToGrid(value: number): number {
-        return Math.max(0, Math.round(value / SNAP_GRID_SECONDS) * SNAP_GRID_SECONDS);
+    /** source 時間軸で「見えている端」を集める（source 時間軸の字幕ドラッグ用）。 */
+    protected sourceSnapCandidates(
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
+    ): SnapCandidate[] {
+        const items: SnapEdgeItem[] = [];
+        this.cuts.forEach((cut, index) => {
+            items.push({ kind: 'cut', id: String(index), start: cut.in, end: cut.out });
+        });
+        for (const caption of this.captions) {
+            if (caption.timeDomain === 'output') continue;
+            items.push({ kind: 'caption', id: caption.id, start: caption.start, end: caption.end });
+        }
+        const excluded = exclude ? this.snapExclusionsFor(exclude) : [];
+        const candidates = collectEdgeCandidates(items.filter(item =>
+            !excluded.some(entry => entry.kind === item.kind && entry.id === item.id)));
+        // 出力時間軸に置かれた物（重ね物・テロップ・効果音・ナレーション・output 字幕）の端も、
+        // どこかのセグメント内にある限り source 秒へ写して候補にする（2026-09-02 実機報告
+        // 「下の素材の IN/OUT でマグネットが効かない」= source 時間軸の字幕がこれらへ吸着しなかった）。
+        const projected: SnapCandidate[] = this.outputSnapCandidates([], exclude)
+            .filter(candidate => !candidate.isPlayhead
+                && this.segments.some(segment => candidate.time >= segment.tlStart - 1e-9
+                    && candidate.time <= segment.tlEnd + 1e-9))
+            .map(candidate => ({ time: this.outputToSource(candidate.time) }));
+        return [
+            ...candidates,
+            ...projected,
+            { time: this.outputToSource(this.playheadT), isPlayhead: true },
+            { time: 0 },
+            ...extraCandidates
+        ].filter(candidate => Number.isFinite(candidate.time));
+    }
+
+    /** ドラッグ中の本人を候補から外す。字幕は tree 行の写し（"…#<id>"）も同じ本人として扱う。 */
+    protected snapExclusionsFor(exclude: SnapExclusion): SnapExclusion[] {
+        const exclusions: SnapExclusion[] = [exclude];
+        if (exclude.kind === 'caption') {
+            const treeRow = this.captionTreeRow(exclude.id);
+            if (treeRow) exclusions.push({ kind: 'item', id: treeRow.id });
+        } else if (exclude.kind === 'item') {
+            const separator = exclude.id.lastIndexOf('#');
+            if (separator >= 0) exclusions.push({ kind: 'caption', id: exclude.id.slice(separator + 1) });
+        } else if (exclude.kind === 'cut') {
+            const itemId = this.cutItemIds[Number(exclude.id)];
+            if (itemId) exclusions.push({ kind: 'item', id: itemId });
+        } else if (exclude.kind === 'layer' || exclude.kind === 'overlay') {
+            exclusions.push({ kind: 'item', id: exclude.id });
+        }
+        return exclusions;
     }
 
     protected snapThresholdSeconds(): number | undefined {
         const rect = this.strip.getBoundingClientRect();
-        const duration = this.visibleDuration();
-        if (rect.width <= 0 || duration <= 0) {
+        const threshold = snapThresholdSecondsFor(SNAP_THRESHOLD_PX, rect.width, this.visibleDuration());
+        if (threshold === undefined) {
             this.hideSnapGuide();
-            return undefined;
         }
-        return SNAP_THRESHOLD_PX / (rect.width / duration);
-    }
-
-    protected nearestCandidate(candidates: readonly SnapCandidate[], value: number): SnapCandidate | undefined {
-        let nearest: SnapCandidate | undefined;
-        for (const candidate of candidates) {
-            if (nearest === undefined || Math.abs(candidate.time - value) < Math.abs(nearest.time - value)) {
-                nearest = candidate;
-            }
-        }
-        return nearest;
+        return threshold;
     }
 
     /** ガイド線は常に出力軸座標へ射影して表示する。playhead へ吸着したときだけアンバーにする。 */
@@ -10898,9 +11066,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applyHistoryExecution(execution: HistoryExecution): void {
         if ('error' in execution) {
-            this.footer.textContent = execution.kind === 'undo'
-                ? '元に戻せませんでした（対象が変更されています）'
-                : 'やり直せませんでした（対象が変更されています）';
+            // 失敗理由を添える（「対象が変更されています」だけでは原因が追えなかった。2026-09-02）。
+            const reason = this.errorMessage(execution.error);
+            const message = execution.kind === 'undo'
+                ? `「${execution.entry.label}」を元に戻せませんでした: ${reason}`
+                : `「${execution.entry.label}」をやり直せませんでした: ${reason}`;
+            this.footer.textContent = message;
+            this.showNotice(message);
             return;
         }
         this.hideNotice();

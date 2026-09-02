@@ -72,6 +72,47 @@ test('GPU page builder fails closed with the missing region-filter LUT id', asyn
   } finally { await rm(projectRoot, {recursive:true,force:true}); }
 });
 
+test('GPU page builder は captions.json で stale anchor cache を再解決し、不在時は保持する', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-anchor-wiring-'));
+  const anchored = {
+    version: 2,
+    output: { width: 64, height: 36, fps: 30 },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
+    tracks: [
+      { id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }] },
+      { id: 'overlay', lane: 'visual', items: [{ id: 'box', at: 15, duration: 15, source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' } }] },
+    ],
+  };
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(anchored));
+    await writeFile(join(projectRoot, 'box.html'), '<div>box</div>');
+    let result = await loadAndBuildGpuPage({ projectRoot, duration: 4 });
+    assert.equal(result.edit.overlays[0].start, 0.5);
+    await writeFile(join(projectRoot, 'captions.json'), JSON.stringify([
+      { id: 'c-0003', start: 2, end: 3, text: 'caption' },
+    ]));
+    result = await loadAndBuildGpuPage({ projectRoot, duration: 4 });
+    assert.equal(result.edit.overlays[0].start, 2);
+    assert.equal(result.edit.overlays[0].duration, 1);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('GPU page builder の v1 拒否は captions.json の有無で同一', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-anchor-v1-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify({
+      version: 1, output: { fps: 30 }, sources: [], cuts: [], overlays: [],
+    }));
+    await assert.rejects(() => loadAndBuildGpuPage({ projectRoot, duration: 1 }), /古い形式/u);
+    await writeFile(join(projectRoot, 'captions.json'), '[]\n');
+    await assert.rejects(() => loadAndBuildGpuPage({ projectRoot, duration: 1 }), /古い形式/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   const overlays = [{ id: "static", start: 0, duration: 1, html: "<div>Static</div>", vars: {} }];
   const captions = [{ id: "c1", start: 0, end: 1, text: "Caption", time_domain: "output" }];

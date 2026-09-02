@@ -7,6 +7,7 @@ import {
   audioLoopTilePeaks,
   audioSourceSliceWindow,
   audioWaveformBandLayout,
+  audioWaveformCanvasPlacement,
   audioWaveformRepaintNeeded,
   audioWaveformSourceRect,
   filmstripChunkIndexFor,
@@ -162,6 +163,69 @@ test('audioClipLocalGeometry は不正入力を undefined にする', () => {
   assert.equal(audioClipLocalGeometry({ ...base, stripWidthPx: Number.NaN }), undefined);
 });
 
+test('波形配置は左端がビュー外でもT0/T1をクリップの正しいローカル位置から切り出す', () => {
+  assert.deepEqual(audioWaveformCanvasPlacement({
+    clipStartSec: 0,
+    clipDisplayDurationSec: 20,
+    waveformStartSec: 0,
+    waveformDisplayDurationSec: 20,
+    fullClipWidthPx: 2000,
+    clipLocalOffsetPx: 400,
+    visibleWidthPx: 1600,
+  }), {
+    canvasLeftPx: 0,
+    canvasWidthPx: 1600,
+    waveformFullWidthPx: 2000,
+    waveformOffsetPx: 400,
+  });
+});
+
+test('波形配置はクリップ左端がビュー外かつcoverageが途中開始でも時刻位置を保つ', () => {
+  assert.deepEqual(audioWaveformCanvasPlacement({
+    clipStartSec: 0,
+    clipDisplayDurationSec: 20,
+    waveformStartSec: 10,
+    waveformDisplayDurationSec: 5,
+    fullClipWidthPx: 2000,
+    clipLocalOffsetPx: 400,
+    visibleWidthPx: 1600,
+  }), {
+    canvasLeftPx: 600,
+    canvasWidthPx: 500,
+    waveformFullWidthPx: 500,
+    waveformOffsetPx: 0,
+  });
+});
+
+test('波形配置はcoverage先頭がDOM原点より前ならマスター側だけを切り出す', () => {
+  assert.deepEqual(audioWaveformCanvasPlacement({
+    clipStartSec: 0,
+    clipDisplayDurationSec: 20,
+    waveformStartSec: 3,
+    waveformDisplayDurationSec: 5,
+    fullClipWidthPx: 2000,
+    clipLocalOffsetPx: 400,
+    visibleWidthPx: 1600,
+  }), {
+    canvasLeftPx: 0,
+    canvasWidthPx: 400,
+    waveformFullWidthPx: 500,
+    waveformOffsetPx: 100,
+  });
+});
+
+test('波形配置はクリップとcoverageが交差しなければ描画しない', () => {
+  assert.equal(audioWaveformCanvasPlacement({
+    clipStartSec: 0,
+    clipDisplayDurationSec: 5,
+    waveformStartSec: 6,
+    waveformDisplayDurationSec: 1,
+    fullClipWidthPx: 500,
+    clipLocalOffsetPx: 0,
+    visibleWidthPx: 500,
+  }), undefined);
+});
+
 test('audioWaveformBandLayout はラベル後の残り領域中央へ90%高で置く', () => {
   assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 19.5, heightPx: 31 });
 });
@@ -225,6 +289,7 @@ test('audioWaveformRepaintNeeded は初回またはいずれかの要素変更�
     { ...state, sliceKey: 'b' },
     { ...state, visibleWidth: 101 },
     { ...state, offset: 1 },
+    { ...state, left: 1 },
     { ...state, bandTop: 21 },
     { ...state, bandHeight: 13 },
   ]) {

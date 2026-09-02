@@ -1,0 +1,310 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "fixture": "v2",
+      "name": "1. ?? の表示・配置・DOM 不変・QC 基準値",
+      "pass": true,
+      "detail": {
+        "chipCount": 8,
+        "placements": [
+          [
+            "c-0002",
+            1
+          ],
+          [
+            "c-0003",
+            1
+          ],
+          [
+            "c-0004",
+            1
+          ],
+          [
+            "c-0005",
+            1
+          ],
+          [
+            "c-0006",
+            0
+          ],
+          [
+            "c-0007",
+            null
+          ],
+          [
+            "c-0008",
+            null
+          ],
+          [
+            "c-0008",
+            null
+          ]
+        ],
+        "tick": {
+          "same": true,
+          "metrics": {
+            "count": 100,
+            "totalMs": 2.600000001490116,
+            "maxMs": 1.5,
+            "averageMs": 0.026000000014901162
+          }
+        },
+        "qcBaseline": {
+          "header": "QC ⚠ 7",
+          "count": "500 行 / ?? 8",
+          "badges": [
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識 ×2"
+          ],
+          "title": "行の速さ（字/秒）・最短表示・カラオケ健全性・?? 未認識を常時監視",
+          "visible": 7
+        }
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "2. ?? ポップと出力秒シーク",
+      "pass": true,
+      "detail": {
+        "title": "?? 未認識 0:04.07–0:04.12（息継ぎ・「あー」などの文字にできない音）",
+        "buttons": [
+          "▶ ここへシーク",
+          "置換",
+          "✂ 映像ごとカット"
+        ],
+        "inputs": [
+          "聞き取った文字"
+        ],
+        "seekOutputSeconds": 4.07,
+        "expectedSeconds": 4.07,
+        "frameDelta": 0
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "3. 聞き取った文字で置換",
+      "pass": true,
+      "detail": {
+        "text": "台本はい0002です",
+        "otherWordBytesEqual": true,
+        "newWord": {
+          "start": 1.55,
+          "end": 1.65,
+          "text": "はい"
+        },
+        "adjacentGap": [
+          1.55,
+          1.65
+        ],
+        "otherSpansEqual": true,
+        "commitDelta": 0,
+        "commitDeltaExpectedByContract": 1,
+        "chipCountBefore": 8,
+        "chipCountAfter": 7,
+        "lint": {
+          "verdict": "pass",
+          "findingCount": 1,
+          "unrecognizedFindingCount": 0
+        }
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "4. ?? を映像ごとカットして戻す",
+      "pass": true,
+      "detail": {
+        "cell": "✂ ?? を映像ごとカット↩ 戻す",
+        "commitDelta": 1,
+        "beforeDuration": 18780,
+        "afterDuration": 18779,
+        "removed": 1,
+        "expected": 2,
+        "editBytesEqual": true,
+        "lint": {
+          "verdict": "pass",
+          "findingCount": 1,
+          "unrecognizedFindingCount": 0
+        }
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "5. QC と全行 ?? 件数",
+      "pass": true,
+      "detail": {
+        "unknownBadgeRows": 7,
+        "doubleBadgeRows": 1,
+        "header": "QC ⚠ 7",
+        "count": "500 行 / ?? 8",
+        "filteredVisibleRows": 7
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "6. 字幕再生成で unrecognized を持ち越す",
+      "pass": true,
+      "detail": {
+        "button": "文字起こしから更新",
+        "editedTrueBytesEqual": true,
+        "editedFalseFromSegment": [
+          {
+            "start": 2.82,
+            "end": 2.88
+          }
+        ],
+        "lint": {
+          "verdict": "pass",
+          "findingCount": 1,
+          "unrecognizedFindingCount": 0
+        },
+        "validateCaptions": {
+          "exitCode": 0
+        }
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "1. ?? の表示・配置・DOM 不変・QC 基準値",
+      "pass": true,
+      "detail": {
+        "chipCount": 4,
+        "placements": [
+          [
+            "c-0002",
+            1
+          ],
+          [
+            "c-0003",
+            1
+          ],
+          [
+            "c-0004",
+            null
+          ],
+          [
+            "c-0004",
+            null
+          ]
+        ],
+        "tick": {
+          "same": true,
+          "metrics": {
+            "count": 100,
+            "totalMs": 1.6999999955296516,
+            "maxMs": 0.3999999985098839,
+            "averageMs": 0.016999999955296517
+          }
+        },
+        "qcBaseline": {
+          "header": "QC ⚠ 3",
+          "count": "40 行 / ?? 4",
+          "badges": [
+            "?? 未認識",
+            "?? 未認識",
+            "?? 未認識 ×2"
+          ],
+          "title": "行の速さ（字/秒）・最短表示・カラオケ健全性・?? 未認識を常時監視",
+          "visible": 3
+        }
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "3. 聞き取った文字で置換",
+      "pass": true,
+      "detail": {
+        "text": "台本はい0002です",
+        "otherWordBytesEqual": true,
+        "newWord": {
+          "start": 1.5,
+          "end": 1.8,
+          "text": "はい"
+        },
+        "adjacentGap": [
+          1.5,
+          1.8
+        ],
+        "otherSpansEqual": true,
+        "commitDelta": 0,
+        "commitDeltaExpectedByContract": 1,
+        "chipCountBefore": 4,
+        "chipCountAfter": 3,
+        "lint": {
+          "tool": "validate-captions",
+          "exitCode": 0,
+          "unrecognizedFindingCount": 0,
+          "reason": "edit-lint は edit.json version 1 を検査できない（migrate 前提）"
+        }
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "4. ?? を映像ごとカットして戻す",
+      "pass": true,
+      "detail": {
+        "cell": "✂ ?? を映像ごとカット↩ 戻す",
+        "commitDelta": 1,
+        "beforeDuration": 51,
+        "afterDuration": 50.83,
+        "removed": 0.1700000000000017,
+        "expected": 0.17000000000000037,
+        "editBytesEqual": true,
+        "lint": {
+          "tool": "validate-captions",
+          "exitCode": 0,
+          "unrecognizedFindingCount": 0,
+          "reason": "edit-lint は edit.json version 1 を検査できない（migrate 前提）"
+        },
+        "legacyMinSplitSeconds": 0.15,
+        "note": "legacy(v1) の applyCutRanges は 0.15 秒未満の中間分割ができないため、v1 fixture の語間 span は 0.16 秒以上で作る"
+      }
+    }
+  ],
+  "screenshots": [
+    "v2-01-display.png",
+    "v2-02-seek-pop.png",
+    "v2-03-replacement.png",
+    "v2-04-cut.png",
+    "v2-05-qc.png",
+    "v2-06-regenerated.png",
+    "v1-01-display.png",
+    "v1-03-replacement.png",
+    "v1-04-cut.png"
+  ],
+  "fixtures": {
+    "v2": {
+      "version": 2,
+      "preloadOverlay": "removed",
+      "finalLint": {
+        "verdict": "pass",
+        "findingCount": 1,
+        "unrecognizedFindingCount": 0
+      }
+    },
+    "v1": {
+      "version": 1,
+      "preloadOverlay": "removed",
+      "finalLint": {
+        "tool": "validate-captions",
+        "exitCode": 0,
+        "unrecognizedFindingCount": 0,
+        "reason": "edit-lint は edit.json version 1 を検査できない（migrate 前提）"
+      }
+    }
+  },
+  "contractDeviations": [
+    {
+      "step": "3. 聞き取った文字で置換",
+      "expected": "commit +1",
+      "actual": "commit +0",
+      "reason": "commitWrite は常に false のスタブで、applyCutRanges だけが commitIfOwnRoot を通る。setCaptionFields に commit を足すと手順 4 が commit +2 になる"
+    }
+  ],
+  "pass": true
+}

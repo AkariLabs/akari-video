@@ -4,22 +4,22 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { sourceToOutput, outputToSource, resolveCurrent } = require('../lib/common/daihon-time-map.js');
+const { sourceToOutput: canonicalSourceToOutput } = require('@akari-video/edit-store');
 
 const segments = [
     { kind: 'src', outStart: 0, outEnd: 2, cutIndex: 0, in: 0, out: 2, speed: 1 },
     { kind: 'src', outStart: 2, outEnd: 4, cutIndex: 1, in: 4, out: 8, speed: 2 }
 ];
 
-test('sourceToOutput はカット前後で単調になりカット内を次区間の頭へ寄せる', () => {
-    assert.equal(sourceToOutput(segments, 1.5), 1.5);
-    assert.equal(sourceToOutput(segments, 3), 2);
-    assert.equal(sourceToOutput(segments, 4), 2);
-    assert.equal(sourceToOutput(segments, 6), 3);
-});
-
-test('sourceToOutput は末尾超えを最終 outEnd へクランプする', () => {
-    assert.equal(sourceToOutput(segments, 20), 4);
-    assert.equal(sourceToOutput([], 1), null);
+test('sourceToOutput は edit-store 正本と同値である', () => {
+    for (const [candidateSegments, sourceT] of [
+        [segments, 1.5], [segments, 3], [segments, 4], [segments, 6], [segments, 20], [[], 1]
+    ]) {
+        assert.equal(
+            sourceToOutput(candidateSegments, sourceT),
+            canonicalSourceToOutput(candidateSegments, sourceT)
+        );
+    }
 });
 
 test('outputToSource は edit-store の gap 契約を保つ', () => {

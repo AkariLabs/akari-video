@@ -69,13 +69,21 @@ export function resolveOsrVideoEncodeArgs({ quality, encoder, edit = {}, ffmpegC
   return { policy, args: buildVideoEncodeArgs({ quality: quality ?? "high", encoderChoice: choice, profile: "high" }) };
 }
 
-export function startRawVideoEncoder({ ffmpegCommand, outputPath, width, height, fps, quality, encoder, edit, queueDepth = 3, spawnImpl = spawn }) {
+export function startRawVideoEncoder({
+  ffmpegCommand, outputPath, width, height, outputWidth, outputHeight, fps, quality, encoder, edit,
+  queueDepth = 3, spawnImpl = spawn,
+}) {
   const { policy, args: videoArgs } = resolveOsrVideoEncodeArgs({ quality, encoder, edit, ffmpegCommand });
+  const targetWidth = outputWidth ?? width;
+  const targetHeight = outputHeight ?? height;
+  const scaleArgs = targetWidth === width && targetHeight === height
+    ? []
+    : ["-vf", `scale=${targetWidth}:${targetHeight}:flags=lanczos`];
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
     "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", `${width}x${height}`,
     "-framerate", String(fps), "-i", "pipe:0",
-    ...videoArgs, "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
+    ...scaleArgs, ...videoArgs, "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
     "-movflags", "+faststart", outputPath,
   ];
   const child = spawnImpl(ffmpegCommand, args, { stdio: ["pipe", "ignore", "pipe"] });

@@ -100,6 +100,62 @@ test('v2 移行時に外部字幕または埋め込み字幕から captions 段�
     assert.equal(none.tracks.some(track => track.legacy.kind === 'captions'), false);
 });
 
+test('preview reader は AnchorCaption[] があると stale キャッシュを再解決する', () => {
+    const source = JSON.stringify({
+        version: 2,
+        output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'main', path: 'main.mp4' }],
+        tracks: [
+            { id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }] },
+            { id: 'overlay', lane: 'visual', items: [{ id: 'box', at: 0, duration: 1, source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' } }] }
+        ]
+    });
+    const internal = readPreviewInternalEdit(source, true, [{ id: 'c-0003', start: 2, end: 3 }]);
+    assert.deepEqual(
+        { at: internal.tracks[1].items[0].at, duration: internal.tracks[1].items[0].duration },
+        { at: 2, duration: 1 }
+    );
+});
+
+test('preview reader は captions 省略時に stale キャッシュを保持する', () => {
+    const source = JSON.stringify({
+        version: 2,
+        output: { width: 320, height: 180, fps: 30 },
+        sources: [],
+        tracks: [{ id: 'overlay', lane: 'visual', items: [{
+            id: 'box', at: 15, duration: 12,
+            source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' }
+        }] }]
+    });
+    const internal = readPreviewInternalEdit(source, false);
+    assert.deepEqual(
+        { at: internal.tracks[0].items[0].at, duration: internal.tracks[0].items[0].duration },
+        { at: 0.5, duration: 0.4 }
+    );
+});
+
+test('preview reader の v1 拒否は captions 引数の有無で同一', () => {
+    const source = JSON.stringify({
+        version: 1,
+        output: { width: 320, height: 180, fps: 30 },
+        sources: [],
+        cuts: [],
+        overlays: []
+    });
+    const capture = callback => {
+        try { callback(); } catch (error) { return error; }
+        assert.fail('v1 reader should throw');
+    };
+    const withoutCaptions = capture(() => readPreviewInternalEdit(source, false));
+    const withCaptions = capture(() => readPreviewInternalEdit(
+        source, true, [{ id: 'c-0003', start: 2, end: 3 }]
+    ));
+    assert.deepEqual(
+        { name: withCaptions.name, message: withCaptions.message },
+        { name: withoutCaptions.name, message: withoutCaptions.message }
+    );
+});
+
 test('種別ごとの分岐は source.kind 1 箇所（v2 の 4 種別が同じ 3 バケットへ落ちる）', () => {
     const internal = readInternalEdit(JSON.stringify({
         version: 2,

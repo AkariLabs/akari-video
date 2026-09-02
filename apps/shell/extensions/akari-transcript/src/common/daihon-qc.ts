@@ -5,7 +5,7 @@ export const DAIHON_QC_THRESHOLDS = {
     minDurationSec: 0.6
 } as const;
 
-export type DaihonQcIssueKind = 'fast' | 'short' | 'karaoke-unhealthy' | 'karaoke-missing';
+export type DaihonQcIssueKind = 'fast' | 'short' | 'karaoke-unhealthy' | 'karaoke-missing' | 'unrecognized';
 
 export interface DaihonQcIssue {
     kind: DaihonQcIssueKind;
@@ -13,7 +13,7 @@ export interface DaihonQcIssue {
 }
 
 const QC_KINDS: readonly DaihonQcIssueKind[] = [
-    'fast', 'short', 'karaoke-unhealthy', 'karaoke-missing'
+    'fast', 'short', 'karaoke-unhealthy', 'karaoke-missing', 'unrecognized'
 ];
 
 function visibleText(text: string): string {
@@ -27,6 +27,10 @@ export function visibleLength(text: string): number {
 export function rowIssues(row: DaihonRow): DaihonQcIssue[] {
     if (row.outStart === null) return [];
     const issues: DaihonQcIssue[] = [];
+    if (row.unrecognized.length > 0) {
+        const count = row.unrecognized.length;
+        issues.push({ kind: 'unrecognized', label: count > 1 ? `?? 未認識 ×${count}` : '?? 未認識' });
+    }
     const duration = row.end - row.start;
     const cps = visibleLength(row.text) / Math.max(0.01, duration);
     if (cps > DAIHON_QC_THRESHOLDS.maxCharsPerSecond) {

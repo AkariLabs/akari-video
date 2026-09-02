@@ -106,3 +106,38 @@ test("unbaked telop produces a deterministic rasterize command while baked is re
   assert.equal(buildTelopRasterCommands(baked.internal, "/tmp/render").length, 0);
   assert.equal(baked.edit.layers.find(layer => layer.id === "name").src, "cached.mov");
 });
+
+test("readRenderEdit resolves a stale item cache when normalized captions are supplied", () => {
+  const anchored = structuredClone(fixture);
+  anchored.tracks[1].items[0] = {
+    id: "anchored", at: 0, duration: 1,
+    source: { kind: "html", path: "overlay.html" },
+    anchor: { caption: "c-0003" },
+  };
+  const read = readRenderEdit(anchored, "/tmp/render", {
+    captions: [{ id: "c-0003", start: 0.5, end: 1 }],
+  });
+  assert.deepEqual(
+    { at: read.internal.tracks[1].items[0].at, duration: read.internal.tracks[1].items[0].duration },
+    { at: 0.5, duration: 0.5 },
+  );
+});
+
+test("readRenderEdit without captions preserves v1 and stale v2 cache behavior", () => {
+  const v1 = { version: 1, output: { fps: 30 }, sources: [], cuts: [], overlays: [] };
+  assert.throws(() => readRenderEdit(v1, "/tmp/render"), /古い形式/u);
+  assert.throws(() => readRenderEdit(v1, "/tmp/render", {
+    captions: [{ id: "c-0003", start: 2, end: 3 }],
+  }), /古い形式/u);
+  const anchored = structuredClone(fixture);
+  anchored.tracks[1].items[0] = {
+    id: "anchored", at: 7, duration: 9,
+    source: { kind: "html", path: "overlay.html" },
+    anchor: { caption: "c-0003" },
+  };
+  const read = readRenderEdit(anchored, "/tmp/render");
+  assert.deepEqual(
+    { at: read.raw.tracks[1].items[0].at, duration: read.raw.tracks[1].items[0].duration },
+    { at: 7, duration: 9 },
+  );
+});

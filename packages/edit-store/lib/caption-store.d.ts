@@ -111,6 +111,10 @@ export interface CaptionRecord {
         segment: number;
     } | null;
     edited: boolean;
+    unrecognized?: {
+        start: number;
+        end: number;
+    }[];
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
@@ -127,6 +131,10 @@ export declare function setCaptionTimingLine(source: string, captionId: string, 
 export declare function updateCaptionFieldsInSource(source: string, captionId: string, updates: {
     text?: string;
     speaker?: string | null;
+    unrecognized?: ReadonlyArray<{
+        start: number;
+        end: number;
+    }> | null;
 }): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
 export declare function insertCaptionLine(source: string, caption: CaptionRecord): string;

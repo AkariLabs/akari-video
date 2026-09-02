@@ -36,12 +36,17 @@ import {
 import { isFillerWord, normalizeFillerWord } from '../../common/daihon-filler';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import { DAIHON_SILENCE_DEFAULTS, findRowGaps, type DaihonRowGap } from '../../common/daihon-silence';
+import {
+    placeUnrecognized,
+    type DaihonUnrecognizedSpan,
+    type PlacedUnrecognized
+} from '../../common/daihon-unrecognized';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
-const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, .akari-daihon-cutcell, .akari-daihon-pop, .akari-daihon-minitl';
+const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, .akari-daihon-cutcell, .akari-daihon-pop, .akari-daihon-minitl';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -71,6 +76,7 @@ interface RowDragState {
 interface CaptionExtras {
     displayFragments?: string[];
     timeDomain?: 'source' | 'output';
+    unrecognized?: DaihonUnrecognizedSpan[];
 }
 
 interface CutEntry {
@@ -127,6 +133,7 @@ const STYLE = `
 .akari-daihon-selbar-spacer { flex:1; }
 .akari-daihon-selclear { font-size:11px; background:#20252e; border:1px solid #2f3644; color:#98a2b3; border-radius:6px; padding:2px 10px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-word-filler { text-decoration:underline dashed rgba(255,143,115,.85) 1.5px; text-underline-offset:3px; color:#d9927f; }
+.akari-daihon-word-unk { color:#b08a5a; font-weight:700; letter-spacing:.08em; text-decoration:underline dotted rgba(240,180,90,.8) 1.5px; text-underline-offset:3px; cursor:pointer; }
 .akari-daihon-gapchip { display:inline-block; margin-left:6px; padding:0 6px; font-family:"JetBrains Mono",monospace; font-size:9px; color:#5b6472; border:1px dashed #2c313b; border-radius:999px; cursor:pointer; vertical-align:1px; }
 .akari-daihon-gapchip:hover { color:#8a93a5; border-color:#3a4356; }
 .akari-daihon-cutcell { display:flex; align-items:center; gap:8px; margin:1px 0 1px 8px; padding:1px 7px; border:1px dashed rgba(255,143,115,.35); border-radius:5px; color:#a05f4f; font-size:10px; }
@@ -230,7 +237,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.qcButton.type = 'button';
         this.qcButton.className = 'akari-daihon-qc ok';
         this.qcButton.textContent = 'QC ✓';
-        this.qcButton.title = '行の速さ（字/秒）・最短表示・カラオケ健全性を常時監視';
+        this.qcButton.title = '行の速さ（字/秒）・最短表示・カラオケ健全性・?? 未認識を常時監視';
         this.qcButton.addEventListener('click', () => {
             this.qcFilter = !this.qcFilter;
             this.applyQcFilter();
@@ -396,7 +403,8 @@ export class AkariDaihonWidget extends BaseWidget {
             edited: caption.edited,
             ...(caption.words ? { words: caption.words } : {}),
             ...(extras?.displayFragments ? { displayFragments: extras.displayFragments } : {}),
-            ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {})
+            ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
+            ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {})
         };
     }
 
@@ -416,7 +424,20 @@ export class AkariDaihonWidget extends BaseWidget {
                 ? record.display_fragments as string[] : undefined;
             const timeDomain = record.time_domain === 'output' ? 'output' as const
                 : record.time_domain === 'source' ? 'source' as const : undefined;
-            result.set(record.id, { ...(displayFragments ? { displayFragments } : {}), ...(timeDomain ? { timeDomain } : {}) });
+            const unrecognized = Array.isArray(record.unrecognized)
+                ? record.unrecognized.flatMap(value => {
+                    if (!value || typeof value !== 'object') return [];
+                    const span = value as Record<string, unknown>;
+                    return typeof span.start === 'number' && Number.isFinite(span.start)
+                        && typeof span.end === 'number' && Number.isFinite(span.end)
+                        && span.start <= span.end
+                        ? [{ start: span.start, end: span.end }] : [];
+                }) : undefined;
+            result.set(record.id, {
+                ...(displayFragments ? { displayFragments } : {}),
+                ...(timeDomain ? { timeDomain } : {}),
+                ...(unrecognized?.length ? { unrecognized } : {})
+            });
         }
         return result;
     }
@@ -506,9 +527,13 @@ export class AkariDaihonWidget extends BaseWidget {
         const text = document.createElement('div');
         text.className = 'akari-daihon-row-text';
         const words: HTMLSpanElement[] = [];
+        const unknowns = placeUnrecognized(row.words, row.unrecognized);
         if (row.words) {
             row.words.forEach((word, index) => {
                 if (row.fragmentBreakWordIndex === index) text.appendChild(this.slash());
+                for (const placement of unknowns.filter(item => item.beforeWordIndex === index)) {
+                    text.appendChild(this.unkChip(placement.span, row));
+                }
                 const span = this.word(word.text, index);
                 if (isFillerWord(word.text)) {
                     span.classList.add('akari-daihon-word-filler');
@@ -527,6 +552,9 @@ export class AkariDaihonWidget extends BaseWidget {
                 words.push(span);
                 text.appendChild(span);
             });
+            for (const placement of unknowns.filter(item => item.beforeWordIndex === null)) {
+                text.appendChild(this.unkChip(placement.span, row));
+            }
         } else {
             const span = this.word('', 0);
             const split = row.fragmentBreakWordIndex;
@@ -541,6 +569,7 @@ export class AkariDaihonWidget extends BaseWidget {
             });
             words.push(span);
             text.appendChild(span);
+            for (const placement of unknowns) text.appendChild(this.unkChip(placement.span, row));
         }
         const gap = this.rowGaps.find(candidate => candidate.prevId === row.id
             && candidate.span >= DAIHON_SILENCE_DEFAULTS.minGapSec);
@@ -577,6 +606,130 @@ export class AkariDaihonWidget extends BaseWidget {
         const captionOnly = this.popButton('字幕から消す（音声はそのまま）', () => void this.removeFillerCaption(row, wordIndex));
         const cut = this.popButton('✂ 映像ごとカット', () => void this.cutFiller(row, wordIndex), 'danger');
         pop.append(title, seek, captionOnly, cut);
+    }
+
+    protected unkChip(span: DaihonUnrecognizedSpan, row: DaihonRow): HTMLSpanElement {
+        const chip = document.createElement('span');
+        chip.className = 'akari-daihon-word-unk';
+        chip.textContent = '??';
+        chip.title = '?? 音声を文字にできなかった箇所（息継ぎ・「あー」など）— クリックで対応メニュー';
+        chip.dataset.unkStart = String(span.start);
+        chip.dataset.unkEnd = String(span.end);
+        chip.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openUnkPop(chip, row, span);
+        });
+        return chip;
+    }
+
+    protected openUnkPop(anchor: HTMLElement, row: DaihonRow, span: DaihonUnrecognizedSpan): void {
+        const pop = this.openPop(anchor);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = `?? 未認識 ${this.formatTime(span.start)}–${this.formatTime(span.end)}（息継ぎ・「あー」などの文字にできない音）`;
+        const seek = this.popButton('▶ ここへシーク', () => {
+            const output = row.timeDomain === 'output'
+                ? span.start : sourceToOutput(this.segments, span.start);
+            void this.seek(output);
+        });
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '聞き取った文字';
+        const replace = this.popButton('置換', () => void this.replaceUnrecognized(row, span, input.value), 'primary');
+        const replacement = this.fieldRow('', input, '');
+        replacement.appendChild(replace);
+        input.addEventListener('keydown', event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            void this.replaceUnrecognized(row, span, input.value);
+        });
+        const cut = this.popButton('✂ 映像ごとカット', () => void this.cutUnrecognized(row, span), 'danger');
+        pop.append(title, seek, replacement, cut);
+        input.focus();
+    }
+
+    protected async replaceUnrecognized(
+        row: DaihonRow,
+        span: DaihonUnrecognizedSpan,
+        value: string
+    ): Promise<void> {
+        const inserted = value.normalize('NFC').trim();
+        if (!inserted || !this.captionsUri || !this.rootUri) return;
+        const placement = this.findUnrecognizedPlacement(row, span);
+        const at = this.unrecognizedTextInsertionIndex(row, placement);
+        const text = row.text.slice(0, at) + inserted + row.text.slice(at);
+        this.closePop();
+        try {
+            await this.annotationsService.setCaptionFields({
+                captionsUri: this.captionsUri.toString(),
+                projectRootUri: this.rootUri.toString(),
+                captionId: row.id,
+                text,
+                unrecognized: this.withoutUnrecognized(row, span)
+            });
+            this.notify('?? を文字に置き換えた');
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected async cutUnrecognized(row: DaihonRow, span: DaihonUnrecognizedSpan): Promise<void> {
+        this.closePop();
+        if (!this.editUri || !this.captionsUri || !this.rootUri) return;
+        const range: DaihonCutRange = {
+            in: span.start, out: span.end, kind: 'unrecognized', captionId: row.id, label: '??'
+        };
+        try {
+            const result = await this.annotationsService.applyCutRanges({
+                editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(),
+                ranges: [range], label: '?? を映像ごとカット'
+            });
+            try {
+                await this.annotationsService.setCaptionFields({
+                    captionsUri: this.captionsUri.toString(), projectRootUri: this.rootUri.toString(),
+                    captionId: row.id, unrecognized: this.withoutUnrecognized(row, span)
+                });
+            } catch {
+                await this.annotationsService.writeEditSnapshot({
+                    editUri: this.editUri.toString(), projectRootUri: this.rootUri.toString(), editSource: result.beforeSource
+                });
+                this.notify('映像のカットを取り消しました（字幕の更新に失敗）');
+                return;
+            }
+            this.rememberCut(result.beforeSource, [{ rowId: row.id, range }]);
+            this.notify('未認識区間を映像ごとカット');
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected findUnrecognizedPlacement(row: DaihonRow, span: DaihonUnrecognizedSpan): PlacedUnrecognized {
+        return placeUnrecognized(row.words, row.unrecognized).find(item =>
+            item.span.start === span.start && item.span.end === span.end
+        ) ?? { beforeWordIndex: null, span };
+    }
+
+    protected unrecognizedTextInsertionIndex(row: DaihonRow, placement: PlacedUnrecognized): number {
+        if (!row.words?.length || placement.beforeWordIndex === 0) return 0;
+        const lastWordIndex = placement.beforeWordIndex === null
+            ? row.words.length - 1 : placement.beforeWordIndex - 1;
+        let cursor = 0;
+        for (let index = 0; index <= lastWordIndex; index++) {
+            const at = row.text.indexOf(row.words[index].text, cursor);
+            if (at < 0) return cursor;
+            cursor = at + row.words[index].text.length;
+        }
+        return cursor;
+    }
+
+    protected withoutUnrecognized(
+        row: DaihonRow,
+        span: DaihonUnrecognizedSpan
+    ): { start: number; end: number }[] {
+        const index = row.unrecognized.findIndex(candidate =>
+            candidate.start === span.start && candidate.end === span.end
+        );
+        return index < 0 ? [...row.unrecognized] : row.unrecognized.filter((_candidate, at) => at !== index);
     }
 
     protected async removeFillerCaption(row: DaihonRow, wordIndex: number): Promise<void> {
@@ -680,7 +833,9 @@ export class AkariDaihonWidget extends BaseWidget {
                 const copy = document.createElement('span');
                 copy.textContent = entry.range.kind === 'silence'
                     ? `✂ 無音を詰めた ${this.formatTime(entry.range.in)}–${this.formatTime(entry.range.out)}`
-                    : `✂ 「${entry.range.label ?? '行'}」を映像ごとカット`;
+                    : entry.range.kind === 'unrecognized'
+                        ? '✂ ?? を映像ごとカット'
+                        : `✂ 「${entry.range.label ?? '行'}」を映像ごとカット`;
                 const restore = document.createElement('button');
                 restore.type = 'button';
                 restore.className = 'akari-daihon-rbtn';
@@ -920,6 +1075,8 @@ export class AkariDaihonWidget extends BaseWidget {
         this.count.textContent = this.qcFilter
             ? `${visible} / ${this.rows.length} 行`
             : `${this.rows.length} 行`;
+        const unknowns = this.rows.reduce((total, row) => total + row.unrecognized.length, 0);
+        if (unknowns > 0) this.count.textContent += ` / ?? ${unknowns}`;
     }
 
     protected word(text: string, index: number): HTMLSpanElement {

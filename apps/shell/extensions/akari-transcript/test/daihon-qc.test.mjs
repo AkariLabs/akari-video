@@ -14,6 +14,7 @@ const row = (overrides = {}) => ({
         { text: 'c', start: 2, end: 3 }
     ],
     fragmentBreakWordIndex: null, edited: false, timeDomain: 'source',
+    unrecognized: [],
     ...overrides
 });
 
@@ -74,6 +75,26 @@ test('カット行は他の条件に関係なく issue が空になる', () => {
     })), []);
 });
 
+test('未認識 1 件は ?? 未認識 issue になる', () => {
+    assert.deepEqual(rowIssues(row({ unrecognized: [{ start: 1, end: 1.1 }] }))
+        .find(issue => issue.kind === 'unrecognized'), {
+        kind: 'unrecognized', label: '?? 未認識'
+    });
+});
+
+test('未認識 2 件以上は件数をラベルへ出す', () => {
+    const issue = rowIssues(row({
+        unrecognized: [{ start: 1, end: 1.1 }, { start: 2, end: 2.1 }]
+    })).find(candidate => candidate.kind === 'unrecognized');
+    assert.equal(issue.label, '?? 未認識 ×2');
+});
+
+test('カット行の未認識は QC に数えない', () => {
+    assert.deepEqual(rowIssues(row({
+        outStart: null, outEnd: null, unrecognized: [{ start: 1, end: 1.1 }]
+    })), []);
+});
+
 test('summarizeQc は issue 合計・問題行数・kind 別件数を返す', () => {
     const rows = [
         row({ id: 'fast', text: 'あ'.repeat(9), end: 1, outEnd: 1, words: null }),
@@ -85,6 +106,6 @@ test('summarizeQc は issue 合計・問題行数・kind 別件数を返す', ()
     assert.deepEqual(summarizeQc(rows), {
         issueCount: 4,
         rowCount: 4,
-        byKind: { fast: 1, short: 1, 'karaoke-unhealthy': 1, 'karaoke-missing': 1 }
+        byKind: { fast: 1, short: 1, 'karaoke-unhealthy': 1, 'karaoke-missing': 1, unrecognized: 0 }
     });
 });

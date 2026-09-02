@@ -2,9 +2,13 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
-import { applyCutRanges as applyCutRangesToSource, detectEditVersion } from '@akari-video/edit-store/lib/cut-ranges';
+import {
+    applyCutRanges as applyCutRangesToSource,
+    detectEditVersion,
+    type CutRange
+} from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
-import type { AnchorCaption } from '@akari-video/edit-store/lib/item-anchor';
+import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/lib/item-anchor';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
@@ -627,7 +631,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = updateCaptionFieldsInSource(source, request.captionId, {
             text: request.text,
-            speaker: request.speaker
+            speaker: request.speaker,
+            unrecognized: request.unrecognized
         });
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
@@ -680,6 +685,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
         await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }
 
@@ -696,6 +702,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             request.edited
         );
         await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }
 
@@ -705,6 +712,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = insertCaptionLine(source, request.caption);
         await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕を複製') };
     }
 
@@ -714,6 +722,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = removeCaptionLine(source, request.captionId);
         await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
     }
 
@@ -767,21 +776,53 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const beforeSource = await fs.readFile(editPath, 'utf8');
-        const applied = applyCutRangesToSource(beforeSource, request.ranges, {});
+        let cutInput = beforeSource;
+        const anchors = new Map<string, unknown>();
+        if (detectEditVersion(beforeSource) === 2) {
+            const edit = JSON.parse(beforeSource) as { tracks?: Array<{ items?: unknown[] }> };
+            const collect = (items: unknown[]): void => {
+                for (const value of items) {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+                    const item = value as { id?: unknown; anchor?: unknown; items?: unknown[] };
+                    if (typeof item.id === 'string' && Object.prototype.hasOwnProperty.call(item, 'anchor')) {
+                        anchors.set(item.id, item.anchor);
+                    }
+                    if (Array.isArray(item.items)) collect(item.items);
+                }
+            };
+            for (const track of edit.tracks ?? []) if (Array.isArray(track.items)) collect(track.items);
+            if (anchors.size > 0) {
+                // applyCutRanges が通る readEditV2 の exact-key 検査は anchor を未定義キーとして throw し、
+                // 後段の refreshItemAnchors へ到達できない。正本の射影で一時退避してからカットを適用する。
+                const anchorFree = withoutItemAnchors(edit);
+                cutInput = `${JSON.stringify(anchorFree, null, 2)}\n`;
+            }
+        }
+        // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
+        const applied = applyCutRangesToSource(cutInput, request.ranges as unknown as CutRange[], {});
+        if (anchors.size > 0) {
+            const cutEdit = JSON.parse(applied.source) as { tracks?: Array<{ items?: unknown[] }> };
+            const restore = (items: unknown[]): void => {
+                for (const value of items) {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+                    const item = value as { id?: unknown; anchor?: unknown; items?: unknown[] };
+                    if (typeof item.id === 'string') {
+                        if (anchors.has(item.id)) item.anchor = anchors.get(item.id);
+                    }
+                    if (Array.isArray(item.items)) restore(item.items);
+                }
+            };
+            for (const track of cutEdit.tracks ?? []) if (Array.isArray(track.items)) restore(track.items);
+            applied.source = `${JSON.stringify(cutEdit, null, 2)}\n`;
+        }
         let updated = applied.source;
         if (detectEditVersion(updated) === 2) {
             try {
                 const captionsRaw = JSON.parse(await fs.readFile(join(dirname(editPath), 'captions.json'), 'utf8')) as unknown;
-                const rows = Array.isArray(captionsRaw)
-                    ? captionsRaw
-                    : captionsRaw && typeof captionsRaw === 'object' && Array.isArray((captionsRaw as { captions?: unknown }).captions)
-                        ? (captionsRaw as { captions: unknown[] }).captions : [];
-                const captions = rows.filter((row): row is AnchorCaption => Boolean(row)
-                    && typeof row === 'object'
-                    && typeof (row as AnchorCaption).id === 'string'
-                    && typeof (row as AnchorCaption).start === 'number'
-                    && typeof (row as AnchorCaption).end === 'number');
-                const refreshed = refreshItemAnchors(JSON.parse(updated) as EditableEditV2, captions);
+                const refreshed = refreshItemAnchors(
+                    JSON.parse(updated) as EditableEditV2,
+                    toAnchorCaptions(captionsRaw)
+                );
                 for (const warning of refreshed.warnings) {
                     console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
                 }
@@ -947,6 +988,30 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 findings: result.findings
             })
         });
+    }
+
+    private async refreshAnchorsAfterCaptionWrite(captionsPath: string): Promise<void> {
+        const editPath = join(dirname(captionsPath), 'edit.json');
+        try {
+            const editSource = await fs.readFile(editPath, 'utf8');
+            if (detectEditVersion(editSource) !== 2) return;
+            const captionsRaw = JSON.parse(await fs.readFile(captionsPath, 'utf8')) as unknown;
+            const refreshed = refreshItemAnchors(
+                JSON.parse(editSource) as EditableEditV2,
+                toAnchorCaptions(captionsRaw)
+            );
+            for (const warning of refreshed.warnings) {
+                console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
+            }
+            if (refreshed.changes.length > 0) {
+                await this.writeProjectFileGuarded(editPath, `${JSON.stringify(refreshed.edit, null, 2)}\n`);
+            }
+        } catch (error) {
+            const code = error && typeof error === 'object' ? (error as NodeJS.ErrnoException).code : undefined;
+            if (code !== 'ENOENT') {
+                console.warn('[akari-annotations] 字幕保存後のアンカー更新をスキップしました。', error);
+            }
+        }
     }
 
     /**

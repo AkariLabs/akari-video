@@ -158,3 +158,66 @@ test('空文字への編集は拒否する', () => {
     /空にできません/,
   );
 });
+
+function assertGapInsertion({ oldText, newText, words: original, insertedText, insertedIndex }) {
+  const result = rederiveCaptionWords({ oldText, newText, words: original, start: 0, end: 4 });
+  assert.equal(result.degraded, false);
+  const inserted = result.words[insertedIndex];
+  assert.equal(inserted.text, insertedText);
+  const kept = result.words.filter((_word, index) => index !== insertedIndex);
+  assert.deepEqual(kept, original);
+  const previousEnd = insertedIndex === 0 ? 0 : original[insertedIndex - 1].end;
+  const nextStart = insertedIndex === original.length ? 4 : original[insertedIndex].start;
+  assert.ok(inserted.start >= previousEnd && inserted.end <= nextStart);
+}
+
+test('日本語の挿入語だけを隣接語の隙間へ配分する', () => {
+  assertGapInsertion({
+    oldText: '今日は晴れ', newText: '今日ははい晴れ', insertedText: 'はい', insertedIndex: 2,
+    words: [
+      { start: 0.1, end: 0.8, text: '今日' },
+      { start: 0.8, end: 1.2, text: 'は' },
+      { start: 1.6, end: 3.8, text: '晴れ' }
+    ]
+  });
+});
+
+test('英字の挿入語だけを隣接語の隙間へ配分する', () => {
+  assertGapInsertion({
+    oldText: 'alpha beta', newText: 'alpha new beta', insertedText: 'new', insertedIndex: 1,
+    words: [{ start: 0.1, end: 1, text: 'alpha' }, { start: 1.5, end: 3.8, text: 'beta' }]
+  });
+});
+
+test('数字の挿入語だけを隣接語の隙間へ配分する', () => {
+  assertGapInsertion({
+    oldText: 'ID 12 end', newText: 'ID 99 12 end', insertedText: '99', insertedIndex: 1,
+    words: [
+      { start: 0.1, end: 0.7, text: 'ID' },
+      { start: 1.1, end: 1.8, text: '12' },
+      { start: 2, end: 3.8, text: 'end' }
+    ]
+  });
+});
+
+test('行頭の挿入語だけを字幕先頭の隙間へ配分する', () => {
+  assertGapInsertion({
+    oldText: '今日は晴れ', newText: 'はい今日は晴れ', insertedText: 'はい', insertedIndex: 0,
+    words: [
+      { start: 0.5, end: 1.2, text: '今日' },
+      { start: 1.2, end: 1.6, text: 'は' },
+      { start: 1.8, end: 3.8, text: '晴れ' }
+    ]
+  });
+});
+
+test('行末の挿入語だけを字幕末尾の隙間へ配分する', () => {
+  assertGapInsertion({
+    oldText: '今日は晴れ', newText: '今日は晴れです', insertedText: 'です', insertedIndex: 3,
+    words: [
+      { start: 0.1, end: 0.8, text: '今日' },
+      { start: 0.8, end: 1.2, text: 'は' },
+      { start: 1.4, end: 3.2, text: '晴れ' }
+    ]
+  });
+});

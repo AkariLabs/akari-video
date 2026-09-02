@@ -19,7 +19,7 @@ import {
     ExportShareTargetId
 } from '../common/export-share';
 import { estimateExport, ExportLastRun, formatEstimate, FormattedExportEstimate } from '../common/export-estimate';
-import { ExportSettings, isMasterSelectable } from '../common/export-settings';
+import { ExportSettings, isMasterSelectable, resolveOutputResolution } from '../common/export-settings';
 import { describeThisVideo, ThisVideoDescription } from '../common/export-this-video';
 import {
     describeUnexpectedQuickExportFailure,
@@ -73,6 +73,8 @@ const DEFAULT_SETTINGS: ExportSettings = {
     engine: 'auto',
     encoder: 'auto',
     fps: undefined,
+    resolution: 'native',
+    customWidth: undefined,
     outputDirectoryUri: undefined,
     rerunLint: true,
     saveAsDefault: false
@@ -187,10 +189,11 @@ export class AkariExportSessionService implements Disposable {
     estimate(quality: QuickExportQuality = this.settings.quality): FormattedExportEstimate {
         const fps = this.settings.fps ?? this.video.fps ?? 30;
         const frames = Math.max(0, Math.round((this.video.durationSeconds ?? 0) * fps));
+        const output = resolveOutputResolution(this.video, this.settings);
         const estimate = estimateExport({
             frames,
-            width: this.video.width ?? 1920,
-            height: this.video.height ?? 1080,
+            width: output.width,
+            height: output.height,
             fps,
             quality,
             encoder: this.settings.encoder,
@@ -229,6 +232,7 @@ export class AkariExportSessionService implements Disposable {
             return false;
         }
         const settings = { ...this.settings, ...overrides };
+        const output = resolveOutputResolution(this.video, settings);
         if (settings.saveAsDefault) {
             await this.savePreferences(settings);
         }
@@ -248,6 +252,9 @@ export class AkariExportSessionService implements Disposable {
                 engine: settings.engine,
                 encoder: settings.encoder,
                 fps: settings.fps,
+                scaleTo: settings.resolution === 'native'
+                    ? undefined
+                    : { width: output.width, height: output.height },
                 outputDirectoryUri: settings.outputDirectoryUri
             });
         } catch (error) {

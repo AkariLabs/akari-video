@@ -5,10 +5,8 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
  * の既存 CLI を子プロセスで直接呼ぶ際の引数組み立てと、完了判定を担う純関数群。
  * 両 CLI 本体は無改造・子プロセスからの呼び出しのみ（task.md 境界）。
  *
- * render-cut は解像度を表す CLI 引数を持たない（出力解像度は edit.json の
- * output.width/height から決まる — packages/render-cut/src/plan.mjs 参照）。
- * そのため設定 quick-pick の「解像度プリセット」は直接実行パスの CLI 引数には
- * 反映できない（正直な縮退。report にも明記）。
+ * 出力画素数を変えるときは render-cut の --scale-to に渡し、描画自体は edit.json の
+ * output.width/height のまま維持する。
  *
  * 画質・エンジン・fps（task 2026-07-25-export-options）: 画質と fps は既定値のとき
  * render-cut への引数を追加しない。一方、エンジン選択とエンコーダ選択を呼び出し境界で
@@ -61,6 +59,8 @@ export interface QuickExportRenderSettings {
     readonly encoder?: QuickExportEncoder;
     /** 未指定（そのまま）なら --fps を付けない。 */
     readonly fps?: number;
+    /** 未指定（そのまま）なら --scale-to を付けない。 */
+    readonly scaleTo?: { readonly width: number; readonly height: number };
     /** フォルダ選択ダイアログで得た絶対パス。未指定なら既定の `exports/` を使う。 */
     readonly outputDirectory?: string;
 }
@@ -142,6 +142,9 @@ export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRen
     args.push('--encoder', settings.encoder ?? QUICK_EXPORT_DEFAULT_ENCODER);
     if (settings.fps !== undefined) {
         args.push('--fps', String(settings.fps));
+    }
+    if (settings.scaleTo !== undefined) {
+        args.push('--scale-to', `${settings.scaleTo.width}x${settings.scaleTo.height}`);
     }
     args.push('--progress');
     return args;

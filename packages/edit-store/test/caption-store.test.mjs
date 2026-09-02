@@ -81,6 +81,74 @@ test('words 無し行の text 更新では words を追加しない', () => {
   assert.equal(Object.hasOwn(JSON.parse(updated)[0], 'words'), false);
 });
 
+test('unrecognized 配列を start 順へ並べ替えて小数を保つ', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', {
+    unrecognized: [{ start: 0.1, end: 0.2 }]
+  })]);
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', {
+    unrecognized: [{ start: 0.4567, end: 0.5678 }, { start: 0.1234, end: 0.2345 }]
+  });
+  assert.deepEqual(JSON.parse(updated)[0].unrecognized, [
+    { start: 0.1234, end: 0.2345 }, { start: 0.4567, end: 0.5678 }
+  ]);
+});
+
+test('unrecognized null はキーを削除する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', {
+    unrecognized: [{ start: 0.1, end: 0.2 }]
+  })]);
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { unrecognized: null });
+  assert.equal(Object.hasOwn(JSON.parse(updated)[0], 'unrecognized'), false);
+});
+
+test('unrecognized 空配列はキーを削除する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', {
+    unrecognized: [{ start: 0.1, end: 0.2 }]
+  })]);
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { unrecognized: [] });
+  assert.equal(Object.hasOwn(JSON.parse(updated)[0], 'unrecognized'), false);
+});
+
+test('text と unrecognized の同時更新は語再導出後に対象 span を置換する', () => {
+  const originalWords = [
+    { start: 0, end: 0.8, text: 'alpha' },
+    { start: 1.2, end: 2, text: 'beta' }
+  ];
+  const source = JSON.stringify([caption('c-0001', 0, 'alpha beta', {
+    end: 2, words: originalWords,
+    unrecognized: [{ start: 0.8, end: 1 }, { start: 1, end: 1.2 }]
+  })]);
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', {
+    text: 'alpha new beta', unrecognized: [{ start: 1, end: 1.2 }]
+  });
+  const record = JSON.parse(updated)[0];
+  assert.deepEqual(record.unrecognized, [{ start: 1, end: 1.2 }]);
+  assert.deepEqual(record.words[0], originalWords[0]);
+  assert.deepEqual(record.words[2], originalWords[1]);
+  assert.ok(record.words[1].start >= 0.8 && record.words[1].end <= 1.2);
+});
+
+test('unrecognized の非 object 要素は拒否する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  assert.throws(() => updateCaptionFieldsInSource(source, 'c-0001', {
+    unrecognized: [null]
+  }), /未認識区間が不正/);
+});
+
+test('unrecognized の非有限時刻は拒否する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  assert.throws(() => updateCaptionFieldsInSource(source, 'c-0001', {
+    unrecognized: [{ start: Number.NaN, end: 0.5 }]
+  }), /未認識区間が不正/);
+});
+
+test('unrecognized の end <= start は拒否する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  assert.throws(() => updateCaptionFieldsInSource(source, 'c-0001', {
+    unrecognized: [{ start: 0.5, end: 0.5 }]
+  }), /未認識区間が不正/);
+});
+
 test('time_domain を読み、絶対時刻更新で output 変換と未宣言への undo を往復できる', () => {
   const source = JSON.stringify([caption('c-0001', 0.5, '跨ぐ字幕')], null, 2);
   const converted = setCaptionTimingLine(source, 'c-0001', 0.5, 3.5, 'output', true);
@@ -377,6 +445,25 @@ test('新規挿入した字幕行も拡張フィールドを含めてラウン�
     textAlign: 'center',
     maxLines: 1
   });
+});
+
+test('insertCaptionLine は edited 直後へ unrecognized を直列化して round-trip する', () => {
+  const spans = [{ start: 0.2, end: 0.4 }];
+  const inserted = insertCaptionLine('[]', {
+    id: 'c-0099', start: 0, end: 1, text: '新規', speaker: null,
+    sourceRef: null, edited: false, unrecognized: spans, timeDomain: 'output'
+  });
+  assert.match(inserted, /"edited": false, "unrecognized": \[\{"start":0\.2,"end":0\.4\}\], "time_domain": "output"/u);
+  assert.deepEqual(parseCaptions(inserted).captions[0].unrecognized, spans);
+});
+
+test('insertCaptionLine は空または不正な unrecognized をキーごと書かない', () => {
+  const inserted = insertCaptionLine('[]', {
+    id: 'c-0100', start: 0, end: 1, text: '新規', speaker: null,
+    sourceRef: null, edited: false, unrecognized: [{ start: 0.5, end: 0.5 }]
+  });
+  assert.equal(inserted.includes('"unrecognized"'), false);
+  assert.equal(parseCaptions(inserted).captions.length, 1);
 });
 
 // issue #40 §2（2026-09-01）: zone 方式の基準出力高さ reference_height_px は保存・読み戻しで落ちない。

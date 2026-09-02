@@ -1,4 +1,5 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
+import type { CaptionTextStyle } from '@akari-video/edit-store';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -279,7 +280,7 @@ export interface InsertCutRequest {
 export interface CutRangeInput {
     in: number;
     out: number;
-    kind: 'row' | 'filler' | 'silence';
+    kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
     label?: string;
 }
@@ -304,6 +305,10 @@ export interface CaptionWritePayload {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    /** 省略時は source。undo で削除前の行を丸ごと戻すために運ぶ（additive）。 */
+    timeDomain?: 'source' | 'output';
+    /** 行ごとのスタイル。undo で落とさないために運ぶ（additive）。 */
+    textStyle?: CaptionTextStyle;
 }
 
 export interface InsertCaptionRequest {
@@ -492,6 +497,7 @@ export interface SetCaptionFieldsRequest {
     captionId: string;
     text?: string;
     speaker?: string | null;
+    unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
 }
 
 export interface SetCaptionTextStyleRequest {

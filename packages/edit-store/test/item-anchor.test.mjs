@@ -6,6 +6,7 @@ import {
   resolveItemAnchor,
   resolveItemAnchors,
   setItemAnchor,
+  toAnchorCaptions,
 } from '../lib/index.js';
 
 const captions = [
@@ -163,4 +164,54 @@ test('clearItemAnchor は at / duration を焼き込みのまま残す', () => {
     { at: edit.tracks[1].items[0].at, duration: edit.tracks[1].items[0].duration },
     { at: 20, duration: 20 },
   );
+});
+
+test('toAnchorCaptions は配列ルートを最小形へ正規化する', () => {
+  assert.deepEqual(toAnchorCaptions([{ id: 'c-0001', start: 1, end: 2, text: 'x' }]), [
+    { id: 'c-0001', start: 1, end: 2 },
+  ]);
+});
+
+test('toAnchorCaptions は object ルートの captions[] を読む', () => {
+  assert.deepEqual(toAnchorCaptions({ captions: [{ id: 'c-0002', start: 2, end: 3 }] }), [
+    { id: 'c-0002', start: 2, end: 3 },
+  ]);
+});
+
+test('toAnchorCaptions は id・start・end が不正な要素を除外する', () => {
+  assert.deepEqual(toAnchorCaptions([
+    null,
+    { id: '', start: 0, end: 1 },
+    { id: 'c-0001', start: Number.NaN, end: 1 },
+    { id: 'c-0002', start: 0, end: Number.POSITIVE_INFINITY },
+    { id: 'c-0003', start: 0, end: 1 },
+  ]), [{ id: 'c-0003', start: 0, end: 1 }]);
+});
+
+test('toAnchorCaptions は time_domain: output を camelCase へ写す', () => {
+  assert.deepEqual(toAnchorCaptions([
+    { id: 'c-0001', start: 0, end: 1, time_domain: 'output' },
+  ]), [{ id: 'c-0001', start: 0, end: 1, timeDomain: 'output' }]);
+});
+
+test('toAnchorCaptions は CaptionRecord の timeDomain: output を受ける', () => {
+  assert.deepEqual(toAnchorCaptions([
+    { id: 'c-0001', start: 0, end: 1, timeDomain: 'output' },
+  ]), [{ id: 'c-0001', start: 0, end: 1, timeDomain: 'output' }]);
+});
+
+test('toAnchorCaptions は timeDomain と time_domain が競合すると camelCase を優先する', () => {
+  assert.deepEqual(toAnchorCaptions([
+    { id: 'c-0001', start: 0, end: 1, timeDomain: 'source', time_domain: 'output' },
+  ]), [{ id: 'c-0001', start: 0, end: 1 }]);
+});
+
+test('toAnchorCaptions は空配列を空のまま返す', () => {
+  assert.deepEqual(toAnchorCaptions([]), []);
+});
+
+test('toAnchorCaptions は非 object ルートを空配列にする', () => {
+  for (const raw of [null, 1, 'captions', true, { captions: null }]) {
+    assert.deepEqual(toAnchorCaptions(raw), []);
+  }
 });
