@@ -12,6 +12,7 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
+import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
     AkariProjectService,
     AssetCatalogResolverStatus,
@@ -60,6 +61,13 @@ import {
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { CatalogPack } from '../common/catalog-packs';
 import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
+import {
+    LIBRARY_GROUPS,
+    LibraryCategoryDefinition,
+    LibraryCategoryKey,
+    LibraryGroupDefinition,
+    searchLibraryHome
+} from '../common/library-home-view';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu } from './akari-context-menu';
@@ -80,6 +88,10 @@ const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterial
 const MATERIAL_DRAG_MIME = 'application/x-akari-material';
 const MATERIAL_DRAG_START_EVENT = 'akari.material.dragStart';
 const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
+// ライブラリ項目 D&D（トランジション送信側）。受け側と npm 依存を作らず文字列だけをミラーする。
+const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
+const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
+const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
@@ -88,7 +100,7 @@ const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
 const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
 const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
-const EMPTY_PRESET_SHOWCASE: PresetShowcase = { telop: [], lut: [] };
+const EMPTY_PRESET_SHOWCASE: PresetShowcase = { telop: [], lut: [], textanim: [], textstyle: [] };
 
 // 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
@@ -287,6 +299,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogEntitlementsStatus: AssetEntitlementsStatus = 'ok';
     protected catalogLoading = false;
     protected catalogQuery = '';
+    /** プロジェクト面の素材名フィルタ。catalogQuery とは面ごとに独立して保持する。 */
+    protected materialQuery = '';
+    /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
+    protected libraryCategory?: LibraryCategoryKey;
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
@@ -1424,13 +1440,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected selectedPresetKind(): PresetShowcaseKind | undefined {
-        if (this.catalogCategory === 'preset:telop') {
-            return 'telop';
-        }
-        if (this.catalogCategory === 'preset:lut') {
-            return 'lut';
-        }
-        return undefined;
+        const kind = this.catalogCategory.startsWith('preset:')
+            ? this.catalogCategory.slice('preset:'.length)
+            : undefined;
+        return kind === 'telop' || kind === 'lut' || kind === 'textanim' || kind === 'textstyle'
+            ? kind
+            : undefined;
     }
 
     protected filteredPresetShowcaseItems(kind: PresetShowcaseKind): PresetShowcaseItem[] {
@@ -1442,9 +1457,50 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    protected selectCatalogCategory(category: string): void {
-        this.catalogCategory = category;
+    protected setMaterialQuery(query: string): void {
+        this.materialQuery = query;
         this.update();
+    }
+
+    protected libraryCategoryDefinition(key: LibraryCategoryKey): LibraryCategoryDefinition {
+        for (const group of LIBRARY_GROUPS as readonly LibraryGroupDefinition[]) {
+            const category = group.categories.find(candidate => candidate.key === key);
+            if (category) {
+                return category;
+            }
+        }
+        throw new Error(`未知のライブラリカテゴリです: ${key}`);
+    }
+
+    protected selectLibraryCategory(key: LibraryCategoryKey): void {
+        const category = this.libraryCategoryDefinition(key);
+        if (category.status !== 'live') {
+            return;
+        }
+        this.libraryCategory = key;
+        this.catalogCategory = category.chipKey ?? 'all';
+        this.update();
+    }
+
+    protected showLibraryHome(): void {
+        this.stopCatalogAudio();
+        this.libraryCategory = undefined;
+        this.catalogCategory = 'all';
+        this.update();
+    }
+
+    protected libraryCategoryCount(category: LibraryCategoryDefinition): number | undefined {
+        if (category.status === 'soon') {
+            return undefined;
+        }
+        if (category.key === 'transition') {
+            return TRANSITION_VOCABULARY.length;
+        }
+        if (category.key === 'pack') {
+            return groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
+        }
+        return [...this.catalogCategoryChips(), ...derivePresetShowcaseChips(this.presetShowcase)]
+            .find(chip => chip.category === category.chipKey)?.count ?? 0;
     }
 
     protected readCatalogViewMode(): CatalogViewMode {
@@ -1832,22 +1888,72 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-top-view={this.topView}
             >
                 {this.dragActive && this.renderDropOverlay()}
+                {this.renderTopControls()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
-                {this.topView === 'materials' && (
-                    <div style={{ flex: '0 0 auto', padding: '8px', borderTop: '1px solid var(--theia-sideBar-border)' }}>
-                        <button
-                            type='button'
-                            className='theia-button secondary'
-                            data-akari-open-catalog
-                            style={{ width: '100%' }}
-                            onClick={() => this.selectTopView('catalog')}
-                        >
-                            ＋ カタログから素材をさがす
-                        </button>
-                    </div>
-                )}
+            </div>
+        );
+    }
+
+    protected renderTopControls(): React.ReactNode {
+        const query = this.topView === 'materials' ? this.materialQuery : this.catalogQuery;
+        return (
+            <div
+                data-akari-catalog-controls={this.topView === 'catalog' ? 'true' : undefined}
+                style={{ flex: '0 0 auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '7px', borderBottom: '1px solid var(--theia-sideBar-border)' }}
+            >
+                <div role='tablist' aria-label='素材パネルの表示' style={{ display: 'flex', gap: '4px' }}>
+                    {([
+                        { view: 'materials' as const, label: 'プロジェクト' },
+                        { view: 'catalog' as const, label: 'ライブラリ' }
+                    ]).map(item => {
+                        const active = this.topView === item.view;
+                        return (
+                            <button
+                                key={item.view}
+                                type='button'
+                                role='tab'
+                                aria-selected={active}
+                                data-akari-panel-segment={item.view}
+                                data-akari-open-catalog={item.view === 'catalog' ? 'true' : undefined}
+                                data-akari-back-to-materials={item.view === 'materials' ? 'true' : undefined}
+                                className='theia-button secondary'
+                                onClick={() => this.selectTopView(item.view)}
+                                style={{
+                                    flex: '1 1 0',
+                                    padding: '4px 8px',
+                                    fontWeight: active ? 700 : 400,
+                                    background: active ? 'var(--theia-button-background)' : 'var(--theia-sideBar-background)',
+                                    color: active ? 'var(--theia-button-foreground)' : 'var(--theia-sideBar-foreground)',
+                                    borderColor: active ? 'var(--theia-focusBorder)' : 'var(--theia-sideBar-border)'
+                                }}
+                            >
+                                {item.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <input
+                    type='search'
+                    value={query}
+                    onChange={event => this.topView === 'materials'
+                        ? this.setMaterialQuery(event.target.value)
+                        : this.setCatalogQuery(event.target.value)}
+                    onClick={event => event.stopPropagation()}
+                    placeholder={this.topView === 'materials' ? 'プロジェクト内を検索' : 'ライブラリを検索'}
+                    aria-label={this.topView === 'materials' ? 'プロジェクト内の素材を検索' : 'ライブラリを検索'}
+                    data-akari-panel-search={this.topView}
+                    style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '5px 8px',
+                        background: 'var(--theia-input-background)',
+                        color: 'var(--theia-input-foreground)',
+                        border: '1px solid var(--theia-input-border)',
+                        borderRadius: '4px'
+                    }}
+                />
             </div>
         );
     }
@@ -1866,19 +1972,29 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </p>
             );
         }
+        const normalizedQuery = this.materialQuery.trim().toLowerCase();
+        const materials = normalizedQuery
+            ? this.materials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
+            : this.materials;
+        const unorganizedMaterials = normalizedQuery
+            ? this.unorganizedMaterials.filter(entry => entry.name.toLowerCase().includes(normalizedQuery))
+            : this.unorganizedMaterials;
+        if (!materials.length && !unorganizedMaterials.length) {
+            return <p data-akari-material-search-empty style={{ opacity: 0.7, padding: '16px' }}>条件に一致する素材がありません。</p>;
+        }
         return (
             <div>
-                {this.materials.length
+                {materials.length
                     ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}>
-                        {this.materials.map(entry => this.renderMaterialCard(entry))}
+                        {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
                     : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
-                {this.unorganizedMaterials.length > 0 && this.renderUnorganizedSection()}
+                {unorganizedMaterials.length > 0 && this.renderUnorganizedSection(unorganizedMaterials)}
             </div>
         );
     }
 
-    protected renderUnorganizedSection(): React.ReactNode {
+    protected renderUnorganizedSection(entries: readonly MaterialCardEntry[]): React.ReactNode {
         return (
             <div style={{ borderTop: '1px solid var(--theia-sideBar-border)', marginTop: '8px' }}>
                 <div style={{ padding: '10px 10px 0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -1888,10 +2004,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </span>
                 </div>
                 <div
-                    data-akari-unorganized-count={this.unorganizedMaterials.length}
+                    data-akari-unorganized-count={entries.length}
                     style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}
                 >
-                    {this.unorganizedMaterials.map(entry => this.renderMaterialCard(entry))}
+                    {entries.map(entry => this.renderMaterialCard(entry))}
                 </div>
             </div>
         );
@@ -2072,31 +2188,201 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    /** widget 内遷移したカタログ面。上部固定は compact controls 2 行だけ。 */
+    /** widget 内遷移したライブラリ面。セグメントと検索は親側で固定表示する。 */
     protected renderCatalogTab(): React.ReactNode {
         return (
             <div
-                style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+                style={{ minHeight: '100%' }}
                 onClick={() => this.stopCatalogAudio()}
             >
-                {this.renderCatalogControls()}
-                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
-                    {this.renderCatalogBody()}
-                </div>
+                {this.libraryCategory ? this.renderLibraryCategoryPage(this.libraryCategory) : this.renderLibraryHome()}
             </div>
         );
     }
 
+    protected renderLibraryHome(): React.ReactNode {
+        const query = this.catalogQuery.trim();
+        if (query) {
+            const hits = searchLibraryHome(query, {
+                catalogItems: this.assetCatalogItems,
+                presetShowcase: this.presetShowcase,
+                transitions: TRANSITION_VOCABULARY
+            });
+            return (
+                <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
+                    <div style={{ fontSize: '0.78em', fontWeight: 700, opacity: 0.7, padding: '4px 0 8px' }}>ライブラリ全体の検索結果</div>
+                    {hits.length
+                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {hits.map((hit, index) => {
+                                const category = this.libraryCategoryDefinition(hit.categoryKey);
+                                return (
+                                    <button
+                                        key={`${hit.kind}/${hit.categoryKey}/${hit.label}/${index}`}
+                                        type='button'
+                                        data-akari-library-search-kind={hit.kind}
+                                        data-akari-library-category={hit.categoryKey}
+                                        onClick={event => { event.stopPropagation(); this.selectLibraryCategory(hit.categoryKey); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 9px',
+                                            textAlign: 'left', cursor: 'pointer', borderRadius: '6px',
+                                            background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
+                                            border: '1px solid var(--theia-sideBar-border)'
+                                        }}
+                                    >
+                                        <span style={{ width: '24px', textAlign: 'center', color: 'var(--theia-button-background)', fontWeight: 700 }}>{category.icon}</span>
+                                        <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hit.label}</span>
+                                        <span style={{ flex: '0 0 auto', opacity: 0.6, fontSize: '0.72em' }}>{category.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        : <p style={{ opacity: 0.7, padding: '12px 6px' }}>条件に一致するライブラリ項目がありません。</p>}
+                </div>
+            );
+        }
+        return (
+            <div data-akari-library-home style={{ padding: '2px 10px 12px' }}>
+                {LIBRARY_GROUPS.map(group => (
+                    <section key={group.label} style={{ marginTop: '10px' }}>
+                        <div style={{
+                            position: 'sticky', top: 0, zIndex: 4, margin: '0 -10px 6px', padding: '6px 10px 4px',
+                            background: 'var(--theia-sideBar-background)', fontSize: '0.75em', fontWeight: 700,
+                            letterSpacing: '0.08em', opacity: 0.78
+                        }}>
+                            {group.label}
+                        </div>
+                        {group.label === 'マイ'
+                            ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
+                                {group.categories.map(category => this.renderLibraryMyCategory(category))}
+                            </div>
+                            : <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {group.categories.map(category => this.renderLibraryCategoryRow(category))}
+                            </div>}
+                    </section>
+                ))}
+            </div>
+        );
+    }
+
+    protected renderLibraryMyCategory(category: LibraryCategoryDefinition): React.ReactNode {
+        return (
+            <button
+                key={category.key}
+                type='button'
+                disabled
+                aria-disabled='true'
+                data-akari-library-category={category.key}
+                data-akari-library-soon
+                title={`${category.label} — ${category.hint}`}
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', minWidth: 0,
+                    padding: '7px 4px', borderRadius: '6px', opacity: 0.48,
+                    background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                <span style={{ fontSize: '1.15em' }}>{category.icon}</span>
+                <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{category.label}</span>
+                <span style={{ fontSize: '0.62em' }}>近日</span>
+            </button>
+        );
+    }
+
+    protected renderLibraryCategoryRow(category: LibraryCategoryDefinition): React.ReactNode {
+        const soon = category.status === 'soon';
+        const count = this.libraryCategoryCount(category);
+        return (
+            <button
+                key={category.key}
+                type='button'
+                disabled={soon}
+                aria-disabled={soon ? 'true' : undefined}
+                data-akari-library-category={category.key}
+                data-akari-library-soon={soon ? 'true' : undefined}
+                onClick={soon ? undefined : event => { event.stopPropagation(); this.selectLibraryCategory(category.key as LibraryCategoryKey); }}
+                style={{
+                    display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr) auto', alignItems: 'center', gap: '8px',
+                    width: '100%', padding: '7px 9px', textAlign: 'left', borderRadius: '6px',
+                    cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.46 : 1,
+                    background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
+                    border: '1px solid var(--theia-sideBar-border)'
+                }}
+            >
+                <span style={{ gridRow: '1 / span 2', textAlign: 'center', color: soon ? 'inherit' : 'var(--theia-button-background)', fontSize: '1.1em', fontWeight: 700 }}>{category.icon}</span>
+                <span style={{ minWidth: 0, fontSize: '0.82em', fontWeight: 700 }}>{category.label}</span>
+                <span style={{ gridRow: '1 / span 2', fontSize: '0.72em', opacity: 0.65 }}>{soon ? '近日' : count}</span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.68em', opacity: 0.62 }}>{category.hint}</span>
+            </button>
+        );
+    }
+
+    protected renderLibraryCategoryPage(key: LibraryCategoryKey): React.ReactNode {
+        const category = this.libraryCategoryDefinition(key);
+        const count = this.libraryCategoryCount(category) ?? 0;
+        return (
+            <div data-akari-library-category={key} style={{ minHeight: '100%' }}>
+                <div style={{
+                    position: 'sticky', top: 0, zIndex: 6, padding: '8px 10px 7px',
+                    background: 'var(--theia-sideBar-background)', borderBottom: '1px solid var(--theia-sideBar-border)',
+                    boxShadow: '0 8px 14px -12px var(--theia-widget-shadow)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <button
+                            type='button'
+                            data-akari-library-back
+                            onClick={event => { event.stopPropagation(); this.showLibraryHome(); }}
+                            style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)', cursor: 'pointer', fontSize: '0.8em' }}
+                        >
+                            ← ライブラリ
+                        </button>
+                        <strong style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.86em' }}>{category.label}</strong>
+                        <span data-akari-library-category-count={count} style={{ opacity: 0.6, fontSize: '0.72em' }}>{count}</span>
+                        {key !== 'transition' && (
+                            <button
+                                type='button'
+                                data-akari-catalog-view-toggle
+                                data-akari-catalog-view-mode={this.catalogViewMode}
+                                title={this.catalogViewMode === 'grid' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
+                                aria-label={this.catalogViewMode === 'grid' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
+                                onClick={event => {
+                                    event.stopPropagation();
+                                    this.setCatalogViewMode(this.catalogViewMode === 'grid' ? 'list' : 'grid');
+                                }}
+                                style={{ padding: '2px 5px', border: '1px solid var(--theia-sideBar-border)', borderRadius: '4px', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                            >
+                                <span className={this.catalogViewMode === 'grid' ? 'codicon codicon-list-flat' : 'codicon codicon-layout'} aria-hidden='true' />
+                            </button>
+                        )}
+                    </div>
+                    <div style={{ paddingTop: '5px', fontSize: '0.7em', lineHeight: 1.45, opacity: 0.64 }}>{category.hint}</div>
+                </div>
+                {this.renderLibraryCategoryBody(key)}
+            </div>
+        );
+    }
+
+    protected renderLibraryCategoryBody(key: LibraryCategoryKey): React.ReactNode {
+        if (key === 'transition') {
+            return this.renderTransitionLibrary();
+        }
+        if (key === 'pack') {
+            return this.renderLibraryPackBody();
+        }
+        if (key === 'telop') {
+            return this.renderPresetLibraryBody(['telop', 'textstyle']);
+        }
+        if (key === 'textanim' || key === 'lut') {
+            return this.renderPresetLibraryBody([key]);
+        }
+        return this.renderCatalogBody();
+    }
+
     protected renderCatalogBody(): React.ReactNode {
-        const presetKind = this.selectedPresetKind();
-        const filtered = presetKind ? [] : this.filteredCatalogItems();
-        const { groups, ungrouped } = groupCatalogItemsByPack(filtered, this.catalogPacks);
+        const filtered = this.filteredCatalogItems();
         let content: React.ReactNode;
         if (this.catalogLoading) {
             content = <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
-        } else if (presetKind) {
-            content = this.renderPresetShowcase(presetKind);
-        } else if (!this.assetCatalogItems.length && this.catalogCategory === 'all') {
+        } else if (!this.assetCatalogItems.length) {
             content = this.renderCatalogEmptyState();
         } else if (!filtered.length) {
             const emptyKind = deriveCatalogFilteredEmptyKind(this.assetCatalogItems, this.catalogCategory);
@@ -2112,13 +2398,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '0 10px' }
                 : { display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 10px' };
             content = (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 0' }}>
-                    {groups.map(group => this.renderCatalogPackSection(group))}
-                    {ungrouped.length > 0 && (
-                        <div style={itemContainerStyle}>
-                            {ungrouped.map(item => this.renderCatalogItem(item))}
-                        </div>
-                    )}
+                <div style={{ ...itemContainerStyle, paddingTop: '10px', paddingBottom: '10px' }}>
+                    {filtered.map(item => this.renderCatalogItem(item))}
                 </div>
             );
         }
@@ -2126,15 +2407,144 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}
                 data-akari-catalog-item-count={this.assetCatalogItems.length}
-                data-akari-catalog-preset-count={presetKind ? this.presetShowcase[presetKind].length : 0}
                 data-akari-catalog-view-mode={this.catalogViewMode}
             >
-                {!presetKind && this.renderCatalogResolverRetry()}
-                {!presetKind && this.renderCatalogAudioBar()}
+                {this.renderCatalogResolverRetry()}
+                {this.renderCatalogAudioBar()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.renderCatalogDeveloperLinkRow()}
                 </div>
+            </div>
+        );
+    }
+
+    protected renderPresetLibraryBody(kinds: readonly PresetShowcaseKind[]): React.ReactNode {
+        if (this.catalogLoading) {
+            return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
+        }
+        const labels: Readonly<Record<PresetShowcaseKind, string>> = {
+            telop: 'テロップ',
+            lut: 'LUT',
+            textanim: 'テキストアニメ',
+            textstyle: 'テキストスタイル'
+        };
+        return (
+            <div data-akari-library-preset-sections={kinds.length}>
+                {kinds.map((kind, index) => (
+                    <section key={kind} data-akari-library-preset-section={kind}>
+                        {(kinds.length > 1 || index > 0) && (
+                            <div style={{
+                                position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
+                                background: 'var(--theia-sideBar-background)', borderBottom: '1px solid var(--theia-sideBar-border)',
+                                fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
+                            }}>
+                                {labels[kind]}
+                            </div>
+                        )}
+                        {this.renderPresetShowcase(kind)}
+                    </section>
+                ))}
+                <div style={{ padding: '0 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+            </div>
+        );
+    }
+
+    protected renderLibraryPackBody(): React.ReactNode {
+        const filtered = filterCatalogItems(this.assetCatalogItems, this.catalogQuery, 'all');
+        const { groups } = groupCatalogItemsByPack(filtered, this.catalogPacks);
+        const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
+        return (
+            <div data-akari-catalog-pack-count={totalGroups} style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+                {this.renderCatalogResolverRetry()}
+                {this.renderCatalogAudioBar()}
+                {this.catalogLoading
+                    ? <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>
+                    : groups.length
+                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 0' }}>
+                            {groups.map(group => this.renderCatalogPackSection(group))}
+                        </div>
+                        : <p style={{ opacity: 0.7, padding: '16px' }}>条件に一致するパックがありません。</p>}
+                <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>{this.renderCatalogDeveloperLinkRow()}</div>
+            </div>
+        );
+    }
+
+    protected handleLibraryTransitionDragStart(
+        event: React.DragEvent<HTMLElement>,
+        transition: { readonly id: TransitionType; readonly labelJa: string }
+    ): void {
+        const payload: { kind: 'transition'; id: TransitionType; name: string } = {
+            kind: 'transition',
+            id: transition.id,
+            name: transition.labelJa
+        };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    protected handleLibraryTransitionDragEnd(): void {
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_END_EVENT));
+    }
+
+    protected renderTransitionLibrary(): React.ReactNode {
+        const normalizedQuery = this.catalogQuery.trim().toLowerCase();
+        const filtered = TRANSITION_VOCABULARY.filter(transition => !normalizedQuery
+            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery));
+        const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
+        return (
+            <div
+                data-akari-transition-count={TRANSITION_VOCABULARY.length}
+                data-akari-transition-visible-count={filtered.length}
+                data-akari-transition-category-count={categories.length}
+                style={{ padding: '2px 10px 12px' }}
+            >
+                {categories.map(category => {
+                    const transitions = filtered.filter(transition => transition.category === category);
+                    if (!transitions.length) {
+                        return undefined;
+                    }
+                    return (
+                        <section key={category} style={{ marginTop: '10px' }}>
+                            <div style={{ padding: '4px 0 6px', fontSize: '0.74em', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.7 }}>
+                                {category}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }}>
+                                {transitions.map(transition => (
+                                    <div
+                                        key={transition.id}
+                                        role='button'
+                                        tabIndex={0}
+                                        draggable
+                                        data-akari-library-transition={transition.id}
+                                        data-akari-library-category='transition'
+                                        title={`${transition.labelJa} — カット境界へドラッグ`}
+                                        onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
+                                        onDragEnd={() => this.handleLibraryTransitionDragEnd()}
+                                        style={{
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
+                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: '6px',
+                                            background: 'var(--theia-sideBar-background)', border: '1px solid var(--theia-sideBar-border)'
+                                        }}
+                                    >
+                                        <span aria-hidden='true' style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '25px',
+                                            borderRadius: '4px', background: 'var(--theia-editorWidget-background)',
+                                            color: 'var(--theia-button-background)', fontWeight: 700
+                                        }}>
+                                            {transition.glyph}
+                                        </span>
+                                        <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
+                                            {transition.labelJa}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    );
+                })}
+                {!filtered.length && <p style={{ opacity: 0.7, padding: '16px 6px' }}>条件に一致するトランジションがありません。</p>}
             </div>
         );
     }
@@ -2306,93 +2716,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected toggleDeveloperCatalogSection(): void {
         this.developerCatalogOpen = !this.developerCatalogOpen;
         this.update();
-    }
-
-    protected renderCatalogControls(): React.ReactNode {
-        const categoryChips = [
-            ...this.catalogCategoryChips(),
-            ...derivePresetShowcaseChips(this.presetShowcase)
-        ];
-        const nextMode: CatalogViewMode = this.catalogViewMode === 'grid' ? 'list' : 'grid';
-        return (
-            <div data-akari-catalog-controls style={{
-                flex: '0 0 auto',
-                padding: '6px 8px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                borderBottom: '1px solid var(--theia-sideBar-border)'
-            }}>
-                <div data-akari-catalog-control-row style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-back-to-materials
-                        style={{ flex: '0 0 auto', padding: '3px 7px', fontSize: '0.8em' }}
-                        onClick={() => this.selectTopView('materials')}
-                    >
-                        ← 素材
-                    </button>
-                    <input
-                        type='text'
-                        value={this.catalogQuery}
-                        onChange={event => this.setCatalogQuery(event.target.value)}
-                        onClick={event => event.stopPropagation()}
-                        placeholder='検索'
-                        aria-label='カタログを検索'
-                        style={{
-                            flex: '1 1 auto',
-                            minWidth: 0,
-                            boxSizing: 'border-box',
-                            padding: '3px 7px',
-                            background: 'var(--theia-input-background)',
-                            color: 'var(--theia-input-foreground)',
-                            border: '1px solid var(--theia-input-border)',
-                            borderRadius: '4px'
-                        }}
-                    />
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-catalog-view-toggle
-                        data-akari-catalog-view-mode={this.catalogViewMode}
-                        title={nextMode === 'list' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
-                        aria-label={nextMode === 'list' ? 'リスト表示に切り替え' : 'カード表示に切り替え'}
-                        style={{ flex: '0 0 auto', padding: '3px 7px' }}
-                        onClick={event => { event.stopPropagation(); this.setCatalogViewMode(nextMode); }}
-                    >
-                        <span className={this.catalogViewMode === 'grid' ? 'codicon codicon-list-flat' : 'codicon codicon-layout'} aria-hidden='true' />
-                    </button>
-                </div>
-                <div role='tablist' aria-label='カタログのカテゴリ' style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {[{ category: 'all', label: 'すべて', count: this.assetCatalogItems.length }, ...categoryChips].map(chip => {
-                        const active = this.catalogCategory === chip.category;
-                        return (
-                            <button
-                                key={chip.category}
-                                type='button'
-                                role='tab'
-                                aria-selected={active}
-                                data-akari-catalog-category={chip.category}
-                                data-akari-catalog-category-count={chip.count}
-                                onClick={() => this.selectCatalogCategory(chip.category)}
-                                style={{
-                                    padding: '1px 7px',
-                                    borderRadius: '12px',
-                                    border: '1px solid var(--theia-sideBar-border)',
-                                    background: active ? 'var(--theia-button-background)' : 'transparent',
-                                    color: active ? 'var(--theia-button-foreground)' : 'var(--theia-sideBar-foreground)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.74em'
-                                }}
-                            >
-                                {chip.label} {chip.count}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-        );
     }
 
     /**
@@ -2651,16 +2974,23 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const items = this.filteredPresetShowcaseItems(kind);
         if (!items.length) {
             return (
-                <p data-akari-catalog-preset-empty style={{ opacity: 0.7, padding: '16px' }}>
-                    条件に一致するプリセットがありません
-                </p>
+                <div data-akari-catalog-preset-kind={kind} data-akari-catalog-preset-count={this.presetShowcase[kind].length} data-akari-catalog-preset-visible-count={0}>
+                    <p data-akari-catalog-preset-empty style={{ opacity: 0.7, padding: '16px' }}>
+                        条件に一致するプリセットがありません
+                    </p>
+                </div>
             );
         }
         const style: React.CSSProperties = this.catalogViewMode === 'grid'
             ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '10px' }
             : { display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px' };
         return (
-            <div style={style} data-akari-catalog-preset-kind={kind}>
+            <div
+                style={style}
+                data-akari-catalog-preset-kind={kind}
+                data-akari-catalog-preset-count={this.presetShowcase[kind].length}
+                data-akari-catalog-preset-visible-count={items.length}
+            >
                 {items.map(item => this.renderPresetShowcaseItem(item))}
             </div>
         );
@@ -2676,15 +3006,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (item.kind === 'lut') {
             return [item.description, item.whenToUse].filter(Boolean).join('\n');
         }
-        return `${item.name} (${item.category})`;
+        return [item.name, item.category, item.description, item.sampleText].filter(Boolean).join('\n');
     }
 
     protected presetShowcaseIcon(item: PresetShowcaseItem): string {
-        return item.kind === 'telop' ? 'codicon codicon-symbol-text' : 'codicon codicon-color-mode';
+        if (item.kind === 'lut') {
+            return 'codicon codicon-color-mode';
+        }
+        if (item.kind === 'textanim') {
+            return 'codicon codicon-play';
+        }
+        return 'codicon codicon-symbol-text';
     }
 
     protected renderPresetShowcaseListRow(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'telop'
+        const detail = item.kind === 'telop' || item.kind === 'textstyle'
             ? [item.category, ...item.tags.slice(0, 2)].filter(Boolean).join(' · ')
             : item.description;
         return (
@@ -2704,19 +3040,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     border: '1px solid var(--theia-sideBar-border)'
                 }}
             >
-                <div style={{ width: '42px', height: '28px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', background: 'var(--theia-editorWidget-background)' }}>
-                    <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />
+                <div style={{ width: '54px', height: '32px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px', background: 'var(--theia-editorWidget-background)' }}>
+                    {item.sampleText
+                        ? <span style={{ maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em', fontWeight: 700 }}>{item.sampleText}</span>
+                        : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />}
                 </div>
                 <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
                     <span style={{ fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                     <span style={{ fontSize: '0.69em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
+                    {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.68em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
                 </div>
             </div>
         );
     }
 
     protected renderPresetShowcaseCard(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'telop' ? item.category : item.description;
+        const detail = item.kind === 'telop' || item.kind === 'textstyle' ? item.category : item.description;
         return (
             <div
                 key={`${item.kind}/${item.id}`}
@@ -2725,11 +3064,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: '6px', background: 'var(--theia-sideBar-background)', border: '1px solid var(--theia-sideBar-border)' }}
             >
                 <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--theia-editorWidget-background)' }}>
-                    <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />
+                    {item.sampleText
+                        ? <span style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', fontSize: '0.8em', fontWeight: 700 }}>{item.sampleText}</span>
+                        : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
                     <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                     <span style={{ fontSize: '0.68em', opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
+                    {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.67em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', overflow: 'hidden' }}>
                         {item.tags.slice(0, 3).map(tag => (
                             <span key={tag} style={{ padding: '0 4px', borderRadius: '8px', background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
