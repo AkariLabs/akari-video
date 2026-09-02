@@ -28,7 +28,7 @@ test("editV2 is the third root branch and keeps v2 timing/output definitions sep
   assert.equal(schema.$defs.frames.minimum, 0);
   assert.deepEqual(schema.$defs.output.properties.fps, { $ref: "#/$defs/positiveNumber" });
   assert.deepEqual(schema.$defs.outputV2.properties.fps, { type: "integer", minimum: 1 });
-  assert.equal(schema.$defs.itemV2.oneOf.length, 7);
+  assert.equal(schema.$defs.itemV2.oneOf.length, 8);
   assert.match(schema.$defs.itemV2.$comment, /子の at/);
   assert.match(schema.$defs.itemAtV2.$comment, /oneOf/);
 });
@@ -134,6 +134,24 @@ test("minimum v2 fixture is valid", () => {
   assert.equal(validate(fixture("edit-v2-minimal-valid")), true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("shape source accepts the minimal and fully parameterized v0 vocabulary", () => {
+  for (const name of ["edit-v2-shape-minimal-valid", "edit-v2-shape-params-valid"]) {
+    assert.equal(validate(fixture(name)), true, `${name}: ${JSON.stringify(validate.errors, null, 2)}`);
+  }
+});
+
+for (const [name, expectedPath, expectedKeyword] of [
+  ["edit-v2-shape-unknown-invalid", "/source/shape", "enum"],
+  ["edit-v2-shape-param-key-invalid", "/source/params", "additionalProperties"],
+  ["edit-v2-shape-negative-stroke-invalid", "/source/params/strokeWidth", "minimum"],
+]) {
+  test(`${name} is rejected by the closed shape source schema`, () => {
+    assert.equal(validate(fixture(name)), false, name);
+    assert.ok(validate.errors?.some(error => error.instancePath.endsWith(expectedPath)
+      && error.keyword === expectedKeyword), JSON.stringify(validate.errors, null, 2));
+  });
+}
+
 test("HTML source params accepts arbitrary slot names but only string values", () => {
   const valid = fixture("edit-v2-html-params-valid");
   assert.equal(validate(valid), true, JSON.stringify(validate.errors, null, 2));
@@ -203,7 +221,7 @@ test("editV2 rejects removed top-level vocabulary as additional properties", () 
 test("v2 keyframe t is an integer frame while legacy layerKeyframe stays in seconds", () => {
   assert.deepEqual(schema.$defs.layerKeyframe.properties.t, { $ref: "#/$defs/seconds" });
   assert.deepEqual(schema.$defs.keyframeV2.properties.t, { $ref: "#/$defs/frames" });
-  for (const definition of ["itemV2Media", "itemV2Html", "itemV2Telop", "itemV2Filter"]) {
+  for (const definition of ["itemV2Media", "itemV2Html", "itemV2Shape", "itemV2Telop", "itemV2Filter"]) {
     assert.deepEqual(schema.$defs[definition].properties.keyframes.oneOf[0].items, { $ref: "#/$defs/keyframeV2" });
   }
 

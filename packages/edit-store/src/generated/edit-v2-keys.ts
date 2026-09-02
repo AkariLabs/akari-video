@@ -3,7 +3,7 @@
 
 export const ITEM_V2_KEYS = ["id","name","hidden","locked","at","duration","anchor","transform","opacity","blend","crop","perspective","motion","animator","keyframes","items","mask","source","role","gain_db","denoise","lowcut_hz","fade_in","fade_out","ducking","duck_db","duck_attack","duck_release","script","reading","provenance"] as const;
 
-export const ITEM_SOURCE_V2_KEYS = ["kind","src","in","out","framing","transition_out","freeze","fx","speed","chroma_key","pitch_semitones","formant","path","part","style","text","exclude","derivedFrom","vars","params","preset","baked","from","filter","id"] as const;
+export const ITEM_SOURCE_V2_KEYS = ["kind","src","in","out","framing","transition_out","freeze","fx","speed","chroma_key","pitch_semitones","formant","path","part","style","text","exclude","derivedFrom","vars","params","shape","preset","baked","from","filter","id"] as const;
 
 export const KEYFRAME_V2_KEYS = ["t","transform","crop","perspective","opacity","gain_db","animator","easing"] as const;
 
@@ -13,7 +13,7 @@ export const ANIMATOR_V0_KEYS = ["id","basis","shape","start","end","offset","ra
 
 export const MOTION_FILE_V0_KEYS = ["version","group","items"] as const;
 
-export const SOURCE_KIND_V2 = ["media","html","telop","filter","group","captions","caption"] as const;
+export const SOURCE_KIND_V2 = ["media","html","shape","telop","filter","group","captions","caption"] as const;
 
 export const ITEM_V2_KEYS_BY_DEFINITION = {
   "itemV2Media": [
@@ -37,6 +37,25 @@ export const ITEM_V2_KEYS_BY_DEFINITION = {
     "source"
   ],
   "itemV2Html": [
+    "id",
+    "name",
+    "hidden",
+    "locked",
+    "at",
+    "duration",
+    "anchor",
+    "transform",
+    "opacity",
+    "blend",
+    "crop",
+    "perspective",
+    "motion",
+    "animator",
+    "keyframes",
+    "items",
+    "source"
+  ],
+  "itemV2Shape": [
     "id",
     "name",
     "hidden",
@@ -204,6 +223,11 @@ export const ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
     "exclude",
     "derivedFrom",
     "vars",
+    "params"
+  ],
+  "itemSourceShapeV2": [
+    "kind",
+    "shape",
     "params"
   ],
   "itemSourceTelopV2": [

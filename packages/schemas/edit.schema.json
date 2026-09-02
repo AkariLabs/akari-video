@@ -871,6 +871,35 @@
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / contract-2026-08-22-overlay-html-slots.md §1 / contract-2026-08-30-edit-json-v2-object-tree-v0.md §1.3-1.6。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。params/style は値を string のみに閉じる。"
     },
+    "itemSourceShapeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "shape"],
+      "properties": {
+        "kind": { "const": "shape" },
+        "shape": { "enum": ["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble"] },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0, "default": 600 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "fill": { "type": "string", "default": "#f97316" },
+            "stroke": { "type": "string" },
+            "strokeWidth": { "type": "number", "minimum": 0 },
+            "cornerRadius": { "type": "number", "minimum": 0, "default": 24 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "shape": { "enum": ["line", "arrow"] } }, "required": ["shape"] },
+          "then": { "properties": { "params": { "properties": { "height": { "default": 80 }, "strokeWidth": { "default": 8 } } } } },
+          "else": { "properties": { "params": { "properties": { "height": { "default": 340 }, "strokeWidth": { "default": 0 } } } } }
+        }
+      ],
+      "$comment": "図形語彙 v0 は素材パネル構想ラウンドで裁定された第一級ソースで、内部では決定論的なインライン SVG を持つ HTML オーバーレイへ降下する。任意 params は追加のみで広げられる閉じた初期語彙とする。"
+    },
     "itemSourceTelopV2": {
       "type": "object",
       "additionalProperties": false,
@@ -968,6 +997,30 @@
         "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
         "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
+      }
+    },
+    "itemV2Shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
+        "source": { "$ref": "#/$defs/itemSourceShapeV2" }
       }
     },
     "itemV2Telop": {
@@ -1130,6 +1183,7 @@
       "oneOf": [
         { "$ref": "#/$defs/itemV2Media" },
         { "$ref": "#/$defs/itemV2Html" },
+        { "$ref": "#/$defs/itemV2Shape" },
         { "$ref": "#/$defs/itemV2Telop" },
         { "$ref": "#/$defs/itemV2Filter" },
         { "$ref": "#/$defs/itemV2Group" },

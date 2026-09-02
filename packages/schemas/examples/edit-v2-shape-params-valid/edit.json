@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v-shape",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "shape-1",
+          "at": 12,
+          "duration": 90,
+          "source": {
+            "kind": "shape",
+            "shape": "rounded-rect",
+            "params": {
+              "width": 640,
+              "height": 360,
+              "fill": "rgba(249, 115, 22, 0.8)",
+              "stroke": "#ffffff",
+              "strokeWidth": 6,
+              "cornerRadius": 32
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

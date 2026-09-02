@@ -6,6 +6,7 @@ import {
   projectLegacyEdit,
   readInternalEdit,
   readInternalSources,
+  shapeMarkup,
   visualContentEndSeconds,
 } from '../lib/index.js';
 
@@ -31,6 +32,53 @@ test('readInternalEdit accepts v2 and keeps integer frames authoritative', () =>
   assert.equal(internal.tracks[0].items[0].atFrames, 0);
   assert.equal(internal.tracks[0].items[0].durationFrames, 60);
   assert.equal(internal.tracks[0].items[0].duration, 2);
+});
+
+test('shape items lower to inline HTML overlays and keep shared visual item behavior', () => {
+  const source = {
+    kind: 'shape',
+    shape: 'rounded-rect',
+    params: { width: 320, height: 180, fill: '#00ff88', cornerRadius: 16 },
+  };
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [],
+    tracks: [{
+      id: 'shapes',
+      lane: 'visual',
+      items: [{
+        id: 'shape-1',
+        hidden: true,
+        at: 30,
+        duration: 60,
+        transform: { x: 12, y: -8, scale: 0.75, rotate: 5 },
+        opacity: 0.4,
+        keyframes: [{ t: 0, opacity: 0.2 }, { t: 30, opacity: 0.8 }],
+        source,
+      }],
+    }],
+  });
+
+  const item = internal.tracks[0].items[0];
+  const markup = shapeMarkup(source);
+  assert.equal(internal.tracks[0].legacy.kind, 'overlays');
+  assert.deepEqual(item.source, { kind: 'html' });
+  assert.deepEqual(item.declaration, {
+    id: 'shape-1',
+    html: markup,
+    htmlPath: 'edit.json',
+    start: 1,
+    duration: 2,
+    track: 0,
+    hidden: true,
+    transform: { x: 12, y: -8, scale: 0.75, rotate: 5 },
+    opacity: 0.4,
+    keyframes: [{ t: 0, opacity: 0.2 }, { t: 1, opacity: 0.8 }],
+  });
+  assert.equal(item.legacy.collection, 'overlays');
+  assert.deepEqual(projectLegacyEdit(internal).overlays[0].payload, item.declaration);
+  assert.equal(visualContentEndSeconds(internal), 0);
 });
 
 test('readInternalEdit options.captions re-resolves anchored item caches', () => {

@@ -42,25 +42,30 @@ function resolveV2Write(parsed, command) {
     let htmlPath;
     let editChanged = false;
     if (command.kind === 'overlay') {
-        if (item.source.kind !== 'html') {
-            throw new Error(`HTML アイテムではありません: ${itemId}`);
+        if (item.source.kind !== 'html' && item.source.kind !== 'shape') {
+            throw new Error(`HTML/図形アイテムではありません: ${itemId}`);
         }
-        const source = item.source;
-        if (typeof command.patch.html === 'string') {
-            htmlPath = source.path;
-        }
-        if (command.patch.params) {
-            for (const [name, value] of Object.entries(command.patch.params)) {
-                if (!name || typeof value !== 'string') {
-                    throw new Error('HTML params は空でないキーと文字列値である必要があります');
-                }
+        if (item.source.kind === 'html') {
+            const source = item.source;
+            if (typeof command.patch.html === 'string') {
+                htmlPath = source.path;
             }
-            source.params = { ...source.params, ...command.patch.params };
-            editChanged = true;
+            if (command.patch.params) {
+                for (const [name, value] of Object.entries(command.patch.params)) {
+                    if (!name || typeof value !== 'string') {
+                        throw new Error('HTML params は空でないキーと文字列値である必要があります');
+                    }
+                }
+                source.params = { ...source.params, ...command.patch.params };
+                editChanged = true;
+            }
+            if (command.patch.vars) {
+                source.vars = { ...recordOf(source.vars), ...command.patch.vars };
+                editChanged = true;
+            }
         }
-        if (command.patch.vars) {
-            source.vars = { ...recordOf(source.vars), ...command.patch.vars };
-            editChanged = true;
+        else if (command.patch.html !== undefined || command.patch.params !== undefined || command.patch.vars !== undefined) {
+            throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {
             item.transform = { ...recordOf(item.transform), ...command.patch.transform };

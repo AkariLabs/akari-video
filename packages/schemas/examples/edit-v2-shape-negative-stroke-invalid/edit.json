@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v-shape",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "shape-1",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "shape",
+            "shape": "line",
+            "params": { "strokeWidth": -1 }
+          }
+        }
+      ]
+    }
+  ]
+}
