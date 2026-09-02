@@ -126,3 +126,15 @@ test('motion 袋 URI はモデル資源として forceRebuild 対象から除外
         'file:///project/edit.json', '/edit.json', motionKeys, motionSuffixes
     ), false);
 });
+
+test('assetUris / overlayUris は登録順が違っても同じ資源集合なら変更扱いにしない（並列解決で順序が揺れる）', () => {
+    const previous = base();
+    const next = {
+        ...base(),
+        assetUris: [...base().assetUris].reverse(),
+        overlayUris: [...base().overlayUris].reverse()
+    };
+    assert.equal(classifyPreviewModelUpdate(previous, next), 'none');
+    const changed = { ...base(), assetUris: [...base().assetUris, 'file:///project/new.mov'] };
+    assert.notEqual(classifyPreviewModelUpdate(previous, changed), 'none');
+});
