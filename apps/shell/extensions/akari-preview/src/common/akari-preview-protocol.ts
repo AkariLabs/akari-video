@@ -221,6 +221,20 @@ export type ResolveHevcProxyResult =
     | { status: 'ready'; proxyUri: string }
     | { status: 'unavailable'; reason: ResolveHevcProxyUnavailableReason };
 
+// task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面のアルファ層（.webm / .mov）を
+// Web UI（packages/preview-server）と同じ media-bin alpha-intake で「色 mp4 + マスク mp4」へ取り込む。
+// 派生物は入力の隣（<name>.color.mp4 / <name>.mask.mp4）に置かれ、Web UI と shell がキャッシュを共有する。
+// frame-engine は MP4 しか読めないため、生の WebM / ProRes を渡すと本編ごと止まる（invalid box）。
+export interface PrepareAlphaIntakeRequest {
+    videoUri: string;
+    projectRootUri: string;
+}
+
+export type PrepareAlphaIntakeResult =
+    | { status: 'alpha'; colorUri: string; maskUri: string; maskFormat: string; skipped: boolean }
+    | { status: 'opaque' }
+    | { status: 'unavailable'; reason: string };
+
 // CF-write: layerWrite/audioWrite の書き込み前ゲート。edit.json の候補全文を実際には書き込まず
 // packages/edit-lint（呼び出しのみ・改変禁止）で検証する。プロジェクトルートの兄弟ファイル
 // （source 動画・captions.json 等）はシンボリックリンクで一時ディレクトリへ写し、参照整合チェックが
@@ -278,6 +292,7 @@ export interface AkariPreviewService {
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;
     disposeTranscodedAudioStream(id: string): Promise<void>;
     resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult>;
+    prepareAlphaIntake(request: PrepareAlphaIntakeRequest): Promise<PrepareAlphaIntakeResult>;
     probeAudioPresence(request: ProbeAudioPresenceRequest): Promise<ProbeAudioPresenceResult>;
     startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
