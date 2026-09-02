@@ -1829,7 +1829,9 @@ ${indent}`);
       exports.shiftCaptionLine = shiftCaptionLine;
       exports.setCaptionTimingLine = setCaptionTimingLine;
       exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+      exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
       exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+      exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
       exports.insertCaptionLine = insertCaptionLine;
       exports.removeCaptionLine = removeCaptionLine;
       var edit_store_1 = require_edit_store();
@@ -2008,6 +2010,23 @@ ${indent}`);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
       }
+      function applyWordBookToCaptionsInSource(source, changes) {
+        if (changes.length === 0) {
+          return source;
+        }
+        let output = source;
+        for (const change of changes) {
+          const array = locateCaptionArray(output);
+          const element = findCaptionElement(array.elements, change.id);
+          let nextElement = element.text;
+          nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "words", change.words, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_text", change.display_text, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
+          output = replaceElement(output, array.openIndex + 1, element, nextElement);
+        }
+        return output;
+      }
       function updateCaptionTextStyleInSource(source, captionId, updates) {
         if (!captionId) {
           throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
@@ -2042,6 +2061,64 @@ ${indent}`);
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
+      }
+      function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+        if (captionIds.length === 0) {
+          throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+          throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        const ids = [...new Set(captionIds)];
+        const array = locateCaptionArray(source);
+        const elementsById = /* @__PURE__ */ new Map();
+        for (const entry of captionElementEntries(array.elements)) {
+          if (!entry.id)
+            continue;
+          const matches = elementsById.get(entry.id) ?? [];
+          matches.push(entry.element);
+          elementsById.set(entry.id, matches);
+        }
+        const targets = [];
+        for (const captionId of ids) {
+          const matches = elementsById.get(captionId) ?? [];
+          if (matches.length !== 1) {
+            throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+          }
+          targets.push({ captionId, element: matches[0] });
+        }
+        let output = source;
+        let changed = 0;
+        for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+          const record = JSON.parse(element.text);
+          const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+          if (presetId === null) {
+            if (!hasPreset)
+              continue;
+            const nextElement2 = removeObjectProperty(element.text, "style_preset");
+            output = replaceElement(output, array.openIndex + 1, element, nextElement2);
+            changed++;
+            continue;
+          }
+          if (hasPreset && record.style_preset === presetId)
+            continue;
+          let nextElement;
+          if (hasPreset) {
+            nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
+          } else {
+            const textStyle = locateTopLevelProperty(element.text, "text_style");
+            if (!textStyle) {
+              nextElement = appendJsonProperty(element.text, "style_preset", presetId);
+            } else {
+              const lineStart = Math.max(element.text.lastIndexOf("\n", textStyle.start - 1), element.text.lastIndexOf("\r", textStyle.start - 1));
+              const separator = lineStart >= 0 ? `${element.text.includes("\r\n") ? "\r\n" : "\n"}${element.text.slice(lineStart + 1, textStyle.start)}` : " ";
+              nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
+            }
+          }
+          output = replaceElement(output, array.openIndex + 1, element, nextElement);
+          changed++;
+        }
+        return { source: output, changed };
       }
       function insertCaptionLine(source, caption) {
         const parsed = parseCaptions(source);
@@ -2271,11 +2348,67 @@ ${indent}`);
         return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
       }
       function serializeCaption(caption) {
+        const parts = [
+          `"id": ${JSON.stringify(caption.id)}`,
+          `"start": ${JSON.stringify(caption.start)}`,
+          `"end": ${JSON.stringify(caption.end)}`,
+          `"text": ${JSON.stringify(caption.text)}`,
+          `"speaker": ${JSON.stringify(caption.speaker)}`,
+          `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
+          `"edited": ${JSON.stringify(caption.edited)}`
+        ];
+        if (caption.src !== void 0) {
+          parts.push(`"src": ${JSON.stringify(caption.src)}`);
+        }
+        if (caption.timeDomain !== void 0) {
+          parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
+        }
+        if (caption.words !== void 0) {
+          parts.push(`"words": ${JSON.stringify(caption.words)}`);
+        }
         const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
-        const unrecognized = normalizedUnrecognized === void 0 ? "" : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
-        const timeDomain = caption.timeDomain === void 0 ? "" : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
-        const textStyle = caption.textStyle === void 0 ? "" : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-        return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+        if (normalizedUnrecognized !== void 0) {
+          parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
+        }
+        if (caption.style !== void 0) {
+          parts.push(`"style": ${JSON.stringify(caption.style)}`);
+        }
+        if (caption.displayText !== void 0) {
+          parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
+        }
+        if (caption.displayFragments !== void 0) {
+          parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
+        }
+        if (caption.stylePreset !== void 0) {
+          parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
+        }
+        if (caption.textStyle !== void 0) {
+          parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
+        }
+        const schemaKeys = /* @__PURE__ */ new Set([
+          "id",
+          "start",
+          "end",
+          "text",
+          "speaker",
+          "sourceRef",
+          "edited",
+          "src",
+          "time_domain",
+          "words",
+          "unrecognized",
+          "style",
+          "display_text",
+          "display_fragments",
+          "style_preset",
+          "text_style"
+        ]);
+        for (const [key, value] of Object.entries(caption.extra ?? {})) {
+          if (value !== void 0 && !schemaKeys.has(key)) {
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+          }
+        }
+        return `{ ${parts.join(", ")} }`;
       }
       function normalizeUnrecognized(value) {
         if (!Array.isArray(value))
@@ -3363,6 +3496,19 @@ ${indent}`);
           return null;
         }
         const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+        if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
+          fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
+        }
+        const extraProtectedTerms = [...new Set(options.extra_protected_terms ?? [])];
+        const policyProtectedTerms = policy.break_hints?.protected_terms ?? [];
+        const incrementalProtectedTerms = extraProtectedTerms.filter((term) => !policyProtectedTerms.includes(term));
+        const policyWithExtraTerms = incrementalProtectedTerms.length === 0 ? policy : {
+          ...policy,
+          break_hints: {
+            ...policy.break_hints,
+            protected_terms: [...policyProtectedTerms, ...incrementalProtectedTerms]
+          }
+        };
         if (!Array.isArray(captionsRoot.captions))
           fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
         const captions = captionsRoot.captions;
@@ -3395,6 +3541,7 @@ ${indent}`);
           });
         }
         const boundaryProjection = [];
+        const wordBookFallbacks = [];
         const fragmentsByCaption = /* @__PURE__ */ new Map();
         captions.forEach((caption, index) => {
           const text = caption.display_text ?? caption.text;
@@ -3405,7 +3552,19 @@ ${indent}`);
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
           } else {
-            const split = splitCaptionFragments(text, policy);
+            let split;
+            try {
+              split = splitCaptionFragments(text, policyWithExtraTerms);
+            } catch (error) {
+              if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
+                throw error;
+              }
+              split = splitCaptionFragments(text, policy);
+              wordBookFallbacks.push({
+                caption_id: caption.id,
+                dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
+              });
+            }
             fragments = split.fragments;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
           }
@@ -3453,7 +3612,8 @@ ${indent}`);
           display_cue_count: displayCues.length,
           split_source_cue_count: splitCueIds.size,
           boundary_projection: boundaryProjection,
-          display_cues: displayCues
+          display_cues: displayCues,
+          word_book_fallbacks: wordBookFallbacks
         };
       }
       function validateCaptionTextStyle(value, label = "text_style") {
@@ -4857,6 +5017,10 @@ ${indent}`);
             item.transform = { ...recordOf(item.transform), ...command.patch.transform };
             editChanged = true;
           }
+          if (command.patch.crop) {
+            item.crop = { ...command.patch.crop };
+            editChanged = true;
+          }
         }
         return {
           ...editChanged ? { candidateText: stringifyEdit(edit) } : {},
@@ -4924,6 +5088,9 @@ ${indent}`);
         const cut = edit.cuts[command.legacyIndex];
         if (!isRecord2(cut)) {
           throw new Error(`\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: index ${command.legacyIndex}`);
+        }
+        if (command.patch.crop) {
+          throw new Error("\u30AB\u30C3\u30C8\u306E crop \u66F8\u304D\u623B\u3057\u306B\u306F edit.json version 2 \u304C\u5FC5\u8981\u3067\u3059");
         }
         if (command.patch.transform) {
           cut.transform = { ...recordOf(cut.transform), ...command.patch.transform };
@@ -16407,6 +16574,7 @@ ${indent}`);
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     RangeMp4Source: () => RangeMp4Source,
+    RefusalError: () => RefusalError,
     ScrubController: () => ScrubController,
     SpriteCompositor: () => SpriteCompositor,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
@@ -16459,6 +16627,7 @@ ${indent}`);
     h264CodecString: () => h264CodecString,
     hasCutLayerStyleVisual: () => hasCutLayerStyleVisual,
     hevcCodecString: () => hevcCodecString2,
+    hevcEncoderCodecString: () => hevcEncoderCodecString,
     invertMat3: () => invertMat3,
     isCaptionMotionSupported: () => isCaptionMotionSupported,
     isDecoderErrorMessage: () => isDecoderErrorMessage,
@@ -25168,6 +25337,9 @@ void main() {
   };
 
   // packages/frame-engine/src/exits/webcodecs.ts
+  var RefusalError = class extends Error {
+    name = "RefusalError";
+  };
   var H264_HIGH_PROFILE_BR_FACTOR = 1.25;
   var H264_LEVELS = [
     { level: "4.0", idc: 40, maxFs: 8192, maxMbps: 245760, maxBrKbps: 2e4 },
@@ -25210,10 +25382,38 @@ void main() {
     }
     return selectH264Level(options).codec;
   }
+  function hevcEncoderCodecString({ width, height, fps }) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      throw new RefusalError(`HEVC level selection needs a positive frame size, got ${width}x${height}`);
+    }
+    if (!Number.isFinite(fps) || fps <= 0) {
+      throw new RefusalError(`HEVC level selection needs a positive frame rate, got ${fps}`);
+    }
+    const pixels = width * height;
+    if (pixels <= 1920 * 1080 && fps <= 30) return "hvc1.1.6.L120.B0";
+    if (pixels <= 1920 * 1080 && fps <= 60 || pixels <= 2560 * 1440 && fps <= 30) return "hvc1.1.6.L123.B0";
+    if (pixels <= 3840 * 2160 && fps <= 30) return "hvc1.1.6.L150.B0";
+    if (pixels <= 3840 * 2160 && fps <= 60) return "hvc1.1.6.L153.B0";
+    if (pixels <= 8912896 && pixels * fps <= 1069547520) return "hvc1.1.6.L156.B0";
+    throw new RefusalError(`no HEVC Main profile level fits ${width}x${height}@${fps}fps (max is Level 5.2)`);
+  }
   function buildEncoderConfig(options) {
     const bitrate = options.bitrate ?? 8e6;
+    if (options.codec === "hevc") {
+      return {
+        codec: hevcEncoderCodecString(options),
+        width: options.width,
+        height: options.height,
+        bitrate,
+        framerate: options.fps,
+        hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
+        latencyMode: "realtime",
+        hevc: { format: "hevc" }
+      };
+    }
+    const legacyCodec = typeof options.codec === "string" && options.codec !== "h264" ? options.codec : void 0;
     return {
-      codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: options.codec }),
+      codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: legacyCodec }),
       width: options.width,
       height: options.height,
       bitrate,
@@ -25229,13 +25429,16 @@ void main() {
       this.options = options;
       this.config = buildEncoderConfig(options);
       this.encoder = new VideoEncoder({
-        output: (chunk) => {
+        output: (chunk, metadata) => {
           const bytes = new Uint8Array(chunk.byteLength);
           chunk.copyTo(bytes);
+          const description = this.options.codec === "hevc" && !this.decoderConfigSent && chunk.type === "key" ? copyDescription(metadata?.decoderConfig?.description) : void 0;
+          if (description) this.decoderConfigSent = true;
           this.writes.push(Promise.resolve(this.sink.write(bytes, {
             type: chunk.type,
             timestamp: chunk.timestamp,
-            duration: chunk.duration
+            duration: chunk.duration,
+            ...description ? { description } : {}
           })));
         },
         error: (error) => {
@@ -25251,6 +25454,7 @@ void main() {
     failure = null;
     frameNumber = 0;
     closed = false;
+    decoderConfigSent = false;
     queueWaiters = /* @__PURE__ */ new Set();
     static async isSupported(options) {
       if (typeof VideoEncoder === "undefined") return false;
@@ -25328,6 +25532,13 @@ void main() {
       for (const waiter of [...this.queueWaiters]) waiter();
     }
   };
+  function copyDescription(value) {
+    if (value === void 0) return void 0;
+    if (ArrayBuffer.isView(value)) {
+      return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+    }
+    return new Uint8Array(value.slice(0));
+  }
 
   // packages/frame-engine/src/exits/sprite-compositor.ts
   var TILE_INSTANCE_FLOATS = 30;

@@ -194,3 +194,31 @@ test('estimateElapsedAndRemaining: render のコマあたり実測から残り�
     const result = estimateElapsedAndRemaining(snapshot, 3000, { startedAtMs: 1000, nowMs: 3000 });
     assert.deepEqual(result, { elapsedMs: 3000, remainingMs: 11905 });
 });
+
+test('tracker: GPU preview 行を最新実フレームとして保持する', () => {
+    const tracker = createQuickExportProgressTracker();
+    tracker.push('PROGRESS preview=30 path=/project/.akari/cache/export-preview/30.jpg\n');
+    assert.deepEqual(tracker.snapshot(), {
+        percent: 0,
+        outTimeMs: 0,
+        totalMs: 0,
+        done: false,
+        previewFrame: 30,
+        previewPath: '/project/.akari/cache/export-preview/30.jpg'
+    });
+});
+
+test('tracker: GPU preview の後に frame 行が来ても preview と既存進捗を保持する', () => {
+    const tracker = createQuickExportProgressTracker();
+    tracker.push('PROGRESS stage=render status=start engine=gpu\n');
+    tracker.push('PROGRESS preview=30 path=/project/.akari/cache/export-preview/30.jpg\n');
+    tracker.push('PROGRESS frame=45 total=90\n');
+    const snapshot = tracker.snapshot();
+    assert.equal(snapshot.previewFrame, 30);
+    assert.equal(snapshot.previewPath, '/project/.akari/cache/export-preview/30.jpg');
+    assert.equal(snapshot.percent, 42);
+    assert.equal(snapshot.stage, 'render');
+    assert.equal(snapshot.frame, 45);
+    assert.equal(snapshot.totalFrames, 90);
+    assert.equal(snapshot.engine, 'gpu');
+});

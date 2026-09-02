@@ -2,7 +2,7 @@ import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preferenc
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
-export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null } = {}) {
+export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null, codec = run?.codec ?? "h264" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   const memory = run?.memory ?? {};
   return {
@@ -14,6 +14,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       // the next time this path changes. Runs recorded before the ffmpeg remux carry no mux block.
       mux: run?.mux?.method ?? "mp4box-direct",
       video_reencode: false,
+      codec,
       // Windows のアプリ別 GPU 設定の一時上書き（launchElectronExport の gpuPreference 記録・osr 契約 §11.7）。他 OS は理由だけ。
       gpu_preference: normalizeGpuPreferenceRecord(gpuPreference),
     },
@@ -38,6 +39,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionRasterTotalMs: finiteNonNegative(run?.gpu?.captionRasterTotalMs),
       captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
       captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
+      preview: normalizePreview(run?.preview),
       domLayer: run?.domLayer ?? null,
       viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
@@ -69,6 +71,13 @@ function normalizeOutputScale(value) {
   return from.length === 2 && to.length === 2 && [...from, ...to].every(entry => Number.isInteger(entry) && entry > 0)
     ? { from, to, mode: value.mode }
     : null;
+}
+
+function normalizePreview(value) {
+  if (!value || typeof value !== "object") return { mode: "off", frames: 0 };
+  const frames = Number.isInteger(value.frames) && value.frames >= 0 ? value.frames : 0;
+  const mode = value.mode === "auto" ? "auto" : "off";
+  return { mode, frames, ...(typeof value.disabledReason === "string" ? { disabledReason: value.disabledReason } : {}) };
 }
 
 function normalizeGpuAudioRecord(value) {

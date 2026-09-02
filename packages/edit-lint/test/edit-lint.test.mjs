@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { chmod, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +15,13 @@ import {
 } from "../src/edit-lint.mjs";
 import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
+
+// 幾何の統一 G1: 未移行の v2（output.geometry 未指定）には geometry.fit-compat の warning が
+// 必ず 1 件付く。各検査の「所見ゼロ」判定はこの移行案内を除いて数える
+// （案内そのものは test/geometry-fit-compat.test.mjs が固定する）。
+function withoutGeometryNotice(findings) {
+  return findings.filter((finding) => finding.check !== "geometry.fit-compat");
+}
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
@@ -109,7 +116,7 @@ test("valid fixture passes and writes both reports", async () => {
     const result = parseResult(executed);
     assert.equal(result.version, 1);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0);
+    assert.equal(withoutGeometryNotice(result.findings).length, 0);
     assert.ok(result.skipped.some((item) => item.check === "captions"));
 
     const stored = JSON.parse(await readFile(join(project, ".akari", "lint.json"), "utf8"));
@@ -120,6 +127,178 @@ test("valid fixture passes and writes both reports", async () => {
     );
     assert.match(report, /edit-lint report/);
     assert.doesNotMatch(report, /https?:\/\//);
+  });
+});
+
+const WORD_BOOK_FIXTURE = {
+  edit: {
+    version: 0,
+    output: { width: 1280, height: 720, fps: 30 },
+    source: { path: "../valid/sample.mp4", proxy: null },
+    cuts: [{ in: 0, out: 8 }],
+    overlays: [],
+  },
+  captions: {
+    display_policy: {
+      mode: "single_line_sequential",
+      algorithm: "a4-ja-two-fragment-v1",
+      unit_metric: "ascii-half-other-one-v1",
+      max_line_units: 3,
+      minimum_fragment_duration_seconds: 0.1,
+      locale: "ja",
+    },
+    captions: [
+      {
+        id: "c-0001", start: 0, end: 2, text: "あかりビデオ",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 0, end: 2, text: "あかりビデオ" }],
+        display_fragments: ["あかり", "ビデオ"],
+      },
+      {
+        id: "c-0002", start: 2, end: 4, text: "あかりビデオ",
+        speaker: null, sourceRef: null, edited: true,
+        words: [{ start: 2, end: 4, text: "あかりビデオ" }],
+        display_fragments: ["あかり", "ビデオ"],
+      },
+      {
+        id: "c-0003", start: 4, end: 6, text: "ムービー",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 4, end: 6, text: "ムービー" }],
+        display_fragments: ["ムー", "ビー"],
+      },
+      {
+        id: "c-0004", start: 6, end: 8, text: "alpha beta",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 6, end: 7, text: "alpha" }, { start: 7, end: 8, text: "beta" }],
+      },
+    ],
+  },
+  extraWordBook: {
+    version: 0,
+    entries: [
+      { surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" },
+      { surface: "動画", variants: ["ムービー"], kind: "notation" },
+      { surface: "alpha beta", variants: [], kind: "term", protect_break: true },
+      { surface: "ExtraName", variants: ["shadow"], kind: "term" },
+    ],
+  },
+  projectWordBook: {
+    version: 0,
+    entries: [{ surface: "ProjectName", variants: ["shadow"], kind: "term" }],
+  },
+  invalidWordBook: { version: 1, entries: [] },
+};
+
+async function materializeWordBookFixture(fixtures) {
+  const fixture = WORD_BOOK_FIXTURE;
+  const project = join(fixtures, "word-book-runtime");
+  const memory = join(project, ".akari", "memory");
+  await mkdir(memory, { recursive: true });
+  await writeFile(join(project, "edit.json"), `${JSON.stringify(fixture.edit, null, 2)}\n`);
+  await writeFile(join(project, "captions.json"), `${JSON.stringify(fixture.captions, null, 2)}\n`);
+  await writeFile(join(project, "extra-word-book.json"), `${JSON.stringify(fixture.extraWordBook, null, 2)}\n`);
+  await writeFile(join(project, "invalid-word-book.json"), `${JSON.stringify(fixture.invalidWordBook)}\n`);
+  await writeFile(join(memory, "word-book.json"), `${JSON.stringify(fixture.projectWordBook, null, 2)}\n`);
+  await migrateFixtureTree(project);
+  return project;
+}
+
+async function runWordBookFixture(fixtures, wordBook = "extra-word-book.json") {
+  const project = await materializeWordBookFixture(fixtures);
+  return run(project, [], {
+    AKARI_WORD_BOOK: join(project, wordBook),
+    AKARI_HOME: join(fixtures, "isolated-machine"),
+    HOME: join(fixtures, "isolated-home"),
+  });
+}
+
+test("word-book.invalid は壊れた層の code と path を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = await materializeWordBookFixture(fixtures);
+    const executed = run(project, [], {
+      AKARI_WORD_BOOK: join(project, "invalid-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    });
+    const findings = parseResult(executed).findings.filter(finding => finding.check === "word-book.invalid");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /too-new/u);
+    assert.match(findings[0].path, /invalid-word-book/u);
+  });
+});
+
+test("word-book.variant-shadowed は層間 variant 衝突を info にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "word-book.variant-shadowed");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "info");
+    assert.match(findings[0].message, /ExtraName.*ProjectName/u);
+  });
+});
+
+test("captions.word-book-term は未適用 term を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-term" && finding.path === "captions.json#[0]");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /words\[0\].*あかりビデオ.*AKARI Video/u);
+  });
+});
+
+test("edited 行の captions.word-book-term は info に下がる", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-term" && finding.path === "captions.json#[1]");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "info");
+  });
+});
+
+test("captions.word-book-notation は notation variant を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-notation");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /ムービー.*動画/u);
+  });
+});
+
+test("captions.word-book-break-fallback は dropped_terms を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-break-fallback");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.equal(findings[0].path, "captions.json#[3]");
+    assert.match(findings[0].message, /alpha beta/u);
+  });
+});
+
+test("単語帳が無ければ word-book 規則は静か", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "captions-words-valid");
+    const result = parseResult(run(project, [], {
+      AKARI_WORD_BOOK: join(fixtures, "missing-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    }));
+    assert.equal(result.findings.filter(finding => finding.check.includes("word-book")).length, 0);
+  });
+});
+
+test("既定 valid fixture では新規 5 規則が 1 件も鳴らない", async () => {
+  await withFixtures(async (fixtures) => {
+    const result = parseResult(run(join(fixtures, "valid"), [], {
+      AKARI_WORD_BOOK: join(fixtures, "missing-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    }));
+    const checks = new Set([
+      "word-book.invalid", "word-book.variant-shadowed", "captions.word-book-term",
+      "captions.word-book-notation", "captions.word-book-break-fallback",
+    ]);
+    assert.equal(result.findings.filter(finding => checks.has(finding.check)).length, 0);
   });
 });
 test("v1 accepts multiple sources, array-order cuts, and captions src", async () => {
@@ -263,7 +442,7 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
     assert.deepEqual(result.findings.filter((finding) => finding.check.startsWith("v2.")), [{
-      id: "F001",
+      id: "F002",
       severity: "warning",
       check: "v2.captions-content-deprecated",
       message: "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
@@ -1152,7 +1331,7 @@ test("narration with bgm passes from item-level audio roles", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1198,7 +1377,7 @@ test("audio.bgm: null is tolerated as equivalent to omitted (same convention as 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1209,7 +1388,7 @@ test("bgm + sfx (2 items) all resolving to real files pass with zero findings", 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1387,7 +1566,7 @@ test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings, null, 2));
   });
 });
 
@@ -1398,7 +1577,7 @@ test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.ma
     assert.equal(executed.status, 0, executed.stderr || executed.stdout);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1449,7 +1628,7 @@ test("cuts[].freeze extends the timeline used by overlays", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1499,7 +1678,7 @@ test("review fixture with all five target kinds passes with zero findings", asyn
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
     assert.ok(Object.hasOwn(result.inputs, "review_json_sha256"));
   });
 });
@@ -1556,7 +1735,7 @@ test("legacy annotations without targetKind still pass", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1703,7 +1882,7 @@ for (const fixture of [
       assert.equal(executed.status, 0, executed.stderr);
       const result = parseResult(executed);
       assert.equal(result.verdict, "pass");
-      assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
+      assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings, null, 2));
     });
   });
 }
@@ -1781,8 +1960,8 @@ test("空の段を持つ v2 プロジェクトは v2.empty-track の info だけ
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.deepEqual(result.findings, [{
-      id: "F001",
+    assert.deepEqual(withoutGeometryNotice(result.findings), [{
+      id: "F002",
       severity: "info",
       check: "v2.empty-track",
       message: "empty track will be removed by canonical save",
@@ -1843,7 +2022,7 @@ test("2026-08-23 cuts-cross-track-overlap 後は PiP 側だけが layers へ退�
     assert.equal(executed.status, 0, executed.stderr || executed.stdout);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.deepEqual(result.findings, []);
+    assert.deepEqual(withoutGeometryNotice(result.findings), []);
   });
 });
 
@@ -1892,14 +2071,14 @@ test("重なり 0 の transition_out だけを warning にし、重なり済み�
     raw.tracks[0].items[0].source.out = 2.5;
     await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
     const overlapped = parseResult(run(project));
-    assert.equal(overlapped.findings.length, 0, JSON.stringify(overlapped.findings, null, 2));
+    assert.equal(withoutGeometryNotice(overlapped.findings).length, 0, JSON.stringify(overlapped.findings, null, 2));
 
     delete raw.tracks[0].items[0].source.transition_out;
     raw.tracks[0].items[0].duration = 60;
     raw.tracks[0].items[0].source.out = 2;
     await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
     const undeclared = parseResult(run(project));
-    assert.equal(undeclared.findings.length, 0, JSON.stringify(undeclared.findings, null, 2));
+    assert.equal(withoutGeometryNotice(undeclared.findings).length, 0, JSON.stringify(undeclared.findings, null, 2));
   });
 });
 

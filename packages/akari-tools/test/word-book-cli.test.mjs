@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { runWordBookCli } from "../bin/word-book.mjs";
 import { writeWordBookFile } from "../../word-book/src/index.mjs";
+import { migrateFixtureTree } from "../../edit-lint/test/helpers/v2-fixture.mjs";
 
 async function fixture(name, { workspace = true } = {}) {
   const temporary = await mkdtemp(path.join(os.tmpdir(), `word-book-cli-${name}-`));
@@ -64,13 +65,17 @@ test("apply --dry-run は analysis と captions の件数だけを返す", async
   await prepareApplyFixture(value);
   const analysisPath = path.join(value.project, ".akari", "sidecars", "assets", "source.wav.analysis", "analysis.json");
   const before = readFileSync(analysisPath, "utf8");
+  const captionsPath = path.join(value.project, "captions.json");
+  const captionsBefore = readFileSync(captionsPath, "utf8");
   const output = io();
   assert.equal(await runWordBookCli(["apply", "--project", value.project, "--dry-run", "--json"], { ...output, env: value.env }), 0);
   const result = JSON.parse(output.lines[0]);
   assert.equal(result.analysis.stats.replaced, 1);
-  assert.equal(result.captions.unedited_matches, 1);
-  assert.equal(result.captions.edited_matches, 1);
+  assert.equal(result.captions.replaced, 1);
+  assert.equal(result.captions.skipped_edited, 1);
+  assert.equal(result.captions.records_written, 1);
   assert.equal(readFileSync(analysisPath, "utf8"), before);
+  assert.equal(readFileSync(captionsPath, "utf8"), captionsBefore);
   await rm(value.temporary, { recursive: true, force: true });
 });
 
@@ -87,7 +92,94 @@ test("apply は analysis.json を更新し再実行は冪等", async () => {
   const secondOutput = io();
   assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...secondOutput, env: value.env }), 0);
   assert.equal(JSON.parse(secondOutput.lines[0]).analysis.stats.replaced, 0);
+  assert.equal(JSON.parse(secondOutput.lines[0]).captions.records_written, 0);
   assert.equal(readFileSync(analysisPath, "utf8"), first);
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("apply は edited:false 行の text と words を同時に書き換える", async () => {
+  const value = await fixture("captions-write");
+  await prepareApplyFixture(value);
+  const output = io();
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...output, env: value.env }), 0);
+  const root = JSON.parse(readFileSync(path.join(value.project, "captions.json"), "utf8"));
+  assert.equal(root.captions[0].text, "AKARI Video");
+  assert.deepEqual(root.captions[0].words, [{ start: 0, end: 1, text: "AKARI Video" }]);
+  assert.equal(root.captions[0].edited, false);
+  assert.equal(JSON.parse(output.lines[0]).captions.records_written, 1);
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("captions apply は 2 回目の records_written が 0 になる", async () => {
+  const value = await fixture("captions-idempotent");
+  await prepareApplyFixture(value);
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...io(), env: value.env }), 0);
+  const second = io();
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...second, env: value.env }), 0);
+  assert.equal(JSON.parse(second.lines[0]).captions.records_written, 0);
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("apply 後も edited:true 行は元のレコード文字列がバイト同一", async () => {
+  const value = await fixture("edited-preserve");
+  await prepareApplyFixture(value);
+  const captionsPath = path.join(value.project, "captions.json");
+  const before = readFileSync(captionsPath, "utf8");
+  const editedBefore = before.match(/\{\n      "id": "c-0002"[\s\S]*?\n    \}/u)?.[0];
+  assert.ok(editedBefore);
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...io(), env: value.env }), 0);
+  assert.ok(readFileSync(captionsPath, "utf8").includes(editedBefore));
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("display_fragments 境界をまたぐ一致は captions 全フィールドを skip", async () => {
+  const value = await fixture("fragment-skip");
+  await writeWordBookFile(path.join(value.project, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }],
+  });
+  const record = {
+    id: "c-0001", start: 0, end: 2, text: "あかり ビデオ", speaker: null, sourceRef: null,
+    edited: false, words: [{ start: 0, end: 1, text: "あかり" }, { start: 1, end: 2, text: "ビデオ" }],
+    display_fragments: ["あかり ", "ビデオ"],
+  };
+  const captionsPath = path.join(value.project, "captions.json");
+  await writeFile(captionsPath, `${JSON.stringify({ captions: [record] }, null, 2)}\n`);
+  const before = readFileSync(captionsPath, "utf8");
+  const output = io();
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...output, env: value.env }), 0);
+  const result = JSON.parse(output.lines[0]);
+  assert.equal(result.captions.skipped_fragment_boundary, 1);
+  assert.equal(result.captions.records_written, 0);
+  assert.equal(readFileSync(captionsPath, "utf8"), before);
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("captions だけがあるプロジェクトでも apply は書き換える", async () => {
+  const value = await fixture("captions-only");
+  await prepareApplyFixture(value);
+  await rm(path.join(value.project, ".akari", "sidecars"), { recursive: true, force: true });
+  const output = io();
+  assert.equal(await runWordBookCli(["apply", "--project", value.project, "--json"], { ...output, env: value.env }), 0);
+  const result = JSON.parse(output.lines[0]);
+  assert.equal(result.analysis.files, 0);
+  assert.equal(result.captions.replaced, 1);
+  assert.equal(result.captions.records_written, 1);
+  await rm(value.temporary, { recursive: true, force: true });
+});
+
+test("apply 後の edit-lint は captions.edited を出さない", async () => {
+  const value = await fixture("lint-after");
+  const project = path.join(value.temporary, "lint-project");
+  const sourceFixture = path.join(path.dirname(new URL(import.meta.url).pathname), "../../edit-lint/fixtures/captions-words-valid");
+  await cp(sourceFixture, project, { recursive: true, force: true });
+  await migrateFixtureTree(project);
+  await writeWordBookFile(path.join(project, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "本日", variants: ["今日"], kind: "term" }],
+  });
+  assert.equal(await runWordBookCli(["apply", "--project", project, "--json"], { ...io(), env: value.env }), 0);
+  const { lintProject } = await import("../../edit-lint/src/edit-lint.mjs");
+  const lint = await lintProject(project, { writeReports: false });
+  assert.equal(lint.findings.filter(finding => finding.check === "captions.edited").length, 0);
   await rm(value.temporary, { recursive: true, force: true });
 });
 

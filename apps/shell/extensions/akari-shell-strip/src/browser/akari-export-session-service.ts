@@ -25,6 +25,7 @@ import {
     describeUnexpectedQuickExportFailure,
     nextAvailableOutputName,
     QUICK_EXPORT_OUTPUT_DIRECTORY,
+    QuickExportCodec,
     QuickExportEncoder,
     QuickExportQuality
 } from '../common/quick-export-cli';
@@ -36,6 +37,7 @@ import {
 import { quickExportErrorNotification } from '../common/quick-export-ui';
 import { parseRenderProgress, RenderProgressState } from '../common/render-progress';
 import {
+    AKARI_EXPORT_CODEC,
     AKARI_EXPORT_ENCODER,
     AKARI_EXPORT_FPS,
     AKARI_EXPORT_OUTPUT_DIRECTORY,
@@ -72,6 +74,7 @@ const DEFAULT_SETTINGS: ExportSettings = {
     quality: 'standard',
     engine: 'auto',
     encoder: 'auto',
+    codec: 'h264',
     fps: undefined,
     resolution: 'native',
     customWidth: undefined,
@@ -85,6 +88,7 @@ const ENCODERS: readonly QuickExportEncoder[] = [
 ];
 
 const QUALITIES: readonly QuickExportQuality[] = ['master', 'high', 'standard', 'light'];
+const CODECS: readonly QuickExportCodec[] = ['h264', 'hevc'];
 
 @injectable()
 export class AkariExportSessionService implements Disposable {
@@ -198,6 +202,7 @@ export class AkariExportSessionService implements Disposable {
             quality,
             encoder: this.settings.encoder,
             engine: this.settings.engine,
+            codec: this.settings.codec,
             lastRun: this.lastRun
         });
         return formatEstimate(estimate.seconds, estimate.bytes);
@@ -251,6 +256,7 @@ export class AkariExportSessionService implements Disposable {
                 quality: settings.quality,
                 engine: settings.engine,
                 encoder: settings.encoder,
+                codec: settings.codec,
                 fps: settings.fps,
                 scaleTo: settings.resolution === 'native'
                     ? undefined
@@ -408,12 +414,14 @@ export class AkariExportSessionService implements Disposable {
     protected readPreferences(): ExportSettings {
         const quality = this.preferences.get<QuickExportQuality>(AKARI_EXPORT_QUALITY, 'standard');
         const encoder = this.preferences.get<QuickExportEncoder>(AKARI_EXPORT_ENCODER, 'auto');
+        const codec = this.preferences.get<QuickExportCodec>(AKARI_EXPORT_CODEC, 'h264');
         const fps = this.preferences.get<number | undefined>(AKARI_EXPORT_FPS);
         const outputDirectory = this.preferences.get<string>(AKARI_EXPORT_OUTPUT_DIRECTORY, '').trim();
         return {
             ...DEFAULT_SETTINGS,
             quality: QUALITIES.includes(quality) ? quality : 'standard',
             encoder: ENCODERS.includes(encoder) ? encoder : 'auto',
+            codec: CODECS.includes(codec) ? codec : 'h264',
             fps: [24, 30, 60].includes(fps ?? 0) ? fps : undefined,
             outputDirectoryUri: outputDirectory || undefined
         };
@@ -427,6 +435,9 @@ export class AkariExportSessionService implements Disposable {
                 break;
             case AKARI_EXPORT_ENCODER:
                 this.settings = { ...this.settings, encoder: preferences.encoder };
+                break;
+            case AKARI_EXPORT_CODEC:
+                this.settings = { ...this.settings, codec: preferences.codec };
                 break;
             case AKARI_EXPORT_FPS:
                 this.settings = { ...this.settings, fps: preferences.fps };
@@ -443,6 +454,7 @@ export class AkariExportSessionService implements Disposable {
     protected async savePreferences(settings: ExportSettings): Promise<void> {
         await this.preferences.set(AKARI_EXPORT_QUALITY, settings.quality, PreferenceScope.User);
         await this.preferences.set(AKARI_EXPORT_ENCODER, settings.encoder, PreferenceScope.User);
+        await this.preferences.set(AKARI_EXPORT_CODEC, settings.codec, PreferenceScope.User);
         await this.preferences.set(AKARI_EXPORT_FPS, settings.fps, PreferenceScope.User);
         await this.preferences.set(AKARI_EXPORT_OUTPUT_DIRECTORY, settings.outputDirectoryUri ?? '', PreferenceScope.User);
     }

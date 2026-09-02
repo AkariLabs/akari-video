@@ -36,6 +36,7 @@ import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit
 import {
     AudioLoudnessEnvelope,
     AudioWaveformDebounceGate,
+    AudioWaveformPanScheduleGate,
     AudioWaveformPaintState,
     AudioWaveformT1RetryGate,
     AudioWaveformTier,
@@ -51,15 +52,16 @@ import {
     AudioWaveformCanvasPlacement,
     audioWaveformCanvasPlacement,
     audioWaveformMasterKey,
+    audioWaveformPrefetchWindow,
     audioWaveformRepaintNeeded,
     audioWaveformSourceRect,
     audioWaveformTierBucketCount,
     audioWaveformTierCacheKey,
     audioWaveformViewKey,
     audioWaveformVisibleSourceWindow,
+    audioWaveformWindowContains,
     filmstripChunkIndexFor,
     nextAudioWaveformTier,
-    quantizeAudioWaveformWindow,
     waveformBucketForLocalPx,
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
@@ -159,6 +161,10 @@ import {
     shouldNotifyCaptionSourceMappingWarning
 } from '../common/caption-source-map';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
+import {
+    AUDIO_KEYFRAME_MIN_POINTS_NOTICE,
+    audioKeyframeWriteGuard
+} from '../common/audio-keyframe-editor-geometry';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { setSfxGainDbInSource } from '../common/edit-store';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
@@ -403,6 +409,17 @@ interface AudioWaveformDetailSource {
 
 interface AudioWaveformDetailMapping {
     readonly visibleSourceWindow: AudioWaveformWindow;
+    readonly sourceOriginTimelineSeconds: number;
+    readonly sourceSecondsPerTimelineSecond: number;
+}
+
+interface AudioWaveformT2Coverage {
+    readonly key: string;
+    readonly window: AudioWaveformWindow;
+    readonly bucketCount: number;
+}
+
+interface AudioWaveformT2PlacementCoverage extends AudioWaveformT2Coverage {
     readonly sourceOriginTimelineSeconds: number;
     readonly sourceSecondsPerTimelineSecond: number;
 }
@@ -845,6 +862,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly waveformT1RetryGate = new AudioWaveformT1RetryGate();
     protected readonly waveformT2DebounceGates = new Map<string, AudioWaveformDebounceGate>();
     protected readonly waveformT2DebounceTimers = new Map<string, { key: string; handle: number }>();
+    protected readonly waveformPanScheduleGate = new AudioWaveformPanScheduleGate(100);
+    protected readonly waveformT2PanTargets = new Map<string, () => void>();
+    protected readonly waveformT2Coverages = new Map<string, AudioWaveformT2Coverage>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
     protected readonly audioWaveformPeakIds = new WeakMap<readonly number[], number>();
     protected nextAudioWaveformPeakId = 1;
@@ -2293,6 +2313,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const dialog = new AkariAudioKeyframeDialog({
                 title: `音量キーフレーム — ${this.pathBaseName(audio.path)}`,
                 maxWidth: 840,
+                audioUri,
                 audioKind,
                 durationSeconds,
                 sourceDurationSeconds,
@@ -2304,7 +2325,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 gainDb: audio.gainDb,
                 fadeIn: 'fadeIn' in audio ? audio.fadeIn : undefined,
                 fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
-                fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
+                fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : [],
+                fetchWaveform: async request => {
+                    const result = await this.annotationsService.getClipWaveform({
+                        projectRootUri: this.location!.root.toString(),
+                        videoUri: audioUri,
+                        startSeconds: request.startSeconds,
+                        endSeconds: request.endSeconds,
+                        bucketCount: request.bucketCount
+                    });
+                    return result.status === 'ready' && result.peaks ? result.peaks : undefined;
+                }
             });
             const dialogValue = await dialog.open();
             if (dialogValue === undefined) return;
@@ -2385,6 +2416,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        if (request.kind === 'audio-keyframes'
+            && audioKeyframeWriteGuard(request.value) === 'too-few') {
+            return { ok: false, message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE };
+        }
         const location = this.location;
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
@@ -5708,6 +5743,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStripPending = true;
             return;
         }
+        this.waveformT2PanTargets.clear();
 
         const maxDuration = this.totalDuration();
         if (this.viewDuration !== undefined) {
@@ -9278,7 +9314,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         t0Peaks: readonly number[],
         baseSliceKey: string,
         displayPeaks: (peaks: readonly number[]) => readonly number[],
-        detailMapping?: AudioWaveformDetailMapping | null
+        detailMappingFactory?: () => AudioWaveformDetailMapping | undefined
     ): AudioWaveformDetailSource {
         const t0DisplayPeaks = displayPeaks(t0Peaks);
         let selected: AudioWaveformDetailSource = {
@@ -9316,15 +9352,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (nextAudioWaveformTier('T1', visibleWidthPx, selectedBucketCount) !== 'T2') {
             return selected;
         }
-        if (detailMapping === null) return selected;
-
         const sourceSpan = sourceWindow.endSeconds - sourceWindow.startSeconds;
-        const sourceSecondsPerTimelineSecond = detailMapping?.sourceSecondsPerTimelineSecond
-            ?? sourceSpan / displayDurationSec;
-        const sourceOriginTimelineSeconds = detailMapping?.sourceOriginTimelineSeconds
-            ?? clipStartSec - sourceWindow.startSeconds / sourceSecondsPerTimelineSecond;
-        const visibleSourceWindow = detailMapping?.visibleSourceWindow
-            ?? audioWaveformVisibleSourceWindow({
+        const sourceSecondsPerTimelineSecond = sourceSpan / displayDurationSec;
+        if (!(sourceSecondsPerTimelineSecond > 0)) return selected;
+        const resolveDetailMapping = detailMappingFactory ?? (() => {
+            const visibleSourceWindow = audioWaveformVisibleSourceWindow({
                 clipStartSeconds: clipStartSec,
                 displayDurationSeconds: displayDurationSec,
                 sourceStartSeconds: sourceWindow.startSeconds,
@@ -9332,32 +9364,86 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 viewStartSeconds: this.viewStart,
                 viewEndSeconds: this.viewStart + this.visibleDuration()
             });
-        if (!visibleSourceWindow) return selected;
-        const quantizedWindow = quantizeAudioWaveformWindow(
-            visibleSourceWindow.startSeconds, visibleSourceWindow.endSeconds, fullDurationSeconds
-        );
-        const quantizedDuration = quantizedWindow.endSeconds - quantizedWindow.startSeconds;
-        if (!(quantizedDuration > 0)) return selected;
-        const t2BucketCount = audioWaveformTierBucketCount(
-            'T2', fullDurationSeconds, quantizedDuration
-        );
-        const t2Key = audioWaveformTierCacheKey(path, 'T2', quantizedWindow, t2BucketCount);
+            if (!visibleSourceWindow) return undefined;
+            return {
+                visibleSourceWindow,
+                sourceOriginTimelineSeconds: clipStartSec
+                    - sourceWindow.startSeconds / sourceSecondsPerTimelineSecond,
+                sourceSecondsPerTimelineSecond
+            };
+        });
+        const targetKey = `${baseSliceKey}:${clipStartSec.toFixed(6)}:${displayDurationSec.toFixed(6)}`;
+        const requestCoverage = (): AudioWaveformT2PlacementCoverage | undefined => {
+            const mapping = resolveDetailMapping();
+            if (!mapping) return undefined;
+            return this.audioWaveformT2Coverage(
+                targetKey, path, audioUri, fullDurationSeconds, sourceWindow, mapping
+            );
+        };
+        this.waveformT2PanTargets.set(targetKey, () => { requestCoverage(); });
+        const coverage = requestCoverage();
+        if (!coverage) return selected;
+        const t2Key = coverage.key;
         const t2 = this.waveformTierCache.get(t2Key);
         if (!Array.isArray(t2)) {
-            if (t2 === undefined) {
-                this.scheduleAudioWaveformT2(path, t2Key, audioUri, quantizedWindow, t2BucketCount);
-            }
             return selected;
         }
 
-        const coverageClipStart = sourceOriginTimelineSeconds
-            + quantizedWindow.startSeconds / sourceSecondsPerTimelineSecond;
-        const coverageDisplayDuration = quantizedDuration / sourceSecondsPerTimelineSecond;
+        const coverageDuration = coverage.window.endSeconds - coverage.window.startSeconds;
+        const coverageClipStart = coverage.sourceOriginTimelineSeconds
+            + coverage.window.startSeconds / coverage.sourceSecondsPerTimelineSecond;
+        const coverageDisplayDuration = coverageDuration / coverage.sourceSecondsPerTimelineSecond;
         return {
             tier: 'T2', fullPeaks: t2, sliceKey: `${baseSliceKey}:${t2Key}`,
             peaksFactory: () => t2,
             waveformStartSec: coverageClipStart,
             waveformDisplayDurationSec: coverageDisplayDuration
+        };
+    }
+
+    /** 可視窓が既存 coverage 内なら再利用し、越えた時だけ新しい先読み窓を T2 へ流す。 */
+    protected audioWaveformT2Coverage(
+        targetKey: string,
+        path: string,
+        audioUri: string,
+        fullDurationSeconds: number,
+        sourceWindow: AudioWaveformWindow,
+        mapping: AudioWaveformDetailMapping
+    ): AudioWaveformT2PlacementCoverage | undefined {
+        let coverage = this.waveformT2Coverages.get(targetKey);
+        const scheduledKey = this.waveformT2DebounceTimers.get(path)?.key;
+        if (coverage && (!audioWaveformWindowContains(coverage.window, mapping.visibleSourceWindow)
+            || (!this.waveformTierCache.has(coverage.key) && scheduledKey !== coverage.key))) {
+            this.waveformT2Coverages.delete(targetKey);
+            coverage = undefined;
+        }
+        if (!coverage) {
+            const window = audioWaveformPrefetchWindow({
+                visibleWindow: mapping.visibleSourceWindow,
+                sourceWindow,
+                fullDurationSeconds
+            });
+            if (!window) return undefined;
+            const windowDuration = window.endSeconds - window.startSeconds;
+            const bucketCount = audioWaveformTierBucketCount(
+                'T2', fullDurationSeconds, windowDuration
+            );
+            const key = audioWaveformTierCacheKey(path, 'T2', window, bucketCount);
+            coverage = { key, window, bucketCount };
+            if (!this.waveformT2Coverages.has(targetKey)
+                && this.waveformT2Coverages.size >= 200) {
+                const oldestTarget = this.waveformT2Coverages.keys().next().value;
+                if (oldestTarget !== undefined) this.waveformT2Coverages.delete(oldestTarget);
+            }
+            this.waveformT2Coverages.set(targetKey, coverage);
+            if (!this.waveformTierCache.has(key)) {
+                this.scheduleAudioWaveformT2(path, key, audioUri, window, bucketCount);
+            }
+        }
+        return {
+            ...coverage,
+            sourceOriginTimelineSeconds: mapping.sourceOriginTimelineSeconds,
+            sourceSecondsPerTimelineSecond: mapping.sourceSecondsPerTimelineSecond
         };
     }
 
@@ -9448,10 +9534,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             const sliceKey = `loop:${bgm.path}:${actualDuration}:${timelineDurationSec}:0:${bgm.speed ?? 1}`;
-            const detailMapping = audioLoopWaveformVisibleWindowPlan(
-                timelineDurationSec, actualDuration,
-                this.viewStart, this.viewStart + this.visibleDuration(), bgm.speed
-            );
             const detail = this.audioWaveformDetailSource(
                 bgm.path, audioUri, actualDuration, 0, timelineDurationSec,
                 { startSeconds: 0, endSeconds: actualDuration }, barWidthPx, waveform, sliceKey,
@@ -9461,7 +9543,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     inSec: 0,
                     speed: bgm.speed
                 }),
-                detailMapping ?? null
+                () => audioLoopWaveformVisibleWindowPlan(
+                    timelineDurationSec, actualDuration,
+                    this.viewStart, this.viewStart + this.visibleDuration(), bgm.speed
+                )
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
@@ -11614,6 +11699,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerContent.style.transform = value;
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         this.updateScrollbar();
+        this.scheduleAudioWaveformT2DuringPan();
+    }
+
+    /** DOM は描き直さず、パン先の T2 coverage 判定だけを 100ms 以上の間隔で行う。 */
+    protected scheduleAudioWaveformT2DuringPan(): void {
+        if (!this.waveformPanScheduleGate.shouldEvaluate(Date.now())) return;
+        for (const schedule of this.waveformT2PanTargets.values()) schedule();
     }
 
     protected schedulePanSettle(): void {

@@ -1,4 +1,4 @@
-import { QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
+import { QuickExportCodec, QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
 
 const REFERENCE_PIXELS = 1920 * 1080;
 const FIXED_OVERHEAD_SECONDS = 9;
@@ -20,6 +20,7 @@ export interface ExportEstimateInput {
     readonly quality: QuickExportQuality;
     readonly encoder: QuickExportEncoder;
     readonly engine: QuickExportEngine;
+    readonly codec?: QuickExportCodec;
     readonly lastRun?: ExportLastRun;
 }
 
@@ -102,7 +103,8 @@ export function estimateExport(input: ExportEstimateInput): ExportEstimate {
         ? X264_BITRATE_MBPS[input.quality]
         : HARDWARE_BITRATE_MBPS[input.quality]) * pixelRatio;
     const durationSeconds = frames / fps;
-    const bytes = (videoBitrate + AUDIO_BITRATE_MBPS) * 1_000_000 * durationSeconds / 8;
+    const codecFactor = input.codec === 'hevc' ? 0.6 : 1;
+    const bytes = (videoBitrate + AUDIO_BITRATE_MBPS) * 1_000_000 * durationSeconds / 8 * codecFactor;
     return { seconds, bytes };
 }
 

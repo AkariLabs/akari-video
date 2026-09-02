@@ -1,3 +1,4 @@
+import { type CaptionWordTiming } from './caption-words-rederive';
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
@@ -111,13 +112,27 @@ export interface CaptionRecord {
         segment: number;
     } | null;
     edited: boolean;
+    src?: string;
+    words?: CaptionWordTiming[];
     unrecognized?: {
         start: number;
         end: number;
     }[];
+    style?: 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
+    displayText?: string;
+    displayFragments?: string[];
+    stylePreset?: string;
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
+    extra?: Record<string, unknown>;
+}
+export interface WordBookCaptionChange {
+    id: string;
+    text: string;
+    words?: CaptionWordTiming[];
+    display_text?: string;
+    display_fragments?: string[];
 }
 export declare function parseCaptions(source: string): {
     captions: CaptionRecord[];
@@ -136,6 +151,11 @@ export declare function updateCaptionFieldsInSource(source: string, captionId: s
         end: number;
     }> | null;
 }): string;
+export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
+export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null): {
+    source: string;
+    changed: number;
+};
 export declare function insertCaptionLine(source: string, caption: CaptionRecord): string;
 export declare function removeCaptionLine(source: string, captionId: string): string;

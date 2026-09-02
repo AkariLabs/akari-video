@@ -20,6 +20,7 @@ export async function exportWithOsr({
   frames = Math.round(duration * fps),
   quality,
   encoder,
+  codec = "h264",
   soft = false,
   verify = "stamp",
   // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
@@ -40,7 +41,7 @@ export async function exportWithOsr({
   const videoOnlyPath = `${out}.osr-video.mp4`;
   try {
     const launched = await launcherRunner(launcher, {
-      projectRoot, out: videoOnlyPath, fps, width, height, outputWidth, outputHeight, duration, frames, quality, encoder,
+      projectRoot, out: videoOnlyPath, fps, width, height, outputWidth, outputHeight, duration, frames, quality, encoder, codec,
       soft: runtime.soft,
       verify: runtime.verify,
       queueDepth: runtime.queueDepth,
@@ -48,7 +49,10 @@ export async function exportWithOsr({
       gpuPreference,
       // OSR 出口: auto では Windows の GPU 設定を書かない（force のときだけ・契約 §11.7 裁定 1 改訂）
       exit: "osr",
-      extraArgs: ["--output-width", String(outputWidth), "--output-height", String(outputHeight)],
+      extraArgs: [
+        "--output-width", String(outputWidth), "--output-height", String(outputHeight),
+        ...(codec === "hevc" ? ["--codec", "hevc"] : []),
+      ],
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -67,7 +71,7 @@ export async function exportWithOsr({
     } else {
       await copyFile(videoOnlyPath, out);
     }
-    const finalVerify = await verifyFinalVideo({
+    const finalVerify = normalizeCodecVerification(await verifyFinalVideo({
       command: ffprobeCommandResolved,
       path: out,
       frames,
@@ -75,9 +79,9 @@ export async function exportWithOsr({
       width: outputWidth,
       height: outputHeight,
       requireAudio: sourceHasAudio,
-    });
+    }), codec);
     const runPath = join(dirname(videoOnlyPath), "run.json");
-    const run = { ...JSON.parse(await readFile(runPath, "utf8")), finalVerify };
+    const run = { ...JSON.parse(await readFile(runPath, "utf8")), codec, finalVerify };
     await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
     const persistentRunPath = join(projectRoot, ".akari", "osr-run.json");
     await mkdir(dirname(persistentRunPath), { recursive: true });
@@ -96,11 +100,20 @@ export async function exportWithOsr({
         profile: runtime.soft ? "soft" : "gpu",
         gpuPreference: launched?.gpuPreference ?? null,
         outputScale: outputScaleRecord(width, height, outputWidth, outputHeight),
+        codec,
       }),
     };
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
   }
+}
+
+export function normalizeCodecVerification(verification, codec = "h264") {
+  if (codec === "h264") return verification;
+  if (codec !== "hevc") throw new Error(`OSR codec must be h264|hevc, got: ${codec}`);
+  const video = verification?.measured?.streams?.find((stream) => stream.codec_type === "video");
+  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === "hevc" };
+  return { ...verification, checks, matched: Object.values(checks).every(Boolean) };
 }
 
 function outputScaleRecord(width, height, outputWidth, outputHeight) {

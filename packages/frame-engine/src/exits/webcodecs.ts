@@ -1,7 +1,12 @@
 import type { CompositedFrame } from '../types.js';
 
 export interface EncodedVideoChunkSink {
-  write(bytes: Uint8Array, chunk: { type: EncodedVideoChunkType; timestamp: number; duration: number | null }): Promise<void> | void;
+  write(bytes: Uint8Array, chunk: {
+    type: EncodedVideoChunkType;
+    timestamp: number;
+    duration: number | null;
+    description?: Uint8Array;
+  }): Promise<void> | void;
 }
 
 export interface WebCodecsH264Options {
@@ -11,8 +16,16 @@ export interface WebCodecsH264Options {
   bitrate?: number;
   keyframeIntervalFrames?: number;
   hardwareAcceleration?: HardwarePreference;
-  /** 明示の codec 文字列（例 'avc1.640033'）。省略時は解像度・fps・ビットレートから level を導出する。 */
-  codec?: string;
+  /** 出力コーデック。クラス名は既存 API 互換のため WebCodecsH264Encoder のまま。 */
+  codec?: 'h264' | 'hevc';
+}
+
+type H264EncoderConfig = VideoEncoderConfig & { avc: { format: 'annexb' } };
+type HevcEncoderConfig = VideoEncoderConfig & { hevc: { format: 'hevc' } };
+type AkariVideoEncoderConfig = H264EncoderConfig | HevcEncoderConfig;
+
+export class RefusalError extends Error {
+  override readonly name = 'RefusalError';
 }
 
 /**
@@ -72,7 +85,13 @@ export function selectH264Level({ width, height, fps, bitrate }: { width: number
 }
 
 /** エンコーダに渡す codec 文字列。`codec` 明示があれば形式だけ検証してそのまま使う。 */
-export function h264CodecString(options: Pick<WebCodecsH264Options, 'width' | 'height' | 'fps' | 'bitrate' | 'codec'>): string {
+export function h264CodecString(options: {
+  width: number;
+  height: number;
+  fps: number;
+  bitrate?: number;
+  codec?: string;
+}): string {
   if (options.codec !== undefined) {
     if (!/^avc[1-4]\.[0-9a-f]{6}$/i.test(options.codec)) throw new Error(`invalid H.264 codec string: ${options.codec}`);
     return options.codec;
@@ -80,10 +99,43 @@ export function h264CodecString(options: Pick<WebCodecsH264Options, 'width' | 'h
   return selectH264Level(options).codec;
 }
 
-function buildEncoderConfig(options: WebCodecsH264Options): VideoEncoderConfig & { avc: { format: 'annexb' } } {
+/** HEVC Main profile の解像度・fps に合う最小 level を WebCodecs の codec 文字列で返す。 */
+export function hevcEncoderCodecString({ width, height, fps }: Pick<WebCodecsH264Options, 'width' | 'height' | 'fps'>): string {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new RefusalError(`HEVC level selection needs a positive frame size, got ${width}x${height}`);
+  }
+  if (!Number.isFinite(fps) || fps <= 0) {
+    throw new RefusalError(`HEVC level selection needs a positive frame rate, got ${fps}`);
+  }
+  const pixels = width * height;
+  if (pixels <= 1920 * 1080 && fps <= 30) return 'hvc1.1.6.L120.B0';
+  if ((pixels <= 1920 * 1080 && fps <= 60) || (pixels <= 2560 * 1440 && fps <= 30)) return 'hvc1.1.6.L123.B0';
+  if (pixels <= 3840 * 2160 && fps <= 30) return 'hvc1.1.6.L150.B0';
+  if (pixels <= 3840 * 2160 && fps <= 60) return 'hvc1.1.6.L153.B0';
+  // Main-tier Level 5.2: MaxLumaPs=8,912,896 / MaxLumaSr=1,069,547,520.
+  if (pixels <= 8_912_896 && pixels * fps <= 1_069_547_520) return 'hvc1.1.6.L156.B0';
+  throw new RefusalError(`no HEVC Main profile level fits ${width}x${height}@${fps}fps (max is Level 5.2)`);
+}
+
+function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderConfig {
   const bitrate = options.bitrate ?? 8_000_000;
+  if (options.codec === 'hevc') {
+    return {
+      codec: hevcEncoderCodecString(options),
+      width: options.width,
+      height: options.height,
+      bitrate,
+      framerate: options.fps,
+      hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
+      latencyMode: 'realtime',
+      hevc: { format: 'hevc' }
+    };
+  }
+  // `codec` previously accepted an explicit AVC codec string at runtime. Preserve that path for
+  // older JavaScript callers while the typed option now uses the shared h264/hevc vocabulary.
+  const legacyCodec = typeof options.codec === 'string' && options.codec !== 'h264' ? options.codec : undefined;
   return {
-    codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: options.codec }),
+    codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: legacyCodec }),
     width: options.width,
     height: options.height,
     bitrate,
@@ -99,12 +151,13 @@ function buildEncoderConfig(options: WebCodecsH264Options): VideoEncoderConfig &
  * container mux sink, so RGBA readback and renderer-to-main raw-frame IPC are absent.
  */
 export class WebCodecsH264Encoder {
-  readonly config: VideoEncoderConfig & { avc: { format: 'annexb' } };
+  readonly config: AkariVideoEncoderConfig;
   private readonly encoder: VideoEncoder;
   private readonly writes: Promise<void>[] = [];
   private failure: Error | null = null;
   private frameNumber = 0;
   private closed = false;
+  private decoderConfigSent = false;
   private readonly queueWaiters = new Set<() => void>();
 
   constructor(
@@ -113,13 +166,18 @@ export class WebCodecsH264Encoder {
   ) {
     this.config = buildEncoderConfig(options);
     this.encoder = new VideoEncoder({
-      output: chunk => {
+      output: (chunk, metadata) => {
         const bytes = new Uint8Array(chunk.byteLength);
         chunk.copyTo(bytes);
+        const description = this.options.codec === 'hevc' && !this.decoderConfigSent && chunk.type === 'key'
+          ? copyDescription(metadata?.decoderConfig?.description)
+          : undefined;
+        if (description) this.decoderConfigSent = true;
         this.writes.push(Promise.resolve(this.sink.write(bytes, {
           type: chunk.type,
           timestamp: chunk.timestamp,
-          duration: chunk.duration
+          duration: chunk.duration,
+          ...(description ? { description } : {})
         })));
       },
       error: error => {
@@ -212,4 +270,12 @@ export class WebCodecsH264Encoder {
   private notifyQueueWaiters(): void {
     for (const waiter of [...this.queueWaiters]) waiter();
   }
+}
+
+function copyDescription(value: AllowSharedBufferSource | undefined): Uint8Array | undefined {
+  if (value === undefined) return undefined;
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+  }
+  return new Uint8Array(value.slice(0));
 }

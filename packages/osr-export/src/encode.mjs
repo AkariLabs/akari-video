@@ -62,18 +62,24 @@ export async function writeWithDrain(stream, buffer, backpressure, {
   return true;
 }
 
-export function resolveOsrVideoEncodeArgs({ quality, encoder, edit = {}, ffmpegCommand, env = process.env, spawnSyncImpl } = {}) {
-  const policy = resolveEncodingPolicy({ cli: { quality, encoder }, edit, capabilities: { ffmpegCommand }, env, spawnSyncImpl });
+export function resolveOsrVideoEncodeArgs({ quality, encoder, codec = "h264", edit = {}, ffmpegCommand, env = process.env, spawnSyncImpl } = {}) {
+  const policy = resolveEncodingPolicy({
+    cli: { quality, encoder, ...(codec === "hevc" ? { codec } : {}) }, edit, capabilities: { ffmpegCommand }, env, spawnSyncImpl,
+  });
   if (policy?.video_encode_args) return { policy, args: policy.video_encode_args };
-  const choice = resolveEncoderChoice({ requested: encoder ?? "auto", ffmpegCommand, env, spawnSyncImpl });
-  return { policy, args: buildVideoEncodeArgs({ quality: quality ?? "high", encoderChoice: choice, profile: "high" }) };
+  const choice = resolveEncoderChoice({ requested: encoder ?? "auto", ffmpegCommand, env, spawnSyncImpl, codec });
+  return {
+    policy,
+    args: buildVideoEncodeArgs({ quality: quality ?? "high", encoderChoice: choice, profile: codec === "hevc" ? "main" : "high", codec }),
+  };
 }
 
 export function startRawVideoEncoder({
   ffmpegCommand, outputPath, width, height, outputWidth, outputHeight, fps, quality, encoder, edit,
+  codec = "h264",
   queueDepth = 3, spawnImpl = spawn,
 }) {
-  const { policy, args: videoArgs } = resolveOsrVideoEncodeArgs({ quality, encoder, edit, ffmpegCommand });
+  const { policy, args: videoArgs } = resolveOsrVideoEncodeArgs({ quality, encoder, codec, edit, ffmpegCommand });
   const targetWidth = outputWidth ?? width;
   const targetHeight = outputHeight ?? height;
   const scaleArgs = targetWidth === width && targetHeight === height

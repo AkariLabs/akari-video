@@ -1,5 +1,5 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
-import { applyCaptionTextEdit, type CaptionTextEditRecord } from './caption-words-rederive';
+import { applyCaptionTextEdit, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
 import { applyCaptionStylePresets } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
@@ -134,10 +134,25 @@ export interface CaptionRecord {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    src?: string;
+    words?: CaptionWordTiming[];
     unrecognized?: { start: number; end: number }[];
+    style?: 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
+    displayText?: string;
+    displayFragments?: string[];
+    stylePreset?: string;
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
+    extra?: Record<string, unknown>;
+}
+
+export interface WordBookCaptionChange {
+    id: string;
+    text: string;
+    words?: CaptionWordTiming[];
+    display_text?: string;
+    display_fragments?: string[];
 }
 
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
@@ -371,6 +386,27 @@ export function updateCaptionFieldsInSource(
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 
+export function applyWordBookToCaptionsInSource(
+    source: string,
+    changes: WordBookCaptionChange[]
+): string {
+    if (changes.length === 0) {
+        return source;
+    }
+    let output = source;
+    for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'words', change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+    }
+    return output;
+}
+
 export function updateCaptionTextStyleInSource(
     source: string,
     captionId: string,
@@ -421,6 +457,77 @@ export function updateCaptionTextStyleInSource(
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+
+export function updateCaptionStylePresetInSource(
+    source: string,
+    captionIds: readonly string[],
+    presetId: string | null
+): { source: string; changed: number } {
+    if (captionIds.length === 0) {
+        throw new Error('字幕 ID を 1 件以上指定してください。');
+    }
+    if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+        throw new Error('字幕テンプレ ID の形式が不正です。');
+    }
+    const ids = [...new Set(captionIds)];
+    const array = locateCaptionArray(source);
+    const elementsById = new Map<string, SourceElement[]>();
+    for (const entry of captionElementEntries(array.elements)) {
+        if (!entry.id) continue;
+        const matches = elementsById.get(entry.id) ?? [];
+        matches.push(entry.element);
+        elementsById.set(entry.id, matches);
+    }
+    const targets: Array<{ captionId: string; element: SourceElement }> = [];
+    for (const captionId of ids) {
+        const matches = elementsById.get(captionId) ?? [];
+        if (matches.length !== 1) {
+            throw new Error(matches.length === 0
+                ? `字幕 ${captionId} が字幕データにありません。`
+                : `字幕 ${captionId} が字幕データに複数あります。`);
+        }
+        targets.push({ captionId, element: matches[0] });
+    }
+
+    let output = source;
+    let changed = 0;
+    for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+        const record = JSON.parse(element.text) as Record<string, unknown>;
+        const hasPreset = Object.prototype.hasOwnProperty.call(record, 'style_preset');
+        if (presetId === null) {
+            if (!hasPreset) continue;
+            const nextElement = removeObjectProperty(element.text, 'style_preset');
+            output = replaceElement(output, array.openIndex + 1, element, nextElement);
+            changed++;
+            continue;
+        }
+        if (hasPreset && record.style_preset === presetId) continue;
+
+        let nextElement: string;
+        if (hasPreset) {
+            nextElement = replaceCaptionJsonProperty(element.text, 'style_preset', presetId, captionId);
+        } else {
+            const textStyle = locateTopLevelProperty(element.text, 'text_style');
+            if (!textStyle) {
+                nextElement = appendJsonProperty(element.text, 'style_preset', presetId);
+            } else {
+                const lineStart = Math.max(
+                    element.text.lastIndexOf('\n', textStyle.start - 1),
+                    element.text.lastIndexOf('\r', textStyle.start - 1)
+                );
+                const separator = lineStart >= 0
+                    ? `${element.text.includes('\r\n') ? '\r\n' : '\n'}${element.text.slice(lineStart + 1, textStyle.start)}`
+                    : ' ';
+                nextElement = element.text.slice(0, textStyle.start)
+                    + `"style_preset": ${JSON.stringify(presetId)},${separator}`
+                    + element.text.slice(textStyle.start);
+            }
+        }
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+        changed++;
+    }
+    return { source: output, changed };
 }
 
 export function insertCaptionLine(source: string, caption: CaptionRecord): string {
@@ -731,17 +838,54 @@ function insertIntoEmptyArray(inner: string, serialized: string, lineEnding: str
 }
 
 function serializeCaption(caption: CaptionRecord): string {
+    const parts = [
+        `"id": ${JSON.stringify(caption.id)}`,
+        `"start": ${JSON.stringify(caption.start)}`,
+        `"end": ${JSON.stringify(caption.end)}`,
+        `"text": ${JSON.stringify(caption.text)}`,
+        `"speaker": ${JSON.stringify(caption.speaker)}`,
+        `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
+        `"edited": ${JSON.stringify(caption.edited)}`
+    ];
+    if (caption.src !== undefined) {
+        parts.push(`"src": ${JSON.stringify(caption.src)}`);
+    }
+    if (caption.timeDomain !== undefined) {
+        parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
+    }
+    if (caption.words !== undefined) {
+        parts.push(`"words": ${JSON.stringify(caption.words)}`);
+    }
     const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
-    const unrecognized = normalizedUnrecognized === undefined
-        ? ''
-        : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
-    const timeDomain = caption.timeDomain === undefined
-        ? ''
-        : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
-    const textStyle = caption.textStyle === undefined
-        ? ''
-        : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+    if (normalizedUnrecognized !== undefined) {
+        parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
+    }
+    if (caption.style !== undefined) {
+        parts.push(`"style": ${JSON.stringify(caption.style)}`);
+    }
+    if (caption.displayText !== undefined) {
+        parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
+    }
+    if (caption.displayFragments !== undefined) {
+        parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
+    }
+    if (caption.stylePreset !== undefined) {
+        parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
+    }
+    if (caption.textStyle !== undefined) {
+        parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
+    }
+    const schemaKeys = new Set([
+        'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
+        'time_domain', 'words', 'unrecognized', 'style', 'display_text',
+        'display_fragments', 'style_preset', 'text_style'
+    ]);
+    for (const [key, value] of Object.entries(caption.extra ?? {})) {
+        if (value !== undefined && !schemaKeys.has(key)) {
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+        }
+    }
+    return `{ ${parts.join(', ')} }`;
 }
 
 function normalizeUnrecognized(value: unknown): { start: number; end: number }[] | undefined {

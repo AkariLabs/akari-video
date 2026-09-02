@@ -284,6 +284,55 @@ export function audioWaveformVisibleSourceWindow(
     };
 }
 
+export interface AudioWaveformPrefetchWindowInput {
+    readonly visibleWindow: AudioWaveformWindow;
+    readonly sourceWindow: AudioWaveformWindow;
+    readonly fullDurationSeconds: number;
+}
+
+/**
+ * 可視 source 窓の前後へ同じ幅を 1 個ずつ足し、クリップの source 範囲内で
+ * 既存の 0.5 秒グリッドへ外向きに量子化する。
+ */
+export function audioWaveformPrefetchWindow(
+    input: AudioWaveformPrefetchWindowInput
+): AudioWaveformWindow | undefined {
+    const duration = Number.isFinite(input.fullDurationSeconds)
+        ? Math.max(0, input.fullDurationSeconds) : 0;
+    const sourceStart = Number.isFinite(input.sourceWindow.startSeconds)
+        ? Math.max(0, Math.min(duration, input.sourceWindow.startSeconds)) : 0;
+    const sourceEnd = Number.isFinite(input.sourceWindow.endSeconds)
+        ? Math.max(sourceStart, Math.min(duration, input.sourceWindow.endSeconds)) : sourceStart;
+    const visibleStart = Number.isFinite(input.visibleWindow.startSeconds)
+        ? Math.max(sourceStart, Math.min(sourceEnd, input.visibleWindow.startSeconds)) : sourceStart;
+    const visibleEnd = Number.isFinite(input.visibleWindow.endSeconds)
+        ? Math.max(visibleStart, Math.min(sourceEnd, input.visibleWindow.endSeconds)) : visibleStart;
+    if (!(visibleEnd > visibleStart)) return undefined;
+    const visibleDuration = visibleEnd - visibleStart;
+    const expandedStart = Math.max(sourceStart, visibleStart - visibleDuration);
+    const expandedEnd = Math.min(sourceEnd, visibleEnd + visibleDuration);
+    const quantized = quantizeAudioWaveformWindow(expandedStart, expandedEnd, duration);
+    return {
+        startSeconds: Math.max(sourceStart, quantized.startSeconds),
+        endSeconds: Math.min(sourceEnd, quantized.endSeconds)
+    };
+}
+
+/** 取得済み coverage が可視窓を端点込みで覆うかを判定する。 */
+export function audioWaveformWindowContains(
+    coverage: AudioWaveformWindow,
+    visibleWindow: AudioWaveformWindow
+): boolean {
+    if (!Number.isFinite(coverage.startSeconds) || !Number.isFinite(coverage.endSeconds)
+        || !Number.isFinite(visibleWindow.startSeconds) || !Number.isFinite(visibleWindow.endSeconds)
+        || !(coverage.endSeconds > coverage.startSeconds)
+        || !(visibleWindow.endSeconds > visibleWindow.startSeconds)) {
+        return false;
+    }
+    return coverage.startSeconds <= visibleWindow.startSeconds + 1e-9
+        && coverage.endSeconds + 1e-9 >= visibleWindow.endSeconds;
+}
+
 export interface AudioLoopWaveformVisibleWindowPlan {
     readonly visibleSourceWindow: AudioWaveformWindow;
     readonly sourceOriginTimelineSeconds: number;
@@ -421,6 +470,22 @@ export class AudioWaveformDebounceGate {
 
     release(key: string): void {
         if (this.requestedKey === key) this.requestedKey = undefined;
+    }
+}
+
+/** 高頻度パン中の T2 可視窓評価を指定間隔に間引く。 */
+export class AudioWaveformPanScheduleGate {
+    protected lastEvaluationMs = Number.NEGATIVE_INFINITY;
+
+    constructor(readonly intervalMs = 100) {}
+
+    shouldEvaluate(nowMs: number): boolean {
+        if (!Number.isFinite(nowMs)
+            || nowMs - this.lastEvaluationMs < Math.max(100, this.intervalMs)) {
+            return false;
+        }
+        this.lastEvaluationMs = nowMs;
+        return true;
     }
 }
 

@@ -53,6 +53,10 @@ export interface CaptionDisplayResult {
     split_source_cue_count: number;
     boundary_projection: CaptionBoundaryProjection[];
     display_cues: CaptionDisplayCue[];
+    word_book_fallbacks: Array<{
+        caption_id: string;
+        dropped_terms: string[];
+    }>;
 }
 export interface ResolvedCaptionLayout {
     mode: 'reference-pixel';
@@ -79,6 +83,7 @@ export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: Unkno
         width: number;
         height: number;
     };
+    extra_protected_terms?: string[];
 }): CaptionDisplayResult | null;
 /**
  * Strict captions.schema textStyle validation for the opt-in display-policy kernel.

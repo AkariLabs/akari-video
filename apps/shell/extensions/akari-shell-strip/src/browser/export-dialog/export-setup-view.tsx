@@ -8,6 +8,7 @@ import {
     EXPORT_QUALITY_CHOICES,
     EXPORT_RESOLUTION_SEATS,
     ExportSettings,
+    isFormatSelectable,
     isMasterSelectable,
     resolveOutputResolution
 } from '../../common/export-settings';
@@ -21,6 +22,10 @@ const ENCODER_LABELS: Readonly<Record<QuickExportEncoder, string>> = {
 
 const ENGINE_LABELS: Readonly<Record<QuickExportEngine, string>> = {
     auto: '自動', gpu: 'GPU', osr: 'OSR'
+};
+
+const CODEC_LABELS: Readonly<Record<ExportSettings['codec'], string>> = {
+    h264: 'MP4 · H.264', hevc: 'MP4 · H.265（HEVC）'
 };
 
 function encoderAvailable(encoder: QuickExportEncoder): boolean {
@@ -143,7 +148,7 @@ export function ExportSetupView(props: {
                             onClick={() => setDetailsOpen(open => !open)}
                         >
                             <span className='car' /><span className='lb'>詳細設定</span>
-                            <span className='sum'>MP4 · H.264 / {ENGINE_LABELS[snapshot.settings.engine]} / {ENCODER_LABELS[snapshot.settings.encoder]} / AAC −14 LUFS</span>
+                            <span className='sum'>{CODEC_LABELS[snapshot.settings.codec]} / {ENGINE_LABELS[snapshot.settings.engine]} / {ENCODER_LABELS[snapshot.settings.encoder]} / AAC −14 LUFS</span>
                         </button>
 
                         {detailsOpen && (
@@ -153,12 +158,15 @@ export function ExportSetupView(props: {
                                 <div className='pg'>
                                     <div className='sec'><span>形式</span><span className='r'>コンテナ · コーデック</span></div>
                                     <div className='fmt'>
-                                        {EXPORT_FORMAT_SEATS.map(seat => (
-                                            <button type='button' className={`fm${seat.available ? ' on' : ' soon'}`} disabled={!seat.available} title={seat.tooltip} key={seat.id}>
-                                                <b>{seat.label}</b><small>{seat.description}</small><em className='ex'>出口: {seat.exit}</em>
-                                                {!seat.available && <i className='soon-tag'>近日</i>}
-                                            </button>
-                                        ))}
+                                        {EXPORT_FORMAT_SEATS.map(seat => {
+                                            const codec = isFormatSelectable(seat.id) ? seat.id : undefined;
+                                            return (
+                                                <button type='button' className={`fm${snapshot.settings.codec === seat.id ? ' on' : seat.available ? '' : ' soon'}`} disabled={codec === undefined} title={seat.tooltip} key={seat.id} onClick={codec ? () => update({ codec }) : undefined}>
+                                                    <b>{seat.label}</b><small>{seat.description}</small><em className='ex'>出口: {seat.exit}</em>
+                                                    {!seat.available && <i className='soon-tag'>近日</i>}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

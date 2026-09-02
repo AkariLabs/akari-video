@@ -13,6 +13,7 @@
 
   const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
+  const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
   const CAPTION_MEASURE_DIFF_LIMIT = 20;
   const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
   const GPU_DIAGNOSTICS_MARKER = "AKARI_GPU_DIAGNOSTICS:";
@@ -66,9 +67,11 @@
   function describeEncoderTarget(config) {
     const width = config.outputWidth ?? config.width;
     const height = config.outputHeight ?? config.height;
-    let codec = "avc1.?";
+    let codec = config.codec === "hevc" ? "hvc1.?" : "avc1.?";
     try {
-      if (typeof FE.h264CodecString === "function") {
+      if (config.codec === "hevc" && typeof FE.hevcEncoderCodecString === "function") {
+        codec = FE.hevcEncoderCodecString({ width, height, fps: config.fps });
+      } else if (typeof FE.h264CodecString === "function") {
         codec = FE.h264CodecString({ width, height, fps: config.fps, bitrate: config.bitrate });
       }
     } catch (error) {
@@ -83,6 +86,7 @@
       height: config.outputHeight ?? config.height,
       fps: config.fps,
       bitrate: config.bitrate,
+      codec: config.codec ?? "h264",
     };
     const probe = async (hardwareAcceleration) => {
       try {
@@ -1544,6 +1548,8 @@
     const runtimeConfig = await bridge.config();
     const config = { ...pageConfig, ...runtimeConfig };
     const captureMode = Array.isArray(config.captureFrames);
+    const previewEvery = Number.isInteger(config.previewEvery) && config.previewEvery > 0 ? config.previewEvery : 0;
+    const previewWidth = Number.isInteger(config.previewWidth) && config.previewWidth > 0 ? config.previewWidth : 320;
     const dumpFrameNumbers = new Set(config.dumpFrames ?? []);
     const frameSequence = captureMode ? [...config.captureFrames] : null;
     const sequenceLength = captureMode ? frameSequence.length : config.frames;
@@ -1562,8 +1568,18 @@
     const restoreTraps = config.trapReadback ? installReadbackTraps(counters) : () => {};
     const engine = new GpuFrameEngineRuntime(config);
     const finalCanvas = document.getElementById("akari-final");
+    const previewOutputWidth = config.outputWidth ?? config.width;
+    const previewOutputHeight = config.outputHeight ?? config.height;
+    const previewHeight = Math.max(1, Math.round(previewOutputHeight * previewWidth / previewOutputWidth));
+    let previewActive = previewEvery > 0 && !captureMode && !config.trapReadback;
+    let previewFrames = 0;
+    let previewDisabledReason = null;
+    const previewCanvas = previewActive ? new OffscreenCanvas(previewWidth, previewHeight) : null;
+    const previewContext = previewCanvas?.getContext("2d") ?? null;
+    if (previewActive && !previewContext) { previewActive = false; previewDisabledReason = "preview-2d-context-unavailable"; }
+    if (previewContext) { previewContext.imageSmoothingEnabled = true; previewContext.imageSmoothingQuality = "high"; }
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
     const captionUnits = [];
@@ -1707,7 +1723,7 @@
       if (!captureMode && supported) {
         const encodeWidth = config.outputWidth ?? config.width;
         const encodeHeight = config.outputHeight ?? config.height;
-        await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames });
+        await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames, codec: config.codec ?? "h264" });
         encoder = new FE.WebCodecsH264Encoder({
           write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
         }, {
@@ -1717,14 +1733,17 @@
           bitrate: config.bitrate,
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
+          codec: config.codec ?? "h264",
         });
       } else if (!captureMode && !config.verifyFrames) {
         // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
         // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
         // メッセージ末尾に marker + encodeURIComponent(JSON) も付ける（main 側 extractGpuDiagnostics が両方を見る）。
         const gpuDiagnostics = { renderer, encoder_support: encoderSupport };
+        const codecLabel = config.codec === "hevc" ? "HEVC" : "H.264";
+        const reason = config.codec === "hevc" ? `${HEVC_UNSUPPORTED_REASON}: ` : "";
         const unsupported = new Error(
-          `WebCodecs H.264 config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`
+          `${reason}WebCodecs ${codecLabel} config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`
           + ` renderer=${renderer?.renderer ?? "unknown"}`
           + ` ${GPU_DIAGNOSTICS_MARKER}${encodeURIComponent(JSON.stringify(gpuDiagnostics))}`,
         );
@@ -1870,8 +1889,26 @@
             }
             const encodeStarted = performance.now();
             encodeCanvas = scaleSurfaceForEncode(finalCanvas, config, encodeCanvas);
+            let previewElapsed = 0;
+            if (previewActive && frameNumber % previewEvery === 0) {
+              const previewStarted = performance.now();
+              try {
+                previewContext.clearRect(0, 0, previewWidth, previewHeight);
+                previewContext.drawImage(encodeCanvas, 0, 0, previewWidth, previewHeight);
+                const blob = await previewCanvas.convertToBlob({ type: "image/jpeg", quality: 0.7 });
+                const jpeg = new Uint8Array(await blob.arrayBuffer());
+                await bridge.writeDumpFrame({ kind: "preview", frameNumber, jpeg });
+                previewFrames += 1;
+              } catch (error) {
+                // 制約 5: 失敗は握りつぶして以後 off。書き出しは続ける。
+                previewActive = false;
+                previewDisabledReason = String(error?.message ?? error);
+              }
+              previewElapsed = performance.now() - previewStarted;
+              stages.preview.push(previewElapsed);
+            }
             encoder.encode({ ...frame, surface: { ...frame.surface, canvas: encodeCanvas } });
-            stages.encode.push(performance.now() - encodeStarted);
+            stages.encode.push(performance.now() - encodeStarted - previewElapsed);
             const backpressureStarted = performance.now();
             if (encoder.encodeQueueSize > config.queueDepth) {
               queueWaits += 1;
@@ -1894,6 +1931,7 @@
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
+              codec: config.codec ?? "h264",
               queueDepth: config.queueDepth,
               queueWaits,
               glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
@@ -1905,6 +1943,9 @@
               captionRasterTotalMs,
               captionRasterBatches: captionRasterBatchMetrics,
               captionStartup: summarizeCaptionStartup(captionStartupMetrics),
+              previewEvery,
+              previewFrames,
+              previewDisabledReason,
             },
             domLayer: domRuntime.summary(),
           });
@@ -1937,6 +1978,7 @@
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
+          codec: config.codec ?? "h264",
           queueDepth: config.queueDepth,
           queueWaits,
           glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
@@ -1949,6 +1991,9 @@
           captionRasterTotalMs,
           captionRasterBatches: captionRasterBatchMetrics,
           captionStartup: summarizeCaptionStartup(captionStartupMetrics),
+          previewEvery,
+          previewFrames,
+          previewDisabledReason,
         },
         domLayer: domRuntime.summary(),
         mux,

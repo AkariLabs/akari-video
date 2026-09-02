@@ -20,11 +20,21 @@ const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
 const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
+const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
+const PREVIEW_BASE_PIXELS = 1920 * 1080;
+export const PREVIEW_WIDTH = 320;
 const DOM_LAYER_SWITCHES = Object.freeze([
   ["enable-features", "CanvasDrawElement"],
   ["disable-gpu-vsync", null],
   ["disable-frame-rate-limit", null],
 ]);
+
+/** 1 秒に 1 枚を上限に、出力画素数に比例して間引く（内部固定・ユーザーに開放しない）。 */
+export function resolvePreviewEvery({ fps, width, height }) {
+  const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 30;
+  const pixels = Math.max(1, Math.round(width) * Math.round(height));
+  return Math.max(Math.ceil(safeFps), Math.ceil(safeFps * (pixels / PREVIEW_BASE_PIXELS)));
+}
 
 export async function runGpuExport(options) {
   const {
@@ -41,16 +51,28 @@ export async function runGpuExport(options) {
     queueDepth = 4,
     quality = "high",
     bitrate = undefined,
+    codec = "h264",
     soft = false,
     trapReadback = false,
     verifyFrames = false,
     dumpFrames = [],
     captureFrames = null,
     captureOutputDirectory = null,
+    preview = "auto",
+    previewOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
     ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
   } = options;
   const captureMode = captureFrames !== null;
+  const previewMode = preview === "off" ? "off" : "auto";
+  const resolvedPreviewDirectory = previewOutputDirectory ?? join(dirname(out), "previews");
+  let previewDisabledReason = null;
+  if (previewMode === "off") previewDisabledReason = "requested-off";
+  else if (trapReadback) previewDisabledReason = "trap-readback";
+  else if (captureMode) previewDisabledReason = "capture";
+  const previewEvery = previewDisabledReason === null
+    ? resolvePreviewEvery({ fps, width: outputWidth, height: outputHeight })
+    : 0;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("GPU duration and frame count must be positive");
   }
@@ -62,7 +84,8 @@ export async function runGpuExport(options) {
   if (trapReadback && (verifyFrames || requestedDumpFrames.length > 0)) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
-  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight });
+  if (!["h264", "hevc"].includes(codec)) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
+  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec });
   const outputScale = {
     from: [width, height],
     to: [outputWidth, outputHeight],
@@ -121,6 +144,7 @@ export async function runGpuExport(options) {
     queueDepth,
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    codec,
     outputWidth,
     outputHeight,
     soft,
@@ -128,6 +152,8 @@ export async function runGpuExport(options) {
     verifyFrames,
     dumpFrames: requestedDumpFrames,
     captureFrames: requestedCaptureFrames,
+    previewEvery,
+    previewWidth: PREVIEW_WIDTH,
     domLayerFlags,
     ...(process.env.AKARI_GPU_CAPTION_MEASURE_FAULT
       ? { captionMeasureFault: process.env.AKARI_GPU_CAPTION_MEASURE_FAULT }
@@ -140,10 +166,12 @@ export async function runGpuExport(options) {
   let chunkState = null;
   let rendererFailure = null;
   let viewport = null;
+  let previewFramesWritten = 0;
   const channels = [
     "gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish",
     "gpu:capture-frame",
     "gpu:dump-frame",
+    "gpu:preview-frame",
   ];
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
@@ -171,26 +199,28 @@ export async function runGpuExport(options) {
     }
     return true;
   });
-  register("gpu:chunks-start", async () => {
+  register("gpu:chunks-start", async (_event, value) => {
     if (chunkState) throw new Error("chunk sink is already running");
+    if ((value?.codec ?? "h264") !== codec) throw new Error(`renderer codec ${value?.codec} does not match main codec ${codec}`);
     await mkdir(dirname(out), { recursive: true });
     const writer = await createIncrementalMp4Writer({
-      outputPath: out, width: outputWidth, height: outputHeight, fps, frames,
+      outputPath: out, width: outputWidth, height: outputHeight, fps, frames, codec,
     });
     chunkState = { writer };
     return true;
   });
   register("gpu:chunk", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
+    if (value?.description?.length > 0) chunkState.writer.setDecoderConfig(value.description, codec);
     return chunkState.writer.write(value);
   });
   register("gpu:chunks-finish", async () => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
     const mux = await state.writer.finish();
-    const ffprobe = await verifyEncodedVideo({
+    const ffprobe = normalizeCodecVerification(await verifyEncodedVideo({
       command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
-    });
+    }), codec);
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     chunkState = null;
     return { ...mux, ffprobe };
@@ -207,7 +237,22 @@ export async function runGpuExport(options) {
     await writeFile(outputPath, encodeRgbaPng(rgba, width, height));
     return { frameNumber, path: outputPath, bytes: rgba.length };
   });
+  const writePreviewFrame = async (value) => {
+    const frameNumber = Number(value?.frameNumber);
+    if (!Number.isInteger(frameNumber) || frameNumber < 0 || frameNumber >= frames) {
+      throw new Error(`unexpected GPU preview frame: ${value?.frameNumber}`);
+    }
+    const jpeg = Buffer.from(value?.jpeg?.buffer ?? value?.jpeg ?? []);
+    const outputPath = join(resolvedPreviewDirectory, `${frameNumber}.jpg`);
+    await mkdir(resolvedPreviewDirectory, { recursive: true });
+    await writeFile(outputPath, jpeg);
+    previewFramesWritten += 1;
+    process.stdout.write(`PROGRESS preview=${frameNumber} path=${outputPath}\n`);
+    return { frameNumber, path: outputPath, bytes: jpeg.length };
+  };
+  register("gpu:preview-frame", async (_event, value) => writePreviewFrame(value));
   register("gpu:dump-frame", async (_event, value) => {
+    if (value?.kind === "preview") return writePreviewFrame(value);
     const frameNumber = Number(value?.frameNumber);
     if (!requestedDumpFrames.includes(frameNumber)) {
       throw new Error(`unexpected GPU dump frame: ${value?.frameNumber}`);
@@ -261,6 +306,7 @@ export async function runGpuExport(options) {
       width,
       height,
       output_scale: outputScale,
+      codec,
       fps,
       duration,
       gpu: {
@@ -268,6 +314,13 @@ export async function runGpuExport(options) {
         platform: process.platform,
         chromium: process.versions.chrome,
         devices: gpuDevices,
+      },
+      preview: {
+        mode: previewMode,
+        frames: previewFramesWritten,
+        ...(previewDisabledReason || result?.gpu?.previewDisabledReason
+          ? { disabledReason: previewDisabledReason ?? result.gpu.previewDisabledReason }
+          : {}),
       },
       memory: { ...memory, warnings: memoryWarnings },
       eligibility: built.eligibility,
@@ -290,6 +343,7 @@ export async function runGpuExport(options) {
       version: 1,
       status: "failed",
       error: stripGpuDiagnosticsMarker(String(error?.stack ?? error)),
+      codec,
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
       framesRequested: frames,
       gpu: {
@@ -299,6 +353,11 @@ export async function runGpuExport(options) {
         encoder_support: gpuDiagnostics?.encoder_support ?? null,
         devices: gpuDevices,
         ...(captionMeasureDiffs ? { captionMeasureDiffs } : {}),
+      },
+      preview: {
+        mode: previewMode,
+        frames: previewFramesWritten,
+        ...(previewDisabledReason ? { disabledReason: previewDisabledReason } : {}),
       },
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
@@ -320,7 +379,15 @@ export async function runGpuExport(options) {
 
 export function gpuFailureReasonCode(error) {
   const message = String(error?.stack ?? error);
+  if (message.includes(HEVC_UNSUPPORTED_REASON)) return HEVC_UNSUPPORTED_REASON;
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
+}
+
+export function normalizeCodecVerification(verification, codec = "h264") {
+  if (codec === "h264") return verification;
+  const video = verification?.measured?.streams?.find((stream) => stream.codec_type === "video");
+  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === "hevc" };
+  return { ...verification, checks, matched: Object.values(checks).every(Boolean) };
 }
 
 export function extractCaptionMeasureDiffs(error) {
@@ -446,12 +513,15 @@ export function parseElectronArguments(argv) {
     queueDepth: 4,
     quality: "high",
     bitrate: undefined,
+    codec: "h264",
     soft: false,
     trapReadback: false,
     verifyFrames: false,
     dumpFrames: [],
     captureFrames: null,
     captureOutputDirectory: null,
+    preview: "auto",
+    previewOutputDirectory: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -468,12 +538,19 @@ export function parseElectronArguments(argv) {
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");
     else if (argument === "--bitrate") options.bitrate = positiveInteger(required(argv, ++index, "--bitrate"), "--bitrate");
+    else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--soft") options.soft = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"), "--dump-frames");
     else if (argument === "--capture-frames") options.captureFrames = parseFrameList(required(argv, ++index, "--capture-frames"));
     else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
+    else if (argument === "--preview") {
+      const value = required(argv, ++index, "--preview");
+      if (value !== "auto" && value !== "off") throw new Error('--preview must be auto|off');
+      options.preview = value;
+    }
+    else if (argument === "--preview-dir") options.previewOutputDirectory = required(argv, ++index, "--preview-dir");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   options.outputWidth ??= options.width;
@@ -529,6 +606,10 @@ function positiveInteger(value, label) {
   const number = positiveNumber(value, label);
   if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`);
   return number;
+}
+function codecValue(value) {
+  if (!["h264", "hevc"].includes(value)) throw new Error(`--codec must be h264|hevc, got: ${value}`);
+  return value;
 }
 
 function parseFrameList(value, label = "--capture-frames") {

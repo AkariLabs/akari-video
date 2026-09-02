@@ -77,13 +77,16 @@ export function buildIncrementalMp4Metadata({
   frames,
   samples,
   avcDecoderConfig,
+  decoderConfig = avcDecoderConfig,
+  codec = "h264",
   mdatDataOffset,
 }) {
   validateWriterOptions({ outputPath: "metadata", width, height, fps, frames });
   if (!samples || samples.length !== frames) {
     throw new Error(`encoded sample count mismatch: expected ${frames}, got ${samples?.length ?? 0}`);
   }
-  if (!avcDecoderConfig?.length) throw new Error("AVC decoder configuration is required");
+  const videoCodec = normalizeVideoCodec(codec);
+  if (!decoderConfig?.length) throw new Error(`${videoCodec.configBox} decoder configuration is required`);
   if (!Number.isSafeInteger(mdatDataOffset) || mdatDataOffset < 0) {
     throw new Error("mdat data offset must be a non-negative safe integer");
   }
@@ -96,7 +99,8 @@ export function buildIncrementalMp4Metadata({
     width,
     height,
     samples,
-    avcDecoderConfig: Buffer.from(avcDecoderConfig),
+    decoderConfig: Buffer.from(decoderConfig),
+    codec: videoCodec,
     timescale: rate.timescale,
     frameTicks: rate.frameTicks,
     trackDuration,
@@ -112,10 +116,11 @@ export function buildIncrementalMp4Metadata({
   };
 }
 
-export async function createIncrementalMp4Writer({ outputPath, width, height, fps, frames }) {
+export async function createIncrementalMp4Writer({ outputPath, width, height, fps, frames, codec = "h264" }) {
   validateWriterOptions({ outputPath, width, height, fps, frames });
+  const videoCodec = normalizeVideoCodec(codec);
   const rate = frameRateRational(fps);
-  const ftyp = buildFtyp();
+  const ftyp = buildFtyp(videoCodec);
   const reservedBytes = incrementalMp4ReservedBytes(frames);
   const moovOffset = ftyp.length;
   const mdatOffset = moovOffset + reservedBytes;
@@ -125,7 +130,7 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
   let writeOffset = mdatDataOffset;
   let mdatBytes = 0;
   let previousTimestamp = null;
-  let avcDecoderConfig = null;
+  let decoderConfig = null;
   let aborted = false;
   let finished = false;
   let chain = Promise.resolve();
@@ -142,6 +147,19 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
     throw error;
   }
 
+  const setDecoderConfig = (description, codecName = videoCodec.codec) => {
+    const declaredCodec = normalizeVideoCodec(codecName);
+    if (declaredCodec.codec !== videoCodec.codec) {
+      throw new Error(`decoder configuration codec ${declaredCodec.codec} does not match writer codec ${videoCodec.codec}`);
+    }
+    const next = Buffer.from(description ?? []);
+    if (next.length === 0) throw new Error(`${videoCodec.configBox} decoder configuration is required`);
+    if (decoderConfig !== null && !decoderConfig.equals(next)) {
+      throw new Error(`${videoCodec.configBox} decoder configuration was already set`);
+    }
+    decoderConfig ??= next;
+  };
+
   const write = (sample) => {
     chain = chain.then(async () => {
       assertWritable();
@@ -153,10 +171,19 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
       }
       const isKey = sample?.type === "key";
       if (samples.length === 0 && !isKey) throw new Error("first encoded sample must be a keyframe");
-      const annexB = Buffer.from(sample?.bytes ?? []);
+      const encodedBytes = Buffer.from(sample?.bytes ?? []);
       const description = sample?.decoderConfig?.description ?? sample?.description ?? null;
-      if (samples.length === 0) avcDecoderConfig = buildAvcDecoderConfig(annexB, description);
-      const { output } = annexBToAvcc(annexB);
+      if (description?.length > 0) setDecoderConfig(description, videoCodec.codec);
+      let output;
+      if (videoCodec.codec === "hevc") {
+        if (samples.length === 0 && decoderConfig === null) throw new Error("hvcC decoder configuration is required before the first HEVC sample");
+        // WebCodecs `hevc: { format: 'hevc' }` already produces length-prefixed samples.
+        // Do not run H.264's Annex B conversion over these bytes.
+        output = encodedBytes;
+      } else {
+        if (samples.length === 0) decoderConfig = buildAvcDecoderConfig(encodedBytes, description);
+        ({ output } = annexBToAvcc(encodedBytes));
+      }
       await writeFully(handle, output, writeOffset);
       writeOffset += output.length;
       mdatBytes += output.length;
@@ -179,7 +206,8 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
         fps,
         frames,
         samples,
-        avcDecoderConfig,
+        decoderConfig,
+        codec: videoCodec.codec,
         mdatDataOffset,
       });
       if (metadata.moovBytes > reservedBytes - 8) {
@@ -203,6 +231,7 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
         mdatOffset,
         reservedBytes,
         moovBytes: metadata.moovBytes,
+        codec: videoCodec.codec,
       };
     });
     return chain;
@@ -223,7 +252,7 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
     if (finished || !handle) throw new Error("incremental MP4 writer is already finished");
   }
 
-  return { write, finish, abort };
+  return { setDecoderConfig, write, finish, abort };
 }
 
 function incrementalMp4ReservedBytes(frames) {
@@ -242,11 +271,12 @@ function validateWriterOptions({ outputPath, width, height, fps, frames }) {
   frameRateRational(fps);
 }
 
-function buildFtyp() {
-  return box("ftyp", Buffer.from("isom", "ascii"), uint32(512), Buffer.from("isomiso2avc1mp41", "ascii"));
+function buildFtyp(codec) {
+  const compatibleBrands = codec.codec === "hevc" ? "isomiso2hvc1mp41" : "isomiso2avc1mp41";
+  return box("ftyp", Buffer.from("isom", "ascii"), uint32(512), Buffer.from(compatibleBrands, "ascii"));
 }
 
-function buildMoov({ width, height, samples, avcDecoderConfig, timescale, frameTicks, trackDuration, mdatDataOffset }) {
+function buildMoov({ width, height, samples, decoderConfig, codec, timescale, frameTicks, trackDuration, mdatDataOffset }) {
   const stszPayload = Buffer.alloc(8 + samples.length * 4);
   stszPayload.writeUInt32BE(0, 0);
   stszPayload.writeUInt32BE(samples.length, 4);
@@ -268,8 +298,8 @@ function buildMoov({ width, height, samples, avcDecoderConfig, timescale, frameT
     keyframeIndex += 1;
   }
 
-  const avc1 = box("avc1", visualSampleEntry(width, height), box("avcC", avcDecoderConfig));
-  const stsd = fullBox("stsd", 0, 0, uint32(1), avc1);
+  const sampleEntry = box(codec.sampleEntry, visualSampleEntry(width, height), box(codec.configBox, decoderConfig));
+  const stsd = fullBox("stsd", 0, 0, uint32(1), sampleEntry);
   const stts = fullBox("stts", 0, 0, uint32(1), uint32(samples.length), uint32(frameTicks));
   const stss = fullBox("stss", 0, 0, stssPayload);
   const stsc = fullBox("stsc", 0, 0, uint32(1), uint32(1), uint32(samples.length), uint32(1));
@@ -280,6 +310,16 @@ function buildMoov({ width, height, samples, avcDecoderConfig, timescale, frameT
   const mdia = box("mdia", buildMdhd(timescale, trackDuration), buildHdlr(), minf);
   const trak = box("trak", buildTkhd(width, height, trackDuration), mdia);
   return box("moov", buildMvhd(timescale, trackDuration), trak);
+}
+
+function normalizeVideoCodec(value) {
+  if (value === undefined || value === null || value === "h264" || value === "avc1") {
+    return { codec: "h264", sampleEntry: "avc1", configBox: "avcC" };
+  }
+  if (value === "hevc" || value === "hvc1") {
+    return { codec: "hevc", sampleEntry: "hvc1", configBox: "hvcC" };
+  }
+  throw new Error(`MP4 video codec must be h264|hevc, got: ${value}`);
 }
 
 function sampleAt(samples, index) {
