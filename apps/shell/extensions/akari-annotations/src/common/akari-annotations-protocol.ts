@@ -521,8 +521,20 @@ export interface SetCaptionTextStyleRequest {
     };
 }
 
+export interface SetCaptionStylePresetRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionIds: string[];
+    presetId: string | null;
+}
+
 export interface WriteBackResult {
     committed: boolean;
+}
+
+export interface SetCaptionStylePresetResult extends WriteBackResult {
+    changed: number;
+    beforeSource: string;
 }
 
 /**
@@ -647,6 +659,7 @@ export interface AkariAnnotationsService {
     setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
+    setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;

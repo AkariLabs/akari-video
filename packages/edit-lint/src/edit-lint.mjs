@@ -19,6 +19,8 @@ import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { buildMatcher, protectedTermsFrom } from "../../word-book/src/index.mjs";
+import { resolveWordBookSync, scanRecord } from "../../word-book/src/index.mjs";
 
 const {
   areCutsAdjacent,
@@ -3228,6 +3230,25 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
 function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
+  const wordBook = resolveWordBookSync({ projectRoot: paths.projectRoot, env: process.env });
+  const wordBookMatcher = buildMatcher(wordBook.entries);
+  for (const layer of wordBook.layers) {
+    if (!layer.error) continue;
+    addFinding(findings, {
+      severity: "warning",
+      check: "word-book.invalid",
+      message: `単語帳を読み込めません（${layer.error.code}）: ${layer.error.message}`,
+      path: relativePath(paths.projectRoot, layer.path),
+    });
+  }
+  for (const conflict of wordBook.conflicts) {
+    addFinding(findings, {
+      severity: "info",
+      check: "word-book.variant-shadowed",
+      message: `variant ${conflict.variant_key} は ${conflict.winner.surface} (${conflict.winner.scope}) が優先され、${conflict.shadowed.map(item => `${item.surface} (${item.scope})`).join(", ")} を隠します`,
+      path: captionPath,
+    });
+  }
   let displayPolicy;
   if (!Array.isArray(captions)) {
     if (!isRecord(captions)) {
@@ -3518,11 +3539,44 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
         );
       }
     }
+
+    for (const match of scanRecord(caption, wordBookMatcher)) {
+      if (match.matched === match.surface) continue;
+      const position = Array.isArray(caption.words) && caption.words.length > 0
+        ? `words[${match.index}]`
+        : `text offset ${match.index}`;
+      if (match.kind === "term") {
+        addFinding(findings, {
+          severity: caption.edited === true ? "info" : "warning",
+          check: "captions.word-book-term",
+          message: `${position} に単語帳の表記ゆれ ${JSON.stringify(match.matched)} が残っています（正表記: ${match.surface}）`,
+          path: itemPath,
+        });
+      } else if (match.kind === "notation") {
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.word-book-notation",
+          message: `${position} に非推奨表記 ${JSON.stringify(match.matched)} があります（推奨: ${match.surface}）`,
+          path: itemPath,
+        });
+      }
+    }
   }
 
   if (displayPolicy !== undefined) {
     try {
-      resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit));
+      const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), {
+        extra_protected_terms: protectedTermsFrom(wordBook.entries),
+      });
+      for (const fallback of resolved?.word_book_fallbacks ?? []) {
+        const index = captions.findIndex(caption => caption?.id === fallback.caption_id);
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.word-book-break-fallback",
+          message: `単語帳の行分割保護を外しました: ${fallback.dropped_terms.join(", ")}`,
+          path: index >= 0 ? `captions.json#[${index}]` : captionPath,
+        });
+      }
     } catch (error) {
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }

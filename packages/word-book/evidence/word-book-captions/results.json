@@ -1,0 +1,134 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "captions_text_and_words_replaced",
+      "pass": true,
+      "actual": {
+        "text": "AKARI Video",
+        "words": [
+          {
+            "start": 0,
+            "end": 2,
+            "text": "AKARI Video"
+          }
+        ]
+      }
+    },
+    {
+      "name": "edited_record_byte_identical",
+      "pass": true,
+      "actual": "{\n      \"id\": \"c-0002\",\n      \"start\": 2,\n      \"end\": 4,\n      \"text\": \"あかり ビデオ\",\n      \"words\": [\n        {\n          \"start\": 2,\n          \"end\": 3,\n          \"text\": \"あかり\"\n        },\n        {\n          \"start\": 3,\n          \"end\": 4,\n          \"text\": \"ビデオ\"\n        }\n      ],\n      \"src\": \"main\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": true\n    }"
+    },
+    {
+      "name": "manual_fragment_replaced_inside_boundary",
+      "pass": true,
+      "actual": [
+        "AKARI Video",
+        "です"
+      ]
+    },
+    {
+      "name": "captions_apply_stats",
+      "pass": true,
+      "actual": {
+        "replaced": 3,
+        "skipped_edited": 1,
+        "records_written": 3
+      }
+    },
+    {
+      "name": "apply_is_idempotent",
+      "pass": true,
+      "actual": 0
+    },
+    {
+      "name": "four_exit_fragment_parity",
+      "pass": true,
+      "actual": {
+        "kernel": [
+          "AKARI Video",
+          "あかり",
+          " ビデオ",
+          "AKARI Video",
+          "です",
+          "alpha beta ",
+          "gamma delta"
+        ],
+        "render": [
+          "AKARI Video",
+          "あかり",
+          " ビデオ",
+          "AKARI Video",
+          "です",
+          "alpha beta ",
+          "gamma delta"
+        ],
+        "preview": [
+          "AKARI Video",
+          "あかり",
+          " ビデオ",
+          "AKARI Video",
+          "です",
+          "alpha beta ",
+          "gamma delta"
+        ],
+        "shell": [
+          "AKARI Video",
+          "あかり",
+          " ビデオ",
+          "AKARI Video",
+          "です",
+          "alpha beta ",
+          "gamma delta"
+        ]
+      }
+    },
+    {
+      "name": "preview_payload_reports_fallback",
+      "pass": true,
+      "actual": [
+        {
+          "caption_id": "c-0004",
+          "dropped_terms": [
+            "alpha beta gamma delta"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "edit_lint_captions_edited_zero",
+      "pass": true,
+      "actual": 0
+    },
+    {
+      "name": "edit_lint_fallback_one",
+      "pass": true,
+      "actual": 1
+    },
+    {
+      "name": "render_cut_plan_with_fallback",
+      "pass": true,
+      "actual": {
+        "phase": "planned",
+        "fallbacks": 1
+      }
+    },
+    {
+      "name": "short_export_artifact",
+      "pass": true,
+      "actual": {
+        "bytes_positive": true,
+        "duration_positive": true
+      }
+    }
+  ],
+  "observed": {
+    "new_test_cases": 47,
+    "caption_records_written": 3,
+    "fallback_warnings": 1,
+    "fragment_count": 7,
+    "rendered_bytes": 11594,
+    "render_execution": "render-cut plan-only; short MP4 encoded by its ffmpeg dependency"
+  }
+}

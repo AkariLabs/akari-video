@@ -97,6 +97,7 @@ export interface CaptionDisplayResult {
     split_source_cue_count: number;
     boundary_projection: CaptionBoundaryProjection[];
     display_cues: CaptionDisplayCue[];
+    word_book_fallbacks: Array<{ caption_id: string; dropped_terms: string[] }>;
 }
 
 export interface ResolvedCaptionLayout {
@@ -191,12 +192,29 @@ function validateBreakHints(value: unknown): CaptionBreakHints {
 export function resolveCaptionDisplay(
     captionsRoot: unknown,
     edit: UnknownRecord,
-    options: { output?: { width: number; height: number } } = {}
+    options: { output?: { width: number; height: number }; extra_protected_terms?: string[] } = {}
 ): CaptionDisplayResult | null {
     if (Array.isArray(captionsRoot) || !isRecord(captionsRoot) || captionsRoot.display_policy === undefined) {
         return null;
     }
     const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+    if (options.extra_protected_terms !== undefined
+        && (!Array.isArray(options.extra_protected_terms)
+            || options.extra_protected_terms.some(entry => !strictText(entry)))) {
+        fail('INVALID_POLICY', 'extra_protected_terms must contain only non-empty NFC trimmed strings');
+    }
+    const extraProtectedTerms = [...new Set(options.extra_protected_terms ?? [])];
+    const policyProtectedTerms = policy.break_hints?.protected_terms ?? [];
+    const incrementalProtectedTerms = extraProtectedTerms.filter(term => !policyProtectedTerms.includes(term));
+    const policyWithExtraTerms: CaptionDisplayPolicy = incrementalProtectedTerms.length === 0
+        ? policy
+        : {
+            ...policy,
+            break_hints: {
+                ...policy.break_hints,
+                protected_terms: [...policyProtectedTerms, ...incrementalProtectedTerms]
+            }
+        };
     if (!Array.isArray(captionsRoot.captions)) fail('INVALID_CAPTIONS', 'captions.json object root must contain captions[]');
     const captions = captionsRoot.captions as UnknownRecord[];
     const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, 'default_text_style')
@@ -228,6 +246,7 @@ export function resolveCaptionDisplay(
     }
 
     const boundaryProjection: CaptionBoundaryProjection[] = [];
+    const wordBookFallbacks: Array<{ caption_id: string; dropped_terms: string[] }> = [];
     const fragmentsByCaption = new Map<number, { fragments: string[]; manual: boolean }>();
     captions.forEach((caption, index) => {
         const text = caption.display_text ?? caption.text;
@@ -238,7 +257,21 @@ export function resolveCaptionDisplay(
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
         } else {
-            const split = splitCaptionFragments(text, policy);
+            let split;
+            try {
+                split = splitCaptionFragments(text, policyWithExtraTerms);
+            } catch (error) {
+                if (!(error instanceof CaptionDisplayError)
+                    || error.code !== 'NO_WORD_BOUNDARY_SPLIT'
+                    || incrementalProtectedTerms.length === 0) {
+                    throw error;
+                }
+                split = splitCaptionFragments(text, policy);
+                wordBookFallbacks.push({
+                    caption_id: caption.id,
+                    dropped_terms: incrementalProtectedTerms.filter(term => text.includes(term))
+                });
+            }
             fragments = split.fragments;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
         }
@@ -288,7 +321,8 @@ export function resolveCaptionDisplay(
         display_cue_count: displayCues.length,
         split_source_cue_count: splitCueIds.size,
         boundary_projection: boundaryProjection,
-        display_cues: displayCues
+        display_cues: displayCues,
+        word_book_fallbacks: wordBookFallbacks
     };
 }
 

@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  CaptionDisplayError,
   captionAnchorPositionVars,
   measureCaptionUnits,
   mergeCaptionDisplayStyles,
@@ -35,6 +36,90 @@ const policy = {
 function caption(id, start, end, text, extra = {}) {
   return { id, start, end, text, speaker: null, sourceRef: null, edited: true, ...extra };
 }
+
+function englishPolicy(maxLineUnits, protectedTerms = []) {
+  return {
+    mode: 'single_line_sequential',
+    algorithm: 'a4-ja-two-fragment-v1',
+    unit_metric: 'ascii-half-other-one-v1',
+    max_line_units: maxLineUnits,
+    minimum_fragment_duration_seconds: 0.1,
+    locale: 'en',
+    ...(protectedTerms.length ? { break_hints: { protected_terms: protectedTerms } } : {}),
+  };
+}
+
+function wordBookRoot(text, maxLineUnits = 3, protectedTerms = []) {
+  return {
+    display_policy: englishPolicy(maxLineUnits, protectedTerms),
+    captions: [caption('c-0001', 0, 2, text)],
+  };
+}
+
+test('word_book_fallbacks は fallback が無い結果にも空配列で載る', () => {
+  const result = resolveCaptionDisplay(wordBookRoot('alpha', 3), { cuts: [{ in: 0, out: 2 }] });
+  assert.deepEqual(result.word_book_fallbacks, []);
+});
+
+test('extra_protected_terms は候補境界への硬い veto として効く', () => {
+  const root = wordBookRoot('one two three', 4.5);
+  root.display_policy.break_hints = { preferred_second_starts: ['two'] };
+  const without = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+  const withExtra = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] }, {
+    extra_protected_terms: ['one two'],
+  });
+  assert.deepEqual(without.display_cues.map(cue => cue.text), ['one ', 'two three']);
+  assert.deepEqual(withExtra.display_cues.map(cue => cue.text), ['one two', ' three']);
+  assert.deepEqual(withExtra.word_book_fallbacks, []);
+});
+
+test('extra で分割不能なら extra だけ外して成功し fallback を返す', () => {
+  const result = resolveCaptionDisplay(wordBookRoot('alpha beta'), { cuts: [{ in: 0, out: 2 }] }, {
+    extra_protected_terms: ['alpha beta'],
+  });
+  assert.deepEqual(result.display_cues.map(cue => cue.text), ['alpha', ' beta']);
+  assert.deepEqual(result.word_book_fallbacks, [{ caption_id: 'c-0001', dropped_terms: ['alpha beta'] }]);
+});
+
+test('fallback の dropped_terms は入力順・重複除去・本文出現だけを保つ', () => {
+  const result = resolveCaptionDisplay(wordBookRoot('alpha beta'), { cuts: [{ in: 0, out: 2 }] }, {
+    extra_protected_terms: ['missing', 'alpha beta', 'alpha beta'],
+  });
+  assert.deepEqual(result.word_book_fallbacks, [{ caption_id: 'c-0001', dropped_terms: ['alpha beta'] }]);
+});
+
+test('policy 明示の protected_terms だけで不能なら従来どおり throw する', () => {
+  assert.throws(
+    () => resolveCaptionDisplay(wordBookRoot('alpha beta', 3, ['alpha beta']), { cuts: [{ in: 0, out: 2 }] }),
+    error => error instanceof CaptionDisplayError && error.code === 'NO_WORD_BOUNDARY_SPLIT',
+  );
+});
+
+test('本文が二行上限を超える :660 の失敗は extra があっても再試行しない', () => {
+  assert.throws(
+    () => resolveCaptionDisplay(wordBookRoot('abcdefghijklm', 3), { cuts: [{ in: 0, out: 2 }] }, {
+      extra_protected_terms: ['abc'],
+    }),
+    error => error instanceof CaptionDisplayError
+      && error.code === 'NO_WORD_BOUNDARY_SPLIT'
+      && /cannot fit in two/u.test(error.message),
+  );
+});
+
+test('不正な extra_protected_terms は INVALID_POLICY', () => {
+  for (const value of ['not-array', [''], [' e'], ['e\u0301']]) {
+    assert.throws(
+      () => resolveCaptionDisplay(wordBookRoot('alpha beta'), { cuts: [{ in: 0, out: 2 }] }, {
+        extra_protected_terms: value,
+      }),
+      error => error instanceof CaptionDisplayError && error.code === 'INVALID_POLICY',
+    );
+  }
+});
+
+test('display_policy が無ければ extra_protected_terms を検証せず null', () => {
+  assert.equal(resolveCaptionDisplay({ captions: [] }, {}, { extra_protected_terms: [''] }), null);
+});
 
 test('ASCII counts as half units and other code points as one', () => {
   assert.equal(measureCaptionUnits('AIです'), 3);

@@ -240,7 +240,7 @@ cloud）。
 | 瞬間 | 何をするか | 実装箇所 |
 |---|---|---|
 | 文字起こし直後 | 解決済み単語帳で全セグメントにプリパス（§3-2）。キャッシュ hit 経路も同じ | `packages/akari-tools/src/media/transcribe.mjs` `transcribeMedia`: `normalizeSegments` / `attachUnrecognizedSpans` の後・`recordTranscribe` の前。`options.wordBook`（`--no-word-book` / `--word-book <path>`） |
-| 台本パネル「覚える」 | 人が行を直した直後に、直した語列を `variants`、直した後を `surface` として登録を提案。**登録先の層を必ず人に確認**（既定 `project`。`channel` / `workspace` は昇格 = 内部契約 §4 の承認ゲート）。登録後、同じプロジェクトの `edited: false` な行と transcript に即時再適用し件数を返す | `apps/shell/extensions/akari-transcript` の node 側 service に `rememberWord` RPC を足し、`packages/word-book` の add + apply を呼ぶ |
+| 台本パネル「覚える」 | 人が行を直した直後に、直した語列を `variants`、直した後を `surface` として登録を提案。**登録先の層を必ず人に確認**（既定 `project`。`channel` / `workspace` は昇格 = 内部契約 §4 の承認ゲート）。登録後、同じプロジェクトの `edited: false` な行と transcript に即時再適用し件数を返す | `apps/shell/extensions/akari-transcript` の node 側 service に `rememberWord` RPC を足し、`packages/word-book` の add + apply を呼ぶ（訂正 2026-09-02: RPC は akari-annotations の service に足す。UI は akari-transcript） |
 | 手動再適用 | 既存プロジェクトに解決済み単語帳を当て直す。`--dry-run` で件数だけ | `akari word-book apply [--project <dir>] [--dry-run]` |
 | edit-lint | §5 の規則 | `packages/edit-lint/src/edit-lint.mjs`（captions 検査の並び） |
 | 行分割 | §3-6 の軟らかい供給 | `resolveCaptionDisplay` の呼び出し 4 箇所 |
@@ -400,3 +400,5 @@ lint の一致も §3-2 と同じ語境界規則（`words[]` → 無ければ `I
 6. 作業場 fixture（`root.json` + `channels/<c>/videos/<p>`）で `resolve` が 4 層の出所を正しく返し、
    作業場なし fixture で `project` + `builtin` に落ちること
 7. 実際のホーム・作業場へ書き込まない（全テストは一時ディレクトリと `AKARI_WORD_BOOK` で完結）
+8. launcher: `akari word-book --help` が 4 サブコマンド（resolve / validate / add / apply）を列挙し、
+   akari-tools 不在時は「インストール方法」を示して exit 1

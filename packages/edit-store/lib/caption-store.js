@@ -6,7 +6,9 @@ exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
 exports.shiftCaptionLine = shiftCaptionLine;
 exports.setCaptionTimingLine = setCaptionTimingLine;
 exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
 exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
 exports.insertCaptionLine = insertCaptionLine;
 exports.removeCaptionLine = removeCaptionLine;
 const edit_store_1 = require("./edit-store");
@@ -199,6 +201,23 @@ function updateCaptionFieldsInSource(source, captionId, updates) {
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
+function applyWordBookToCaptionsInSource(source, changes) {
+    if (changes.length === 0) {
+        return source;
+    }
+    let output = source;
+    for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'words', change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+    }
+    return output;
+}
 function updateCaptionTextStyleInSource(source, captionId, updates) {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
@@ -236,6 +255,72 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+    if (captionIds.length === 0) {
+        throw new Error('字幕 ID を 1 件以上指定してください。');
+    }
+    if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+        throw new Error('字幕テンプレ ID の形式が不正です。');
+    }
+    const ids = [...new Set(captionIds)];
+    const array = locateCaptionArray(source);
+    const elementsById = new Map();
+    for (const entry of captionElementEntries(array.elements)) {
+        if (!entry.id)
+            continue;
+        const matches = elementsById.get(entry.id) ?? [];
+        matches.push(entry.element);
+        elementsById.set(entry.id, matches);
+    }
+    const targets = [];
+    for (const captionId of ids) {
+        const matches = elementsById.get(captionId) ?? [];
+        if (matches.length !== 1) {
+            throw new Error(matches.length === 0
+                ? `字幕 ${captionId} が字幕データにありません。`
+                : `字幕 ${captionId} が字幕データに複数あります。`);
+        }
+        targets.push({ captionId, element: matches[0] });
+    }
+    let output = source;
+    let changed = 0;
+    for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+        const record = JSON.parse(element.text);
+        const hasPreset = Object.prototype.hasOwnProperty.call(record, 'style_preset');
+        if (presetId === null) {
+            if (!hasPreset)
+                continue;
+            const nextElement = removeObjectProperty(element.text, 'style_preset');
+            output = replaceElement(output, array.openIndex + 1, element, nextElement);
+            changed++;
+            continue;
+        }
+        if (hasPreset && record.style_preset === presetId)
+            continue;
+        let nextElement;
+        if (hasPreset) {
+            nextElement = replaceCaptionJsonProperty(element.text, 'style_preset', presetId, captionId);
+        }
+        else {
+            const textStyle = locateTopLevelProperty(element.text, 'text_style');
+            if (!textStyle) {
+                nextElement = appendJsonProperty(element.text, 'style_preset', presetId);
+            }
+            else {
+                const lineStart = Math.max(element.text.lastIndexOf('\n', textStyle.start - 1), element.text.lastIndexOf('\r', textStyle.start - 1));
+                const separator = lineStart >= 0
+                    ? `${element.text.includes('\r\n') ? '\r\n' : '\n'}${element.text.slice(lineStart + 1, textStyle.start)}`
+                    : ' ';
+                nextElement = element.text.slice(0, textStyle.start)
+                    + `"style_preset": ${JSON.stringify(presetId)},${separator}`
+                    + element.text.slice(textStyle.start);
+            }
+        }
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+        changed++;
+    }
+    return { source: output, changed };
 }
 function insertCaptionLine(source, caption) {
     const parsed = parseCaptions(source);

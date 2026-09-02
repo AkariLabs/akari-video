@@ -935,7 +935,43 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         };
         // 出力サイズは旧経路と同じく生 edit.json の宣言をそのまま渡す。InternalOutput の
         // optional width/height を既定値で埋めると、未宣言時の字幕レイアウト挙動が変わる。
-        const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
+        const projectRoot = dirname(this.filePath(request.editUri));
+        // 単語帳が配布物に無い場合も補助語なし（[]）へ縮退し、字幕表示そのものは止めない。
+        let extraProtectedTerms: string[] = [];
+        try {
+            let cursor = __dirname;
+            let wordBookPath: string | undefined;
+            let reachedRoot = false;
+            while (!reachedRoot) {
+                const candidate = join(cursor, 'packages', 'word-book', 'src', 'index.mjs');
+                try {
+                    if (statSync(candidate).isFile()) {
+                        wordBookPath = candidate;
+                        break;
+                    }
+                } catch { /* 探索を続ける */ }
+                const parent = dirname(cursor);
+                reachedRoot = parent === cursor;
+                cursor = parent;
+            }
+            if (wordBookPath) {
+                const importWordBook = new Function('specifier', 'return import(specifier)') as
+                    (specifier: string) => Promise<{
+                        resolveWordBookSync(options: { projectRoot: string }): { entries: unknown[] };
+                        protectedTermsFrom(entries: unknown[]): string[];
+                    }>;
+                const wordBookModule = await importWordBook(pathToFileURL(wordBookPath).href);
+                const wordBook = wordBookModule.resolveWordBookSync({ projectRoot });
+                extraProtectedTerms = wordBookModule.protectedTermsFrom(wordBook.entries);
+            }
+        } catch {
+            // 単語帳は字幕表示の補助情報なので、解決・import 失敗時も従来の字幕表示を維持する。
+            extraProtectedTerms = [];
+        }
+        const resolved = resolveCaptionDisplay(captionsRoot, edit, {
+            output: rawEdit.output,
+            extra_protected_terms: extraProtectedTerms
+        });
         if (!resolved) return null;
         const emphasisWords = resolvePreviewEmphasisWords(captionsEmphasisWords, legacyEmphasisWords);
         return { schema: resolved.schema, captions: resolved.display_cues, emphasisWords };

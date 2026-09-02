@@ -12,7 +12,9 @@ import {
   layerPathFor,
   loadWordBookFile,
   normalizeKey,
+  protectedTermsFrom,
   resolveWordBook,
+  resolveWordBookSync,
   scanRecord,
   writeWordBookFile,
 } from "../src/index.mjs";
@@ -193,4 +195,65 @@ test("addEntry は追加し同一 surface キーを丸ごと置換する", async
   assert.equal(replaced.book.entries[0].source, "manual");
   assert.equal(existsSync(file), true);
   await rm(root, { recursive: true, force: true });
+});
+
+test("resolveWordBookSync は creator-root 4 層で async と同じ結果を返す", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "word-book-sync-"));
+  const project = path.join(root, "channels", "c", "videos", "p");
+  await mkdir(path.join(root, ".akari"), { recursive: true });
+  await writeFile(path.join(root, ".akari", "root.json"), JSON.stringify({ schema: "creator-root/v1" }));
+  await writeWordBookFile(path.join(root, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "共有語", variants: ["共有"], kind: "term" }],
+  });
+  await writeWordBookFile(path.join(project, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "案件語", variants: ["案件"], kind: "term", protect_break: true }],
+  });
+  const options = { projectRoot: project, env: { AKARI_CREATOR_ROOT: root, HOME: root } };
+  assert.deepEqual(resolveWordBookSync(options), await resolveWordBook(options));
+  await rm(root, { recursive: true, force: true });
+});
+
+test("resolveWordBookSync は壊れた層も async と同じ error 形にする", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "word-book-sync-invalid-"));
+  const project = path.join(root, "project");
+  const file = path.join(project, ".akari", "memory", "word-book.json");
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, "{");
+  const options = { projectRoot: project, env: { HOME: root, AKARI_HOME: path.join(root, "machine") } };
+  assert.deepEqual(resolveWordBookSync(options), await resolveWordBook(options));
+  await rm(root, { recursive: true, force: true });
+});
+
+test("層をまたぐ variant 衝突は winner と shadowed を返す", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "word-book-conflict-"));
+  const project = path.join(root, "channels", "c", "videos", "p");
+  await mkdir(path.join(root, ".akari"), { recursive: true });
+  await writeFile(path.join(root, ".akari", "root.json"), JSON.stringify({ schema: "creator-root/v1" }));
+  await writeWordBookFile(path.join(project, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "案件語", variants: ["同じ音"], kind: "term" }],
+  });
+  await writeWordBookFile(path.join(root, ".akari", "memory", "word-book.json"), {
+    version: 0, entries: [{ surface: "共有語", variants: ["同じ音"], kind: "term" }],
+  });
+  const resolved = resolveWordBookSync({ projectRoot: project, env: { AKARI_CREATOR_ROOT: root } });
+  assert.deepEqual(resolved.conflicts, [{
+    variant_key: "同じ音",
+    winner: { surface: "案件語", scope: "project" },
+    shadowed: [{ surface: "共有語", scope: "workspace" }],
+  }]);
+  await rm(root, { recursive: true, force: true });
+});
+
+test("衝突が無い解決結果の conflicts は空配列", () => {
+  const resolved = resolveWordBookSync({ env: {}, extraPath: undefined });
+  assert.deepEqual(resolved.conflicts, []);
+});
+
+test("protectedTermsFrom は protect_break surface だけを順序維持で重複除去する", () => {
+  assert.deepEqual(protectedTermsFrom([
+    { surface: "AKARI Video", protect_break: true },
+    { surface: "無保護", protect_break: false },
+    { surface: "AKARI Video", protect_break: true },
+    { surface: "KYO工房", protect_break: true },
+  ]), ["AKARI Video", "KYO工房"]);
 });
