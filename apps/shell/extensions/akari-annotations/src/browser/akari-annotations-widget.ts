@@ -233,6 +233,7 @@ import {
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
+import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
@@ -243,6 +244,7 @@ import {
     KeyframeControlRequest,
     LivePreviewRequest,
     TimelineAudioSelection,
+    TimelineCropSnapshot,
     TimelineItemSelectionSnapshot,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
@@ -2772,6 +2774,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ]);
         const layerKinds = new Set([
             'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
+            'layer-crop-x', 'layer-crop-y', 'layer-crop-w', 'layer-crop-h',
             'layer-opacity', 'layer-blend'
         ]);
         const envelopeKinds = new Set([
@@ -2851,6 +2854,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (request.value === null) delete transform[field];
                     patch = { transform };
                     label = 'クリップの変形を変更';
+                } else if (request.path.startsWith('crop.')) {
+                    const field = request.path.slice('crop.'.length) as InspectorCropAxis;
+                    patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
+                    label = 'クリップのクロップを変更';
                 } else if (request.path.startsWith('source.vars.')) {
                     const name = request.path.slice('source.vars.'.length);
                     patch = {
@@ -2919,6 +2926,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else if (request.kind === 'layer-blend') {
                     patch = { blend: request.value };
                     label = 'クリップの合成を変更';
+                } else if (request.kind === 'layer-crop-x' || request.kind === 'layer-crop-y'
+                    || request.kind === 'layer-crop-w' || request.kind === 'layer-crop-h') {
+                    const field = request.kind.slice('layer-crop-'.length) as InspectorCropAxis;
+                    const raw = this.rawKeyframeItem(itemId);
+                    patch = { crop: updateInspectorCrop(raw?.crop, field, request.value) };
+                    label = 'クリップのクロップを変更';
                 } else {
                     const field = request.kind === 'layer-transform-x' ? 'x'
                         : request.kind === 'layer-transform-y' ? 'y'
@@ -3201,10 +3214,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const track = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : undefined;
+            const crop = overlay.payload.crop && typeof overlay.payload.crop === 'object'
+                && !Array.isArray(overlay.payload.crop)
+                ? overlay.payload.crop as unknown as TimelineCropSnapshot : undefined;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
                 trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
+                ...(crop !== undefined ? { crop } : {}),
                 payload: overlay.payload
             };
         }
@@ -3235,6 +3252,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && typeof raw.source.params === 'object' && !Array.isArray(raw.source.params)
                 ? raw.source.params as Record<string, unknown> : undefined;
             const chromaKey = layerSnapshotChromaKey(layer.chromaKey, raw?.source?.chroma_key);
+            const crop = raw?.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop)
+                ? raw.crop as TimelineCropSnapshot : undefined;
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
                 trackName: this.trackDisplayNameForItem(layer.id),
@@ -3244,6 +3263,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(typeof layer.preset === 'string' && layer.preset.length > 0 ? { preset: layer.preset } : {}),
                 ...(params !== undefined ? { params } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
+                ...(crop !== undefined ? { crop } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
                 ...(chromaKey !== undefined ? { chromaKey } : {}),

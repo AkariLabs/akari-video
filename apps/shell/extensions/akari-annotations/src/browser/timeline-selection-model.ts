@@ -26,6 +26,13 @@ export interface TimelineCutSelection {
     clipName: string;
 }
 
+export interface TimelineCropSnapshot {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
 export interface TimelineOverlaySelection {
     kind: 'overlay';
     id: string;
@@ -33,6 +40,7 @@ export interface TimelineOverlaySelection {
     duration: number;
     track?: number;
     payload: Record<string, unknown>;
+    crop?: TimelineCropSnapshot;
     trackName: string;
     clipName: string;
 }
@@ -63,6 +71,7 @@ export interface TimelineLayerSelection {
     preset?: string;
     params?: Record<string, unknown>;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    crop?: TimelineCropSnapshot;
     opacity?: number;
     blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
         | 'overlay' | 'hardlight' | 'softlight';
@@ -87,7 +96,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     durationFrames: number;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     opacity?: number;
-    crop?: Record<string, unknown>;
+    crop?: TimelineCropSnapshot;
     perspective?: Record<string, unknown>;
     keyframes?: readonly Record<string, unknown>[];
     src?: string;
@@ -187,6 +196,7 @@ type InspectorWriteOperation =
         kind: 'item-field';
         id: string;
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+            | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: number | string | boolean | null;
@@ -201,6 +211,10 @@ type InspectorWriteOperation =
     | { kind: 'cut-source-out'; index: number; value: number }
     | { kind: 'layer-transform-x'; id: string; value: number | null }
     | { kind: 'layer-transform-y'; id: string; value: number | null }
+    | { kind: 'layer-crop-x'; id: string; value: number | null }
+    | { kind: 'layer-crop-y'; id: string; value: number | null }
+    | { kind: 'layer-crop-w'; id: string; value: number | null }
+    | { kind: 'layer-crop-h'; id: string; value: number | null }
     | { kind: 'layer-scale'; id: string; value: number | null }
     | { kind: 'layer-rotate'; id: string; value: number | null }
     | { kind: 'layer-opacity'; id: string; value: number | null }
@@ -275,7 +289,7 @@ export interface KeyframeControlRequest {
 
 /**
  * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
- * ephemeral な通知。対象は cuts/layers の transform/opacity のみ。
+ * ephemeral な通知。対象は cuts/layers の transform/opacity/crop。
  */
 export type LivePreviewTarget =
     | { kind: 'cut'; index: number }
@@ -284,7 +298,8 @@ export type LivePreviewTarget =
 
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
-    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity';
+    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity'
+        | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h';
     value: number;
     easing?: string;
 }

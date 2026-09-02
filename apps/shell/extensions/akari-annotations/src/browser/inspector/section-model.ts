@@ -27,7 +27,7 @@ export class InspectorSectionState {
     }
 }
 
-const ORDER = ['time', 'transform', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
+const ORDER = ['time', 'transform', 'crop', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
 
 export function composeInspectorSections<T extends { id: string }>(sections: readonly T[]): T[] {
     return [...sections].sort((left, right) => {

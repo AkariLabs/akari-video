@@ -18,6 +18,11 @@ export interface PreviewModelDiffInput {
 }
 
 export type PreviewModelUpdateKind = 'none' | 'incremental' | 'rebuild';
+export type PreviewModelUpdateAction =
+    | 'none'
+    | 'legacy-incremental'
+    | 'frame-engine-incremental'
+    | 'rebuild';
 
 const stableJson = (value: unknown): string => JSON.stringify(value) ?? 'undefined';
 
@@ -43,6 +48,7 @@ const layerDomIdentity = (value: unknown): unknown => {
         ? value as Record<string, unknown> : {};
     return {
         id: layer.id,
+        src: layer.src,
         kind: layer.kind,
         isImage: layer.isImage,
         proxyMissing: layer.proxyMissing,
@@ -95,6 +101,16 @@ export const classifyPreviewModelUpdate = (
     return sameJson(incrementalFields(previous.summary), incrementalFields(next.summary))
         ? 'none' : 'incremental';
 };
+
+/** host が差分判定結果をどの webview 経路へ配送するかを固定する。 */
+export const previewModelUpdateAction = (
+    updateKind: PreviewModelUpdateKind,
+    frameEngineEnabled: boolean
+): PreviewModelUpdateAction => updateKind === 'none'
+    ? 'none'
+    : updateKind === 'incremental'
+        ? frameEngineEnabled ? 'frame-engine-incremental' : 'legacy-incremental'
+        : 'rebuild';
 
 /**
  * frame-engine の映像評価入力を変えず、webview が model-update で読み直せる

@@ -4,7 +4,8 @@ import test from 'node:test';
 import {
     classifyPreviewModelUpdate,
     isOverlayOnlyPreviewModelUpdate,
-    isPreviewModelResourceChange
+    isPreviewModelResourceChange,
+    previewModelUpdateAction
 } from '../lib/common/preview-model-diff.js';
 
 const base = () => ({
@@ -69,6 +70,7 @@ test('参照資産、cut source、layer DOM 構造の変更は全再構築にな
         model => model.assetUris.push('file:///project/new.wav'),
         model => { model.captions[0].text = 'after'; },
         model => { model.summary.cuts[0].src = 'alternate'; },
+        model => { model.summary.layers[0].src = 'stream://replacement'; },
         model => { model.summary.layers[0].id = 'replacement'; }
     ]) {
         const previous = base();
@@ -100,6 +102,13 @@ test('overlay と media summary が同時に変わる更新は frame-engine の 
     next.summary.cuts[0].at = 2;
     assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
     assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), false);
+});
+
+test('frame-engine 有効時の incremental は再構築ではなく差分メッセージ経路へ入る', () => {
+    assert.equal(previewModelUpdateAction('incremental', true), 'frame-engine-incremental');
+    assert.equal(previewModelUpdateAction('incremental', false), 'legacy-incremental');
+    assert.equal(previewModelUpdateAction('none', true), 'none');
+    assert.equal(previewModelUpdateAction('rebuild', true), 'rebuild');
 });
 
 test('overlay と audio の揮発計測値だけが変わる更新は frame-engine でも差分適用できる', () => {

@@ -105,10 +105,14 @@ import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import {
     classifyPreviewModelUpdate,
-    isOverlayOnlyPreviewModelUpdate,
-    isPreviewModelResourceChange
+    isPreviewModelResourceChange,
+    previewModelUpdateAction
 } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
+import {
+    capturePreviewPlaybackTick,
+    resolvePreviewRefreshRestore
+} from '../common/preview-refresh-state';
 import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
@@ -692,6 +696,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** forwardPlaybackTick が常時更新する直近再生位置。HEVC フォールバックのリロード時の
      *  再生位置復元に使う（raw kind は reviewTransportByEdit に乗らないため別経路が要る）。 */
     akariPreviewLastKnownTime?: number;
+    akariPreviewLastKnownPlaying?: boolean;
     akariPreviewFrameEngineOptOut?: boolean;
 }
 
@@ -1241,12 +1246,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const onLiveTransform = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: string;
-                target?: { kind: 'cut'; index: number } | { kind: 'layer'; id: string };
+                target?: { kind: 'cut'; index: number }
+                    | { kind: 'layer' | 'item'; id: string };
                 field?: string;
                 value?: number;
             }>).detail;
             if (!detail?.editUri || !detail.target
-                || (detail.target.kind !== 'cut' && detail.target.kind !== 'layer')
+                || (detail.target.kind !== 'cut'
+                    && detail.target.kind !== 'layer'
+                    && detail.target.kind !== 'item')
                 || typeof detail.field !== 'string' || typeof detail.value !== 'number'
                 || !Number.isFinite(detail.value)) {
                 return;
@@ -2298,29 +2306,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
+        const editUri = widget.akariPreviewEditUri;
+        const normalizedEditUri = editUri?.normalizePath().toString();
+        const previous = normalizedEditUri ? this.reviewTransportByEdit.get(normalizedEditUri) : undefined;
+        const captured = capturePreviewPlaybackTick(message, previous?.rate ?? 1);
         // editUri の有無に関わらず常時更新（HEVC フォールバックの再生位置復元用 — raw kind は
         // 下の reviewTransportByEdit に乗らないため、これが唯一の position 保持経路になる）。
-        widget.akariPreviewLastKnownTime = message.time;
-        const editUri = widget.akariPreviewEditUri;
+        widget.akariPreviewLastKnownTime = captured.timelineT;
+        widget.akariPreviewLastKnownPlaying = captured.playing;
         if (!editUri) {
             if (this.activeRawPreviewWidget === widget) {
                 this.forwardRawPreviewAnnotationState(widget, 'playback');
             }
             return;
         }
-        const normalizedEditUri = editUri.normalizePath().toString();
-        const previous = this.reviewTransportByEdit.get(normalizedEditUri);
-        this.reviewTransportByEdit.set(normalizedEditUri, {
-            timelineT: message.time,
-            playing: message.playing,
-            rate: message.rate ?? previous?.rate ?? 1
-        });
-        this.reviewSessionRecorder?.handlePlaybackTick(normalizedEditUri, message.time, message.playing);
+        this.reviewTransportByEdit.set(normalizedEditUri!, captured);
+        this.reviewSessionRecorder?.handlePlaybackTick(
+            normalizedEditUri!, captured.timelineT, captured.playing
+        );
         window.dispatchEvent(new CustomEvent(PREVIEW_PLAYBACK_TICK_EVENT, {
             detail: {
                 videoUri: normalizedEditUri,
-                time: message.time,
-                playing: message.playing
+                time: captured.timelineT,
+                playing: captured.playing
             }
         }));
     }
@@ -2581,16 +2589,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const transport = editUri
                 ? this.reviewTransportByEdit.get(editUri.normalizePath().toString())
                 : undefined;
-            // 裁定（第13報）は webview を再構築する場合だけ適用する: 直前の再生状態に関わらず
-            // 一時停止、位置（timelineT）のみ復元する。差分更新は既存 DOM に message を送り、
-            // シークも play/pause の変更も行わないため、再生位置と再生状態をそのまま保持する。
+            const restore = resolvePreviewRefreshRestore({
+                seekTimeOverride,
+                transport,
+                lastKnownTime: widget.akariPreviewLastKnownTime,
+                lastKnownPlaying: widget.akariPreviewLastKnownPlaying
+            });
             return this.refreshPreview(
                 widget,
                 identityUri,
                 kind,
-                seekTimeOverride ?? transport?.timelineT,
+                restore.seekTime,
                 forceRebuild,
-                editSource
+                editSource,
+                restore.playing
             );
         };
         widget.akariPreviewRefresh = previous.then(
@@ -2823,7 +2835,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         kind: 'raw' | 'output',
         initialSeekTime?: number,
         forceRebuild = false,
-        editSource?: string
+        editSource?: string,
+        initialPlaying = false
     ): Promise<void> {
         if (widget.isDisposed) {
             return;
@@ -2839,11 +2852,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
-        // frame-engine の media 評価台は model-update を読まないが、overlay runtime は両クロックで
-        // 同じ summary と tick を消費する。frame-engine 有効時は overlay-only 更新だけを通す。
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
-            if (updateKind === 'none' && !frameEngineEnabled) {
+            const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
+            if (updateAction === 'none') {
                 widget.sendMessage({
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
@@ -2852,9 +2864,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
-            if (updateKind === 'incremental'
-                && (!frameEngineEnabled
-                    || isOverlayOnlyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot))) {
+            if (updateAction === 'legacy-incremental' || updateAction === 'frame-engine-incremental') {
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
@@ -3147,6 +3157,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             model,
             assets,
             initialSeekTime,
+            initialPlaying,
             sourceUrlById,
             hasSourceAudio,
             imageSourceUrlById,
@@ -5281,6 +5292,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         model: PreviewModel,
         assets: OverlayRuntimeAssetUrls,
         initialSeekTime?: number,
+        initialPlaying = false,
         sourceUrlById: Record<string, string> = {},
         hasSourceAudio?: boolean,
         imageSourceUrlById: Record<string, string> = {},
@@ -5342,6 +5354,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // unknown (ffprobe unavailable or probe failed) — never treated as "silent" client-side.
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
+            initialPlaying,
             reloadNotice,
             frameEngineEnabled: Boolean(frameEngineScripts),
             frameEngineMetricsEnabled,
@@ -6720,7 +6733,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected frameEngineBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview || {};
-            const summary = initial.summary || {};
+            let engineSummary = initial.summary || {};
             const engine = window.AkariFrameEngine;
             const filterRenderableFrameEngineLayersFn = (${filterRenderableFrameEngineLayers.toString()});
             const stage = document.getElementById('preview-stage');
@@ -6736,36 +6749,39 @@ body { display: grid; place-items: center; padding: 32px; }
             // 外すと最下段の後ろへ直列に連結され、出力尺の外へ押し出されて無言で消える（issue #31。
             // gpu / osr / preview-server の normalizedCuts と同じ規則。前後関係は frame-engine の既定 =
             // 番号が大きいトラックが前面で、buildTimelineMap 直呼びの trackZ: track => track と同じ向き）。
-            const summaryCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
-            const renderTracks = summaryCuts
-                .map(cut => cut.renderTrack)
-                .filter(value => Number.isInteger(value) && value >= 0);
-            const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
-            const normalizedCuts = summaryCuts.map((cut, index) => {
-                const {
-                    at: _derivedAt,
-                    track: _derivedTrack,
-                    trackId: _derivedTrackId,
-                    renderTrack: _derivedRenderTrack,
-                    ...sequential
-                } = cut;
-                const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
-                const placement = upperTrack
-                    ? {
-                        track: cut.renderTrack,
-                        ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
-                    }
-                    : {};
-                return {
-                    ...sequential,
-                    ...placement,
-                    src: cut.src || 'default',
-                    in: Number(cut.in || 0),
-                    out: Number(cut.out == null ? cut.in || 0 : cut.out),
-                    transition_out: cut.transition_out || cut.transitionOut,
-                    id: cut.id || 'cut-' + index
-                };
-            });
+            const normalizeSummaryCuts = value => {
+                const summaryCuts = Array.isArray(value && value.cuts) ? value.cuts : [];
+                const renderTracks = summaryCuts
+                    .map(cut => cut.renderTrack)
+                    .filter(track => Number.isInteger(track) && track >= 0);
+                const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
+                return summaryCuts.map((cut, index) => {
+                    const {
+                        at: _derivedAt,
+                        track: _derivedTrack,
+                        trackId: _derivedTrackId,
+                        renderTrack: _derivedRenderTrack,
+                        ...sequential
+                    } = cut;
+                    const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
+                    const placement = upperTrack
+                        ? {
+                            track: cut.renderTrack,
+                            ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
+                        }
+                        : {};
+                    return {
+                        ...sequential,
+                        ...placement,
+                        src: cut.src || 'default',
+                        in: Number(cut.in || 0),
+                        out: Number(cut.out == null ? cut.in || 0 : cut.out),
+                        transition_out: cut.transition_out || cut.transitionOut,
+                        id: cut.id || 'cut-' + index
+                    };
+                });
+            };
+            let normalizedCuts = normalizeSummaryCuts(engineSummary);
 
             stage.dataset.frameEngineActive = 'true';
             for (const media of layersStage.querySelectorAll('video, img')) {
@@ -6915,8 +6931,8 @@ body { display: grid; place-items: center; padding: 32px; }
             };
 
             void (async () => {
-                const fps = Number(summary.output && summary.output.fps) > 0
-                    ? Number(summary.output.fps) : 30;
+                const fps = Number(engineSummary.output && engineSummary.output.fps) > 0
+                    ? Number(engineSummary.output.fps) : 30;
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
                 const sourceSupports = new Map();
@@ -6999,23 +7015,26 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (typeof url !== 'string' || !url) continue;
                     images.set(id, new engine.CachedStillImageSource(url));
                 }
-                const engineLayers = filterRenderableFrameEngineLayersFn(
-                    Array.isArray(summary.layers) ? summary.layers : [],
+                const engineLayersForSummary = value => filterRenderableFrameEngineLayersFn(
+                    Array.isArray(value && value.layers) ? value.layers : [],
                     message => console.warn('[frame-engine] ' + message)
-                )
-                    .map((layer, index) => {
-                        if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
-                        if (layer.isImage === true) {
-                            // frame-engine v0 recognizes a still layer from its registry key suffix.
-                            // Shell asset URLs are extensionless, so keep fetching the original URL
-                            // while giving the resolved timeline an explicitly typed key.
-                            const sourceId = 'akari-image-layer-' + index + '.png';
+                ).map((layer, index) => {
+                    if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
+                    if (layer.isImage === true) {
+                        // frame-engine v0 recognizes a still layer from its registry key suffix.
+                        // Shell asset URLs are extensionless, so keep fetching the original URL
+                        // while giving the resolved timeline an explicitly typed key. incremental は
+                        // layer src 不変の場合だけ許可されるため、この source は更新間で再利用できる。
+                        const sourceId = 'akari-image-layer-' + index + '.png';
+                        if (!images.has(sourceId)) {
                             images.set(sourceId, new engine.CachedStillImageSource(layer.src));
-                            return { ...layer, src: sourceId };
                         }
-                        if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
-                        return layer;
-                    });
+                        return { ...layer, src: sourceId };
+                    }
+                    if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
+                    return layer;
+                });
+                const engineLayers = engineLayersForSummary(engineSummary);
                 for (const layer of engineLayers) {
                     const maskUrl = layer && layer.mask;
                     if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
@@ -7045,50 +7064,53 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const sources = new Map([...lookahead, ...images]);
 
-                const timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
+                let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
                 }))({ layers: engineLayers });
-                const totalDuration = timeline.totalDuration;
-                const declarations = [];
-                const appendAudio = (kind, raw, fallbackId) => {
-                    if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
-                    const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-                    const sidecar = raw.sidecar && raw.sidecar.path ? raw.sidecar : null;
-                    declarations.push({
-                        kind,
-                        id,
-                        url: sidecar ? sidecar.path : raw.src,
-                        ...(sidecar ? { sourceUrl: raw.src } : {}),
-                        spec: { ...raw, id, durationSec: 0 }
+                let totalDuration = timeline.totalDuration;
+                const createAudioSupplyForSummary = (value, cuts, duration) => {
+                    const declarations = [];
+                    const appendAudio = (kind, raw, fallbackId) => {
+                        if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
+                        const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
+                        const sidecar = raw.sidecar && raw.sidecar.path ? raw.sidecar : null;
+                        declarations.push({
+                            kind,
+                            id,
+                            url: sidecar ? sidecar.path : raw.src,
+                            ...(sidecar ? { sourceUrl: raw.src } : {}),
+                            spec: { ...raw, id, durationSec: 0 }
+                        });
+                    };
+                    const audio = value && value.audio;
+                    if (audio && typeof audio === 'object') {
+                        appendAudio('bgm', audio.bgm, 'bgm');
+                        if (Array.isArray(audio.sfx)) {
+                            audio.sfx.forEach((item, index) => appendAudio('sfx', item, 'sfx-' + (index + 1)));
+                        }
+                        if (Array.isArray(audio.narration)) {
+                            audio.narration.forEach((item, index) => appendAudio(
+                                'narration', item, 'narration-' + (index + 1)
+                            ));
+                        }
+                    }
+                    const projectedSpeech = Array.isArray(audio && audio.speech)
+                        ? audio.speech : engine.projectSpeechDeclarations(cuts, { fps });
+                    const speech = projectedSpeech.flatMap(declaration => {
+                        const url = sourceUrls.get(declaration.src);
+                        return url ? [{ ...declaration, url }] : [];
+                    });
+                    return engine.createPreviewAudioSupply({
+                        timelineDurationSec: duration,
+                        declarations,
+                        speech,
+                        pauseWatchdogMs: false
                     });
                 };
-                const audio = summary.audio;
-                if (audio && typeof audio === 'object') {
-                    appendAudio('bgm', audio.bgm, 'bgm');
-                    if (Array.isArray(audio.sfx)) {
-                        audio.sfx.forEach((item, index) => appendAudio('sfx', item, 'sfx-' + (index + 1)));
-                    }
-                    if (Array.isArray(audio.narration)) {
-                        audio.narration.forEach((item, index) => appendAudio(
-                            'narration', item, 'narration-' + (index + 1)
-                        ));
-                    }
-                }
-                const projectedSpeech = Array.isArray(audio && audio.speech)
-                    ? audio.speech : engine.projectSpeechDeclarations(normalizedCuts, { fps });
-                const speech = projectedSpeech.flatMap(declaration => {
-                    const url = sourceUrls.get(declaration.src);
-                    return url ? [{ ...declaration, url }] : [];
-                });
-                audioSupply = engine.createPreviewAudioSupply({
-                    timelineDurationSec: totalDuration,
-                    declarations,
-                    speech,
-                    pauseWatchdogMs: false
-                });
+                audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
-                const projectedLook = summary.videoFx && summary.videoFx.look;
+                const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
                 let look = null;
                 if (projectedLook && typeof projectedLook.cubeText === 'string') {
                     try {
@@ -7102,18 +7124,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
                 const output = {
-                    width: Number(summary.output && summary.output.width) > 0
-                        ? Number(summary.output.width) : 1280,
-                    height: Number(summary.output && summary.output.height) > 0
-                        ? Number(summary.output.height) : 720,
+                    width: Number(engineSummary.output && engineSummary.output.width) > 0
+                        ? Number(engineSummary.output.width) : 1280,
+                    height: Number(engineSummary.output && engineSummary.output.height) > 0
+                        ? Number(engineSummary.output.height) : 720,
                     colorSpace: 'bt709-limited',
                     look
                 };
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
                 const compositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
                 const frameMetrics = new engine.FrameMetrics();
-                scheduler = engine.createPreviewScheduler({
-                    timeline,
+                const createSchedulerForTimeline = value => engine.createPreviewScheduler({
+                    timeline: value,
                     sources,
                     output,
                     fps,
@@ -7125,6 +7147,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         onWarning: message => showError(message, false)
                     }
                 });
+                scheduler = createSchedulerForTimeline(timeline);
                 let rendering = null;
                 let lastPlaybackFrame = -1;
                 let lastPresentedSec = 0;
@@ -7221,6 +7244,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 let playing = false;
                 let playAnchorMs = 0;
                 let playAnchorPosition = 0;
+                let runtimeUpdating = false;
+                let modelUpdateTail = Promise.resolve();
                 const setPlaying = (next, requestedPosition = position) => {
                     position = Math.max(0, Math.min(Number(requestedPosition) || 0, totalDuration));
                     if (!next && playing) {
@@ -7233,7 +7258,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (playing) audioSupply.playFrom(position);
                 };
                 const clock = {
-                    totalDuration,
+                    get totalDuration() {
+                        return totalDuration;
+                    },
                     seek(seconds, continuePlaying = playing) {
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
@@ -7249,6 +7276,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         setPlaying(false, seconds);
                     },
                     tick(legacyPosition, legacyPlaying) {
+                        if (runtimeUpdating) return position;
                         if (legacyPlaying !== playing) setPlaying(legacyPlaying, legacyPosition);
                         if (!playing) return position;
                         const fallbackPosition = Math.min(
@@ -7263,7 +7291,109 @@ body { display: grid; place-items: center; padding: 32px; }
                         position = renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false, totalDuration);
                         return position;
+                    },
+                    updateModel(nextSummary) {
+                        return queueEngineSummaryUpdate(() => nextSummary, true);
+                    },
+                    applyLivePreview(message) {
+                        return queueEngineSummaryUpdate(
+                            current => summaryWithLivePreview(current, message),
+                            false
+                        );
                     }
+                };
+
+                const summaryWithLivePreview = (current, message) => {
+                    const target = message && message.target;
+                    if (!target || !Number.isFinite(message.value) || typeof message.field !== 'string') {
+                        return current;
+                    }
+                    const collection = target.kind === 'cut' ? 'cuts'
+                        : target.kind === 'layer' || target.kind === 'item' ? 'layers' : null;
+                    if (!collection) return current;
+                    const entries = Array.isArray(current[collection]) ? current[collection] : [];
+                    const index = target.kind === 'cut'
+                        ? target.index
+                        : entries.findIndex(entry => String(entry && entry.id) === String(target.id));
+                    if (!Number.isInteger(index) || index < 0 || index >= entries.length) return current;
+                    const entry = { ...entries[index] };
+                    if (message.field.startsWith('crop.')) {
+                        const axis = message.field.slice('crop.'.length);
+                        if (!['x', 'y', 'w', 'h'].includes(axis)) return current;
+                        entry.crop = { x: 0, y: 0, w: 1, h: 1, ...(entry.crop || {}), [axis]: message.value };
+                    } else if (message.field === 'opacity') {
+                        entry.opacity = message.value;
+                    } else if (['x', 'y', 'scale', 'rotate'].includes(message.field)) {
+                        entry.transform = { ...(entry.transform || {}), [message.field]: message.value };
+                    } else {
+                        return current;
+                    }
+                    const nextEntries = [...entries];
+                    nextEntries[index] = entry;
+                    return { ...current, [collection]: nextEntries };
+                };
+                const applyEngineSummary = async (nextSummary, rebuildServices) => {
+                    if (!nextSummary || typeof nextSummary !== 'object' || disposed) return;
+                    runtimeUpdating = true;
+                    try {
+                        await waitForRender();
+                        if (disposed) return;
+                        const nextCuts = normalizeSummaryCuts(nextSummary);
+                        const nextLayers = engineLayersForSummary(nextSummary);
+                        const nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
+                            fps,
+                            layers: nextLayers
+                        });
+                        const nextDuration = nextTimeline.totalDuration;
+                        const resume = playing;
+                        if (rebuildServices) {
+                            if (resume) position = audioSupply.position(position);
+                            playing = false;
+                            audioSupply.pause();
+                            const previousScheduler = scheduler;
+                            const previousAudioSupply = audioSupply;
+                            scheduler = createSchedulerForTimeline(nextTimeline);
+                            audioSupply = createAudioSupplyForSummary(nextSummary, nextCuts, nextDuration);
+                            previousScheduler.dispose();
+                            previousAudioSupply.dispose();
+                        }
+                        engineSummary = nextSummary;
+                        normalizedCuts = nextCuts;
+                        timeline = nextTimeline;
+                        totalDuration = nextDuration;
+                        position = Math.round(Math.max(0, Math.min(position, totalDuration)) * fps) / fps;
+                        playAnchorMs = performance.now();
+                        playAnchorPosition = position;
+                        lastPlaybackFrame = -1;
+                        lastCutIndex = null;
+                        if (rebuildServices) {
+                            audioSupply.seek(position, false);
+                            scheduler.primeHeaders();
+                            audioSupply.prime();
+                        }
+                        const operation = renderFrame(position, 'seek', performance.now())
+                            .catch(reason => showError(reason, true));
+                        rendering = operation;
+                        try {
+                            await operation;
+                        } finally {
+                            if (rendering === operation) rendering = null;
+                        }
+                        if (rebuildServices) setPlaying(resume, position);
+                        root.dataset.frameEngineModelUpdates = String(
+                            Number(root.dataset.frameEngineModelUpdates || 0) + 1
+                        );
+                        updateMetrics();
+                    } finally {
+                        runtimeUpdating = false;
+                    }
+                };
+                const queueEngineSummaryUpdate = (resolveNext, rebuildServices) => {
+                    const apply = () => applyEngineSummary(resolveNext(engineSummary), rebuildServices);
+                    modelUpdateTail = modelUpdateTail.then(apply, apply).catch(reason => {
+                        showError(reason, false);
+                    });
+                    return modelUpdateTail;
                 };
                 window.akari = window.akari || {};
                 window.akari.frameEngineClock = clock;
@@ -7271,10 +7401,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateMetrics();
                 await renderFrame(0, 'seek', performance.now());
                 await renderFrame(0, 'seek', performance.now());
-                root.dataset.frameEngineReady = 'true';
                 scheduler.primeHeaders();
                 audioSupply.prime();
-                clock.seek(Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, false);
+                const restoredPosition = clock.seek(
+                    Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0,
+                    false
+                );
+                // 再構築後の play は、この位置のフレームが実際に描画されてから preview bootstrap が
+                // akari-frame-engine-ready を受けて開始する。seek request を投げただけで ready にすると、
+                // 0 秒の初期フレームを表示したまま音声と時計だけが先に進み得る。
+                await waitForRender();
+                await renderFrame(restoredPosition, 'seek', performance.now());
+                const pendingSummary = window.akari && window.akari.frameEnginePendingSummary;
+                if (pendingSummary && typeof pendingSummary === 'object') {
+                    delete window.akari.frameEnginePendingSummary;
+                    await clock.updateModel(pendingSummary);
+                }
+                root.dataset.frameEngineReady = 'true';
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
 
                 window.addEventListener('beforeunload', () => {
@@ -7338,7 +7481,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     : item).join(' / ');
                 indicatorPopup.textContent = 'プレビュー未対応: ' + items;
             };
-            window.addEventListener('akari-frame-engine-ready', refreshIndicators);
+            window.addEventListener('akari-frame-engine-ready', () => {
+                refreshIndicators();
+                applyInitialPosition();
+                restoreInitialPlayback();
+            });
             const penToggle = document.getElementById('pen-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
@@ -7530,6 +7677,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
             let initialPositionApplied = false;
+            let initialPlaybackRestorePending = initial.initialPlaying === true;
+            let restoreInitialPlayback = () => undefined;
             let zoom = 1;
             let pan = { x: 0, y: 0 };
             let drag = null;
@@ -12301,6 +12450,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     stopAnimation();
                 }
             };
+            restoreInitialPlayback = () => {
+                if (!initialPlaybackRestorePending || !initialPositionApplied) return;
+                const frameEngineClock = window.akari && window.akari.frameEngineClock;
+                if (frameEngineMediaIdle && !frameEngineClock) return;
+                // legacy video は currentTime 代入後の seeked を待つ。frame-engine ready は上で
+                // restoredPosition の renderFrame 完了後にだけ発火するので、そのまま再開できる。
+                if (frameEngineClock && previewStage.dataset.frameEngineReady !== 'true') return;
+                if (!frameEngineClock && video.seeking) return;
+                initialPlaybackRestorePending = false;
+                if (!isPlaying) togglePlayback();
+            };
             const isEditable = (${isEditableEventTarget.toString()});
             const shouldStopEditableDeletionKeydownFn = (${shouldStopEditableDeletionKeydown.toString()});
             document.addEventListener('keydown', event => {
@@ -12385,7 +12545,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const target = pendingScrubTime;
                 pendingScrubTime = null;
                 seekTimelineTime(target);
-                tick();
+                // 一時停止中の手動シークも host の位置正本へ必ず到達させる。通常 tick の 50 ms
+                // throttle に最終ドラッグ値が落とされると、直後の編集で一つ前の位置へ戻ってしまう。
+                tick(true);
             });
             const requestScrub = timelineValue => {
                 pendingScrubTime = timelineValue;
@@ -12659,6 +12821,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     restorePlayback();
                     rebuildSegments();
                     applyInitialPosition();
+                    restoreInitialPlayback();
                     updateTransport();
                 });
             };
@@ -12691,6 +12854,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (event.currentTarget !== video) return;
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
+                    window.akari.playbackTick(outputTime, isPlaying, true);
                     return;
                 }
                 // Every intentional pause call site (togglePlayback's stop branch,
@@ -12707,10 +12871,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 // Resume instead; if that also fails, fall back to a real stop.
                 const segment = segments[activeSegmentIndex];
                 if (isPlaying && segment && segment.kind === 'src' && !isStillSegment(segment) && !video.ended) {
+                    window.akari.playbackTick(outputTime, true, true);
                     void video.play().catch(error => {
                         console.error('[akari-preview] unexpected pause auto-resume failed', error);
                         window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
+                        window.akari.playbackTick(outputTime, false, true);
                         if (window.akari.previewAudio) window.akari.previewAudio.pause();
                         stopAnimation();
                     });
@@ -12720,6 +12886,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 }
                 isPlaying = false;
+                window.akari.playbackTick(outputTime, false, true);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
             };
@@ -12745,6 +12912,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
                 }
                 applyRequestedOverlaySelection();
+                restoreInitialPlayback();
             };
             const onMainVideoError = event => {
                 const media = event.currentTarget;
@@ -12808,6 +12976,13 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
+                if (window.akari.frameEngineClock?.updateModel) {
+                    void window.akari.frameEngineClock.updateModel(nextSummary);
+                } else if (initial.frameEngineEnabled) {
+                    // frame-engine の codec probe / 初回描画より先に編集通知が届いても捨てない。
+                    // bootstrap は復元フレーム描画後にこの最新 summary を適用してから ready を通知する。
+                    window.akari.frameEnginePendingSummary = nextSummary;
+                }
                 const previousAudioJson = JSON.stringify(summary.audio || null);
                 const previousTracksJson = JSON.stringify(summary.tracks || null);
                 const activeCutIndex = segments[activeSegmentIndex]
@@ -13002,7 +13177,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     selectLayer(message.layerId, { report: false });
                 }
                 if (message && message.type === 'akari-preview-live-transform' && message.target
-                    && (message.target.kind === 'cut' || message.target.kind === 'layer')
+                    && (message.target.kind === 'cut'
+                        || message.target.kind === 'layer'
+                        || message.target.kind === 'item')
                     && typeof message.field === 'string' && Number.isFinite(message.value)) {
                     // ドラッグ中の ephemeral 反映: summary/segments は一切書き換えず、applyCutVisual/
                     // layerEntries が読む dataset を直接上書きして updateLayerLayout() で再計算させるだけ。
@@ -13015,7 +13192,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         else if (message.field === 'scale') element.dataset.akariTransformScale = String(message.value);
                         else if (message.field === 'rotate') element.dataset.akariTransformRotate = String(message.value);
                         else if (message.field === 'opacity') element.style.opacity = String(message.value);
+                        else if (message.field === 'crop.x') element.dataset.akariCropX = String(message.value);
+                        else if (message.field === 'crop.y') element.dataset.akariCropY = String(message.value);
+                        else if (message.field === 'crop.w') element.dataset.akariCropW = String(message.value);
+                        else if (message.field === 'crop.h') element.dataset.akariCropH = String(message.value);
                     };
+                    if (window.akari.frameEngineClock?.applyLivePreview) {
+                        void window.akari.frameEngineClock.applyLivePreview(message);
+                    }
                     if (message.target.kind === 'cut') {
                         if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
@@ -13054,6 +13238,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 refreshIndicators();
                 rebuildSegments();
                 applyInitialPosition();
+                restoreInitialPlayback();
                 setZoom(1);
                 tick();
                 reportOverlaySelectionChange();
