@@ -18,9 +18,11 @@
 //     package.json に test script が無い置き場（scripts/test・skills/*）だけ node --test を直接叩く
 //   - 全エントリを最後まで走らせてから合否を返す（1 本目の赤で止めない）。要約は GITHUB_STEP_SUMMARY にも書く
 //
-// 実測の根拠（2026-09-02・macOS arm64・Node 26.3.0・ffmpeg / Chrome なし・npm ci --ignore-scripts）:
-//   pure 14 パッケージ + scripts/test + skills 全 pass / shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
-//   quarantine: edit-store 298/299・export-nle 20/21・akari-launcher 298/313 / media: いずれも ffmpeg・ffprobe・Chrome 不在で赤
+// 実測の根拠（2026-09-02・macOS arm64・Node 26.3.0・ffmpeg / ffprobe なし・Chrome あり・npm install --ignore-scripts）:
+//   pure 14 パッケージ + scripts/test + skills 全 pass（tests 1271 / pass 1265 / fail 0 / skipped 6。edit-store 356/356 を含む）/
+//   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
+//   quarantine: export-nle 20/21・akari-launcher 317/332 / media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
+//   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
 
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, globSync } from 'node:fs';
@@ -46,9 +48,9 @@ export const LANES = {
       pkg('audio-library-setup'),   // ffprobe が無い環境では 2 件 skip（設計どおり）
       pkg('chat-bridge'),
       pkg('creator-root'),
-      pkg('decision-cards'),
       pkg('decision-log-report'),
       pkg('edit-lint'),             // ffprobe が無い環境では 6 件 skip（設計どおり）
+      pkg('edit-store'),            // test script が build（gen:textstyle-catalog + tsc -b + esbuild）を含む（lib/ は追跡対象・drift させない）
       pkg('intake-form'),
       pkg('matte-rvm'),             // onnxruntime-node の実体が無い環境では 3 件 skip
       pkg('pen-visuals'),           // test script が tsc -b を含む（lib/ は追跡対象・drift させない）
@@ -100,9 +102,6 @@ export const LANES = {
   quarantine: {
     title: 'main で既に赤・修正待ち（CI: 参考）',
     entries: [
-      // 1 件: transition-vocabulary.test.mjs が render-cut/src/plan.mjs の XFADE_TRANSITION_NAMES 表を読むが、
-      // legacy 合成経路の全撤去（33e9250d・2026-09-01）で表ごと消えている → テストが古い
-      pkg('edit-store'),
       // 1 件: migration-regression.test.mjs の v1 fixture（narration: { id, path, t }）を edit-store の migrate が
       // 「path / t / in / out / gain_db / script / reading / provenance が不正」で拒む → migrate の検証強化にテストが未追随
       pkg('export-nle'),
@@ -118,6 +117,7 @@ export const LANES = {
     entries: [
       pkg('media-bin'),
       pkg('bake-layer'),
+      pkg('decision-cards'),        // Chrome を起動するテストを含む（direction inputs persist… が /tmp プロファイルの rmdir ENOTEMPTY で落ちる・CI 上は d5f2a7b6 以降 required unit を赤にしていた）
       pkg('akari-tools'),
       pkg('render-cut'),
       pkg('preview-server'),        // Playwright chromium。無ければ一部 skip・一部 fail
