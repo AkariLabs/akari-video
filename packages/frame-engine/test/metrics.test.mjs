@@ -23,11 +23,17 @@ test('FrameMetrics emits every detailed p50/p95 stage', () => {
   }
   assert.equal(output.uploadPath, null);
   assert.deepEqual(output.uploadPathCounts, { direct: 0, copyTo: 0 });
+  assert.equal(output.skippedLayers, 0);
   metrics.recordUploadPath('direct');
   metrics.recordUploadPath('copyTo');
   const routed = metrics.toJSON();
   assert.equal(routed.uploadPath, 'copyTo');
   assert.deepEqual(routed.uploadPathCounts, { direct: 1, copyTo: 1 });
+  metrics.recordSkippedLayer('person');
+  metrics.recordSkippedLayer('person');
+  metrics.recordSkippedLayer('logo');
+  assert.equal(metrics.toJSON().skippedLayers, 3);
+  assert.deepEqual(metrics.toJSON().uploadPathCounts, { direct: 1, copyTo: 1 });
 });
 
 // toJSON() runs after every frame is already encoded, so a throw here discards a finished export.

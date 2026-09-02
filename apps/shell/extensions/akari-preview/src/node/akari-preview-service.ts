@@ -33,6 +33,8 @@ import {
     ReadVideoFxLutRequest,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
+    PrepareAlphaIntakeRequest,
+    PrepareAlphaIntakeResult,
     ReviewSessionSummary,
     ResolveCaptionDisplayRequest,
     ResolvedCaptionDisplayPayload,
@@ -51,6 +53,7 @@ import {
     resolvePreviewEmphasisWords
 } from '../common/preview-emphasis-seat';
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
+import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
 
 interface StreamTarget {
@@ -520,6 +523,40 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return { status: 'ready', proxyUri: pathToFileURL(result.proxyPath).toString() };
         }
         return result;
+    }
+
+    // task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面のアルファ層を Web UI と同じ
+    // media-bin alpha-intake へ通す。派生物（<name>.color.mp4 / <name>.mask.mp4）は入力の隣へ書くので、
+    // 入力がプロジェクト内にあることを先に確かめる（ワークスペース外へは 1 バイトも書かない）。
+    async prepareAlphaIntake(request: PrepareAlphaIntakeRequest): Promise<PrepareAlphaIntakeResult> {
+        if (!request || typeof request.videoUri !== 'string' || typeof request.projectRootUri !== 'string') {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        let videoPath: string;
+        let projectRoot: string;
+        try {
+            videoPath = resolve(this.filePath(request.videoUri));
+            projectRoot = resolve(this.filePath(request.projectRootUri));
+        } catch {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        if (!this.contains(projectRoot, videoPath)) {
+            return { status: 'unavailable', reason: 'outside-project' };
+        }
+        const outcome = await prepareAlphaIntake(videoPath);
+        if (outcome.status === 'opaque') {
+            return { status: 'opaque' };
+        }
+        if (outcome.status === 'unavailable') {
+            return { status: 'unavailable', reason: outcome.reason };
+        }
+        return {
+            status: 'alpha',
+            colorUri: pathToFileURL(outcome.colorPath).toString(),
+            maskUri: pathToFileURL(outcome.maskPath).toString(),
+            maskFormat: outcome.maskFormat,
+            skipped: outcome.skipped
+        };
     }
 
     // task/2026-08-10-preview-bug-sweep (B1): replaces the browser-side

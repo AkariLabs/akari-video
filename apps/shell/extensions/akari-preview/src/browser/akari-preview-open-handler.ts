@@ -64,6 +64,7 @@ import {
 } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
+import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
     buildItemKeyframeSummaryFields,
@@ -173,6 +174,11 @@ interface EditSummaryLayer {
     src?: string;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
+    /** task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面でアルファ層（.webm / .mov）を media-bin
+     * alpha-intake に通したとき、src（色 mp4）と対になるマスク mp4 の asset stream URL。webview の engine
+     * bootstrap はこれをマスクソースとして登録し、engine が kind 'matte' として色×マスク合成する
+     * （Web UI の frameEngine.intake と同型）。legacy 面では付けない。 */
+    mask?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
      * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
@@ -2826,7 +2832,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && widget.akariPreviewFrameEngineOptOut !== true
             && await this.resolveFrameEngineEnabled();
         const [model, assets] = await Promise.all([
-            kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
+            kind === 'output'
+                ? this.loadPreviewModel(identityUri, editSource, { frameEngineEnabled })
+                : this.loadRawPreviewModel(identityUri),
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
@@ -3233,7 +3241,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
      *   - overlay 断片 HTML の読み出し / 資産ストリームの生成（createAssetStream）—
      *     いずれも edit.json が参照する「別の実体」の解決であり、edit.json の全文からは導けない
      */
-    protected async loadPreviewModel(editUri: URI, editSource?: string): Promise<PreviewModel> {
+    protected async loadPreviewModel(
+        editUri: URI,
+        editSource?: string,
+        options: { frameEngineEnabled?: boolean } = {}
+    ): Promise<PreviewModel> {
         const [workspaceRoot] = await this.workspaceService.roots;
         const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
         // 字幕の解決（resolveCaptionDisplay = backend RPC）は edit.json の内容にも依存するので
@@ -3739,6 +3751,47 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
                 try {
                     const isImage = isImageLayerSrc(value.src);
+                    // task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面では .webm / .mov の
+                    // アルファ層を Web UI（preview-server の prepareAlphaLayers）と同じ media-bin alpha-intake
+                    // へ通し、色 mp4 を src・マスク mp4 を mask として配信する。engine は MP4 しか読めず、
+                    // 生の WebM / ProRes を渡すと本編ごと止まるため。不透明（opaque）は従来経路へ戻し、
+                    // 取り込み不能（unavailable）はその層だけ engine に渡さない。legacy 面
+                    // （frameEngineEnabled=false）は一切呼ばず、従来経路のまま。
+                    const intake = options.frameEngineEnabled === true && !isImage && isAlphaIntakeSource(value.src)
+                        ? await this.previewService.prepareAlphaIntake({
+                            videoUri: sourceUri.toString(),
+                            projectRootUri: (workspaceRoot?.resource ?? editUri.parent).toString()
+                        })
+                        : undefined;
+                    if (intake?.status === 'unavailable') {
+                        console.warn(
+                            `[akari-preview] ${label} のアルファ取り込みに失敗したため frame-engine には渡しません`,
+                            intake.reason
+                        );
+                        return {
+                            kind: 'layer',
+                            unsupportedBlend,
+                            layer: { ...base, sourceUri: sourceUri.toString(), proxyMissing: true, isImage: false }
+                        };
+                    }
+                    if (intake?.status === 'alpha') {
+                        const colorUri = new URI(intake.colorUri);
+                        const maskUri = new URI(intake.maskUri);
+                        const color = await ensureAssetStream(colorUri.toString(), colorUri);
+                        const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                        return {
+                            kind: 'layer',
+                            unsupportedBlend,
+                            layer: {
+                                ...base,
+                                src: color.url,
+                                mask: mask.url,
+                                sourceUri: sourceUri.toString(),
+                                proxyMissing: false,
+                                isImage: false
+                            }
+                        };
+                    }
                     // v2 visual media items are projected into this same video-layer branch.
                     // Route them through the exact same declared-proxy/fallback selection as cuts;
                     // images remain byte-for-byte asset streams and never trigger video probing.
