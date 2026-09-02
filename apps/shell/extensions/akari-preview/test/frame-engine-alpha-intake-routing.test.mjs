@@ -40,8 +40,8 @@ test('video layers go through the intake only on the frame-engine face and carry
     assert.ok(videoBranch, 'video layer branch is present');
     assert.match(videoBranch, /options\.frameEngineEnabled === true && !isImage && isAlphaIntakeSource\(value\.src\)/);
     assert.match(videoBranch, /this\.previewService\.prepareAlphaIntake\(\{/);
-    assert.match(videoBranch, /if \(intake\?\.status === 'unavailable'\)[\s\S]*?proxyMissing: true, isImage: false \}\);\s*continue;/);
-    assert.match(videoBranch, /if \(intake\?\.status === 'alpha'\)[\s\S]*?src: color\.url,\s*mask: mask\.url,\s*sourceUri: sourceUri\.toString\(\),/);
+    assert.match(videoBranch, /if \(intake\?\.status === 'unavailable'\)[\s\S]*?layer: \{ \.\.\.base, sourceUri: sourceUri\.toString\(\), proxyMissing: true, isImage: false \}/);
+    assert.match(videoBranch, /if \(intake\?\.status === 'alpha'\)[\s\S]*?ensureAssetStream\(maskUri\.toString\(\), maskUri\)[\s\S]*?src: color\.url,\s*mask: mask\.url,\s*sourceUri: sourceUri\.toString\(\),/);
     // opaque / legacy 面は従来どおり declared proxy → fallback → 原本の選択を通る
     assert.match(videoBranch, /await this\.resolveStreamVideoUri\(sourceUri, \{ sourcesById \}\)/);
     assert.match(openHandler, /this\.loadPreviewModel\(identityUri, editSource, \{ frameEngineEnabled \}\)/);

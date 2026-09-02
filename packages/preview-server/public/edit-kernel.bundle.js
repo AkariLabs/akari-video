@@ -289,6 +289,56 @@ function findActiveCaption(captions, sourceSeconds) {
   });
 }
 
+// ../edit-store/src/caption-clock.ts
+var EPSILON = 1e-6;
+function normalizeCaptionClock(captions, segments) {
+  const output = [];
+  for (const caption of captions) {
+    const legacyOutputCue = caption.clockDomain === "legacy" && segments.some(
+      (segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON
+    );
+    const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+    if (domain === "output" || segments.length === 0) {
+      output.push({ ...caption, clockDomain: "output" });
+      continue;
+    }
+    let occurrence = 0;
+    for (const segment of segments) {
+      if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0) continue;
+      if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId) continue;
+      const sourceStart = Math.max(caption.start, segment.in);
+      const sourceEnd = Math.min(caption.end, segment.out);
+      if (!(sourceEnd - sourceStart > EPSILON)) continue;
+      const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+      const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+      occurrence += 1;
+      const sourceCueId = caption.sourceCueId ?? caption.id;
+      const words = caption.words?.flatMap((word) => {
+        const wordStart = Math.max(word.start, sourceStart);
+        const wordEnd = Math.min(word.end, sourceEnd);
+        return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+      });
+      output.push({
+        ...caption,
+        ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+        ...sourceCueId ? { sourceCueId } : {},
+        start: projectTime(sourceStart),
+        end: projectTime(sourceEnd),
+        ...words && words.length > 0 ? { words } : { words: void 0 },
+        clockDomain: "output"
+      });
+    }
+  }
+  return output.sort((left, right) => left.start - right.start || left.end - right.end);
+}
+function captionClockDomainOf(raw) {
+  const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+  return {
+    clockDomain,
+    ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+  };
+}
+
 // ../edit-store/src/caption-style-preset.ts
 var NESTED_STYLE_FIELDS = [
   "stroke",
@@ -2885,6 +2935,7 @@ export {
   buildTimelineMap,
   buildWebAudioSchedule,
   captionAnchorPositionVars,
+  captionClockDomainOf,
   captionWindowSeconds,
   computeBgmDuckGainDb,
   computeDuckIntervals,
@@ -2894,6 +2945,7 @@ export {
   isTransitionType,
   isWithinDuckInterval,
   mergePresetTextStyle,
+  normalizeCaptionClock,
   outputToSource,
   projectSpeechDeclarations,
   resolveCaptionStylePreset,

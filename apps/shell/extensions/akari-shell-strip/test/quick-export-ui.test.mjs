@@ -14,6 +14,7 @@ test('shouldShowRenderJsonProgress: quick export phase ごとの真理値表', (
         ['linting', false],
         ['rendering', false],
         ['lint-failed', false],
+        ['cancelled', false],
         ['failed', false]
     ];
     for (const [phase, expected] of cases) {
