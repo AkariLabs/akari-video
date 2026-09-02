@@ -12,14 +12,14 @@ const tabShape = tabs => tabs.map(({ label, enabled }) => [label, enabled]);
 
 test('選択 kind ごとに正しいタブ語彙と enabled 状態を返す', () => {
   assert.deepEqual(tabShape(tabsForKind('cut')), [
-    ['動画', true], ['調整', true], ['音声', false], ['情報', true]
+    ['動画', true], ['調整', true], ['音声', true], ['情報', true]
   ]);
   for (const kind of ['layer', 'overlay', 'item']) {
     assert.deepEqual(tabShape(tabsForKind(kind, {})), [
       ['動画', true], ['調整', false], ['音声', false], ['情報', true]
     ], `${kind}: src なし`);
     assert.deepEqual(tabShape(tabsForKind(kind, { src: 'assets/source.mp4' })), [
-      ['動画', true], ['調整', true], ['音声', false], ['情報', true]
+      ['動画', true], ['調整', true], ['音声', true], ['情報', true]
     ], `${kind}: src あり`);
   }
   assert.deepEqual(tabShape(tabsForKind('caption')), [

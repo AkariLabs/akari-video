@@ -33,10 +33,11 @@ export function tabsForKind(
     }
 
     const hasMediaSource = typeof snapshotHints.src === 'string' && snapshotHints.src.length > 0;
+    const hasMediaPreview = kind === 'cut' || hasMediaSource;
     return [
         { ...VIDEO_TAB },
-        { id: 'adjust', label: '調整', enabled: kind === 'cut' || hasMediaSource },
-        { id: 'audio', label: '音声', enabled: false },
+        { id: 'adjust', label: '調整', enabled: hasMediaPreview },
+        { id: 'audio', label: '音声', enabled: hasMediaPreview },
         { ...INFO_TAB }
     ];
 }

@@ -27,6 +27,11 @@ import {
 } from './inspector/number-field';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
+    AUDIO_ITEM_PREVIEW_SECTIONS,
+    AUDIO_PREVIEW_SECTIONS,
+    type AudioPreviewSection
+} from './inspector/audio-preview';
+import {
     composeInspectorSections,
     InspectorSectionDef,
     InspectorSectionState
@@ -1676,9 +1681,20 @@ export class AkariInspectorWidget extends BaseWidget {
             ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
             return;
         }
+        if (activeTab === 'audio' && sectionKind !== 'audio') {
+            AUDIO_PREVIEW_SECTIONS.forEach(section =>
+                this.appendAdjustPreviewSection(section, sectionKind, 'audio')
+            );
+            return;
+        }
         sections
             .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
             .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
+        if (activeTab === 'audio' && sectionKind === 'audio') {
+            AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
+                this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
+            );
+        }
     }
 
     protected tabSourceHint(snapshot: InspectorSnapshot): unknown {
@@ -1720,15 +1736,16 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected appendAdjustPreviewSection(
-        section: AdjustPreviewSection,
-        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
+        section: AdjustPreviewSection | AudioPreviewSection,
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item',
+        previewKind: 'adjust' | 'audio' | 'audio-item' = 'adjust'
     ): void {
         const container = document.createElement('section');
         container.className = 'akari-inspector-section akari-inspector-section-soon';
-        container.setAttribute('data-akari-ui', `section:inspector-adjust-${section.id}`);
+        container.setAttribute('data-akari-ui', `section:inspector-${previewKind}-${section.id}`);
         const header = document.createElement('div');
         header.className = 'akari-inspector-section-header';
-        const stateId = `adjust:${section.id}`;
+        const stateId = `${previewKind}:${section.id}`;
         const collapsed = this.sectionState.isCollapsed(kind, { id: stateId });
         const toggle = document.createElement('button');
         toggle.type = 'button';
