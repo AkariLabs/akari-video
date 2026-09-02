@@ -40,10 +40,11 @@ test('trim / fade / gain / track / ducking を一つの決定論的予定表へ�
   closeTo(bgm.gainEvents[0].value, 0);
   closeTo(bgm.gainEvents[1].value, Math.pow(10, -6 / 20));
   closeTo(bgm.gainEvents[3].value, 0);
-  assert.deepEqual(bgm.duckingEvents.map(event => event.offsetSec), [0, 5, 7]);
-  closeTo(bgm.duckingEvents[0].value, 1);
-  closeTo(bgm.duckingEvents[1].value, Math.pow(10, STATIC_DUCK_GAIN_DB / 20));
-  closeTo(bgm.duckingEvents[2].value, 1);
+  // 既定値変更 2026-09-02: attack 0.3 / release 0.8 のランプ端点。
+  assert.deepEqual(bgm.envelopeEvents.map(event => event.offsetSec), [0, 4.7, 5, 7, 7.8, 20]);
+  closeTo(bgm.envelopeEvents[0].value, 1);
+  closeTo(bgm.envelopeEvents[2].value, Math.pow(10, STATIC_DUCK_GAIN_DB / 20));
+  closeTo(bgm.envelopeEvents[4].value, 1);
 
   const sfx = result.items.find(item => item.kind === 'sfx');
   assert.equal(sfx.track, 2);
@@ -97,6 +98,43 @@ test('loop:false の BGM は t/in/seek 後に素材末尾で停止する', () =>
   assert.equal(bgm.sourceOffsetSec, 3);
   assert.equal(bgm.durationSec, 2);
   assert.equal(bgm.timelineEndSec, 6);
+});
+
+test('ducking:true の SFX にも narration 鍵の envelopeEvents を出す', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 5,
+    startAtSec: 0,
+    audio: {
+      sfx: [{ id: 'bed-sfx', durationSec: 5, t: 0, ducking: true, duck_db: -6 }],
+      narration: [{ id: 'n-0001', durationSec: 1, t: 2 }],
+    },
+  });
+  const sfx = result.items.find(item => item.kind === 'sfx');
+  assert.ok(sfx.envelopeEvents.length > 0);
+  assert.ok(sfx.envelopeEvents.some(event => event.method === 'exponential'
+    && Math.abs(event.value - 10 ** (-6 / 20)) < 1e-9));
+});
+
+test('narration の ducking:true は対象として無視して envelopeEvents を作らない', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 3,
+    startAtSec: 0,
+    audio: { narration: [{ id: 'n-0001', durationSec: 2, t: 0, ducking: true }] },
+  });
+  assert.deepEqual(result.items[0].envelopeEvents, []);
+});
+
+test('既定 duck 値は旧固定 -12 dB と同じ exponential 値列になる', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 4,
+    startAtSec: 0,
+    audio: { bgm: { durationSec: 4, ducking: true } },
+    speechKeyIntervals: [{ startSec: 1, endSec: 2 }],
+  });
+  const events = result.items[0].envelopeEvents;
+  const plateau = events.filter(event => event.offsetSec >= 1 && event.offsetSec <= 2);
+  assert.ok(plateau.length >= 2);
+  plateau.forEach(event => closeTo(event.value, 10 ** (STATIC_DUCK_GAIN_DB / 20)));
 });
 
 test('不正値は音声要素単位で劣化し、有限 gain はクランプする', () => {
@@ -172,7 +210,7 @@ test('speech は speed を素材時間軸へ適用し、シーク窓と素材末
   closeTo(speech.sourceDurationSec, 3.9);
   closeTo(speech.timelineEndSec, 4.6);
   closeTo(speech.gainEvents[0].value, Math.pow(10, -6 / 20));
-  assert.deepEqual(speech.duckingEvents, []);
+  assert.deepEqual(speech.envelopeEvents, []);
   assert.deepEqual(result.duckIntervals, [{ startSec: 0, endSec: 1 }],
     'speech は narration だけから作る ducking 区間へ加わらない');
 

@@ -16,6 +16,9 @@ export interface InternalMediaSource {
     /** 素材内の再生区間（秒）。素材側は秒のまま（notes §10-1）。 */
     in: number;
     out: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
 }
 export interface InternalHtmlSource {
     kind: 'html';

@@ -150,6 +150,10 @@ function audioDeclarations(edit: any): Array<{
 
 function normalizedCuts(edit: any): FrameEngineCut[] {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+  const declaredTracks = cuts
+    .map((cut: any) => cut?.track)
+    .filter((value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0);
+  const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
   return cuts.map((cut: any, index: number) => {
     // Track 0 (the main cuts chain) stays on the sequential frame-engine timeline: renderer
     // projection includes derived at/track fields even for that path; remove them so freeze can
@@ -158,7 +162,10 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     // them chained the clip after the main track and silently dropped it past the end (issue #31).
     // Z order is the frame-engine default (higher track number in front), same as the export runtimes.
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
-    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    // 最下段は「track 0」ではなく「最小の track」（shell の normalizedCuts と同じ規則。
+    // 全カットが track 1 に載る編集で全部を絶対配置にしてしまい、freeze / transition の再計算が
+    // 効かなくなる差を塞ぐ — task/2026-09-02-preview-perf: パリティ）。
+    const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
     const placement = track > 0
       ? { track, ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {}) }
       : {};

@@ -12,6 +12,7 @@ const repositoryRoot = join(packageRoot, '../..');
 const expectedSources = [
   'audio-schedule.ts',
   'canonical.ts',
+  'caption-clock.ts',
   'caption-display.ts',
   'caption-store.ts',
   'caption-style-preset.ts',
@@ -23,6 +24,7 @@ const expectedSources = [
   'edit-store.ts',
   'edit-v2-item-write.ts',
   'edit-v2.ts',
+  'envelope.ts',
   'index.ts',
   'internal-model.ts',
   'item-anchor.ts',

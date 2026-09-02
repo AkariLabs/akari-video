@@ -10,8 +10,9 @@ const ITEM_KEYS = new Set([
     'motion', 'animator', 'keyframes', 'items', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
-    'script', 'reading', 'provenance'
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'source', 'gain_db', 'keyframes',
+    'fade_in', 'fade_out', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
+    'denoise', 'lowcut_hz', 'script', 'reading', 'provenance'
 ]);
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。
@@ -31,8 +32,19 @@ function readEditV2(json) {
     if (!Array.isArray(parsed.tracks)) {
         throw invalid('edit.json.tracks', '配列である必要があります');
     }
-    if (hasOwn(parsed, 'audio'))
+    if (hasOwn(parsed, 'audio')) {
         requireRecord(parsed.audio, 'edit.json.audio');
+        if (hasOwn(parsed.audio, 'duck_keys')) {
+            if (!Array.isArray(parsed.audio.duck_keys))
+                throw invalid('edit.json.audio.duck_keys', '配列である必要があります');
+            const keys = parsed.audio.duck_keys;
+            if (keys.some(key => key !== 'narration' && key !== 'speech')) {
+                throw invalid('edit.json.audio.duck_keys', 'narration/speech のみ指定できます');
+            }
+            if (new Set(keys).size !== keys.length)
+                throw invalid('edit.json.audio.duck_keys', '重複できません');
+        }
+    }
     if (hasOwn(parsed, 'captions') && !Array.isArray(parsed.captions)) {
         throw invalid('edit.json.captions', '配列である必要があります');
     }
@@ -154,6 +166,12 @@ function validateAudioItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'gain_db'))
         requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+    if (hasOwn(value, 'denoise'))
+        validateAudioClipDenoise(value.denoise, `${path}.denoise`);
+    if (hasOwn(value, 'lowcut_hz'))
+        requireRange(value.lowcut_hz, 0, 400, `${path}.lowcut_hz`);
+    if (hasOwn(value, 'keyframes'))
+        validateKeyframes(value.keyframes, `${path}.keyframes`, true);
     if (hasOwn(value, 'fade_in'))
         requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
     if (hasOwn(value, 'fade_out'))
@@ -161,6 +179,12 @@ function validateAudioItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
         throw invalid(`${path}.ducking`, 'boolean である必要があります');
     }
+    if (hasOwn(value, 'duck_db'))
+        requireRange(value.duck_db, -40, 0, `${path}.duck_db`);
+    if (hasOwn(value, 'duck_attack'))
+        requireRange(value.duck_attack, 0, 2, `${path}.duck_attack`);
+    if (hasOwn(value, 'duck_release'))
+        requireRange(value.duck_release, 0, 5, `${path}.duck_release`);
     if (hasOwn(value, 'script') && typeof value.script !== 'string') {
         throw invalid(`${path}.script`, 'string である必要があります');
     }
@@ -186,7 +210,7 @@ function validateNarrationProvenance(value, path) {
 }
 function validateAudioMediaSource(value, path, sourceIds) {
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+    requireExactKeys(value, new Set(['kind', 'src', 'in', 'out', 'speed', 'pitch_semitones', 'formant']), path);
     if (value.kind !== 'media')
         throw invalid(`${path}.kind`, 'media である必要があります');
     requireText(value.src, `${path}.src`);
@@ -200,6 +224,24 @@ function validateAudioMediaSource(value, path, sourceIds) {
         if (value.out <= inSeconds)
             throw invalid(path, 'audio media source は out > in である必要があります');
     }
+    if (hasOwn(value, 'speed')) {
+        requireRange(value.speed, 0.25, 4, `${path}.speed`);
+        if (value.speed === 0.25)
+            throw invalid(`${path}.speed`, '0.25 より大きい必要があります');
+    }
+    if (hasOwn(value, 'pitch_semitones'))
+        requireRange(value.pitch_semitones, -24, 24, `${path}.pitch_semitones`);
+    if (hasOwn(value, 'formant') && value.formant !== 'preserve' && value.formant !== 'shift') {
+        throw invalid(`${path}.formant`, 'preserve/shift のいずれかである必要があります');
+    }
+}
+function validateAudioClipDenoise(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['method', 'strength']), path);
+    if (value.method !== 'fft' && value.method !== 'nlm') {
+        throw invalid(`${path}.method`, 'fft/nlm のいずれかである必要があります');
+    }
+    requireRange(value.strength, 0, 1, `${path}.strength`);
 }
 function validateItem(value, path, ids, sourceIds) {
     requireRecord(value, path);
@@ -405,7 +447,7 @@ function validateEasing(value, path) {
     for (const [key, entry] of Object.entries(value))
         validateOne(entry, `${path}.${key}`);
 }
-function validateKeyframes(value, path) {
+function validateKeyframes(value, path, audio = false) {
     if (!Array.isArray(value)) {
         requireRecord(value, path);
         requireExactKeys(value, new Set(['path', 'count']), path);
@@ -421,6 +463,11 @@ function validateKeyframes(value, path) {
         const itemPath = `${path}[${index}]`;
         requireRecord(entry, itemPath);
         requireInteger(entry.t, 0, `${itemPath}.t`);
+        if (audio) {
+            if (!hasOwn(entry, 'gain_db'))
+                throw invalid(`${itemPath}.gain_db`, 'audio keyframe に必要です');
+            requireRange(entry.gain_db, -60, 12, `${itemPath}.gain_db`);
+        }
         if (hasOwn(entry, 'transform'))
             validateTransform(entry.transform, `${itemPath}.transform`);
         if (hasOwn(entry, 'crop'))

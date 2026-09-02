@@ -22,7 +22,37 @@ export interface OverlayRuntimeAssets {
     // file:// を同一オリジンで読めない（render-cut の rasterize.mjs は Puppeteer が file:// ページを
     // 直接 goto するため pathToFileURL がそのまま使えるが、こちらは Theia WebviewWidget 経由で
     // 別オリジンに描画される）ため、data: URI として埋め込む。
+    // 2026-09-02（task/2026-09-02-preview-perf）以降、shell の prepareHtml() はこの形を使わず
+    // getOverlayRuntimeAssetUrls() の URL 配信を使う。文字列形はテストと互換のために残す。
     captionFontDataUri: string;
+}
+
+/**
+ * オーバーレイ実行系・字幕フォント・frame-engine を webview へ「URL で」渡す形。
+ *
+ * getOverlayRuntimeAssets() は各資産を文字列（フォントは base64 data: URI）で返すため、
+ * prepareHtml() が組み立てる HTML が開くたびに約 15 MB（字幕フォントだけで 12.8 MB）になり、
+ * setHTML の IPC と Chromium のパースが毎回掛かっていた（task/2026-09-02-preview-perf）。
+ * こちらは資産を素材配信サーバー（127.0.0.1 の Range サーバー）の固定ルート
+ * `/static/<content-hash>/<name>` で配り、HTML には <script src> と @font-face url() だけを
+ * 埋める。パスに内容ハッシュを含むので immutable キャッシュが効き、2 回目以降の setHTML は
+ * 資産の転送もパースも起こさない。interactionCss だけは style-src 'unsafe-inline' の既定に
+ * 合わせて文字列のまま返す（数十 KB）。
+ */
+export interface OverlayRuntimeAssetUrls {
+    /** 資産を配るオリジン（http://127.0.0.1:<port>）。CSP の script-src / font-src に載せる。 */
+    origin: string;
+    threeJavaScriptUrl: string;
+    threeTextJavaScriptUrl: string;
+    threeRuntimeJavaScriptUrl: string;
+    videoFxJavaScriptUrl: string;
+    runtimeJavaScriptUrl: string;
+    interactionJavaScriptUrl: string;
+    interactionCss: string;
+    webviewKernelJavaScriptUrl: string;
+    /** includeFrameEngine 指定時のみ。バンドルが無い（legacy 明示）時は undefined。 */
+    frameEngineJavaScriptUrl?: string;
+    captionFontUrl: string;
 }
 
 export interface ReadVideoFxLutRequest {
@@ -221,6 +251,20 @@ export type ResolveHevcProxyResult =
     | { status: 'ready'; proxyUri: string }
     | { status: 'unavailable'; reason: ResolveHevcProxyUnavailableReason };
 
+// task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面のアルファ層（.webm / .mov）を
+// Web UI（packages/preview-server）と同じ media-bin alpha-intake で「色 mp4 + マスク mp4」へ取り込む。
+// 派生物は入力の隣（<name>.color.mp4 / <name>.mask.mp4）に置かれ、Web UI と shell がキャッシュを共有する。
+// frame-engine は MP4 しか読めないため、生の WebM / ProRes を渡すと本編ごと止まる（invalid box）。
+export interface PrepareAlphaIntakeRequest {
+    videoUri: string;
+    projectRootUri: string;
+}
+
+export type PrepareAlphaIntakeResult =
+    | { status: 'alpha'; colorUri: string; maskUri: string; maskFormat: string; skipped: boolean }
+    | { status: 'opaque' }
+    | { status: 'unavailable'; reason: string };
+
 // CF-write: layerWrite/audioWrite の書き込み前ゲート。edit.json の候補全文を実際には書き込まず
 // packages/edit-lint（呼び出しのみ・改変禁止）で検証する。プロジェクトルートの兄弟ファイル
 // （source 動画・captions.json 等）はシンボリックリンクで一時ディレクトリへ写し、参照整合チェックが
@@ -269,6 +313,7 @@ export interface ResolvedCaptionDisplayPayload {
 
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;
+    getOverlayRuntimeAssetUrls(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssetUrls>;
     readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;
@@ -278,6 +323,7 @@ export interface AkariPreviewService {
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;
     disposeTranscodedAudioStream(id: string): Promise<void>;
     resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult>;
+    prepareAlphaIntake(request: PrepareAlphaIntakeRequest): Promise<PrepareAlphaIntakeResult>;
     probeAudioPresence(request: ProbeAudioPresenceRequest): Promise<ProbeAudioPresenceResult>;
     startReviewSession(request: StartReviewSessionRequest): Promise<StartReviewSessionResult>;
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;

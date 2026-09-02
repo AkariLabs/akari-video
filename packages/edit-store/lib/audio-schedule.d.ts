@@ -7,6 +7,11 @@ export interface WebAudioDecodedItem {
     t?: unknown;
     in?: unknown;
     out?: unknown;
+    speed?: unknown;
+    pitch_semitones?: unknown;
+    formant?: unknown;
+    denoise?: unknown;
+    lowcut_hz?: unknown;
     loop?: unknown;
     track?: unknown;
     gain_db?: unknown;
@@ -16,6 +21,10 @@ export interface WebAudioDecodedItem {
     fade_in?: unknown;
     fade_out?: unknown;
     ducking?: unknown;
+    duck_db?: unknown;
+    duck_attack?: unknown;
+    duck_release?: unknown;
+    keyframes?: unknown;
     /** 重い WAV の trim 済み FLAC。存在すると in/out はサイドカー生成時に適用済み。 */
     sidecar?: WebAudioSidecar;
 }
@@ -33,6 +42,7 @@ export interface WebAudioScheduleDeclaration {
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
     speech?: WebAudioSpeechDeclaration[];
+    duck_keys?: unknown;
 }
 export interface WebAudioSpeechDeclaration {
     id: string;
@@ -75,7 +85,7 @@ export interface WebAudioGainEvent {
     /** AudioBufferSourceNode の start 時刻からの相対秒。 */
     offsetSec: number;
     value: number;
-    method: 'set' | 'linear';
+    method: 'set' | 'linear' | 'exponential';
 }
 export interface WebAudioScheduledItem {
     kind: WebAudioScheduleKind;
@@ -93,13 +103,17 @@ export interface WebAudioScheduledItem {
     loop: boolean;
     gainDb: number;
     gainEvents: WebAudioGainEvent[];
-    /** BGM 専用。base gain/fade と別 GainNode に適用する矩形ダッキング。 */
-    duckingEvents: WebAudioGainEvent[];
+    /** base gain/fade と別 GainNode に適用する keyframe + ducking エンベロープ。 */
+    envelopeEvents: WebAudioGainEvent[];
 }
 export interface WebAudioScheduleInput {
     timelineDurationSec: number;
     startAtSec: number;
     audio?: WebAudioScheduleDeclaration;
+    /** narration 以外から得たタイムライン上の duck 鍵区間。 */
+    duckKeyIntervals?: DuckInterval[];
+    /** duckKeyIntervals の互換別名。 */
+    speechKeyIntervals?: DuckInterval[];
 }
 export interface WebAudioScheduleResult {
     timelineDurationSec: number;

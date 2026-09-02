@@ -29,6 +29,7 @@ import {
     type ProjectItemV2,
     type KeyframeProperty,
 } from '@akari-video/edit-store';
+import { normalizeAudioKeyframes, type AudioEnvelopeKeyframe } from './audio-envelope-store';
 
 export type EditV2Document = Record<string, unknown>;
 export type EditV2Lane = 'visual' | 'audio';
@@ -60,7 +61,7 @@ export function updateAudioSfx(
     const value = cloneDocument(doc);
     const sfx = audioSfxOf(value);
     const index = findAudioSfxIndex(sfx, options.sfxId);
-    const patch = { ...options.patch };
+    const patch = normalizeLegacyAudioPatch(options.patch);
     if (Object.prototype.hasOwnProperty.call(patch, 't')) requireSeconds(patch.t, 'audio.sfx[].t');
     for (const field of ['in', 'out', 'fade_in', 'fade_out'] as const) {
         if (Object.prototype.hasOwnProperty.call(patch, field) && patch[field] !== null) {
@@ -268,8 +269,10 @@ export function prepareV2KeyframeDistribution(doc: EditV2Document): {
 } {
     const document = cloneDocument(doc);
     const writes: KeyframeMotionWrite[] = [];
-    const visit = (item: UnknownRecord, ancestors: UnknownRecord[]): void => {
-        if (Array.isArray(item.keyframes) && item.keyframes.length >= 9 && typeof item.id === 'string') {
+    const visit = (item: UnknownRecord, ancestors: UnknownRecord[], audioLane: boolean): void => {
+        const audioItem = audioLane || typeof item.role === 'string';
+        if (!audioItem && Array.isArray(item.keyframes) && item.keyframes.length >= 9
+            && typeof item.id === 'string') {
             const nearest = ancestors[ancestors.length - 1];
             const group = typeof nearest?.id === 'string' ? nearest.id : item.id;
             const path = `motion/${group}.json`;
@@ -277,12 +280,13 @@ export function prepareV2KeyframeDistribution(doc: EditV2Document): {
             item.keyframes = { path, count: item.keyframes.length };
         }
         if (Array.isArray(item.items)) {
-            for (const child of item.items) if (isRecord(child)) visit(child, [...ancestors, item]);
+            for (const child of item.items) if (isRecord(child)) visit(child, [...ancestors, item], audioLane);
         }
     };
     for (const track of tracksOf(document)) {
         if (!Array.isArray(track.items)) continue;
-        for (const item of track.items) if (isRecord(item)) visit(item, []);
+        const audioLane = track.lane === 'audio';
+        for (const item of track.items) if (isRecord(item)) visit(item, [], audioLane);
     }
     return { document, writes };
 }
@@ -347,8 +351,8 @@ export function updateAudioSfxPreferV2(
     options: { sfxId: string; itemPatch: UnknownRecord; legacyPatch: UnknownRecord }
 ): EditV2Document {
     return indexEditV2Items(doc).has(options.sfxId)
-        ? updateItem(doc, { itemId: options.sfxId, patch: options.itemPatch })
-        : updateAudioSfx(doc, { sfxId: options.sfxId, patch: options.legacyPatch });
+        ? updateAudioItemEnvelope(doc, { itemId: options.sfxId, patch: options.itemPatch })
+        : updateAudioSfx(doc, { sfxId: options.sfxId, patch: normalizeLegacyAudioPatch(options.legacyPatch) });
 }
 
 export function removeAudioSfxPreferV2(doc: EditV2Document, sfxId: string): EditV2Document {
@@ -415,6 +419,77 @@ export function updateAudioNarrationGainPreferV2(
         value.audio.narration[index], { gain_db: options.gainDb }
     );
     return value;
+}
+
+export function updateAudioNarrationPreferV2(
+    doc: EditV2Document,
+    options: { narrationId: string; itemPatch: UnknownRecord; legacyPatch: UnknownRecord }
+): EditV2Document {
+    if (indexEditV2Items(doc).has(options.narrationId)) {
+        return updateAudioItemEnvelope(doc, { itemId: options.narrationId, patch: options.itemPatch });
+    }
+    const value = cloneDocument(doc);
+    if (!isRecord(value.audio) || !Array.isArray(value.audio.narration)
+        || !value.audio.narration.every(isRecord)) {
+        throw new Error('edit.json.audio.narration が見つかりません。');
+    }
+    const index = value.audio.narration.findIndex((entry, entryIndex) =>
+        (typeof entry.id === 'string' && entry.id.trim() ? entry.id : `narration-${entryIndex}`)
+        === options.narrationId);
+    if (index < 0) throw new Error(`ナレーションが見つかりません: ${options.narrationId}`);
+    value.audio.narration[index] = mergeNullable(
+        value.audio.narration[index], normalizeLegacyAudioPatch(options.legacyPatch)
+    );
+    return value;
+}
+
+export function updateAudioItemEnvelope(
+    doc: EditV2Document,
+    options: { itemId: string; patch: UnknownRecord }
+): EditV2Document {
+    return updateItem(doc, { itemId: options.itemId, patch: normalizeV2AudioPatch(options.patch) });
+}
+
+function normalizeV2AudioPatch(patch: UnknownRecord): UnknownRecord {
+    const next = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(next, 'keyframes')) {
+        const raw = next.keyframes;
+        if (raw !== null && !Array.isArray(raw)) throw new Error('keyframes は配列で指定してください。');
+        const normalized = normalizeAudioKeyframes(raw as AudioEnvelopeKeyframe[] | null);
+        if (normalized?.some(point => !Number.isInteger(point.t))) {
+            throw new Error('v2 keyframes[].t は整数フレームで指定してください。');
+        }
+        next.keyframes = normalized;
+    }
+    validateAudioEnvelopePatch(next);
+    return next;
+}
+
+function normalizeLegacyAudioPatch(patch: UnknownRecord): UnknownRecord {
+    const next = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(next, 'keyframes')) {
+        const raw = next.keyframes;
+        if (raw !== null && !Array.isArray(raw)) throw new Error('keyframes は配列で指定してください。');
+        next.keyframes = normalizeAudioKeyframes(raw as AudioEnvelopeKeyframe[] | null);
+    }
+    validateAudioEnvelopePatch(next);
+    return next;
+}
+
+function validateAudioEnvelopePatch(patch: UnknownRecord): void {
+    const ranges: Array<[string, number, number]> = [
+        ['gain_db', -60, 12], ['duck_db', -40, 0], ['duck_attack', 0, 2], ['duck_release', 0, 5]
+    ];
+    for (const [key, min, max] of ranges) {
+        const value = patch[key];
+        if (value !== undefined && value !== null
+            && (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max)) {
+            throw new Error(`${key} は ${min}〜${max} の範囲で指定してください。`);
+        }
+    }
+    if (patch.ducking !== undefined && patch.ducking !== null && typeof patch.ducking !== 'boolean') {
+        throw new Error('ducking は boolean で指定してください。');
+    }
 }
 
 export function removeAudioNarrationPreferV2(
@@ -540,7 +615,10 @@ export function updateItem(
                 }
             }
         }
-        for (const key of ['gain_db', 'fade_in', 'fade_out', 'track'] as const) {
+        for (const key of [
+            'gain_db', 'fade_in', 'fade_out', 'track',
+            'ducking', 'duck_db', 'duck_attack', 'duck_release', 'keyframes'
+        ] as const) {
             if (Object.prototype.hasOwnProperty.call(options.patch, key)) patch[key] = options.patch[key];
         }
         return updateAudioSfx(doc, { sfxId: options.itemId, patch });

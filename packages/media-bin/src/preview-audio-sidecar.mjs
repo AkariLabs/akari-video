@@ -5,7 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 
 import { resolveFfmpeg, resolveFfprobe } from './index.mjs';
 
-export const PREVIEW_AUDIO_RECIPE = 'preview-audio-flac-v1';
+export const PREVIEW_AUDIO_RECIPE = 'preview-audio-flac-v2';
 
 // Process-wide ceilings for the child processes this module starts. Both callers (the Theia
 // backend that also serves media bytes over HTTP Range, and preview-server's /api/summary)
@@ -221,6 +221,104 @@ async function acquireFileLock(lockPath) {
   }
 }
 
+export function normalizeAudioClipFx(value = {}) {
+  const denoise = value?.denoise && typeof value.denoise === 'object'
+    && (value.denoise.method === 'fft' || value.denoise.method === 'nlm')
+    && finiteNonNegative(value.denoise.strength) && value.denoise.strength <= 1
+    ? { method: value.denoise.method, strength: value.denoise.strength }
+    : null;
+  return {
+    speed: finitePositive(value?.speed) ? value.speed : 1,
+    pitchSemitones: typeof value?.pitch_semitones === 'number' && Number.isFinite(value.pitch_semitones)
+      ? value.pitch_semitones : 0,
+    formant: value?.formant === 'shift' ? 'shift' : 'preserve',
+    denoise,
+    lowcutHz: finiteNonNegative(value?.lowcut_hz) ? value.lowcut_hz : 0,
+  };
+}
+
+export function hasAudioClipFx(value = {}) {
+  const normalized = normalizeAudioClipFx(value);
+  return normalized.speed !== 1 || normalized.pitchSemitones !== 0
+    || normalized.denoise !== null || normalized.lowcutHz > 0;
+}
+
+// Single canonical clip-FX chain shared by render-cut and preview sidecars.
+export function buildAudioClipFxFilters(value = {}) {
+  const normalized = normalizeAudioClipFx(value);
+  const filters = [];
+  if (normalized.lowcutHz > 0) {
+    const highpass = `highpass=f=${formatNumber(normalized.lowcutHz)}:p=2`;
+    filters.push(highpass, highpass);
+  }
+  if (normalized.denoise?.method === 'fft') {
+    filters.push(`afftdn=nr=${formatNumber(12 + normalized.denoise.strength * 76)}:nf=-30`);
+  } else if (normalized.denoise?.method === 'nlm') {
+    filters.push(`anlmdn=s=${formatNumber(0.00001 + normalized.denoise.strength * 0.0002)}`);
+  }
+  if (normalized.speed !== 1 || normalized.pitchSemitones !== 0) {
+    filters.push([
+      `rubberband=tempo=${formatNumber(normalized.speed)}`,
+      `pitch=${formatNumber(2 ** (normalized.pitchSemitones / 12))}`,
+      `formant=${normalized.formant === 'shift' ? 'shifted' : 'preserved'}`,
+      'pitchq=quality',
+    ].join(':'));
+  }
+  return filters;
+}
+
+export function buildPreviewAudioFilterChain(options) {
+  const padBeforeSec = options?.padBeforeSec ?? 0;
+  const padAfterSec = options?.padAfterSec ?? 0;
+  if (options?.clipFx) {
+    return [
+      `atrim=start=${formatNumber(Math.max(0, options.inSec - padBeforeSec))}:end=${formatNumber(options.outSec + padAfterSec)}`,
+      'asetpts=PTS-STARTPTS',
+      ...buildAudioClipFxFilters(options.clipFx),
+    ];
+  }
+  return [
+    'asetpts=PTS-STARTPTS',
+    ...buildAtempoChain(options?.speed ?? 1).map(factor => `atempo=${formatNumber(factor)}`),
+  ];
+}
+
+function validateAudioClipFx(value) {
+  if (!value || typeof value !== 'object') throw new Error('clipFx must be an object');
+  if (value.speed !== undefined && (!finitePositive(value.speed) || value.speed <= 0.25 || value.speed > 4)) {
+    throw new Error('clipFx.speed must be within (0.25, 4]');
+  }
+  if (value.pitch_semitones !== undefined && (typeof value.pitch_semitones !== 'number'
+      || !Number.isFinite(value.pitch_semitones) || value.pitch_semitones < -24 || value.pitch_semitones > 24)) {
+    throw new Error('clipFx.pitch_semitones must be within [-24, 24]');
+  }
+  if (value.formant !== undefined && value.formant !== 'preserve' && value.formant !== 'shift') {
+    throw new Error('clipFx.formant must be preserve or shift');
+  }
+  if (value.lowcut_hz !== undefined && (!finiteNonNegative(value.lowcut_hz) || value.lowcut_hz > 400)) {
+    throw new Error('clipFx.lowcut_hz must be within [0, 400]');
+  }
+  if (value.denoise !== undefined && (!value.denoise || typeof value.denoise !== 'object'
+      || (value.denoise.method !== 'fft' && value.denoise.method !== 'nlm')
+      || !finiteNonNegative(value.denoise.strength) || value.denoise.strength > 1)) {
+    throw new Error('clipFx.denoise must contain fft|nlm and strength within [0, 1]');
+  }
+}
+
+export function previewAudioSidecarKey(options) {
+  return keyFor(path.resolve(options.sourcePath), {
+    size: options.size,
+    mtimeMs: options.mtimeMs,
+  }, {
+    inSec: options.inSec,
+    outSec: options.outSec,
+    speed: options.speed,
+    padBeforeSec: options.padBeforeSec ?? 0,
+    padAfterSec: options.padAfterSec ?? 0,
+    filters: buildPreviewAudioFilterChain(options),
+  });
+}
+
 function keyFor(sourcePath, stat, values) {
   return crypto.createHash('sha1').update([
     sourcePath,
@@ -231,6 +329,7 @@ function keyFor(sourcePath, stat, values) {
     formatNumber(values.speed),
     formatNumber(values.padBeforeSec),
     formatNumber(values.padAfterSec),
+    ...(values.filters ?? []),
     PREVIEW_AUDIO_RECIPE,
   ].join('|')).digest('hex');
 }
@@ -328,6 +427,7 @@ function prepare(options, state) {
     || !finiteNonNegative(padBeforeSec) || !finiteNonNegative(padAfterSec)) {
     throw new Error('inSec, outSec, speed, and pads must describe a positive source range');
   }
+  if (options.clipFx) validateAudioClipFx(options.clipFx);
   if (typeof options.cacheDir !== 'string' || !options.cacheDir) {
     throw new Error('cacheDir is required');
   }
@@ -340,6 +440,7 @@ function prepare(options, state) {
     speed: options.speed,
     padBeforeSec,
     padAfterSec,
+    filters: buildPreviewAudioFilterChain({ ...options, padBeforeSec, padAfterSec }),
   };
   state.key = keyFor(sourcePath, stat, values);
   const outputDirectory = path.resolve(options.cacheDir, 'preview-audio');
@@ -353,6 +454,8 @@ function prepare(options, state) {
     startSec: Math.max(0, options.inSec - padBeforeSec),
     endSec: options.outSec + padAfterSec,
     speed: options.speed,
+    clipFx: options.clipFx,
+    filters: values.filters,
   };
 }
 
@@ -368,8 +471,12 @@ async function generate(prepared, options) {
   const { sourcePath, outputDirectory, outputPath, key } = prepared;
   const settings = settingsFrom(options);
   const ffprobeOf = () => options.ffprobe ?? defaultFfprobe();
+  // テスト・呼び出し側の注入シーム（T4 由来）: probeAudio があれば同期関数として尊重する。
+  const inspectAudio = async (p) => (typeof options.probeAudio === 'function'
+    ? options.probeAudio(p, ffprobeOf())
+    : probeAudioAsync(p, ffprobeOf(), settings));
   const fromExisting = async () => {
-    const metadata = await probeAudioAsync(outputPath, ffprobeOf(), settings);
+    const metadata = await inspectAudio(outputPath);
     return {
       ok: true, skipped: true, path: outputPath, key,
       durationSec: metadata.durationSec,
@@ -387,14 +494,14 @@ async function generate(prepared, options) {
     const temporary = path.join(outputDirectory,
       `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp.flac`);
     try {
-      const filters = [
+      const filters = prepared.filters ?? [
         'asetpts=PTS-STARTPTS',
         ...buildAtempoChain(prepared.speed).map(factor => `atempo=${formatNumber(factor)}`),
       ];
       const ffmpeg = options.ffmpeg ?? resolveFfmpeg();
       const result = await ffmpegSlots.run(settings.concurrency.ffmpeg, () => runProcess(ffmpeg, [
         '-hide_banner', '-nostdin', '-loglevel', 'error',
-        '-ss', formatNumber(prepared.startSec), '-to', formatNumber(prepared.endSec),
+        ...(!prepared.clipFx ? ['-ss', formatNumber(prepared.startSec), '-to', formatNumber(prepared.endSec)] : []),
         '-i', sourcePath,
         '-map', '0:a:0', '-vn',
         '-af', filters.join(','),
@@ -408,7 +515,7 @@ async function generate(prepared, options) {
       if (!outputStat.isFile() || outputStat.size <= 42) {
         throw new Error('ffmpeg created an empty preview audio sidecar');
       }
-      const metadata = await probeAudioAsync(temporary, ffprobeOf(), settings);
+      const metadata = await inspectAudio(temporary);
       if (metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
       fs.renameSync(temporary, outputPath);
       return {

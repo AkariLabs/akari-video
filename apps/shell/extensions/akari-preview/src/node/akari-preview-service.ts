@@ -4,7 +4,7 @@ import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
 import { projectLegacyEdit, readInternalEdit, resolveCaptionDisplay } from '@akari-video/edit-store';
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
 import { FileHandle, lstat, mkdtemp, open, readFile, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
@@ -23,6 +23,7 @@ import {
     LintEditCandidateResult,
     ListReviewSessionsRequest,
     OverlayRuntimeAssets,
+    OverlayRuntimeAssetUrls,
     ProbeAudioPresenceRequest,
     ProbeAudioPresenceResult,
     ReadReviewSessionStrokesRequest,
@@ -32,6 +33,8 @@ import {
     ReadVideoFxLutRequest,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
+    PrepareAlphaIntakeRequest,
+    PrepareAlphaIntakeResult,
     ReviewSessionSummary,
     ResolveCaptionDisplayRequest,
     ResolvedCaptionDisplayPayload,
@@ -50,6 +53,7 @@ import {
     resolvePreviewEmphasisWords
 } from '../common/preview-emphasis-seat';
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
+import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
 
 interface StreamTarget {
@@ -76,6 +80,13 @@ interface PrepareSpeechAtempoRequest {
     padBeforeSec?: number;
     padAfterSec?: number;
     heavyWavOnly?: boolean;
+    clipFx?: {
+        speed?: number;
+        pitch_semitones?: number;
+        formant?: 'preserve' | 'shift';
+        denoise?: { method: 'fft' | 'nlm'; strength: number };
+        lowcut_hz?: number;
+    };
     workspaceRoots?: string[];
 }
 
@@ -230,6 +241,23 @@ const MAX_TRANSCODE_INPUT_BYTES = 50 * 1024 * 1024;
 const MAX_TRANSCODE_OUTPUT_BYTES = 200 * 1024 * 1024;
 const TRANSCODE_TIMEOUT_MS = 30_000;
 
+interface StaticAsset {
+    body: Buffer;
+    mimeType: string;
+}
+
+interface OverlayRuntimeSources {
+    three: Buffer;
+    threeText: Buffer;
+    threeRuntime: Buffer;
+    videoFx: Buffer;
+    runtime: Buffer;
+    interaction: Buffer;
+    interactionCss: string;
+    webviewKernel: Buffer;
+    captionFont: Buffer;
+}
+
 @injectable()
 export class AkariPreviewServiceImpl implements AkariPreviewService {
     @inject(WorkspaceServer)
@@ -237,6 +265,14 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     protected assets: OverlayRuntimeAssets | undefined;
     protected frameEngineJavaScript: string | undefined;
+    // 資産の生バイト（プロセス寿命でメモ化）。getOverlayRuntimeAssets() の文字列形と
+    // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
+    protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
+    protected frameEngineSource: Buffer | null | undefined;
+    // URL 配信: `/static/<content-hash>/<name>` → 本体。内容が変わらない限り同じ URL を返す
+    // （webview 側の immutable キャッシュを setHTML をまたいで有効に保つ）。
+    protected staticAssets = new Map<string, StaticAsset>();
+    protected staticRoutesByName = new Map<string, string>();
     protected server: Server | undefined;
     protected serverPort: number | undefined;
     protected serverStartup: Promise<number> | undefined;
@@ -272,46 +308,109 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         });
     }
 
-    async getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets> {
-        if (!this.assets) {
+    protected loadOverlayRuntimeSources(): OverlayRuntimeSources {
+        if (!this.overlayRuntimeSources) {
             const directory = this.findOverlayRuntimeDirectory();
-            this.assets = {
-                threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
-                threeTextJavaScript: readFileSync(resolve(directory, 'vendor/vendor-3d-text-bundle.js'), 'utf8'),
-                threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
-                videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
+            const read = (name: string): Buffer => readFileSync(resolve(directory, name));
+            const readText = (name: string): string => read(name).toString('utf8');
+            this.overlayRuntimeSources = {
+                three: read('vendor/three-bundle.js'),
+                threeText: read('vendor/vendor-3d-text-bundle.js'),
+                threeRuntime: read('three-runtime.js'),
+                videoFx: read('video-fx.js'),
                 // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
                 // viewport-units.js は断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準で解決する
                 // 書き換え（overlay-runtime.js の mount が使う）。keyframes.mjs は export 行だけを
                 // 除いて browser global を自己登録する。いずれも runtimeJavaScript の先頭へ
                 // 同梱し、公開プロトコルの資産フィールドは増やさない。
-                runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
-                    readFileSync(resolve(directory, 'viewport-units.js'), 'utf8')
+                runtime: Buffer.from(`${readText('slot-params.js')}\n${
+                    readText('viewport-units.js')
                 }\n${
-                    readFileSync(resolve(directory, 'keyframes.mjs'), 'utf8')
+                    readText('keyframes.mjs')
                         .replace(/\nexport \{ interpolateKeyframes \};\s*$/u, '\n')
                 }\n${
-                    readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8')
+                    readText('overlay-runtime.js')
                 }\n${
                     ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT
-                }`,
-                interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
-                interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
-                webviewKernelJavaScript: readFileSync(this.findWebviewKernelBundle(), 'utf8'),
+                }`, 'utf8'),
+                interaction: read('interaction.js'),
+                interactionCss: readText('interaction.css'),
+                webviewKernel: readFileSync(this.findWebviewKernelBundle()),
+                captionFont: readFileSync(this.findCaptionFontPath())
+            };
+        }
+        return this.overlayRuntimeSources;
+    }
+
+    protected loadFrameEngineSource(): Buffer | undefined {
+        if (this.frameEngineSource === undefined) {
+            const bundle = this.findFrameEngineBundle();
+            this.frameEngineSource = bundle ? readFileSync(bundle) : null;
+        }
+        return this.frameEngineSource ?? undefined;
+    }
+
+    async getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets> {
+        if (!this.assets) {
+            const sources = this.loadOverlayRuntimeSources();
+            this.assets = {
+                threeJavaScript: sources.three.toString('utf8'),
+                threeTextJavaScript: sources.threeText.toString('utf8'),
+                threeRuntimeJavaScript: sources.threeRuntime.toString('utf8'),
+                videoFxJavaScript: sources.videoFx.toString('utf8'),
+                runtimeJavaScript: sources.runtime.toString('utf8'),
+                interactionJavaScript: sources.interaction.toString('utf8'),
+                interactionCss: sources.interactionCss,
+                webviewKernelJavaScript: sources.webviewKernel.toString('utf8'),
                 captionFontDataUri: this.readCaptionFontDataUri()
             };
         }
         if (options?.includeFrameEngine !== true) {
             return this.assets;
         }
-        if (this.frameEngineJavaScript === undefined) {
-            const bundle = this.findFrameEngineBundle();
-            if (!bundle) {
-                return this.assets;
-            }
-            this.frameEngineJavaScript = readFileSync(bundle, 'utf8');
+        const frameEngine = this.loadFrameEngineSource();
+        if (!frameEngine) {
+            return this.assets;
         }
+        this.frameEngineJavaScript ??= frameEngine.toString('utf8');
         return { ...this.assets, frameEngineJavaScript: this.frameEngineJavaScript };
+    }
+
+    // 資産を配信サーバーの固定ルートで配る（OverlayRuntimeAssetUrls のコメント参照）。
+    // ハッシュは内容の sha256 先頭 16 hex。同じ名前は同じ URL を返す（プロセス内で内容は不変）。
+    async getOverlayRuntimeAssetUrls(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssetUrls> {
+        const sources = this.loadOverlayRuntimeSources();
+        const frameEngine = options?.includeFrameEngine === true ? this.loadFrameEngineSource() : undefined;
+        const port = await this.ensureServer();
+        const origin = `http://127.0.0.1:${port}`;
+        const javascript = 'text/javascript; charset=utf-8';
+        const url = (name: string, body: Buffer, mimeType: string): string =>
+            `${origin}${this.registerStaticAsset(name, body, mimeType)}`;
+        return {
+            origin,
+            threeJavaScriptUrl: url('three-bundle.js', sources.three, javascript),
+            threeTextJavaScriptUrl: url('vendor-3d-text-bundle.js', sources.threeText, javascript),
+            threeRuntimeJavaScriptUrl: url('three-runtime.js', sources.threeRuntime, javascript),
+            videoFxJavaScriptUrl: url('video-fx.js', sources.videoFx, javascript),
+            runtimeJavaScriptUrl: url('overlay-runtime.js', sources.runtime, javascript),
+            interactionJavaScriptUrl: url('interaction.js', sources.interaction, javascript),
+            interactionCss: sources.interactionCss,
+            webviewKernelJavaScriptUrl: url('webview-kernel.js', sources.webviewKernel, javascript),
+            ...(frameEngine ? { frameEngineJavaScriptUrl: url('frame-engine.js', frameEngine, javascript) } : {}),
+            captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf')
+        };
+    }
+
+    protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
+        const known = this.staticRoutesByName.get(name);
+        if (known) {
+            return known;
+        }
+        const hash = createHash('sha256').update(body).digest('hex').slice(0, 16);
+        const route = `/static/${hash}/${name}`;
+        this.staticAssets.set(route, { body, mimeType });
+        this.staticRoutesByName.set(name, route);
+        return route;
     }
 
     async readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string> {
@@ -344,9 +443,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // base64 data: URI として読み込む。getOverlayRuntimeAssets() のメモ化 (this.assets) に
     // 相乗りするため、この読み込み自体は初回のみ発生する。
     protected readCaptionFontDataUri(): string {
-        const fontPath = this.findCaptionFontPath();
-        const bytes = readFileSync(fontPath);
-        return `data:font/ttf;base64,${bytes.toString('base64')}`;
+        return `data:font/ttf;base64,${this.loadOverlayRuntimeSources().captionFont.toString('base64')}`;
     }
 
     protected findCaptionFontPath(): string {
@@ -428,6 +525,40 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return result;
     }
 
+    // task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面のアルファ層を Web UI と同じ
+    // media-bin alpha-intake へ通す。派生物（<name>.color.mp4 / <name>.mask.mp4）は入力の隣へ書くので、
+    // 入力がプロジェクト内にあることを先に確かめる（ワークスペース外へは 1 バイトも書かない）。
+    async prepareAlphaIntake(request: PrepareAlphaIntakeRequest): Promise<PrepareAlphaIntakeResult> {
+        if (!request || typeof request.videoUri !== 'string' || typeof request.projectRootUri !== 'string') {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        let videoPath: string;
+        let projectRoot: string;
+        try {
+            videoPath = resolve(this.filePath(request.videoUri));
+            projectRoot = resolve(this.filePath(request.projectRootUri));
+        } catch {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        if (!this.contains(projectRoot, videoPath)) {
+            return { status: 'unavailable', reason: 'outside-project' };
+        }
+        const outcome = await prepareAlphaIntake(videoPath);
+        if (outcome.status === 'opaque') {
+            return { status: 'opaque' };
+        }
+        if (outcome.status === 'unavailable') {
+            return { status: 'unavailable', reason: outcome.reason };
+        }
+        return {
+            status: 'alpha',
+            colorUri: pathToFileURL(outcome.colorPath).toString(),
+            maskUri: pathToFileURL(outcome.maskPath).toString(),
+            maskFormat: outcome.maskFormat,
+            skipped: outcome.skipped
+        };
+    }
+
     // task/2026-08-10-preview-bug-sweep (B1): replaces the browser-side
     // webkitAudioDecodedByteCount heuristic (confirmed stuck at 0 for real audible sources on
     // this app's Electron/Chromium build) with an ffprobe ground-truth check of the source file.
@@ -479,7 +610,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
             const module = await this.loadSpeechAtempoModule();
             const sourceStat = await stat(sourcePath);
-            if (request.heavyWavOnly === true
+            if (request.heavyWavOnly === true && request.clipFx === undefined
                 && (extname(sourcePath).toLowerCase() !== '.wav' || sourceStat.size <= 8 * 1024 * 1024)) {
                 return {
                     ok: false, skipped: false, eligible: false,
@@ -500,6 +631,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 speed: request.speed,
                 padBeforeSec: request.padBeforeSec ?? 0,
                 padAfterSec: request.padAfterSec ?? 0,
+                ...(request.clipFx !== undefined ? { clipFx: request.clipFx } : {}),
                 ffmpeg: await resolveFfmpegPath(),
                 cacheDir: join(projectRoot, '.akari', 'cache')
             });
@@ -511,7 +643,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     durationSec: 0,
                     generatedMs,
                     eligible: true,
-                    reason: result.reason ?? 'preview audio sidecar generation failed'
+                    reason: `${request.clipFx !== undefined
+                        ? 'preview approximation will differ from export: ' : ''}${
+                        result.reason ?? 'preview audio sidecar generation failed'}`
                 };
             }
             const stream = await this.createAssetStream({
@@ -536,7 +670,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 skipped: false,
                 durationSec: 0,
                 generatedMs: Date.now() - startedAt,
-                reason: error instanceof Error ? error.message : String(error)
+                reason: `${request?.clipFx !== undefined
+                    ? 'preview approximation will differ from export: ' : ''}${
+                    error instanceof Error ? error.message : String(error)}`
             };
         }
     }
@@ -1196,6 +1332,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+        const staticAsset = this.staticAssets.get(request.url ?? '');
+        if (staticAsset) {
+            this.serveStaticAsset(request, response, staticAsset);
+            return;
+        }
         const mediaMatch = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const assetMatch = /^\/asset\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const transcodedAudioMatch = /^\/transcoded-audio\/([a-f0-9]{64})$/.exec(request.url ?? '');
@@ -1253,6 +1394,27 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         } catch {
             this.respond(response, 404);
         }
+    }
+
+    // 内容ハッシュ付きの固定ルートなので immutable。フォントは別オリジン（webview）から
+    // 読まれるため CORS を開ける（@font-face は CORS 必須。script は不要だが害も無い）。
+    protected serveStaticAsset(request: IncomingMessage, response: ServerResponse, asset: StaticAsset): void {
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+            response.setHeader('Allow', 'GET, HEAD');
+            this.respond(response, 405);
+            return;
+        }
+        response.statusCode = 200;
+        response.setHeader('Access-Control-Allow-Origin', '*');
+        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        response.setHeader('Content-Type', asset.mimeType);
+        response.setHeader('Content-Length', asset.body.byteLength);
+        response.setHeader('X-Content-Type-Options', 'nosniff');
+        if (request.method === 'HEAD') {
+            response.end();
+            return;
+        }
+        response.end(asset.body);
     }
 
     protected parseRange(value: string | undefined, size: number): ByteRange | undefined {

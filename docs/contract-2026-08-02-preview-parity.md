@@ -11,6 +11,7 @@
 | 2026-08-02 | v0 | Web UI と shell の挙動仕様を統合 |
 | 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR と GPU 直結の 2 本に固定し、互換経路を退役節へ移動 |
 | 2026-08-31 | v2.1 | §5.2 に断片 CSS の `vw` / `vh` 系単位の出力サイズ基準化（`viewport-units.js`。プレビューがウィンドウ幅基準で解いていた実機報告の修正）を追記 |
+| 2026-09-02 | v2.2 | §2.8 に字幕時計の規約（active cue の判定は両プレビューとも出力秒。共有カーネル `caption-clock`）を追記。Web UI を shell に揃えた 4 点（字幕時計・字幕フォント名・`slot-params.js` の差し込み・最下段 cut の track 規則）の記録 |
 
 ## 1. 役割分担
 
@@ -128,6 +129,12 @@ finalFrameNumber **239**、lookahead hits **8**を要求する。
 shell のプレビューでは DOM 層として提示し、書き出しでは同じ DOM 規約から overlay sheet を構成する。
 器専用の字幕 HTML や出口専用の再レイアウトを持たない。
 
+active cue の判定は両プレビューとも**出力秒**で行う。source 秒の cue（`time_domain: "source"` と未宣言の
+legacy）は共有カーネル `packages/edit-store/src/caption-clock.ts` の `normalizeCaptionClock` が cut map
+で出力秒へ射影し、削除区間をまたぐ cue は 1 本ずつに分割する（`<id>-output-<n>`、元 id は
+`sourceCueId`）。shell は `normalizePreviewCaptionClock`、Web UI は `updateCaption` がこの正規化済み表を
+読み、描画層は domain 判定を行わない（2026-09-02。それまで Web UI は source 秒で判定していた）。
+
 **検収:** OSR ソフト描画の同一 fixture 2 走について、字幕を含む全コマ raw BGRA の SHA-256 一致を要求する。
 
 ### 2.9 overlays
@@ -161,6 +168,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ（seek の warning を回収） | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
+| アルファ層の取り込み（`.webm` / `.mov` → color + mask mp4） | — 入力境界の外（media-bin `alpha-intake` が正本） | ✅ サーバ側 `prepareAlphaLayers`（`frameEngine.intake`） | ✅ node RPC `prepareAlphaIntake`（同一 media-bin・同一派生物、2026-09-02） | ✅ page-builder | ✅ page-builder |
 | LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
 | 字幕 | — DOM 規約へ active state を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 適格 cue を sprite 化 |
 | overlays / 3D | — DOM 規約へ時刻を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 static / 宣言型 3D のみ |

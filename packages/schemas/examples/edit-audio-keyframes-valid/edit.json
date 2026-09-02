@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 5 }],
+  "overlays": [],
+  "audio": {
+    "bgm": {
+      "path": "music.wav",
+      "gain_db": -12,
+      "keyframes": [
+        { "t": 0, "gain_db": 0 },
+        { "t": 2, "gain_db": -12, "easing": "in-out-cubic" },
+        { "t": 4, "gain_db": 0, "easing": "linear" }
+      ]
+    },
+    "duck_keys": ["narration", "speech"]
+  }
+}

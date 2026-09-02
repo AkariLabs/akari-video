@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "source": { "path": "assets/video.mp4", "proxy": null },
+  "cuts": [
+    { "in": 0, "out": 5 }
+  ],
+  "overlays": [],
+  "audio": {
+    "sfx": [
+      { "path": "assets/click.wav", "t": 0, "fade_out": 0.7 },
+      { "path": "assets/tone.wav", "t": 1 }
+    ],
+    "narration": [
+      { "id": "n-0001", "path": "assets/tone.wav", "t": 0, "fade_in": 0.4, "provenance": { "provider": "human" } }
+    ],
+    "bgm": { "path": "assets/tone.wav", "fadeIn": 0.2, "fadeOut": 1 }
+  }
+}

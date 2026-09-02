@@ -27,6 +27,8 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   ensurePreviewAudioSidecar,
+  hasAudioClipFx,
+  probePreviewAudioSource,
   probePreviewAudioSourceAsync,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
@@ -93,6 +95,10 @@ const THREE_ROUTES = {
   // 素の vw はウィンドウ幅基準になり書き出しとずれる。app.js が mount 時に断片へ適用し、
   // updateStageScale がステージ変数（--akari-vw 等）を定義する。shell も同じ物をインライン注入する。
   '/viewport-units.js': fileURLToPath(new URL('../../overlay-runtime/src/viewport-units.js', import.meta.url)),
+  // params + data-akari-slot の差し込み（shell の runtimeJavaScript と render-cut rasterize が使う
+  // 唯一の注入実装）。Web UI だけ未配信で placeholder 文字がそのまま出ていた
+  // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
+  '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
@@ -440,28 +446,44 @@ async function readFrameEnginePreviewEdit(filePath) {
     const sourcePath = sourcePathOf(raw.path);
     let stat;
     try { stat = fs.statSync(sourcePath); } catch { return raw; }
-    if (path.extname(sourcePath).toLowerCase() !== '.wav' || stat.size <= 8 * 1024 * 1024) return raw;
+    const clipFx = {
+      ...(kind !== 'narration' && Number.isFinite(raw.speed) ? { speed: raw.speed } : {}),
+      ...(kind !== 'narration' && Number.isFinite(raw.pitch_semitones)
+        ? { pitch_semitones: raw.pitch_semitones } : {}),
+      ...(kind !== 'narration' && (raw.formant === 'preserve' || raw.formant === 'shift')
+        ? { formant: raw.formant } : {}),
+      ...(raw.denoise && typeof raw.denoise === 'object' ? { denoise: raw.denoise } : {}),
+      ...(Number.isFinite(raw.lowcut_hz) ? { lowcut_hz: raw.lowcut_hz } : {}),
+    };
+    const needsClipFx = hasAudioClipFx(clipFx);
+    const isHeavyWav = path.extname(sourcePath).toLowerCase() === '.wav' && stat.size > 8 * 1024 * 1024;
+    if (!needsClipFx && !isHeavyWav) return raw;
     // Awaited (spawn) so this single-threaded server keeps serving media while ffprobe runs.
     const probe = await probePreviewAudioSourceAsync(sourcePath);
     if (!probe.ok) {
-      const warning = `${label} sidecar unavailable; using source: ${probe.reason}`;
+      const warning = needsClipFx
+        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${probe.reason}`
+        : `${label} sidecar unavailable; using source: ${probe.reason}`;
       speechWarnings.push(warning);
       console.warn(`[preview] ${warning}`);
       return raw;
     }
-    const inSec = (kind === 'bgm' || kind === 'sfx') && Number.isFinite(raw.in) && raw.in >= 0
+    const inSec = Number.isFinite(raw.in) && raw.in >= 0
       ? raw.in : 0;
-    const outSec = kind === 'sfx' && Number.isFinite(raw.out) && raw.out > inSec
+    const outSec = (kind === 'sfx' || kind === 'narration') && Number.isFinite(raw.out) && raw.out > inSec
       ? Math.min(raw.out, probe.durationSec) : probe.durationSec;
     if (!(outSec > inSec)) return raw;
     const startedAt = performance.now();
     const result = await ensurePreviewAudioSidecar({
-      sourcePath, inSec, outSec, speed: 1, padBeforeSec: 0, padAfterSec: 0,
+      sourcePath, inSec, outSec, speed: clipFx.speed ?? 1, padBeforeSec: 0, padAfterSec: 0,
+      ...(needsClipFx ? { clipFx } : {}),
       ffmpeg: tryResolve(resolveFfmpeg), cacheDir,
     });
     const generatedMs = performance.now() - startedAt;
     if (!result.ok) {
-      const warning = `${label} sidecar unavailable; using source: ${result.reason}`;
+      const warning = needsClipFx
+        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${result.reason}`
+        : `${label} sidecar unavailable; using source: ${result.reason}`;
       speechWarnings.push(warning);
       console.warn(`[preview] ${warning}`);
       return raw;

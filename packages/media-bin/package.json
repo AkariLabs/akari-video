@@ -8,6 +8,9 @@
   "exports": {
     ".": "./src/index.mjs"
   },
+  "bin": {
+    "akari-audio-measure": "bin/audio-measure.mjs"
+  },
   "scripts": {
     "postinstall": "node scripts/fetch-binaries.mjs",
     "build:whisper": "node scripts/build-whisper.mjs",

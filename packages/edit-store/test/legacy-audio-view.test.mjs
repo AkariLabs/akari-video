@@ -185,3 +185,20 @@ test('tracks とトップレベル audio.bgm が同時に存在しても bgm は
   assert.equal(projected.bgm ? 1 : 0, 1);
   assert.equal(projected.bgm.path, 'fallback.wav');
 });
+
+test('v2 audio keyframe のフレーム時刻を legacy view の秒へ変換する', () => {
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'music', path: 'track.wav', proxy: null }],
+    tracks: [{ id: 'audio-bgm', lane: 'audio', items: [{
+      id: 'bgm', at: 0, duration: 120, role: 'bgm',
+      source: { kind: 'media', src: 'music', in: 0 },
+      keyframes: [{ t: 0, gain_db: 0 }, { t: 60, gain_db: -12 }],
+    }] }],
+  });
+  assert.deepEqual(projectLegacyAudioView(internal).bgm.keyframes, [
+    { t: 0, gain_db: 0 },
+    { t: 2, gain_db: -12 },
+  ]);
+});

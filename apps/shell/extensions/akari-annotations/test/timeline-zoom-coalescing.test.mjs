@@ -74,7 +74,7 @@ test('cut / sfx の署名にズーム幾何とチャンク到着リビジョン�
   assert.ok(audioSignature.includes('sfxMediaGate'));
   assert.ok(!audioSignature.includes('\n                this.layoutViewDuration, stripLayoutWidthPx,\n'), '素の行としてのズーム幾何は残さない');
   assert.ok(render.includes("element.classList.toggle('akari-annotations-strip-clip-micro', clipWidth < MICRO_CLIP_WIDTH_PX)"));
-  assert.ok(render.includes('this.updateSfxWaveformGeometry(element, sfx, barWidthPx, itemHeight, inSeconds, outSeconds, actualDuration)'));
+  assert.ok(render.includes('this.updateSfxWaveform('), '再利用でも T9 の repaint ゲート付き更新を毎パス呼ぶ');
 });
 
 test('再利用 cut はチャンク到着を filmstripContentRevision の差でセルだけ描き直す', () => {
@@ -86,15 +86,12 @@ test('再利用 cut はチャンク到着を filmstripContentRevision の差で�
   assert.ok(renderMedia.includes('this.clipMediaRevisions.set(element, this.filmstripContentRevision)'));
 });
 
-test('再利用 sfx バーは既存 canvas へ描き直し、ノードを作らない', () => {
-  const update = method('protected updateSfxWaveformGeometry(', 'protected updateSfxWaveformCanvas(');
-  assert.ok(update.includes(":scope > canvas"));
-  assert.ok(update.includes('this.updateSfxWaveformCanvas(canvas, slice, barWidthPx, itemHeightPx)'));
-  assert.ok(!update.includes('document.createElement'));
-  const creator = method('protected sfxWaveformCanvas(', 'protected updateSfxWaveformGeometry(');
-  assert.ok(creator.includes('this.updateSfxWaveformCanvas(canvas, peaks, widthPx, itemHeightPx)'));
+test('再利用 sfx バーは repaint ゲート付きの共有 canvas を使い、ノードを作り直さない', () => {
+  const update = method('protected updateAudioWaveformCanvas(', 'protected audioWaveformMaster(');
+  assert.ok(update.includes(":scope > canvas.akari-annotations-strip-audio-waveform"));
+  assert.ok(update.includes('audioWaveformRepaintNeeded(previous, next)'));
+  assert.ok(update.includes('drawImage'));
 });
-
 test('contentEndDuration はリビジョン付きメモを読む', () => {
   const extent = method('protected contentEndDuration(): number', 'protected computeContentEndDuration(): number');
   assert.ok(extent.includes('this.contentEndMemo.read(this.contentExtentRevision)'));

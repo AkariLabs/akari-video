@@ -20,13 +20,12 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
     collectExcludedCaptionIds,
-    computeDuckIntervals,
-    isWithinDuckInterval,
+    computeDuckEnvelope,
+    evaluateEnvelopeDb,
     projectLegacyAudioView,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
-    STATIC_DUCK_GAIN_DB,
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
@@ -35,7 +34,7 @@ import type { ReadableTransitionType } from '@akari-video/edit-store';
 import {
     AssetStreamRequest,
     AkariPreviewService,
-    OverlayRuntimeAssets,
+    OverlayRuntimeAssetUrls,
     RasterizeTelopPreviewRequest,
     ReviewStrokeFrame,
     VideoStreamReference,
@@ -65,6 +64,7 @@ import {
 } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
+import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
     buildItemKeyframeSummaryFields,
@@ -174,6 +174,11 @@ interface EditSummaryLayer {
     src?: string;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
+    /** task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面でアルファ層（.webm / .mov）を media-bin
+     * alpha-intake に通したとき、src（色 mp4）と対になるマスク mp4 の asset stream URL。webview の engine
+     * bootstrap はこれをマスクソースとして登録し、engine が kind 'matte' として色×マスク合成する
+     * （Web UI の frameEngine.intake と同型）。legacy 面では付けない。 */
+    mask?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
      * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
@@ -386,12 +391,16 @@ interface EditSummaryVideoFx {
 interface EditSummaryAudioSource {
     src: string;
     gainDb: number;
+    keyframes?: Array<{ t: number; gainDb: number; easing?: string }>;
     sidecar?: PreviewAudioSidecarSummary;
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
     track?: number;
     ducking: boolean;
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
     fadeIn?: number;
     fadeOut?: number;
     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: file-internal start offset (素材秒).
@@ -413,6 +422,10 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     // file's own TS field-naming convention for every other JSON-sourced audio field.
     fadeIn?: number;
     fadeOut?: number;
+    ducking?: boolean;
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
 }
 
 interface EditSummaryAudio {
@@ -905,6 +918,9 @@ const LAYER_BLEND_TO_CSS = new Map<string, string>([
     ['softlight', 'soft-light']
 ]);
 
+// GLB の extensionsUsed 検査で最初に読む長さ（readGltfHeaderBytes）。
+const GLTF_HEADER_PROBE_BYTES = 64 * 1024;
+
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-preview-open-handler';
@@ -931,9 +947,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
-    protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssetUrls> | undefined;
     /** frame-engine 込みは巨大なので、legacy 用の通常資産とは別の RPC キャッシュにする。 */
-    protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssetUrls> | undefined;
     /** 環境変数はセッション中に変わらないため、backend RPC は最初の 1 回だけにする。 */
     protected frameEngineEnvOverridePromise: Promise<string | undefined> | undefined;
     protected frameEngineReadyTimeoutMsPromise: Promise<number | undefined> | undefined;
@@ -2699,7 +2715,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return true;
     }
 
-    protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssets): PreviewModelDiffInput {
+    protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssetUrls): PreviewModelDiffInput {
         const assetUrlByUri = model.assetUrlByUri ?? new Map<string, string>();
         const replacements = [...assetUrlByUri.entries()].map(([uri, url]) => [url, `akari-asset:${uri}`] as const);
         return {
@@ -2708,16 +2724,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             assetUris: model.assetUris.map(uri => uri.toString()),
             overlayUris: model.overlayUris.map(uri => uri.toString()),
             output: { ...model.summary.output },
+            // URL は内容ハッシュ付きなので、資産の中身が変わればここも変わる（旧: 本文そのもの）。
             overlayRuntimeAssets: [
-                assets.threeJavaScript,
-                assets.threeTextJavaScript,
-                assets.threeRuntimeJavaScript,
-                assets.videoFxJavaScript,
-                assets.runtimeJavaScript,
-                assets.interactionJavaScript,
+                assets.threeJavaScriptUrl,
+                assets.threeTextJavaScriptUrl,
+                assets.threeRuntimeJavaScriptUrl,
+                assets.videoFxJavaScriptUrl,
+                assets.runtimeJavaScriptUrl,
+                assets.interactionJavaScriptUrl,
                 assets.interactionCss,
-                assets.webviewKernelJavaScript,
-                assets.captionFontDataUri
+                assets.webviewKernelJavaScriptUrl,
+                assets.captionFontUrl
             ],
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -2753,10 +2770,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return this.replacePreviewAssetUrls(model.summary, replacements) as EditSummary;
     }
 
-    protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssets> {
+    // 資産は URL で受ける（OverlayRuntimeAssetUrls）。本文を RPC で運んで HTML に埋めていた頃は
+    // 開くたびに約 15 MB の setHTML になっていた（task/2026-09-02-preview-perf）。
+    protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssetUrls> {
         if (includeFrameEngine) {
             if (!this.frameEngineOverlayRuntimeAssetsPromise) {
-                const cached = this.previewService.getOverlayRuntimeAssets({ includeFrameEngine: true }).catch(error => {
+                const cached = this.previewService.getOverlayRuntimeAssetUrls({ includeFrameEngine: true }).catch(error => {
                     if (this.frameEngineOverlayRuntimeAssetsPromise === cached) {
                         this.frameEngineOverlayRuntimeAssetsPromise = undefined;
                     }
@@ -2767,7 +2786,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return this.frameEngineOverlayRuntimeAssetsPromise;
         }
         if (!this.overlayRuntimeAssetsPromise) {
-            const cached = this.previewService.getOverlayRuntimeAssets().catch(error => {
+            const cached = this.previewService.getOverlayRuntimeAssetUrls().catch(error => {
                 if (this.overlayRuntimeAssetsPromise === cached) {
                     this.overlayRuntimeAssetsPromise = undefined;
                 }
@@ -2813,7 +2832,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && widget.akariPreviewFrameEngineOptOut !== true
             && await this.resolveFrameEngineEnabled();
         const [model, assets] = await Promise.all([
-            kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
+            kind === 'output'
+                ? this.loadPreviewModel(identityUri, editSource, { frameEngineEnabled })
+                : this.loadRawPreviewModel(identityUri),
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
@@ -3220,7 +3241,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
      *   - overlay 断片 HTML の読み出し / 資産ストリームの生成（createAssetStream）—
      *     いずれも edit.json が参照する「別の実体」の解決であり、edit.json の全文からは導けない
      */
-    protected async loadPreviewModel(editUri: URI, editSource?: string): Promise<PreviewModel> {
+    protected async loadPreviewModel(
+        editUri: URI,
+        editSource?: string,
+        options: { frameEngineEnabled?: boolean } = {}
+    ): Promise<PreviewModel> {
         const [workspaceRoot] = await this.workspaceService.roots;
         const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
         // 字幕の解決（resolveCaptionDisplay = backend RPC）は edit.json の内容にも依存するので
@@ -3229,8 +3254,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // await する（loadPreviewCaptions は内部で catch して [] を返すため reject しない）。
         const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
         const assetStreams = new Map<string, { id: string; url: string }>();
+        // 同じ資産へ同時に来た要求を 1 本の createAssetStream に合流させる（素材解決を並列化しても
+        // ストリームが二重生成されない）。assetUris への登録は要求時に行う（task/2026-09-02-preview-perf）。
+        const assetStreamTasks = new Map<string, Promise<{ id: string; url: string }>>();
         const previewAudioKeepKeys = new Set<string>();
         const assetUris: URI[] = [];
+        const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
+            const known = assetStreams.get(key);
+            if (known) return Promise.resolve(known);
+            let task = assetStreamTasks.get(key);
+            if (!task) {
+                if (assetUri && !assetUris.some(uri => uri.toString() === key)) assetUris.push(assetUri);
+                task = this.createAssetStream({ assetUri: key }).then(stream => {
+                    assetStreams.set(key, stream);
+                    return stream;
+                });
+                task.catch(() => assetStreamTasks.delete(key));
+                assetStreamTasks.set(key, task);
+            }
+            return task;
+        };
         let sourceUri: URI | undefined;
         let legacyEmphasisWords: unknown;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
@@ -3311,7 +3354,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     emptyProject: true
                 };
             }
-            for (const declared of declaredSources) {
+            // 宣言ソースの proxy 存在確認は互いに独立なので並列に問い合わせ、結果は宣言順で登録する
+            //（task/2026-09-02-preview-perf: 素材解決の直列 await をほどく）。
+            const resolvedSources = await Promise.all(declaredSources.map(async declared => {
                 const declaredPath = declared.declaredPath;
                 if (typeof declaredPath !== 'string' || !declaredPath.trim()) {
                     // 宣言位置（`sources[hero]` / `source`）は読み込み層が付ける。版名は出さない。
@@ -3327,7 +3372,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const candidate = this.resolveEditAssetUri(declaredProxy, editUri);
                     proxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
                 }
-                sourcesById.set(declared.id, { uri, ...(proxyUri ? { proxyUri } : {}) });
+                return { id: declared.id, uri, proxyUri };
+            }));
+            for (const { id, uri, proxyUri } of resolvedSources) {
+                sourcesById.set(id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
             // 先頭カットが参照するソース。無ければ宣言順の先頭。
@@ -3359,13 +3407,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } else {
                         try {
                             const backgroundUri = this.resolveEditAssetUri(declaredBackground, editUri);
-                            const key = backgroundUri.toString();
-                            let stream = assetStreams.get(key);
-                            if (!stream) {
-                                stream = await this.createAssetStream({ assetUri: key });
-                                assetStreams.set(key, stream);
-                                assetUris.push(backgroundUri);
-                            }
+                            const stream = await ensureAssetStream(backgroundUri.toString(), backgroundUri);
                             background = { type: 'image', url: stream.url };
                         } catch (error) {
                             videoFxFailures.add('クロマキー');
@@ -3400,12 +3442,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
             const sourceVideoFx: Record<string, VideoFxChromaKey> = {};
-            for (const declared of declaredSources) {
-                const resolved = await resolveChromaKey(normalizeChromaKeyForSummary(declared.chromaKey), 'source');
+            const sourceChromaKeys = await Promise.all(declaredSources.map(declared =>
+                resolveChromaKey(normalizeChromaKeyForSummary(declared.chromaKey), 'source')));
+            declaredSources.forEach((declared, index) => {
+                const resolved = sourceChromaKeys[index];
                 if (resolved) sourceVideoFx[declared.id] = resolved;
-            }
+            });
             const cuts: EditSummaryCut[] = [];
-            for (const item of cutItems) {
+            const cutResults = await Promise.all(cutItems.map(async (item): Promise<EditSummaryCut | undefined> => {
                 const value = item.declaration as any;
                 const trackId = String(trackIdByItem.get(item) ?? '');
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
@@ -3419,25 +3463,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     v => this.transform(v),
                     (message, detail) => console.warn(message, detail)
                 );
-                if (result.ok && result.fields) {
-                    const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
-                    cuts.push({
-                        id: item.id,
-                        ...result.fields,
-                        ...(typeof value.gain_db === 'number' && Number.isFinite(value.gain_db)
-                            ? { gain_db: value.gain_db } : {}),
-                        ...(typeof value.gainDb === 'number' && Number.isFinite(value.gainDb)
-                            ? { gainDb: value.gainDb } : {}),
-                        ...(typeof value.volume_db === 'number' && Number.isFinite(value.volume_db)
-                            ? { volume_db: value.volume_db } : {}),
-                        ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
-                        trackId,
-                        renderTrack: resolveInternalTrackZ(
-                            internal.tracks,
-                            trackId
-                        )
-                    } as EditSummaryCut);
+                if (!result.ok || !result.fields) {
+                    return undefined;
                 }
+                const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
+                return {
+                    id: item.id,
+                    ...result.fields,
+                    ...(typeof value.gain_db === 'number' && Number.isFinite(value.gain_db)
+                        ? { gain_db: value.gain_db } : {}),
+                    ...(typeof value.gainDb === 'number' && Number.isFinite(value.gainDb)
+                        ? { gainDb: value.gainDb } : {}),
+                    ...(typeof value.volume_db === 'number' && Number.isFinite(value.volume_db)
+                        ? { volume_db: value.volume_db } : {}),
+                    ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
+                    trackId,
+                    renderTrack: resolveInternalTrackZ(
+                        internal.tracks,
+                        trackId
+                    )
+                } as EditSummaryCut;
+            }));
+            for (const cut of cutResults) {
+                if (cut) cuts.push(cut);
             }
             const previewAudioService = this.previewService as AkariPreviewService & {
                 preparePreviewAudioSidecar(request: {
@@ -3520,28 +3568,35 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     motionBagUris.push(uri);
                 }
             };
+            // 断片ファイルの読み出しは項目ごとに独立。同じ参照は 1 回だけ読み、木全体を並列に辿る。
+            const overlayHtmlTasks = new Map<string, Promise<void>>();
             const loadOverlayTree = async (item: typeof internal.tracks[number]['items'][number], trackId: string): Promise<void> => {
                 overlayTrackIds.set(item.id, trackId);
+                const pending: Promise<void>[] = [];
                 if (item.source.kind === 'html') {
                     const rawHtml = item.source.html;
-                    if (rawHtml && !rawHtml.trimStart().startsWith('<') && !overlayHtml.has(rawHtml)) {
-                        const fragmentUri = editUri.parent.resolve(rawHtml);
-                        registerOverlayUri(fragmentUri);
-                        try {
-                            overlayHtml.set(rawHtml, await this.readText(fragmentUri));
-                        } catch (error) {
-                            overlayHtml.set(rawHtml, '');
-                            console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
+                    if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
+                        if (!overlayHtml.has(rawHtml) && !overlayHtmlTasks.has(rawHtml)) {
+                            const fragmentUri = editUri.parent.resolve(rawHtml);
+                            registerOverlayUri(fragmentUri);
+                            overlayHtmlTasks.set(rawHtml, this.readText(fragmentUri).then(
+                                text => { overlayHtml.set(rawHtml, text); },
+                                error => {
+                                    overlayHtml.set(rawHtml, '');
+                                    console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
+                                }
+                            ));
                         }
+                        const task = overlayHtmlTasks.get(rawHtml);
+                        if (task) pending.push(task);
                     } else if (rawHtml.trimStart().startsWith('<')) {
                         overlayHtml.set(rawHtml, rawHtml);
                     }
                 }
-                for (const child of item.children) await loadOverlayTree(child, trackId);
+                for (const child of item.children) pending.push(loadOverlayTree(child, trackId));
+                await Promise.all(pending);
             };
-            for (const track of internal.tracks) {
-                for (const item of track.items) await loadOverlayTree(item, track.id);
-            }
+            await Promise.all(internal.tracks.flatMap(track => track.items.map(item => loadOverlayTree(item, track.id))));
             await resolvePreviewItemKeyframes(internal, {
                 readText: async path => {
                     const bagUri = editUri.parent.resolve(path);
@@ -3554,18 +3609,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 internal,
                 reference => overlayHtml.get(reference) ?? reference
             );
-            for (const value of projectedOverlays) {
+            // 断片ごとの 3D 資産解決（モデル・環境マップ・フォントのストリーム化 + GLB ヘッダ検査）は
+            // 互いに独立なので並列に走らせ、overlays には宣言順で積む。
+            const resolvedOverlayHtml = await Promise.all(projectedOverlays.map(value => {
                 if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
                     console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
                 }
                 const rawHtml = typeof value?.html === 'string' ? value.html : '';
-                let html = rawHtml && !rawHtml.trimStart().startsWith('<')
+                const html = rawHtml && !rawHtml.trimStart().startsWith('<')
                     ? overlayHtml.get(rawHtml) ?? ''
                     : rawHtml;
-                html = await this.resolveThreeSceneAssets(html, editUri, assetStreams, assetUris, unsupportedGltfWarnings);
+                return this.resolveThreeSceneAssets(
+                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream
+                );
+            }));
+            projectedOverlays.forEach((value, index) => {
                 overlays.push({
                     id: String(value?.id ?? ''),
-                    html,
+                    html: resolvedOverlayHtml[index],
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
                     track: Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0,
@@ -3579,7 +3640,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
                     ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
                 });
-            }
+            });
             const layers: EditSummaryLayer[] = [];
             const filters: EditSummaryFilter[] = [];
             const deferredTelops: DeferredTelopPreview[] = [];
@@ -3601,24 +3662,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     request
                 });
             };
-            for (const item of layerItems) {
+            type LayerResolution =
+                | { kind: 'filter'; filter: EditSummaryFilter }
+                | { kind: 'layer'; layer: EditSummaryLayer; deferTelop?: boolean; unsupportedBlend?: boolean }
+                | { kind: 'skip'; unsupportedBlend?: boolean };
+            const resolveLayerItem = async (item: typeof layerItems[number]): Promise<LayerResolution> => {
                 if (item.source.kind === 'filter') {
-                    filters.push({
-                        id: item.id,
-                        t: item.at,
-                        duration: item.duration,
-                        trackId: String(trackIdByItem.get(item) ?? ''),
-                        track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
-                            ? Number(item.declaration.track) : 0,
-                        filter: item.source.filter as EditSummaryFilter['filter']
-                    });
-                    continue;
+                    return {
+                        kind: 'filter',
+                        filter: {
+                            id: item.id,
+                            t: item.at,
+                            duration: item.duration,
+                            trackId: String(trackIdByItem.get(item) ?? ''),
+                            track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
+                                ? Number(item.declaration.track) : 0,
+                            filter: item.source.filter as EditSummaryFilter['filter']
+                        }
+                    };
                 }
                 let value = item.declaration as any;
                 const label = `layers[${item.legacy.index}]`;
                 let deferredTelop = false;
                 if (item.source.kind === 'telop' && item.source.baked === undefined) {
-                    deferTelop(item);
                     deferredTelop = true;
                     value = { ...value, kind: 'baked', src: `deferred-telop:${item.id}` };
                 }
@@ -3634,31 +3700,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     (message, detail) => console.warn(message, detail)
                 );
                 if (!result.ok || !result.base) {
-                    continue;
+                    return { kind: 'skip' };
                 }
-                if (result.unsupportedBlend) {
-                    unsupportedBlendCount += 1;
-                }
+                const unsupportedBlend = result.unsupportedBlend === true;
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
                 if (deferredTelop) {
-                    layers.push({
-                        ...base,
-                        proxyMissing: true,
-                        deferredTelop: true,
-                        isImage: false
-                    });
-                    continue;
+                    return {
+                        kind: 'layer',
+                        unsupportedBlend,
+                        deferTelop: true,
+                        layer: { ...base, proxyMissing: true, deferredTelop: true, isImage: false }
+                    };
                 }
                 let sourceUri: URI;
                 try {
                     sourceUri = this.resolveEditAssetUri(value.src, editUri);
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（src を解決できません）`, error);
-                    continue;
+                    return { kind: 'skip', unsupportedBlend };
                 }
                 if (value.kind === 'baked') {
                     // 'baked' は常に previewProxyUri() の .preview.webm サイドカーを配信する（元の
@@ -3671,52 +3734,106 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     let src: string | undefined;
                     try {
                         if (await this.fileService.exists(sidecarUri)) {
-                            const key = sidecarUri.toString();
-                            let stream = assetStreams.get(key);
-                            if (!stream) {
-                                stream = await this.createAssetStream({ assetUri: key });
-                                assetStreams.set(key, stream);
-                            }
-                            src = stream.url;
+                            src = (await ensureAssetStream(sidecarUri.toString())).url;
                         }
                     } catch (error) {
                         console.warn(`[akari-preview] ${label} の preview proxy を配信できません`, error);
                     }
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
-                    if (!src && item.source.kind === 'telop') {
-                        deferTelop(item);
-                    }
-                    layers.push({ ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false });
-                    continue;
+                    return {
+                        kind: 'layer',
+                        unsupportedBlend,
+                        deferTelop: !src && item.source.kind === 'telop',
+                        layer: { ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false }
+                    };
                 }
 
                 try {
                     const isImage = isImageLayerSrc(value.src);
+                    // task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面では .webm / .mov の
+                    // アルファ層を Web UI（preview-server の prepareAlphaLayers）と同じ media-bin alpha-intake
+                    // へ通し、色 mp4 を src・マスク mp4 を mask として配信する。engine は MP4 しか読めず、
+                    // 生の WebM / ProRes を渡すと本編ごと止まるため。不透明（opaque）は従来経路へ戻し、
+                    // 取り込み不能（unavailable）はその層だけ engine に渡さない。legacy 面
+                    // （frameEngineEnabled=false）は一切呼ばず、従来経路のまま。
+                    const intake = options.frameEngineEnabled === true && !isImage && isAlphaIntakeSource(value.src)
+                        ? await this.previewService.prepareAlphaIntake({
+                            videoUri: sourceUri.toString(),
+                            projectRootUri: (workspaceRoot?.resource ?? editUri.parent).toString()
+                        })
+                        : undefined;
+                    if (intake?.status === 'unavailable') {
+                        console.warn(
+                            `[akari-preview] ${label} のアルファ取り込みに失敗したため frame-engine には渡しません`,
+                            intake.reason
+                        );
+                        return {
+                            kind: 'layer',
+                            unsupportedBlend,
+                            layer: { ...base, sourceUri: sourceUri.toString(), proxyMissing: true, isImage: false }
+                        };
+                    }
+                    if (intake?.status === 'alpha') {
+                        const colorUri = new URI(intake.colorUri);
+                        const maskUri = new URI(intake.maskUri);
+                        const color = await ensureAssetStream(colorUri.toString(), colorUri);
+                        const mask = await ensureAssetStream(maskUri.toString(), maskUri);
+                        return {
+                            kind: 'layer',
+                            unsupportedBlend,
+                            layer: {
+                                ...base,
+                                src: color.url,
+                                mask: mask.url,
+                                sourceUri: sourceUri.toString(),
+                                proxyMissing: false,
+                                isImage: false
+                            }
+                        };
+                    }
                     // v2 visual media items are projected into this same video-layer branch.
                     // Route them through the exact same declared-proxy/fallback selection as cuts;
                     // images remain byte-for-byte asset streams and never trigger video probing.
                     const streamUri = isImage
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
-                    const key = streamUri.toString();
-                    let stream = assetStreams.get(key);
-                    if (!stream) {
-                        stream = await this.createAssetStream({ assetUri: key });
-                        assetStreams.set(key, stream);
-                        assetUris.push(streamUri);
-                    }
-                    layers.push({
-                        ...base,
-                        src: stream.url,
-                        ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
-                        proxyMissing: false,
-                        isImage
-                    });
+                    const stream = await ensureAssetStream(streamUri.toString(), streamUri);
+                    return {
+                        kind: 'layer',
+                        unsupportedBlend,
+                        layer: {
+                            ...base,
+                            src: stream.url,
+                            ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
+                            proxyMissing: false,
+                            isImage
+                        }
+                    };
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
+                    return { kind: 'skip', unsupportedBlend };
                 }
-            }
+            };
+            // 解決は並列、反映は宣言順（filters / layers / deferredTelops の並びを従来どおりに保つ）。
+            const layerResolutions = await Promise.all(layerItems.map(item => resolveLayerItem(item)));
+            layerItems.forEach((item, index) => {
+                const resolution = layerResolutions[index];
+                if (resolution.kind !== 'filter' && resolution.unsupportedBlend) {
+                    unsupportedBlendCount += 1;
+                }
+                if (resolution.kind === 'filter') {
+                    filters.push(resolution.filter);
+                    return;
+                }
+                if (resolution.kind === 'skip') {
+                    return;
+                }
+                if (resolution.deferTelop) {
+                    deferTelop(item);
+                }
+                layers.push(resolution.layer);
+            });
             const normalizeTrackStates = (
                 value: unknown,
                 refs: number[]
@@ -3770,7 +3887,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
-                previewAudioService, previewAudioKeepKeys
+                previewAudioService, previewAudioKeepKeys, ensureAssetStream
             );
             await previewAudioService.sweepPreviewAudioSidecars({
                 projectRootUri: editUri.parent.toString(),
@@ -3883,8 +4000,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 stream?: VideoStreamReference;
             }>;
         },
-        previewAudioKeepKeys: Set<string>
+        previewAudioKeepKeys: Set<string>,
+        ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
     ): Promise<EditSummaryAudio | undefined> {
+        // 同じ音声ファイルを複数の挿入（SFX 40 件で 3 ファイル等）が並列に要求しても、
+        // ストリームは 1 本だけ作る。呼び出し側が合流器を渡さない場合は従来どおり逐次。
+        const ensure = ensureAssetStream ?? (async (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
+            let stream = assetStreams.get(key);
+            if (!stream) {
+                stream = await this.createAssetStream({ assetUri: key });
+                assetStreams.set(key, stream);
+                if (assetUri) assetUris.push(assetUri);
+            }
+            return stream;
+        });
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
             if (value !== undefined) {
                 console.warn('[akari-preview] audio セクションを無視しました（object ではありません）');
@@ -3904,12 +4033,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const assetUri = this.resolveEditAssetUri(pathValue, editUri);
             const key = assetUri.toString();
             try {
-                let stream = assetStreams.get(key);
-                if (!stream) {
-                    stream = await this.createAssetStream({ assetUri: key });
-                    assetStreams.set(key, stream);
-                    assetUris.push(assetUri);
-                }
+                const stream = await ensure(key, assetUri);
                 const result = await previewAudioService.preparePreviewAudioSidecar({
                     sourceUri: assetUri.toString(),
                     projectRootUri: editUri.parent.toString(),
@@ -3961,6 +4085,62 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             return clamped;
         };
+        const keyframes = (
+            value: unknown,
+            label: string
+        ): Array<{ t: number; gainDb: number; easing?: string }> | undefined => {
+            if (value === undefined) return undefined;
+            if (!Array.isArray(value)) {
+                console.warn(`[akari-preview] ${label}.keyframes を無視しました（array ではありません）`);
+                return undefined;
+            }
+            return value.flatMap((point, index) => {
+                if (!point || typeof point !== 'object' || Array.isArray(point)) {
+                    console.warn(`[akari-preview] ${label}.keyframes[${index}] を無視しました（object ではありません）`);
+                    return [];
+                }
+                const raw = point as { t?: unknown; gain_db?: unknown; easing?: unknown };
+                if (typeof raw.t !== 'number' || !Number.isFinite(raw.t) || raw.t < 0) {
+                    console.warn(`[akari-preview] ${label}.keyframes[${index}] を無視しました（t 不正）`);
+                    return [];
+                }
+                const normalizedGain = raw.gain_db === undefined ? 0 : gainDb(raw.gain_db, `${label}.keyframes[${index}]`);
+                if (normalizedGain === undefined) return [];
+                return [{
+                    t: raw.t,
+                    gainDb: normalizedGain,
+                    ...(typeof raw.easing === 'string' ? { easing: raw.easing } : {})
+                }];
+            }).sort((left, right) => left.t - right.t);
+        };
+        const duckOptions = (
+            value: {
+                ducking?: unknown;
+                duck_db?: unknown;
+                duckDb?: unknown;
+                duck_attack?: unknown;
+                duckAttack?: unknown;
+                duck_release?: unknown;
+                duckRelease?: unknown;
+            },
+            label: string
+        ): Pick<EditSummaryTimedAudio, 'ducking' | 'duckDb' | 'duckAttack' | 'duckRelease'> => {
+            const ranged = (raw: unknown, minimum: number, maximum: number, field: string): number | undefined => {
+                if (raw === undefined) return undefined;
+                if (typeof raw === 'number' && Number.isFinite(raw) && raw >= minimum && raw <= maximum) return raw;
+                console.warn(`[akari-preview] ${label}.${field} を無視しました（${minimum}..${maximum} の有限 number ではありません）`, raw);
+                return undefined;
+            };
+            const duckDb = ranged(value.duck_db ?? value.duckDb, -40, 0, 'duck_db');
+            const duckAttack = ranged(value.duck_attack ?? value.duckAttack, 0, 2, 'duck_attack');
+            const duckRelease = ranged(value.duck_release ?? value.duckRelease, 0, 5, 'duck_release');
+            return {
+                ...(typeof value.ducking === 'boolean' ? { ducking: value.ducking } : {}),
+                ...(duckDb !== undefined ? { duckDb } : {}),
+                ...(duckAttack !== undefined ? { duckAttack } : {}),
+                ...(duckRelease !== undefined ? { duckRelease } : {})
+            };
+        };
         const timed = async (items: unknown, kind: 'sfx' | 'narration'): Promise<EditSummaryTimedAudio[]> => {
             if (items === undefined) {
                 return [];
@@ -3969,9 +4149,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 console.warn(`[akari-preview] audio.${kind} を無視しました（array ではありません）`);
                 return [];
             }
-            const resolved: EditSummaryTimedAudio[] = [];
-            for (let index = 0; index < items.length; index += 1) {
-                const item = items[index] as {
+            // 挿入ごとの解決（ストリーム化 + サイドカー準備 RPC）は独立なので並列に走らせ、
+            // 結果は宣言順に積む（task/2026-09-02-preview-perf: SFX 40 件で 40 回の直列 await だった）。
+            const resolvedItems = await Promise.all(items.map(async (rawItem, index): Promise<EditSummaryTimedAudio | undefined> => {
+                const item = rawItem as {
                     id?: unknown;
                     path?: unknown;
                     t?: unknown;
@@ -3981,25 +4162,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     out?: unknown;
                     fade_in?: unknown;
                     fade_out?: unknown;
+                    keyframes?: unknown;
+                    ducking?: unknown;
+                    duck_db?: unknown;
+                    duckDb?: unknown;
+                    duck_attack?: unknown;
+                    duckAttack?: unknown;
+                    duck_release?: unknown;
+                    duckRelease?: unknown;
                 } | undefined;
                 const label = kind === 'narration' && typeof item?.id === 'string' && item.id
                     ? `audio.narration ${item.id}`
                     : `audio.${kind}[${index}]`;
                 if (!item || typeof item !== 'object') {
                     console.warn(`[akari-preview] ${label} を無視しました（object ではありません）`);
-                    continue;
+                    return undefined;
                 }
                 if (kind === 'narration' && (typeof item.id !== 'string' || !item.id)) {
                     console.warn(`[akari-preview] ${label} を無視しました（id 不正）`);
-                    continue;
+                    return undefined;
                 }
                 if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) {
                     console.warn(`[akari-preview] ${label} を無視しました（t が非有限・負値・number ではありません）`);
-                    continue;
+                    return undefined;
                 }
                 const normalizedGain = gainDb(item.gain_db, label);
                 if (normalizedGain === undefined) {
-                    continue;
+                    return undefined;
                 }
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx-only playback window
                 // (material's [in, out)). Malformed values are warned-and-ignored (treated as
@@ -4028,7 +4217,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
                 });
-                if (!source) continue;
+                if (!source) return undefined;
+                const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
                 // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out. Same
                 // warned-and-ignored tolerance as bgm's fadeIn/fadeOut parsing above (this
@@ -4051,22 +4241,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                 }
-                resolved.push({
+                return {
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
                     src: source.src,
                     ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                     t: item.t,
                     gainDb: normalizedGain,
+                    ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                     ...(kind === 'sfx'
                         ? {
+                            ...duckOptions(item, label),
                             ...(trimIn !== undefined ? { in: trimIn } : {}),
                             ...(trimOut !== undefined ? { out: trimOut } : {}),
                             ...(fadeIn !== undefined ? { fadeIn } : {}),
                             ...(fadeOut !== undefined ? { fadeOut } : {})
                         }
                         : {})
-                });
+                };
+            }));
+            const resolved: EditSummaryTimedAudio[] = [];
+            for (const entry of resolvedItems) {
+                if (entry) resolved.push(entry);
             }
             return resolved;
         };
@@ -4077,6 +4273,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 path?: unknown;
                 gain_db?: unknown;
                 ducking?: unknown;
+                duck_db?: unknown;
+                duckDb?: unknown;
+                duck_attack?: unknown;
+                duckAttack?: unknown;
+                duck_release?: unknown;
+                duckRelease?: unknown;
+                keyframes?: unknown;
                 fadeIn?: unknown;
                 fadeOut?: unknown;
                 in?: unknown;
@@ -4110,14 +4313,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                     const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 });
+                    const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
                         bgm = {
                             src: source.src,
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                             gainDb: normalizedGain,
+                            ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                             track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
                                 ? rawBgm.track as number : 0,
                             ducking: rawBgm.ducking === true,
+                            ...duckOptions(rawBgm, 'audio.bgm'),
                             ...fades,
                             ...(bgmIn !== undefined ? { in: bgmIn } : {})
                         };
@@ -4125,8 +4331,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
         }
-        const sfx = await timed(audio.sfx, 'sfx');
-        const narration = await timed(audio.narration, 'narration');
+        const [sfx, narration] = await Promise.all([timed(audio.sfx, 'sfx'), timed(audio.narration, 'narration')]);
         if (!bgm && sfx.length === 0 && narration.length === 0) {
             return undefined;
         }
@@ -4142,6 +4347,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // Draco/KTX2 (that needs a vendored decoder in packages/overlay-runtime, out of this task's
     // file boundary); it turns an unexplained stuck-looking fallback into a visible, actionable
     // "プレビュー未対応の項目" indicator (see indicators.push below) instead.
+    // GLB はヘッダ 12 バイト + チャンクヘッダ 8 バイト + JSON チャンクだけ読めば extensionsUsed が
+    // 分かる。モデル本体（数十 MB になりうる）をレンダラへ丸ごと読み込まない
+    //（task/2026-09-02-preview-perf）。先頭 64 KiB で足りなければ JSON チャンク末尾まで読み直す。
+    protected async readGltfHeaderBytes(uri: URI): Promise<Uint8Array> {
+        const probe = await this.fileService.readFile(uri, { position: 0, length: GLTF_HEADER_PROBE_BYTES });
+        const bytes = probe.value.buffer;
+        if (bytes.byteLength < 20) {
+            return bytes;
+        }
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        if (view.getUint32(0, true) !== 0x46546c67) {
+            return bytes;
+        }
+        const needed = 20 + view.getUint32(12, true);
+        if (bytes.byteLength >= needed) {
+            return bytes;
+        }
+        return (await this.fileService.readFile(uri, { position: 0, length: needed })).value.buffer;
+    }
+
     protected detectUnsupportedGltfExtensions(bytes: Uint8Array): string[] {
         const UNSUPPORTED_GLTF_EXTENSIONS = ['KHR_draco_mesh_compression', 'KHR_texture_basisu'];
         try {
@@ -4168,7 +4393,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         editUri: URI,
         assetStreams: Map<string, { id: string; url: string }>,
         assetUris: URI[],
-        unsupportedGltfWarnings: string[]
+        unsupportedGltfWarnings: string[],
+        ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
     ): Promise<string> {
         if (!html.includes('data-akari-3d-scene')) {
             return html;
@@ -4195,6 +4421,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     const assetUri = editUri.parent.resolve(relativePath);
                     const key = assetUri.toString();
+                    if (ensureAssetStream) {
+                        return (await ensureAssetStream(key, assetUri)).url;
+                    }
                     let stream = assetStreams.get(key);
                     if (!stream) {
                         stream = await this.createAssetStream({ assetUri: key });
@@ -4214,8 +4443,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const descriptor = resolved.descriptor;
                 if (resolved.modelPath) {
                     try {
-                        const modelContent = await this.fileService.readFile(editUri.parent.resolve(resolved.modelPath));
-                        const unsupported = this.detectUnsupportedGltfExtensions(modelContent.value.buffer);
+                        const unsupported = this.detectUnsupportedGltfExtensions(
+                            await this.readGltfHeaderBytes(editUri.parent.resolve(resolved.modelPath))
+                        );
                         if (unsupported.length > 0) {
                             unsupportedGltfWarnings.push(
                                 `3D モデル ${resolved.modelPath} が ${unsupported.join('/')} 圧縮のため読み込めません` +
@@ -5041,7 +5271,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         videoUri: URI,
         videoSource: string,
         model: PreviewModel,
-        assets: OverlayRuntimeAssets,
+        assets: OverlayRuntimeAssetUrls,
         initialSeekTime?: number,
         sourceUrlById: Record<string, string> = {},
         hasSourceAudio?: boolean,
@@ -5058,11 +5288,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
-            ? `<script>${this.inlineScript(assets.threeTextJavaScript)}</script>\n`
+            ? `${this.externalScriptTag(assets.threeTextJavaScriptUrl)}\n`
             : '';
-        const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScript
-            ? `<script>${this.frameEngineWatchdogScript()}</script>\n<script>${this.inlineScript(assets.frameEngineJavaScript)}</script>\n<script>${this.frameEngineBootstrapScript()}</script>\n`
+        const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScriptUrl
+            ? `<script>${this.frameEngineWatchdogScript()}</script>\n${this.externalScriptTag(assets.frameEngineJavaScriptUrl)}\n<script>${this.frameEngineBootstrapScript()}</script>\n`
             : '';
+        // 資産（three / runtime / kernel / frame-engine / 字幕フォント）は素材配信サーバーと同じ
+        // 127.0.0.1 オリジンから URL で読む。script-src / font-src にそのオリジンを足す。
+        const streamOrigin = this.escapeHtml(this.streamOrigin(videoSource));
+        const assetOrigin = this.escapeHtml(assets.origin);
         // frame-engine の素材デコード（av-cliper / MP4Clip）は OPFS ファイルストアと
         // タイマーを blob / data URL の Worker で動かす。既定 CSP では生成を拒否されるため、
         // 評価台を有効にしたときだけ worker-src を開ける。
@@ -5118,10 +5352,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:${frameEngineCsp}">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${streamOrigin}; connect-src ${streamOrigin} blob:; img-src ${streamOrigin} blob: data:; script-src 'unsafe-inline' ${assetOrigin}; style-src 'unsafe-inline'; font-src ${assetOrigin} data:${frameEngineCsp}">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
-${captionFontFaceCss(assets.captionFontDataUri)}
+${captionFontFaceCss(assets.captionFontUrl)}
 :root {
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
@@ -5431,12 +5665,12 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>window.__akariPreview = ${initialState};</script>
 <script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
 <script>${this.hostAdapterScript()}</script>
-<script>${this.inlineScript(assets.threeJavaScript)}</script>
-${threeTextRuntimeScript}<script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
-<script>${this.inlineScript(assets.videoFxJavaScript)}</script>
-<script>${this.inlineScript(assets.runtimeJavaScript)}</script>
-<script>${this.inlineScript(assets.interactionJavaScript)}</script>
-<script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
+${this.externalScriptTag(assets.threeJavaScriptUrl)}
+${threeTextRuntimeScript}${this.externalScriptTag(assets.threeRuntimeJavaScriptUrl)}
+${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
+${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
+${this.externalScriptTag(assets.interactionJavaScriptUrl)}
+${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 <script>${this.previewBootstrapScript()}</script>
 ${frameEngineScripts}</body>
 </html>`;
@@ -5605,16 +5839,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
                 const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
                 const sfxFadeGainScheduleFn = (${sfxFadeGainSchedule.toString()});
-                // BGM ducking の正本は packages/edit-store/src/ducking.ts。
-                const computeDuckIntervalsFn = (${computeDuckIntervals.toString()});
-                const isWithinDuckIntervalFn = (${isWithinDuckInterval.toString()});
-                const STATIC_DUCK_GAIN_DB_VALUE = ${JSON.stringify(STATIC_DUCK_GAIN_DB)};
+                // 音声エンベロープの正本は packages/edit-store/src/envelope.ts。
+                const computeDuckEnvelopeFn = (${computeDuckEnvelope.toString()});
+                const evaluateEnvelopeDbFn = (${evaluateEnvelopeDb.toString()});
                 const decoded = { bgm: null, sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
                 let generation = 0;
                 let active = [];
                 let bgmGain = null;
+                let bgmEnvelopeGain = null;
                 let lastDuckGainDb = null;
                 let mutedAudioTracks = new Set();
                 let allAudioMuted = false;
@@ -5722,32 +5956,49 @@ body { display: grid; place-items: center; padding: 32px; }
                     active = active.filter(candidate => candidate !== item);
                     try { item.source.disconnect(); } catch (_error) { /* already detached */ }
                     try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                    try { item.envelopeGain.disconnect(); } catch (_error) { /* already detached */ }
                 };
                 const stopSources = () => {
                     const sources = active;
                     active = [];
                     bgmGain = null;
+                    bgmEnvelopeGain = null;
                     lastDuckGainDb = null;
                     for (const item of sources) {
                         item.source.onended = null;
                         try { item.source.stop(); } catch (_error) { /* already stopped */ }
                         try { item.source.disconnect(); } catch (_error) { /* already detached */ }
                         try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                        try { item.envelopeGain.disconnect(); } catch (_error) { /* already detached */ }
                     }
                 };
-                const registerSource = (source, gain, kind, id, track, baseGainLinear, hasFade = false) => {
-                    const item = { source, gain, kind, id, track, baseGainLinear, hasFade };
+                const registerSource = (
+                    source, gain, envelopeGain, kind, id, track, spec, baseGainLinear, hasFade = false
+                ) => {
+                    const item = { source, gain, envelopeGain, kind, id, track, spec, baseGainLinear, hasFade };
                     active.push(item);
                     source.onended = () => detachActive(item);
                     return item;
                 };
-                const duckGainDbAt = timelineTime => {
-                    if (!decoded.bgm || decoded.bgm.ducking !== true) return 0;
-                    const intervals = computeDuckIntervalsFn(decoded.narration.map(item => ({
-                        t: item.t,
-                        durationSec: item.durationSec
-                    })));
-                    return isWithinDuckIntervalFn(intervals, timelineTime) ? STATIC_DUCK_GAIN_DB_VALUE : 0;
+                const narrationDuckIntervals = () => decoded.narration.map(item => ({
+                    startSec: item.t,
+                    endSec: item.t + item.durationSec
+                }));
+                const envelopeDbAt = (item, timelineTime, clipStartSec, clipDurationSec) => {
+                    const localSec = Math.max(0, timelineTime - clipStartSec);
+                    const keyframeGainDb = evaluateEnvelopeDbFn(item.keyframes || [], localSec);
+                    if (item.ducking !== true) return { keyframeGainDb, duckGainDb: 0 };
+                    const duckEnvelope = computeDuckEnvelopeFn(narrationDuckIntervals(), {
+                        duckDb: item.duckDb,
+                        attackSec: item.duckAttack,
+                        releaseSec: item.duckRelease,
+                        clipStartSec,
+                        clipDurationSec
+                    });
+                    return {
+                        keyframeGainDb,
+                        duckGainDb: evaluateEnvelopeDbFn(duckEnvelope, localSec)
+                    };
                 };
                 const fadeMultiplierAt = timelineTime => {
                     if (!decoded.bgm) return 1;
@@ -5763,24 +6014,28 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     return Math.max(0, Math.min(1, multiplier));
                 };
-                const applyBgmDuck = timelineTime => {
+                const applyBgmEnvelope = timelineTime => {
                     if (!decoded.bgm) return;
-                    const duckGainDb = duckGainDbAt(timelineTime);
+                    const { keyframeGainDb, duckGainDb } = envelopeDbAt(
+                        decoded.bgm, timelineTime, 0, timelineDuration
+                    );
                     const fadeMultiplier = fadeMultiplierAt(timelineTime);
                     if (bgmGain) {
                         bgmGain.gain.value = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0)
-                            ? 0 : dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
+                            ? 0 : dbToLinear(decoded.bgm.gainDb) * fadeMultiplier;
                     }
+                    if (bgmEnvelopeGain) bgmEnvelopeGain.gain.value = dbToLinear(keyframeGainDb + duckGainDb);
                     if (duckGainDb !== lastDuckGainDb) {
                         lastDuckGainDb = duckGainDb;
                         console.info('[akari-preview] bgm duck gain', {
                             timelineTime,
                             baseGainDb: decoded.bgm ? decoded.bgm.gainDb : null,
                             duckGainDb,
-                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + duckGainDb : null,
+                            keyframeGainDb,
+                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + keyframeGainDb + duckGainDb : null,
                             fadeMultiplier,
                             appliedLinear: decoded.bgm
-                                ? dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier
+                                ? dbToLinear(decoded.bgm.gainDb + keyframeGainDb + duckGainDb) * fadeMultiplier
                                 : null
                         });
                     }
@@ -5800,14 +6055,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
+                            const envelopeGain = context.createGain();
                             source.buffer = decoded.bgm.buffer;
                             source.loop = true;
                             source.connect(gain);
-                            gain.connect(masterGain);
+                            gain.connect(envelopeGain);
+                            envelopeGain.connect(masterGain);
                             bgmGain = gain;
-                            applyBgmDuck(startAt);
+                            bgmEnvelopeGain = envelopeGain;
+                            applyBgmEnvelope(startAt);
                             registerSource(
-                                source, gain, 'bgm', 'bgm', decoded.bgm.track ?? 0,
+                                source, gain, envelopeGain, 'bgm', 'bgm', decoded.bgm.track ?? 0, decoded.bgm,
                                 dbToLinear(decoded.bgm.gainDb)
                             );
                             // audio.bgm.in: file-internal start offset, composed with the existing
@@ -5836,11 +6094,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
+                            const envelopeGain = context.createGain();
                             const baseGainLinear = dbToLinear(item.gainDb);
                             source.buffer = item.buffer;
                             gain.gain.value = baseGainLinear;
                             source.connect(gain);
-                            gain.connect(masterGain);
+                            gain.connect(envelopeGain);
+                            envelopeGain.connect(masterGain);
+                            const envelope = envelopeDbAt(
+                                item, Math.max(startAt, item.t), item.t, item.durationSec
+                            );
+                            envelopeGain.gain.value = dbToLinear(envelope.keyframeGainDb + envelope.duckGainDb);
                             // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
                             // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out, applied as
                             // AudioParam automation over the clip's own scheduled window (not a
@@ -5864,7 +6128,10 @@ body { display: grid; place-items: center; padding: 32px; }
                                     }
                                 }
                             }
-                            registerSource(source, gain, kind, item.id, item.track, baseGainLinear, hasFade);
+                            registerSource(
+                                source, gain, envelopeGain, kind, item.id, item.track, item,
+                                baseGainLinear, hasFade
+                            );
                             source.start(contextStart + delay, offset, available);
                             return true;
                         } catch (error) {
@@ -5920,12 +6187,18 @@ body { display: grid; place-items: center; padding: 32px; }
                             } else if (!item.hasFade) {
                                 item.gain.gain.value = item.baseGainLinear;
                             }
+                            const envelope = envelopeDbAt(
+                                item.spec, timelineTime, item.spec.t, item.spec.durationSec
+                            );
+                            item.envelopeGain.gain.value = dbToLinear(
+                                envelope.keyframeGainDb + envelope.duckGainDb
+                            );
                             // else: fade_in/fade_out already drives gain.gain via the scheduled
                             // AudioParam ramp (audio-clip-fades) -- writing item.gain.gain.value here
                             // (even to its own current value) would insert a new automation event
                             // and cut the ramp short, so this 30Hz poll leaves it alone while unmuted.
                         }
-                        if (playing) applyBgmDuck(timelineTime);
+                        if (playing) applyBgmEnvelope(timelineTime);
                     },
                     debugState: () => ({
                         contextState: context.state,
@@ -5961,9 +6234,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     controller.pause();
                     void context.close().catch(() => undefined);
                 }, { once: true });
+                controller.dispose = () => {
+                    controller.pause();
+                    void context.close().catch(() => undefined);
+                };
                 return controller;
             };
-            window.akari.previewAudio = createPreviewAudio();
+            // frame-engine 経路の音は engine 側の AudioContext が持つ。legacy の音声グラフ
+            //（AudioContext + 素材ごとの decode）を作ってすぐ捨てるのをやめる
+            //（task/2026-09-02-preview-perf）。frame-engine が起動できないときは host が legacy で
+            // webview を作り直すので、この文書内で legacy の音が要ることはない。
+            window.akari.previewAudio = initial.frameEngineEnabled === true ? null : createPreviewAudio();
             window.akari.previewAudioDebug = () => window.akari.previewAudio
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
@@ -6484,7 +6765,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if ('muted' in media) media.muted = true;
             }
             if (window.akari && window.akari.previewAudio) {
-                window.akari.previewAudio.pause();
+                if (typeof window.akari.previewAudio.dispose === 'function') window.akari.previewAudio.dispose();
+                else window.akari.previewAudio.pause();
                 window.akari.previewAudio = null;
             }
 
@@ -6636,6 +6918,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (initial.frameEngineForceSoftware === true) {
                     engine.setForceSoftwareDecode(true);
                 }
+                // コーデックプローブ（isConfigSupported + ヘッダ読み）はソースごとに独立なので並列に
+                // 走らせ、判定と通知は宣言順に適用する（task/2026-09-02-preview-perf）。
+                const probeTargets = [];
                 for (const [id, selectedUrl] of sourceUrls) {
                     const originalUrl = sourceOriginals.get(id) || selectedUrl;
                     if (!cutSourceIds.has(String(id))) {
@@ -6650,7 +6935,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
                         continue;
                     }
-                    const probe = await engine.probeSourceCodec(originalUrl);
+                    probeTargets.push({ id, originalUrl, hasProxy });
+                }
+                const probes = await Promise.all(probeTargets.map(target => engine.probeSourceCodec(target.originalUrl)));
+                for (let index = 0; index < probeTargets.length; index += 1) {
+                    const { id, originalUrl, hasProxy } = probeTargets[index];
+                    const probe = probes[index];
                     const support = probe && probe.support;
                     const codec = probe && probe.info && probe.info.codec;
                     const decision = engine.chooseSource({ mode, hasProxy, support });
@@ -6689,6 +6979,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             showNotice('プロキシを生成できませんでした（' + id + '）');
                         });
                     }
+                
                 }
                 window.akariFrameEngineSources = sourceSelections;
                 if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
@@ -12984,6 +13275,12 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected inlineScript(value: string): string {
         return value.replace(/<\/script/gi, '<\\/script');
+    }
+
+    // src 付き <script> は同期実行（async / defer なし）なので、インライン <script> と混在しても
+    // 文書順で実行される。three → runtime → kernel → bootstrap の順序はそのまま保たれる。
+    protected externalScriptTag(url: string): string {
+        return `<script src="${this.escapeHtml(url)}"></script>`;
     }
 
     protected inlineStyle(value: string): string {

@@ -26,6 +26,7 @@ import {
     estimateElapsedAndRemaining,
     QuickExportProgressTracker
 } from '../common/quick-export-progress';
+import { copyArtifactCommand, copyArtifactStdin } from '../common/export-share';
 import { packagedCliCandidates } from './packaged-cli-candidates';
 import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
@@ -148,6 +149,38 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         } catch (error) {
             this.appendLog(`${describeUnexpectedQuickExportFailure(error, '成果物をファイル管理画面で表示できませんでした')}\n`);
             return { revealed: false };
+        }
+    }
+
+    async copyArtifact(): Promise<{ copied: boolean; reason?: string }> {
+        if (this.status.phase !== 'done' || !this.status.artifactPath || !this.currentProjectRoot) {
+            return { copied: false, reason: 'コピーできる書き出し済み動画がありません' };
+        }
+        const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
+        const platform = this.platform();
+        const request = copyArtifactCommand(platform, artifactPath);
+        if (!request) {
+            return { copied: false, reason: 'この OS ではクリップボードへのコピーに対応していません' };
+        }
+        try {
+            const exitCode = await this.spawnCopyCommand(
+                request.command,
+                request.args,
+                copyArtifactStdin(platform, artifactPath)
+            );
+            if (exitCode === 0) {
+                return { copied: true };
+            }
+            return {
+                copied: false,
+                reason: `コピー用コマンドが exit code ${exitCode ?? '不明'} で終了しました`
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                copied: false,
+                reason: `コピー用コマンドを起動できませんでした: ${message.replace(/\s+/gu, ' ')}`
+            };
         }
     }
 
@@ -472,6 +505,26 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 child.unref();
                 resolvePromise();
             });
+        });
+    }
+
+    protected spawnCopyCommand(command: string, args: readonly string[], stdin?: string): Promise<number | null> {
+        return new Promise((resolvePromise, rejectPromise) => {
+            let child;
+            try {
+                child = spawn(command, [...args], { stdio: ['pipe', 'ignore', 'ignore'] });
+            } catch (error) {
+                rejectPromise(error);
+                return;
+            }
+            child.once('error', rejectPromise);
+            child.once('close', resolvePromise);
+            child.stdin.once('error', rejectPromise);
+            if (stdin !== undefined) {
+                child.stdin.end(stdin);
+            } else {
+                child.stdin.end();
+            }
         });
     }
 

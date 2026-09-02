@@ -44,6 +44,7 @@ export async function createImmutableRenderReceipt({
   tools,
   captionLayout = null,
   audioQc = null,
+  provenance = null,
   createdAt = new Date().toISOString(),
 }) {
   if (verify?.verdict !== "pass") throw new Error("render receipt requires verify.verdict pass");
@@ -81,6 +82,7 @@ export async function createImmutableRenderReceipt({
     tools,
     ...(captionLayout ? { caption_layout: captionLayout } : {}),
     ...(audioQc ? { audio_qc: audioQc } : {}),
+    ...(provenance ? { provenance } : {}),
   };
   const bytes = `${JSON.stringify(payload, null, 2)}\n`;
   const digest = sha256(bytes);

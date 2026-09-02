@@ -177,3 +177,36 @@ test('revealArtifact: OS ごとのファイル管理コマンドを組み立て�
         command: 'xdg-open', args: ['/project/exports']
     });
 });
+
+test('copyArtifact: コピーコマンドの終了コードを結果へ反映する', async () => {
+    class CopyService extends AkariQuickExportServiceImpl {
+        constructor(exitCode) {
+            super();
+            this.exitCode = exitCode;
+        }
+        prime() {
+            this.currentProjectRoot = '/project';
+            this.status = { phase: 'done', logTail: '', artifactPath: 'exports/final.mp4' };
+        }
+        platform() { return 'darwin'; }
+        async spawnCopyCommand(command, args, stdin) {
+            this.copyRequest = { command, args, stdin };
+            return this.exitCode;
+        }
+    }
+
+    const successful = new CopyService(0);
+    successful.prime();
+    assert.deepEqual(await successful.copyArtifact(), { copied: true });
+    assert.deepEqual(successful.copyRequest, {
+        command: 'osascript',
+        args: ['-e', 'set the clipboard to POSIX file "/project/exports/final.mp4"'],
+        stdin: undefined
+    });
+
+    const failed = new CopyService(7);
+    failed.prime();
+    const failure = await failed.copyArtifact();
+    assert.equal(failure.copied, false);
+    assert.match(failure.reason, /exit code 7/);
+});

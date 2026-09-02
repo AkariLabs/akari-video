@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [
+    { "id": "video", "path": "assets/video.mp4" },
+    { "id": "tone", "path": "assets/tone.wav" },
+    { "id": "click", "path": "assets/click.wav" },
+    { "id": "silence", "path": "assets/silence.wav" }
+  ],
+  "tracks": [
+    {
+      "id": "a-sfx",
+      "lane": "audio",
+      "items": [
+        { "id": "sfx-click", "at": 0, "duration": 9, "fade_out": 0.7, "source": { "kind": "media", "src": "click", "in": 0, "out": 0.3 } },
+        { "id": "sfx-tone", "at": 30, "duration": 30, "source": { "kind": "media", "src": "tone", "in": 0, "out": 1 } }
+      ]
+    },
+    {
+      "id": "a-narration",
+      "lane": "audio",
+      "items": [
+        { "id": "n-0001", "at": 0, "duration": 150, "role": "narration", "fade_in": 0.4, "source": { "kind": "media", "src": "tone", "in": 0, "out": 5 } }
+      ]
+    },
+    {
+      "id": "a-bgm",
+      "lane": "audio",
+      "items": [
+        { "id": "music-1", "at": 0, "duration": 150, "role": "bgm", "fade_in": 0.2, "fade_out": 1, "source": { "kind": "media", "src": "tone", "in": 0, "out": 5 } }
+      ]
+    },
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        { "id": "clip-1", "at": 0, "duration": 150, "source": { "kind": "media", "src": "video", "in": 0, "out": 5 } }
+      ]
+    }
+  ]
+}
