@@ -19,7 +19,6 @@ import {
     WAVEFORM_BUCKET_COUNT
 } from '../common/akari-annotations-protocol';
 import { clampWaveformBucketCount, planFilmstripChunk } from '../common/filmstrip-geometry';
-import { planFilmstripChunk } from '../common/filmstrip-geometry';
 import { createAsyncSemaphore } from './async-semaphore';
 
 const execFileAsync = promisify(execFile);

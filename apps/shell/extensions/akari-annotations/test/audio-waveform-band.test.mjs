@@ -31,13 +31,14 @@ test('BGM はループタイル、narration は source 秒窓スライスを波�
   assert.match(narration, /this\.updateAudioClipWaveform\(/u);
 });
 
-test('SFX signature はズーム寸法を持たず波形更新は再利用要素でも毎パス走る', () => {
+test('SFX signature のズーム寸法はトリマー中の 1 本だけ（main の zoom-coalescing 規律と同一）で、波形更新は repaint ゲートに委ねる', () => {
   const renderStrip = method('protected renderStrip(): void', 'protected laneBand');
   const signatureStart = renderStrip.indexOf('const audioSignature = JSON.stringify([');
   const signatureEnd = renderStrip.indexOf(']);', signatureStart);
   assert.ok(signatureStart >= 0 && signatureEnd > signatureStart);
   const signature = renderStrip.slice(signatureStart, signatureEnd);
-  assert.doesNotMatch(signature, /layoutViewDuration|stripLayoutWidthPx|barWidthPx/u);
+  assert.ok(signature.includes('sfxTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx] : 0'));
+  assert.doesNotMatch(signature, /barWidthPx/u);
   assert.match(renderStrip, /this\.updateSfxWaveform\(/u);
   assert.doesNotMatch(renderStrip, /if \(created\) this\.updateSfxWaveform/u);
 });

@@ -5922,7 +5922,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const sfxWaveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
             const sfxTrimmerActive = this.trimmerAudioId === sfx.id;
             const sfxMediaGate = barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && itemHeight >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
-            // cut と同じ規律: ズーム幾何は署名に入れず、再利用ノードは updateSfxWaveformGeometry が
+            // cut と同じ規律: ズーム幾何は署名に入れず、再利用ノードは updateAudioClipWaveform（repaint ゲート）が
             // 既存 canvas へ描き直す。トリマー中の 1 本だけは幾何込みで作り直す。
             const audioSignature = JSON.stringify([
                 sfx, actualDuration, sfxTrimmerActive, itemHeight,
@@ -9330,56 +9330,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             opacity: '.55',
             pointerEvents: 'none'
         });
-        this.updateSfxWaveformCanvas(canvas, peaks, widthPx, itemHeightPx);
-        return canvas;
-    }
-
-    /**
-     * 再利用 sfx ノードのズーム追従: 既存の波形 canvas をバー幅へ描き直す（ノードは作らない）。
-     * 実尺未解決や波形未着なら何もしない（作成側 renderSfxWaveform と同じ条件）。
-     */
-    protected updateSfxWaveformGeometry(
-        element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
-        inSeconds: number, outSeconds: number, actualDuration: number | undefined
-    ): void {
-        const canvas = element.querySelector<HTMLCanvasElement>(':scope > canvas');
-        if (!canvas) {
-            if (this.location && barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX
-                && itemHeightPx >= MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
-                // 作成時に波形が未着だったノード: 到着後の最初の描画でだけ canvas を足す。
-                this.renderSfxWaveform(element, sfx, barWidthPx, itemHeightPx, inSeconds, outSeconds, actualDuration);
-            }
-            return;
-        }
-        if (actualDuration === undefined || actualDuration <= 0) {
-            return;
-        }
-        const waveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
-        if (!Array.isArray(waveform)) {
-            return;
-        }
-        const slice = this.sfxWaveformSlice(waveform, inSeconds, outSeconds, actualDuration);
-        if (slice.length === 0) {
-            return;
-        }
-        const visibleWidthPx = Math.max(1, Math.round(barWidthPx));
-        if (canvas.width === visibleWidthPx && canvas.height === WAVEFORM_BAND_HEIGHT_PX
-            && canvas.dataset.akariSfxSlice === `${slice.length}:${itemHeightPx}`) {
-            return;
-        }
-        this.updateSfxWaveformCanvas(canvas, slice, barWidthPx, itemHeightPx);
-    }
-
-    protected updateSfxWaveformCanvas(
-        canvas: HTMLCanvasElement, peaks: readonly number[], widthPx: number, itemHeightPx: number
-    ): void {
-        const visibleWidthPx = Math.max(1, Math.round(widthPx));
-        canvas.width = visibleWidthPx;
-        canvas.height = WAVEFORM_BAND_HEIGHT_PX;
-        canvas.style.top = `${itemHeightPx - WAVEFORM_BAND_HEIGHT_PX}px`;
-        canvas.style.width = `${visibleWidthPx}px`;
-        canvas.style.height = `${WAVEFORM_BAND_HEIGHT_PX}px`;
-        canvas.dataset.akariSfxSlice = `${peaks.length}:${itemHeightPx}`;
         const context = canvas.getContext('2d');
         const sourceRect = audioWaveformSourceRect({
             masterWidthPx: master.width,
