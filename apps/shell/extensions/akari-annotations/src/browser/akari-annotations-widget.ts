@@ -168,6 +168,18 @@ import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } fro
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
 import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
+import {
+    collectEdgeCandidates,
+    readStoredSnapEnabled,
+    resolveSnapRange,
+    resolveSnapTime,
+    snapThresholdSecondsFor,
+    writeStoredSnapEnabled,
+    SnapCandidate,
+    SnapEdgeItem,
+    SnapExclusion,
+    SnapResolution as SnapResult
+} from '../common/timeline-snap';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     computeMaterialGhostRange,
@@ -246,7 +258,6 @@ const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
 const TRACK_INSERT_LINE_COLOR = '#22c55e';
 const SNAP_THRESHOLD_PX = 6;
-const SNAP_GRID_SECONDS = 0.25;
 const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
 const SNAP_GUIDE_COLOR_PLAYHEAD = '#f59e0b';
 const MIN_VIEW_DURATION_FRAMES = 4;
@@ -428,15 +439,7 @@ type TimelineSelection =
 
 type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
 
-interface SnapCandidate {
-    time: number;
-    isPlayhead?: boolean;
-}
-
-interface SnapResult {
-    time: number;
-    snapped: boolean;
-}
+// SnapCandidate / SnapResult は common/timeline-snap.ts の型を使う（純関数側でテストする）。
 
 export interface PreviewPlaybackTick {
     videoUri?: string;
@@ -827,7 +830,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected videoDurationNoticeShown = false;
     protected lastManualScrollAt = 0;
     protected toolMode: ToolMode = 'select';
-    protected snapEnabled = true;
+    /**
+     * マグネット（スナップ）。既定 OFF・ユーザー設定として localStorage に永続化する
+     * （task 2026-09-02-timeline-undo-snap-fixes: 起動のたびに ON へ戻っていたのが
+     * 「つけてないのに反応する」の真因）。
+     */
+    protected snapEnabled = readStoredSnapEnabled(typeof localStorage === 'undefined' ? undefined : localStorage);
     protected selection: TimelineSelection;
     protected multiSelection: TimelineSelectionItem[] = [];
     /**
@@ -1937,10 +1945,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected setSnapEnabled(value: boolean): void {
         this.snapEnabled = value;
+        writeStoredSnapEnabled(typeof localStorage === 'undefined' ? undefined : localStorage, value);
         this.updateSnapButton();
         if (!value) {
             this.hideSnapGuide();
         }
+        this.footer.textContent = value ? 'マグネット ON（見えている端にだけ吸着します）' : 'マグネット OFF';
     }
 
     protected updateSnapButton(): void {
@@ -3370,12 +3380,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            if (selection.kind === "caption") {
-                const caption = this.captions.find(candidate => candidate.id === selection.id);
+            // 右クリックメニューは字幕チップを captions 袋の写し（tree item・id "…#<captionId>"）として
+            // 選択するため、そのまま removeTreeV2Item へ渡すと「item が見つかりません」になる
+            // （実機 2026-09-02 再現）。写しは captions.json の行として削除する。
+            const projectedCaptionId = selection.kind === 'item' && selection.itemKind === 'caption'
+                ? captionIdForTreeSelection(selection, (() => {
+                    const raw = this.rawV2Item(selection.id);
+                    return raw?.source?.kind === 'caption' ? raw.source.id : undefined;
+                })())
+                : undefined;
+            const captionId = selection.kind === "caption" ? selection.id : projectedCaptionId;
+            if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
+                const caption = this.captions.find(candidate => candidate.id === captionId);
                 if (!caption) throw new Error("字幕が見つかりません。");
+                // undo は captions.json の行を丸ごと戻す（time_domain / text_style を落とさない。
+                // 2026-09-02 実機: output 時間軸の字幕が source 扱いで戻り、スタイルも消えていた）。
                 const payload: CaptionWritePayload = {
                     id: caption.id, start: caption.start, end: caption.end, text: caption.text,
-                    speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
+                    speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited,
+                    ...(caption.timeDomain === undefined ? {} : { timeDomain: caption.timeDomain }),
+                    ...(caption.textStyle === undefined ? {} : { textStyle: caption.textStyle })
                 };
                 const result = await this.annotationsService.removeCaption({
                     captionsUri: location.captionsUri.toString(),
@@ -9777,16 +9801,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const rawSpanEnd = state.edge === 'right'
                     ? segment.tlStart + rawDuration / segment.speed : segment.tlEnd;
                 const movingEdge = state.edge === 'left' ? rawSpanStart : rawSpanEnd;
+                // 候補は見えている端だけ（自クリップの元の両端 + 他アイテムの端 + 再生ヘッド）。
+                // 単語境界は画面に無いので吸着先にしない（2026-09-02 実機報告「変なところで効く」）。
                 const snap = durationClamped
                     ? { time: movingEdge, snapped: false }
                     : this.snapTimeInOutputSpaceWithResult(
                         movingEdge,
                         showGuide,
-                        [
-                            { time: segment.tlStart },
-                            { time: segment.tlEnd },
-                            ...this.wordBoundaries.map(time => ({ time: this.sourceToOutput(time) }))
-                        ]
+                        [{ time: segment.tlStart }, { time: segment.tlEnd }],
+                        { kind: 'cut', id: String(state.index) }
                     );
                 snapped = snap.snapped;
                 if (durationClamped) {
@@ -10365,17 +10388,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * トリム・字幕ドラッグ用。候補は source 空間（単語境界・他 cuts の in/out・現在の再生/選択位置）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする（スナップ有効時は常に何かへ吸着する）。
+     * 字幕（source 時間軸）ドラッグ用。候補は source 秒に写した「見えている端」だけ:
+     * cuts の in/out・source 時間軸の他の字幕の両端・再生ヘッド・0 秒。
+     * 閾値内に候補が無ければ **そのままの値** を返す（旧: 0.25 秒グリッドへ落としていた）。
      */
     protected snapTimeInSourceSpace(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): number {
-        return this.snapTimeInSourceSpaceWithResult(value, showGuide, extraCandidates).time;
+        return this.snapTimeInSourceSpaceWithResult(value, showGuide, extraCandidates, exclude).time;
     }
 
     protected snapTimeInSourceSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10385,40 +10411,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates: SnapCandidate[] = [
-            ...this.wordBoundaries.map(time => ({ time })),
-            ...this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }]),
-            { time: this.outputToSource(this.playheadT), isPlayhead: true },
-            { time: this.selectedSourceT },
-            { time: 0 },
-            ...extraCandidates
-        ].filter(candidate => Number.isFinite(candidate.time));
-        const nearest = this.nearestCandidate(candidates, value);
-        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(this.sourceToOutput(nearest.time), nearest.isPlayhead === true);
-            }
-            return { time: nearest.time, snapped: true };
-        }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(this.sourceToOutput(grid), false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapTime(value, this.sourceSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => this.sourceToOutput(time));
+        return result;
     }
 
     /**
-     * 位置移動・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
+     * 位置移動・トリム・重ね物ドラッグ用（出力時間軸）。候補は「見えている端」だけ。
+     * 閾値内に候補が無ければ **そのままの値** を返す。
      */
     protected snapTimeInOutputSpace(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): number {
-        return this.snapTimeInOutputSpaceWithResult(value, showGuide, extraCandidates).time;
+        return this.snapTimeInOutputSpaceWithResult(value, showGuide, extraCandidates, exclude).time;
     }
 
     protected snapTimeInOutputSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10428,26 +10439,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
-        const nearest = this.nearestCandidate(candidates, value);
-        if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
-            }
-            return { time: nearest.time, snapped: true };
-        }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapTime(value, this.outputSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => time);
+        return result;
     }
 
     protected snapMovingRangeInOutputSpace(
         start: number,
         duration: number,
         showGuide: boolean,
-        extraCandidates: readonly SnapCandidate[] = []
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -10457,63 +10459,110 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: start, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
-        const nearestStart = this.nearestCandidate(candidates, start);
-        const end = start + duration;
-        const nearestEnd = this.nearestCandidate(candidates, end);
-        const startDistance = nearestStart ? Math.abs(nearestStart.time - start) : Number.POSITIVE_INFINITY;
-        const endDistance = nearestEnd ? Math.abs(nearestEnd.time - end) : Number.POSITIVE_INFINITY;
-        const useStart = startDistance <= endDistance;
-        const nearest = useStart ? nearestStart : nearestEnd;
-        const distance = useStart ? startDistance : endDistance;
-        if (nearest && distance <= threshold) {
-            if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
-            }
-            return {
-                time: useStart ? nearest.time : nearest.time - duration,
-                snapped: true
-            };
-        }
-        const grid = this.snapToGrid(start);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        const result = resolveSnapRange(start, duration, this.outputSnapCandidates(extraCandidates, exclude), threshold);
+        this.reflectSnapGuide(result, showGuide, time => time);
+        return result;
     }
 
-    protected outputSnapCandidates(extraCandidates: readonly SnapCandidate[] = []): SnapCandidate[] {
+    /** 吸着したときだけガイド線を出す（候補が無いときは何も描かない）。 */
+    protected reflectSnapGuide(result: SnapResult, showGuide: boolean, toOutput: (time: number) => number): void {
+        if (result.snapped && result.candidate && showGuide) {
+            this.showSnapGuideAt(toOutput(result.candidate.time), result.candidate.isPlayhead === true);
+        } else {
+            this.hideSnapGuide();
+        }
+    }
+
+    /**
+     * 出力時間軸で「見えている端」を集める: cuts のセグメント・v2 ツリーの行（重ね物・テロップ等）・
+     * 字幕の出力区間・効果音・ナレーション、再生ヘッド、0 秒。ドラッグ中の本人（exclude）は除く。
+     * 直前のクリック位置（selectedSourceT）や単語境界のような画面に無い点は入れない。
+     */
+    protected outputSnapCandidates(
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
+    ): SnapCandidate[] {
+        const items: SnapEdgeItem[] = [];
+        for (const segment of this.segments) {
+            items.push({ kind: 'cut', id: String(segment.index), start: segment.tlStart, end: segment.tlEnd });
+        }
+        for (const row of this.timelineTreeRows) {
+            items.push({ kind: 'item', id: row.id, start: row.at, end: row.at + row.duration });
+        }
+        for (const caption of this.captions) {
+            for (const [start, end] of this.captionRangeToOutputRanges(caption.id, caption.start, caption.end)) {
+                items.push({ kind: 'caption', id: caption.id, start, end });
+            }
+        }
+        for (const sfx of this.audioSfx) {
+            items.push({ kind: 'audio', id: sfx.id, start: sfx.t, end: sfx.t + sfx.duration });
+        }
+        for (const narration of this.audioNarration) {
+            items.push({
+                kind: 'audio', id: narration.id, start: narration.t,
+                end: narration.t + this.narrationDisplayDuration(narration)
+            });
+        }
+        const excluded = exclude ? this.snapExclusionsFor(exclude) : [];
+        const candidates = collectEdgeCandidates(items.filter(item =>
+            !excluded.some(entry => entry.kind === item.kind && entry.id === item.id)));
         return [
-            ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
+            ...candidates,
             { time: this.playheadT, isPlayhead: true },
-            { time: this.sourceToOutput(this.selectedSourceT) },
             { time: 0 },
             ...extraCandidates
         ].filter(candidate => Number.isFinite(candidate.time));
     }
 
-    protected snapToGrid(value: number): number {
-        return Math.max(0, Math.round(value / SNAP_GRID_SECONDS) * SNAP_GRID_SECONDS);
+    /** source 時間軸で「見えている端」を集める（source 時間軸の字幕ドラッグ用）。 */
+    protected sourceSnapCandidates(
+        extraCandidates: readonly SnapCandidate[] = [],
+        exclude?: SnapExclusion
+    ): SnapCandidate[] {
+        const items: SnapEdgeItem[] = [];
+        this.cuts.forEach((cut, index) => {
+            items.push({ kind: 'cut', id: String(index), start: cut.in, end: cut.out });
+        });
+        for (const caption of this.captions) {
+            if (caption.timeDomain === 'output') continue;
+            items.push({ kind: 'caption', id: caption.id, start: caption.start, end: caption.end });
+        }
+        const excluded = exclude ? this.snapExclusionsFor(exclude) : [];
+        const candidates = collectEdgeCandidates(items.filter(item =>
+            !excluded.some(entry => entry.kind === item.kind && entry.id === item.id)));
+        return [
+            ...candidates,
+            { time: this.outputToSource(this.playheadT), isPlayhead: true },
+            { time: 0 },
+            ...extraCandidates
+        ].filter(candidate => Number.isFinite(candidate.time));
+    }
+
+    /** ドラッグ中の本人を候補から外す。字幕は tree 行の写し（"…#<id>"）も同じ本人として扱う。 */
+    protected snapExclusionsFor(exclude: SnapExclusion): SnapExclusion[] {
+        const exclusions: SnapExclusion[] = [exclude];
+        if (exclude.kind === 'caption') {
+            const treeRow = this.captionTreeRow(exclude.id);
+            if (treeRow) exclusions.push({ kind: 'item', id: treeRow.id });
+        } else if (exclude.kind === 'item') {
+            const separator = exclude.id.lastIndexOf('#');
+            if (separator >= 0) exclusions.push({ kind: 'caption', id: exclude.id.slice(separator + 1) });
+        } else if (exclude.kind === 'cut') {
+            const itemId = this.cutItemIds[Number(exclude.id)];
+            if (itemId) exclusions.push({ kind: 'item', id: itemId });
+        } else if (exclude.kind === 'layer' || exclude.kind === 'overlay') {
+            exclusions.push({ kind: 'item', id: exclude.id });
+        }
+        return exclusions;
     }
 
     protected snapThresholdSeconds(): number | undefined {
         const rect = this.strip.getBoundingClientRect();
-        const duration = this.visibleDuration();
-        if (rect.width <= 0 || duration <= 0) {
+        const threshold = snapThresholdSecondsFor(SNAP_THRESHOLD_PX, rect.width, this.visibleDuration());
+        if (threshold === undefined) {
             this.hideSnapGuide();
-            return undefined;
         }
-        return SNAP_THRESHOLD_PX / (rect.width / duration);
-    }
-
-    protected nearestCandidate(candidates: readonly SnapCandidate[], value: number): SnapCandidate | undefined {
-        let nearest: SnapCandidate | undefined;
-        for (const candidate of candidates) {
-            if (nearest === undefined || Math.abs(candidate.time - value) < Math.abs(nearest.time - value)) {
-                nearest = candidate;
-            }
-        }
-        return nearest;
+        return threshold;
     }
 
     /** ガイド線は常に出力軸座標へ射影して表示する。playhead へ吸着したときだけアンバーにする。 */
@@ -10879,9 +10928,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applyHistoryExecution(execution: HistoryExecution): void {
         if ('error' in execution) {
-            this.footer.textContent = execution.kind === 'undo'
-                ? '元に戻せませんでした（対象が変更されています）'
-                : 'やり直せませんでした（対象が変更されています）';
+            // 失敗理由を添える（「対象が変更されています」だけでは原因が追えなかった。2026-09-02）。
+            const reason = this.errorMessage(execution.error);
+            const message = execution.kind === 'undo'
+                ? `「${execution.entry.label}」を元に戻せませんでした: ${reason}`
+                : `「${execution.entry.label}」をやり直せませんでした: ${reason}`;
+            this.footer.textContent = message;
+            this.showNotice(message);
             return;
         }
         this.hideNotice();
