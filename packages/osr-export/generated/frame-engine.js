@@ -16442,6 +16442,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     downmixToMono: () => downmixToMono,
@@ -25219,9 +25220,24 @@ void main() {
       bitrate,
       framerate: options.fps,
       hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
-      latencyMode: "realtime",
+      // ファイル書き出しなので 'quality'。'realtime' は仕様上フレーム落ちを許し、実際に macOS の VideoToolbox を
+      // 他セッション（プレビューの H.264 デコード・別のエンコード等）と共有すると黙ってチャンクを捨てた
+      // （2026-09-02 実測 M1: 1464 中 809 欠落、同条件の 'quality' は 0 欠落、単独でも 'quality' が 26% 速い）。
+      // 落ちた分は finish() の欠落検出と mp4-mux の sample count mismatch で fail closed になる。
+      latencyMode: "quality",
       avc: { format: "annexb" }
     };
+  }
+  var MISSING_FRAME_LIST_LIMIT = 20;
+  function describeMissingFrames(frames, fps, outputTimestamps) {
+    const missing = [];
+    let omitted = 0;
+    for (let frame = 0; frame < frames; frame += 1) {
+      if (outputTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+      if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+      else omitted += 1;
+    }
+    return omitted > 0 ? `${missing.join(", ")}, \u2026 and ${omitted} more` : missing.join(", ");
   }
   var WebCodecsH264Encoder = class {
     constructor(sink, options) {
@@ -25232,6 +25248,7 @@ void main() {
         output: (chunk) => {
           const bytes = new Uint8Array(chunk.byteLength);
           chunk.copyTo(bytes);
+          this.outputTimestamps.add(chunk.timestamp);
           this.writes.push(Promise.resolve(this.sink.write(bytes, {
             type: chunk.type,
             timestamp: chunk.timestamp,
@@ -25248,6 +25265,8 @@ void main() {
     config;
     encoder;
     writes = [];
+    // 出力チャンクの timestamp。encode() した frame と突き合わせ、エンコーダが黙って捨てた frame を finish() で名指しする。
+    outputTimestamps = /* @__PURE__ */ new Set();
     failure = null;
     frameNumber = 0;
     closed = false;
@@ -25309,10 +25328,16 @@ void main() {
       await this.encoder.flush();
       await Promise.all(this.writes);
       if (this.failure) throw this.failure;
+      const dropped = this.frameNumber - this.writes.length;
+      if (dropped > 0) {
+        throw new Error(
+          `WebCodecs encoder dropped ${dropped} of ${this.frameNumber} frames (missing frame numbers: ${describeMissingFrames(this.frameNumber, this.options.fps, this.outputTimestamps)})`
+        );
+      }
       this.encoder.close();
       this.closed = true;
       this.notifyQueueWaiters();
-      return { frames: this.frameNumber };
+      return { frames: this.frameNumber, outputs: this.writes.length };
     }
     close() {
       if (this.closed) return;
