@@ -284,6 +284,11 @@ lint 実行系が見つからない場合は **fail-open**（2026-08-02 オー�
 保存を続行する。書き込みは tmp ファイルへの出力と rename による atomic 更新とする。実装は
 `packages/edit-store` に一本化し、器や入口ごとの独自書き込み実装を追加してはならない。
 
+本編 cut の `crop` 書き戻し（選択枠の辺バー）は **edit.json version 2 の文書だけ**が対象で、legacy の
+`cuts[]` schema には席が無いため読み込み層が拒否する。`output.geometry` を宣言していない文書では、crop の
+無い cut は出力キャンバスへ contain fit されて描かれるので、**初回の crop と同一 patch で `transform.scale`
+へ fit 係数を焼き込む**（ソース実寸基準の layer-style へ移っても画面上の位置・大きさが変わらないため）。
+
 ### 5.4 ペン
 
 ペン描画の単一正本は `packages/pen-visuals` の `PEN_TUNING` と描画プリミティブである。器や overlay
