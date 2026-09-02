@@ -168,6 +168,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ（seek の warning を回収） | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
+| アルファ層の取り込み（`.webm` / `.mov` → color + mask mp4） | — 入力境界の外（media-bin `alpha-intake` が正本） | ✅ サーバ側 `prepareAlphaLayers`（`frameEngine.intake`） | ✅ node RPC `prepareAlphaIntake`（同一 media-bin・同一派生物、2026-09-02） | ✅ page-builder | ✅ page-builder |
 | LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
 | 字幕 | — DOM 規約へ active state を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 適格 cue を sprite 化 |
 | overlays / 3D | — DOM 規約へ時刻を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 static / 宣言型 3D のみ |
