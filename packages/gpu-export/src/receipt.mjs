@@ -55,10 +55,20 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       warning_exceeded: memory.warningExceeded ?? false,
       hard_stop_exceeded: memory.hardStopExceeded ?? false,
     },
+    output_scale: normalizeOutputScale(run?.output_scale),
     run: run?.persistentPath ?? null,
     finalVerify,
     audio: normalizeGpuAudioRecord(audio),
   };
+}
+
+function normalizeOutputScale(value) {
+  if (!value || typeof value !== "object" || !["up", "down", "none"].includes(value.mode)) return null;
+  const from = Array.isArray(value.from) ? value.from.map(Number) : [];
+  const to = Array.isArray(value.to) ? value.to.map(Number) : [];
+  return from.length === 2 && to.length === 2 && [...from, ...to].every(entry => Number.isInteger(entry) && entry > 0)
+    ? { from, to, mode: value.mode }
+    : null;
 }
 
 function normalizeGpuAudioRecord(value) {

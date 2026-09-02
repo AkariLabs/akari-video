@@ -5,9 +5,20 @@ export interface ExportSettings {
     readonly engine: QuickExportEngine;
     readonly encoder: QuickExportEncoder;
     readonly fps: number | undefined;
+    readonly resolution: ExportResolution;
+    readonly customWidth?: number;
     readonly outputDirectoryUri: string | undefined;
     readonly rerunLint: boolean;
     readonly saveAsDefault: boolean;
+}
+
+export type ExportResolution = 'native' | '720p' | '1440p' | '4k' | 'custom';
+export type OutputScaleMode = 'up' | 'down' | 'none';
+
+export interface ResolvedOutputResolution {
+    readonly width: number;
+    readonly height: number;
+    readonly mode: OutputScaleMode;
 }
 
 export interface ExportQualityChoice {
@@ -59,10 +70,10 @@ export const EXPORT_FORMAT_SEATS: readonly ExportSettingSeat[] = Object.freeze([
 
 export const EXPORT_RESOLUTION_SEATS: readonly ExportSettingSeat[] = Object.freeze([
     { id: 'source', label: 'そのまま', description: 'edit.json の画素数を維持', available: true },
-    { id: '720p', label: '720p', description: '1280 × 720', available: false, tooltip: '720p: 軽い確認用サイズへ縮小します。近日' },
-    { id: '1440p', label: '1440p', description: '2560 × 1440', available: false, tooltip: '1440p: 高精細な配信用サイズへ拡大します。近日' },
-    { id: '4k', label: '4K', description: '3840 × 2160', available: false, tooltip: '4K: GPU の描画サイズを上げて出力します。近日' },
-    { id: 'custom', label: '自由指定', description: '幅から高さを自動計算', available: false, tooltip: '自由指定: 幅を指定し、画角を保って高さを計算します。近日' },
+    { id: '720p', label: '720p', description: '1280 × 720', available: true, tooltip: '画角を保ったまま短辺 720 px にします。' },
+    { id: '1440p', label: '1440p', description: '2560 × 1440', available: true, tooltip: '画角を保ったまま短辺 1440 px にします。' },
+    { id: '4k', label: '4K', description: '3840 × 2160', available: true, tooltip: '画角を保ったまま短辺 2160 px にします。' },
+    { id: 'custom', label: '自由指定', description: '幅から高さを自動計算', available: true, tooltip: '幅を指定し、画角を保って高さを計算します。' },
     { id: 'unlock-aspect', label: '画角を外す', description: '余白または切り取りが必要', available: false, tooltip: '画角を外す: 幅と高さを別々に指定します。近日' }
 ]);
 
@@ -102,6 +113,46 @@ function finitePositive(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
+function even(value: number): number {
+    return Math.max(2, Math.round(value / 2) * 2);
+}
+
+function customWidth(value: number | undefined, fallback: number): number {
+    const clamped = Math.min(7680, Math.max(320, finitePositive(value) ?? fallback));
+    return Math.min(7680, Math.max(320, even(clamped)));
+}
+
+export function resolveOutputResolution(
+    video: { readonly width?: number; readonly height?: number },
+    settings: Pick<ExportSettings, 'resolution' | 'customWidth'>
+): ResolvedOutputResolution {
+    const sourceWidth = even(finitePositive(video.width) ?? 1920);
+    const sourceHeight = even(finitePositive(video.height) ?? 1080);
+    const resolution = settings.resolution ?? 'native';
+    let width = sourceWidth;
+    let height = sourceHeight;
+    if (resolution === 'custom') {
+        width = customWidth(settings.customWidth, sourceWidth);
+        height = even(width * sourceHeight / sourceWidth);
+    } else if (resolution !== 'native') {
+        const shortEdge = resolution === '720p' ? 720 : resolution === '1440p' ? 1440 : 2160;
+        if (sourceWidth >= sourceHeight) {
+            height = shortEdge;
+            width = even(shortEdge * sourceWidth / sourceHeight);
+        } else {
+            width = shortEdge;
+            height = even(shortEdge * sourceHeight / sourceWidth);
+        }
+    }
+    const sourcePixels = sourceWidth * sourceHeight;
+    const outputPixels = width * height;
+    return {
+        width,
+        height,
+        mode: outputPixels > sourcePixels ? 'up' : outputPixels < sourcePixels ? 'down' : 'none'
+    };
+}
+
 export function describeOutput(settings: ExportSettings, edit: unknown): readonly OutputDescriptionLine[] {
     const output = edit && typeof edit === 'object' && 'output' in edit
         ? (edit as { output?: unknown }).output
@@ -112,9 +163,19 @@ export function describeOutput(settings: ExportSettings, edit: unknown): readonl
     const sourceFps = finitePositive(outputRecord.fps);
     const dimensions = width && height ? `${width} × ${height}` : 'edit.json のまま';
     const fps = settings.fps ?? sourceFps;
+    const resolved = resolveOutputResolution({ width, height }, settings);
+    const resolutionLabel: Readonly<Record<ExportResolution, string>> = {
+        native: 'そのまま', '720p': '720p', '1440p': '1440p', '4k': '4K', custom: '自由指定'
+    };
+    const modeLabel: Readonly<Record<OutputScaleMode, string>> = {
+        up: '拡大', down: '縮小', none: 'そのまま'
+    };
+    const pixelValue = (settings.resolution ?? 'native') === 'native'
+        ? `そのまま（${dimensions}${fps ? ` · ${fps} fps` : ''}）`
+        : `${resolved.width} × ${resolved.height}（${resolutionLabel[settings.resolution]}・${modeLabel[resolved.mode]}${fps ? ` · ${fps} fps` : ''}）`;
     return [
         { label: '形式', value: 'MP4 · H.264 / AAC 48 kHz' },
-        { label: '画素数', value: `そのまま（${dimensions}${fps ? ` · ${fps} fps` : ''}）` },
+        { label: '画素数', value: pixelValue },
         { label: '音', value: 'ラウドネス −14 LUFS（既定）' },
         { label: '色', value: '8-bit · Rec.709' }
     ];

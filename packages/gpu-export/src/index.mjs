@@ -10,7 +10,7 @@ import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 import { describeHardwareEncoderFailure, firstLine, HARDWARE_ENCODER_UNSUPPORTED_MARKER } from "./gpu-diagnostics.mjs";
 import { buildGpuReceipt } from "./receipt.mjs";
-import { launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
+import { buildGpuElectronArguments, launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
 
 export const FALLBACK_REASONS = Object.freeze([CAPTION_MEASURE_UNSTABLE_REASON]);
 
@@ -27,6 +27,8 @@ export async function exportWithGpu({
   fps,
   width,
   height,
+  outputWidth = width,
+  outputHeight = height,
   duration,
   frames = Math.round(duration * fps),
   soft = false,
@@ -45,7 +47,7 @@ export async function exportWithGpu({
   io = console,
   launcher: suppliedLauncher = null,
   launcherResolver = resolveGpuLauncher,
-  launcherRunner = launchGpuExport,
+  launcherRunner = launchGpuExportWithOutputSize,
   audioMuxer = muxSourceAudio,
   finalVerifier = verifyFinalVideo,
 } = {}) {
@@ -55,8 +57,8 @@ export async function exportWithGpu({
   const encoding = resolveGpuEncoding({
     quality,
     bitrate: bitrate ?? env.AKARI_GPU_BITRATE,
-    width,
-    height,
+    width: outputWidth,
+    height: outputHeight,
   });
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -69,6 +71,8 @@ export async function exportWithGpu({
       fps,
       width,
       height,
+      outputWidth,
+      outputHeight,
       duration,
       frames,
       soft,
@@ -125,8 +129,8 @@ export async function exportWithGpu({
       path: out,
       frames,
       fps,
-      width,
-      height,
+      width: outputWidth,
+      height: outputHeight,
       requireAudio: audio.mode !== "none",
     });
     finalVerify.avTermination = measureAvTermination(finalVerify, fps);
@@ -161,6 +165,16 @@ export async function exportWithGpu({
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
   }
+}
+
+function launchGpuExportWithOutputSize(launcher, options) {
+  return launchGpuExport(launcher, options, {
+    argumentBuilder: (resolvedLauncher, resolvedOptions) => [
+      ...buildGpuElectronArguments(resolvedLauncher, resolvedOptions),
+      "--output-width", String(resolvedOptions.outputWidth ?? resolvedOptions.width),
+      "--output-height", String(resolvedOptions.outputHeight ?? resolvedOptions.height),
+    ],
+  });
 }
 
 export async function captureFramesWithGpu({
