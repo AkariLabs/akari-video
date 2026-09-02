@@ -1548,6 +1548,8 @@
     const runtimeConfig = await bridge.config();
     const config = { ...pageConfig, ...runtimeConfig };
     const captureMode = Array.isArray(config.captureFrames);
+    const previewEvery = Number.isInteger(config.previewEvery) && config.previewEvery > 0 ? config.previewEvery : 0;
+    const previewWidth = Number.isInteger(config.previewWidth) && config.previewWidth > 0 ? config.previewWidth : 320;
     const dumpFrameNumbers = new Set(config.dumpFrames ?? []);
     const frameSequence = captureMode ? [...config.captureFrames] : null;
     const sequenceLength = captureMode ? frameSequence.length : config.frames;
@@ -1566,8 +1568,18 @@
     const restoreTraps = config.trapReadback ? installReadbackTraps(counters) : () => {};
     const engine = new GpuFrameEngineRuntime(config);
     const finalCanvas = document.getElementById("akari-final");
+    const previewOutputWidth = config.outputWidth ?? config.width;
+    const previewOutputHeight = config.outputHeight ?? config.height;
+    const previewHeight = Math.max(1, Math.round(previewOutputHeight * previewWidth / previewOutputWidth));
+    let previewActive = previewEvery > 0 && !captureMode && !config.trapReadback;
+    let previewFrames = 0;
+    let previewDisabledReason = null;
+    const previewCanvas = previewActive ? new OffscreenCanvas(previewWidth, previewHeight) : null;
+    const previewContext = previewCanvas?.getContext("2d") ?? null;
+    if (previewActive && !previewContext) { previewActive = false; previewDisabledReason = "preview-2d-context-unavailable"; }
+    if (previewContext) { previewContext.imageSmoothingEnabled = true; previewContext.imageSmoothingQuality = "high"; }
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
     const captionUnits = [];
@@ -1877,8 +1889,26 @@
             }
             const encodeStarted = performance.now();
             encodeCanvas = scaleSurfaceForEncode(finalCanvas, config, encodeCanvas);
+            let previewElapsed = 0;
+            if (previewActive && frameNumber % previewEvery === 0) {
+              const previewStarted = performance.now();
+              try {
+                previewContext.clearRect(0, 0, previewWidth, previewHeight);
+                previewContext.drawImage(encodeCanvas, 0, 0, previewWidth, previewHeight);
+                const blob = await previewCanvas.convertToBlob({ type: "image/jpeg", quality: 0.7 });
+                const jpeg = new Uint8Array(await blob.arrayBuffer());
+                await bridge.writeDumpFrame({ kind: "preview", frameNumber, jpeg });
+                previewFrames += 1;
+              } catch (error) {
+                // 制約 5: 失敗は握りつぶして以後 off。書き出しは続ける。
+                previewActive = false;
+                previewDisabledReason = String(error?.message ?? error);
+              }
+              previewElapsed = performance.now() - previewStarted;
+              stages.preview.push(previewElapsed);
+            }
             encoder.encode({ ...frame, surface: { ...frame.surface, canvas: encodeCanvas } });
-            stages.encode.push(performance.now() - encodeStarted);
+            stages.encode.push(performance.now() - encodeStarted - previewElapsed);
             const backpressureStarted = performance.now();
             if (encoder.encodeQueueSize > config.queueDepth) {
               queueWaits += 1;
@@ -1913,6 +1943,9 @@
               captionRasterTotalMs,
               captionRasterBatches: captionRasterBatchMetrics,
               captionStartup: summarizeCaptionStartup(captionStartupMetrics),
+              previewEvery,
+              previewFrames,
+              previewDisabledReason,
             },
             domLayer: domRuntime.summary(),
           });
@@ -1958,6 +1991,9 @@
           captionRasterTotalMs,
           captionRasterBatches: captionRasterBatchMetrics,
           captionStartup: summarizeCaptionStartup(captionStartupMetrics),
+          previewEvery,
+          previewFrames,
+          previewDisabledReason,
         },
         domLayer: domRuntime.summary(),
         mux,

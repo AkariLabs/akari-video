@@ -82,6 +82,10 @@ export interface QuickExportStatus {
     readonly progressTotalFrames?: number;
     /** render 工程を実行しているエンジン。 */
     readonly progressEngine?: 'gpu' | 'osr';
+    /** GPU 直結の書き出しが最後に書いた実フレーム JPEG のコマ番号。 */
+    readonly progressPreviewFrame?: number;
+    /** 同 JPEG の絶対パス（プロジェクト内 .akari/cache/export-preview 配下）。 */
+    readonly progressPreviewPath?: string;
     readonly progressElapsedMs?: number;
     readonly progressRemainingMs?: number;
 }
@@ -92,4 +96,10 @@ export interface AkariQuickExportService {
     cancel(): Promise<{ cancelled: boolean }>;
     revealArtifact(): Promise<{ revealed: boolean }>;
     copyArtifact(): Promise<{ copied: boolean; reason?: string }>;
+    /**
+     * 書き出し中の実フレーム JPEG を data URL にして返す。
+     * プロジェクト内 `.akari/cache/export-preview/` 配下のパスだけを許し、
+     * それ以外・読めない場合は undefined を返す（任意パス読み出しを受けない）。
+     */
+    readPreviewFrame(path: string): Promise<string | undefined>;
 }

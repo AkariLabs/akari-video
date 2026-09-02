@@ -40,6 +40,8 @@ export async function exportWithGpu({
   trapReadback = false,
   verifyFrames = false,
   dumpFrames = [],
+  preview = "auto",
+  previewOutputDirectory = null,
   // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
   gpuPreference = undefined,
   eligibility,
@@ -86,6 +88,8 @@ export async function exportWithGpu({
       trapReadback,
       verifyFrames,
       dumpFrames,
+      preview,
+      previewOutputDirectory,
       gpuPreference,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
@@ -179,6 +183,9 @@ function launchGpuExportWithOutputSize(launcher, options) {
       "--output-width", String(resolvedOptions.outputWidth ?? resolvedOptions.width),
       "--output-height", String(resolvedOptions.outputHeight ?? resolvedOptions.height),
       ...((resolvedOptions.codec ?? "h264") === "hevc" ? ["--codec", "hevc"] : []),
+      ...(resolvedOptions.preview === "off" ? ["--preview", "off"] : []),
+      ...(resolvedOptions.previewOutputDirectory
+        ? ["--preview-dir", resolvedOptions.previewOutputDirectory] : []),
     ],
   });
 }
