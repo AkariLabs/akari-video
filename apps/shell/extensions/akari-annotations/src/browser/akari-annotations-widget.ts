@@ -33,15 +33,28 @@ import {
 import { parseReview } from '../common/annotation-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import {
+    AudioLoudnessEnvelope,
+    AudioWaveformDebounceGate,
     AudioWaveformPaintState,
+    AudioWaveformTier,
+    AudioWaveformTierLru,
+    AudioWaveformWindow,
     audioClipLocalGeometry,
     audioKeyframeMarkerPositions,
+    audioLoudnessBucketColors,
+    audioLoopWaveformVisibleWindowPlan,
     audioLoopTilePeaks,
     audioSourceSliceWindow,
     audioWaveformBandLayout,
+    audioWaveformMasterKey,
     audioWaveformRepaintNeeded,
     audioWaveformSourceRect,
+    audioWaveformTierBucketCount,
+    audioWaveformTierCacheKey,
+    audioWaveformVisibleSourceWindow,
     filmstripChunkIndexFor,
+    nextAudioWaveformTier,
+    quantizeAudioWaveformWindow,
     waveformBucketForLocalPx,
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
@@ -257,8 +270,8 @@ const MICRO_CLIP_WIDTH_PX = 28;
 const MIN_CLIP_HIT_WIDTH_PX = 24;
 /** 当たり領域を拡張したチップでの左右トリムハンドル 1 つぶんの下限（px）。 */
 const MIN_TRIM_HANDLE_HIT_PX = 8;
-const CLIP_HEADER_HEIGHT = 18;
-/** クリップ帯の高さ（ヘッダー帯18px + サムネイル/波形本体34px）。cuts トラックの既定高さ。 */
+const CLIP_HEADER_HEIGHT = 14;
+/** クリップ帯の高さ（ヘッダー帯14px + サムネイル/波形本体34px）。cuts トラックの既定高さ。 */
 const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 34;
 /**
  * トラック高さドラッグリサイズ（R7-2・T4 の3段階ボタンを退役し連続値へ一般化）。
@@ -338,6 +351,21 @@ interface ClipMediaGeometry {
     clipLocalOffsetPx: number;
     fullClipWidthPx: number;
     trackHeightPx: number;
+}
+
+interface AudioWaveformDetailSource {
+    readonly tier: AudioWaveformTier;
+    readonly fullPeaks: readonly number[];
+    readonly sliceKey: string;
+    readonly peaksFactory: () => readonly number[];
+    readonly clipStartSec: number;
+    readonly displayDurationSec: number;
+}
+
+interface AudioWaveformDetailMapping {
+    readonly visibleSourceWindow: AudioWaveformWindow;
+    readonly sourceOriginTimelineSeconds: number;
+    readonly sourceSecondsPerTimelineSecond: number;
 }
 
 function sameRenderedPx(left: number, right: number): boolean {
@@ -773,6 +801,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected filmstripChunkCache = new Map<string, ClipFilmstripChunk | 'pending' | 'unavailable'>();
     protected filmstripContentRevision = 0;
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
+    protected readonly waveformTierCache = new AudioWaveformTierLru<
+        number[] | 'pending' | 'unavailable'
+    >(200);
+    protected readonly waveformT1Requested = new Set<string>();
+    protected readonly waveformT2DebounceGates = new Map<string, AudioWaveformDebounceGate>();
+    protected readonly waveformT2DebounceTimers = new Map<string, { key: string; handle: number }>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
     protected readonly audioWaveformPeakIds = new WeakMap<readonly number[], number>();
     protected nextAudioWaveformPeakId = 1;
@@ -1129,14 +1163,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         height: ${CLIP_HEADER_HEIGHT}px;
         background: #2c8a9a;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 4px;
-        padding: 0 3px;
+        padding: 1px 3px 0;
         box-sizing: border-box;
         font-family: ui-monospace, SFMono-Regular, monospace;
         font-size: 11px;
-        line-height: ${CLIP_HEADER_HEIGHT}px;
+        line-height: 12px;
         color: #e5e5e5;
         pointer-events: none;
         overflow: hidden;
@@ -1390,7 +1424,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         text-overflow: ellipsis;
         color: var(--theia-editor-foreground, #fff);
         font-size: 11px;
-        line-height: ${SUBROW_HEIGHT}px;
+        line-height: 12px;
         pointer-events: none;
         text-shadow: 0 1px 2px #000;
     }
@@ -2217,6 +2251,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 fps: this.fps,
                 keyframeFrames,
                 keyframes: audio.keyframes,
+                gainDb: audio.gainDb,
+                fadeIn: 'fadeIn' in audio ? audio.fadeIn : undefined,
+                fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
                 fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
             });
             const keyframes = await dialog.open();
@@ -8829,8 +8866,159 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected audioWaveformDetailSource(
+        path: string,
+        audioUri: string,
+        fullDurationSeconds: number,
+        clipStartSec: number,
+        displayDurationSec: number,
+        sourceWindow: AudioWaveformWindow,
+        visibleWidthPx: number,
+        t0Peaks: readonly number[],
+        baseSliceKey: string,
+        displayPeaks: (peaks: readonly number[]) => readonly number[],
+        detailMapping?: AudioWaveformDetailMapping | null
+    ): AudioWaveformDetailSource {
+        const t0DisplayPeaks = displayPeaks(t0Peaks);
+        let selected: AudioWaveformDetailSource = {
+            tier: 'T0', fullPeaks: t0Peaks, sliceKey: baseSliceKey,
+            peaksFactory: () => t0DisplayPeaks, clipStartSec, displayDurationSec
+        };
+        if (nextAudioWaveformTier('T0', visibleWidthPx, t0DisplayPeaks.length) !== 'T1') {
+            return selected;
+        }
+
+        const fullWindow = { startSeconds: 0, endSeconds: fullDurationSeconds };
+        const t1BucketCount = audioWaveformTierBucketCount('T1', fullDurationSeconds);
+        const t1Key = audioWaveformTierCacheKey(path, 'T1', fullWindow, t1BucketCount);
+        let t1 = this.waveformTierCache.get(t1Key);
+        if (t1 === undefined && !this.waveformT1Requested.has(path)) {
+            this.waveformT1Requested.add(path);
+            this.fetchAudioWaveformTier(t1Key, 'T1', audioUri, fullWindow, t1BucketCount);
+            t1 = 'pending';
+        }
+        if (!Array.isArray(t1)) return selected;
+
+        const t1DisplayPeaks = displayPeaks(t1);
+        if (t1DisplayPeaks.length > t0DisplayPeaks.length) {
+            selected = {
+                tier: 'T1', fullPeaks: t1, sliceKey: `${baseSliceKey}:${t1Key}`,
+                peaksFactory: () => t1DisplayPeaks, clipStartSec, displayDurationSec
+            };
+        }
+        const selectedBucketCount = Math.max(t0DisplayPeaks.length, t1DisplayPeaks.length);
+        if (nextAudioWaveformTier('T1', visibleWidthPx, selectedBucketCount) !== 'T2') {
+            return selected;
+        }
+        if (detailMapping === null) return selected;
+
+        const sourceSpan = sourceWindow.endSeconds - sourceWindow.startSeconds;
+        const sourceSecondsPerTimelineSecond = detailMapping?.sourceSecondsPerTimelineSecond
+            ?? sourceSpan / displayDurationSec;
+        const sourceOriginTimelineSeconds = detailMapping?.sourceOriginTimelineSeconds
+            ?? clipStartSec - sourceWindow.startSeconds / sourceSecondsPerTimelineSecond;
+        const visibleSourceWindow = detailMapping?.visibleSourceWindow
+            ?? audioWaveformVisibleSourceWindow({
+                clipStartSeconds: clipStartSec,
+                displayDurationSeconds: displayDurationSec,
+                sourceStartSeconds: sourceWindow.startSeconds,
+                sourceEndSeconds: sourceWindow.endSeconds,
+                viewStartSeconds: this.viewStart,
+                viewEndSeconds: this.viewStart + this.visibleDuration()
+            });
+        if (!visibleSourceWindow) return selected;
+        const quantizedWindow = quantizeAudioWaveformWindow(
+            visibleSourceWindow.startSeconds, visibleSourceWindow.endSeconds, fullDurationSeconds
+        );
+        const quantizedDuration = quantizedWindow.endSeconds - quantizedWindow.startSeconds;
+        if (!(quantizedDuration > 0)) return selected;
+        const t2BucketCount = audioWaveformTierBucketCount(
+            'T2', fullDurationSeconds, quantizedDuration
+        );
+        const t2Key = audioWaveformTierCacheKey(path, 'T2', quantizedWindow, t2BucketCount);
+        const t2 = this.waveformTierCache.get(t2Key);
+        if (!Array.isArray(t2)) {
+            if (t2 === undefined) {
+                this.scheduleAudioWaveformT2(path, t2Key, audioUri, quantizedWindow, t2BucketCount);
+            }
+            return selected;
+        }
+
+        const coverageClipStart = sourceOriginTimelineSeconds
+            + quantizedWindow.startSeconds / sourceSecondsPerTimelineSecond;
+        const coverageDisplayDuration = quantizedDuration / sourceSecondsPerTimelineSecond;
+        return {
+            tier: 'T2', fullPeaks: t2, sliceKey: `${baseSliceKey}:${t2Key}`,
+            peaksFactory: () => t2,
+            clipStartSec: coverageClipStart,
+            displayDurationSec: coverageDisplayDuration
+        };
+    }
+
+    protected fetchAudioWaveformTier(
+        key: string,
+        tier: Exclude<AudioWaveformTier, 'T0'>,
+        audioUri: string,
+        sourceWindow: AudioWaveformWindow,
+        bucketCount: number,
+        debouncePath?: string
+    ): void {
+        if (!this.location) return;
+        this.waveformTierCache.set(key, tier, 'pending');
+        void this.annotationsService.getClipWaveform({
+            projectRootUri: this.location.root.toString(),
+            videoUri: audioUri,
+            startSeconds: sourceWindow.startSeconds,
+            endSeconds: sourceWindow.endSeconds,
+            bucketCount
+        }).then(result => {
+            if (result.status === 'ready' && result.peaks) {
+                this.waveformTierCache.set(key, tier, result.peaks);
+            } else {
+                this.waveformTierCache.set(key, tier, 'unavailable');
+                this.showFfmpegMissingNotice(result.reason);
+            }
+            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
+            this.renderStrip();
+        }).catch(() => {
+            this.waveformTierCache.set(key, tier, 'unavailable');
+            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
+            this.renderStrip();
+        });
+    }
+
+    protected scheduleAudioWaveformT2(
+        path: string,
+        key: string,
+        audioUri: string,
+        sourceWindow: AudioWaveformWindow,
+        bucketCount: number
+    ): void {
+        let gate = this.waveformT2DebounceGates.get(path);
+        if (!gate) {
+            gate = new AudioWaveformDebounceGate(200);
+            this.waveformT2DebounceGates.set(path, gate);
+        }
+        const decision = gate.consider(key, Date.now());
+        if (decision.shouldFetch) {
+            this.fetchAudioWaveformTier(key, 'T2', audioUri, sourceWindow, bucketCount, path);
+            return;
+        }
+        if (decision.waitMs === undefined) return;
+        const existing = this.waveformT2DebounceTimers.get(path);
+        if (existing?.key === key && !decision.pendingChanged) return;
+        if (existing) window.clearTimeout(existing.handle);
+        const handle = window.setTimeout(() => {
+            this.waveformT2DebounceTimers.delete(path);
+            if (!this.waveformTierCache.has(key)) {
+                this.scheduleAudioWaveformT2(path, key, audioUri, sourceWindow, bucketCount);
+            }
+        }, Math.max(0, Math.ceil(decision.waitMs)));
+        this.waveformT2DebounceTimers.set(path, { key, handle });
+    }
+
     protected updateBgmWaveform(
-        element: HTMLDivElement, bgm: EditAudioBgm, timelineDurationSec: number,
+        element: HTMLDivElement, bgm: EditAudioBgmWithEnvelope, timelineDurationSec: number,
         itemHeightPx: number, actualDuration: number | undefined
     ): void {
         const barWidthPx = this.audioBarWidthPx(0, timelineDurationSec);
@@ -8839,21 +9027,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const key = `sfxwave:${bgm.path}`;
+        const audioUri = this.resolveEditMediaUri(bgm.path, this.location.editUri).toString();
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             const sliceKey = `loop:${bgm.path}:${actualDuration}:${timelineDurationSec}:0:${bgm.speed ?? 1}`;
-            this.updateAudioClipWaveform(
-                element, waveform, sliceKey,
-                () => audioLoopTilePeaks(waveform, {
+            const detailMapping = audioLoopWaveformVisibleWindowPlan(
+                timelineDurationSec, actualDuration,
+                this.viewStart, this.viewStart + this.visibleDuration(), bgm.speed
+            );
+            const detail = this.audioWaveformDetailSource(
+                bgm.path, audioUri, actualDuration, 0, timelineDurationSec,
+                { startSeconds: 0, endSeconds: actualDuration }, barWidthPx, waveform, sliceKey,
+                peaks => audioLoopTilePeaks(peaks, {
                     trackDurationSec: actualDuration,
                     timelineDurationSec,
                     inSec: 0,
                     speed: bgm.speed
                 }),
-                0, timelineDurationSec, barWidthPx, itemHeightPx
+                detailMapping ?? null
+            );
+            this.updateAudioClipWaveform(
+                element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
+                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                    gainDb: bgm.gainDb,
+                    keyframes: bgm.keyframes,
+                    fadeInSeconds: bgm.fadeIn,
+                    fadeOutSeconds: bgm.fadeOut,
+                    durationSeconds: timelineDurationSec,
+                    bucketStartSeconds: detail.clipStartSec,
+                    bucketDurationSeconds: detail.displayDurationSec,
+                    keyframeFrames: this.editDocument !== undefined
+                        && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined,
+                    fps: this.fps
+                }
             );
         } else if (waveform === undefined) {
-            const audioUri = this.resolveEditMediaUri(bgm.path, this.location.editUri).toString();
             this.fetchSfxWaveform(key, audioUri, actualDuration);
         } else {
             this.removeAudioWaveformCanvas(element);
@@ -8861,7 +9069,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateNarrationWaveform(
-        element: HTMLDivElement, narration: EditAudioNarration, displayDurationSec: number,
+        element: HTMLDivElement, narration: EditAudioNarrationWithEnvelope, displayDurationSec: number,
         itemHeightPx: number, actualDuration: number | undefined
     ): void {
         const barWidthPx = this.audioBarWidthPx(narration.t, narration.t + displayDurationSec);
@@ -8875,18 +9083,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             speed: narration.speed
         });
         const key = `sfxwave:${narration.path}`;
+        const audioUri = this.resolveEditMediaUri(narration.path, this.location.editUri).toString();
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             const sliceKey = `source:${narration.path}:${sourceWindow.startSec}:${sourceWindow.endSec}:${actualDuration}`;
+            const detail = this.audioWaveformDetailSource(
+                narration.path, audioUri, actualDuration, narration.t, displayDurationSec,
+                { startSeconds: sourceWindow.startSec, endSeconds: sourceWindow.endSec },
+                barWidthPx, waveform, sliceKey,
+                peaks => this.sfxWaveformSlice(
+                    peaks, sourceWindow.startSec, sourceWindow.endSec, actualDuration
+                )
+            );
             this.updateAudioClipWaveform(
-                element, waveform, sliceKey,
-                () => this.sfxWaveformSlice(
-                    waveform, sourceWindow.startSec, sourceWindow.endSec, actualDuration
-                ),
-                narration.t, displayDurationSec, barWidthPx, itemHeightPx
+                element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
+                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                    gainDb: narration.gainDb,
+                    keyframes: narration.keyframes,
+                    durationSeconds: displayDurationSec,
+                    bucketStartSeconds: detail.clipStartSec - narration.t,
+                    bucketDurationSeconds: detail.displayDurationSec,
+                    keyframeFrames: this.rawV2Item(narration.id) !== undefined,
+                    fps: this.fps
+                }
             );
         } else if (waveform === undefined) {
-            const audioUri = this.resolveEditMediaUri(narration.path, this.location.editUri).toString();
             this.fetchSfxWaveform(key, audioUri, actualDuration);
         } else {
             this.removeAudioWaveformCanvas(element);
@@ -8894,7 +9115,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateSfxWaveform(
-        element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
+        element: HTMLDivElement, sfx: EditAudioSfxWithFade, barWidthPx: number, itemHeightPx: number,
         sourceWindow: { startSec: number; endSec: number }, actualDuration: number | undefined,
         displayDurationSec: number
     ): void {
@@ -8903,18 +9124,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const key = `sfxwave:${sfx.path}`;
+        const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             const sliceKey = `source:${sfx.path}:${sourceWindow.startSec}:${sourceWindow.endSec}:${actualDuration}`;
+            const detail = this.audioWaveformDetailSource(
+                sfx.path, audioUri, actualDuration, sfx.t, displayDurationSec,
+                { startSeconds: sourceWindow.startSec, endSeconds: sourceWindow.endSec },
+                barWidthPx, waveform, sliceKey,
+                peaks => this.sfxWaveformSlice(
+                    peaks, sourceWindow.startSec, sourceWindow.endSec, actualDuration
+                )
+            );
             this.updateAudioClipWaveform(
-                element, waveform, sliceKey,
-                () => this.sfxWaveformSlice(
-                    waveform, sourceWindow.startSec, sourceWindow.endSec, actualDuration
-                ),
-                sfx.t, displayDurationSec, barWidthPx, itemHeightPx
+                element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
+                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                    gainDb: sfx.gainDb,
+                    keyframes: sfx.keyframes,
+                    fadeInSeconds: sfx.fadeIn,
+                    fadeOutSeconds: sfx.fadeOut,
+                    durationSeconds: displayDurationSec,
+                    bucketStartSeconds: detail.clipStartSec - sfx.t,
+                    bucketDurationSeconds: detail.displayDurationSec,
+                    keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
+                    fps: this.fps
+                }
             );
         } else if (waveform === undefined) {
-            const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
             this.fetchSfxWaveform(key, audioUri, actualDuration);
         } else {
             this.removeAudioWaveformCanvas(element);
@@ -8974,7 +9210,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         clipStartSec: number,
         displayDurationSec: number,
         visibleWidthPx: number,
-        itemHeightPx: number
+        itemHeightPx: number,
+        envelope: AudioLoudnessEnvelope
     ): void {
         if (visibleWidthPx < MIN_CLIP_WIDTH_FOR_MEDIA_PX
             || itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
@@ -8996,7 +9233,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.updateAudioWaveformCanvas(
-            element, fullPeaks, sliceKey, peaksFactory, visibleWidthPx, itemHeightPx, geometry
+            element, fullPeaks, sliceKey, peaksFactory, visibleWidthPx, itemHeightPx, geometry, envelope
         );
     }
 
@@ -9007,11 +9244,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         peaksFactory: () => readonly number[],
         visibleWidth: number,
         itemHeightPx: number,
-        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number },
+        envelope: AudioLoudnessEnvelope = { durationSeconds: 0 }
     ): void {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
-        const masterKey = `${this.audioWaveformPeakIdentity(fullPeaks)}|${sliceKey}|${band.heightPx}`;
-        const master = this.audioWaveformMaster(masterKey, peaksFactory, band.heightPx);
+        const masterKey = audioWaveformMasterKey(
+            this.audioWaveformPeakIdentity(fullPeaks), sliceKey, band.heightPx, envelope
+        );
+        const master = this.audioWaveformMaster(masterKey, peaksFactory, band.heightPx, envelope);
         if (!master) {
             this.removeAudioWaveformCanvas(element);
             return;
@@ -9063,7 +9303,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected audioWaveformMaster(
-        key: string, peaksFactory: () => readonly number[], heightPx: number
+        key: string, peaksFactory: () => readonly number[], heightPx: number,
+        envelope: AudioLoudnessEnvelope
     ): HTMLCanvasElement | undefined {
         const cached = this.audioWaveformMasterCache.get(key);
         if (cached) return cached;
@@ -9074,8 +9315,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         master.height = heightPx;
         const context = master.getContext('2d');
         if (!context) return undefined;
-        context.fillStyle = '#fff';
+        const colors = audioLoudnessBucketColors(peaks, envelope);
         for (let bucket = 0; bucket < peaks.length; bucket++) {
+            context.fillStyle = colors[bucket];
             const barHeight = waveformHeightForPeak(peaks[bucket]) * heightPx;
             context.fillRect(bucket, (heightPx - barHeight) / 2, 1, barHeight);
         }

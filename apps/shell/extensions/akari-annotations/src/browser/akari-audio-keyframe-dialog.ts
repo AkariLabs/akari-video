@@ -12,6 +12,7 @@ import {
     validateAudioKeyframeTime
 } from '../common/audio-keyframe-editor-geometry';
 import {
+    audioLoudnessBucketColors,
     audioLoopTilePeaks,
     audioSourceSliceWindow,
     waveformHeightForPeak
@@ -41,6 +42,9 @@ export interface AkariAudioKeyframeDialogProps extends DialogProps {
     readonly fps: number;
     readonly keyframeFrames: boolean;
     readonly keyframes?: readonly AudioEnvelopeKeyframePayload[];
+    readonly gainDb?: number;
+    readonly fadeIn?: number;
+    readonly fadeOut?: number;
     readonly fullPeaks: readonly number[];
 }
 
@@ -266,12 +270,21 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         if (peaks.length === 0) return;
         const centerY = this.canvasHeight / 2;
         const maxHalfHeight = Math.min(WAVEFORM_HEIGHT_PX, this.canvasHeight) / 2;
-        this.ctx.fillStyle = 'rgba(34, 211, 238, .24)';
+        const colors = audioLoudnessBucketColors(peaks, {
+            gainDb: this.props.gainDb,
+            keyframes: this.points,
+            fadeInSeconds: this.props.fadeIn,
+            fadeOutSeconds: this.props.fadeOut,
+            durationSeconds: this.props.durationSeconds
+        });
+        this.ctx.globalAlpha = .24;
         for (let x = 0; x < this.canvasWidth; x += 1) {
             const bucket = Math.min(peaks.length - 1, Math.floor(x / this.canvasWidth * peaks.length));
+            this.ctx.fillStyle = colors[bucket];
             const halfHeight = waveformHeightForPeak(peaks[bucket]) * maxHalfHeight;
             this.ctx.fillRect(x, centerY - halfHeight, 1, halfHeight * 2);
         }
+        this.ctx.globalAlpha = 1;
     }
 
     protected paintDbGrid(): void {

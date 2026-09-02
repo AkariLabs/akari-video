@@ -24,7 +24,7 @@ test('音声キーフレームは高さゲートとSVGに依存しない固定px
 test('BGM はループタイル、narration は source 秒窓スライスを波形更新へ渡す', () => {
   const bgm = method('protected updateBgmWaveform(', 'protected updateNarrationWaveform(');
   const narration = method('protected updateNarrationWaveform(', 'protected updateSfxWaveform(');
-  assert.match(bgm, /audioLoopTilePeaks\(waveform/u);
+  assert.match(bgm, /audioLoopTilePeaks\(peaks/u);
   assert.match(bgm, /speed: bgm\.speed/u);
   assert.match(narration, /audioSourceSliceWindow\(/u);
   assert.match(narration, /this\.sfxWaveformSlice\(/u);

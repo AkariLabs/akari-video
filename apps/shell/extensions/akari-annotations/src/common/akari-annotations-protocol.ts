@@ -74,6 +74,7 @@ export interface GetClipWaveformRequest {
     videoUri: string;
     startSeconds: number;
     endSeconds: number;
+    bucketCount?: number;
 }
 
 export interface GetClipWaveformResult {

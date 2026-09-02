@@ -191,6 +191,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!request?.projectRootUri || !request?.videoUri) {
             return { status: 'unavailable', reason: 'source-missing' };
         }
+        if (request.bucketCount !== undefined) {
+            return mediaCache.getClipWaveform(
+                this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+                request.startSeconds, request.endSeconds, request.bucketCount
+            );
+        }
         return mediaCache.getClipWaveform(
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
             request.startSeconds, request.endSeconds

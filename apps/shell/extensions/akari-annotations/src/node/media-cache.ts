@@ -18,7 +18,7 @@ import {
     THUMBNAIL_WIDTH_PX,
     WAVEFORM_BUCKET_COUNT
 } from '../common/akari-annotations-protocol';
-import { planFilmstripChunk } from '../common/filmstrip-geometry';
+import { clampWaveformBucketCount, planFilmstripChunk } from '../common/filmstrip-geometry';
 
 const execFileAsync = promisify(execFile);
 
@@ -367,14 +367,14 @@ export async function getClipFilmstripChunk(
     }
 }
 
-function extractPeaks(pcm: Buffer): number[] {
+function extractPeaks(pcm: Buffer, bucketCount = WAVEFORM_BUCKET_COUNT): number[] {
     const sampleCount = Math.floor(pcm.length / 2);
-    const peaks = new Array<number>(WAVEFORM_BUCKET_COUNT).fill(0);
-    for (let bucket = 0; bucket < WAVEFORM_BUCKET_COUNT; bucket++) {
-        const start = Math.floor(sampleCount * bucket / WAVEFORM_BUCKET_COUNT);
-        const end = bucket === WAVEFORM_BUCKET_COUNT - 1
+    const peaks = new Array<number>(bucketCount).fill(0);
+    for (let bucket = 0; bucket < bucketCount; bucket++) {
+        const start = Math.floor(sampleCount * bucket / bucketCount);
+        const end = bucket === bucketCount - 1
             ? sampleCount
-            : Math.floor(sampleCount * (bucket + 1) / WAVEFORM_BUCKET_COUNT);
+            : Math.floor(sampleCount * (bucket + 1) / bucketCount);
         let maximum = 0;
         for (let sample = start; sample < end; sample++) {
             maximum = Math.max(maximum, Math.abs(pcm.readInt16LE(sample * 2)));
@@ -388,7 +388,8 @@ export async function getClipWaveform(
     projectRoot: string,
     videoPath: string,
     startSeconds: number,
-    endSeconds: number
+    endSeconds: number,
+    bucketCount?: number
 ): Promise<GetClipWaveformResult> {
     let stat;
     try {
@@ -401,7 +402,11 @@ export async function getClipWaveform(
     }
 
     const directory = join(projectRoot, 'cache', 'timeline', 'waveform');
-    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, startSeconds, endSeconds, 'waveform']);
+    const effectiveBucketCount = clampWaveformBucketCount(bucketCount, endSeconds - startSeconds);
+    const legacyCacheKey = bucketCount === undefined || bucketCount === WAVEFORM_BUCKET_COUNT;
+    const hash = cacheHash(legacyCacheKey
+        ? [videoPath, stat.size, stat.mtimeMs, startSeconds, endSeconds, 'waveform']
+        : [videoPath, stat.size, stat.mtimeMs, startSeconds, endSeconds, 'waveform', effectiveBucketCount]);
     const destination = join(directory, `${hash}.json`);
     const temporaryPcm = `${destination}.${process.pid}.tmp`;
     try {
@@ -420,7 +425,7 @@ export async function getClipWaveform(
         } catch {
             return { status: 'unavailable', reason: 'extraction-failed' };
         }
-        const peaks = extractPeaks(await fs.readFile(temporaryPcm));
+        const peaks = extractPeaks(await fs.readFile(temporaryPcm), effectiveBucketCount);
         await writeAtomic(destination, `${JSON.stringify(peaks)}\n`);
         return { status: 'ready', peaks };
     } catch {
