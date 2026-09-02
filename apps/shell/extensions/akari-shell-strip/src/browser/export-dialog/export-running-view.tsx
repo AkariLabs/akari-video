@@ -2,6 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { QuickExportStage } from '../../common/quick-export-progress';
 import { quickExportStageLabel } from '../../common/quick-export-ui';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
+import { ExportThumbnailStrip } from './export-thumbnail-strip';
 import { ExportFrame, formatClock, VideoFacts } from './export-view-shared';
 
 const STAGES: readonly QuickExportStage[] = ['prepare', 'audio-cut', 'render', 'audio-mix', 'verify'];
@@ -40,8 +41,9 @@ export function ExportRunningView(props: {
                 <div className='left'>
                     <div className='sec'><span>今描いている絵</span><span className='r'>書き出し中の画角</span></div>
                     <ExportFrame video={snapshot.video} previewSlot />
+                    <ExportThumbnailStrip percent={percent} />
                     <VideoFacts video={snapshot.video} />
-                    <p className='fine'>帯と実フレームは後続の機能でこの枠に表示されます。</p>
+                    <p className='fine'>素材の帯です。テロップ・効果は乗りません。</p>
                 </div>
                 <div className='rwrap'>
                     <div className='right'>
