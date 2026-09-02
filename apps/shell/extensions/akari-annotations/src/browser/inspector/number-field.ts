@@ -6,6 +6,7 @@ export interface NumberFieldOptions {
     min?: number;
     max?: number;
     unit?: string;
+    displayScale?: number;
     onPreview?: (value: number) => void;
     onCommit: (value: number) => Promise<boolean>;
     keyframe?: KeyframeSeatOptions;
@@ -46,7 +47,7 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
     group.className = 'akari-inspector-kf-controls';
     const previous = document.createElement('button');
     previous.type = 'button';
-    previous.textContent = '◇';
+    previous.textContent = '‹';
     previous.title = '前のキーフレームへ';
     previous.setAttribute('aria-label', '前のキーフレームへ');
     previous.addEventListener('click', () => options?.onPrevious());
@@ -60,7 +61,7 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
     button.addEventListener('click', () => options?.onToggle());
     const next = document.createElement('button');
     next.type = 'button';
-    next.textContent = '◇';
+    next.textContent = '›';
     next.title = '次のキーフレームへ';
     next.setAttribute('aria-label', '次のキーフレームへ');
     next.addEventListener('click', () => options?.onNext());
@@ -69,6 +70,14 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
 }
 
 export function createNumberField(options: NumberFieldOptions): HTMLElement {
+    const displayScale = options.displayScale ?? 1;
+    const toDisplay = (value: number): number => value * displayScale;
+    const fromDisplay = (value: number): number => value / displayScale;
+    const displayValue = toDisplay(options.value);
+    const displayStep = toDisplay(options.step);
+    const displayMin = options.min === undefined ? undefined : toDisplay(options.min);
+    const displayMax = options.max === undefined ? undefined : toDisplay(options.max);
+
     const container = document.createElement('div');
     container.className = 'akari-inspector-number-field';
     container.setAttribute('data-akari-ui', `field:inspector-${options.name}`);
@@ -84,16 +93,20 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     input.type = 'text';
     input.inputMode = 'decimal';
     input.className = 'akari-inspector-number-input';
-    input.value = formatNumberStep(options.value, options.step);
+    input.value = formatNumberStep(displayValue, displayStep);
     input.setAttribute('role', 'spinbutton');
     input.setAttribute('aria-label', options.label);
-    if (options.min !== undefined) input.setAttribute('aria-valuemin', String(options.min));
-    if (options.max !== undefined) input.setAttribute('aria-valuemax', String(options.max));
+    if (displayMin !== undefined) input.setAttribute('aria-valuemin', String(displayMin));
+    if (displayMax !== undefined) input.setAttribute('aria-valuemax', String(displayMax));
 
     const unit = document.createElement('span');
     unit.className = 'akari-inspector-number-unit';
     unit.textContent = options.unit ?? '';
 
+    const restore = (): void => {
+        input.value = formatNumberStep(displayValue, displayStep);
+        options.onPreview?.(options.value);
+    };
     const buttons = document.createElement('span');
     buttons.className = 'akari-inspector-number-steps';
     const up = document.createElement('button');
@@ -105,28 +118,29 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         button.addEventListener('click', event => {
             const current = Number(input.value);
             if (!Number.isFinite(current)) return;
-            const next = numericStep(current, direction, options.step, event.shiftKey, options.min, options.max);
-            input.value = formatNumberStep(next, options.step);
+            const displayNext = numericStep(
+                current, direction, displayStep, event.shiftKey, displayMin, displayMax
+            );
+            const next = fromDisplay(displayNext);
+            input.value = formatNumberStep(displayNext, displayStep);
             options.onPreview?.(next);
             void options.onCommit(next).then(ok => {
-                if (!ok) input.value = formatNumberStep(options.value, options.step);
+                if (!ok) restore();
             });
         });
     }
     buttons.append(up, down);
 
-    const restore = (): void => {
-        input.value = formatNumberStep(options.value, options.step);
-        options.onPreview?.(options.value);
-    };
     const commitInput = async (): Promise<void> => {
         const parsed = Number(input.value);
         if (!Number.isFinite(parsed)) {
             restore();
             return;
         }
-        const next = clampNumber(parsed, options.min, options.max);
-        input.value = formatNumberStep(next, options.step);
+        const displayNext = clampNumber(parsed, displayMin, displayMax);
+        const next = fromDisplay(displayNext);
+        input.value = formatNumberStep(displayNext, displayStep);
+        options.onPreview?.(next);
         if (!await options.onCommit(next)) restore();
     };
     input.addEventListener('blur', () => void commitInput());
@@ -142,11 +156,12 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             event.preventDefault();
             const current = Number(input.value);
             if (!Number.isFinite(current)) return;
-            const next = numericStep(
+            const displayNext = numericStep(
                 current, event.key === 'ArrowUp' ? 1 : -1,
-                options.step, event.shiftKey, options.min, options.max
+                displayStep, event.shiftKey, displayMin, displayMax
             );
-            input.value = formatNumberStep(next, options.step);
+            const next = fromDisplay(displayNext);
+            input.value = formatNumberStep(displayNext, displayStep);
             options.onPreview?.(next);
             void options.onCommit(next).then(ok => {
                 if (!ok) restore();
@@ -174,12 +189,13 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             if (event.pointerId !== pointerId) return;
             const delta = event.clientX - startX;
             moved ||= Math.abs(delta) >= 1;
-            current = clampNumber(
-                options.value + delta * options.step * (event.shiftKey ? 10 : 1),
-                options.min,
-                options.max
+            const displayCurrent = clampNumber(
+                displayValue + delta * displayStep * (event.shiftKey ? 10 : 1),
+                displayMin,
+                displayMax
             );
-            input.value = formatNumberStep(current, options.step);
+            current = fromDisplay(displayCurrent);
+            input.value = formatNumberStep(displayCurrent, displayStep);
             const now = Date.now();
             if (now - lastPreviewAt >= INSPECTOR_LIVE_PREVIEW_THROTTLE_MS) {
                 lastPreviewAt = now;
