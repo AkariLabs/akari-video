@@ -162,16 +162,16 @@ test('audioClipLocalGeometry は不正入力を undefined にする', () => {
   assert.equal(audioClipLocalGeometry({ ...base, stripWidthPx: Number.NaN }), undefined);
 });
 
-test('audioWaveformBandLayout はラベル後の残り領域中央へ60%高で置く', () => {
-  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 25, heightPx: 20 });
+test('audioWaveformBandLayout はラベル後の残り領域中央へ90%高で置く', () => {
+  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 19.5, heightPx: 31 });
 });
 
 test('audioWaveformBandLayout は高さを12pxで下限クランプする', () => {
-  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 16, heightPx: 12 });
+  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 15, heightPx: 12 });
 });
 
-test('audioWaveformBandLayout は高さを28pxで上限クランプする', () => {
-  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 45, heightPx: 28 });
+test('audioWaveformBandLayout は28pxの旧上限を越えて拡大する', () => {
+  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 22, heightPx: 74 });
 });
 
 test('audioWaveformBandLayout は帯が収まらない高さでも要素外へ出さない', () => {
