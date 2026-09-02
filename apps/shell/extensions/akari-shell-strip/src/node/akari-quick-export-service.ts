@@ -204,6 +204,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             engine: request.engine,
             encoder: request.encoder,
             fps: request.fps,
+            scaleTo: request.scaleTo,
             outputDirectory: request.outputDirectoryUri ? this.fsPath(request.outputDirectoryUri) : undefined
         });
     }

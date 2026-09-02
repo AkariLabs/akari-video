@@ -74,8 +74,8 @@ export function startRawVideoEncoder({
   queueDepth = 3, spawnImpl = spawn,
 }) {
   const { policy, args: videoArgs } = resolveOsrVideoEncodeArgs({ quality, encoder, edit, ffmpegCommand });
-  const targetWidth = outputWidth ?? processArgument("--output-width") ?? width;
-  const targetHeight = outputHeight ?? processArgument("--output-height") ?? height;
+  const targetWidth = outputWidth ?? width;
+  const targetHeight = outputHeight ?? height;
   const scaleArgs = targetWidth === width && targetHeight === height
     ? []
     : ["-vf", `scale=${targetWidth}:${targetHeight}:flags=lanczos`];
@@ -146,11 +146,4 @@ export function startRawVideoEncoder({
       child.kill("SIGTERM");
     },
   };
-}
-
-function processArgument(name, argv = process.argv) {
-  const index = argv.lastIndexOf(name);
-  if (index < 0 || index + 1 >= argv.length) return undefined;
-  const value = Number(argv[index + 1]);
-  return Number.isInteger(value) && value > 0 ? value : undefined;
 }
