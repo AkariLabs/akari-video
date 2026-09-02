@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -25,12 +25,24 @@ export const SOFT_CHROMIUM_SWITCHES = Object.freeze([
 // 子の AKARI Video / npm Electron も Node モードで起動する（tier 1 は Chromium スイッチを bad option で拒否して exit 9、
 // tier 2 は electron-main.mjs が素の Node で走り app が undefined）。名前の比較は Windows の大文字小文字非区別に合わせる。
 export const ELECTRON_CHILD_ENV_BLOCKLIST = Object.freeze(["ELECTRON_RUN_AS_NODE"]);
-// 開発用の脱出口: allowDesktop が未指定のとき AKARI_EXPORT_ALLOW_DESKTOP=0 で tier 1（インストール済みアプリ）を候補から外す。
+// 開発用の脱出口: allowDesktop が未指定のとき AKARI_EXPORT_ALLOW_DESKTOP=0 で desktop 全体を候補から外す。
+// 1 は dev レイアウトの自動判定を無効化し、インストール済みアプリを従来どおり許可する。
 // インストール済みアプリは --akari-main を resourcesPath 優先で解決するため、リポジトリ側の変更が実機に乗らない。
-// 明示引数（allowDesktop: true / false）は env より優先する。
+// 明示 allowDesktop は env より優先し、明示 allowInstalledDesktop は dev レイアウト自動判定より優先する。
 export const EXPORT_ALLOW_DESKTOP_ENV = "AKARI_EXPORT_ALLOW_DESKTOP";
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DEFAULT_REPOSITORY_ROOT = resolve(PACKAGE_ROOT, "..", "..");
 const packageRequire = createRequire(import.meta.url);
+let defaultDevRepositoryLayoutPromise;
+
+export async function isDevRepositoryLayout({ repoRoot, readTextFile } = {}) {
+  const useDefaultInputs = repoRoot === undefined && readTextFile === undefined;
+  if (useDefaultInputs) {
+    defaultDevRepositoryLayoutPromise ??= detectDevRepositoryLayout(DEFAULT_REPOSITORY_ROOT, defaultReadTextFile);
+    return defaultDevRepositoryLayoutPromise;
+  }
+  return detectDevRepositoryLayout(repoRoot ?? DEFAULT_REPOSITORY_ROOT, readTextFile ?? defaultReadTextFile);
+}
 
 export async function resolveElectronLauncher({
   env = process.env,
@@ -45,14 +57,27 @@ export async function resolveElectronLauncher({
   allowDesktop = undefined,
   // false のとき「インストール済みデスクトップアプリ」（/Applications 等の既定候補）だけを候補から外す。
   // env.AKARI_OSR_ELECTRON の明示指定は尊重する。resolveOsrLauncher（製品入口）が使う:
-  // インストール済みアプリの --render は Theia の起動処理と競合して落ちる（v0.1.26 実ビルドで実証・osr 契約 §11.5）。
-  allowInstalledDesktop = true,
+  // 未指定なら dev レイアウトで false に倒す。インストール済みアプリの --render は Theia の起動処理と競合して落ちる
+  // （v0.1.26 実ビルドで実証・osr 契約 §11.5）。
+  allowInstalledDesktop = undefined,
+  repoRoot = undefined,
+  readTextFile = undefined,
 } = {}) {
   let skippedInstalledDesktop = false;
+  let skippedInstalledDesktopForDevLayout = false;
   const desktopAllowed = allowDesktop === undefined ? env[EXPORT_ALLOW_DESKTOP_ENV] !== "0" : Boolean(allowDesktop);
+  let installedDesktopAllowed = allowInstalledDesktop === undefined ? true : Boolean(allowInstalledDesktop);
+  if (desktopAllowed
+    && allowDesktop === undefined
+    && allowInstalledDesktop === undefined
+    && env[EXPORT_ALLOW_DESKTOP_ENV] !== "1"
+    && await isDevRepositoryLayout({ repoRoot, readTextFile })) {
+    installedDesktopAllowed = false;
+    skippedInstalledDesktopForDevLayout = true;
+  }
   for (const executable of desktopAllowed ? desktopCandidates({ env, platform, homeDirectory }) : []) {
     const explicit = executable === env.AKARI_OSR_ELECTRON;
-    if (!allowInstalledDesktop && !explicit) { skippedInstalledDesktop = true; continue; }
+    if (!installedDesktopAllowed && !explicit) { skippedInstalledDesktop = true; continue; }
     const runtime = runtimePathResolver(executable, platform);
     if (executable && await probe(executable, { kind: "desktop" })
       && (explicit || await probe(runtime, { kind: "desktop-runtime" }))) {
@@ -64,14 +89,18 @@ export async function resolveElectronLauncher({
   if (executable && await probeElectronDist(executable, probe, platform)) {
     return { tier: 2, kind: "npm-electron", executable, reason: "package optionalDependency" };
   }
-  const reason = "Electron unavailable";
+  let reason = "Electron unavailable";
   if (skippedInstalledDesktop) {
-    return {
-      tier: 3, executable: null, skippedInstalledDesktop: true,
-      reason: `${reason}; the installed desktop app is skipped because its --render entry crashes (osr contract §11.5)`,
-    };
+    reason += "; the installed desktop app is skipped because its --render entry crashes (osr contract §11.5)";
   }
-  return { tier: 3, executable: null, reason };
+  if (skippedInstalledDesktopForDevLayout) {
+    reason += `; 開発リポジトリ配置のためインストール済みアプリは候補から外しています（${EXPORT_ALLOW_DESKTOP_ENV}=1 で許可、または AKARI_OSR_ELECTRON=<path> を指定）`;
+  }
+  return {
+    tier: 3, executable: null,
+    ...(skippedInstalledDesktop ? { skippedInstalledDesktop: true } : {}),
+    reason,
+  };
 }
 
 export function electronChildEnvironment(env = process.env) {
@@ -195,6 +224,20 @@ async function probeElectronDist(executable, probe, platform) {
     if (!(await probe(join(dist, entry), { kind: "dist-entry" }))) return false;
   }
   return probe(executable, { kind: "npm-electron" });
+}
+
+async function detectDevRepositoryLayout(repoRoot, readTextFile) {
+  try {
+    const source = await readTextFile(join(repoRoot, "package.json"));
+    const manifest = JSON.parse(String(source).replace(/^\uFEFF/u, ""));
+    return Array.isArray(manifest?.workspaces);
+  } catch {
+    return false;
+  }
+}
+
+function defaultReadTextFile(path) {
+  return readFile(path, "utf8");
 }
 
 function defaultResolveElectron() {

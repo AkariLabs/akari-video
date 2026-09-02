@@ -51,6 +51,18 @@ test("GPU launcher uses the GPU desktop runtime probe (tier 1 via electron-entry
   assert.equal(result.tier, 1);
 });
 
+test("GPU launcher inherits the dev-layout installed desktop opt-out", async () => {
+  const result = await resolveGpuLauncher({
+    repoRoot: "/repo",
+    readTextFile: async () => JSON.stringify({ workspaces: ["packages/*"] }),
+    env: {}, platform: "linux", homeDirectory: "/opt/akari-test",
+    probe: async () => true,
+    resolveElectron: () => "/npm/electron",
+  });
+  assert.equal(result.tier, 2);
+  assert.equal(result.kind, "npm-electron");
+});
+
 test("GPU launcher still honours allowDesktop: false (explicit opt-out of tier 1)", async () => {
   const result = await resolveGpuLauncher({
     allowDesktop: false,
