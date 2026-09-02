@@ -2285,6 +2285,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const dialog = new AkariAudioKeyframeDialog({
                 title: `音量キーフレーム — ${this.pathBaseName(audio.path)}`,
                 maxWidth: 840,
+                audioUri,
                 audioKind,
                 durationSeconds,
                 sourceDurationSeconds,
@@ -2296,7 +2297,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 gainDb: audio.gainDb,
                 fadeIn: 'fadeIn' in audio ? audio.fadeIn : undefined,
                 fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
-                fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
+                fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : [],
+                fetchWaveform: async request => {
+                    const result = await this.annotationsService.getClipWaveform({
+                        projectRootUri: this.location!.root.toString(),
+                        videoUri: audioUri,
+                        startSeconds: request.startSeconds,
+                        endSeconds: request.endSeconds,
+                        bucketCount: request.bucketCount
+                    });
+                    return result.status === 'ready' && result.peaks ? result.peaks : undefined;
+                }
             });
             const dialogValue = await dialog.open();
             if (dialogValue === undefined) return;
