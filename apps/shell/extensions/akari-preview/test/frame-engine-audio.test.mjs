@@ -67,7 +67,10 @@ test('shell 評価台は旧音声を停止し、共有予定表と Web Audio を
 });
 
 test('shell の既存 transport は frame-engine clock と AudioContext.currentTime に追従する', () => {
-  assert.match(bootstrap, /position = audioSupply\.position\(fallbackPosition\)/u);
+  // playbackTime() は position() と同じ時計を返しつつ、音声が止まっていれば startFrom を張り直す
+  // （2026-09-02: 読むだけの position() では startFrom が黙って降りた後に無音が固定していた）
+  assert.match(bootstrap, /position = audioSupply\.playbackTime\(fallbackPosition\)/u);
+  assert.match(bootstrap, /pauseWatchdogMs: false/u);
   assert.match(bootstrap, /audioSupply\.playFrom\(position\)/u);
   assert.match(bootstrap, /audioSupply\.pause\(\)/u);
   assert.match(bootstrap, /window\.akariFrameEngineAudioDebug/u);

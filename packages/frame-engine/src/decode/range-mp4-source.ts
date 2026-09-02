@@ -29,6 +29,12 @@ export interface RangeFetchStats {
   fullBodyFallback: boolean;
   fullBodyBytes: number;
   maxFutureFrames: number;
+  /** GOP を供給し切って出力を 250 ms 待った回数（デコーダが詰まった兆候）。 */
+  graceWaits: number;
+  /** target より後のフレームが先に出て「target は来ない」と即断した回数（デコーダがフレームを落とした兆候）。 */
+  targetSkips: number;
+  /** target が出ず sync から再シークした回数。 */
+  droppedTargets: number;
 }
 
 interface CachedRange extends ByteRange {
@@ -54,9 +60,27 @@ export interface RangeMp4SourceOptions {
   decodeTimeoutMs?: number;
   hardwareAcceleration?: HardwarePreference;
   codecSupport?: CodecSupport | null;
+  /**
+   * VideoDecoderConfig.optimizeForLatency。既定 false（2026-09-02）。true だと macOS の VideoToolbox が
+   * 負荷時にフレームを落とす（投入済みなのに二度と出てこない）ことを実機で観測し、その 1 フレームが
+   * 「GOP 末尾まで供給 → 250 ms 猶予 → flush → 失敗 → 作り直し」の連鎖を毎フレーム起こしていた。
+   * 順方向の供給はデコーダの遅延ぶん（実測 +4 サンプル）を rounds で足すので、false でも seek 遅延は増えない。
+   * 実験用に AKARI_FRAME_ENGINE_LOW_LATENCY=1 / globalThis.__AKARI_FRAME_ENGINE_LOW_LATENCY__ で戻せる。
+   */
+  optimizeForLatency?: boolean;
   onWarning?: (message: string) => void;
   onCodecSupport?: (support: CodecSupport) => void;
   onSoftwareFallbackDenied?: (support: CodecSupport) => void;
+}
+
+export function resolveOptimizeForLatencyDefault(): boolean {
+  const runtime = globalThis as typeof globalThis & {
+    __AKARI_FRAME_ENGINE_LOW_LATENCY__?: unknown;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  if (explicit === undefined || explicit === null || explicit === '') return false;
+  return explicit === true || explicit === '1' || explicit === 'true';
 }
 
 function uint32(bytes: Uint8Array, offset: number): number {
@@ -139,6 +163,9 @@ class HttpRangeReader {
     fullBodyFallback: false,
     fullBodyBytes: 0,
     maxFutureFrames: 0,
+    graceWaits: 0,
+    targetSkips: 0,
+    droppedTargets: 0,
   };
   private readonly fetchImpl: typeof fetch;
   private readonly onWarning?: (message: string) => void;
@@ -402,6 +429,7 @@ export async function selectSupportedDecoderConfig(
   callbacks: {
     onCodecSupport?: (support: CodecSupport) => void;
     onSoftwareFallbackDenied?: (support: CodecSupport) => void;
+    optimizeForLatency?: boolean;
   } = {},
 ): Promise<{ config: VideoDecoderConfig; acceleration: HardwarePreference }> {
   const base: VideoDecoderConfig = {
@@ -409,7 +437,7 @@ export async function selectSupportedDecoderConfig(
     description: table.description,
     codedWidth: table.codedWidth,
     codedHeight: table.codedHeight,
-    optimizeForLatency: true,
+    optimizeForLatency: callbacks.optimizeForLatency ?? resolveOptimizeForLatencyDefault(),
   };
   const attempts: HardwarePreference[] = requested === 'prefer-software'
     ? ['prefer-software']
@@ -458,14 +486,22 @@ interface OutputWaiter {
   promise: Promise<void>;
   targetUs: number;
   sampleTimestampUs: number;
+  /** この待ちの間に出力された「target より後の」フレーム数（fail-fast の判定用）。 */
+  laterFrames: number;
   isSettled(): boolean;
   resolve(): void;
 }
 
+/**
+ * future frame の退避対象。過去（target 未満）を古い順に limit まで落とし、さらに target より先の
+ * フレームが futureLimit を超える場合は遠い順に落とす（flush で GOP 残り全部が出たときに
+ * デコーダ由来の surface を数十枚握り続けないため。issue #28 と同じ資源）。
+ */
 export function futureFrameTimestampsToEvict(
   timestamps: readonly number[],
   limit: number,
   targetUs: number,
+  futureLimit: number = Number.POSITIVE_INFINITY,
 ): number[] {
   const evicted: number[] = [];
   let retained = timestamps.length;
@@ -475,8 +511,17 @@ export function futureFrameTimestampsToEvict(
     evicted.push(timestamp);
     retained -= 1;
   }
+  if (Number.isFinite(futureLimit)) {
+    const future = timestamps
+      .filter(timestamp => timestamp >= targetUs && !evicted.includes(timestamp))
+      .sort((left, right) => left - right);
+    for (const timestamp of future.slice(Math.max(0, Math.floor(futureLimit)))) evicted.push(timestamp);
+  }
   return evicted;
 }
+
+/** target より先に保持する future frame の上限（デコーダ由来の surface を握る枚数の天井）。 */
+const FUTURE_FRAME_LIMIT = 16;
 
 class TargetFrameUnavailableError extends Error {
   constructor(readonly targetUs: number) {
@@ -558,6 +603,7 @@ export class RangeMp4Source {
         {
           onCodecSupport: this.options.onCodecSupport,
           onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
+          optimizeForLatency: this.options.optimizeForLatency,
         },
       );
     this.decoderError = null;
@@ -627,6 +673,19 @@ export class RangeMp4Source {
     }
     if (frame.timestamp > target) {
       this.storeFutureFrame(frame);
+      // 出力は提示順なので、target より後のフレームが並べ替え窓（maxReorderFrames）を超える数だけ
+      // 先に出た時点で target はもう来ない（デコーダが落とした）。猶予 250 ms と flush を待たずに
+      // waiter を解いて呼び手に再シークさせる。B フレーム無しなら後続 1 枚で確定する。
+      const waiter = this.outputWaiter;
+      if (waiter && !waiter.isSettled()) {
+        waiter.laterFrames += 1;
+        const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
+        if (waiter.laterFrames > reorderWindow
+          && !(this.activeCandidate && frameCovers(this.activeCandidate, waiter.targetUs))) {
+          this.shared.reader.stats.targetSkips += 1;
+          waiter.resolve();
+        }
+      }
       return;
     }
     if (!this.activeCandidate || frame.timestamp >= this.activeCandidate.timestamp) {
@@ -651,6 +710,7 @@ export class RangeMp4Source {
       [...this.futureFrames.keys()],
       limit,
       targetUs,
+      FUTURE_FRAME_LIMIT,
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -669,6 +729,7 @@ export class RangeMp4Source {
       promise,
       targetUs,
       sampleTimestampUs,
+      laterFrames: 0,
       isSettled: () => settled,
       resolve() {
         if (settled) return;
@@ -722,7 +783,11 @@ export class RangeMp4Source {
         this.options.onWarning?.(
           `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`,
         );
-        await this.resetDecoder();
+        this.shared.reader.stats.droppedTargets += 1;
+        // 落とされたのは target 1 枚だけで、flush で出た後続フレームは正しい。ここで捨てると次の
+        // フレームも「投入済みなのに手元に無い」状態になり、同じ失敗を毎フレーム繰り返す
+        // （実機で fps 8 に張り付いた連鎖）。future は保持したままデコーダだけ作り直す。
+        await this.resetDecoder({ keepFutureFrames: true });
       }
     }
     throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
@@ -902,6 +967,10 @@ export class RangeMp4Source {
     if (waiter.isSettled()) return 'target-or-dequeue';
     if (decoder.decodeQueueSize === 0) {
       if (canSupply) return 'needs-supply';
+      // GOP を供給し切り、かつ target より後のフレームが既に出ているなら、待っても target は
+      // 出てこない（並べ替え中なら flush で出る）。猶予 250 ms を飛ばして flush へ進む。
+      if (waiter.laterFrames > 0) return 'grace-expired';
+      this.shared.reader.stats.graceWaits += 1;
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       const graceExpired = new Promise<'grace-expired'>(resolve => {
         graceTimer = setTimeout(() => resolve('grace-expired'), OUTPUT_GRACE_MS);
@@ -982,7 +1051,7 @@ export class RangeMp4Source {
     }
   }
 
-  private async resetDecoder(): Promise<void> {
+  private async resetDecoder(options: { keepFutureFrames?: boolean } = {}): Promise<void> {
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -992,8 +1061,11 @@ export class RangeMp4Source {
     this.decoder = null;
     this.decoderFailure = null;
     this.rejectDecoderFailure = null;
-    for (const frame of this.futureFrames.values()) frame.close();
-    this.futureFrames.clear();
+    // 出力済みの VideoFrame はデコーダを閉じても有効なので、再シークで再利用できる future は残せる。
+    if (!options.keepFutureFrames) {
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+    }
     await this.configureDecoder();
   }
 

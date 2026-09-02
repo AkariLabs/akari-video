@@ -1,0 +1,2933 @@
+{
+  "status": "running",
+  "label": "before",
+  "startedAt": "2026-09-02T01:13:01.055Z",
+  "environment": {
+    "loadAverageAtStart": [
+      6.60205078125,
+      6.0625,
+      4.1005859375
+    ],
+    "domNodes": 809,
+    "itemElements": 200,
+    "itemKindCounts": {
+      "layer": 33,
+      "audio": 33,
+      "cut": 134
+    },
+    "treeItemElements": 0,
+    "usedJSHeapSize": 157000000,
+    "dpr": 2,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.32 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+    "gpuRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+    "browserVersion": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/142.0.7444.265",
+      "revision": "@d338888ca0a7c26fddcfb09a503db016a13a972b",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.32 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+      "jsVersion": "14.2.231.22"
+    },
+    "shell": "/Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell",
+    "selector": "#akari-annotations-widget .akari-annotations-strip",
+    "frontendBundle": {
+      "mtime": "2026-09-02T01:12:38.540Z",
+      "sizeBytes": 16229608,
+      "sourceMatch": "517a388260b0274852f528c2abf1c48e0e24739e",
+      "sha256": "7478eb80c8ac75fd448ed7d60627bd64462790865fb742650fccde1dc1f24c4c"
+    }
+  },
+  "subjects": {
+    "A": {
+      "200": {
+        "status": "running",
+        "requestedN": 200,
+        "actualN": 200,
+        "note": null,
+        "runs": [
+          {
+            "run": 1,
+            "requestedN": 200,
+            "actualN": 200,
+            "isolationDir": "/var/folders/q8/19kn64rn71j8qntftxy0yv300000gn/T/akari-timeline-bench/a-n200-run1",
+            "status": "completed",
+            "coldOpen": {
+              "openMs": 12368.913330078125,
+              "visibleItemCount": 200,
+              "attempts": 1,
+              "deviceMetrics": {
+                "width": 1800,
+                "height": 1150,
+                "deviceScaleFactor": 0,
+                "mobile": false
+              },
+              "route": [
+                "メニュー",
+                "タイムライン"
+              ]
+            },
+            "warmOpen": {
+              "openMs": 12051.194091796875,
+              "visibleItemCount": 200,
+              "attempts": 1,
+              "deviceMetrics": {
+                "width": 1800,
+                "height": 1150,
+                "deviceScaleFactor": 0,
+                "mobile": false
+              },
+              "route": [
+                "メニュー",
+                "タイムライン"
+              ]
+            },
+            "cache": {
+              "status": "not-reached",
+              "reason": "cache/timeline did not become non-empty and quiet within 300000ms",
+              "signature": {
+                "files": 0,
+                "bytes": 0,
+                "latest": 0
+              }
+            },
+            "operations": {
+              "1": {
+                "status": "completed",
+                "loadMs": 12051.194091796875,
+                "coldOpenMs": 12368.913330078125,
+                "domNodes": 809,
+                "itemElements": 200,
+                "itemKindCounts": {
+                  "layer": 33,
+                  "audio": 33,
+                  "cut": 134
+                },
+                "treeItemElements": 0,
+                "usedJSHeapSize": 157000000,
+                "dpr": 2,
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.32 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+                "gpuRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "visibleCullingObserved": false
+              },
+              "2": {
+                "status": "completed",
+                "reason": null,
+                "samplesMs": [
+                  61.2998046875,
+                  16.7001953125,
+                  25.5,
+                  236.60009765625,
+                  16.5,
+                  16.60009765625,
+                  15.60009765625,
+                  16.5,
+                  16.599853515625,
+                  16.5,
+                  16.800048828125,
+                  15.599853515625,
+                  15.599853515625,
+                  16.5,
+                  16.400146484375,
+                  16.39990234375,
+                  16.199951171875,
+                  15.900146484375,
+                  16.400146484375,
+                  16.099853515625,
+                  15.5,
+                  15.2001953125,
+                  17.300048828125,
+                  15.39990234375,
+                  16.599853515625,
+                  17.10009765625,
+                  16.10009765625,
+                  16.5,
+                  16.5,
+                  15.599853515625,
+                  15.39990234375,
+                  15.39990234375,
+                  16.5,
+                  17.599853515625,
+                  18.800048828125,
+                  21.599853515625,
+                  19.199951171875,
+                  20.7001953125,
+                  41.7001953125,
+                  14.5
+                ],
+                "summary": {
+                  "count": 40,
+                  "medianMs": 16.5,
+                  "p95Ms": 41.7001953125,
+                  "maxMs": 236.60009765625,
+                  "over16_7": 13,
+                  "over33": 3
+                },
+                "work": {
+                  "samplesMs": [
+                    12.099853515625,
+                    7.5,
+                    6.699951171875,
+                    5.199951171875,
+                    3.900146484375,
+                    3.7001953125,
+                    3.7001953125,
+                    3.39990234375,
+                    3.199951171875,
+                    3.599853515625,
+                    3.800048828125,
+                    3.5,
+                    4.199951171875,
+                    4.7998046875,
+                    4.60009765625,
+                    4.89990234375,
+                    6.599853515625,
+                    4.5,
+                    2.900146484375,
+                    4.7998046875,
+                    6.199951171875,
+                    6.10009765625,
+                    4.699951171875,
+                    5,
+                    4.699951171875,
+                    6.400146484375,
+                    6.199951171875,
+                    4.900146484375,
+                    5.800048828125,
+                    6.599853515625,
+                    6.39990234375,
+                    7,
+                    7.5,
+                    8.199951171875,
+                    8.199951171875,
+                    9.300048828125,
+                    8.2998046875,
+                    8.300048828125,
+                    8.2001953125,
+                    4.699951171875
+                  ],
+                  "count": 40,
+                  "medianMs": 5,
+                  "p95Ms": 8.300048828125,
+                  "maxMs": 12.099853515625,
+                  "over16_7": 0,
+                  "over33": 0
+                },
+                "attempts": [
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 61.2998046875,
+                    "workMs": 12.099853515625,
+                    "mutations": 2472,
+                    "inputAt": 1788311907042.8,
+                    "mutationAt": 1788311907054.9,
+                    "paintAt": 1788311907104.0999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.7001953125,
+                    "workMs": 7.5,
+                    "mutations": 873,
+                    "inputAt": 1788311907144.5999,
+                    "mutationAt": 1788311907152.0999,
+                    "paintAt": 1788311907161.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 25.5,
+                    "workMs": 6.699951171875,
+                    "mutations": 1280,
+                    "inputAt": 1788311907193.7,
+                    "mutationAt": 1788311907200.4,
+                    "paintAt": 1788311907219.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 236.60009765625,
+                    "workMs": 5.199951171875,
+                    "mutations": 435,
+                    "inputAt": 1788311907344.4,
+                    "mutationAt": 1788311907349.5999,
+                    "paintAt": 1788311907581
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 3.900146484375,
+                    "mutations": 298,
+                    "inputAt": 1788311907610.0999,
+                    "mutationAt": 1788311907614,
+                    "paintAt": 1788311907626.5999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 3.7001953125,
+                    "mutations": 211,
+                    "inputAt": 1788311907660.0999,
+                    "mutationAt": 1788311907663.8,
+                    "paintAt": 1788311907676.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.60009765625,
+                    "workMs": 3.7001953125,
+                    "mutations": 155,
+                    "inputAt": 1788311907711.0999,
+                    "mutationAt": 1788311907714.8,
+                    "paintAt": 1788311907726.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 3.39990234375,
+                    "mutations": 105,
+                    "inputAt": 1788311907776.8,
+                    "mutationAt": 1788311907780.2,
+                    "paintAt": 1788311907793.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.599853515625,
+                    "workMs": 3.199951171875,
+                    "mutations": 74,
+                    "inputAt": 1788311907826.8,
+                    "mutationAt": 1788311907830,
+                    "paintAt": 1788311907843.4
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 3.599853515625,
+                    "mutations": 68,
+                    "inputAt": 1788311907876.8,
+                    "mutationAt": 1788311907880.4,
+                    "paintAt": 1788311907893.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.800048828125,
+                    "workMs": 3.800048828125,
+                    "mutations": 49,
+                    "inputAt": 1788311907943.4,
+                    "mutationAt": 1788311907947.2,
+                    "paintAt": 1788311907960.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.599853515625,
+                    "workMs": 3.5,
+                    "mutations": 42,
+                    "inputAt": 1788311907993.5,
+                    "mutationAt": 1788311907997,
+                    "paintAt": 1788311908009.0999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.599853515625,
+                    "workMs": 4.199951171875,
+                    "mutations": 42,
+                    "inputAt": 1788311908043.5,
+                    "mutationAt": 1788311908047.7,
+                    "paintAt": 1788311908059.0999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 4.7998046875,
+                    "mutations": 42,
+                    "inputAt": 1788311908110.3,
+                    "mutationAt": 1788311908115.0999,
+                    "paintAt": 1788311908126.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.400146484375,
+                    "workMs": 4.60009765625,
+                    "mutations": 42,
+                    "inputAt": 1788311908160.4,
+                    "mutationAt": 1788311908165,
+                    "paintAt": 1788311908176.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.39990234375,
+                    "workMs": 4.89990234375,
+                    "mutations": 42,
+                    "inputAt": 1788311908210.3,
+                    "mutationAt": 1788311908215.2,
+                    "paintAt": 1788311908226.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.199951171875,
+                    "workMs": 6.599853515625,
+                    "mutations": 42,
+                    "inputAt": 1788311908277.3,
+                    "mutationAt": 1788311908283.9,
+                    "paintAt": 1788311908293.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.900146484375,
+                    "workMs": 4.5,
+                    "mutations": 24,
+                    "inputAt": 1788311908326.9,
+                    "mutationAt": 1788311908331.4,
+                    "paintAt": 1788311908342.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.400146484375,
+                    "workMs": 2.900146484375,
+                    "mutations": 18,
+                    "inputAt": 1788311908376.9,
+                    "mutationAt": 1788311908379.8,
+                    "paintAt": 1788311908393.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.099853515625,
+                    "workMs": 4.7998046875,
+                    "mutations": 18,
+                    "inputAt": 1788311908460.8,
+                    "mutationAt": 1788311908465.5999,
+                    "paintAt": 1788311908476.9
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.5,
+                    "workMs": 6.199951171875,
+                    "mutations": 30,
+                    "inputAt": 1788311908510.7,
+                    "mutationAt": 1788311908516.9,
+                    "paintAt": 1788311908526.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.2001953125,
+                    "workMs": 6.10009765625,
+                    "mutations": 42,
+                    "inputAt": 1788311908560.5999,
+                    "mutationAt": 1788311908566.7,
+                    "paintAt": 1788311908575.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 17.300048828125,
+                    "workMs": 4.699951171875,
+                    "mutations": 42,
+                    "inputAt": 1788311908609.5,
+                    "mutationAt": 1788311908614.2,
+                    "paintAt": 1788311908626.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.39990234375,
+                    "workMs": 5,
+                    "mutations": 42,
+                    "inputAt": 1788311908660.3,
+                    "mutationAt": 1788311908665.3,
+                    "paintAt": 1788311908675.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.599853515625,
+                    "workMs": 4.699951171875,
+                    "mutations": 42,
+                    "inputAt": 1788311908710.3,
+                    "mutationAt": 1788311908715,
+                    "paintAt": 1788311908726.9
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 17.10009765625,
+                    "workMs": 6.400146484375,
+                    "mutations": 42,
+                    "inputAt": 1788311908776.4,
+                    "mutationAt": 1788311908782.8,
+                    "paintAt": 1788311908793.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.10009765625,
+                    "workMs": 6.199951171875,
+                    "mutations": 55,
+                    "inputAt": 1788311908827.4,
+                    "mutationAt": 1788311908833.5999,
+                    "paintAt": 1788311908843.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 4.900146484375,
+                    "mutations": 68,
+                    "inputAt": 1788311908876.9,
+                    "mutationAt": 1788311908881.8,
+                    "paintAt": 1788311908893.4
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 5.800048828125,
+                    "mutations": 80,
+                    "inputAt": 1788311908925.9,
+                    "mutationAt": 1788311908931.7,
+                    "paintAt": 1788311908942.4
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.599853515625,
+                    "workMs": 6.599853515625,
+                    "mutations": 105,
+                    "inputAt": 1788311908977,
+                    "mutationAt": 1788311908983.5999,
+                    "paintAt": 1788311908992.5999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.39990234375,
+                    "workMs": 6.39990234375,
+                    "mutations": 142,
+                    "inputAt": 1788311909027,
+                    "mutationAt": 1788311909033.4,
+                    "paintAt": 1788311909042.4
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.39990234375,
+                    "workMs": 7,
+                    "mutations": 204,
+                    "inputAt": 1788311909094.7,
+                    "mutationAt": 1788311909101.7,
+                    "paintAt": 1788311909110.0999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 7.5,
+                    "mutations": 291,
+                    "inputAt": 1788311909160.0999,
+                    "mutationAt": 1788311909167.5999,
+                    "paintAt": 1788311909176.5999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 17.599853515625,
+                    "workMs": 8.199951171875,
+                    "mutations": 427,
+                    "inputAt": 1788311909227,
+                    "mutationAt": 1788311909235.2,
+                    "paintAt": 1788311909244.5999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 18.800048828125,
+                    "workMs": 8.199951171875,
+                    "mutations": 630,
+                    "inputAt": 1788311909277,
+                    "mutationAt": 1788311909285.2,
+                    "paintAt": 1788311909295.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 21.599853515625,
+                    "workMs": 9.300048828125,
+                    "mutations": 1197,
+                    "inputAt": 1788311909327,
+                    "mutationAt": 1788311909336.3,
+                    "paintAt": 1788311909348.5999
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 19.199951171875,
+                    "workMs": 8.2998046875,
+                    "mutations": 1249,
+                    "inputAt": 1788311909382.3,
+                    "mutationAt": 1788311909390.5999,
+                    "paintAt": 1788311909401.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 20.7001953125,
+                    "workMs": 8.300048828125,
+                    "mutations": 1249,
+                    "inputAt": 1788311909442.5999,
+                    "mutationAt": 1788311909450.9,
+                    "paintAt": 1788311909463.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 41.7001953125,
+                    "workMs": 8.2001953125,
+                    "mutations": 2471,
+                    "inputAt": 1788311909493.5999,
+                    "mutationAt": 1788311909501.8,
+                    "paintAt": 1788311909535.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 14.5,
+                    "workMs": 4.699951171875,
+                    "mutations": 2053,
+                    "inputAt": 1788311909577.9,
+                    "mutationAt": 1788311909582.5999,
+                    "paintAt": 1788311909592.4
+                  }
+                ],
+                "performance": {
+                  "LayoutDuration": 0.096659,
+                  "RecalcStyleDuration": 0.102966,
+                  "ScriptDuration": 0.23095599999999994,
+                  "LayoutCount": 106
+                },
+                "decisionMs": 16.5,
+                "loadAverage": [
+                  3.64501953125,
+                  3.857421875,
+                  3.5986328125
+                ]
+              },
+              "3": {
+                "status": "not-reached",
+                "reason": "no strip mutation within 3000ms",
+                "samplesMs": [],
+                "summary": null,
+                "work": {
+                  "samplesMs": []
+                },
+                "attempts": [
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311909627.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311912678.5999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311915712.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311918745.4,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311921778.8,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311924796.5,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311927827.4,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311930861.5999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311933878.0999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311936912.5999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311939927.5,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311942961.0999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311945995.4,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311949028.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311952060.0999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311955077.7,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311958111.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311961145.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311964177.0999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311967212.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311970245.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311973261.4,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311976296,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311979329.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311982363.4,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311985380,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311988411.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311991446.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311994479.3,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788311997511.5999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312000546.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312003563.5,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312006594.3,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312009612,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312012644.3,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312015661.9,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312018695.5999,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312021728.8,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312024763.2,
+                    "mutationAt": null,
+                    "paintAt": null
+                  },
+                  {
+                    "status": "not-reached",
+                    "reason": "no strip mutation within 3000ms",
+                    "latencyMs": null,
+                    "workMs": null,
+                    "mutations": 0,
+                    "inputAt": 1788312027779.5,
+                    "mutationAt": null,
+                    "paintAt": null
+                  }
+                ],
+                "performance": {
+                  "LayoutDuration": 0.001373000000000013,
+                  "RecalcStyleDuration": 0.001919000000000004,
+                  "ScriptDuration": 0.02856100000000006,
+                  "LayoutCount": 28
+                },
+                "decisionMs": null,
+                "loadAverage": [
+                  2.876953125,
+                  3.50439453125,
+                  3.4912109375
+                ]
+              },
+              "4": {
+                "status": "completed",
+                "reason": null,
+                "move": {
+                  "samplesMs": [
+                    15.599853515625,
+                    17.5,
+                    16.5,
+                    16.60009765625,
+                    16.699951171875,
+                    17.400146484375,
+                    16.60009765625,
+                    16.5,
+                    16.60009765625,
+                    16.699951171875,
+                    8.89990234375,
+                    17.10009765625,
+                    16.5,
+                    9.60009765625,
+                    16.60009765625,
+                    17.2001953125,
+                    9.699951171875,
+                    4.10009765625,
+                    15.60009765625,
+                    16.60009765625,
+                    16.800048828125,
+                    16.699951171875,
+                    10,
+                    16.199951171875,
+                    2.39990234375,
+                    83.199951171875,
+                    13.199951171875,
+                    13.099853515625,
+                    15.800048828125,
+                    24.800048828125,
+                    13,
+                    16.199951171875,
+                    6.900146484375,
+                    6.5,
+                    6.099853515625,
+                    15.5,
+                    16.5,
+                    15.5,
+                    16.699951171875,
+                    16.599853515625
+                  ],
+                  "count": 40,
+                  "medianMs": 16.5,
+                  "p95Ms": 17.5,
+                  "maxMs": 83.199951171875,
+                  "over16_7": 7,
+                  "over33": 1
+                },
+                "pointerup": {
+                  "samplesMs": [
+                    21.800048828125,
+                    16,
+                    22.39990234375,
+                    16.300048828125,
+                    3.800048828125,
+                    64.800048828125,
+                    26.39990234375,
+                    24.199951171875,
+                    12.89990234375
+                  ],
+                  "count": 9,
+                  "medianMs": 21.800048828125,
+                  "p95Ms": 64.800048828125,
+                  "maxMs": 64.800048828125,
+                  "over16_7": 5,
+                  "over33": 1
+                },
+                "work": {
+                  "move": {
+                    "samplesMs": [
+                      2.599853515625,
+                      0.800048828125,
+                      0.800048828125,
+                      0.7001953125,
+                      0.599853515625,
+                      1.400146484375,
+                      0.400146484375,
+                      0.7001953125,
+                      0.60009765625,
+                      0.39990234375,
+                      0.39990234375,
+                      0.60009765625,
+                      0.699951171875,
+                      0.60009765625,
+                      0.60009765625,
+                      0.60009765625,
+                      0.60009765625,
+                      0.699951171875,
+                      1.10009765625,
+                      0.5,
+                      0.5,
+                      0.39990234375,
+                      0.699951171875,
+                      1.099853515625,
+                      0.599853515625,
+                      22.199951171875,
+                      1.5,
+                      0.89990234375,
+                      1.5,
+                      6.900146484375,
+                      3,
+                      1.199951171875,
+                      1.400146484375,
+                      1.300048828125,
+                      1.2998046875,
+                      2.5,
+                      2.400146484375,
+                      1.400146484375,
+                      1.199951171875,
+                      1.099853515625
+                    ],
+                    "count": 40,
+                    "medianMs": 0.800048828125,
+                    "p95Ms": 3,
+                    "maxMs": 22.199951171875,
+                    "over16_7": 1,
+                    "over33": 0
+                  },
+                  "pointerup": {
+                    "samplesMs": [
+                      1.300048828125,
+                      0.5,
+                      0.599853515625,
+                      0.5,
+                      0.5,
+                      9.699951171875,
+                      4.39990234375,
+                      1.10009765625,
+                      1.300048828125
+                    ],
+                    "count": 9,
+                    "medianMs": 1.10009765625,
+                    "p95Ms": 9.699951171875,
+                    "maxMs": 9.699951171875,
+                    "over16_7": 0,
+                    "over33": 0
+                  }
+                },
+                "editWrite": {
+                  "status": "completed",
+                  "samplesMs": [
+                    29.286376953125,
+                    101.450927734375,
+                    1856.132080078125,
+                    792.744140625,
+                    957.159423828125,
+                    359.933837890625,
+                    368.481201171875,
+                    1198.81640625
+                  ],
+                  "count": 8,
+                  "medianMs": 368.481201171875,
+                  "p95Ms": 1856.132080078125,
+                  "maxMs": 1856.132080078125,
+                  "over16_7": 8,
+                  "over33": 7
+                },
+                "committedCount": 8,
+                "rejectedCount": 0,
+                "decisionMs": 21.800048828125,
+                "attempts": [
+                  {
+                    "run": 0,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 15.599853515625,
+                        "workMs": 2.599853515625,
+                        "mutations": 2,
+                        "inputAt": 1788312030928.8,
+                        "mutationAt": 1788312030931.4,
+                        "paintAt": 1788312030944.4
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 17.5,
+                        "workMs": 0.800048828125,
+                        "mutations": 1,
+                        "inputAt": 1788312030961.0999,
+                        "mutationAt": 1788312030961.9,
+                        "paintAt": 1788312030978.5999
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.5,
+                        "workMs": 0.800048828125,
+                        "mutations": 2,
+                        "inputAt": 1788312030995.4,
+                        "mutationAt": 1788312030996.2,
+                        "paintAt": 1788312031011.9
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.60009765625,
+                        "workMs": 0.7001953125,
+                        "mutations": 1,
+                        "inputAt": 1788312031028.5999,
+                        "mutationAt": 1788312031029.3,
+                        "paintAt": 1788312031045.2
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.699951171875,
+                        "workMs": 0.599853515625,
+                        "mutations": 1,
+                        "inputAt": 1788312031062,
+                        "mutationAt": 1788312031062.5999,
+                        "paintAt": 1788312031078.7
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 21.800048828125,
+                      "workMs": 1.300048828125,
+                      "mutations": 3,
+                      "inputAt": 1788312031089.5999,
+                      "mutationAt": 1788312031090.9,
+                      "paintAt": 1788312031111.4
+                    },
+                    "writeMs": 29.286376953125,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "100",
+                      "x": 1182.27734375,
+                      "y": 895,
+                      "width": 12.7890625,
+                      "height": 52,
+                      "rightGap": 112.328125,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1068.203125
+                      }
+                    }
+                  },
+                  {
+                    "run": 1,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 17.400146484375,
+                        "workMs": 1.400146484375,
+                        "mutations": 2,
+                        "inputAt": 1788312031594.5999,
+                        "mutationAt": 1788312031596,
+                        "paintAt": 1788312031612
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.60009765625,
+                        "workMs": 0.400146484375,
+                        "mutations": 1,
+                        "inputAt": 1788312031661.0999,
+                        "mutationAt": 1788312031661.5,
+                        "paintAt": 1788312031677.7
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.5,
+                        "workMs": 0.7001953125,
+                        "mutations": 2,
+                        "inputAt": 1788312031694.5999,
+                        "mutationAt": 1788312031695.3,
+                        "paintAt": 1788312031711.0999
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.60009765625,
+                        "workMs": 0.60009765625,
+                        "mutations": 2,
+                        "inputAt": 1788312031728.7,
+                        "mutationAt": 1788312031729.3,
+                        "paintAt": 1788312031745.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.699951171875,
+                        "workMs": 0.39990234375,
+                        "mutations": 1,
+                        "inputAt": 1788312031778.7,
+                        "mutationAt": 1788312031779.0999,
+                        "paintAt": 1788312031795.4
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 16,
+                      "workMs": 0.5,
+                      "mutations": 3,
+                      "inputAt": 1788312031811.7,
+                      "mutationAt": 1788312031812.2,
+                      "paintAt": 1788312031827.7
+                    },
+                    "writeMs": 101.450927734375,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "133",
+                      "x": 1117.0546875,
+                      "y": 857,
+                      "width": 11.78125,
+                      "height": 52,
+                      "rightGap": 178.0546875,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 2,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 8.89990234375,
+                        "workMs": 0.39990234375,
+                        "mutations": 1,
+                        "inputAt": 1788312032402.3,
+                        "mutationAt": 1788312032402.7,
+                        "paintAt": 1788312032411.2
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 17.10009765625,
+                        "workMs": 0.60009765625,
+                        "mutations": 1,
+                        "inputAt": 1788312032428.2,
+                        "mutationAt": 1788312032428.8,
+                        "paintAt": 1788312032445.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.5,
+                        "workMs": 0.699951171875,
+                        "mutations": 2,
+                        "inputAt": 1788312032545.4,
+                        "mutationAt": 1788312032546.0999,
+                        "paintAt": 1788312032561.9
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 9.60009765625,
+                        "workMs": 0.60009765625,
+                        "mutations": 1,
+                        "inputAt": 1788312032585.7,
+                        "mutationAt": 1788312032586.3,
+                        "paintAt": 1788312032595.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.60009765625,
+                        "workMs": 0.60009765625,
+                        "mutations": 2,
+                        "inputAt": 1788312032628.7,
+                        "mutationAt": 1788312032629.3,
+                        "paintAt": 1788312032645.3
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 22.39990234375,
+                      "workMs": 0.599853515625,
+                      "mutations": 3,
+                      "inputAt": 1788312032656.3,
+                      "mutationAt": 1788312032656.9,
+                      "paintAt": 1788312032678.7
+                    },
+                    "writeMs": 1856.132080078125,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "33",
+                      "x": 1129.98828125,
+                      "y": 1019,
+                      "width": 11.6171875,
+                      "height": 52,
+                      "rightGap": 165.203125,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 3,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 17.2001953125,
+                        "workMs": 0.60009765625,
+                        "mutations": 1,
+                        "inputAt": 1788312034828.0999,
+                        "mutationAt": 1788312034828.7,
+                        "paintAt": 1788312034845.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 9.699951171875,
+                        "workMs": 0.60009765625,
+                        "mutations": 1,
+                        "inputAt": 1788312034868.7,
+                        "mutationAt": 1788312034869.3,
+                        "paintAt": 1788312034878.4
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 4.10009765625,
+                        "workMs": 0.699951171875,
+                        "mutations": 2,
+                        "inputAt": 1788312034907.9,
+                        "mutationAt": 1788312034908.5999,
+                        "paintAt": 1788312034912
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 15.60009765625,
+                        "workMs": 1.10009765625,
+                        "mutations": 1,
+                        "inputAt": 1788312034929.7,
+                        "mutationAt": 1788312034930.8,
+                        "paintAt": 1788312034945.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.60009765625,
+                        "workMs": 0.5,
+                        "mutations": 1,
+                        "inputAt": 1788312034995.4,
+                        "mutationAt": 1788312034995.9,
+                        "paintAt": 1788312035012
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 16.300048828125,
+                      "workMs": 0.5,
+                      "mutations": 3,
+                      "inputAt": 1788312035029.0999,
+                      "mutationAt": 1788312035029.5999,
+                      "paintAt": 1788312035045.4
+                    },
+                    "writeMs": 792.744140625,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "67",
+                      "x": 1110.7421875,
+                      "y": 965,
+                      "width": 11.328125,
+                      "height": 52,
+                      "rightGap": 184.59375,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 4,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.800048828125,
+                        "workMs": 0.5,
+                        "mutations": 2,
+                        "inputAt": 1788312036312,
+                        "mutationAt": 1788312036312.5,
+                        "paintAt": 1788312036328.8
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.699951171875,
+                        "workMs": 0.39990234375,
+                        "mutations": 1,
+                        "inputAt": 1788312036378.7,
+                        "mutationAt": 1788312036379.0999,
+                        "paintAt": 1788312036395.4
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 10,
+                        "workMs": 0.699951171875,
+                        "mutations": 2,
+                        "inputAt": 1788312036901.2,
+                        "mutationAt": 1788312036901.9,
+                        "paintAt": 1788312036911.2
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.199951171875,
+                        "workMs": 1.099853515625,
+                        "mutations": 1,
+                        "inputAt": 1788312036928.3,
+                        "mutationAt": 1788312036929.4,
+                        "paintAt": 1788312036944.5
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 2.39990234375,
+                        "workMs": 0.599853515625,
+                        "mutations": 1,
+                        "inputAt": 1788312037126.5,
+                        "mutationAt": 1788312037127.0999,
+                        "paintAt": 1788312037128.9
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 3.800048828125,
+                      "workMs": 0.5,
+                      "mutations": 3,
+                      "inputAt": 1788312037391.5999,
+                      "mutationAt": 1788312037392.0999,
+                      "paintAt": 1788312037395.4
+                    },
+                    "writeMs": 957.159423828125,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "100",
+                      "x": 1175.9140625,
+                      "y": 911,
+                      "width": 11.328125,
+                      "height": 52,
+                      "rightGap": 119.421875,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 5,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "not-reached",
+                        "reason": "no strip mutation within 3000ms",
+                        "latencyMs": null,
+                        "workMs": null,
+                        "mutations": 0,
+                        "inputAt": 1788312038795.2,
+                        "mutationAt": null,
+                        "paintAt": null
+                      },
+                      {
+                        "status": "not-reached",
+                        "reason": "no strip mutation within 3000ms",
+                        "latencyMs": null,
+                        "workMs": null,
+                        "mutations": 0,
+                        "inputAt": 1788312041844.7,
+                        "mutationAt": null,
+                        "paintAt": null
+                      },
+                      {
+                        "status": "not-reached",
+                        "reason": "no strip mutation within 3000ms",
+                        "latencyMs": null,
+                        "workMs": null,
+                        "mutations": 0,
+                        "inputAt": 1788312045188.2,
+                        "mutationAt": null,
+                        "paintAt": null
+                      },
+                      {
+                        "status": "not-reached",
+                        "reason": "no strip mutation within 3000ms",
+                        "latencyMs": null,
+                        "workMs": null,
+                        "mutations": 0,
+                        "inputAt": 1788312048308.3,
+                        "mutationAt": null,
+                        "paintAt": null
+                      },
+                      {
+                        "status": "not-reached",
+                        "reason": "no strip mutation within 3000ms",
+                        "latencyMs": null,
+                        "workMs": null,
+                        "mutations": 0,
+                        "inputAt": 1788312051638.8,
+                        "mutationAt": null,
+                        "paintAt": null
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 64.800048828125,
+                      "workMs": 9.699951171875,
+                      "mutations": 1,
+                      "inputAt": 1788312054716.5,
+                      "mutationAt": 1788312054726.2,
+                      "paintAt": 1788312054781.3
+                    },
+                    "writeMs": null,
+                    "committed": false,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "100",
+                      "x": 1175.9140625,
+                      "y": 911,
+                      "width": 11.328125,
+                      "height": 52,
+                      "rightGap": 119.421875,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    },
+                    "writeReason": "edit.json did not change within 20s"
+                  },
+                  {
+                    "run": 6,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 83.199951171875,
+                        "workMs": 22.199951171875,
+                        "mutations": 2,
+                        "inputAt": 1788312077185.3,
+                        "mutationAt": 1788312077207.5,
+                        "paintAt": 1788312077268.5
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 13.199951171875,
+                        "workMs": 1.5,
+                        "mutations": 2,
+                        "inputAt": 1788312077298,
+                        "mutationAt": 1788312077299.5,
+                        "paintAt": 1788312077311.2
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 13.099853515625,
+                        "workMs": 0.89990234375,
+                        "mutations": 1,
+                        "inputAt": 1788312077331,
+                        "mutationAt": 1788312077331.9,
+                        "paintAt": 1788312077344.0999
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 15.800048828125,
+                        "workMs": 1.5,
+                        "mutations": 1,
+                        "inputAt": 1788312077361.0999,
+                        "mutationAt": 1788312077362.5999,
+                        "paintAt": 1788312077376.9
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 24.800048828125,
+                        "workMs": 6.900146484375,
+                        "mutations": 2,
+                        "inputAt": 1788312077531.0999,
+                        "mutationAt": 1788312077538,
+                        "paintAt": 1788312077555.9
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 26.39990234375,
+                      "workMs": 4.39990234375,
+                      "mutations": 3,
+                      "inputAt": 1788312077650.7,
+                      "mutationAt": 1788312077655.0999,
+                      "paintAt": 1788312077677.0999
+                    },
+                    "writeMs": 359.933837890625,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "99",
+                      "x": 1014.4140625,
+                      "y": 911,
+                      "width": 10.515625,
+                      "height": 52,
+                      "rightGap": 184.078125,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 7,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 13,
+                        "workMs": 3,
+                        "mutations": 2,
+                        "inputAt": 1788312078682.3,
+                        "mutationAt": 1788312078685.3,
+                        "paintAt": 1788312078695.3
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.199951171875,
+                        "workMs": 1.199951171875,
+                        "mutations": 2,
+                        "inputAt": 1788312078744.3,
+                        "mutationAt": 1788312078745.5,
+                        "paintAt": 1788312078760.5
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 6.900146484375,
+                        "workMs": 1.400146484375,
+                        "mutations": 1,
+                        "inputAt": 1788312078820.5999,
+                        "mutationAt": 1788312078822,
+                        "paintAt": 1788312078827.5
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 6.5,
+                        "workMs": 1.300048828125,
+                        "mutations": 2,
+                        "inputAt": 1788312078861.5,
+                        "mutationAt": 1788312078862.8,
+                        "paintAt": 1788312078868
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 6.099853515625,
+                        "workMs": 1.2998046875,
+                        "mutations": 2,
+                        "inputAt": 1788312078925.3,
+                        "mutationAt": 1788312078926.5999,
+                        "paintAt": 1788312078931.4
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 24.199951171875,
+                      "workMs": 1.10009765625,
+                      "mutations": 3,
+                      "inputAt": 1788312078947.7,
+                      "mutationAt": 1788312078948.8,
+                      "paintAt": 1788312078971.9
+                    },
+                    "writeMs": 368.481201171875,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "133",
+                      "x": 1127.484375,
+                      "y": 857,
+                      "width": 10.515625,
+                      "height": 52,
+                      "rightGap": 168.2578125,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 8,
+                    "preferredKind": "cut",
+                    "moves": [
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 15.5,
+                        "workMs": 2.5,
+                        "mutations": 2,
+                        "inputAt": 1788312080127.9,
+                        "mutationAt": 1788312080130.4,
+                        "paintAt": 1788312080143.4
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.5,
+                        "workMs": 2.400146484375,
+                        "mutations": 2,
+                        "inputAt": 1788312080276.9,
+                        "mutationAt": 1788312080279.3,
+                        "paintAt": 1788312080293.4
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 15.5,
+                        "workMs": 1.400146484375,
+                        "mutations": 1,
+                        "inputAt": 1788312080361.0999,
+                        "mutationAt": 1788312080362.5,
+                        "paintAt": 1788312080376.5999
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.699951171875,
+                        "workMs": 1.199951171875,
+                        "mutations": 1,
+                        "inputAt": 1788312080460.8,
+                        "mutationAt": 1788312080462,
+                        "paintAt": 1788312080477.5
+                      },
+                      {
+                        "status": "completed",
+                        "reason": null,
+                        "latencyMs": 16.599853515625,
+                        "workMs": 1.099853515625,
+                        "mutations": 2,
+                        "inputAt": 1788312080611,
+                        "mutationAt": 1788312080612.0999,
+                        "paintAt": 1788312080627.5999
+                      }
+                    ],
+                    "pointerup": {
+                      "status": "completed",
+                      "reason": null,
+                      "latencyMs": 12.89990234375,
+                      "workMs": 1.300048828125,
+                      "mutations": 3,
+                      "inputAt": 1788312080697.5,
+                      "mutationAt": 1788312080698.8,
+                      "paintAt": 1788312080710.4
+                    },
+                    "writeMs": 1198.81640625,
+                    "committed": true,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "132",
+                      "x": 1000.59375,
+                      "y": 857,
+                      "width": 10.296875,
+                      "height": 52,
+                      "rightGap": 198.2265625,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    }
+                  },
+                  {
+                    "run": 9,
+                    "preferredKind": "cut",
+                    "moves": [],
+                    "pointerup": null,
+                    "writeMs": null,
+                    "committed": false,
+                    "rejectReason": null,
+                    "scroll": {
+                      "strategy": "most-visible",
+                      "scrollTop": 0,
+                      "candidateCount": 200,
+                      "visibleCount": 200
+                    },
+                    "target": {
+                      "kind": "cut",
+                      "id": "132",
+                      "x": 1000.59375,
+                      "y": 857,
+                      "width": 10.296875,
+                      "height": 52,
+                      "rightGap": 198.2265625,
+                      "scrollRect": {
+                        "top": 778,
+                        "bottom": 1100
+                      }
+                    },
+                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:25:119)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)"
+                  }
+                ],
+                "performance": {
+                  "LayoutDuration": 0.320377,
+                  "RecalcStyleDuration": 0.29561899999999997,
+                  "ScriptDuration": 0.616603,
+                  "LayoutCount": 504
+                },
+                "loadAverage": [
+                  415.77197265625,
+                  117.38134765625,
+                  45.720703125
+                ]
+              },
+              "5": {
+                "status": "not-reached",
+                "reason": "Space/control input did not produce repeated playhead style mutations; preview playback was not confirmed",
+                "control": {
+                  "x": 1530,
+                  "y": 294,
+                  "where": "main"
+                },
+                "playbackConfirmed": false,
+                "playheadChanges": 0,
+                "interval": {
+                  "samplesMs": [
+                    16.900000000023283,
+                    17,
+                    16.099999999976717,
+                    16.70000000001164,
+                    16.60000000000582,
+                    17.5,
+                    15.799999999988358,
+                    16.70000000001164,
+                    16.60000000000582,
+                    16.599999999976717,
+                    17.20000000001164,
+                    16.39999999999418,
+                    16.5,
+                    17,
+                    16.300000000017462,
+                    17.599999999976717,
+                    15.700000000011642,
+                    17.60000000000582,
+                    15.699999999982538,
+                    16.70000000001164,
+                    16.79999999998836,
+                    17.5,
+                    16.70000000001164,
+                    15.89999999999418,
+                    50.30000000001746,
+                    17.099999999976717,
+                    16.300000000017462,
+                    16.5,
+                    17.10000000000582,
+                    16.699999999982538,
+                    15.89999999999418,
+                    16.70000000001164,
+                    17.10000000000582,
+                    17,
+                    15.699999999982538,
+                    16.70000000001164,
+                    17.5,
+                    15.89999999999418,
+                    16.70000000001164,
+                    17.29999999998836,
+                    16.800000000017462,
+                    15.89999999999418,
+                    17.39999999999418,
+                    15.89999999999418,
+                    16.800000000017462,
+                    17.39999999999418,
+                    16.699999999982538,
+                    15.700000000011642,
+                    17.20000000001164,
+                    17,
+                    15.799999999988358,
+                    17.60000000000582,
+                    15.89999999999418,
+                    17.39999999999418,
+                    16.5,
+                    16.89999999999418,
+                    16.60000000000582,
+                    15.700000000011642,
+                    16.699999999982538,
+                    16.60000000000582,
+                    16.70000000001164,
+                    17.60000000000582,
+                    16.699999999982538,
+                    15.700000000011642,
+                    17.199999999982538,
+                    17.10000000000582,
+                    16.60000000000582,
+                    16.70000000001164,
+                    16.699999999982538,
+                    16.70000000001164,
+                    16.60000000000582,
+                    16.699999999982538,
+                    16.60000000000582,
+                    15.799999999988358,
+                    17.400000000023283,
+                    15.89999999999418,
+                    16.699999999982538,
+                    16.70000000001164,
+                    16.70000000001164,
+                    17.099999999976717,
+                    16.60000000000582,
+                    17.10000000000582,
+                    15.799999999988358,
+                    17.300000000017462,
+                    16.39999999999418,
+                    16.29999999998836,
+                    16.70000000001164,
+                    17.5,
+                    16.29999999998836,
+                    17.10000000000582,
+                    15.800000000017462,
+                    16.5,
+                    17,
+                    17.29999999998836,
+                    16.70000000001164,
+                    15.699999999982538,
+                    17.70000000001164,
+                    16.60000000000582,
+                    16.699999999982538,
+                    16.60000000000582,
+                    16.70000000001164,
+                    16.699999999982538,
+                    16.60000000000582,
+                    16.70000000001164,
+                    16.699999999982538,
+                    16.300000000017462,
+                    16.89999999999418,
+                    16.39999999999418,
+                    17,
+                    15.89999999999418,
+                    17.39999999999418,
+                    16.70000000001164,
+                    15.799999999988358,
+                    17.5,
+                    16.70000000001164,
+                    16.70000000001164,
+                    16.699999999982538,
+                    16.60000000000582,
+                    16.10000000000582,
+                    16.29999999998836,
+                    17.5,
+                    16.800000000017462,
+                    16.599999999976717,
+                    15.700000000011642,
+                    17.10000000000582,
+                    17.29999999998836,
+                    15.60000000000582,
+                    17.60000000000582,
+                    16.79999999998836,
+                    16.60000000000582,
+                    16,
+                    16.29999999998836,
+                    16.900000000023283,
+                    17,
+                    16.099999999976717,
+                    16.800000000017462,
+                    17.39999999999418,
+                    16.29999999998836,
+                    16.60000000000582,
+                    16.60000000000582,
+                    16.5,
+                    16.60000000000582,
+                    17.199999999982538,
+                    16.5,
+                    17.20000000001164,
+                    16.10000000000582,
+                    16.29999999998836,
+                    17.5,
+                    16.300000000017462,
+                    17.099999999976717,
+                    16,
+                    16.5,
+                    16.60000000000582,
+                    16.70000000001164,
+                    16.699999999982538,
+                    16.60000000000582,
+                    17.60000000000582,
+                    15.700000000011642,
+                    16.599999999976717,
+                    17.70000000001164,
+                    16.29999999998836,
+                    16.70000000001164,
+                    17,
+                    15.89999999999418,
+                    17.300000000017462,
+                    16.79999999998836,
+                    16.60000000000582,
+                    16.699999999982538,
+                    16.20000000001164,
+                    16.20000000001164,
+                    17.599999999976717,
+                    16.60000000000582,
+                    15.89999999999418,
+                    17.5,
+                    16.60000000000582,
+                    16.70000000001164,
+                    16.29999999998836,
+                    17,
+                    15.800000000017462,
+                    17.599999999976717,
+                    15.900000000023283,
+                    16.5,
+                    17.599999999976717,
+                    16.70000000001164,
+                    16.20000000001164,
+                    17.099999999976717,
+                    16.60000000000582,
+                    15.700000000011642,
+                    16.79999999998836,
+                    17.5,
+                    16.70000000001164,
+                    16.60000000000582,
+                    16.699999999982538,
+                    16.60000000000582,
+                    16.70000000001164,
+                    7149.599999999977
+                  ],
+                  "count": 196,
+                  "medianMs": 16.699999999982538,
+                  "p95Ms": 17.599999999976717,
+                  "maxMs": 7149.599999999977,
+                  "over16_7": 94,
+                  "over33": 2
+                },
+                "medianMs": null,
+                "p95Ms": null,
+                "decisionMs": null,
+                "longTasks": {
+                  "count": 3,
+                  "totalMs": 7219
+                },
+                "performance": {
+                  "LayoutDuration": 0.08737499999999998,
+                  "RecalcStyleDuration": 0.04521300000000006,
+                  "ScriptDuration": 0.12967799999999996,
+                  "LayoutCount": 22
+                },
+                "loadAverage": [
+                  375.3486328125,
+                  118.72412109375,
+                  47.04443359375
+                ]
+              }
+            },
+            "loadAverage": {
+              "atStart": [
+                6.60205078125,
+                6.0625,
+                4.1005859375
+              ],
+              "atEnd": [
+                375.3486328125,
+                118.72412109375,
+                47.04443359375
+              ]
+            }
+          },
+          {
+            "run": 2,
+            "requestedN": 200,
+            "actualN": 200,
+            "isolationDir": "/var/folders/q8/19kn64rn71j8qntftxy0yv300000gn/T/akari-timeline-bench/a-n200-run2",
+            "status": "not-reached",
+            "coldOpen": {
+              "openMs": 15495.73388671875,
+              "visibleItemCount": 200,
+              "attempts": 1,
+              "deviceMetrics": {
+                "width": 1800,
+                "height": 1150,
+                "deviceScaleFactor": 0,
+                "mobile": false
+              },
+              "route": [
+                "メニュー",
+                "タイムライン"
+              ]
+            },
+            "warmOpen": {
+              "openMs": 16539.718994140625,
+              "visibleItemCount": 200,
+              "attempts": 1,
+              "deviceMetrics": {
+                "width": 1800,
+                "height": 1150,
+                "deviceScaleFactor": 0,
+                "mobile": false
+              },
+              "route": [
+                "メニュー",
+                "タイムライン"
+              ]
+            },
+            "cache": {
+              "status": "completed",
+              "signature": {
+                "files": 1,
+                "bytes": 29,
+                "latest": 1788312103566.7993
+              },
+              "elapsedMs": 5179
+            },
+            "operations": {
+              "1": {
+                "status": "completed",
+                "loadMs": 16539.718994140625,
+                "coldOpenMs": 15495.73388671875,
+                "domNodes": 810,
+                "itemElements": 200,
+                "itemKindCounts": {
+                  "layer": 33,
+                  "audio": 33,
+                  "cut": 134
+                },
+                "treeItemElements": 0,
+                "usedJSHeapSize": 123000000,
+                "dpr": 2,
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.32 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+                "gpuRenderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+                "visibleCullingObserved": false
+              },
+              "2": {
+                "status": "completed",
+                "reason": null,
+                "samplesMs": [
+                  81.699951171875,
+                  26.5,
+                  19.2998046875,
+                  31.5,
+                  16.300048828125,
+                  17.39990234375,
+                  15.5,
+                  16.199951171875,
+                  16.199951171875,
+                  16.599853515625,
+                  16.60009765625,
+                  15.60009765625,
+                  16.199951171875,
+                  16.60009765625,
+                  15.699951171875,
+                  16.60009765625,
+                  16.5,
+                  16.699951171875,
+                  16.599853515625,
+                  16.599853515625,
+                  15.60009765625,
+                  16.60009765625,
+                  14.7001953125,
+                  15.699951171875,
+                  15.5,
+                  16.699951171875,
+                  16.5,
+                  15.89990234375,
+                  16.400146484375,
+                  16.60009765625,
+                  15.7001953125,
+                  16.800048828125,
+                  16.800048828125,
+                  19.199951171875,
+                  31.400146484375,
+                  27,
+                  53.199951171875,
+                  35.39990234375,
+                  87.5,
+                  19.599853515625
+                ],
+                "summary": {
+                  "count": 40,
+                  "medianMs": 16.60009765625,
+                  "p95Ms": 53.199951171875,
+                  "maxMs": 87.5,
+                  "over16_7": 14,
+                  "over33": 4
+                },
+                "work": {
+                  "samplesMs": [
+                    17.39990234375,
+                    11.900146484375,
+                    8.5,
+                    11.5,
+                    9.300048828125,
+                    6.699951171875,
+                    4.39990234375,
+                    6.2998046875,
+                    6.10009765625,
+                    2.599853515625,
+                    2.60009765625,
+                    3.199951171875,
+                    2.89990234375,
+                    2.199951171875,
+                    2.699951171875,
+                    3.300048828125,
+                    2.800048828125,
+                    2.39990234375,
+                    2.199951171875,
+                    1.89990234375,
+                    3,
+                    2.900146484375,
+                    2.800048828125,
+                    3.099853515625,
+                    4.400146484375,
+                    2.5,
+                    3,
+                    5.199951171875,
+                    3.60009765625,
+                    4.300048828125,
+                    3.7001953125,
+                    6.5,
+                    8.5,
+                    7.199951171875,
+                    12.2001953125,
+                    10.39990234375,
+                    11.39990234375,
+                    12.5,
+                    15.699951171875,
+                    6
+                  ],
+                  "count": 40,
+                  "medianMs": 4.300048828125,
+                  "p95Ms": 12.5,
+                  "maxMs": 17.39990234375,
+                  "over16_7": 1,
+                  "over33": 0
+                },
+                "attempts": [
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 81.699951171875,
+                    "workMs": 17.39990234375,
+                    "mutations": 3308,
+                    "inputAt": 1788312194528.8,
+                    "mutationAt": 1788312194546.2,
+                    "paintAt": 1788312194610.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 26.5,
+                    "workMs": 11.900146484375,
+                    "mutations": 1186,
+                    "inputAt": 1788312194678,
+                    "mutationAt": 1788312194689.9001,
+                    "paintAt": 1788312194704.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 19.2998046875,
+                    "workMs": 8.5,
+                    "mutations": 704,
+                    "inputAt": 1788312194728.4001,
+                    "mutationAt": 1788312194736.9001,
+                    "paintAt": 1788312194747.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 31.5,
+                    "workMs": 11.5,
+                    "mutations": 499,
+                    "inputAt": 1788312194778.3,
+                    "mutationAt": 1788312194789.8,
+                    "paintAt": 1788312194809.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.300048828125,
+                    "workMs": 9.300048828125,
+                    "mutations": 374,
+                    "inputAt": 1788312194845,
+                    "mutationAt": 1788312194854.3,
+                    "paintAt": 1788312194861.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 17.39990234375,
+                    "workMs": 6.699951171875,
+                    "mutations": 270,
+                    "inputAt": 1788312194893.9001,
+                    "mutationAt": 1788312194900.6,
+                    "paintAt": 1788312194911.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.5,
+                    "workMs": 4.39990234375,
+                    "mutations": 189,
+                    "inputAt": 1788312195045.1,
+                    "mutationAt": 1788312195049.5,
+                    "paintAt": 1788312195060.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.199951171875,
+                    "workMs": 6.2998046875,
+                    "mutations": 133,
+                    "inputAt": 1788312195128.4001,
+                    "mutationAt": 1788312195134.7,
+                    "paintAt": 1788312195144.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.199951171875,
+                    "workMs": 6.10009765625,
+                    "mutations": 102,
+                    "inputAt": 1788312195195,
+                    "mutationAt": 1788312195201.1,
+                    "paintAt": 1788312195211.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.599853515625,
+                    "workMs": 2.599853515625,
+                    "mutations": 77,
+                    "inputAt": 1788312195244.6,
+                    "mutationAt": 1788312195247.2,
+                    "paintAt": 1788312195261.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 2.60009765625,
+                    "mutations": 52,
+                    "inputAt": 1788312195311.3,
+                    "mutationAt": 1788312195313.9001,
+                    "paintAt": 1788312195327.9001
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.60009765625,
+                    "workMs": 3.199951171875,
+                    "mutations": 46,
+                    "inputAt": 1788312195378,
+                    "mutationAt": 1788312195381.2,
+                    "paintAt": 1788312195393.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.199951171875,
+                    "workMs": 2.89990234375,
+                    "mutations": 45,
+                    "inputAt": 1788312195461.6,
+                    "mutationAt": 1788312195464.5,
+                    "paintAt": 1788312195477.8
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 2.199951171875,
+                    "mutations": 45,
+                    "inputAt": 1788312195528,
+                    "mutationAt": 1788312195530.2,
+                    "paintAt": 1788312195544.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.699951171875,
+                    "workMs": 2.699951171875,
+                    "mutations": 45,
+                    "inputAt": 1788312195612.3,
+                    "mutationAt": 1788312195615,
+                    "paintAt": 1788312195628
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 3.300048828125,
+                    "mutations": 45,
+                    "inputAt": 1788312195678,
+                    "mutationAt": 1788312195681.3,
+                    "paintAt": 1788312195694.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 2.800048828125,
+                    "mutations": 44,
+                    "inputAt": 1788312195728,
+                    "mutationAt": 1788312195730.8,
+                    "paintAt": 1788312195744.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.699951171875,
+                    "workMs": 2.39990234375,
+                    "mutations": 44,
+                    "inputAt": 1788312195777.9001,
+                    "mutationAt": 1788312195780.3,
+                    "paintAt": 1788312195794.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.599853515625,
+                    "workMs": 2.199951171875,
+                    "mutations": 78,
+                    "inputAt": 1788312195844.6,
+                    "mutationAt": 1788312195846.8,
+                    "paintAt": 1788312195861.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.599853515625,
+                    "workMs": 1.89990234375,
+                    "mutations": 78,
+                    "inputAt": 1788312195894.6,
+                    "mutationAt": 1788312195896.5,
+                    "paintAt": 1788312195911.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.60009765625,
+                    "workMs": 3,
+                    "mutations": 44,
+                    "inputAt": 1788312195978,
+                    "mutationAt": 1788312195981,
+                    "paintAt": 1788312195993.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 2.900146484375,
+                    "mutations": 44,
+                    "inputAt": 1788312196028,
+                    "mutationAt": 1788312196030.9001,
+                    "paintAt": 1788312196044.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 14.7001953125,
+                    "workMs": 2.800048828125,
+                    "mutations": 45,
+                    "inputAt": 1788312196112.2,
+                    "mutationAt": 1788312196115,
+                    "paintAt": 1788312196126.9001
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.699951171875,
+                    "workMs": 3.099853515625,
+                    "mutations": 45,
+                    "inputAt": 1788312196177.9001,
+                    "mutationAt": 1788312196181,
+                    "paintAt": 1788312196193.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.5,
+                    "workMs": 4.400146484375,
+                    "mutations": 45,
+                    "inputAt": 1788312196229,
+                    "mutationAt": 1788312196233.4001,
+                    "paintAt": 1788312196244.5
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.699951171875,
+                    "workMs": 2.5,
+                    "mutations": 46,
+                    "inputAt": 1788312196277.9001,
+                    "mutationAt": 1788312196280.4001,
+                    "paintAt": 1788312196294.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.5,
+                    "workMs": 3,
+                    "mutations": 46,
+                    "inputAt": 1788312196344.7,
+                    "mutationAt": 1788312196347.7,
+                    "paintAt": 1788312196361.2
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.89990234375,
+                    "workMs": 5.199951171875,
+                    "mutations": 58,
+                    "inputAt": 1788312196394.8,
+                    "mutationAt": 1788312196400,
+                    "paintAt": 1788312196410.7
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.400146484375,
+                    "workMs": 3.60009765625,
+                    "mutations": 83,
+                    "inputAt": 1788312196444.7,
+                    "mutationAt": 1788312196448.3,
+                    "paintAt": 1788312196461.1
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.60009765625,
+                    "workMs": 4.300048828125,
+                    "mutations": 120,
+                    "inputAt": 1788312196511.3,
+                    "mutationAt": 1788312196515.6,
+                    "paintAt": 1788312196527.9001
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 15.7001953125,
+                    "workMs": 3.7001953125,
+                    "mutations": 158,
+                    "inputAt": 1788312196561.2,
+                    "mutationAt": 1788312196564.9001,
+                    "paintAt": 1788312196576.9001
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.800048828125,
+                    "workMs": 6.5,
+                    "mutations": 207,
+                    "inputAt": 1788312196611.1,
+                    "mutationAt": 1788312196617.6,
+                    "paintAt": 1788312196627.9001
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 16.800048828125,
+                    "workMs": 8.5,
+                    "mutations": 294,
+                    "inputAt": 1788312196677.8,
+                    "mutationAt": 1788312196686.3,
+                    "paintAt": 1788312196694.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 19.199951171875,
+                    "workMs": 7.199951171875,
+                    "mutations": 422,
+                    "inputAt": 1788312196761.4001,
+                    "mutationAt": 1788312196768.6,
+                    "paintAt": 1788312196780.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 31.400146484375,
+                    "workMs": 12.2001953125,
+                    "mutations": 573,
+                    "inputAt": 1788312196827.7,
+                    "mutationAt": 1788312196839.9001,
+                    "paintAt": 1788312196859.1
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 27,
+                    "workMs": 10.39990234375,
+                    "mutations": 1116,
+                    "inputAt": 1788312196911.6,
+                    "mutationAt": 1788312196922,
+                    "paintAt": 1788312196938.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 53.199951171875,
+                    "workMs": 11.39990234375,
+                    "mutations": 1238,
+                    "inputAt": 1788312196995.1,
+                    "mutationAt": 1788312197006.5,
+                    "paintAt": 1788312197048.3
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 35.39990234375,
+                    "workMs": 12.5,
+                    "mutations": 1252,
+                    "inputAt": 1788312197095.6,
+                    "mutationAt": 1788312197108.1,
+                    "paintAt": 1788312197131
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 87.5,
+                    "workMs": 15.699951171875,
+                    "mutations": 3307,
+                    "inputAt": 1788312197178.1,
+                    "mutationAt": 1788312197193.8,
+                    "paintAt": 1788312197265.6
+                  },
+                  {
+                    "status": "completed",
+                    "reason": null,
+                    "latencyMs": 19.599853515625,
+                    "workMs": 6,
+                    "mutations": 2056,
+                    "inputAt": 1788312197328.4001,
+                    "mutationAt": 1788312197334.4001,
+                    "paintAt": 1788312197348
+                  }
+                ],
+                "performance": {
+                  "LayoutDuration": 0.106523,
+                  "RecalcStyleDuration": 0.149129,
+                  "ScriptDuration": 0.25209499999999996,
+                  "LayoutCount": 106
+                },
+                "decisionMs": 16.60009765625,
+                "loadAverage": [
+                  32.224609375,
+                  378.6044921875,
+                  152.64111328125
+                ]
+              },
+              "3": {
+                "status": "not-reached",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "loadAverage": [
+                  243.53369140625,
+                  397.29736328125,
+                  182.2783203125
+                ]
+              },
+              "4": {
+                "status": "not-reached",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "loadAverage": [
+                  243.53369140625,
+                  397.29736328125,
+                  182.2783203125
+                ]
+              },
+              "5": {
+                "status": "not-reached",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "loadAverage": [
+                  243.53369140625,
+                  397.29736328125,
+                  182.2783203125
+                ]
+              }
+            },
+            "loadAverage": {
+              "atStart": [
+                375.240234375,
+                122.9619140625,
+                48.9599609375
+              ],
+              "atEnd": [
+                243.53369140625,
+                397.29736328125,
+                182.2783203125
+              ]
+            },
+            "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+            "cacheTimedOut": false
+          }
+        ],
+        "operations": {}
+      }
+    }
+  },
+  "notes": []
+}
