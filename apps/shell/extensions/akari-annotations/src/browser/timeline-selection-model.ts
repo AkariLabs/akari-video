@@ -90,6 +90,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     crop?: Record<string, unknown>;
     perspective?: Record<string, unknown>;
     keyframes?: readonly Record<string, unknown>[];
+    src?: string;
     sourceKind: string;
     trackName: string;
     clipName: string;
