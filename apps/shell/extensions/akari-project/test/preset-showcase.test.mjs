@@ -51,17 +51,67 @@ test('parsePresetShowcaseJsonl: 壊れた行と必須フィールド不正行だ
     assert.deepEqual(items.map(item => item.id), ['ok', 'ok']);
 });
 
-test('derivePresetShowcaseChips: テロップ / LUT の件数を固定順で返す', () => {
+test('parsePresetShowcaseJsonl: textanim は slot をタグへ正規化し sampleText を保持する', () => {
+    const items = parsePresetShowcaseJsonl(JSON.stringify({
+        id: 'fade-up',
+        name: 'フェードアップ',
+        category: 'フェード',
+        description: '下から薄く浮かぶ',
+        sample_text: '浮かぶ字幕',
+        slot: 'in'
+    }), 'textanim');
+    assert.deepEqual(items, [{
+        kind: 'textanim',
+        id: 'fade-up',
+        name: 'フェードアップ',
+        category: 'フェード',
+        description: '下から薄く浮かぶ',
+        sampleText: '浮かぶ字幕',
+        tags: ['in']
+    }]);
+});
+
+test('parsePresetShowcaseJsonl: textstyle は category をタグへ正規化し sampleText を保持する', () => {
+    const items = parsePresetShowcaseJsonl(JSON.stringify({
+        id: 'subtitle-news',
+        kind: 'textstyle',
+        category: 'subtitle',
+        name: 'ニュース風',
+        sample_text: '速報ニュース',
+        style: { size_px: 56 }
+    }), 'textstyle');
+    assert.deepEqual(items, [{
+        kind: 'textstyle',
+        id: 'subtitle-news',
+        name: 'ニュース風',
+        category: 'subtitle',
+        sampleText: '速報ニュース',
+        tags: ['subtitle']
+    }]);
+});
+
+test('parsePresetShowcaseJsonl: textanim / textstyle の壊れ行をスキップする', () => {
+    const invalidAnimation = JSON.stringify({ id: 'bad', name: '不正', category: '動き', description: '不足', slot: 'middle' });
+    const invalidStyle = JSON.stringify({ id: 'bad', kind: 'textstyle', category: 'subtitle', name: '不正', sample_text: '不足' });
+    assert.deepEqual(parsePresetShowcaseJsonl(invalidAnimation, 'textanim'), []);
+    assert.deepEqual(parsePresetShowcaseJsonl(invalidStyle, 'textstyle'), []);
+});
+
+test('derivePresetShowcaseChips: 4 種の件数を固定順で返す', () => {
     const chips = derivePresetShowcaseChips({
         telop: [{ kind: 'telop', id: 'a', name: 'A', category: 'caption', tags: [] }],
         lut: [
             { kind: 'lut', id: 'b', name: 'B', description: 'B', whenToUse: 'B', tags: [] },
             { kind: 'lut', id: 'c', name: 'C', description: 'C', whenToUse: 'C', tags: [] }
-        ]
+        ],
+        textanim: [{ kind: 'textanim', id: 'd', name: 'D', category: 'in', tags: ['in'] }],
+        textstyle: [{ kind: 'textstyle', id: 'e', name: 'E', category: 'subtitle', tags: ['subtitle'] }]
     });
     assert.deepEqual(chips, [
         { category: 'preset:telop', label: 'テロップ', count: 1 },
-        { category: 'preset:lut', label: 'LUT', count: 2 }
+        { category: 'preset:lut', label: 'LUT', count: 2 },
+        { category: 'preset:textanim', label: 'テキストアニメ', count: 1 },
+        { category: 'preset:textstyle', label: 'テキストスタイル', count: 1 }
     ]);
 });
 

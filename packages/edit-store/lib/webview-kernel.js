@@ -1720,6 +1720,14 @@ var AkariEditKernel = (() => {
     "hardlight",
     "softlight"
   ]);
+  var SHAPE_KINDS = /* @__PURE__ */ new Set([
+    "rect",
+    "rounded-rect",
+    "ellipse",
+    "line",
+    "arrow",
+    "speech-bubble"
+  ]);
   var ITEM_KEYS = /* @__PURE__ */ new Set([
     "id",
     "name",
@@ -2035,6 +2043,34 @@ var AkariEditKernel = (() => {
           }
         }
         return;
+      case "shape":
+        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
+        if (!SHAPE_KINDS.has(value.shape)) {
+          throw invalid(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+        }
+        if (hasOwn(value, "params")) {
+          requireRecord(value.params, `${path}.params`);
+          requireExactKeys(value.params, /* @__PURE__ */ new Set([
+            "width",
+            "height",
+            "fill",
+            "stroke",
+            "strokeWidth",
+            "cornerRadius"
+          ]), `${path}.params`);
+          for (const key of ["width", "height"]) {
+            if (hasOwn(value.params, key)) requirePositiveNumber(value.params[key], `${path}.params.${key}`);
+          }
+          for (const key of ["fill", "stroke"]) {
+            if (hasOwn(value.params, key) && typeof value.params[key] !== "string") {
+              throw invalid(`${path}.params.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            }
+          }
+          for (const key of ["strokeWidth", "cornerRadius"]) {
+            if (hasOwn(value.params, key)) requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
+          }
+        }
+        return;
       case "telop":
         requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
         requireText(value.preset, `${path}.preset`);
@@ -2280,6 +2316,75 @@ var AkariEditKernel = (() => {
     }
   };
 
+  // src/shape-markup.ts
+  var DEFAULT_WIDTH = 600;
+  var DEFAULT_HEIGHT = 340;
+  var DEFAULT_LINE_HEIGHT = 80;
+  var DEFAULT_FILL = "#f97316";
+  var DEFAULT_CORNER_RADIUS = 24;
+  var DEFAULT_LINE_STROKE_WIDTH = 8;
+  var SAFE_COLOR = /^[#a-zA-Z0-9(),.%\s-]{1,64}$/u;
+  function positiveNumber(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+  }
+  function nonNegativeNumber(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+  }
+  function color(value, fallback) {
+    if (typeof value !== "string" || !SAFE_COLOR.test(value)) return fallback;
+    const normalized = value.replace(/\s+/gu, " ").trim();
+    return normalized.length > 0 ? normalized : fallback;
+  }
+  function svg(width, height, body) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`;
+  }
+  function filledShapeAttributes(fill, stroke, strokeWidth) {
+    return `fill="${fill}" stroke="${stroke ?? "none"}" stroke-width="${strokeWidth}"`;
+  }
+  function shapeMarkup(source) {
+    const params = source.params ?? {};
+    const width = positiveNumber(params.width, DEFAULT_WIDTH);
+    const height = positiveNumber(
+      params.height,
+      source.shape === "line" || source.shape === "arrow" ? DEFAULT_LINE_HEIGHT : DEFAULT_HEIGHT
+    );
+    const fill = color(params.fill, DEFAULT_FILL);
+    const lineLike = source.shape === "line" || source.shape === "arrow";
+    const stroke = params.stroke === void 0 ? void 0 : color(params.stroke, lineLike ? fill : "none");
+    const strokeWidth = nonNegativeNumber(
+      params.strokeWidth,
+      lineLike ? DEFAULT_LINE_STROKE_WIDTH : 0
+    );
+    const attributes = filledShapeAttributes(fill, stroke, strokeWidth);
+    switch (source.shape) {
+      case "rect":
+        return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" ${attributes}/>`);
+      case "rounded-rect": {
+        const radius = nonNegativeNumber(params.cornerRadius, DEFAULT_CORNER_RADIUS);
+        return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" ${attributes}/>`);
+      }
+      case "ellipse":
+        return svg(width, height, `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" ${attributes}/>`);
+      case "line": {
+        const lineColor = stroke ?? fill;
+        return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`);
+      }
+      case "arrow": {
+        const lineColor = stroke ?? fill;
+        const centerY = height / 2;
+        const headStart = width - Math.min(width, centerY);
+        return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
+      case "speech-bubble": {
+        const bodyBottom = height * 0.75;
+        const tailStart = width * 0.6;
+        const tailTip = width * 0.72;
+        const tailEnd = width * 0.82;
+        return svg(width, height, `<path d="M 0 0 H ${width} V ${bodyBottom} H ${tailEnd} L ${tailTip} ${height} L ${tailStart} ${bodyBottom} H 0 Z" ${attributes}/>`);
+      }
+    }
+  }
+
   // src/internal-model.ts
   function readInternalEdit(source, options) {
     const text = typeof source === "string" ? source : JSON.stringify(source);
@@ -2459,6 +2564,8 @@ var AkariEditKernel = (() => {
     switch (first?.source.kind) {
       case "html":
         return "overlays";
+      case "shape":
+        return "overlays";
       case "captions":
         return "captions";
       case "telop":
@@ -2594,6 +2701,7 @@ var AkariEditKernel = (() => {
     const declaredKeyframes = item.keyframes;
     const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
     const common = {
+      ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
       ...item.transform !== void 0 ? { transform: item.transform } : {},
       ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
       ...item.blend !== void 0 ? { blend: item.blend } : {},
@@ -2615,6 +2723,7 @@ var AkariEditKernel = (() => {
             built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
             break;
           case "html":
+          case "shape":
             built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
             break;
           case "telop":
@@ -2740,6 +2849,42 @@ var AkariEditKernel = (() => {
               ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
               ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
             },
+            declaration,
+            legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
+          }
+        });
+      }
+      case "shape": {
+        const html = shapeMarkup(item.source);
+        const declaration = {
+          id: item.id,
+          html,
+          htmlPath: "edit.json",
+          start: at,
+          duration,
+          track: ref,
+          ...common
+        };
+        const value = {
+          id: item.id,
+          start: at,
+          duration,
+          track: ref,
+          payload: declaration
+        };
+        return finish({
+          item: {
+            id: item.id,
+            atFrames,
+            durationFrames,
+            at,
+            duration,
+            children: [],
+            // Deliberately omit html here: sourceById stamps a string source.html into htmlPath,
+            // which render-inputs later treats as a filesystem path. overlay-runtime parts.mjs
+            // uses item.source.html ?? declaration.html, so markup falls back to the declaration;
+            // apps/shell consumers protect the absent field with typeof guards or try/catch.
+            source: { kind: "html" },
             declaration,
             legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
           }

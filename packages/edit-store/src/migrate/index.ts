@@ -13,9 +13,24 @@ import { serializeCaptions, serializeEdit, serializeMotion } from '../canonical'
 import { writeAtomic } from '../write-gate';
 import { readEditV2 } from '../edit-v2';
 import type { AudioMediaItemV2, EditV2, FilterV2, ItemV2, TrackV2 } from '../edit-v2';
+import { GEOMETRY_SOURCE, normalizeGeometry, type DimensionsOf, type GeometryChange } from './geometry';
 export { LegacyEditVersionError } from './error';
 export { parseEdit } from './legacy-parse';
 export type { EditParseOrigins } from './legacy-parse';
+export {
+    collectFitBasisCandidates,
+    GEOMETRY_SOURCE,
+    hasCutLayerStyleVisual,
+    normalizeGeometry,
+    round6
+} from './geometry';
+export type {
+    DimensionsOf,
+    FitBasisCandidate,
+    GeometryChange,
+    GeometryNormalizationResult,
+    MediaDimensions
+} from './geometry';
 
 export type LegacyVersion = 0 | 1;
 
@@ -70,6 +85,15 @@ export interface MigrationNoop extends V2NormalizationProposal {
     ok: true;
     noop: true;
     version: 2;
+}
+
+/** 幾何の統一 G1 の提案。`changes` は表示用の要約、`geometry` は焼き込みの実測値。 */
+export interface GeometryNormalizationProposal extends V2NormalizationProposal {
+    geometry: GeometryChange[];
+}
+
+export interface GeometryNormalizationNoop extends MigrationNoop {
+    geometry: GeometryChange[];
 }
 
 export interface MigrationBlocked {
@@ -806,6 +830,71 @@ export function planV2Normalization(
         backupPath: join(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`),
         ...(captions ? { captions } : {}),
         ...(motion.length > 0 ? { motion } : {})
+    };
+}
+
+/**
+ * 幾何の統一 G1: `scale × fit` の一度きりの焼き込みと `output.geometry: "source"` の付与を
+ * `planV2Normalization` と同じ形（backup パス付き提案・`applyMigration` / `revertMigration` で扱える）
+ * で提案する。素材の寸法は呼び出し側が `dimensionsOf` で渡す（I/O はこの層に持ち込まない）。
+ */
+export function planGeometryNormalization(
+    projectRoot: string,
+    editPath: string,
+    previousText: string,
+    options: { dimensionsOf: DimensionsOf; now?: Date }
+): GeometryNormalizationProposal | MigrationBlocked | GeometryNormalizationNoop {
+    let raw: unknown;
+    try {
+        raw = JSON.parse(previousText);
+    } catch (error) {
+        return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
+    }
+    const version = detectEditVersion(raw);
+    if (version !== 2) {
+        return {
+            ok: false, version: version ?? -1,
+            blockers: ['edit.json.version が 2 ではありません。先に `akari migrate` で version 2 へ変換してください。']
+        };
+    }
+    const resolvedProjectRoot = resolve(projectRoot);
+    const resolvedEditPath = resolve(editPath);
+    const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+    const backupPath = join(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`);
+    const alreadyMigrated = isRecord(raw) && isRecord(raw.output) && raw.output.geometry === GEOMETRY_SOURCE;
+    const result = normalizeGeometry(raw, options.dimensionsOf);
+    if ('blockers' in result) {
+        return { ok: false, version: 2, blockers: result.blockers };
+    }
+    if (alreadyMigrated) {
+        return {
+            ok: true, noop: true, version: 2, filePath: resolvedEditPath,
+            changes: [], geometry: [], warnings: [], nextText: previousText, previousText, backupPath
+        };
+    }
+    try {
+        readEditV2(result.edit as unknown as EditV2);
+    } catch (error) {
+        return {
+            ok: false, version: 2,
+            blockers: [`移行後の v2 が自己検証に失敗しました: ${messageOf(error)}`]
+        };
+    }
+    return {
+        filePath: resolvedEditPath,
+        version: 2,
+        changes: [
+            ...result.changes.map(change => ({
+                path: `tracks[].items[id=${change.itemId}].transform.scale`,
+                note: `${change.before} → ${change.after}（素材 ${change.sourceId} · fit ${change.fit}）`
+            })),
+            { path: 'output.geometry', note: '実寸基準マーカー "source" を付与' }
+        ],
+        geometry: result.changes,
+        warnings: [],
+        nextText: serializeEdit(result.edit),
+        previousText,
+        backupPath
     };
 }
 

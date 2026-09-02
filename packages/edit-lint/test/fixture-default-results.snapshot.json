@@ -11,6 +11,12 @@
           "check": "audio.sfx.file",
           "message": "sfx path does not resolve to a regular file: sfx-a.wav",
           "path": "sfx-a.wav"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -49,6 +55,12 @@
           "check": "audio.bgm.fadeIn",
           "message": "fadeIn 15s exceeds half the timeline duration 20s; will be clamped to 10s at render time",
           "path": "edit.json#audio.bgm"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -90,7 +102,14 @@
     "bgm-in-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -117,7 +136,14 @@
     "bgm-null-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -144,7 +170,14 @@
     "bgm-sfx-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -180,6 +213,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -210,6 +249,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -238,6 +283,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
@@ -294,6 +345,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -326,6 +383,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
@@ -368,6 +431,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -401,6 +470,12 @@
           "check": "captions.schema",
           "message": "style must be \"karaoke\", \"pop\", \"reveal\", or \"reveal-word\"",
           "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         },
         {
           "severity": "warning",
@@ -440,6 +515,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -473,6 +554,12 @@
           "check": "captions.text-style",
           "message": "text_style.color must be a #RGB, #RRGGBB, or #RRGGBBAA hex color",
           "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         },
         {
           "severity": "warning",
@@ -512,6 +599,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -540,6 +633,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
@@ -578,6 +677,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -611,6 +716,12 @@
           "check": "captions.schema",
           "message": "word must satisfy 0 <= start <= end",
           "path": "captions.json#[0].words[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         },
         {
           "severity": "warning",
@@ -654,6 +765,12 @@
         },
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -684,6 +801,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
@@ -711,7 +834,14 @@
     "cuts-at-negative-invalid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -742,7 +872,14 @@
     "cuts-frame-grid-shift-warning": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -773,7 +910,14 @@
     "cuts-frame-grid-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -811,7 +955,14 @@
     "cuts-order": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -838,7 +989,14 @@
     "cuts-track-at-omitted-equivalent": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -869,7 +1027,14 @@
     "cuts-track-gap-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -900,7 +1065,14 @@
     "cuts-track-invalid-value": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -948,7 +1120,14 @@
     "cuts-track-split-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -985,6 +1164,12 @@
           "check": "cuts.track-transition-unsupported",
           "message": "映像トラック 1 の transition_out は、PiP または複数トラックを合成する方式では書き出せません。トランジションを削除するか、映像を単一の cuts トラックへ戻してください。",
           "path": "edit.json#cuts[1]"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -1023,6 +1208,12 @@
           "check": "cuts.track-transition-unsupported",
           "message": "映像トラック 0 の transition_out は、PiP または複数トラックを合成する方式では書き出せません。トランジションを削除するか、映像を単一の cuts トラックへ戻してください。",
           "path": "edit.json#cuts[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -1055,7 +1246,14 @@
     "cuts-track-transition-last-cut-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1086,7 +1284,14 @@
     "cuts-transform-full-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1117,7 +1322,14 @@
     "cuts-transform-omitted-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1148,7 +1360,14 @@
     "cuts-transform-partial-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1202,6 +1421,12 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
           "severity": "error",
           "check": "overlays.data-attributes",
           "message": "data-duration must match edit.json value 4",
@@ -1247,7 +1472,14 @@
     "freeze-extends-timeline-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1275,6 +1507,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "error",
           "check": "intake.submitted_at",
@@ -1305,6 +1543,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "intake.status",
@@ -1343,6 +1587,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "intake.status",
           "message": "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
           "path": ".akari/intake.json"
@@ -1379,6 +1629,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "intake.status",
           "message": "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
           "path": ".akari/intake.json"
@@ -1406,7 +1662,14 @@
     "intake-valid-submitted": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1430,6 +1693,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "error",
           "check": "references.files",
@@ -1484,7 +1753,14 @@
     "missing-optionals": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1516,6 +1792,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "error",
           "check": "references.files",
@@ -1562,7 +1844,14 @@
     "narration-invalid-id": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1595,6 +1884,12 @@
           "check": "audio.narration.file",
           "message": "narration path does not resolve to a regular file: narration/missing.mp3",
           "path": "narration/missing.mp3"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -1630,7 +1925,14 @@
     "narration-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1673,6 +1975,12 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
           "severity": "error",
           "check": "overlays.timeline",
           "message": "overlay ends after timeline duration 10s",
@@ -1709,7 +2017,14 @@
     "overlay-track-invalid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1774,6 +2089,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "overlays.reserved-css-var-reference",
           "message": "overlay fragment references var(--rotate, ...) -- --rotate is a runtime-reserved variable that renderOverlayNode always sets inline on the container (packages/render-cut/src/rasterize.mjs), so the fallback never applies and it resolves to the runtime's inherited value instead (bug report: overlay-css-var-collision, 2026-08-17). Use a non-reserved name for custom knobs (e.g. --block-left).",
           "path": "overlays/reserved-rotate.html"
@@ -1812,7 +2133,14 @@
     "render-basics-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -1840,6 +2168,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "review.insert-anchor-unresolved",
@@ -1873,7 +2207,14 @@
     "review-legacy-no-kind": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1901,6 +2242,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "review.target-consistency",
@@ -1936,6 +2283,12 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
           "severity": "error",
           "check": "review.src-reference",
           "message": "src does not reference sources[].id: s9",
@@ -1968,7 +2321,14 @@
     "review-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -1996,6 +2356,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "error",
           "check": "review.version",
@@ -2043,6 +2409,12 @@
             "start": 0.5,
             "end": 1.5
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2090,6 +2462,12 @@
           "check": "audio.sfx.file",
           "message": "sfx path does not resolve to a regular file: audio/missing.wav",
           "path": "audio/missing.wav"
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2152,7 +2530,14 @@
     "sfx-in-out-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",
@@ -2195,6 +2580,12 @@
             "start": 25,
             "end": 25
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2245,6 +2636,12 @@
             "start": 3,
             "end": 3
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2278,6 +2675,12 @@
       "exit_code": 1,
       "verdict": "fail",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "error",
           "check": "overlays.timeline",
@@ -2324,6 +2727,12 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
           "severity": "error",
           "check": "references.files",
           "message": "sources[1].path does not resolve to a regular file",
@@ -2361,6 +2770,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "info",
           "check": "v2.empty-track",
@@ -2400,6 +2815,12 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
           "severity": "error",
           "check": "references.files",
           "message": "sources[1].path does not resolve to a regular file",
@@ -2436,7 +2857,14 @@
     "timeline-tracks-omitted": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2468,6 +2896,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "timeline.tracks.singleton",
@@ -2524,7 +2958,14 @@
     "v1-source-sources-exclusive": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2555,7 +2996,14 @@
     "v1-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2639,6 +3087,12 @@
             "start": 2,
             "end": 3
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2684,7 +3138,14 @@
     "v2-html-params-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2789,6 +3250,12 @@
             "start": 3,
             "end": 3.066666666666667
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -2821,7 +3288,14 @@
     "v2-layer-extends-timeline-for-overlay-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2853,6 +3327,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
@@ -2892,7 +3372,14 @@
     "v2-pip-transition-invalid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2943,6 +3430,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
           "check": "v2.captions-content-deprecated",
           "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
           "path": "edit.json#tracks[2].content"
@@ -2988,6 +3481,12 @@
             "start": 2,
             "end": 2
           }
+        },
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
         }
       ],
       "skipped": [
@@ -3020,7 +3519,14 @@
     "valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
       "skipped": [
         {
           "check": "audio.music-grid",

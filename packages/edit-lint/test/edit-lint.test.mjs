@@ -16,6 +16,13 @@ import {
 import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
 
+// 幾何の統一 G1: 未移行の v2（output.geometry 未指定）には geometry.fit-compat の warning が
+// 必ず 1 件付く。各検査の「所見ゼロ」判定はこの移行案内を除いて数える
+// （案内そのものは test/geometry-fit-compat.test.mjs が固定する）。
+function withoutGeometryNotice(findings) {
+  return findings.filter((finding) => finding.check !== "geometry.fit-compat");
+}
+
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
 const lintSourcePath = join(packageRoot, "src", "edit-lint.mjs");
@@ -109,7 +116,7 @@ test("valid fixture passes and writes both reports", async () => {
     const result = parseResult(executed);
     assert.equal(result.version, 1);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0);
+    assert.equal(withoutGeometryNotice(result.findings).length, 0);
     assert.ok(result.skipped.some((item) => item.check === "captions"));
 
     const stored = JSON.parse(await readFile(join(project, ".akari", "lint.json"), "utf8"));
@@ -435,7 +442,7 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
     assert.deepEqual(result.findings.filter((finding) => finding.check.startsWith("v2.")), [{
-      id: "F001",
+      id: "F002",
       severity: "warning",
       check: "v2.captions-content-deprecated",
       message: "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
@@ -1324,7 +1331,7 @@ test("narration with bgm passes from item-level audio roles", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1370,7 +1377,7 @@ test("audio.bgm: null is tolerated as equivalent to omitted (same convention as 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1381,7 +1388,7 @@ test("bgm + sfx (2 items) all resolving to real files pass with zero findings", 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1559,7 +1566,7 @@ test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing 
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings, null, 2));
   });
 });
 
@@ -1570,7 +1577,7 @@ test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.ma
     assert.equal(executed.status, 0, executed.stderr || executed.stdout);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1621,7 +1628,7 @@ test("cuts[].freeze extends the timeline used by overlays", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1671,7 +1678,7 @@ test("review fixture with all five target kinds passes with zero findings", asyn
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
     assert.ok(Object.hasOwn(result.inputs, "review_json_sha256"));
   });
 });
@@ -1728,7 +1735,7 @@ test("legacy annotations without targetKind still pass", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
+    assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings));
   });
 });
 
@@ -1875,7 +1882,7 @@ for (const fixture of [
       assert.equal(executed.status, 0, executed.stderr);
       const result = parseResult(executed);
       assert.equal(result.verdict, "pass");
-      assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
+      assert.equal(withoutGeometryNotice(result.findings).length, 0, JSON.stringify(result.findings, null, 2));
     });
   });
 }
@@ -1953,8 +1960,8 @@ test("空の段を持つ v2 プロジェクトは v2.empty-track の info だけ
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.deepEqual(result.findings, [{
-      id: "F001",
+    assert.deepEqual(withoutGeometryNotice(result.findings), [{
+      id: "F002",
       severity: "info",
       check: "v2.empty-track",
       message: "empty track will be removed by canonical save",
@@ -2015,7 +2022,7 @@ test("2026-08-23 cuts-cross-track-overlap 後は PiP 側だけが layers へ退�
     assert.equal(executed.status, 0, executed.stderr || executed.stdout);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.deepEqual(result.findings, []);
+    assert.deepEqual(withoutGeometryNotice(result.findings), []);
   });
 });
 
@@ -2064,14 +2071,14 @@ test("重なり 0 の transition_out だけを warning にし、重なり済み�
     raw.tracks[0].items[0].source.out = 2.5;
     await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
     const overlapped = parseResult(run(project));
-    assert.equal(overlapped.findings.length, 0, JSON.stringify(overlapped.findings, null, 2));
+    assert.equal(withoutGeometryNotice(overlapped.findings).length, 0, JSON.stringify(overlapped.findings, null, 2));
 
     delete raw.tracks[0].items[0].source.transition_out;
     raw.tracks[0].items[0].duration = 60;
     raw.tracks[0].items[0].source.out = 2;
     await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
     const undeclared = parseResult(run(project));
-    assert.equal(undeclared.findings.length, 0, JSON.stringify(undeclared.findings, null, 2));
+    assert.equal(withoutGeometryNotice(undeclared.findings).length, 0, JSON.stringify(undeclared.findings, null, 2));
   });
 });
 

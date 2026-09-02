@@ -11,6 +11,7 @@ import {
   desktopCandidates,
   ELECTRON_CHILD_ENV_BLOCKLIST,
   electronChildEnvironment,
+  isDevRepositoryLayout,
   launchElectronExport,
   resolveElectronLauncher,
 } from "../src/runner.mjs";
@@ -47,6 +48,130 @@ function exportOptions(out) {
     frames: 30,
   };
 }
+
+const DEV_REPOSITORY = Object.freeze({
+  repoRoot: "/repo",
+  readTextFile: async () => JSON.stringify({ workspaces: ["packages/*"] }),
+});
+const PACKAGED_LAYOUT = Object.freeze({
+  repoRoot: "/resources",
+  readTextFile: async () => JSON.stringify({ name: "packaged-resources" }),
+});
+
+test("isDevRepositoryLayout は workspaces 配列だけを dev レイアウトと判定する", async (t) => {
+  await t.test("workspaces 配列あり", async () => {
+    let readPath = null;
+    assert.equal(await isDevRepositoryLayout({
+      repoRoot: "/repo",
+      readTextFile: async (path) => {
+        readPath = path;
+        return JSON.stringify({ workspaces: ["packages/*"] });
+      },
+    }), true);
+    assert.equal(readPath, join("/repo", "package.json"));
+  });
+  for (const [name, readTextFile] of [
+    ["package.json 不在", async () => { throw Object.assign(new Error("missing"), { code: "ENOENT" }); }],
+    ["壊れた JSON", async () => "{ broken"],
+    ["workspaces なし", async () => JSON.stringify({ name: "packaged-resources" })],
+    ["workspaces が配列ではない", async () => JSON.stringify({ workspaces: { packages: ["packages/*"] } })],
+  ]) {
+    await t.test(name, async () => {
+      assert.equal(await isDevRepositoryLayout({ repoRoot: "/repo", readTextFile }), false);
+    });
+  }
+});
+
+test("isDevRepositoryLayout は注入時に結果をメモ化しない", async () => {
+  let reads = 0;
+  const options = {
+    repoRoot: "/repo",
+    readTextFile: async () => {
+      reads += 1;
+      return JSON.stringify({ workspaces: ["packages/*"] });
+    },
+  };
+  assert.equal(await isDevRepositoryLayout(options), true);
+  assert.equal(await isDevRepositoryLayout(options), true);
+  assert.equal(reads, 2);
+});
+
+test("dev レイアウトは installed desktop を外して npm electron を選ぶ", async () => {
+  const result = await resolveElectronLauncher({
+    ...DEV_REPOSITORY,
+    env: {}, platform: "linux", homeDirectory: "/home/test",
+    probe: async () => true, resolveElectron: () => "/npm/electron",
+  });
+  assert.equal(result.tier, 2);
+  assert.equal(result.kind, "npm-electron");
+});
+
+test("dev レイアウトでも AKARI_OSR_ELECTRON の明示指定は候補に残る", async () => {
+  const result = await resolveElectronLauncher({
+    ...DEV_REPOSITORY,
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/home/test",
+    probe: async (path) => path === "/desktop", resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 1);
+  assert.equal(result.reason, "environment override");
+});
+
+test("dev レイアウトで Electron が無ければ tier 3 の理由に脱出口を示す", async () => {
+  const result = await resolveElectronLauncher({
+    ...DEV_REPOSITORY,
+    env: {}, platform: "linux", homeDirectory: "/home/test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 3);
+  assert.equal(result.skippedInstalledDesktop, true);
+  assert.match(result.reason, /開発リポジトリ配置/u);
+  assert.match(result.reason, /AKARI_EXPORT_ALLOW_DESKTOP=1/u);
+  assert.match(result.reason, /AKARI_OSR_ELECTRON=<path>/u);
+});
+
+test("AKARI_EXPORT_ALLOW_DESKTOP=1 は dev レイアウトでも tier 1 を許可する", async () => {
+  const result = await resolveElectronLauncher({
+    ...DEV_REPOSITORY,
+    env: { AKARI_EXPORT_ALLOW_DESKTOP: "1" }, platform: "linux", homeDirectory: "/home/test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 1);
+  assert.equal(result.reason, "installed desktop app");
+});
+
+test("非 dev レイアウトは env 未設定でも従来どおり tier 1 を許可する", async () => {
+  const result = await resolveElectronLauncher({
+    ...PACKAGED_LAYOUT,
+    env: {}, platform: "linux", homeDirectory: "/home/test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 1);
+});
+
+test("明示 allowInstalledDesktop:true と allowDesktop:true は dev 自動判定より優先される", async () => {
+  for (const explicit of [{ allowInstalledDesktop: true }, { allowDesktop: true }]) {
+    const result = await resolveElectronLauncher({
+      ...DEV_REPOSITORY,
+      ...explicit,
+      env: {}, platform: "linux", homeDirectory: "/home/test",
+      probe: async () => true, resolveElectron: () => null,
+    });
+    assert.equal(result.tier, 1);
+  }
+});
+
+test("AKARI_EXPORT_ALLOW_DESKTOP=0 は dev 判定より先に desktop 全体を外す", async () => {
+  let reads = 0;
+  const result = await resolveElectronLauncher({
+    repoRoot: "/repo", readTextFile: async () => { reads += 1; return JSON.stringify({ workspaces: ["packages/*"] }); },
+    env: { AKARI_OSR_ELECTRON: "/desktop", AKARI_EXPORT_ALLOW_DESKTOP: "0" },
+    platform: "linux", homeDirectory: "/home/test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 3);
+  assert.equal(result.reason, "Electron unavailable");
+  assert.equal(reads, 0);
+});
 
 test("器は desktop を npm electron より優先する", async () => {
   const result = await resolveElectronLauncher({
@@ -89,6 +214,7 @@ test("器は健全な npm electron dist を tier 2 にする", async () => {
 
 test("dist 4 エントリの欠損は理由付き tier 3 になる", async () => {
   const result = await resolveElectronLauncher({
+    ...PACKAGED_LAYOUT,
     env: {}, platform: "linux", homeDirectory: "/home/test",
     probe: async (path) => path !== "/npm/version" && path.startsWith("/npm/"), resolveElectron: () => "/npm/electron",
   });

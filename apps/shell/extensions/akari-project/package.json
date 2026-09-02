@@ -22,6 +22,7 @@
     "test": "node --test test/*.mjs"
   },
   "dependencies": {
+    "@akari-video/edit-store": "file:../../../../packages/edit-store",
     "@theia/core": "1.73.1",
     "@theia/filesystem": "1.73.1",
     "@theia/workspace": "1.73.1",

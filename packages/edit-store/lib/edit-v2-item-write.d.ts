@@ -38,6 +38,8 @@ export type PreviewItemWriteCommand = {
     legacyIndex: number;
     patch: {
         transform?: PreviewItemTransformPatch;
+        /** 出力プレビューの辺バークロップ。cuts[] に crop の席があるのは v2 だけ。 */
+        crop?: PreviewItemCropPatch;
     };
 };
 export interface PreviewItemWriteResolution {

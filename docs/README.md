@@ -147,6 +147,8 @@ All contracts follow the
 | [contract-2026-09-02-audio-envelope-v1.md](./contract-2026-09-02-audio-envelope-v1.md) | Audio envelope kernel v1 — deterministic ducking (duck_db / attack / release, narration ∪ transcript speech keys, sidechaincompress retired for amultiply) and clip-owned volume keyframes shared by preview and export |
 | [contract-2026-09-02-audio-insert-level-v1.md](./contract-2026-09-02-audio-insert-level-v1.md) | Insert-time auto level v1 — ebur128 measurement with sha1 cache, per-role LUFS targets with true-peak guard, `akari-media audio-level --write` writing gain_db / default fades deterministically |
 | [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | Audio clip FX v1 — speed (rubberband, pitch-preserving), pitch_semitones, denoise (fft / nlm), lowcut_hz; preview matches export via the FLAC sidecar (recipe v2) |
+| [contract-2026-09-02-asset-reference-model.md](./contract-2026-09-02-asset-reference-model.md) | Asset reference model v0 — machine-wide shared library (`~/.akari/assets`), the per-project reference ledger `.akari/asset-references.json`, resolver fallback in render-cut / edit-lint, and the `akari-assets bundle` materialization command (Japanese) |
+| [contract-2026-09-02-shape-item-v0.md](./contract-2026-09-02-shape-item-v0.md) | Shape item v0 — edit.json v2 `shape` source (rect / rounded-rect / ellipse / line / arrow / speech-bubble) lowered by edit-store to a deterministic inline-SVG html overlay, so no renderer changes (Japanese) |
 
 ### Direction notes
 

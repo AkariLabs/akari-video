@@ -6,6 +6,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
+    KeyframeControlRequest,
     LivePreviewRequest,
     LivePreviewTarget,
     TimelineAudioSelection,
@@ -15,10 +16,12 @@ import {
     TimelineItemSelectionSnapshot,
     TimelineKeyframeSelection,
     TimelineOverlaySelection,
+    TimelineAudioMasterSnapshot,
     TimelineSelectionModel,
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot
 } from './timeline-selection-model';
+import { keyframeValueAt } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
 import {
     createNumberField,
@@ -33,12 +36,29 @@ import {
     normalizeInspectorCrop,
     type InspectorCropAxis
 } from './inspector/crop-fields';
+import {
+    addCutFramingKeyframe,
+    createCutFramingCropWriteRequest,
+    readCutFraming,
+    removeCutFramingKeyframe,
+    replaceCutFramingKeyframe,
+    type CutFramingKeyframe
+} from './inspector/framing-fields';
+import {
+    createCutFreezeWriteRequest,
+    cutPlaybackDuration,
+    resolveCutFreezeDisplayAt
+} from './inspector/freeze-fields';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
     AUDIO_PREVIEW_SECTIONS,
     type AudioPreviewSection
 } from './inspector/audio-preview';
+import {
+    AUDIO_MASTER_DEFAULT_LOUDNORM,
+    AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP
+} from './inspector/audio-master';
 import {
     composeInspectorSections,
     InspectorSectionDef,
@@ -89,8 +109,14 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     unit?: string;
     displayScale?: number;
     removable?: boolean;
+    disabled?: boolean;
+    title?: string;
     actionLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    menuAction?: {
+        label: string;
+        action: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    };
     reset?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
@@ -269,6 +295,165 @@ function CROP_FIELDS<TSnapshot extends { id: string; crop?: unknown }>(
     }));
 }
 
+const CUT_FRAMING_CROP_DISABLED_TITLE = 'ズーム KF があるときは窓は無視されます';
+
+function cutFramingFields(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TimelineCutSelection>[] {
+    const framing = readCutFraming(snapshot.framing);
+    const crop = normalizeInspectorCrop(framing.crop);
+    const keyframes = framing.keyframes ?? [];
+    const cropDisabled = keyframes.length > 0;
+    const duration = Math.max(0, snapshot.outputEnd - snapshot.outputStart);
+    const cropRows: ReadonlyArray<{ axis: InspectorCropAxis; label: string }> = [
+        { axis: 'x', label: '左' },
+        { axis: 'y', label: '上' },
+        { axis: 'w', label: '幅' },
+        { axis: 'h', label: '高さ' }
+    ];
+    const fields: InspectorFieldDef<TimelineCutSelection>[] = cropRows.map(({ axis, label }) => ({
+        name: `framing-crop-${axis}`,
+        label,
+        unit: '%',
+        displayScale: INSPECTOR_CROP_DISPLAY_SCALE,
+        getValue: () => String(crop[axis]),
+        getEditValue: () => String(crop[axis]),
+        inputKind: 'scrub-number',
+        scrubStep: INSPECTOR_CROP_SCRUB_STEP,
+        min: 0,
+        max: inspectorCropAxisMaximum(crop, axis),
+        disabled: cropDisabled,
+        title: cropDisabled ? CUT_FRAMING_CROP_DISABLED_TITLE : undefined,
+        write: async (_snapshot, value) => requestWrite(
+            createCutFramingCropWriteRequest(snapshot.index, axis, Number(value))
+        ),
+        reset: () => requestWrite(createCutFramingCropWriteRequest(snapshot.index, axis, null))
+    }));
+
+    const replace = async (
+        index: number,
+        patch: Partial<CutFramingKeyframe>
+    ): Promise<InspectorWriteResult> => {
+        try {
+            return requestWrite({
+                kind: 'cut-framing-keyframes',
+                index: snapshot.index,
+                value: replaceCutFramingKeyframe(keyframes, index, patch)
+            });
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    };
+    keyframes.forEach((point, index) => {
+        const prefix = `framing-keyframe-${index}`;
+        const remove = {
+            label: 'この KF を削除',
+            action: async (): Promise<InspectorWriteResult> => requestWrite({
+                kind: 'cut-framing-keyframes',
+                index: snapshot.index,
+                value: removeCutFramingKeyframe(keyframes, index)
+            })
+        };
+        fields.push({
+            name: `${prefix}-t`, label: `KF ${index + 1} 時刻`, unit: '秒',
+            getValue: () => String(point.t), getEditValue: () => String(point.t),
+            inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: duration,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const t = Number(value);
+                return !Number.isFinite(t) || t < 0 || t > duration
+                    ? { ok: false, message: `KF 時刻は 0〜${duration} 秒の範囲で入力してください。` }
+                    : replace(index, { t });
+            }
+        }, {
+            name: `${prefix}-scale`, label: `KF ${index + 1} 倍率`, unit: '×',
+            getValue: () => String(point.scale), getEditValue: () => String(point.scale),
+            inputKind: 'scrub-number', scrubStep: 0.01, min: 1, max: 10,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const scale = Number(value);
+                return !Number.isFinite(scale) || scale < 1 || scale > 10
+                    ? { ok: false, message: 'KF 倍率は 1〜10 の範囲で入力してください。' }
+                    : replace(index, { scale });
+            }
+        }, ...(['cx', 'cy'] as const).map((axis): InspectorFieldDef<TimelineCutSelection> => ({
+            name: `${prefix}-${axis}`,
+            label: `KF ${index + 1} 中心 ${axis === 'cx' ? 'X' : 'Y'}`,
+            unit: '%', displayScale: 100,
+            getValue: () => String(point[axis] ?? 0.5),
+            getEditValue: () => String(point[axis] ?? 0.5),
+            inputKind: 'scrub-number', scrubStep: 0.005, min: 0, max: 1,
+            menuAction: remove,
+            write: async (_snapshot, value) => {
+                const coordinate = Number(value);
+                return !Number.isFinite(coordinate) || coordinate < 0 || coordinate > 1
+                    ? { ok: false, message: `KF 中心 ${axis === 'cx' ? 'X' : 'Y'} は 0〜100% の範囲で入力してください。` }
+                    : replace(index, { [axis]: coordinate });
+            },
+            reset: () => replace(index, { [axis]: undefined })
+        })));
+    });
+    fields.push({
+        name: 'framing-keyframe-add', label: '追加', actionLabel: '＋ ズーム KF を追加',
+        getValue: () => '',
+        action: async () => {
+            const playhead = Math.max(0, Math.min(
+                duration,
+                (snapshot.playheadSeconds ?? snapshot.outputStart) - snapshot.outputStart
+            ));
+            try {
+                return requestWrite({
+                    kind: 'cut-framing-keyframes',
+                    index: snapshot.index,
+                    value: addCutFramingKeyframe(keyframes, playhead, duration)
+                });
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        }
+    });
+    return fields;
+}
+
+function cutFreezeFields(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TimelineCutSelection>[] {
+    const duration = cutPlaybackDuration({
+        in: snapshot.sourceIn,
+        out: snapshot.sourceOut,
+        ...(snapshot.speed !== undefined ? { speed: snapshot.speed } : {})
+    });
+    const at = resolveCutFreezeDisplayAt(
+        snapshot.freeze,
+        snapshot.playheadSeconds,
+        snapshot.outputStart,
+        duration
+    );
+    return [{
+        name: 'freeze-at', label: '静止時刻', unit: '秒',
+        getValue: () => String(at), getEditValue: () => String(at),
+        inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: duration,
+        write: async (_snapshot, value) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return { ok: false, message: '静止時刻は有限数で入力してください。' };
+            return requestWrite(createCutFreezeWriteRequest(snapshot.index, 'at', parsed));
+        }
+    }, {
+        name: 'freeze-duration', label: '静止尺', unit: '秒', removable: true,
+        getValue: () => String(snapshot.freeze?.duration_sec ?? 0),
+        getEditValue: () => String(snapshot.freeze?.duration_sec ?? 0),
+        inputKind: 'scrub-number', scrubStep: 0.01, min: 0,
+        write: async (_snapshot, value) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed) || parsed < 0) return { ok: false, message: '静止尺は 0 以上の有限数で入力してください。' };
+            return requestWrite(createCutFreezeWriteRequest(snapshot.index, 'duration', parsed));
+        },
+        reset: () => requestWrite(createCutFreezeWriteRequest(snapshot.index, 'duration', null))
+    }];
+}
+
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -331,6 +516,8 @@ function CUT_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
+        { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -1147,6 +1334,65 @@ function AUDIO_SECTIONS(
     return composeInspectorSections(tabs);
 }
 
+function AUDIO_MASTER_SECTION(
+    snapshot: TimelineAudioMasterSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection {
+    const denoiseLabel = snapshot.denoise === 'strong' ? '強'
+        : snapshot.denoise === 'std' ? '標準' : 'オフ';
+    const disabledTitle = snapshot.enabled ? undefined : 'マスタリングをオンにすると変更できます。';
+    return {
+        id: 'audio:master',
+        label: 'マスター（書き出し全体）',
+        caption: 'プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）',
+        fields: [{
+            name: 'audio-master-enabled', label: 'マスタリング',
+            getValue: () => snapshot.enabled ? 'オン' : 'オフ',
+            getEditValue: () => snapshot.enabled ? 'オン' : 'オフ',
+            inputKind: 'select', options: ['オフ', 'オン'],
+            write: async (_rowSnapshot, value) => requestWrite({
+                kind: 'audio-master-enabled', value: value === 'オン'
+            })
+        }, {
+            name: 'audio-master-denoise', label: 'ノイズ除去',
+            getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
+            inputKind: 'select', options: ['オフ', '標準', '強'],
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-denoise', value: null }),
+            write: async (_rowSnapshot, value) => requestWrite({
+                kind: 'audio-master-denoise',
+                value: value === '強' ? 'strong' : value === '標準' ? 'std' : 'off'
+            })
+        }, {
+            name: 'audio-master-loudnorm', label: 'ラウドネス目標', unit: 'LUFS',
+            getValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
+            getEditValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
+            inputKind: 'scrub-number', scrubStep: 0.5, min: -70, max: 0,
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-loudnorm', value: null }),
+            write: async (_rowSnapshot, value) => {
+                const parsed = Number(value);
+                return !Number.isFinite(parsed) || parsed < -70 || parsed > 0
+                    ? { ok: false, message: 'ラウドネス目標は -70〜0 の範囲で入力してください。' }
+                    : requestWrite({ kind: 'audio-master-loudnorm', value: parsed });
+            }
+        }, {
+            name: 'audio-master-true-peak', label: 'True Peak 上限', unit: 'dBTP',
+            getValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
+            getEditValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
+            inputKind: 'scrub-number', scrubStep: 0.1, min: -9, max: 0,
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-true-peak', value: null }),
+            write: async (_rowSnapshot, value) => {
+                const parsed = Number(value);
+                return !Number.isFinite(parsed) || parsed < -9 || parsed > 0
+                    ? { ok: false, message: 'True Peak 上限は -9〜0 の範囲で入力してください。' }
+                    : requestWrite({ kind: 'audio-master-true-peak', value: parsed });
+            }
+        }]
+    };
+}
+
 function OVERLAY_SECTIONS(
     snapshot: TimelineOverlaySelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
@@ -1557,6 +1803,12 @@ export class AkariInspectorWidget extends BaseWidget {
         display: grid;
         gap: 5px;
     }
+    .akari-inspector-widget .akari-inspector-section-caption {
+        margin: 0;
+        color: var(--theia-descriptionForeground);
+        font-size: 11px;
+        line-height: 1.4;
+    }
     .akari-inspector-widget .akari-inspector-section-soon,
     .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {
         color: var(--theia-disabledForeground);
@@ -1769,7 +2021,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-kf-controls {
         display: grid;
-        grid-template-columns: repeat(3, 18px);
+        grid-template-columns: repeat(4, 18px);
         align-items: center;
     }
     .akari-inspector-widget .akari-inspector-kf-controls button {
@@ -1787,6 +2039,11 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-kf-controls button:active {
         background: var(--theia-button-background);
         color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-kf-controls button:disabled {
+        opacity: .35;
+        background: transparent;
+        color: var(--theia-disabledForeground);
     }
     .akari-inspector-widget .akari-inspector-kf-seat {
         color: var(--theia-textLink-foreground);
@@ -1917,6 +2174,7 @@ export class AkariInspectorWidget extends BaseWidget {
             AUDIO_PREVIEW_SECTIONS.forEach(section =>
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio')
             );
+            this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
             return;
         }
         sections
@@ -1926,6 +2184,7 @@ export class AkariInspectorWidget extends BaseWidget {
             AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
             );
+            this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
         }
     }
 
@@ -2057,6 +2316,12 @@ export class AkariInspectorWidget extends BaseWidget {
             this.sectionState.setCollapsed(kind, section.id, next);
         });
         header.appendChild(toggle);
+        if (section.caption) {
+            const caption = document.createElement('p');
+            caption.className = 'akari-inspector-section-caption';
+            caption.textContent = section.caption;
+            body.appendChild(caption);
+        }
         const fields = [...section.fields];
         if (section.optionalFields) {
             const visible = section.optionalFields.filter(field => this.isOptionalFieldVisible(kind, field, snapshot));
@@ -2190,14 +2455,18 @@ export class AkariInspectorWidget extends BaseWidget {
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
         const selected = this.model.keyframeSelection;
         const keyframeValue = fieldName === 'transform-scale' ? value / 100 : value;
-        const request = (action: 'toggle' | 'previous' | 'next'): void => {
+        const hasKeyframes = snapshot.keyframes?.some(point =>
+            keyframeValueAt(point, property) !== undefined) ?? false;
+        const request = (action: Exclude<KeyframeControlRequest['action'], 'easing'>): void => {
             void this.model.requestKeyframe?.({ action, itemId, property, value: keyframeValue });
         };
         return {
             active: selected?.itemId === itemId && selected.property === property,
+            hasKeyframes,
             onToggle: () => request('toggle'),
             onPrevious: () => request('previous'),
-            onNext: () => request('next')
+            onNext: () => request('next'),
+            onReveal: () => request('reveal')
         };
     }
 
@@ -2209,6 +2478,7 @@ export class AkariInspectorWidget extends BaseWidget {
     ): void {
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
+        if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';
@@ -2220,6 +2490,8 @@ export class AkariInspectorWidget extends BaseWidget {
             action.type = 'button';
             action.className = 'akari-inspector-row-input';
             action.textContent = field.actionLabel ?? field.label;
+            action.disabled = field.disabled === true;
+            if (field.title) action.title = field.title;
             action.setAttribute('data-akari-ui', `action:inspector-${fieldName}`);
             action.addEventListener('click', () => void field.action!(snapshot).then(result => {
                 if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
@@ -2272,14 +2544,31 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             const numericValue = Number(editValue);
             if (Number.isFinite(numericValue)) {
-                row.appendChild(createNumberField({
+                const keyframe = this.keyframeSeatOptions(snapshot, fieldName, numericValue);
+                const numberField = createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
                     displayScale: field.displayScale,
                     onPreview: sendLive,
                     onCommit: value => commitValue(String(value), () => undefined),
-                    keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
-                }));
+                    keyframe
+                });
+                if (field.disabled) {
+                    for (const control of Array.from(numberField.querySelectorAll('button, input'))) {
+                        (control as HTMLButtonElement | HTMLInputElement).disabled = true;
+                    }
+                    if (field.title) numberField.title = field.title;
+                }
+                row.appendChild(numberField);
+                if (keyframe?.hasKeyframes) {
+                    row.addEventListener('dblclick', event => {
+                        const target = event.target instanceof Element ? event.target : undefined;
+                        if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        keyframe.onReveal();
+                    });
+                }
             }
             this.attachRowMenu(row, field, snapshot, kind);
             parent.appendChild(row);
@@ -2391,6 +2680,8 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         row.appendChild(input);
+        input.disabled = field.disabled === true;
+        if (field.title) input.title = field.title;
         input.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
         if (field.previewOption && field.options?.length) {
             const previews = document.createElement('div');
@@ -2422,7 +2713,7 @@ export class AkariInspectorWidget extends BaseWidget {
         snapshot: InspectorSnapshot,
         kind: string
     ): void {
-        if (!field.reset && !field.removable) return;
+        if (field.disabled || (!field.reset && !field.removable && !field.menuAction)) return;
         row.addEventListener('contextmenu', event => {
             event.preventDefault();
             const menu = document.createElement('div');
@@ -2454,6 +2745,18 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.render();
                 });
                 menu.appendChild(remove);
+            }
+            if (field.menuAction) {
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.textContent = field.menuAction.label;
+                action.addEventListener('click', () => {
+                    menu.remove();
+                    void field.menuAction!.action(snapshot).then(result => {
+                        if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                    });
+                });
+                menu.appendChild(action);
             }
             const dismiss = (pointerEvent: PointerEvent): void => {
                 if (pointerEvent.target instanceof Node && menu.contains(pointerEvent.target)) return;

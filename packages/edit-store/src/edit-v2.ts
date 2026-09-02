@@ -110,6 +110,23 @@ export interface HtmlSourceV2 {
     params?: Record<string, string>;
 }
 
+export type ShapeKindV0 = 'rect' | 'rounded-rect' | 'ellipse' | 'line' | 'arrow' | 'speech-bubble';
+
+export interface ShapeParamsV0 {
+    width?: number;
+    height?: number;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    cornerRadius?: number;
+}
+
+export interface ShapeSourceV2 {
+    kind: 'shape';
+    shape: ShapeKindV0;
+    params?: ShapeParamsV0;
+}
+
 export interface TelopSourceV2 {
     kind: 'telop';
     preset: string;
@@ -132,7 +149,7 @@ export interface GroupSourceV2 { kind: 'group' }
 export interface CaptionsSourceV2 { kind: 'captions'; path: 'captions.json'; exclude?: string[] }
 export interface CaptionSourceV2 { kind: 'caption'; path: 'captions.json'; id: string }
 
-export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2
+export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | ShapeSourceV2 | TelopSourceV2 | FilterSourceV2
     | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
 
 export interface ItemV2Base {
@@ -166,6 +183,7 @@ export type MediaItemV2 = ItemV2Base & {
 export type ItemV2 =
     | MediaItemV2
     | (ItemV2Base & { source: HtmlSourceV2 })
+    | (ItemV2Base & { source: ShapeSourceV2 })
     | (ItemV2Base & { source: TelopSourceV2 })
     | (ItemV2Base & { source: FilterSourceV2 })
     | (ItemV2Base & { source: GroupSourceV2 })
@@ -275,6 +293,9 @@ type UnknownRecord = Record<string, unknown>;
 const BLEND_MODES = new Set<BlendModeV2>([
     'normal', 'screen', 'multiply', 'add', 'difference',
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
+]);
+const SHAPE_KINDS = new Set<ShapeKindV0>([
+    'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective',
@@ -584,6 +605,29 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
                 requireRecord(value.params, `${path}.params`);
                 for (const [name, text] of Object.entries(value.params)) {
                     if (typeof text !== 'string') throw invalid(`${path}.params.${name}`, '文字列である必要があります');
+                }
+            }
+            return;
+        case 'shape':
+            requireExactKeys(value, new Set(['kind', 'shape', 'params']), path);
+            if (!SHAPE_KINDS.has(value.shape as ShapeKindV0)) {
+                throw invalid(`${path}.shape`, '未対応の shape です');
+            }
+            if (hasOwn(value, 'params')) {
+                requireRecord(value.params, `${path}.params`);
+                requireExactKeys(value.params, new Set([
+                    'width', 'height', 'fill', 'stroke', 'strokeWidth', 'cornerRadius'
+                ]), `${path}.params`);
+                for (const key of ['width', 'height']) {
+                    if (hasOwn(value.params, key)) requirePositiveNumber(value.params[key], `${path}.params.${key}`);
+                }
+                for (const key of ['fill', 'stroke']) {
+                    if (hasOwn(value.params, key) && typeof value.params[key] !== 'string') {
+                        throw invalid(`${path}.params.${key}`, '文字列である必要があります');
+                    }
+                }
+                for (const key of ['strokeWidth', 'cornerRadius']) {
+                    if (hasOwn(value.params, key)) requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
                 }
             }
             return;

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// akari-assets — 素材 resolver v0 の CLI（list / fetch / sync / browse）。
+// akari-assets — 素材 resolver v0 の CLI（list / fetch / bundle / sync / browse）。
 //
 //   akari-assets list [--category <c>] [--json]
-//   akari-assets fetch <id> [--project <dir>] [--force]
+//   akari-assets fetch <id> [--project <dir>] [--reference] [--force]
+//   akari-assets bundle --project <dir> [--dry-run]
 //   akari-assets sync
 //   akari-assets browse [--port <n>]
 
 import { startBrowseServer } from '../src/browse-server.mjs';
+import { bundleProjectReferences } from '../src/bundle.mjs';
 import { cacheCatalog, loadCatalog } from '../src/catalog.mjs';
 import { resolve as resolveAsset } from '../src/resolve.mjs';
 import { composeState } from '../src/state.mjs';
@@ -43,18 +45,62 @@ async function cmdList(args, env) {
 async function cmdFetch(args, env) {
   const id = args[0];
   if (!id || id.startsWith('--')) {
-    console.error('使い方: akari-assets fetch <id> [--project <dir>] [--force]');
+    console.error('使い方: akari-assets fetch <id> [--project <dir>] [--reference] [--force]');
     process.exitCode = 1;
     return;
   }
   const project = flagValue(args, '--project');
+  const reference = args.includes('--reference');
   const force = args.includes('--force');
+  if (reference && !project) {
+    console.error('--reference には --project <dir> が必要です');
+    process.exitCode = 1;
+    return;
+  }
   try {
-    const result = await resolveAsset(id, { env, project, force });
+    const result = await resolveAsset(id, { env, project, force, reference });
     console.log(`${result.cached ? '取得済み（キャッシュ）を使用' : '取得しました'}: ${result.dir}`);
     if (result.projectDir) console.log(`  プロジェクトへコピー: ${result.projectDir}`);
+    if (result.referenced) console.log(`  参照を記帳: ${result.category}/${result.id}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}
+
+async function cmdBundle(args, env) {
+  const project = flagValue(args, '--project');
+  const dryRun = args.includes('--dry-run');
+  if (!project) {
+    console.error('使い方: akari-assets bundle --project <dir> [--dry-run]');
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = await bundleProjectReferences({ project, env, dryRun });
+  if (result.planned.length === 0) {
+    console.log('実体化する参照はありません');
+    return;
+  }
+  if (dryRun) {
+    for (const reference of result.planned) {
+      console.log(`実体化予定: ${reference.category}/${reference.id}`);
+    }
+    return;
+  }
+
+  for (const materialized of result.materialized) {
+    console.log(
+      `実体化しました: ${materialized.category}/${materialized.id} -> ${materialized.projectDir}`,
+    );
+  }
+  if (result.failures.length > 0) {
+    console.error(`実体化できなかった参照 ${result.failures.length} 件:`);
+    for (const failure of result.failures) {
+      console.error(
+        `  ${failure.reference.category}/${failure.reference.id}: ${failure.message}`,
+      );
+    }
     process.exitCode = 1;
   }
 }
@@ -72,10 +118,12 @@ async function cmdBrowse(args, env) {
 }
 
 function printUsage() {
-  console.log(`使い方: akari-assets <list|fetch|sync|browse> [options]
+  console.log(`使い方: akari-assets <list|fetch|bundle|sync|browse> [options]
 
   list [--category <c>] [--json]          合成カタログ一覧（取得状態バッジ込み）
-  fetch <id> [--project <dir>] [--force]  素材を解決してローカルへ登録（キャッシュ済みなら即返す）
+  fetch <id> [--project <dir>] [--reference] [--force]
+                                          素材を解決して登録（--reference はコピーせず参照を記帳）
+  bundle --project <dir> [--dry-run]      参照素材をプロジェクトへ実体化（素材をまとめる）
   sync                                    カタログを取得してローカルにキャッシュ（オフライン用）
   browse [--port <n>]                     ローカル HTTP サーバでカタログを閲覧・投入（既定 8910）
 
@@ -92,6 +140,7 @@ async function main() {
 
   if (sub === 'list') return cmdList(rest, env);
   if (sub === 'fetch') return cmdFetch(rest, env);
+  if (sub === 'bundle') return cmdBundle(rest, env);
   if (sub === 'sync') return cmdSync(rest, env);
   if (sub === 'browse') return cmdBrowse(rest, env);
 

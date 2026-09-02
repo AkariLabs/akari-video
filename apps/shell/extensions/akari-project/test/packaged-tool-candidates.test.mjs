@@ -55,3 +55,8 @@ test('presetShowcaseIndexCandidates: パッケージ時は resourcesPath の ind
     assert.equal(candidates[0], resolve(RESOURCES_PATH, 'presets/luts/index.jsonl'));
     assert.equal(candidates.length, 4);
 });
+
+test('presetShowcaseIndexCandidates: textanim / textstyle も同じ探索規則を使う', () => {
+    assert.match(presetShowcaseIndexCandidates(DIRNAME, CWD, 'textanim')[0], /presets[\\/]textanim[\\/]index\.jsonl$/u);
+    assert.match(presetShowcaseIndexCandidates(DIRNAME, CWD, 'textstyle')[0], /presets[\\/]textstyle[\\/]index\.jsonl$/u);
+});

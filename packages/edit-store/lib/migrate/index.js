@@ -7,7 +7,7 @@
  * ファイル変換の意味論はこの 1 ファイルに閉じる。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseEdit = exports.LegacyEditVersionError = void 0;
+exports.round6 = exports.normalizeGeometry = exports.hasCutLayerStyleVisual = exports.GEOMETRY_SOURCE = exports.collectFitBasisCandidates = exports.parseEdit = exports.LegacyEditVersionError = void 0;
 exports.detectEditVersion = detectEditVersion;
 exports.captionsHaveRenderableCues = captionsHaveRenderableCues;
 exports.migrateEditToV2 = migrateEditToV2;
@@ -15,16 +15,24 @@ exports.planMigration = planMigration;
 exports.applyMigration = applyMigration;
 exports.revertMigration = revertMigration;
 exports.planV2Normalization = planV2Normalization;
+exports.planGeometryNormalization = planGeometryNormalization;
 const fs_1 = require("fs");
 const node_fs_1 = require("node:fs");
 const path_1 = require("path");
 const canonical_1 = require("../canonical");
 const write_gate_1 = require("../write-gate");
 const edit_v2_1 = require("../edit-v2");
+const geometry_1 = require("./geometry");
 var error_1 = require("./error");
 Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });
 var legacy_parse_1 = require("./legacy-parse");
 Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function () { return legacy_parse_1.parseEdit; } });
+var geometry_2 = require("./geometry");
+Object.defineProperty(exports, "collectFitBasisCandidates", { enumerable: true, get: function () { return geometry_2.collectFitBasisCandidates; } });
+Object.defineProperty(exports, "GEOMETRY_SOURCE", { enumerable: true, get: function () { return geometry_2.GEOMETRY_SOURCE; } });
+Object.defineProperty(exports, "hasCutLayerStyleVisual", { enumerable: true, get: function () { return geometry_2.hasCutLayerStyleVisual; } });
+Object.defineProperty(exports, "normalizeGeometry", { enumerable: true, get: function () { return geometry_2.normalizeGeometry; } });
+Object.defineProperty(exports, "round6", { enumerable: true, get: function () { return geometry_2.round6; } });
 const TOP_KEYS = new Set([
     'version', 'output', 'source', 'sources', 'cuts', 'overlays', 'layers', 'audio', 'captions', 'timeline',
     'thumbnail', 'emphasis_words'
@@ -738,6 +746,67 @@ function planV2Normalization(projectRoot, editPath, previousText, options = {}) 
         backupPath: (0, path_1.join)(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`),
         ...(captions ? { captions } : {}),
         ...(motion.length > 0 ? { motion } : {})
+    };
+}
+/**
+ * 幾何の統一 G1: `scale × fit` の一度きりの焼き込みと `output.geometry: "source"` の付与を
+ * `planV2Normalization` と同じ形（backup パス付き提案・`applyMigration` / `revertMigration` で扱える）
+ * で提案する。素材の寸法は呼び出し側が `dimensionsOf` で渡す（I/O はこの層に持ち込まない）。
+ */
+function planGeometryNormalization(projectRoot, editPath, previousText, options) {
+    let raw;
+    try {
+        raw = JSON.parse(previousText);
+    }
+    catch (error) {
+        return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
+    }
+    const version = detectEditVersion(raw);
+    if (version !== 2) {
+        return {
+            ok: false, version: version ?? -1,
+            blockers: ['edit.json.version が 2 ではありません。先に `akari migrate` で version 2 へ変換してください。']
+        };
+    }
+    const resolvedProjectRoot = (0, path_1.resolve)(projectRoot);
+    const resolvedEditPath = (0, path_1.resolve)(editPath);
+    const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+    const backupPath = (0, path_1.join)(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`);
+    const alreadyMigrated = isRecord(raw) && isRecord(raw.output) && raw.output.geometry === geometry_1.GEOMETRY_SOURCE;
+    const result = (0, geometry_1.normalizeGeometry)(raw, options.dimensionsOf);
+    if ('blockers' in result) {
+        return { ok: false, version: 2, blockers: result.blockers };
+    }
+    if (alreadyMigrated) {
+        return {
+            ok: true, noop: true, version: 2, filePath: resolvedEditPath,
+            changes: [], geometry: [], warnings: [], nextText: previousText, previousText, backupPath
+        };
+    }
+    try {
+        (0, edit_v2_1.readEditV2)(result.edit);
+    }
+    catch (error) {
+        return {
+            ok: false, version: 2,
+            blockers: [`移行後の v2 が自己検証に失敗しました: ${messageOf(error)}`]
+        };
+    }
+    return {
+        filePath: resolvedEditPath,
+        version: 2,
+        changes: [
+            ...result.changes.map(change => ({
+                path: `tracks[].items[id=${change.itemId}].transform.scale`,
+                note: `${change.before} → ${change.after}（素材 ${change.sourceId} · fit ${change.fit}）`
+            })),
+            { path: 'output.geometry', note: '実寸基準マーカー "source" を付与' }
+        ],
+        geometry: result.changes,
+        warnings: [],
+        nextText: (0, canonical_1.serializeEdit)(result.edit),
+        previousText,
+        backupPath
     };
 }
 function collectItemIds(items, usedIds) {

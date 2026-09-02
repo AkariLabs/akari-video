@@ -217,9 +217,8 @@ export async function captureFramesWithOsr({
   };
 }
 
-// 製品入口。インストール済みデスクトップアプリ（tier 1）は shell の electron-entry.js が --render を Theia より前に
-// 捕捉するようになった（2026-08-29 osr-headless-entry 合流・契約 §6 / §11.4 / §11.5）ため既定で候補に戻す。
-// v0.1.27 の間だけ allowInstalledDesktop 既定 false で外していた。明示の allowInstalledDesktop: false は今も使える。
+// 製品入口。インストール済みデスクトップアプリ（tier 1）はパッケージ配置では既定候補に含める。
+// 開発リポジトリ配置では同梱コードの世代違いを避けるため自動で外すが、env / 明示引数で上書きできる。
 export function resolveOsrLauncher(options = {}) {
   return resolveElectronLauncher(options);
 }

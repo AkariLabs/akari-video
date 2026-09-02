@@ -115,6 +115,20 @@ export interface HtmlSourceV2 {
     vars?: Record<string, unknown>;
     params?: Record<string, string>;
 }
+export type ShapeKindV0 = 'rect' | 'rounded-rect' | 'ellipse' | 'line' | 'arrow' | 'speech-bubble';
+export interface ShapeParamsV0 {
+    width?: number;
+    height?: number;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    cornerRadius?: number;
+}
+export interface ShapeSourceV2 {
+    kind: 'shape';
+    shape: ShapeKindV0;
+    params?: ShapeParamsV0;
+}
 export interface TelopSourceV2 {
     kind: 'telop';
     preset: string;
@@ -149,7 +163,7 @@ export interface CaptionSourceV2 {
     path: 'captions.json';
     id: string;
 }
-export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2 | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
+export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | ShapeSourceV2 | TelopSourceV2 | FilterSourceV2 | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
 export interface ItemV2Base {
     id: string;
     name?: string;
@@ -186,6 +200,8 @@ export type MediaItemV2 = ItemV2Base & {
 };
 export type ItemV2 = MediaItemV2 | (ItemV2Base & {
     source: HtmlSourceV2;
+}) | (ItemV2Base & {
+    source: ShapeSourceV2;
 }) | (ItemV2Base & {
     source: TelopSourceV2;
 }) | (ItemV2Base & {

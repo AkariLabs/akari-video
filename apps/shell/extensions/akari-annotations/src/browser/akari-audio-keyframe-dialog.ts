@@ -4,6 +4,7 @@ import { AudioEnvelopeKeyframePayload } from '../common/akari-annotations-protoc
 import {
     AUDIO_KEYFRAME_MAX_DB,
     AUDIO_KEYFRAME_MIN_DB,
+    AUDIO_KEYFRAME_MIN_POINTS_NOTICE,
     audioKeyframeDbToPx,
     audioKeyframeDbToLinearGain,
     audioKeyframeEffectiveGainDb,
@@ -15,6 +16,7 @@ import {
     audioKeyframeTimeToPx,
     audioKeyframeTimeToViewPx,
     audioKeyframeViewPxToTime,
+    audioKeyframeWriteGuard,
     audioKeyframeZoomWindow,
     normalizeAudioKeyframeGainDb,
     snapAudioKeyframeTime,
@@ -946,8 +948,13 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeD
     }
 
     protected override async isValid(
-        _value: AkariAudioKeyframeDialogValue, _mode: DialogMode
+        value: AkariAudioKeyframeDialogValue, _mode: DialogMode
     ): Promise<DialogError> {
+        if (audioKeyframeWriteGuard(value.keyframes) === 'too-few') {
+            this.showNotice(AUDIO_KEYFRAME_MIN_POINTS_NOTICE);
+            return { message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE, result: false };
+        }
+        this.hideNotice();
         return true;
     }
 

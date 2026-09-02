@@ -31,7 +31,12 @@ import { isImageLayerSource } from "./layers.mjs";
 import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 import { createProgressReporter } from "./progress.mjs";
-import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
+import {
+  enumerateDeclaredRenderInputs,
+  hashDeclaredRenderInputs,
+  RenderInputError,
+  resolveDeclaredProjectInput,
+} from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -59,9 +64,8 @@ const {
   resolveCaptionDisplay,
   toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
-// A stale run directory belongs to a process that crashed/was killed without cleaning up after
-// itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
-// never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
+// owner.json lets the next run reclaim a crashed process immediately. Directories created before
+// owner tracking retain the 24h fallback, while a live owner is never touched.
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const RETIRED_ENGINE = "legacy";
 const ENGINE_CHOICES = ["auto", "gpu", "osr"];
@@ -150,6 +154,7 @@ export async function runCli(argv, io = console) {
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
+  const env = options.env ?? process.env;
   assertCodecEngine(codec, engineRequested);
   const container = containerForCodec(codec);
   let resolvedEngine = container.kind === "directory" || container.ext === "mov"
@@ -168,7 +173,12 @@ export async function renderProject(input, options = {}, io = console) {
   validateEditShape(edit);
 
   const lint = await validateLint(projectRoot, options.force === true);
-  const capabilities = await measureCapabilities(projectRoot, edit);
+  const capabilities = await measureCapabilities(
+    projectRoot,
+    edit,
+    env,
+    options.probeMediaImpl,
+  );
   const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
     cli: { quality: options.quality, encoder: options.encoder, ...(codec === "h264" ? {} : { codec }) },
     edit,
@@ -181,13 +191,14 @@ export async function renderProject(input, options = {}, io = console) {
     ? resolveCanonicalCaptionFontAsset()
     : null;
   const declaredInputs = await enumerateDeclaredRenderInputs({
-    projectRoot, edit, editText, captionFontAsset, internalEdit,
+    projectRoot, edit, editText, captionFontAsset, internalEdit, env,
   });
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
   const inputs = Object.fromEntries(
     inputSnapshot.map((input) => [input.path, {
       sha256: input.sha256,
       bytes: input.bytes,
+      ...(input.scope === "library" ? { scope: "library" } : {}),
     }]),
   );
   const captionOverlays = plannedCaptions.overlays;
@@ -298,18 +309,6 @@ export async function renderProject(input, options = {}, io = console) {
   if (options.writeState !== false) await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
 
-  let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
-  let gpuLauncher = resolvedEngine === "gpu" ? await resolveGpuLauncher() : null;
-  if (resolvedEngine === "gpu" && gpuLauncher?.tier === 3) {
-    if (engineRequested === "gpu") throw new RefusalError(`GPU export is unavailable: ${gpuLauncher.reason}`);
-    addWarning(state, `GPU export is unavailable; using OSR: ${gpuLauncher.reason}`);
-    resolvedEngine = "osr";
-    osrLauncher = await resolveOsrLauncher();
-    gpuLauncher = null;
-    state.provenance.engine = "osr";
-    state.provenance.engine_fallback = { from: "gpu", reason: "GPU Electron launcher unavailable" };
-  }
-  assertOsrLauncherAvailable(osrLauncher);
   const progressEnabled = options.progress === true;
   const reporter = createProgressReporter({
     enabled: progressEnabled,
@@ -318,6 +317,19 @@ export async function renderProject(input, options = {}, io = console) {
   });
 
   try {
+    let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
+    let gpuLauncher = resolvedEngine === "gpu" ? await resolveGpuLauncher() : null;
+    if (resolvedEngine === "gpu" && gpuLauncher?.tier === 3) {
+      if (engineRequested === "gpu") throw new RefusalError(`GPU export is unavailable: ${gpuLauncher.reason}`);
+      addWarning(state, `GPU export is unavailable; using OSR: ${gpuLauncher.reason}`);
+      resolvedEngine = "osr";
+      osrLauncher = await resolveOsrLauncher();
+      gpuLauncher = null;
+      state.provenance.engine = "osr";
+      state.provenance.engine_fallback = { from: "gpu", reason: "GPU Electron launcher unavailable" };
+    }
+    assertOsrLauncherAvailable(osrLauncher);
+
     reporter.stageStart("prepare");
     for (const command of plan.commands.telops ?? []) {
       runChecked(command.command, command.args, { cwd: projectRoot });
@@ -564,7 +576,7 @@ export async function renderProject(input, options = {}, io = console) {
       await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
       const receiptEditText = await readFile(editPath, "utf8");
       receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
-        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit,
+        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
       });
       receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
       const receipt = await createImmutableRenderReceipt({
@@ -606,7 +618,11 @@ export async function renderProject(input, options = {}, io = console) {
       findings: [{ severity: "error", check: "render.execution", message: messageOf(error) }],
       measured: null,
     };
-    await writeState(state, statePath, reportPath, projectRoot);
+    try {
+      await writeState(state, statePath, reportPath, projectRoot);
+    } finally {
+      await cleanupFailedRunTemporaryDirectory(temporaryDirectory);
+    }
     throw error;
   }
 }
@@ -840,9 +856,14 @@ async function validateLint(projectRoot, force) {
   };
 }
 
-async function measureCapabilities(projectRoot, edit) {
-  const ffmpegCommand = process.env.FFMPEG ?? resolveFfmpeg();
-  const ffprobeCommand = process.env.FFPROBE ?? resolveFfprobe();
+async function measureCapabilities(
+  projectRoot,
+  edit,
+  env = process.env,
+  probeMediaImpl = probeMedia,
+) {
+  const ffmpegCommand = env.FFMPEG ?? resolveFfmpeg();
+  const ffprobeCommand = env.FFPROBE ?? resolveFfprobe();
   const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"]);
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
   const shared = {
@@ -853,8 +874,28 @@ async function measureCapabilities(projectRoot, edit) {
     nodeVersion: process.version,
   };
   const sourceInputs = usedSources(edit).map((source) => {
-    const path = resolve(projectRoot, source.path);
-    const probe = probeMedia(ffprobeCommand, path);
+    const declaredPath = resolve(projectRoot, source.path);
+    let path;
+    try {
+      path = resolveDeclaredProjectInput(
+        projectRoot,
+        source.path,
+        `source:${source.id}`,
+        env,
+      );
+    } catch (error) {
+      // Keep the established CLI error for an absent declared source. The resolver still owns
+      // containment and library fallback; after both permitted bindings fail, reproduce the old
+      // ffprobe diagnostic without opening the unresolved path.
+      if (!(error instanceof RenderInputError)
+          || !error.message.startsWith(`source:${source.id} could not be resolved:`)) {
+        throw error;
+      }
+      throw new ExecutionError(
+        `ffprobe failed for ${basename(declaredPath)}: ${declaredPath}: No such file or directory`,
+      );
+    }
+    const probe = probeMediaImpl(ffprobeCommand, path);
     const video = probe.streams.find((stream) => stream.codec_type === "video");
     // docs/contract-2026-08-12-still-image-cut-source-v0.md: same still-image duration exemption
     // as the v0 branch above, per source.
@@ -1080,34 +1121,105 @@ async function persistFailedRenderArtifact(projectRoot, sourcePath) {
   return join(resolve(projectRoot), relative(root, target));
 }
 
+export function parseRunDirectoryOwner(text) {
+  try {
+    const owner = JSON.parse(text);
+    return owner !== null && typeof owner === "object" && !Array.isArray(owner) ? owner : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isProcessAlive(pid, kill = process.kill.bind(process)) {
+  if (!Number.isInteger(pid) || pid <= 0) return true;
+  try {
+    kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== "ESRCH";
+  }
+}
+
+export async function cleanupFailedRunTemporaryDirectory(
+  temporaryDirectory,
+  env = process.env,
+  removeDirectory = rm,
+) {
+  if (!temporaryDirectory || env?.AKARI_KEEP_FAILED_RENDER_TMP === "1") return false;
+  try {
+    await removeDirectory(temporaryDirectory, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Allocates this run's own render-tmp subdirectory (fs.mkdtemp-equivalent uniqueness: an
 // ISO8601-ish timestamp + pid prefix, plus mkdtemp's own random suffix, so even two processes
 // starting in the same millisecond never collide). Runs a best-effort sweep for stale directories
 // first so crashed runs don't leak disk space forever, without ever touching a directory an active
 // concurrent run still owns (see cleanupStaleRunDirectories).
-async function createRunTemporaryDirectory(renderTmpRoot) {
+export async function createRunTemporaryDirectory(renderTmpRoot, {
+  pid = process.pid,
+  now = Date.now,
+  isPidAlive = isProcessAlive,
+} = {}) {
   await mkdir(renderTmpRoot, { recursive: true });
-  await cleanupStaleRunDirectories(renderTmpRoot);
-  const isoStamp = new Date().toISOString().replace(/[:.]/gu, "-");
-  return mkdtemp(join(renderTmpRoot, `${isoStamp}-${process.pid}-`));
+  const started = new Date(now());
+  await cleanupStaleRunDirectories(renderTmpRoot, {
+    now: () => started.getTime(),
+    isPidAlive,
+  });
+  const isoStamp = started.toISOString().replace(/[:.]/gu, "-");
+  const temporaryDirectory = await mkdtemp(join(renderTmpRoot, `${isoStamp}-${pid}-`));
+  try {
+    await writeFile(
+      join(temporaryDirectory, "owner.json"),
+      `${JSON.stringify({ pid, started: started.toISOString() }, null, 2)}\n`,
+      "utf8",
+    );
+  } catch (error) {
+    await cleanupFailedRunTemporaryDirectory(temporaryDirectory, {});
+    throw error;
+  }
+  return temporaryDirectory;
 }
 
-async function cleanupStaleRunDirectories(renderTmpRoot) {
+async function readRunDirectoryOwner(entryPath) {
+  try {
+    return parseRunDirectoryOwner(await readFile(join(entryPath, "owner.json"), "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+export async function cleanupStaleRunDirectories(renderTmpRoot, {
+  now = Date.now,
+  isPidAlive = isProcessAlive,
+} = {}) {
   let entries;
   try {
     entries = await readdir(renderTmpRoot, { withFileTypes: true });
   } catch {
     return;
   }
-  const now = Date.now();
+  const nowMs = now();
   await Promise.all(
     entries
       .filter((entry) => entry.isDirectory())
       .map(async (entry) => {
         const entryPath = join(renderTmpRoot, entry.name);
         try {
+          const owner = await readRunDirectoryOwner(entryPath);
+          if (owner !== null) {
+            if (Number.isInteger(owner.pid) && owner.pid > 0 && !isPidAlive(owner.pid)) {
+              await rm(entryPath, { recursive: true, force: true });
+            }
+            return;
+          }
           const info = await stat(entryPath);
-          if (now - info.mtimeMs > STALE_RUN_DIRECTORY_MS) {
+          if (nowMs - info.mtimeMs > STALE_RUN_DIRECTORY_MS) {
             await rm(entryPath, { recursive: true, force: true });
           }
         } catch {
