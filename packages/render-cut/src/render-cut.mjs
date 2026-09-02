@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, createReadStream, existsSync } from "node:fs";
+import { constants as fsConstants, createReadStream, existsSync, readdirSync } from "node:fs";
 import {
   access,
   copyFile,
@@ -23,6 +23,7 @@ import { deriveContactSheetTimestamps, renderContactSheet } from "./contact-shee
 import {
   ENCODER_CHOICES,
   QUALITY_LEVELS,
+  containerForCodec,
   resolveEncodingPolicy,
 } from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
@@ -67,10 +68,10 @@ const ENGINE_CHOICES = ["auto", "gpu", "osr"];
 const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
 const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
 const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
-const CODEC_CHOICES = ["h264", "hevc"];
+const CODEC_CHOICES = ["h264", "hevc", "prores422", "png"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--codec h264|hevc] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
+  [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
@@ -149,7 +150,11 @@ export async function runCli(argv, io = console) {
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
-  let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
+  assertCodecEngine(codec, engineRequested);
+  const container = containerForCodec(codec);
+  let resolvedEngine = container.kind === "directory" || container.ext === "mov"
+    ? "osr"
+    : resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, options.editPath ?? "edit.json");
@@ -165,7 +170,7 @@ export async function renderProject(input, options = {}, io = console) {
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(projectRoot, edit);
   const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
-    cli: { quality: options.quality, encoder: options.encoder, ...(codec === "hevc" ? { codec } : {}) },
+    cli: { quality: options.quality, encoder: options.encoder, ...(codec === "h264" ? {} : { codec }) },
     edit,
     capabilities,
   });
@@ -190,7 +195,7 @@ export async function renderProject(input, options = {}, io = console) {
     ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
     : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
-  const shouldEvaluateGpu = engineRequested === "gpu" || engineRequested === "auto";
+  const shouldEvaluateGpu = container.ext === "mp4" && (engineRequested === "gpu" || engineRequested === "auto");
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({
         edit: { ...edit, overlays: loadedOverlays },
@@ -200,9 +205,11 @@ export async function renderProject(input, options = {}, io = console) {
       })
     : null;
   assertGpuEligibility(engineRequested, gpuEligibility);
-  resolvedEngine = resolveEngineChoice(engineRequested, process.platform, gpuEligibility);
+  resolvedEngine = container.ext === "mp4"
+    ? resolveEngineChoice(engineRequested, process.platform, gpuEligibility)
+    : "osr";
   const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
-  const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
+  const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync, codec);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
 
   // Concurrency isolation (render-tmp-isolation の設計に基づく): a plan-only
@@ -274,7 +281,7 @@ export async function renderProject(input, options = {}, io = console) {
         ffmpeg: capabilities.ffmpegVersion,
         ffprobe: capabilities.ffprobeVersion,
       },
-      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility),
+      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility, codec),
       codec,
     },
     artifacts: [],
@@ -341,7 +348,7 @@ export async function renderProject(input, options = {}, io = console) {
     }
     const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
     reporter.stageEnd("audio-cut");
-    const compositePath = join(temporaryDirectory, "composite.mp4");
+    const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
     const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
     const commonV2Options = {
@@ -414,7 +421,9 @@ export async function renderProject(input, options = {}, io = console) {
     reporter.stageEnd("render");
 
     reporter.stageStart("audio-mix");
-    const finalPath = join(temporaryDirectory, "final.mp4");
+    const finalPath = container.kind === "directory"
+      ? compositePath
+      : join(temporaryDirectory, `final.${container.ext}`);
     const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
     const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
     if (audioMaster && audioExecution.error) {
@@ -425,6 +434,7 @@ export async function renderProject(input, options = {}, io = console) {
         message: audioExecution.error.message,
         toolVersion: capabilities.ffmpegVersion,
       });
+      if (codec === "png") throw new RefusalError("audio QC filter report measurement failed");
       const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
       const failedVerification = verifyArtifact({
         outputPath: failedArtifactPath,
@@ -463,9 +473,16 @@ export async function renderProject(input, options = {}, io = console) {
       throw new RefusalError("audio QC filter report measurement failed");
     }
 
+    if (codec === "png") {
+      const mixedAudioPath = plan.commands.audio_mix.output;
+      await rm(join(finalPath, "audio.wav"), { force: true });
+      await rename(mixedAudioPath, join(finalPath, "audio.wav"));
+    }
     await mkdir(dirname(outputPath), { recursive: true });
     if (explicitOutput) {
-      await rm(outputPath, { force: true });
+      await rm(outputPath, { recursive: codec === "png", force: true });
+      await rename(finalPath, outputPath);
+    } else if (codec === "png") {
       await rename(finalPath, outputPath);
     } else {
       await copyFile(finalPath, outputPath, fsConstants.COPYFILE_EXCL);
@@ -476,7 +493,7 @@ export async function renderProject(input, options = {}, io = console) {
       state.audio_qc = buildAudioQc({
         master: audioMaster,
         filterStderr: audioExecution.stderr,
-        outputPath,
+        outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
         ffmpegCommand: capabilities.ffmpegCommand,
         toolVersion: capabilities.ffmpegVersion,
       });
@@ -496,15 +513,29 @@ export async function renderProject(input, options = {}, io = console) {
     });
     state.verify = verification;
     reporter.stageEnd("verify");
-    state.artifacts = [
-      {
-        path: relativeOrAbsolute(projectRoot, outputPath),
-        sha256: await sha256File(outputPath),
-        ffprobe: verification.measured,
-      },
-    ];
+    state.artifacts = codec === "png"
+      ? [
+          {
+            path: relativeOrAbsolute(projectRoot, outputPath),
+            kind: "directory",
+            frames: verification.measured.frame_count,
+            sha256: await sha256PngDirectory(outputPath),
+          },
+          {
+            path: relativeOrAbsolute(projectRoot, join(outputPath, "audio.wav")),
+            sha256: await sha256File(join(outputPath, "audio.wav")),
+            ffprobe: verification.measured.audio,
+          },
+        ]
+      : [
+          {
+            path: relativeOrAbsolute(projectRoot, outputPath),
+            sha256: await sha256File(outputPath),
+            ffprobe: verification.measured,
+          },
+        ];
     state.phase = "verified";
-    if (verification.verdict === "pass") {
+    if (verification.verdict === "pass" && codec !== "png") {
       const contactSheetTimestamps = deriveContactSheetTimestamps({
         cuts: edit.cuts,
         overlays: [...loadedOverlays, ...captionOverlays],
@@ -529,7 +560,7 @@ export async function renderProject(input, options = {}, io = console) {
     }
     let receiptDeclaredInputs = declaredInputs;
     let receiptInputSnapshot = inputSnapshot;
-    if (verification.verdict === "pass") {
+    if (verification.verdict === "pass" && codec !== "png") {
       await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
       const receiptEditText = await readFile(editPath, "utf8");
       receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
@@ -658,10 +689,18 @@ export function resolveEngineChoice(requested, platform, eligibility = null) {
   return eligibility?.eligible === true ? "gpu" : "osr";
 }
 
-export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null) {
+export function assertCodecEngine(codec, requested) {
+  if ((codec === "prores422" || codec === "png") && requested === "gpu") {
+    throw new RefusalError("この形式は GPU 直結では出せません");
+  }
+}
+
+export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null, codec = "h264") {
   return {
     engine_requested: requested,
-    engine: resolveEngineChoice(requested, platform, eligibility),
+    engine: codec === "prores422" || codec === "png"
+      ? "osr"
+      : resolveEngineChoice(requested, platform, eligibility),
   };
 }
 
@@ -1087,6 +1126,9 @@ export function verifyArtifact({
   ffmpegCommand = resolveFfmpeg(),
   spawnSyncImpl = spawnSync,
 }) {
+  if (plan.preset?.video_codec === "png") {
+    return verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl });
+  }
   const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
@@ -1095,6 +1137,8 @@ export function verifyArtifact({
   const expected = plan.preset;
   const expectedVideoCodec = expected.video_codec ?? "h264";
   const expectedVideoProfile = expected.profile ?? (expectedVideoCodec === "hevc" ? "main" : "high");
+  const expectedPixelFormat = expected.pixel_format ?? "yuv420p";
+  const expectedAudioCodec = expected.audio_codec ?? "aac";
   const findings = [];
   // docs/contract-2026-08-18-v1-render-parity.md §2: v1's cuts[].track / at declarations now
   // reach a real gap-aware or track-stack render path under both the default and custom
@@ -1142,15 +1186,18 @@ export function verifyArtifact({
     `fps ${actualFps}; expected ${expected.fps} ±${oneFrameFpsTolerance(expected.fps, expectedFrameCount)} (1 frame of ${expectedFrameCount})`,
   );
   compare(findings, "verify.video-codec", video?.codec_name === expectedVideoCodec, `video codec ${video?.codec_name ?? "missing"}; expected ${expectedVideoCodec}`);
-  compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === expectedVideoProfile, `video profile ${video?.profile ?? "missing"}; expected ${expectedVideoProfile}`);
-  compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
+  const profileOk = expectedVideoCodec === "prores"
+    ? video?.profile === 3 || String(video?.profile ?? "").toLowerCase() === "hq"
+    : String(video?.profile ?? "").toLowerCase() === expectedVideoProfile;
+  compare(findings, "verify.video-profile", profileOk, `video profile ${video?.profile ?? "missing"}; expected ${expectedVideoProfile}`);
+  compare(findings, "verify.pixel-format", video?.pix_fmt === expectedPixelFormat, `pixel format ${video?.pix_fmt ?? "missing"}; expected ${expectedPixelFormat}`);
   compare(
     findings,
     "verify.color-range",
     video?.color_range !== "pc",
     `color range ${video?.color_range ?? "missing (defaults to tv)"}; expected ${expected.color_range ?? "tv"}`,
   );
-  compare(findings, "verify.audio", audio?.codec_name === "aac", `audio codec ${audio?.codec_name ?? "missing"}; expected aac`);
+  compare(findings, "verify.audio", audio?.codec_name === expectedAudioCodec, `audio codec ${audio?.codec_name ?? "missing"}; expected ${expectedAudioCodec}`);
   if (plan.commands.audio_mix?.hasNarration) {
     compare(findings, "verify.narration-audio", Boolean(audio), `narration audio stream present: ${Boolean(audio)}; expected an audio stream because edit.json has audio.narration`);
   }
@@ -1207,6 +1254,46 @@ export function verifyArtifact({
       audio_level: audioLevel.record,
       motion: motion.records,
     },
+  };
+}
+
+function verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl }) {
+  const frameFiles = readdirSync(outputPath)
+    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
+    .sort();
+  const expectedFrames = Math.round(plan.predicted_duration_seconds * plan.preset.fps);
+  const first = frameFiles[0] ? probeMedia(ffprobeCommand, join(outputPath, frameFiles[0]), spawnSyncImpl) : null;
+  const last = frameFiles.length > 1 ? probeMedia(ffprobeCommand, join(outputPath, frameFiles.at(-1)), spawnSyncImpl) : first;
+  const firstVideo = first?.streams?.find((stream) => stream.codec_type === "video");
+  const lastVideo = last?.streams?.find((stream) => stream.codec_type === "video");
+  const audio = probeMedia(ffprobeCommand, join(outputPath, "audio.wav"), spawnSyncImpl);
+  const audioStream = audio.streams?.find((stream) => stream.codec_type === "audio");
+  const audioDuration = Number(audio.format?.duration ?? audioStream?.duration);
+  const findings = [];
+  compare(findings, "verify.frame-count", frameFiles.length === expectedFrames, `frame count ${frameFiles.length}; expected ${expectedFrames} ±0`);
+  compare(findings, "verify.first-resolution", firstVideo?.width === plan.preset.width && firstVideo?.height === plan.preset.height, `first PNG resolution ${firstVideo?.width ?? "missing"}x${firstVideo?.height ?? "missing"}; expected ${plan.preset.width}x${plan.preset.height}`);
+  compare(findings, "verify.last-resolution", lastVideo?.width === plan.preset.width && lastVideo?.height === plan.preset.height, `last PNG resolution ${lastVideo?.width ?? "missing"}x${lastVideo?.height ?? "missing"}; expected ${plan.preset.width}x${plan.preset.height}`);
+  compare(findings, "verify.audio", audioStream?.codec_name === "pcm_s16le", `audio codec ${audioStream?.codec_name ?? "missing"}; expected pcm_s16le`);
+  compare(findings, "verify.audio-duration", Number.isFinite(audioDuration) && Math.abs(audioDuration - plan.predicted_duration_seconds) <= 1 / plan.preset.fps, `audio duration ${audioDuration}s; expected ${plan.predicted_duration_seconds}s ±${1 / plan.preset.fps}s`);
+  return {
+    verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
+    findings,
+    measured: {
+      duration_seconds: audioDuration,
+      width: firstVideo?.width ?? null,
+      height: firstVideo?.height ?? null,
+      fps: plan.preset.fps,
+      video_codec: "png",
+      video_profile: null,
+      pixel_format: firstVideo?.pix_fmt ?? null,
+      color_range: null,
+      audio_codec: audioStream?.codec_name ?? null,
+      frame_count: frameFiles.length,
+      first,
+      last,
+      audio,
+    },
+    declared: { audio_level: null, motion: [] },
   };
 }
 
@@ -1609,6 +1696,19 @@ async function sha256File(path) {
     stream.on("end", resolvePromise);
   });
   return hash.digest("hex");
+}
+
+export async function sha256PngDirectory(directory) {
+  const frames = (await readdir(directory))
+    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
+    .sort();
+  if (frames.length === 0) throw new ExecutionError("PNG sequence contains no frames");
+  const digests = await Promise.all([
+    sha256File(join(directory, frames[0])),
+    sha256File(join(directory, frames.at(-1))),
+    sha256File(join(directory, "audio.wav")),
+  ]);
+  return sha256(digests.join("\n"));
 }
 
 function sha256(value) {

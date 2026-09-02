@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { join } from "node:path";
 import { buildVideoEncodeArgs, resolveEncoderChoice, resolveEncodingPolicy } from "../../render-cut/src/encode-preset.mjs";
 
 export class BoundedAsyncQueue {
@@ -64,13 +65,13 @@ export async function writeWithDrain(stream, buffer, backpressure, {
 
 export function resolveOsrVideoEncodeArgs({ quality, encoder, codec = "h264", edit = {}, ffmpegCommand, env = process.env, spawnSyncImpl } = {}) {
   const policy = resolveEncodingPolicy({
-    cli: { quality, encoder, ...(codec === "hevc" ? { codec } : {}) }, edit, capabilities: { ffmpegCommand }, env, spawnSyncImpl,
+    cli: { quality, encoder, ...(codec === "h264" ? {} : { codec }) }, edit, capabilities: { ffmpegCommand }, env, spawnSyncImpl,
   });
   if (policy?.video_encode_args) return { policy, args: policy.video_encode_args };
   const choice = resolveEncoderChoice({ requested: encoder ?? "auto", ffmpegCommand, env, spawnSyncImpl, codec });
   return {
     policy,
-    args: buildVideoEncodeArgs({ quality: quality ?? "high", encoderChoice: choice, profile: codec === "hevc" ? "main" : "high", codec }),
+    args: buildVideoEncodeArgs({ quality: quality ?? "high", encoderChoice: choice, profile: codec === "hevc" ? "main" : codec === "prores422" ? "3" : "high", codec }),
   };
 }
 
@@ -85,13 +86,21 @@ export function startRawVideoEncoder({
   const scaleArgs = targetWidth === width && targetHeight === height
     ? []
     : ["-vf", `scale=${targetWidth}:${targetHeight}:flags=lanczos`];
-  const args = [
+  const inputArgs = [
     "-hide_banner", "-loglevel", "warning", "-y",
     "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", `${width}x${height}`,
     "-framerate", String(fps), "-i", "pipe:0",
-    ...scaleArgs, ...videoArgs, "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
-    "-movflags", "+faststart", outputPath,
   ];
+  const colorArgs = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"];
+  const args = codec === "png"
+    ? [...inputArgs, ...scaleArgs, ...videoArgs, "-f", "image2", join(outputPath, "frame-%05d.png")]
+    : codec === "prores422"
+      ? [...inputArgs, ...scaleArgs, ...videoArgs, ...colorArgs, "-movflags", "+faststart", outputPath]
+      : [
+          ...inputArgs,
+          ...scaleArgs, ...videoArgs, "-pix_fmt", "yuv420p", ...colorArgs,
+          "-movflags", "+faststart", outputPath,
+        ];
   const child = spawnImpl(ffmpegCommand, args, { stdio: ["pipe", "ignore", "pipe"] });
   const queue = new BoundedAsyncQueue(queueDepth);
   const backpressure = { awaitCount: 0, totalWaitMs: 0, maxWaitMs: 0, queueDepth, maximumQueueSize: 0 };

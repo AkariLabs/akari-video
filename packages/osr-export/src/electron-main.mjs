@@ -170,6 +170,7 @@ export async function runOsrExport(options) {
       warnings: [...rendererWarnings],
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
+    if (codec === "png") await mkdir(out, { recursive: true });
     encoderSession = startRawVideoEncoder({
       ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, codec, edit: built.edit, queueDepth,
     });
@@ -759,7 +760,7 @@ async function destroyWindow(windowRef) {
 function required(argv, index, option) { if (index >= argv.length) throw new Error(`${option} requires a value`); return argv[index]; }
 function positiveNumber(value, label) { const number = Number(value); if (!Number.isFinite(number) || number <= 0) throw new Error(`${label} requires a positive number`); return number; }
 function positiveInteger(value, label) { const number = positiveNumber(value, label); if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`); return number; }
-function codecValue(value) { if (!["h264", "hevc"].includes(value)) throw new Error(`--codec must be h264|hevc, got: ${value}`); return value; }
+function codecValue(value) { if (!["h264", "hevc", "prores422", "png"].includes(value)) throw new Error(`--codec must be h264|hevc|prores422|png, got: ${value}`); return value; }
 function parseFrameList(value) {
   if (value === "") return [];
   return [...new Set(value.split(",").map((entry) => {

@@ -11,7 +11,8 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
     DEFAULT_EXPORT_OUTPUT_NAME,
-    composeExportRequestPacket
+    composeExportRequestPacket,
+    defaultExportOutputNameForCodec
 } from '../common/export-request-packet';
 import {
     composeExportHandOffPacket,
@@ -88,7 +89,7 @@ const ENCODERS: readonly QuickExportEncoder[] = [
 ];
 
 const QUALITIES: readonly QuickExportQuality[] = ['master', 'high', 'standard', 'light'];
-const CODECS: readonly QuickExportCodec[] = ['h264', 'hevc'];
+const CODECS: readonly QuickExportCodec[] = ['h264', 'hevc', 'prores422', 'png'];
 
 @injectable()
 export class AkariExportSessionService implements Disposable {
@@ -142,6 +143,7 @@ export class AkariExportSessionService implements Disposable {
         }));
         void this.preferences.ready.then(() => {
             this.settings = this.readPreferences();
+            this.refreshOutputNameForCodec();
             this.fireChanged();
         });
         void this.refreshProject();
@@ -177,11 +179,15 @@ export class AkariExportSessionService implements Disposable {
     }
 
     updateSettings(patch: Partial<ExportSettings>): void {
+        const previousCodec = this.settings.codec;
         let next = { ...this.settings, ...patch };
         if (next.quality === 'master' && !isMasterSelectable(next.encoder)) {
             next = { ...next, quality: 'standard' };
         }
         this.settings = next;
+        if (next.codec !== previousCodec) {
+            this.refreshOutputNameForCodec(next.codec);
+        }
         this.fireChanged();
     }
 
@@ -219,7 +225,7 @@ export class AkariExportSessionService implements Disposable {
         }
         this.settings = { ...this.settings, outputDirectoryUri: destination.toString() };
         try {
-            this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return;
@@ -242,7 +248,7 @@ export class AkariExportSessionService implements Disposable {
             await this.savePreferences(settings);
         }
         try {
-            this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return false;
@@ -328,7 +334,7 @@ export class AkariExportSessionService implements Disposable {
     }
 
     async handOffToPartner(): Promise<void> {
-        const outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+        const outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
         const packet = composeExportRequestPacket({
             resolutionLabel: 'edit.json のまま',
             outputName,
@@ -390,7 +396,7 @@ export class AkariExportSessionService implements Disposable {
         if (!this.projectRoot) {
             this.editJson = {};
             this.video = { orientation: 'landscape', width: undefined, height: undefined, fps: undefined };
-            this.outputName = DEFAULT_EXPORT_OUTPUT_NAME;
+            this.outputName = defaultExportOutputNameForCodec(this.settings.codec);
             this.renderProgress = undefined;
             this.fireChanged();
             return;
@@ -407,7 +413,7 @@ export class AkariExportSessionService implements Disposable {
             this.video = { ...this.video, durationSeconds: fallbackDuration };
         }
         this.renderProgress = renderJson ? parseRenderProgress(renderJson) : undefined;
-        this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+        this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
         this.fireChanged();
     }
 
@@ -438,6 +444,7 @@ export class AkariExportSessionService implements Disposable {
                 break;
             case AKARI_EXPORT_CODEC:
                 this.settings = { ...this.settings, codec: preferences.codec };
+                this.refreshOutputNameForCodec(preferences.codec);
                 break;
             case AKARI_EXPORT_FPS:
                 this.settings = { ...this.settings, fps: preferences.fps };
@@ -498,10 +505,19 @@ export class AkariExportSessionService implements Disposable {
             }
             throw error;
         }
-        const existingNames = (stat.children ?? [])
-            .filter(child => !child.isDirectory)
-            .map(child => child.resource.path.base);
+        const existingNames = (stat.children ?? []).map(child => child.resource.path.base);
         return nextAvailableOutputName(baseName, existingNames);
+    }
+
+    protected refreshOutputNameForCodec(codec: QuickExportCodec = this.settings.codec): void {
+        const defaultName = defaultExportOutputNameForCodec(codec);
+        this.outputName = defaultName;
+        void this.chooseAvailableOutputName(defaultName).then(name => {
+            if (this.settings.codec === codec) {
+                this.outputName = name;
+                this.fireChanged();
+            }
+        }).catch(error => console.info('[akari-shell-strip] export output name unavailable:', error));
     }
 
     protected async syncStatus(): Promise<void> {

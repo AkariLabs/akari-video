@@ -51,6 +51,27 @@ export const QUALITY_PRESETS = {
   },
 };
 
+const PRORES_QSCALE = Object.freeze({ master: 5, high: 9, standard: 11, light: 13 });
+
+const CONTAINERS = Object.freeze({
+  h264: Object.freeze({ ext: "mp4", kind: "file" }),
+  hevc: Object.freeze({ ext: "mp4", kind: "file" }),
+  prores422: Object.freeze({ ext: "mov", kind: "file" }),
+  png: Object.freeze({ ext: null, kind: "directory" }),
+});
+
+export function containerForCodec(codec = "h264") {
+  const resolved = normalizeVideoCodec(codec);
+  return { ...CONTAINERS[resolved] };
+}
+
+export function audioArgsForCodec(codec = "h264") {
+  const resolved = normalizeVideoCodec(codec);
+  return resolved === "prores422" || resolved === "png"
+    ? ["-c:a", "pcm_s16le", "-ar", "48000"]
+    : ["-c:a", "aac", "-ar", "48000"];
+}
+
 /** Resolve CLI/edit/compatibility precedence once. Null means the byte-identical compatibility path. */
 export function resolveEncodingPolicy({
   cli = {},
@@ -69,7 +90,8 @@ export function resolveEncodingPolicy({
   const encoderRequested = fieldRequest(cli.encoder, editEncoding.encoder, "x264");
   if (!QUALITY_LEVELS.includes(qualityRequested.value)) throw new RangeError(`Unknown quality value: ${qualityRequested.value}`);
   if (!ENCODER_CHOICES.includes(encoderRequested.value)) throw new RangeError(`Unknown encoder value: ${encoderRequested.value}`);
-  if (qualityRequested.value === "master" && encoderRequested.origin !== "compatibility-default"
+  if (codec !== "prores422" && codec !== "png"
+      && qualityRequested.value === "master" && encoderRequested.origin !== "compatibility-default"
       && encoderRequested.value !== "x264") {
     throw new RangeError("master quality requires x264; explicit auto/hardware encoders are not allowed");
   }
@@ -95,7 +117,7 @@ export function resolveEncodingPolicy({
     video_encode_args: buildVideoEncodeArgs({
       quality: effectiveQuality.value,
       encoderChoice,
-      profile: codec === "hevc" ? "main" : "high",
+      profile: codec === "hevc" ? "main" : codec === "prores422" ? "3" : "high",
       codec,
     }),
     non_encoding_stages: [
@@ -132,6 +154,9 @@ const HARDWARE_ENCODERS = {
     amf: "hevc_amf",
     mf: "hevc_mf",
   },
+  prores: {
+    videotoolbox: "prores_videotoolbox",
+  },
 };
 
 // Process-wide cache keyed by ffmpeg binary and encoder name. A nested map avoids ambiguous
@@ -142,6 +167,7 @@ export function resetVideotoolboxCacheForTests() {
   for (const [ffmpegCommand, encoderResults] of encoderProbeCache) {
     encoderResults.delete("h264:videotoolbox");
     encoderResults.delete("hevc:videotoolbox");
+    encoderResults.delete("prores422:videotoolbox");
     if (encoderResults.size === 0) encoderProbeCache.delete(ffmpegCommand);
   }
 }
@@ -171,7 +197,7 @@ export function isVideotoolboxAvailable({
   const cacheKey = `${resolvedCodec}:videotoolbox`;
   const cached = cachedEncoderProbe(resolvedFfmpegCommand, cacheKey);
   if (cached !== undefined) return cached;
-  const encoder = HARDWARE_ENCODERS[resolvedCodec].videotoolbox;
+  const encoder = HARDWARE_ENCODERS[hardwareCodecKey(resolvedCodec)].videotoolbox;
   const available = hasEncoder(resolvedFfmpegCommand, encoder, spawnSyncImpl)
     && videotoolboxSmokeTest(resolvedFfmpegCommand, encoder, spawnSyncImpl);
   cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
@@ -188,7 +214,8 @@ export function isHardwareEncoderAvailable({
 } = {}) {
   if (env.AKARI_EXPORT_FORCE_X264 === "1") return false;
   const resolvedCodec = normalizeVideoCodec(codec);
-  if (!Object.hasOwn(HARDWARE_ENCODERS[resolvedCodec], encoder)) throw new RangeError(`Unknown hardware encoder: ${encoder}`);
+  const encoders = HARDWARE_ENCODERS[hardwareCodecKey(resolvedCodec)] ?? {};
+  if (!Object.hasOwn(encoders, encoder)) throw new RangeError(`Unknown hardware encoder: ${encoder}`);
   if (encoder === "videotoolbox") {
     return isVideotoolboxAvailable({ ffmpegCommand, env, spawnSyncImpl, platform, codec: resolvedCodec });
   }
@@ -196,7 +223,7 @@ export function isHardwareEncoderAvailable({
   const cacheKey = `${resolvedCodec}:${encoder}`;
   const cached = cachedEncoderProbe(resolvedFfmpegCommand, cacheKey);
   if (cached !== undefined) return cached;
-  const ffmpegEncoder = HARDWARE_ENCODERS[resolvedCodec][encoder];
+  const ffmpegEncoder = encoders[encoder];
   const available = hasEncoder(resolvedFfmpegCommand, ffmpegEncoder, spawnSyncImpl)
     && hardwareEncoderSmokeTest(resolvedFfmpegCommand, encoder, ffmpegEncoder, spawnSyncImpl);
   cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
@@ -295,6 +322,7 @@ export function resolveEncoderChoice({
 } = {}) {
   const resolvedCodec = normalizeVideoCodec(codec);
   if (requested === undefined || requested === null) return null;
+  if (resolvedCodec === "png") return { engine: "x264" };
   if (requested === "x264") return { engine: "x264" };
   if (requested === "videotoolbox") return { engine: "videotoolbox" };
   if (["nvenc", "qsv", "amf", "mf"].includes(requested)) {
@@ -348,6 +376,25 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
   if (!resolvedPreset) throw new RangeError(`Unknown --quality value: ${quality}`);
   const engine = encoderChoice?.engine ?? "x264";
   const resolvedCodec = normalizeVideoCodec(codec);
+  if (resolvedCodec === "png") return ["-c:v", "png"];
+  if (resolvedCodec === "prores422") {
+    if (engine === "videotoolbox") {
+      return [
+        "-c:v", "prores_videotoolbox",
+        "-profile:v", "hq",
+        "-allow_sw", "1",
+        "-pix_fmt", "yuv422p10le",
+      ];
+    }
+    if (engine !== "x264") throw new RangeError(`Unknown ProRes encoder engine: ${engine}`);
+    return [
+      "-c:v", "prores_ks",
+      "-profile:v", "3",
+      "-pix_fmt", "yuv422p10le",
+      "-vendor", "apl0",
+      "-qscale:v", String(PRORES_QSCALE[quality ?? "standard"]),
+    ];
+  }
   if (resolvedCodec === "hevc") {
     return buildHevcVideoEncodeArgs({ quality, engine, profile: profile ?? "main", preset: resolvedPreset });
   }
@@ -481,6 +528,10 @@ function scaledBitrateLabel(value, factor) {
 }
 
 function normalizeVideoCodec(value) {
-  if (value === "h264" || value === "hevc") return value;
+  if (["h264", "hevc", "prores422", "png"].includes(value)) return value;
   throw new RangeError(`Unknown codec value: ${value}`);
+}
+
+function hardwareCodecKey(codec) {
+  return codec === "prores422" ? "prores" : codec;
 }
