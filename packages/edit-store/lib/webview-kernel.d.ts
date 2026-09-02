@@ -8,6 +8,7 @@
  */
 export * from './timeline-map';
 export * from './caption-window';
+export * from './caption-clock';
 export * from './caption-style-preset';
 export * from './generated/textstyle-catalog';
 export * from './transition-vocabulary';

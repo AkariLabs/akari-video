@@ -1,0 +1,78 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "transcript_word_collapsed",
+      "pass": true,
+      "actual": {
+        "start": 0,
+        "end": 0.9,
+        "text": "AKARI Video"
+      }
+    },
+    {
+      "name": "transcript_text_replaced",
+      "pass": true,
+      "actual": "AKARI Videoを紹介"
+    },
+    {
+      "name": "cache_text_is_raw",
+      "pass": true,
+      "actual": "あかり ビデオを紹介"
+    },
+    {
+      "name": "cache_words_are_raw",
+      "pass": true,
+      "actual": [
+        "あかり",
+        "ビデオ",
+        "を",
+        "紹介"
+      ]
+    },
+    {
+      "name": "second_transcribe_cache_hit",
+      "pass": true,
+      "actual": true
+    },
+    {
+      "name": "cache_hit_analysis_byte_identical",
+      "pass": true,
+      "actual": true
+    },
+    {
+      "name": "resolve_channel_wins",
+      "pass": true,
+      "actual": "channel"
+    },
+    {
+      "name": "add_channel_entry",
+      "pass": true,
+      "actual": true
+    },
+    {
+      "name": "apply_added_term",
+      "pass": true,
+      "actual": {
+        "start": 1.7,
+        "end": 2,
+        "text": "新語"
+      }
+    },
+    {
+      "name": "apply_added_term_text",
+      "pass": true,
+      "actual": "新語"
+    }
+  ],
+  "observed": {
+    "replaced_word": {
+      "start": 0,
+      "end": 0.9,
+      "text": "AKARI Video"
+    },
+    "cache_hit": true,
+    "source_scope": "channel",
+    "apply_replaced": 1
+  }
+}

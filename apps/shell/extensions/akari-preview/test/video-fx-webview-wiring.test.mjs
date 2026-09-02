@@ -6,8 +6,8 @@ const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.
 const service = readFileSync(new URL('../src/node/akari-preview-service.ts', import.meta.url), 'utf8');
 
 test('video-fx runtime is read synchronously and injected before the preview bootstrap', () => {
-  assert.match(service, /videoFxJavaScript: readFileSync\(resolve\(directory, 'video-fx\.js'\), 'utf8'\)/);
-  assert.match(handler, /assets\.videoFxJavaScript[\s\S]*assets\.runtimeJavaScript/);
+  assert.match(service, /videoFx: read\('video-fx\.js'\)/);
+  assert.match(handler, /assets\.videoFxJavaScriptUrl[\s\S]*assets\.runtimeJavaScriptUrl/);
 });
 
 test('both native transition planes opt into anonymous CORS before WebGL texImage2D', () => {

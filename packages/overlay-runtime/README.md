@@ -118,8 +118,9 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 - `window.AkariThree` — pinned Three.js core と `GLTFLoader` / `RoomEnvironment`
 - `window.akari.threeRuntime.render(container, localSeconds)` / `.dispose(container)` /
   `.inspect(container)`（`src/three-runtime.js`）。独自 rAF や wall-clock は持たない
-- `window.akari.runtime.mount(summary)` / `.tick(t, playing)` / `.unmount()` /
-  `.version`（`src/overlay-runtime.js`）。`.version` は本パッケージ
+- `window.akari.runtime.mount(summary, options?)` / `.tick(t, playing)` / `.unmount()` /
+  `.configure(next)` / `.version`（`src/overlay-runtime.js`。`options.maxRenderSize` /
+  `configure({ maxRenderSize })` は下記「ライブプレビューの tick 性能」）。`.version` は本パッケージ
   `package.json` の `version` と同期させた文字列（例 `"0.2.0"`）。`<script>` で
   直接読み込むホストは npm 解決を経ないため、機能検出（例: 多層テキスト断片の
   `data-mirror` 同期に対応しているか）に `window.akari.runtime.version` を使う
@@ -161,6 +162,26 @@ runtime.configure({ premount: false }); // 無効化
 破棄する。`maxInstances` を超えた場合は可視中のものを除き、距離が最も遠い instance から
 破棄する。これにより短い非表示や近距離のシークでは同じ instance を再利用する。
 
+### ライブプレビューの tick 性能（3D 描画バッファ上限・`getAnimations()` キャッシュ）
+
+`tick()` は 3D 断片の `threeRuntime.render(container, localSeconds, { syncVideos: true, maxRenderSize })`
+に描画バッファの長辺上限 `maxRenderSize`（px、既定 `720` = preview-server の `app.js` の
+`PREVIEW_3D_MAX_RENDER_SIZE` と同値）を渡す。`three-runtime.js` の `rendererSize()` は CSS 上の
+寸法とカメラのアスペクトを変えずに WebGL の描画バッファだけを縮める（4% のヒステリシス付き）ため、
+見た目の大きさは変わらず描画コストだけが落ちる。**プレビュー専用**で、書き出し
+（`packages/render-cut/src/rasterize.mjs`）は本ランタイムの `tick()` を通らず `render()` を
+この option 無しで直接呼ぶため、出力画素は不変。上限は `mount(summary, { maxRenderSize })` /
+`configure({ maxRenderSize })` / `createOverlayRuntime({ maxRenderSize })` で上書きできる
+（正の数 = 長辺 px、`null` / `0` = 無効（等倍）。キー未指定の `mount(summary)` は保持値を引き継ぐ）。
+
+非 3D 断片の `tick()` は `container.getAnimations({ subtree: true })` の結果を overlay ごとに
+250ms キャッシュし（`app.js` と同じ）、可視化フリップ直後の tick・250ms 経過・未取得のときだけ
+引き直す（非表示化でキャッシュは捨てる）。`getAnimations()` のコストはドキュメント全体に現存する
+CSS animation の総数にほぼ比例する（`overlay-runtime.js` の注記）ため、`[data-akari-active]`
+ゲート規約と組み合わせて初めて O(可視数) に収まる — ゲートはそのまま維持する。Animation
+オブジェクトはライブなので、キャッシュ済みでも毎 tick の `pause()` / `currentTime` 同期と
+入場アニメの確定判定（`entryAnimationsSettled`）は現在値で動く。
+
 ### 多層テキスト断片のミラー同期（`data-mirror="text"`、v0.2.0〜）
 
 縁取り・影・裏打ち等で同一テキストを複数層重ねる断片（`skills/overlay-authoring/telop.md`
@@ -199,6 +220,8 @@ runtime.configure({ premount: false }); // 無効化
 コメント。フォールバック `1vw` は `--akari-*` を定義しない別ホストで従来挙動へ退避するため
 のもので、本番のプレビュー（shell / Web）では必ず定義される。shell は `viewport-units.js` を
 `runtimeJavaScript`（`slot-params.js` + `overlay-runtime.js` の連結）へ同梱して注入する。
+Web UI（preview-server）は `slot-params.js` を `/slot-params.js` で配り、`app.js` の mount が
+同じ `renderTextSlots` を通す（2026-09-02 以降。それまでは Web UI だけ差し込みが効かなかった）。
 
 ## ディレクトリ
 
@@ -448,6 +471,10 @@ python3 -m http.server 8947
 
 npm グローバルインストール禁止の制約内で完結するよう、ビルドステップは無し
 （プレーンスクリプト + 静的 HTML のみ）。
+
+`test-harness/*.test.mjs` は `node --test` で実行する（`package.json` の `test`）。headless Chrome を
+使うものと、`overlay-runtime-tick.test.mjs`（3D 描画バッファ上限と `getAnimations()` キャッシュの
+配線）のように `node:vm` + 最小フェイク DOM だけで完結するものがある。
 
 ## 既知の仕様差分（legacy 設計ノートとの整合について）
 

@@ -33,8 +33,8 @@ test('slot edits route params to edit.json while ordinary text edits retain html
   assert.match(source, /params\?: Record<string, string>/);
   assert.match(source, /params: this\.stringRecord\(value\?\.params\)/);
   assert.match(source, /if \(typeof request\.patch\.html === 'string'\)/);
-  assert.match(serviceSource, /readFileSync\(resolve\(directory, 'slot-params\.js'\)/);
-  assert.match(serviceSource, /readFileSync\(resolve\(directory, 'overlay-runtime\.js'\)/);
+  assert.match(serviceSource, /readText\('slot-params\.js'\)/);
+  assert.match(serviceSource, /readText\('overlay-runtime\.js'\)/);
 });
 
 test('failed write responses surface a dismissible high-contrast banner', () => {

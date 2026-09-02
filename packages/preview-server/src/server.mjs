@@ -27,7 +27,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   ensurePreviewAudioSidecar,
-  probePreviewAudioSource,
+  probePreviewAudioSourceAsync,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
 import {
@@ -93,6 +93,10 @@ const THREE_ROUTES = {
   // 素の vw はウィンドウ幅基準になり書き出しとずれる。app.js が mount 時に断片へ適用し、
   // updateStageScale がステージ変数（--akari-vw 等）を定義する。shell も同じ物をインライン注入する。
   '/viewport-units.js': fileURLToPath(new URL('../../overlay-runtime/src/viewport-units.js', import.meta.url)),
+  // params + data-akari-slot の差し込み（shell の runtimeJavaScript と render-cut rasterize が使う
+  // 唯一の注入実装）。Web UI だけ未配信で placeholder 文字がそのまま出ていた
+  // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
+  '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
@@ -441,7 +445,8 @@ async function readFrameEnginePreviewEdit(filePath) {
     let stat;
     try { stat = fs.statSync(sourcePath); } catch { return raw; }
     if (path.extname(sourcePath).toLowerCase() !== '.wav' || stat.size <= 8 * 1024 * 1024) return raw;
-    const probe = probePreviewAudioSource(sourcePath);
+    // Awaited (spawn) so this single-threaded server keeps serving media while ffprobe runs.
+    const probe = await probePreviewAudioSourceAsync(sourcePath);
     if (!probe.ok) {
       const warning = `${label} sidecar unavailable; using source: ${probe.reason}`;
       speechWarnings.push(warning);

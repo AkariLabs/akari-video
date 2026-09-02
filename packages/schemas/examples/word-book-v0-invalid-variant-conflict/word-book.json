@@ -1,0 +1,7 @@
+{
+  "version": 0,
+  "entries": [
+    { "surface": "AKARI Video", "variants": ["あかり ビデオ"], "kind": "term" },
+    { "surface": "別製品", "variants": ["あかりビデオ"], "kind": "term" }
+  ]
+}

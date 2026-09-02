@@ -2816,6 +2816,65 @@ var require_caption_window = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-clock.js
+var require_caption_clock = __commonJS({
+  "../edit-store/lib/caption-clock.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.normalizeCaptionClock = normalizeCaptionClock;
+    exports.captionClockDomainOf = captionClockDomainOf;
+    var EPSILON = 1e-6;
+    function normalizeCaptionClock(captions, segments) {
+      const output = [];
+      for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === "legacy" && segments.some((segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON);
+        const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+        if (domain === "output" || segments.length === 0) {
+          output.push({ ...caption, clockDomain: "output" });
+          continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
+            continue;
+          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
+            continue;
+          const sourceStart = Math.max(caption.start, segment.in);
+          const sourceEnd = Math.min(caption.end, segment.out);
+          if (!(sourceEnd - sourceStart > EPSILON))
+            continue;
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+          occurrence += 1;
+          const sourceCueId = caption.sourceCueId ?? caption.id;
+          const words = caption.words?.flatMap((word) => {
+            const wordStart = Math.max(word.start, sourceStart);
+            const wordEnd = Math.min(word.end, sourceEnd);
+            return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+          });
+          output.push({
+            ...caption,
+            ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+            ...sourceCueId ? { sourceCueId } : {},
+            start: projectTime(sourceStart),
+            end: projectTime(sourceEnd),
+            ...words && words.length > 0 ? { words } : { words: void 0 },
+            clockDomain: "output"
+          });
+        }
+      }
+      return output.sort((left, right) => left.start - right.start || left.end - right.end);
+    }
+    function captionClockDomainOf(raw) {
+      const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+      return {
+        clockDomain,
+        ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+      };
+    }
+  }
+});
+
 // ../edit-store/lib/cut-adjacency.js
 var require_cut_adjacency = __commonJS({
   "../edit-store/lib/cut-adjacency.js"(exports) {
@@ -8718,6 +8777,7 @@ var require_lib = __commonJS({
     __exportStar(require_textstyle_catalog(), exports);
     __exportStar(require_caption_words_rederive(), exports);
     __exportStar(require_caption_window(), exports);
+    __exportStar(require_caption_clock(), exports);
     __exportStar(require_timeline_map(), exports);
     __exportStar(require_caption_display(), exports);
     __exportStar(require_edit_v2(), exports);
@@ -21265,6 +21325,12 @@ var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
+function resolveOptimizeForLatencyDefault() {
+  const runtime = globalThis;
+  const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  if (explicit === void 0 || explicit === null || explicit === "") return false;
+  return explicit === true || explicit === "1" || explicit === "true";
+}
 function uint323(bytes, offset) {
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
 }
@@ -21340,7 +21406,10 @@ var HttpRangeReader = class {
     maxDecodeQueueSize: 0,
     fullBodyFallback: false,
     fullBodyBytes: 0,
-    maxFutureFrames: 0
+    maxFutureFrames: 0,
+    graceWaits: 0,
+    targetSkips: 0,
+    droppedTargets: 0
   };
   fetchImpl;
   onWarning;
@@ -21552,7 +21621,7 @@ async function selectSupportedDecoderConfig(table, requested, knownSupport, call
     description: table.description,
     codedWidth: table.codedWidth,
     codedHeight: table.codedHeight,
-    optimizeForLatency: true
+    optimizeForLatency: callbacks.optimizeForLatency ?? resolveOptimizeForLatencyDefault()
   };
   const attempts = requested === "prefer-software" ? ["prefer-software"] : ["prefer-hardware", "prefer-software"];
   const support = knownSupport ?? await evaluateCodecSupport(table.codec, {
@@ -21587,7 +21656,7 @@ var DecoderExecutionError = class extends Error {
     this.name = "DecoderExecutionError";
   }
 };
-function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
+function futureFrameTimestampsToEvict(timestamps, limit, targetUs, futureLimit = Number.POSITIVE_INFINITY) {
   const evicted = [];
   let retained = timestamps.length;
   for (const timestamp of timestamps) {
@@ -21596,8 +21665,13 @@ function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
     evicted.push(timestamp);
     retained -= 1;
   }
+  if (Number.isFinite(futureLimit)) {
+    const future = timestamps.filter((timestamp) => timestamp >= targetUs && !evicted.includes(timestamp)).sort((left, right) => left - right);
+    for (const timestamp of future.slice(Math.max(0, Math.floor(futureLimit)))) evicted.push(timestamp);
+  }
   return evicted;
 }
+var FUTURE_FRAME_LIMIT = 16;
 var TargetFrameUnavailableError = class extends Error {
   constructor(targetUs) {
     super(`target frame ${targetUs}us was not produced`);
@@ -21669,7 +21743,8 @@ var RangeMp4Source = class _RangeMp4Source {
       this.options.codecSupport,
       {
         onCodecSupport: this.options.onCodecSupport,
-        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied
+        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
+        optimizeForLatency: this.options.optimizeForLatency
       }
     );
     this.decoderError = null;
@@ -21737,6 +21812,15 @@ var RangeMp4Source = class _RangeMp4Source {
     }
     if (frame.timestamp > target) {
       this.storeFutureFrame(frame);
+      const waiter = this.outputWaiter;
+      if (waiter && !waiter.isSettled()) {
+        waiter.laterFrames += 1;
+        const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
+        if (waiter.laterFrames > reorderWindow && !(this.activeCandidate && frameCovers(this.activeCandidate, waiter.targetUs))) {
+          this.shared.reader.stats.targetSkips += 1;
+          waiter.resolve();
+        }
+      }
       return;
     }
     if (!this.activeCandidate || frame.timestamp >= this.activeCandidate.timestamp) {
@@ -21757,7 +21841,8 @@ var RangeMp4Source = class _RangeMp4Source {
     for (const timestamp of futureFrameTimestampsToEvict(
       [...this.futureFrames.keys()],
       limit,
-      targetUs
+      targetUs,
+      FUTURE_FRAME_LIMIT
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -21777,6 +21862,7 @@ var RangeMp4Source = class _RangeMp4Source {
       promise,
       targetUs,
       sampleTimestampUs,
+      laterFrames: 0,
       isSettled: () => settled,
       resolve() {
         if (settled) return;
@@ -21826,7 +21912,8 @@ var RangeMp4Source = class _RangeMp4Source {
         this.options.onWarning?.(
           `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`
         );
-        await this.resetDecoder();
+        this.shared.reader.stats.droppedTargets += 1;
+        await this.resetDecoder({ keepFutureFrames: true });
       }
     }
     throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
@@ -21983,6 +22070,8 @@ var RangeMp4Source = class _RangeMp4Source {
     if (waiter.isSettled()) return "target-or-dequeue";
     if (decoder.decodeQueueSize === 0) {
       if (canSupply) return "needs-supply";
+      if (waiter.laterFrames > 0) return "grace-expired";
+      this.shared.reader.stats.graceWaits += 1;
       let graceTimer = null;
       const graceExpired = new Promise((resolve) => {
         graceTimer = setTimeout(() => resolve("grace-expired"), OUTPUT_GRACE_MS);
@@ -22051,7 +22140,7 @@ var RangeMp4Source = class _RangeMp4Source {
       if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
     }
   }
-  async resetDecoder() {
+  async resetDecoder(options = {}) {
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -22060,8 +22149,10 @@ var RangeMp4Source = class _RangeMp4Source {
     this.decoder = null;
     this.decoderFailure = null;
     this.rejectDecoderFailure = null;
-    for (const frame of this.futureFrames.values()) frame.close();
-    this.futureFrames.clear();
+    if (!options.keepFutureFrames) {
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+    }
     await this.configureDecoder();
   }
   async fork(id) {
@@ -23475,6 +23566,11 @@ var EditStoreKernel = __toESM(require_lib(), 1);
 var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
 var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
 var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
+var DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
+var DEFAULT_COMPACT_SAMPLE_RATE = 24e3;
+var FAILED_DECODE_RETRY_MS = 5e3;
+var RESTART_BACKOFF_MS = 500;
+var MIB = 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
   const declarations = [...options.declarations ?? []];
@@ -23484,6 +23580,10 @@ function createPreviewAudioSupply(options) {
   const scheduleBuilder = options.scheduleBuilder ?? import_edit_store4.buildWebAudioSchedule;
   const warn = options.onWarning ?? ((message, reason) => console.warn(message, reason));
   const cacheLimit = finitePositive2(options.decodeCacheBytes) ? options.decodeCacheBytes : DEFAULT_DECODE_CACHE_BYTES;
+  const compactThreshold = finitePositive2(options.compactDecodeThresholdBytes) ? options.compactDecodeThresholdBytes : DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES;
+  const compactSampleRate = finitePositive2(options.compactSampleRate) ? options.compactSampleRate : DEFAULT_COMPACT_SAMPLE_RATE;
+  const offlineContextFactory = options.offlineContextFactory ?? defaultOfflineContextFactory;
+  const now = options.nowImpl ?? nowMs;
   const watchdogMs = options.pauseWatchdogMs === false ? false : finitePositive2(options.pauseWatchdogMs) ? options.pauseWatchdogMs : false;
   let context = null;
   if (timelineDurationSec > 0 && (declarations.length > 0 || speech.length > 0)) {
@@ -23497,10 +23597,15 @@ function createPreviewAudioSupply(options) {
   const warned = /* @__PURE__ */ new Set();
   const speechMetrics = /* @__PURE__ */ new Map();
   let decodedBytes = 0;
-  let prefetchPromise = null;
+  let overBudgetWarned = false;
+  let prefetchInFlight = null;
+  let prefetchEverRan = false;
   let prefetchStartedAt = 0;
   let prefetchElapsedMs = 0;
   let prefetchPending = 0;
+  let lastStartAttemptMs = 0;
+  let lastStartOutcome = null;
+  let skippedAtSchedule = [];
   let regularDecoded = [];
   let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
@@ -23549,23 +23654,26 @@ function createPreviewAudioSupply(options) {
       }
     }
   };
-  const evictFarthest = () => {
-    while (decodedBytes > cacheLimit) {
-      const candidate = [...decoded.entries()].filter(([, entry]) => entry.bytes > 0).sort((left, right) => right[1].nextUseSec - left[1].nextUseSec)[0];
-      if (!candidate) return;
-      decoded.delete(candidate[0]);
-      decodedBytes -= candidate[1].bytes;
+  const noteDecodedBytes = (entry, buffer) => {
+    entry.bytes = buffer.length * buffer.numberOfChannels * 4;
+    decodedBytes += entry.bytes;
+    if (decodedBytes > cacheLimit && !overBudgetWarned) {
+      overBudgetWarned = true;
+      warn(`[frame-engine] preview audio holds ${(decodedBytes / MIB).toFixed(0)} MiB of decoded PCM, over the ${(cacheLimit / MIB).toFixed(0)} MiB budget; keeping every buffer so playback stays complete`);
     }
   };
-  const decodeUrl = (url, nextUseSec, label, restrictSpeechSource = false, suppressWarning = false) => {
+  const decodeCompact = async (encoded) => {
+    const offline = offlineContextFactory(compactSampleRate);
+    if (!offline) return null;
+    const full = await offline.decodeAudioData(encoded);
+    return downmixToMono(full, context);
+  };
+  const decodeUrl = (url, label, restrictSpeechSource = false, suppressWarning = false) => {
     if (!context || !fetchImpl) return Promise.resolve(null);
     const cacheKey = decodeCacheKey(url, restrictSpeechSource);
     const cached = decoded.get(cacheKey);
-    if (cached) {
-      cached.nextUseSec = Math.min(cached.nextUseSec, nextUseSec);
-      return cached.promise;
-    }
-    const entry = { bytes: 0, nextUseSec, promise: Promise.resolve(null) };
+    if (cached) return cached.promise;
+    const entry = { bytes: 0, compact: false, promise: Promise.resolve(null) };
     entry.promise = (async () => {
       try {
         const response = await fetchImpl(url);
@@ -23578,11 +23686,18 @@ function createPreviewAudioSupply(options) {
         if (restrictSpeechSource && encoded.byteLength >= MAX_SPEECH_SOURCE_FALLBACK_BYTES) {
           throw new Error(`source is ${encoded.byteLength} bytes (64 MB fallback limit)`);
         }
-        const buffer = await context.decodeAudioData(encoded);
+        let buffer = null;
+        if (estimateDecodedBytes(encoded, context.sampleRate) > compactThreshold) {
+          try {
+            buffer = await decodeCompact(encoded);
+            entry.compact = buffer !== null;
+          } catch (reason) {
+            warn(`[frame-engine] ${label}: compact decode failed; decoding at full rate`, reason);
+          }
+        }
+        if (!buffer) buffer = await context.decodeAudioData(encoded);
         if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-        entry.bytes = buffer.length * buffer.numberOfChannels * 4;
-        decodedBytes += entry.bytes;
-        evictFarthest();
+        noteDecodedBytes(entry, buffer);
         return buffer;
       } catch (reason) {
         decoded.delete(cacheKey);
@@ -23600,16 +23715,11 @@ function createPreviewAudioSupply(options) {
     const sidecar = validSidecar(declaration.spec.sidecar);
     let buffer = await decodeUrl(
       declaration.url,
-      firstUseRegular(declaration),
       `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
     );
     let usedSidecar = Boolean(sidecar && buffer);
     if (!buffer && sidecar && declaration.sourceUrl) {
-      buffer = await decodeUrl(
-        declaration.sourceUrl,
-        firstUseRegular(declaration),
-        `${declaration.kind} ${declaration.id}`
-      );
+      buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
     if (!buffer) return;
@@ -23627,12 +23737,11 @@ function createPreviewAudioSupply(options) {
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
     const bakedPath = sidecar?.path ?? legacy?.path;
-    let buffer = bakedPath ? await decodeUrl(bakedPath, firstUseSpeech(declaration), `speech sidecar ${declaration.id}`) : null;
+    let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
     let usedSidecar = Boolean(bakedPath && buffer);
     if (!buffer) {
       buffer = await decodeUrl(
         declaration.url,
-        firstUseSpeech(declaration),
         `speech ${declaration.src}`,
         true,
         Boolean(bakedPath || declaration.sidecarWarningEmitted)
@@ -23654,38 +23763,60 @@ function createPreviewAudioSupply(options) {
       ok: previous?.ok === false ? false : Boolean(buffer)
     });
   };
+  const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
   const tasks = [
-    ...declarations.map((item) => ({ at: firstUseRegular(item), run: () => resolveRegular(item) })),
-    ...speech.map((item) => ({ at: firstUseSpeech(item), run: () => resolveSpeech(item) }))
+    ...declarations.map((item) => ({
+      key: `${item.kind}:${item.id}`,
+      at: firstUseRegular(item),
+      failedAtMs: null,
+      run: () => resolveRegular(item),
+      resolved: () => regularResolved(item)
+    })),
+    ...speech.map((item) => ({
+      key: `speech:${item.id}`,
+      at: firstUseSpeech(item),
+      failedAtMs: null,
+      run: () => resolveSpeech(item),
+      resolved: () => speechDecoded.has(item.id)
+    }))
   ].sort((left, right) => left.at - right.at);
-  const runPrefetch = async () => {
-    regularDecoded = [];
-    speechDecoded = /* @__PURE__ */ new Map();
-    prefetchPending = tasks.length;
+  const pendingTasks = () => {
+    const at2 = now();
+    return tasks.filter((task) => !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+  };
+  const runPrefetch = async (queue) => {
+    prefetchPending = queue.length;
     let cursor = 0;
     const worker = async () => {
-      while (cursor < tasks.length) {
-        const task = tasks[cursor++];
+      while (cursor < queue.length) {
+        const task = queue[cursor++];
         if (!task) break;
         try {
           await task.run();
+          task.failedAtMs = task.resolved() ? null : now();
+        } catch (reason) {
+          task.failedAtMs = now();
+          warn(`[frame-engine] ${task.key} prefetch failed`, reason);
         } finally {
           prefetchPending -= 1;
         }
       }
     };
     await Promise.all([worker(), worker()]);
-    regularDecoded = regularDecoded.filter((item) => decoded.has(item.cacheKey));
-    speechDecoded = new Map([...speechDecoded].filter(([, item]) => decoded.has(item.cacheKey)));
   };
-  const ensurePrefetch = () => {
-    if (prefetchPromise) return prefetchPromise;
-    prefetchStartedAt = nowMs();
-    prefetchPromise = runPrefetch().finally(() => {
-      prefetchElapsedMs = nowMs() - prefetchStartedAt;
+  const ensureDecoded = () => {
+    if (prefetchInFlight) return prefetchInFlight;
+    const queue = pendingTasks();
+    if (queue.length === 0) return Promise.resolve();
+    const first = !prefetchEverRan;
+    prefetchEverRan = true;
+    if (first) prefetchStartedAt = now();
+    prefetchInFlight = runPrefetch(queue).finally(() => {
+      if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
+      prefetchInFlight = null;
     });
-    return prefetchPromise;
+    return prefetchInFlight;
   };
   const applyGainEvents = (param, events, startTime) => {
     if (events.length === 0) {
@@ -23700,10 +23831,10 @@ function createPreviewAudioSupply(options) {
     }
   };
   const startItem = (item, contextStart) => {
-    if (!context) return;
+    if (!context) return false;
     const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
     const buffer = regular?.buffer ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : void 0);
-    if (!buffer) return;
+    if (!buffer) return false;
     try {
       const source = context.createBufferSource();
       const baseGain = context.createGain();
@@ -23736,8 +23867,10 @@ function createPreviewAudioSupply(options) {
         } catch {
         }
       };
+      return true;
     } catch (reason) {
       warn(`[frame-engine] ${item.kind} ${item.id} could not be scheduled`, reason);
+      return false;
     }
   };
   const regularScheduleDeclaration = () => {
@@ -23758,60 +23891,73 @@ function createPreviewAudioSupply(options) {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
-    const alreadyPrefetched = prefetchPromise !== null;
-    await ensurePrefetch();
-    if (alreadyPrefetched && regularDecoded.length + speechDecoded.size < tasks.length) {
-      await runPrefetch();
-    }
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
-    }
+    lastStartAttemptMs = now();
+    let outcome = "failed";
     try {
-      await context.resume();
-    } catch (reason) {
-      warn("[frame-engine] AudioContext resume failed; keeping wall-clock playback", reason);
-      starting = false;
-      return;
+      await ensureDecoded();
+      if (thisGeneration !== generation) return;
+      try {
+        await context.resume();
+      } catch (reason) {
+        warn("[frame-engine] AudioContext resume failed; keeping wall-clock playback", reason);
+        return;
+      }
+      if (thisGeneration !== generation) return;
+      const speechForSchedule = speech.flatMap((item) => {
+        const resolved = speechDecoded.get(item.id);
+        if (!resolved) return [];
+        return [{
+          ...item,
+          ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
+          materialDurationSec: resolved.buffer.duration
+        }];
+      });
+      const plan = scheduleBuilder({
+        timelineDurationSec,
+        startAtSec: clamp3(latestRequestedSec || seconds),
+        audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
+      });
+      for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
+      if (plan.items.length === 0) {
+        outcome = "empty";
+        return;
+      }
+      stopSources();
+      const contextStart = context.currentTime + 0.02;
+      anchorTimelineSec = plan.startAtSec;
+      anchorContextSec = contextStart;
+      lastSchedule = plan.items;
+      lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
+      const skipped = [];
+      for (const item of lastSchedule) {
+        if (!startItem(item, contextStart)) skipped.push(`${item.kind}:${item.id}`);
+      }
+      skippedAtSchedule = skipped;
+      if (skipped.length > 0) {
+        warn(`[frame-engine] audio: ${skipped.length} scheduled item(s) have no decoded buffer and stay silent: ${skipped.join(", ")}`);
+      }
+      playing = true;
+      outcome = "started";
+    } finally {
+      if (thisGeneration === generation) {
+        starting = false;
+        lastStartOutcome = outcome;
+      }
     }
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
-    }
-    const speechForSchedule = speech.flatMap((item) => {
-      const resolved = speechDecoded.get(item.id);
-      if (!resolved) return [];
-      return [{
-        ...item,
-        ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
-        materialDurationSec: resolved.buffer.duration
-      }];
-    });
-    const plan = scheduleBuilder({
-      timelineDurationSec,
-      startAtSec: clamp3(latestRequestedSec || seconds),
-      audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
-    });
-    for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-    if (plan.items.length === 0) {
-      starting = false;
-      return;
-    }
-    stopSources();
-    const contextStart = context.currentTime + 0.02;
-    anchorTimelineSec = plan.startAtSec;
-    anchorContextSec = contextStart;
-    lastSchedule = plan.items;
-    lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
-    for (const item of lastSchedule) startItem(item, contextStart);
-    playing = true;
-    starting = false;
   };
+  const launch = (seconds) => {
+    lastStartOutcome = null;
+    startFrom(seconds).catch((reason) => {
+      warn("[frame-engine] audio start failed", reason);
+    });
+  };
+  const restartAllowed = () => lastStartOutcome === null || now() - lastStartAttemptMs >= RESTART_BACKOFF_MS;
   const pause = () => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
     playing = false;
     starting = false;
+    lastStartOutcome = null;
     stopSources();
   };
   const armPauseWatchdog = () => {
@@ -23837,13 +23983,17 @@ function createPreviewAudioSupply(options) {
         bgm: lastSchedule.filter((item) => item.kind === "bgm").length,
         sfx: lastSchedule.filter((item) => item.kind === "sfx").length,
         narration: lastSchedule.filter((item) => item.kind === "narration").length,
-        speech: lastSchedule.filter((item) => item.kind === "speech").length
+        speech: lastSchedule.filter((item) => item.kind === "speech").length,
+        skipped: [...skippedAtSchedule]
       },
       prefetch: {
         items: tasks.length,
         decodedBytes,
-        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? nowMs() - prefetchStartedAt : 0),
-        pending: prefetchPending
+        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
+        pending: prefetchPending,
+        failed: tasks.filter((task) => task.failedAtMs !== null && !task.resolved()).map((task) => task.key),
+        compact: [...decoded.values()].filter((entry) => entry.compact).length,
+        overBudget: decodedBytes > cacheLimit
       },
       sidecars: {
         generated: uniqueSidecars.filter((item) => item.skipped === false).length,
@@ -23869,11 +24019,13 @@ function createPreviewAudioSupply(options) {
   };
   return {
     prime() {
-      void ensurePrefetch();
+      ensureDecoded().catch((reason) => {
+        warn("[frame-engine] audio prefetch failed", reason);
+      });
     },
     playFrom(seconds) {
       latestRequestedSec = clamp3(seconds);
-      if (context && !playing && !starting) void startFrom(latestRequestedSec);
+      if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
       latestRequestedSec = clamp3(fallbackSeconds);
@@ -23883,7 +24035,7 @@ function createPreviewAudioSupply(options) {
       latestRequestedSec = clamp3(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
-      if (!playing && !starting) void startFrom(latestRequestedSec);
+      if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
       return playing ? audioPosition() : latestRequestedSec;
     },
     seek(seconds, continuePlaying = false) {
@@ -23891,8 +24043,9 @@ function createPreviewAudioSupply(options) {
       generation += 1;
       playing = false;
       starting = false;
+      lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) void startFrom(latestRequestedSec);
+      if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
     noteRendered(seconds) {
@@ -23934,6 +24087,84 @@ function finiteNonNegative(value) {
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+function defaultOfflineContextFactory(sampleRate) {
+  const scope = globalThis;
+  const Ctor = scope.OfflineAudioContext ?? scope.webkitOfflineAudioContext;
+  if (typeof Ctor !== "function") return null;
+  try {
+    return new Ctor(1, 1, sampleRate);
+  } catch {
+    return null;
+  }
+}
+var COMPRESSED_DECODE_EXPANSION = 16;
+function estimateDecodedBytes(encoded, contextSampleRate) {
+  const view = new DataView(encoded);
+  const ratio = (sourceRate) => finitePositive2(contextSampleRate) && finitePositive2(sourceRate) ? contextSampleRate / sourceRate : 1;
+  const wav = parseWavHeader(view);
+  if (wav) return wav.frames * ratio(wav.sampleRate) * wav.channels * 4;
+  const flac = parseFlacStreamInfo(view);
+  if (flac) return flac.frames * ratio(flac.sampleRate) * flac.channels * 4;
+  return encoded.byteLength * COMPRESSED_DECODE_EXPANSION;
+}
+function readAscii(view, offset, length) {
+  if (offset + length > view.byteLength) return "";
+  let text = "";
+  for (let index = 0; index < length; index += 1) text += String.fromCharCode(view.getUint8(offset + index));
+  return text;
+}
+function parseWavHeader(view) {
+  if (view.byteLength < 12 || readAscii(view, 0, 4) !== "RIFF" || readAscii(view, 8, 4) !== "WAVE") return null;
+  let offset = 12;
+  let format = null;
+  while (offset + 8 <= view.byteLength) {
+    const id = readAscii(view, offset, 4);
+    const size = view.getUint32(offset + 4, true);
+    const body = offset + 8;
+    if (id === "fmt " && body + 16 <= view.byteLength) {
+      const channels = view.getUint16(body + 2, true);
+      const sampleRate = view.getUint32(body + 4, true);
+      const blockAlign = view.getUint16(body + 12, true);
+      if (channels > 0 && sampleRate > 0 && blockAlign > 0) format = { sampleRate, channels, blockAlign };
+    } else if (id === "data") {
+      if (!format) return null;
+      const dataBytes = Math.min(size, Math.max(0, view.byteLength - body));
+      return {
+        sampleRate: format.sampleRate,
+        channels: format.channels,
+        frames: Math.floor(dataBytes / format.blockAlign)
+      };
+    }
+    offset = body + size + size % 2;
+  }
+  return null;
+}
+function parseFlacStreamInfo(view) {
+  if (view.byteLength < 42 || readAscii(view, 0, 4) !== "fLaC") return null;
+  if ((view.getUint8(4) & 127) !== 0) return null;
+  const base = 8;
+  const b10 = view.getUint8(base + 10);
+  const b11 = view.getUint8(base + 11);
+  const b12 = view.getUint8(base + 12);
+  const b13 = view.getUint8(base + 13);
+  const sampleRate = b10 << 12 | b11 << 4 | b12 >> 4;
+  const channels = (b12 >> 1 & 7) + 1;
+  const frames = (b13 & 15) * 4294967296 + view.getUint32(base + 14, false);
+  if (!(sampleRate > 0) || !(frames > 0)) return null;
+  return { sampleRate, channels, frames };
+}
+function downmixToMono(buffer, context) {
+  if (buffer.numberOfChannels <= 1) return buffer;
+  if (typeof context.createBuffer !== "function" || typeof buffer.getChannelData !== "function") return buffer;
+  const mono = context.createBuffer(1, buffer.length, buffer.sampleRate);
+  const out = mono.getChannelData(0);
+  const scale = 1 / buffer.numberOfChannels;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    for (let index = 0; index < out.length; index += 1) out[index] = (out[index] ?? 0) + (data[index] ?? 0) * scale;
+  }
+  return mono;
 }
 
 // ../frame-engine/src/metrics/collector.ts
@@ -24241,9 +24472,11 @@ function audioDeclarations(edit) {
 }
 function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+  const declaredTracks = cuts.map((cut) => cut?.track).filter((value) => Number.isInteger(value) && value >= 0);
+  const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
-    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
     const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
     return {
       ...sequential,
@@ -24575,7 +24808,10 @@ var FrameEngineRuntime = class {
       timelineDurationSec: this.totalDuration,
       declarations: audioDeclarations(edit),
       speech,
-      pauseWatchdogMs: 150
+      // playbackTime() が rAF ループからしか呼ばれないため、1 フレームがこの時間を超えると
+      // 音声が pause → 次フレームで再開になる。150 ms では 3D / 字幕の重いフレームで
+      // 途切れが慢性化していたので、タブ非表示の検知が少し遅れるのを受け入れて広げる。
+      pauseWatchdogMs: 600
     });
     this.segments = this.timeline.cuts.map((placement, index) => {
       const cut = placement.cut ?? cuts[index] ?? {};

@@ -87,7 +87,8 @@ test('worker CSP は frame-engine 有効時だけ blob と data を許可する'
         compiledHandler,
         /const frameEngineCsp = frameEngineScripts \? '; worker-src blob: data:' : '';/
     );
-    assert.match(compiledHandler, /font-src data:\$\{frameEngineCsp\}">/);
+    // 資産（字幕フォント・bundle）は 127.0.0.1 の配信オリジンから URL で読む（task/2026-09-02-preview-perf）
+    assert.match(compiledHandler, /script-src 'unsafe-inline' \$\{assetOrigin\}; style-src 'unsafe-inline'; font-src \$\{assetOrigin\} data:\$\{frameEngineCsp\}">/);
 });
 
 test('AKARI_FRAME_ENGINE の backend RPC はインスタンスで 1 回だけキャッシュする', () => {

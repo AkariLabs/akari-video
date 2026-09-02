@@ -18,6 +18,8 @@
   `presets/telop/<id>/template.json` を読む
 - [luts](./luts/INDEX.md) — 3D LUT 2 件（自前生成）。`edit.json` の `output.look.lut` に id を書くと
   `packages/render-cut/src/plan.mjs` が `presets/luts/<id>/<id>.cube` を解決する
+- [word-book](./word-book/builtin.json) — 単語帳 v0 の製品出荷デフォルト。
+  `packages/word-book/src/index.mjs` が解決する
 
 ## 由来（2026-07-29）
 

@@ -17,7 +17,7 @@ const AKARI_EXPORT_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
         [AKARI_EXPORT_QUALITY]: {
             type: 'string',
-            enum: ['standard', 'high', 'light'],
+            enum: ['standard', 'high', 'light', 'master'],
             default: 'standard',
             description: '書き出し画質。標準、高画質、軽量から選びます。'
         },
