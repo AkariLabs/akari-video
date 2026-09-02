@@ -160,6 +160,10 @@ import {
     shouldNotifyCaptionSourceMappingWarning
 } from '../common/caption-source-map';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
+import {
+    AUDIO_KEYFRAME_MIN_POINTS_NOTICE,
+    audioKeyframeWriteGuard
+} from '../common/audio-keyframe-editor-geometry';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { setSfxGainDbInSource } from '../common/edit-store';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
@@ -2388,6 +2392,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        if (request.kind === 'audio-keyframes'
+            && audioKeyframeWriteGuard(request.value) === 'too-few') {
+            return { ok: false, message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE };
+        }
         const location = this.location;
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
