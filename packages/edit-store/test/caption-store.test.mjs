@@ -453,7 +453,7 @@ test('insertCaptionLine は edited 直後へ unrecognized を直列化して rou
     id: 'c-0099', start: 0, end: 1, text: '新規', speaker: null,
     sourceRef: null, edited: false, unrecognized: spans, timeDomain: 'output'
   });
-  assert.match(inserted, /"edited": false, "unrecognized": \[\{"start":0\.2,"end":0\.4\}\], "time_domain": "output"/u);
+  assert.match(inserted, /"edited": false, "time_domain": "output", "unrecognized": \[\{"start":0\.2,"end":0\.4\}\]/u);
   assert.deepEqual(parseCaptions(inserted).captions[0].unrecognized, spans);
 });
 
