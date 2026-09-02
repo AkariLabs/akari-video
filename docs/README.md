@@ -90,7 +90,7 @@ All contracts follow the
 | [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 direction |
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 emphasis words |
 | [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | `emphasis_words[]` seat for word-level emphasis in the captions.json object root, with the edit.json v1 seat retained as a backward-compatible fallback |
-| [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, and the three free caption presets (Japanese) |
+| [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` id reference, resolution order, generated textstyle catalog, picker batch-apply RPC, row badges, and the three free caption presets (Japanese) |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | Render basics (speed, chroma key, transitions, LUT, audio mastering) |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | Still-image cut source v0 — allow still images (extension-based detection) as cuts[] sources, extending speed/freeze coverage |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | Timeline placement principles, multiple audio tracks, audio trim, source trimmer |

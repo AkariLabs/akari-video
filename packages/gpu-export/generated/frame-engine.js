@@ -1831,6 +1831,7 @@ ${indent}`);
       exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
       exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
       exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+      exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
       exports.insertCaptionLine = insertCaptionLine;
       exports.removeCaptionLine = removeCaptionLine;
       var edit_store_1 = require_edit_store();
@@ -2060,6 +2061,64 @@ ${indent}`);
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
+      }
+      function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+        if (captionIds.length === 0) {
+          throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+          throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        const ids = [...new Set(captionIds)];
+        const array = locateCaptionArray(source);
+        const elementsById = /* @__PURE__ */ new Map();
+        for (const entry of captionElementEntries(array.elements)) {
+          if (!entry.id)
+            continue;
+          const matches = elementsById.get(entry.id) ?? [];
+          matches.push(entry.element);
+          elementsById.set(entry.id, matches);
+        }
+        const targets = [];
+        for (const captionId of ids) {
+          const matches = elementsById.get(captionId) ?? [];
+          if (matches.length !== 1) {
+            throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+          }
+          targets.push({ captionId, element: matches[0] });
+        }
+        let output = source;
+        let changed = 0;
+        for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+          const record = JSON.parse(element.text);
+          const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+          if (presetId === null) {
+            if (!hasPreset)
+              continue;
+            const nextElement2 = removeObjectProperty(element.text, "style_preset");
+            output = replaceElement(output, array.openIndex + 1, element, nextElement2);
+            changed++;
+            continue;
+          }
+          if (hasPreset && record.style_preset === presetId)
+            continue;
+          let nextElement;
+          if (hasPreset) {
+            nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
+          } else {
+            const textStyle = locateTopLevelProperty(element.text, "text_style");
+            if (!textStyle) {
+              nextElement = appendJsonProperty(element.text, "style_preset", presetId);
+            } else {
+              const lineStart = Math.max(element.text.lastIndexOf("\n", textStyle.start - 1), element.text.lastIndexOf("\r", textStyle.start - 1));
+              const separator = lineStart >= 0 ? `${element.text.includes("\r\n") ? "\r\n" : "\n"}${element.text.slice(lineStart + 1, textStyle.start)}` : " ";
+              nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
+            }
+          }
+          output = replaceElement(output, array.openIndex + 1, element, nextElement);
+          changed++;
+        }
+        return { source: output, changed };
       }
       function insertCaptionLine(source, caption) {
         const parsed = parseCaptions(source);

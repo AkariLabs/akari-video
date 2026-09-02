@@ -7,7 +7,7 @@ const { planDaihonUpdate, planHighlight } = require('../lib/common/daihon-reconc
 
 const row = (id, text = id) => ({
     id, start: 0, end: 1, outStart: 0, outEnd: 1, text,
-    style: null,
+    style: null, stylePreset: null,
     words: [{ text, start: 0, end: 1 }], fragmentBreakWordIndex: null,
     unrecognized: [], edited: false, timeDomain: 'source'
 });
@@ -38,6 +38,12 @@ test('planDaihonUpdate は style だけが変わった行を update に入れる
     const before = row('style');
     const after = { ...before, style: 'karaoke' };
     assert.deepEqual(planDaihonUpdate([before], [after]).update.map(item => item.id), ['style']);
+});
+
+test('planDaihonUpdate は stylePreset だけが変わった行を update に入れる', () => {
+    const before = row('style-preset');
+    const after = { ...before, stylePreset: 'subtitle-news' };
+    assert.deepEqual(planDaihonUpdate([before], [after]).update.map(item => item.id), ['style-preset']);
 });
 
 test('planDaihonUpdate は unrecognized の内容変更を検出する', () => {
