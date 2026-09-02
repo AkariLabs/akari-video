@@ -19,8 +19,39 @@ import {
     WAVEFORM_BUCKET_COUNT
 } from '../common/akari-annotations-protocol';
 import { planFilmstripChunk } from '../common/filmstrip-geometry';
+import { createAsyncSemaphore } from './async-semaphore';
 
 const execFileAsync = promisify(execFile);
+
+// ffmpeg / ffprobe の同時起動数（task/2026-09-02-preview-perf）。タイムラインをズームアウトすると
+// 可視ソース時間が一気に増え、フィルムストリップのチャンク要求が数十本まとめて届いて ffmpeg が
+// 同時に数十本 spawn されていた。プレビューの素材配信も同じ Node バックエンドが担うため、
+// これが「ズームするとプレビューまでカクつく」の実体。動画系（サムネイル・チャンク probe・
+// フィルムストリップ）と波形で別枠にし、どちらも既定 2 本。テストから差し替えられる。
+const videoExtractionSemaphore = createAsyncSemaphore(2);
+const waveformExtractionSemaphore = createAsyncSemaphore(2);
+
+export function mediaCacheConcurrency(): { video: number; waveform: number } {
+    return { video: videoExtractionSemaphore.limit, waveform: waveformExtractionSemaphore.limit };
+}
+
+export function configureMediaCacheConcurrency(
+    limits: { video?: number; waveform?: number }
+): { video: number; waveform: number } {
+    if (limits.video !== undefined) videoExtractionSemaphore.setLimit(limits.video);
+    if (limits.waveform !== undefined) waveformExtractionSemaphore.setLimit(limits.waveform);
+    return mediaCacheConcurrency();
+}
+
+export function mediaCacheExtractionLoad(): {
+    video: { active: number; waiting: number };
+    waveform: { active: number; waiting: number };
+} {
+    return {
+        video: { active: videoExtractionSemaphore.active, waiting: videoExtractionSemaphore.waiting },
+        waveform: { active: waveformExtractionSemaphore.active, waiting: waveformExtractionSemaphore.waiting }
+    };
+}
 
 // task/2026-07-31-shell-ffmpeg-bundle: PATH に ffmpeg/ffprobe が無い環境向けのフォールバック。
 // 優先順位は packages/media-bin の resolveFfmpeg/resolveFfprobe と揃える（明示指定 env → PATH →
@@ -134,13 +165,14 @@ export async function getClipThumbnail(
             // 静止画ソース（cuts[].src の画像対応）は尺 0 のため -ss を付けると
             // 「先頭より後ろへのシーク」になり 1 フレームも出力されない。時刻指定なしで
             // その 1 フレームをそのまま使う。
-            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', [
+            const ffmpeg = await ffmpegPath() ?? 'ffmpeg';
+            await videoExtractionSemaphore.run(() => execFileAsync(ffmpeg, [
                 '-y',
                 ...(isFilmstripImageSource(videoPath) ? [] : ['-ss', String(atSeconds)]),
                 '-i', videoPath,
                 '-frames:v', '1', '-vf', `scale=${THUMBNAIL_WIDTH_PX}:-1`, '-q:v', '4',
                 '-f', 'image2', temporary
-            ]);
+            ]));
             await fs.rename(temporary, destination);
         } catch {
             await fs.unlink(temporary).catch(() => undefined);
@@ -201,13 +233,14 @@ interface FilmstripProbe {
 
 async function probeForFilmstrip(videoPath: string, isImage: boolean): Promise<FilmstripProbe | undefined> {
     try {
-        const { stdout } = await execFileAsync(await ffprobePath() ?? 'ffprobe', [
+        const ffprobe = await ffprobePath() ?? 'ffprobe';
+        const { stdout } = await videoExtractionSemaphore.run(() => execFileAsync(ffprobe, [
             '-v', 'error',
             '-select_streams', 'v:0',
             '-show_entries', 'stream=width,height:format=duration',
             '-of', 'json',
             videoPath
-        ]);
+        ]));
         const parsed = JSON.parse(stdout) as {
             streams?: Array<{ width?: number; height?: number }>;
             format?: { duration?: string };
@@ -349,7 +382,8 @@ export async function getClipFilmstripChunk(
                     // getClipThumbnail と同じく -f で明示する。
                     '-f', 'image2', temporary
                 ];
-            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', args);
+            const ffmpeg = await ffmpegPath() ?? 'ffmpeg';
+            await videoExtractionSemaphore.run(() => execFileAsync(ffmpeg, args));
             await fs.rename(temporary, atlasPath);
         } catch {
             await fs.unlink(temporary).catch(() => undefined);
@@ -413,10 +447,11 @@ export async function getClipWaveform(
             // A cache miss falls through to extraction.
         }
         try {
-            await execFileAsync(await ffmpegPath() ?? 'ffmpeg', [
+            const ffmpeg = await ffmpegPath() ?? 'ffmpeg';
+            await waveformExtractionSemaphore.run(() => execFileAsync(ffmpeg, [
                 '-y', '-ss', String(startSeconds), '-to', String(endSeconds), '-i', videoPath,
                 '-ac', '1', '-ar', '8000', '-f', 's16le', temporaryPcm
-            ]);
+            ]));
         } catch {
             return { status: 'unavailable', reason: 'extraction-failed' };
         }
