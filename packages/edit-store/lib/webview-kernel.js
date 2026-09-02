@@ -810,7 +810,8 @@ var AkariEditKernel = (() => {
       if (gainDb === null) continue;
       const sidecar = validSidecar(spec.sidecar);
       if (spec.sidecar && !sidecar) warnings.push(`${label}: sidecar declaration is invalid; using source`);
-      const trim = sidecar ? { sourceOffsetSec: 0, durationSec: Math.min(spec.durationSec, sidecar.durationSec) } : resolveTrim(kind, spec, label, warnings);
+      const playbackRate = kind === "sfx" && !sidecar && finiteClipSpeed(spec.speed) ? spec.speed : 1;
+      const trim = sidecar ? { sourceOffsetSec: 0, durationSec: sidecar.durationSec } : resolveTrim(kind, spec, label, warnings);
       if (!trim) continue;
       resolved.push({
         spec,
@@ -820,7 +821,8 @@ var AkariEditKernel = (() => {
         track: normalizedTrack(spec.track),
         materialDurationSec: spec.durationSec,
         sourceOffsetSec: trim.sourceOffsetSec,
-        itemDurationSec: trim.durationSec,
+        itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+        playbackRate,
         gainDb
       });
     }
@@ -875,10 +877,10 @@ var AkariEditKernel = (() => {
       timelineStartSec,
       timelineEndSec: timelineStartSec + durationSec,
       delaySec,
-      sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
+      sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec * item.playbackRate,
       durationSec,
-      playbackRate: 1,
-      sourceDurationSec: durationSec,
+      playbackRate: item.playbackRate,
+      sourceDurationSec: durationSec * item.playbackRate,
       loop: false,
       gainDb: item.gainDb,
       gainEvents,
@@ -904,25 +906,27 @@ var AkariEditKernel = (() => {
     if (timelineT >= timelineDurationSec) return null;
     const sidecar = validSidecar(spec.sidecar);
     if (spec.sidecar && !sidecar) warnings.push(`${label}: sidecar declaration is invalid; using source`);
+    const materialDurationSec = sidecar ? sidecar.durationSec : spec.durationSec;
+    const playbackRate = sidecar ? 1 : finiteClipSpeed(spec.speed) ? spec.speed : 1;
     let materialInSec = sidecar ? 0 : finiteNonNegative(spec.in) ? spec.in : 0;
-    if (materialInSec >= spec.durationSec) {
+    if (materialInSec >= materialDurationSec) {
       warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
       materialInSec = 0;
     }
     const loop = spec.loop !== false;
     const delaySec = Math.max(0, timelineT - startAtSec);
     const elapsedSec = Math.max(0, startAtSec - timelineT);
-    let sourceOffsetSec = materialInSec + elapsedSec;
+    let sourceOffsetSec = materialInSec + elapsedSec * playbackRate;
     if (loop) {
-      sourceOffsetSec = positiveModulo(sourceOffsetSec, spec.durationSec);
-    } else if (sourceOffsetSec >= spec.durationSec) {
+      sourceOffsetSec = positiveModulo(sourceOffsetSec, materialDurationSec);
+    } else if (sourceOffsetSec >= materialDurationSec) {
       return null;
     }
     const timelineStartSec = startAtSec + delaySec;
     const timelineAvailableSec = timelineDurationSec - timelineStartSec;
     const durationSec = Math.min(
       timelineAvailableSec,
-      loop ? timelineAvailableSec : spec.durationSec - sourceOffsetSec
+      loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate
     );
     if (!(durationSec > 0)) return null;
     const baseGain = dbToLinear2(gainDb);
@@ -935,8 +939,8 @@ var AkariEditKernel = (() => {
       delaySec,
       sourceOffsetSec,
       durationSec,
-      playbackRate: 1,
-      sourceDurationSec: durationSec,
+      playbackRate,
+      sourceDurationSec: durationSec * playbackRate,
       loop,
       gainDb,
       gainEvents: bgmFadeGainEvents(
@@ -1290,6 +1294,9 @@ var AkariEditKernel = (() => {
   }
   function finitePositive(value) {
     return typeof value === "number" && Number.isFinite(value) && value > 0;
+  }
+  function finiteClipSpeed(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0.25 && value <= 4;
   }
   function finiteNonNegative(value) {
     return typeof value === "number" && Number.isFinite(value) && value >= 0;

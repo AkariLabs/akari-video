@@ -67,6 +67,10 @@ export interface EditAudioKeyframe {
     gain_db?: number;
     easing?: string | Record<string, string>;
 }
+export interface EditAudioClipDenoise {
+    method: 'fft' | 'nlm';
+    strength: number;
+}
 export interface EditAudioSfx {
     id: string;
     t: number;
@@ -76,6 +80,11 @@ export interface EditAudioSfx {
     gainDb?: number;
     in?: number;
     out?: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
+    denoise?: EditAudioClipDenoise;
+    lowcut_hz?: number;
     keyframes?: EditAudioKeyframe[];
     ducking?: boolean;
     duck_db?: number;
@@ -99,6 +108,11 @@ export interface EditAudioNarration {
     gainDb?: number;
     in?: number;
     out?: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
+    denoise?: EditAudioClipDenoise;
+    lowcut_hz?: number;
     keyframes?: EditAudioKeyframe[];
     ducking?: boolean;
     duck_db?: number;
@@ -122,6 +136,11 @@ export interface EditAudioBgm {
     fadeIn?: number;
     fadeOut?: number;
     gainDb?: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
+    denoise?: EditAudioClipDenoise;
+    lowcut_hz?: number;
     ducking?: boolean;
     keyframes?: EditAudioKeyframe[];
     duck_db?: number;

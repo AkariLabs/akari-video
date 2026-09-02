@@ -153,6 +153,15 @@
       },
       "$comment": "provider は voicevox/fal/elevenlabs/human を契約文書で例示するのみで enum 強制はしない。provider === voicevox のときの credit 必須は validate-edit.mjs で検証する（兄弟値比較のため）。"
     },
+    "audioClipDenoise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "strength"],
+      "properties": {
+        "method": { "enum": ["fft", "nlm"] },
+        "strength": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
     "audioKeyframeLegacy": {
       "type": "object",
       "additionalProperties": false,
@@ -179,6 +188,11 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/positiveNumber" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "speed": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 4, "default": 1 },
+        "pitch_semitones": { "type": "number", "minimum": -24, "maximum": 24, "default": 0 },
+        "formant": { "enum": ["preserve", "shift"], "default": "preserve" },
+        "denoise": { "$ref": "#/$defs/audioClipDenoise" },
+        "lowcut_hz": { "type": "number", "minimum": 0, "maximum": 400, "default": 0 },
         "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
         "ducking": { "type": "boolean" },
         "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
@@ -197,6 +211,11 @@
       "properties": {
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "speed": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 4, "default": 1 },
+        "pitch_semitones": { "type": "number", "minimum": -24, "maximum": 24, "default": 0 },
+        "formant": { "enum": ["preserve", "shift"], "default": "preserve" },
+        "denoise": { "$ref": "#/$defs/audioClipDenoise" },
+        "lowcut_hz": { "type": "number", "minimum": 0, "maximum": 400, "default": 0 },
         "ducking": { "type": "boolean" },
         "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
         "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
@@ -219,6 +238,11 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/positiveNumber" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "speed": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 4, "default": 1 },
+        "pitch_semitones": { "type": "number", "minimum": -24, "maximum": 24, "default": 0 },
+        "formant": { "enum": ["preserve", "shift"], "default": "preserve" },
+        "denoise": { "$ref": "#/$defs/audioClipDenoise" },
+        "lowcut_hz": { "type": "number", "minimum": 0, "maximum": 400, "default": 0 },
         "fade_in": { "$ref": "#/$defs/seconds" },
         "fade_out": { "$ref": "#/$defs/seconds" },
         "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
@@ -799,7 +823,10 @@
         "kind": { "const": "media" },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds", "default": 0 },
-        "out": { "$ref": "#/$defs/seconds" }
+        "out": { "$ref": "#/$defs/seconds" },
+        "speed": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 4, "default": 1 },
+        "pitch_semitones": { "type": "number", "minimum": -24, "maximum": 24, "default": 0 },
+        "formant": { "enum": ["preserve", "shift"], "default": "preserve" }
       },
       "$comment": "audio lane 専用の media source。in/out は素材内の秒。in は省略時 0、out 省略時はファイル末尾まで再生し、対応する item.duration は実尺未解決を表す 0 センチネルにする。"
     },
@@ -1050,6 +1077,8 @@
         "role": { "enum": ["sfx", "narration", "bgm"] },
         "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "denoise": { "$ref": "#/$defs/audioClipDenoise" },
+        "lowcut_hz": { "type": "number", "minimum": 0, "maximum": 400, "default": 0 },
         "keyframes": {
           "type": "array",
           "minItems": 2,

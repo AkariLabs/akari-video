@@ -23,6 +23,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   ensurePreviewAudioSidecar,
+  hasAudioClipFx,
   probePreviewAudioSource,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
@@ -436,27 +437,43 @@ async function readFrameEnginePreviewEdit(filePath) {
     const sourcePath = sourcePathOf(raw.path);
     let stat;
     try { stat = fs.statSync(sourcePath); } catch { return raw; }
-    if (path.extname(sourcePath).toLowerCase() !== '.wav' || stat.size <= 8 * 1024 * 1024) return raw;
+    const clipFx = {
+      ...(kind !== 'narration' && Number.isFinite(raw.speed) ? { speed: raw.speed } : {}),
+      ...(kind !== 'narration' && Number.isFinite(raw.pitch_semitones)
+        ? { pitch_semitones: raw.pitch_semitones } : {}),
+      ...(kind !== 'narration' && (raw.formant === 'preserve' || raw.formant === 'shift')
+        ? { formant: raw.formant } : {}),
+      ...(raw.denoise && typeof raw.denoise === 'object' ? { denoise: raw.denoise } : {}),
+      ...(Number.isFinite(raw.lowcut_hz) ? { lowcut_hz: raw.lowcut_hz } : {}),
+    };
+    const needsClipFx = hasAudioClipFx(clipFx);
+    const isHeavyWav = path.extname(sourcePath).toLowerCase() === '.wav' && stat.size > 8 * 1024 * 1024;
+    if (!needsClipFx && !isHeavyWav) return raw;
     const probe = probePreviewAudioSource(sourcePath);
     if (!probe.ok) {
-      const warning = `${label} sidecar unavailable; using source: ${probe.reason}`;
+      const warning = needsClipFx
+        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${probe.reason}`
+        : `${label} sidecar unavailable; using source: ${probe.reason}`;
       speechWarnings.push(warning);
       console.warn(`[preview] ${warning}`);
       return raw;
     }
-    const inSec = (kind === 'bgm' || kind === 'sfx') && Number.isFinite(raw.in) && raw.in >= 0
+    const inSec = Number.isFinite(raw.in) && raw.in >= 0
       ? raw.in : 0;
-    const outSec = kind === 'sfx' && Number.isFinite(raw.out) && raw.out > inSec
+    const outSec = (kind === 'sfx' || kind === 'narration') && Number.isFinite(raw.out) && raw.out > inSec
       ? Math.min(raw.out, probe.durationSec) : probe.durationSec;
     if (!(outSec > inSec)) return raw;
     const startedAt = performance.now();
     const result = await ensurePreviewAudioSidecar({
-      sourcePath, inSec, outSec, speed: 1, padBeforeSec: 0, padAfterSec: 0,
+      sourcePath, inSec, outSec, speed: clipFx.speed ?? 1, padBeforeSec: 0, padAfterSec: 0,
+      ...(needsClipFx ? { clipFx } : {}),
       ffmpeg: tryResolve(resolveFfmpeg), cacheDir,
     });
     const generatedMs = performance.now() - startedAt;
     if (!result.ok) {
-      const warning = `${label} sidecar unavailable; using source: ${result.reason}`;
+      const warning = needsClipFx
+        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${result.reason}`
+        : `${label} sidecar unavailable; using source: ${result.reason}`;
       speechWarnings.push(warning);
       console.warn(`[preview] ${warning}`);
       return raw;

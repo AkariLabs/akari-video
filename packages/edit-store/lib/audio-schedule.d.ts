@@ -7,6 +7,11 @@ export interface WebAudioDecodedItem {
     t?: unknown;
     in?: unknown;
     out?: unknown;
+    speed?: unknown;
+    pitch_semitones?: unknown;
+    formant?: unknown;
+    denoise?: unknown;
+    lowcut_hz?: unknown;
     loop?: unknown;
     track?: unknown;
     gain_db?: unknown;

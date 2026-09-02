@@ -685,6 +685,7 @@ function validateBgm(value) {
     }
   }
   validateAudioEnvelope(value, "audio.bgm");
+  validateAudioClipFx(value, "audio.bgm");
 }
 
 function validateSfx(value) {
@@ -731,6 +732,7 @@ function validateSfx(value) {
       }
     }
     validateAudioEnvelope(item, label);
+    validateAudioClipFx(item, label);
   }
 }
 
@@ -764,7 +766,37 @@ function validateNarration(value) {
       }
     }
     validateAudioEnvelope(item, label);
+    validateAudioClipFx(item, label);
     validateNarrationProvenance(item.provenance, `${label}.provenance`);
+  }
+}
+
+function validateAudioClipFx(value, label) {
+  if (hasOwn(value, "speed") && (!isFiniteNumber(value.speed) || value.speed <= 0.25 || value.speed > 4)) {
+    fail(`${label}.speed は 0.25 より大きく 4 以下の有限数である必要があります`);
+  }
+  if (hasOwn(value, "pitch_semitones") && (!isFiniteNumber(value.pitch_semitones)
+      || value.pitch_semitones < -24 || value.pitch_semitones > 24)) {
+    fail(`${label}.pitch_semitones は -24 から 24 の範囲の有限数である必要があります`);
+  }
+  if (hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+    fail(`${label}.formant は preserve/shift のいずれかである必要があります`);
+  }
+  if (hasOwn(value, "lowcut_hz") && (!isFiniteNumber(value.lowcut_hz)
+      || value.lowcut_hz < 0 || value.lowcut_hz > 400)) {
+    fail(`${label}.lowcut_hz は 0 から 400 の範囲の有限数である必要があります`);
+  }
+  if (!hasOwn(value, "denoise")) return;
+  if (!isPlainObject(value.denoise)) {
+    fail(`${label}.denoise は object である必要があります`);
+    return;
+  }
+  if (value.denoise.method !== "fft" && value.denoise.method !== "nlm") {
+    fail(`${label}.denoise.method は fft/nlm のいずれかである必要があります`);
+  }
+  if (!isFiniteNumber(value.denoise.strength)
+      || value.denoise.strength < 0 || value.denoise.strength > 1) {
+    fail(`${label}.denoise.strength は 0 から 1 の範囲の有限数である必要があります`);
   }
 }
 

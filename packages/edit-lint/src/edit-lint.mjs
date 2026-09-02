@@ -952,6 +952,12 @@ function validateEditV2(edit, findings) {
           v2: true,
           timeScale: edit.output?.fps,
         });
+        if (isRecord(item.source)) {
+          validateAudioClipFxDeclaration(item.source, role, findings, itemPath, {
+            sourcePath: `${itemPath}.source`,
+          });
+        }
+        validateAudioClipFxDeclaration(item, role, findings, itemPath);
         for (const [field, bgmField] of [["fade_in", "fadeIn"], ["fade_out", "fadeOut"]]) {
           if (!Object.hasOwn(item, field) || (isFiniteNumber(item[field]) && item[field] >= 0)) continue;
           addFinding(findings, {
@@ -2221,6 +2227,7 @@ async function validateNarration(narration, timeline, findings, paths) {
       findings,
       itemPath,
     );
+    validateAudioClipFxDeclaration(item, "narration", findings, itemPath);
 
   }
 }
@@ -2279,6 +2286,7 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
         });
       }
       validateAudioEnvelopeDeclaration(bgm, "bgm", timeline, findings, "edit.json#audio.bgm");
+      validateAudioClipFxDeclaration(bgm, "bgm", findings, "edit.json#audio.bgm");
       // audio.bgm.fadeIn/fadeOut clamp rule: render-cut trims/loops bgm to the full timeline, so
       // fadeIn/fadeOut are each independently clamped there at timeline/2 -- warn here so the same
       // overshoot is visible before rendering.
@@ -2376,6 +2384,7 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
       findings,
       itemPath,
     );
+    validateAudioClipFxDeclaration(item, "sfx", findings, itemPath);
     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: in/out はどちらも省略可（片方のみの
     // 指定は valid）で、型不正（負値・非数値）は schema 側（edit.schema.json + validate-edit.mjs）が
     // 拒否する。edit-lint はスキーマ単体では表せない兄弟値の関係（out > in）だけをここで検証する
@@ -2452,6 +2461,77 @@ function validateAudioDuckKeys(value, findings) {
       check: "audio.duck-keys",
       message: "duck_keys must contain unique narration/speech values",
       path: "edit.json#audio.duck_keys",
+    });
+  }
+}
+
+function validateAudioClipFxDeclaration(value, role, findings, path, options = {}) {
+  if (!isRecord(value)) return;
+  const sourcePath = options.sourcePath ?? path;
+  if (Object.hasOwn(value, "speed")) {
+    if (!isFiniteNumber(value.speed) || value.speed <= 0.25 || value.speed > 4) {
+      addFinding(findings, {
+        severity: "error", check: `audio.${role}.speed`,
+        message: "speed must be a finite number within (0.25, 4]", path: `${sourcePath}.speed`,
+      });
+    }
+    if (role === "narration") {
+      addFinding(findings, {
+        severity: "warning", check: "audio.narration.speed-ignored",
+        message: "narration speed is owned by TTS and will be ignored", path: `${sourcePath}.speed`,
+      });
+    }
+  }
+  if (Object.hasOwn(value, "pitch_semitones")) {
+    if (!isFiniteNumber(value.pitch_semitones)
+        || value.pitch_semitones < -24 || value.pitch_semitones > 24) {
+      addFinding(findings, {
+        severity: "error", check: `audio.${role}.pitch-semitones`,
+        message: "pitch_semitones must be a finite number within [-24, 24]",
+        path: `${sourcePath}.pitch_semitones`,
+      });
+    }
+    if (role === "narration") {
+      addFinding(findings, {
+        severity: "warning", check: "audio.narration.pitch-ignored",
+        message: "narration pitch_semitones is owned by TTS and will be ignored",
+        path: `${sourcePath}.pitch_semitones`,
+      });
+    }
+  }
+  if (Object.hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.formant`,
+      message: "formant must be preserve or shift", path: `${sourcePath}.formant`,
+    });
+  }
+  if (Object.hasOwn(value, "lowcut_hz")
+      && (!isFiniteNumber(value.lowcut_hz) || value.lowcut_hz < 0 || value.lowcut_hz > 400)) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.lowcut-hz`,
+      message: "lowcut_hz must be a finite number within [0, 400]", path: `${path}.lowcut_hz`,
+    });
+  }
+  if (!Object.hasOwn(value, "denoise")) return;
+  if (!isRecord(value.denoise)) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise`,
+      message: "denoise must be an object", path: `${path}.denoise`,
+    });
+    return;
+  }
+  if (value.denoise.method !== "fft" && value.denoise.method !== "nlm") {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise-method`,
+      message: "denoise.method must be fft or nlm", path: `${path}.denoise.method`,
+    });
+  }
+  if (!isFiniteNumber(value.denoise.strength)
+      || value.denoise.strength < 0 || value.denoise.strength > 1) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise-strength`,
+      message: "denoise.strength must be a finite number within [0, 1]",
+      path: `${path}.denoise.strength`,
     });
   }
 }
