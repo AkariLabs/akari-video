@@ -71,7 +71,7 @@ const CODEC_CHOICES = ["h264", "hevc"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
   [--codec h264|hevc] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
-  [--gpu-preference auto|off|force] [--progress]
+  [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -372,6 +372,8 @@ export async function renderProject(input, options = {}, io = console) {
           ...commonV2Options,
           eligibility: gpuEligibility,
           launcher: gpuLauncher,
+          preview: options.preview ?? "auto",
+          previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
         }),
         runOsr: async () => {
           osrLauncher = await resolveOsrLauncher();
@@ -598,6 +600,7 @@ export function parseArguments(argv, env = process.env) {
     fps: undefined,
     scaleTo: undefined,
     progress: false,
+    preview: undefined,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -605,6 +608,10 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
     else if (argument === "--progress") options.progress = true;
+    else if (argument === "--preview") {
+      if (index + 1 >= argv.length) throw new Error("--preview requires a value");
+      options.preview = parsePreviewValue(argv[++index]);
+    } else if (argument.startsWith("--preview=")) options.preview = parsePreviewValue(argument.slice(10));
     else if (argument === "--codec") {
       if (index + 1 >= argv.length) throw new Error("--codec requires a value");
       options.codec = parseCodecValue(argv[++index]);
@@ -679,6 +686,11 @@ function parseEngineValue(value) {
   if (!ENGINE_CHOICES.includes(value)) {
     throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
   }
+  return value;
+}
+
+function parsePreviewValue(value) {
+  if (value !== "auto" && value !== "off") throw new Error(`--preview must be auto|off, got: ${value}`);
   return value;
 }
 

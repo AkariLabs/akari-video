@@ -2,6 +2,7 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { DisposableCollection } from '@theia/core/lib/common';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { computeExportChipState, ExportChipState } from '../../common/export-chip-state';
+import { AkariQuickExportService } from '../../common/quick-export-protocol';
 import { AkariExportSessionService } from '../akari-export-session-service';
 import { AkariExportDialog } from './akari-export-dialog';
 import {
@@ -9,6 +10,7 @@ import {
     exportThumbnailStripStore
 } from './export-thumbnail-strip';
 import { formatClock } from './export-view-shared';
+import { AkariExportLiveFrameStore, exportLiveFrameStore } from './export-live-frame';
 
 @injectable()
 export class AkariExportBackgroundChip implements FrontendApplicationContribution {
@@ -18,6 +20,11 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
     protected readonly dialog!: AkariExportDialog;
     @inject(AkariExportThumbnailStripStore)
     protected readonly thumbnailStripStore!: AkariExportThumbnailStripStore;
+    @inject(AkariQuickExportService)
+    protected readonly quickExportService!: AkariQuickExportService;
+
+    protected readonly liveFrameStore: AkariExportLiveFrameStore = exportLiveFrameStore();
+    protected liveFrameSubscribed = false;
 
     protected readonly toDispose = new DisposableCollection();
     protected element: HTMLDivElement | undefined;
@@ -40,6 +47,10 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
         this.dialogVisible = this.dialog.isAttached;
         this.createElement();
         this.ensureThumbnailStoreSubscription();
+        if (!this.liveFrameSubscribed) {
+            this.liveFrameSubscribed = true;
+            this.toDispose.push(this.liveFrameStore.onDidChange(() => this.render()));
+        }
         this.toDispose.push(this.session.onDidChange(() => this.render()));
         this.toDispose.push(this.dialog.onDidChangeVisibility(visible => {
             this.dialogVisible = visible;
@@ -192,6 +203,10 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
     }
 
     protected render(): void {
+        this.liveFrameStore.update(
+            this.session.snapshot.status,
+            path => this.quickExportService.readPreviewFrame(path)
+        );
         let state = computeExportChipState(this.session.snapshot, this.dialogVisible, this.dismissed);
         if (state.kind === 'running' && this.dismissed) {
             this.dismissed = false;
@@ -233,9 +248,13 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
             this.progressFill.style.width = `${state.percent}%`;
         }
         if (this.preview) {
-            const frameIndex = running ? thumbnailStore.currentIndex(state.percent) : -1;
-            const dataUrl = frameIndex >= 0 ? thumbnailStore.strip?.frames[frameIndex]?.dataUrl : undefined;
+            const live = running ? this.liveFrameStore.frame : undefined;
+            const frameIndex = running && !live ? thumbnailStore.currentIndex(state.percent) : -1;
+            const dataUrl = live?.dataUrl
+                ?? (frameIndex >= 0 ? thumbnailStore.strip?.frames[frameIndex]?.dataUrl : undefined);
             this.preview.style.backgroundImage = dataUrl ? `url("${dataUrl}")` : '';
+            if (live) this.preview.setAttribute('data-akari-export-chip-live-frame', String(live.frameNumber));
+            else this.preview.removeAttribute('data-akari-export-chip-live-frame');
             if (running) {
                 this.preview.style.backgroundSize = 'cover';
                 this.preview.style.backgroundPosition = 'center';

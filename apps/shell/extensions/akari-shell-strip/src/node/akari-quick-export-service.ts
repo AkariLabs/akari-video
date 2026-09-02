@@ -2,7 +2,7 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { promises as fs } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, sep } from 'path';
 import {
     AkariQuickExportService,
     QuickExportLintFinding,
@@ -33,6 +33,23 @@ import { childNodeEnvironment, electronResourcesPath } from './child-node-proces
 const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
 const RENDER_CUT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'render-report.html');
+export const EXPORT_PREVIEW_RELATIVE_DIRECTORY = join('.akari', 'cache', 'export-preview');
+
+/** プロジェクト内の許可ディレクトリ配下に限定して解決する。外なら undefined。 */
+export function resolveExportPreviewPath(
+    projectRoot: string | undefined,
+    candidate: string
+): string | undefined {
+    if (!projectRoot || typeof candidate !== 'string' || candidate.length === 0) {
+        return undefined;
+    }
+    const allowedRoot = resolve(projectRoot, EXPORT_PREVIEW_RELATIVE_DIRECTORY);
+    const resolved = resolve(candidate);
+    if (resolved === allowedRoot) {
+        return undefined;
+    }
+    return resolved.startsWith(`${allowedRoot}${sep}`) ? resolved : undefined;
+}
 
 interface SpawnResult {
     readonly exitCode: number | null;
@@ -181,6 +198,19 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 copied: false,
                 reason: `コピー用コマンドを起動できませんでした: ${message.replace(/\s+/gu, ' ')}`
             };
+        }
+    }
+
+    async readPreviewFrame(path: string): Promise<string | undefined> {
+        const resolved = resolveExportPreviewPath(this.currentProjectRoot, path);
+        if (!resolved) {
+            return undefined;
+        }
+        try {
+            const bytes = await this.fsImpl.readFile(resolved);
+            return `data:image/jpeg;base64,${bytes.toString('base64')}`;
+        } catch {
+            return undefined;
         }
     }
 
@@ -374,7 +404,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             progressStage: snapshot.stage,
             progressFrame: snapshot.frame,
             progressTotalFrames: snapshot.totalFrames,
-            progressEngine: snapshot.engine
+            progressEngine: snapshot.engine,
+            progressPreviewFrame: snapshot.previewFrame,
+            progressPreviewPath: snapshot.previewPath
         });
     }
 

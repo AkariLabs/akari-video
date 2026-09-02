@@ -5,6 +5,7 @@ import {
     AkariQuickExportServiceImpl,
     buildRevealArtifactCommand
 } from '../lib/node/akari-quick-export-service.js';
+import { resolveExportPreviewPath } from '../lib/node/akari-quick-export-service.js';
 
 test('start: バックエンドの予期しない例外を failed へ終端させる', async () => {
     class ThrowingService extends AkariQuickExportServiceImpl {
@@ -209,4 +210,48 @@ test('copyArtifact: コピーコマンドの終了コードを結果へ反映す
     const failure = await failed.copyArtifact();
     assert.equal(failure.copied, false);
     assert.match(failure.reason, /exit code 7/);
+});
+
+test('readPreviewFrame: 許可ディレクトリ配下の JPEG を data URL として返す', async () => {
+    class PreviewService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.currentProjectRoot = '/project';
+            this.fsImpl = {
+                readFile: async path => {
+                    this.readPath = path;
+                    return Buffer.from([0xff, 0xd8, 0xff]);
+                }
+            };
+        }
+    }
+    const path = '/project/.akari/cache/export-preview/30.jpg';
+    assert.equal(resolveExportPreviewPath('/project', path), path);
+    const service = new PreviewService();
+    assert.equal(await service.readPreviewFrame(path), 'data:image/jpeg;base64,/9j/');
+    assert.equal(service.readPath, path);
+});
+
+test('readPreviewFrame: 許可ディレクトリ外を拒否してファイルを読まない', async () => {
+    class GuardedPreviewService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.currentProjectRoot = '/project';
+            this.readCount = 0;
+            this.fsImpl = {
+                readFile: async () => {
+                    this.readCount += 1;
+                    return Buffer.from('unexpected');
+                }
+            };
+        }
+    }
+    const outside = '/project/exports/final.mp4';
+    const traversal = '/project/.akari/cache/export-preview/../../../etc/passwd';
+    assert.equal(resolveExportPreviewPath('/project', outside), undefined);
+    assert.equal(resolveExportPreviewPath('/project', traversal), undefined);
+    const service = new GuardedPreviewService();
+    assert.equal(await service.readPreviewFrame(outside), undefined);
+    assert.equal(await service.readPreviewFrame(traversal), undefined);
+    assert.equal(service.readCount, 0);
 });
