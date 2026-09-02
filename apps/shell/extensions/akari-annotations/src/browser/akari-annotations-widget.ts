@@ -5578,38 +5578,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.audioSfx.map(item => item.id),
             ...this.audioNarration.map(item => item.id),
         ]);
-        for (const bag of this.timelineTreeRows.filter(row => row.hasChildren
-            && (row.sourceKind === 'captions' || row.sourceKind === 'html'))) {
+        // captions 袋（sourceKind 'captions'）の帯チップと目盛りは描かない: 字幕チップ自体が常に描かれるため
+        // 二重表示になり、オーナー実機 2026-09-02「謎のグループの茶色い帯、いらない」。html 袋は従来どおり
+        // トラック帯へ目盛りを載せる。
+        for (const bag of this.timelineTreeRows.filter(row => row.hasChildren && row.sourceKind === 'html')) {
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === bag.trackId);
             if (!layout || !this.isRangeMounted(bag.at, bag.at + bag.duration)) continue;
             let element = this.strip.querySelector<HTMLElement>(
                 `[data-akari-item-id="${CSS.escape(bag.id)}"]`
             );
-            if (!element && bag.sourceKind === 'captions') {
-                const keyed = this.keyedStripSegment(
-                    `tree-bag:${bag.id}`, JSON.stringify(bag), bag.at, bag.at + bag.duration,
-                    layout.top, SUBROW_HEIGHT,
-                    'akari-annotations-strip-overlay akari-timeline-tree-bag', bag.label
-                );
-                element = keyed.element;
-                element.dataset.akariItemId = bag.id;
-                element.dataset.akariItemKind = 'item';
-                element.dataset.akariTreeItemKind = bag.itemKind;
-                element.dataset.akariTreeTrackId = bag.trackId;
-                element.style.pointerEvents = 'auto';
-                if (keyed.created) {
-                    element.appendChild(this.segmentLabel(bag.label));
-                    element.addEventListener('click', event => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (this.detectTreeDoubleClick(bag.id, event.clientX, event.clientY)) {
-                            this.enterTreeItem(bag);
-                            return;
-                        }
-                        this.applySelection(this.selectionForTreeRow(bag));
-                    });
-                }
-            }
             const usesTrackBand = !element;
             if (!element) {
                 element = this.strip.querySelector<HTMLElement>(
@@ -5617,7 +5594,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 );
             }
             if (!element) continue;
-            if (bag.sourceKind === 'captions') element.dataset.akariTreeRowId = bag.id;
             for (const marker of Array.from(element.querySelectorAll(
                 `[data-akari-tree-bag-tick="${CSS.escape(bag.id)}"]`
             ))) marker.remove();
@@ -10017,7 +9993,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const snap = this.snapTimeInSourceSpaceWithResult(
                     state.originalStart + delta, showGuide, originalEdges
                 );
-                start = snap.time;
+                // 0 秒より前へは置けない（2026-09-02 実機: 0:00 へ寄せると -0:00 になっていた）
+                start = Math.max(0, snap.time);
                 snapped = snap.snapped;
                 end = state.originalEnd + (start - state.originalStart);
             } else {
@@ -10050,11 +10027,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     outputEnd = resolved.outputEnd;
                     if (resolved.convertsToOutput) timeDomain = 'output';
                 } else if (edge === 'start') {
-                    start = snap.time;
+                    start = Math.max(0, snap.time);
                 } else {
                     end = snap.time;
                 }
             }
+            start = Math.max(0, start);
             if (timeDomain === 'output') {
                 const clamped = clampCaptionOutputRange(start, end, this.totalDuration());
                 start = clamped.start;
@@ -10067,7 +10045,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const guard = clampCaptionRangeToNeighbors({
                 id: state.id, start, end, mode: state.mode,
                 neighbors: this.captionOverlapNeighbors(state.id, timeDomain),
-                minDuration: MINIMUM_ITEM_DURATION
+                minDuration: MINIMUM_ITEM_DURATION,
+                // 正当な位置が作れないときはドラッグ前の区間へ戻す（0 秒側へ押し出さない）
+                fallback: timeDomain === 'output' && state.originalTimeDomain !== 'output'
+                    ? { start: originalOutputStart ?? state.originalStart, end: originalOutputEnd ?? state.originalEnd }
+                    : { start: state.originalStart, end: state.originalEnd }
             });
             const blockedByNeighbor = guard.clamped;
             if (guard.clamped) {
@@ -10216,8 +10198,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? ' ⚠ 実尺不明のため無制限' : durationPending ? ' (実尺確認中…)' : '';
             let input = state.originalIn;
             let output = state.originalOut;
+            let snapped = false;
+            // 動かしている端を出力秒に写してマグネットへ通す（2026-09-02 実機報告「下の素材の IN/OUT で
+            // マグネットが効かない」= 音声クリップの端トリムだけ吸着が無かった）。吸着後に素材の
+            // 実尺・最小尺・0 秒の制約を掛け直す。
+            const originalEdges = [
+                { time: state.originalT },
+                { time: state.originalT + (state.originalOut - state.originalIn) }
+            ];
             if (state.edge === 'left') {
-                const rawInput = state.originalIn + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    state.originalT + delta, showGuide, originalEdges, { kind: 'audio', id: state.id }
+                );
+                snapped = snap.snapped;
+                const rawInput = state.originalIn + (snap.time - state.originalT);
                 const minInputForT = Math.max(0, state.originalIn - state.originalT);
                 input = Math.min(
                     Math.max(rawInput, minInputForT),
@@ -10225,7 +10219,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 );
                 input = Math.max(0, input);
             } else {
-                const rawOutput = state.originalOut + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    state.originalT + (state.originalOut - state.originalIn) + delta, showGuide, originalEdges,
+                    { kind: 'audio', id: state.id }
+                );
+                snapped = snap.snapped;
+                const rawOutput = state.originalIn + (snap.time - state.originalT);
                 const cappedOutput = maxOutSeconds !== undefined ? Math.min(rawOutput, maxOutSeconds) : rawOutput;
                 output = Math.max(cappedOutput, input + MINIMUM_SFX_TRIM_DURATION);
             }
@@ -10234,6 +10233,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : state.originalT;
             this.setGhostRange(state.ghost, t, t + Math.max(0, output - input));
             this.setGhostRejected(state.ghost, false);
+            this.setGhostSnapped(state.ghost, snapped);
             this.updateDragFeedback(state,
                 `${state.edge === 'left' ? 'In' : 'Out'} ${this.formatTimestamp(state.edge === 'left' ? input : output)} `
                 + `/ 尺 ${(output - input).toFixed(2)} 秒${durationWarningSuffix}`
@@ -10639,8 +10639,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const excluded = exclude ? this.snapExclusionsFor(exclude) : [];
         const candidates = collectEdgeCandidates(items.filter(item =>
             !excluded.some(entry => entry.kind === item.kind && entry.id === item.id)));
+        // 出力時間軸に置かれた物（重ね物・テロップ・効果音・ナレーション・output 字幕）の端も、
+        // どこかのセグメント内にある限り source 秒へ写して候補にする（2026-09-02 実機報告
+        // 「下の素材の IN/OUT でマグネットが効かない」= source 時間軸の字幕がこれらへ吸着しなかった）。
+        const projected: SnapCandidate[] = this.outputSnapCandidates([], exclude)
+            .filter(candidate => !candidate.isPlayhead
+                && this.segments.some(segment => candidate.time >= segment.tlStart - 1e-9
+                    && candidate.time <= segment.tlEnd + 1e-9))
+            .map(candidate => ({ time: this.outputToSource(candidate.time) }));
         return [
             ...candidates,
+            ...projected,
             { time: this.outputToSource(this.playheadT), isPlayhead: true },
             { time: 0 },
             ...extraCandidates
