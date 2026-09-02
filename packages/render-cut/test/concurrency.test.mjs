@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 import { legacyRenderArgs } from "./helpers/render-engine.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -17,10 +18,25 @@ const writeFile = createMigratingWriteFile(rawWriteFile);
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
-function runAsync(project, args) {
+function resolveMediaCommands(t) {
+  try {
+    const commands = { ffmpeg: resolveFfmpeg(), ffprobe: resolveFfprobe() };
+    if (spawnSync(commands.ffmpeg, ["-version"]).status !== 0
+      || spawnSync(commands.ffprobe, ["-version"]).status !== 0) {
+      t.skip("ffmpeg or ffprobe unavailable");
+      return null;
+    }
+    return commands;
+  } catch (error) {
+    t.skip(error.message);
+    return null;
+  }
+}
+
+function runAsync(project, args, env = process.env) {
   return new Promise((resolvePromise) => {
     // This suite measures legacy render isolation; engine resolution has separate unit coverage.
-    const child = spawn(process.execPath, [cliPath, project, ...legacyRenderArgs(args)]);
+    const child = spawn(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], { env });
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     let stdout = "";
@@ -37,11 +53,11 @@ function runAsync(project, args) {
 
 // Minimal fixture (short, no overlays) so the run is fast under load and never needs Chrome —
 // the point of this test is proving render-tmp isolation, not exercising the rasterizer.
-async function makeMinimalProject() {
+async function makeMinimalProject(ffmpegCommand = "ffmpeg") {
   const root = await mkdtemp(join(tmpdir(), "render-cut-concurrency-test-"));
   const source = join(root, "source.mp4");
   const generated = spawnSync(
-    "ffmpeg",
+    ffmpegCommand,
     [
       "-hide_banner",
       "-loglevel",
@@ -162,6 +178,41 @@ test("a stale (>24h old) leftover run directory is swept on the next real run; a
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.ok(state.provenance.render_tmp_dir, "the run's own directory should be recorded in provenance");
     assert.notEqual(state.provenance.render_tmp_dir, ".akari/render-tmp");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("a failed CLI run self-cleans unless kept, and the next run immediately sweeps a kept dead owner", async (t) => {
+  const media = resolveMediaCommands(t);
+  if (!media) return;
+  const project = await makeMinimalProject(media.ffmpeg);
+  const renderTmpRoot = join(project, ".akari", "render-tmp");
+  const failingEnvironment = {
+    ...process.env,
+    AKARI_EXPORT_ALLOW_DESKTOP: "0",
+    FFMPEG: process.execPath,
+    FFPROBE: media.ffprobe,
+  };
+  try {
+    const removed = await runAsync(project, ["--out", join(project, "failed-a.mp4")], failingEnvironment);
+    assert.equal(removed.status, 2, removed.stderr);
+    assert.deepEqual(await readdir(renderTmpRoot), []);
+
+    const kept = await runAsync(project, ["--out", join(project, "failed-b.mp4")], {
+      ...failingEnvironment,
+      AKARI_KEEP_FAILED_RENDER_TMP: "1",
+    });
+    assert.equal(kept.status, 2, kept.stderr);
+    const keptEntries = await readdir(renderTmpRoot);
+    assert.equal(keptEntries.length, 1);
+    const owner = JSON.parse(await readFile(join(renderTmpRoot, keptEntries[0], "owner.json"), "utf8"));
+    assert.equal(Number.isInteger(owner.pid), true);
+    assert.match(owner.started, /^\d{4}-\d{2}-\d{2}T/u);
+
+    const retry = await runAsync(project, ["--out", join(project, "failed-c.mp4")], failingEnvironment);
+    assert.equal(retry.status, 2, retry.stderr);
+    assert.deepEqual(await readdir(renderTmpRoot), []);
   } finally {
     await rm(project, { recursive: true, force: true });
   }
