@@ -76,7 +76,7 @@ export function resolveOsrVideoEncodeArgs({ quality, encoder, codec = "h264", ed
 
 export function startRawVideoEncoder({
   ffmpegCommand, outputPath, width, height, outputWidth, outputHeight, fps, quality, encoder, edit,
-  codec = processArgument("--codec") ?? "h264",
+  codec = "h264",
   queueDepth = 3, spawnImpl = spawn,
 }) {
   const { policy, args: videoArgs } = resolveOsrVideoEncodeArgs({ quality, encoder, codec, edit, ffmpegCommand });
@@ -152,9 +152,4 @@ export function startRawVideoEncoder({
       child.kill("SIGTERM");
     },
   };
-}
-
-function processArgument(name) {
-  const index = process.argv.indexOf(name);
-  return index >= 0 && index + 1 < process.argv.length ? process.argv[index + 1] : undefined;
 }

@@ -44,6 +44,7 @@ export async function runOsrExport(options) {
     frames = Math.round(duration * fps),
     quality = "high",
     encoder = "auto",
+    codec = "h264",
     verify = "stamp",
     soft = false,
     paintTimeoutMs = 10_000,
@@ -161,7 +162,7 @@ export async function runOsrExport(options) {
       mode: soft ? "soft" : "gpu",
       framesRequested: frames,
       framesCompleted: 0,
-      width, height, fps, duration,
+      width, height, fps, duration, codec,
       output_scale: outputScale,
       gpu,
       viewport,
@@ -170,7 +171,7 @@ export async function runOsrExport(options) {
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     encoderSession = startRawVideoEncoder({
-      ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, edit: built.edit, queueDepth,
+      ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, codec, edit: built.edit, queueDepth,
     });
 
     for (let frame = 0; frame < frames; frame += 1) {
@@ -233,7 +234,7 @@ export async function runOsrExport(options) {
     const encoded = await encoderSession.finish();
     encoderSession = null;
     const ffprobe = await verifyEncodedVideo({
-      command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
+      command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight, codec,
     });
     if (!ffprobe.matched) throw new Error(`ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     await destroyWindow(windowRef);
@@ -246,7 +247,7 @@ export async function runOsrExport(options) {
       mode: soft ? "soft" : "gpu",
       framesRequested: frames,
       framesCompleted: frames,
-      width, height, fps, duration,
+      width, height, fps, duration, codec,
       output_scale: outputScale,
       gpu,
       verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
@@ -272,6 +273,7 @@ export async function runOsrExport(options) {
       version: 1,
       status: "failed",
       error: String(error?.stack ?? error),
+      codec,
       framesRequested: frames,
       output_scale: outputScale,
       gpu,
@@ -483,7 +485,7 @@ export async function runOsrCapture(options) {
 export function parseElectronArguments(argv) {
   const options = {
     projectRoot: null, editPath: null, out: null, fps: 30, width: 1920, height: 1080,
-    duration: null, frames: null, quality: "high", encoder: "auto", verify: "stamp", soft: false,
+    duration: null, frames: null, quality: "high", encoder: "auto", codec: "h264", verify: "stamp", soft: false,
     queueDepth: 3, dumpFrames: [], captureFrames: null, captureOutputDirectory: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -500,6 +502,7 @@ export function parseElectronArguments(argv) {
     else if (argument === "--frames") options.frames = positiveInteger(required(argv, ++index, "--frames"), "--frames");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");
     else if (argument === "--encoder") options.encoder = required(argv, ++index, "--encoder");
+    else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--verify") options.verify = required(argv, ++index, "--verify");
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"));
@@ -756,6 +759,7 @@ async function destroyWindow(windowRef) {
 function required(argv, index, option) { if (index >= argv.length) throw new Error(`${option} requires a value`); return argv[index]; }
 function positiveNumber(value, label) { const number = Number(value); if (!Number.isFinite(number) || number <= 0) throw new Error(`${label} requires a positive number`); return number; }
 function positiveInteger(value, label) { const number = positiveNumber(value, label); if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`); return number; }
+function codecValue(value) { if (!["h264", "hevc"].includes(value)) throw new Error(`--codec must be h264|hevc, got: ${value}`); return value; }
 function parseFrameList(value) {
   if (value === "") return [];
   return [...new Set(value.split(",").map((entry) => {
