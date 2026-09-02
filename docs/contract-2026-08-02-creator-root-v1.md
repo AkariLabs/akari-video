@@ -61,6 +61,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 ├── AGENTS.md                      # 橋渡し（akari.md / design.md へ誘導）。初回はスタブ生成
 ├── channels/
 │   └── <channel>/
+│       ├── .akari/memory/word-book.json # 任意。チャンネル単語帳（word book v0 契約）
 │       ├── design.md              # チャンネル設計書（任意。生成工程は非スコープ）
 │       └── videos/
 │           └── <project>/         # 動画プロジェクト（内部は project-structure-v0 のまま）
@@ -69,7 +70,7 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 └── .akari/
     ├── root.json                  # 作業場マニフェスト（版数・チャンネル一覧・生成日）
     ├── connections.json           # provider・モデル・コスト承認ポリシーの作業場既定
-    ├── memory/                    # スタイル学習・記憶（memory-connection の既定接続先 §7）
+    ├── memory/                    # スタイル学習・記憶（memory-connection の既定接続先 §7、word-book.json）
     └── cache/                     # 再生成可能物
 ```
 

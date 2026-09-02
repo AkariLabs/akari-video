@@ -33,22 +33,12 @@ test('正準表は 29 種・8 カテゴリで id / xfade 名が一意', () => {
   assert.equal(TRANSITION_BY_ID.dissolve.previewKind, 'dissolve');
 });
 
-test('schema enum と render-cut xfade 表は正準表から 1 種消しても検知できる完全一致', () => {
+// 33e9250d で legacy 合成経路が撤去され、render-cut の XFADE_TRANSITION_NAMES も削除された。
+// 映像トランジションの実装は frame-engine の compositor/webgl2.ts にある id 分岐へ移った。
+// 29 id の全件カバレッジは frame-engine/test/compositor-contract.test.mjs:101 が担う。
+test('schema enum は正準表から 1 種消しても検知できる完全一致', () => {
   const schema = JSON.parse(readFileSync(join(repoRoot, 'packages', 'schemas', 'edit.schema.json'), 'utf8'));
   assert.deepEqual(schema.$defs.transitionOut.properties.type.enum, TRANSITION_TYPE_IDS);
-
-  const planSource = readFileSync(join(repoRoot, 'packages', 'render-cut', 'src', 'plan.mjs'), 'utf8');
-  const block = planSource.slice(
-    planSource.indexOf('const XFADE_TRANSITION_NAMES = {'),
-    planSource.indexOf('\n};', planSource.indexOf('const XFADE_TRANSITION_NAMES = {')) + 3
-  );
-  const actual = {};
-  for (const match of block.matchAll(/^\s*(?:"([^"]+)"|([a-z][\w-]*)):\s*"([^"]+)",/gmu)) {
-    actual[match[1] ?? match[2]] = match[3];
-  }
-  assert.deepEqual(actual, Object.fromEntries(
-    TRANSITION_VOCABULARY.map(entry => [entry.id, entry.xfadeName])
-  ));
 });
 
 test('legacy テキスト手術は正準 29 種をすべて保存し、未知種別を拒否する', () => {
