@@ -6,6 +6,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
+    KeyframeControlRequest,
     LivePreviewRequest,
     LivePreviewTarget,
     TimelineAudioSelection,
@@ -19,6 +20,7 @@ import {
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot
 } from './timeline-selection-model';
+import { keyframeValueAt } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
 import {
     createNumberField,
@@ -1949,7 +1951,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-kf-controls {
         display: grid;
-        grid-template-columns: repeat(3, 18px);
+        grid-template-columns: repeat(4, 18px);
         align-items: center;
     }
     .akari-inspector-widget .akari-inspector-kf-controls button {
@@ -1967,6 +1969,11 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-kf-controls button:active {
         background: var(--theia-button-background);
         color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-kf-controls button:disabled {
+        opacity: .35;
+        background: transparent;
+        color: var(--theia-disabledForeground);
     }
     .akari-inspector-widget .akari-inspector-kf-seat {
         color: var(--theia-textLink-foreground);
@@ -2370,14 +2377,18 @@ export class AkariInspectorWidget extends BaseWidget {
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
         const selected = this.model.keyframeSelection;
         const keyframeValue = fieldName === 'transform-scale' ? value / 100 : value;
-        const request = (action: 'toggle' | 'previous' | 'next'): void => {
+        const hasKeyframes = snapshot.keyframes?.some(point =>
+            keyframeValueAt(point, property) !== undefined) ?? false;
+        const request = (action: Exclude<KeyframeControlRequest['action'], 'easing'>): void => {
             void this.model.requestKeyframe?.({ action, itemId, property, value: keyframeValue });
         };
         return {
             active: selected?.itemId === itemId && selected.property === property,
+            hasKeyframes,
             onToggle: () => request('toggle'),
             onPrevious: () => request('previous'),
-            onNext: () => request('next')
+            onNext: () => request('next'),
+            onReveal: () => request('reveal')
         };
     }
 
@@ -2455,13 +2466,14 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             const numericValue = Number(editValue);
             if (Number.isFinite(numericValue)) {
+                const keyframe = this.keyframeSeatOptions(snapshot, fieldName, numericValue);
                 const numberField = createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
                     displayScale: field.displayScale,
                     onPreview: sendLive,
                     onCommit: value => commitValue(String(value), () => undefined),
-                    keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
+                    keyframe
                 });
                 if (field.disabled) {
                     for (const control of Array.from(numberField.querySelectorAll('button, input'))) {
@@ -2470,6 +2482,15 @@ export class AkariInspectorWidget extends BaseWidget {
                     if (field.title) numberField.title = field.title;
                 }
                 row.appendChild(numberField);
+                if (keyframe?.hasKeyframes) {
+                    row.addEventListener('dblclick', event => {
+                        const target = event.target instanceof Element ? event.target : undefined;
+                        if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        keyframe.onReveal();
+                    });
+                }
             }
             this.attachRowMenu(row, field, snapshot, kind);
             parent.appendChild(row);

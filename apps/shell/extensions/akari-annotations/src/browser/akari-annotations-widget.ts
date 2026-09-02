@@ -1427,6 +1427,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: 1;
         z-index: 5;
     }
+    .akari-annotations-widget .akari-timeline-keyframe-property-selected {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
+        background: color-mix(in srgb, var(--theia-focusBorder) 22%, transparent);
+        color: var(--theia-foreground);
+    }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         width: 100%;
         height: 100%;
@@ -3347,6 +3353,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const freeze = readCutFreeze((cut as EditCut & { freeze?: unknown }).freeze);
+            const rawKeyframes = this.rawKeyframeItem(this.cutItemId(selection.index))?.keyframes;
             return {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 trackName: this.trackDisplayNameForItem(this.cutItemId(selection.index)),
@@ -3363,6 +3370,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
                 ...(freeze ? { freeze } : {}),
                 ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
@@ -3377,11 +3385,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const crop = overlay.payload.crop && typeof overlay.payload.crop === 'object'
                 && !Array.isArray(overlay.payload.crop)
                 ? overlay.payload.crop as unknown as TimelineCropSnapshot : undefined;
+            const rawKeyframes = this.rawKeyframeItem(overlay.id)?.keyframes;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
                 trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
                 ...(crop !== undefined ? { crop } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 payload: overlay.payload
             };
         }
@@ -3408,6 +3418,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const raw = this.rawV2Item(layer.id);
+            const rawKeyframes = this.rawKeyframeItem(layer.id)?.keyframes;
             const params = raw?.source?.kind === 'telop' && raw.source.params
                 && typeof raw.source.params === 'object' && !Array.isArray(raw.source.params)
                 ? raw.source.params as Record<string, unknown> : undefined;
@@ -3425,6 +3436,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(crop !== undefined ? { crop } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
                 ...(chromaKey !== undefined ? { chromaKey } : {}),
                 ...(layer.track !== undefined ? { track: layer.track } : {})
@@ -6408,6 +6420,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
         this.timelineOverlay.style.right = `${scrollbarWidth}px`;
         this.applySelectionClass();
+        this.applyKeyframePropertySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
     }
@@ -7063,6 +7076,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         property: propertyRow.property as KeyframeControlRequest['property'], times,
                         easing: this.segmentEasingAt(row.id, propertyRow.property, diamond.t)
                     };
+                    this.applyKeyframePropertySelectionClass();
                 });
                 marker.addEventListener('pointerdown', event => {
                     if (event.button !== 0) return;
@@ -7258,6 +7272,56 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return result;
     }
 
+    protected applyKeyframePropertySelectionClass(): void {
+        const selected = this.selectionModel.keyframeSelection;
+        const matches = (element: HTMLElement): boolean => selected !== undefined
+            && element.dataset.akariItemId === selected.itemId
+            && element.dataset.akariKeyframeProperty === selected.property;
+        for (const element of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-row]')
+        )) {
+            element.classList.toggle('akari-timeline-keyframe-property-selected', matches(element));
+        }
+        for (const element of Array.from(
+            this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-header]')
+        )) {
+            const selectedKey = selected ? `${selected.itemId}:${selected.property}` : '';
+            element.classList.toggle(
+                'akari-timeline-keyframe-property-selected',
+                element.dataset.akariKeyframePropertyHeader === selectedKey
+            );
+        }
+    }
+
+    protected scrollTimelineKeyframeRowIntoView(
+        itemId: string,
+        property: KeyframeControlRequest['property']
+    ): boolean {
+        let row: HTMLElement | undefined;
+        for (const candidate of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-row]')
+        )) {
+            if (candidate.dataset.akariItemId === itemId
+                && candidate.dataset.akariKeyframeProperty === property) {
+                row = candidate;
+                break;
+            }
+        }
+        if (!row) return false;
+        const viewportHeight = this.stripScroll.clientHeight;
+        const top = row.offsetTop;
+        const bottom = top + row.offsetHeight;
+        const visibleTop = this.stripScroll.scrollTop;
+        const visibleBottom = visibleTop + viewportHeight;
+        if (top < visibleTop) {
+            this.stripScroll.scrollTop = top;
+        } else if (viewportHeight > 0 && bottom > visibleBottom) {
+            this.stripScroll.scrollTop = Math.max(0, bottom - viewportHeight);
+        }
+        this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
+        return true;
+    }
+
     protected async handleKeyframeControl(request: KeyframeControlRequest): Promise<InspectorWriteResult> {
         try {
             const itemId = request.itemId.startsWith('cut:')
@@ -7277,6 +7341,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (keyframeValueAt(point, request.property) !== undefined) times.push(Number(point.t));
             }
             times.sort((left, right) => left - right);
+            if (request.action === 'reveal') {
+                if (times.length === 0) throw new Error('キーフレームがありません。');
+                const nearest = times.reduce((best, candidate) =>
+                    Math.abs(candidate - t) < Math.abs(best - t) ? candidate : best);
+                this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId, property: request.property, times: [nearest],
+                    easing: this.segmentEasingAt(itemId, request.property, nearest)
+                };
+                this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
+                this.applyKeyframePropertySelectionClass();
+                if (!this.scrollTimelineKeyframeRowIntoView(itemId, request.property)) {
+                    throw new Error('キーフレーム行を表示できませんでした。');
+                }
+                return { ok: true };
+            }
             if (request.action === 'previous' || request.action === 'next') {
                 let target: number | undefined;
                 if (request.action === 'previous') {
@@ -7294,6 +7373,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         kind: 'keyframe', itemId, property: request.property, times: [target],
                         easing: this.segmentEasingAt(itemId, request.property, target)
                     };
+                    this.applyKeyframePropertySelectionClass();
                 }
                 return { ok: true };
             }

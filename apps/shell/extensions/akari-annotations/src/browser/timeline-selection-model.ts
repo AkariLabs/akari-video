@@ -21,6 +21,7 @@ export interface TimelineCutSelection {
     framing?: CutFraming;
     freeze?: CutFreeze;
     opacity?: number;
+    keyframes?: readonly Record<string, unknown>[];
     speed?: number;
     transitionOut?: {
         type: ReadableTransitionType;
@@ -46,6 +47,7 @@ export interface TimelineOverlaySelection {
     track?: number;
     payload: Record<string, unknown>;
     crop?: TimelineCropSnapshot;
+    keyframes?: readonly Record<string, unknown>[];
     trackName: string;
     clipName: string;
 }
@@ -78,6 +80,7 @@ export interface TimelineLayerSelection {
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     crop?: TimelineCropSnapshot;
     opacity?: number;
+    keyframes?: readonly Record<string, unknown>[];
     blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
         | 'overlay' | 'hardlight' | 'softlight';
     chromaKey?: { color: string; similarity?: number; blend?: number };
@@ -292,7 +295,7 @@ export interface TimelineKeyframeSelection {
 }
 
 export interface KeyframeControlRequest {
-    action: 'toggle' | 'previous' | 'next' | 'easing';
+    action: 'toggle' | 'previous' | 'next' | 'easing' | 'reveal';
     itemId: string;
     property: TimelineKeyframeSelection['property'];
     value?: number;
