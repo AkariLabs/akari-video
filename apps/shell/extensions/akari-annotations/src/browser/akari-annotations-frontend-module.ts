@@ -13,6 +13,7 @@ import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
+import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 
 export default new ContainerModule(bind => {
@@ -27,6 +28,7 @@ export default new ContainerModule(bind => {
 
     bind(ReviewModel).toSelf().inSingletonScope();
     bind(TimelineSelectionModel).toSelf().inSingletonScope();
+    bind(AkariEditHistoryService).toSelf().inSingletonScope();
 
     bind(AkariAnnotationsWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(context => ({
