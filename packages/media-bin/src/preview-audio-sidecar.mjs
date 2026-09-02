@@ -312,6 +312,7 @@ export function previewAudioSidecarKey(options) {
   }, {
     inSec: options.inSec,
     outSec: options.outSec,
+    speed: options.speed,
     padBeforeSec: options.padBeforeSec ?? 0,
     padAfterSec: options.padAfterSec ?? 0,
     filters: buildPreviewAudioFilterChain(options),
@@ -470,8 +471,12 @@ async function generate(prepared, options) {
   const { sourcePath, outputDirectory, outputPath, key } = prepared;
   const settings = settingsFrom(options);
   const ffprobeOf = () => options.ffprobe ?? defaultFfprobe();
+  // テスト・呼び出し側の注入シーム（T4 由来）: probeAudio があれば同期関数として尊重する。
+  const inspectAudio = async (p) => (typeof options.probeAudio === 'function'
+    ? options.probeAudio(p, ffprobeOf())
+    : probeAudioAsync(p, ffprobeOf(), settings));
   const fromExisting = async () => {
-    const metadata = await probeAudioAsync(outputPath, ffprobeOf(), settings);
+    const metadata = await inspectAudio(outputPath);
     return {
       ok: true, skipped: true, path: outputPath, key,
       durationSec: metadata.durationSec,
@@ -510,7 +515,7 @@ async function generate(prepared, options) {
       if (!outputStat.isFile() || outputStat.size <= 42) {
         throw new Error('ffmpeg created an empty preview audio sidecar');
       }
-      const metadata = await probeAudioAsync(temporary, ffprobeOf(), settings);
+      const metadata = await inspectAudio(temporary);
       if (metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
       fs.renameSync(temporary, outputPath);
       return {
