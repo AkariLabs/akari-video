@@ -68,6 +68,7 @@
         "width": { "$ref": "#/$defs/positiveNumber" },
         "height": { "$ref": "#/$defs/positiveNumber" },
         "fps": { "$ref": "#/$defs/positiveNumber" },
+        "geometry": { "$ref": "#/$defs/outputGeometry" },
         "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] },
         "encoding": {
           "type": "object",
@@ -87,6 +88,7 @@
         "width": { "$ref": "#/$defs/positiveNumber" },
         "height": { "$ref": "#/$defs/positiveNumber" },
         "fps": { "type": "integer", "minimum": 1 },
+        "geometry": { "$ref": "#/$defs/outputGeometry" },
         "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] },
         "encoding": {
           "type": "object",
@@ -98,6 +100,10 @@
         }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10-1。v2 の出力 fps は 1 以上の整数に固定する。29.97 / 23.976 が必要になった時点で有理数 {num, den} へ拡張する。既存 output は v0/v1 の互換契約として変更しない。"
+    },
+    "outputGeometry": {
+      "enum": ["source"],
+      "$comment": "docs/contract-2026-08-02-preview-parity.md §2.2。映像 item の幾何の基準。省略 = fit 互換（出力へ contain fit した後に transform）。\"source\" = 実寸基準（ソース実寸 × scale の box）。移行は scale × fit を一度だけ焼き込んでからこのマーカーを立てる（部分適用禁止）。他の値は無い。"
     },
     "chromaKey": {
       "type": "object",

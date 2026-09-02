@@ -46,3 +46,19 @@ test('failed write responses surface a dismissible high-contrast banner', () => 
   assert.doesNotMatch(source, /layer crop write rejected; reverting/);
   assert.doesNotMatch(source, /cut transform write rejected; reverting/);
 });
+
+test('cut の crop も transform と同じ version-routing ヘルパーを 1 patch で通る', () => {
+  // 辺バーの確定は {crop, transform} を 1 回で書く（cutWrite の patch へ additive に載る）。
+  assert.match(source, /cutWrite: \(cutIndex, cutId, patch\) => new Promise/);
+  assert.match(
+    source,
+    /write: patch => window\.akari\.engine\.cutWrite\([\s\S]*?Number\(video\.dataset\.akariCutIndex\),[\s\S]*?video\.dataset\.akariCutId \|\| undefined,[\s\S]*?patch/,
+  );
+  assert.match(source, /await target\.write\(\{ crop: finalCrop, transform: finalTransform \}\)/);
+  // ホスト側は layerWrite と同じ crop 検証を通してから resolvePreviewItemWrite へ渡す。
+  assert.match(
+    source,
+    /this\.validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? this\.validateLayerCropPatch\(request\.patch\.crop\)/,
+  );
+  assert.match(source, /resolvePreviewItemWrite\(originalText, \{\s*kind: 'cut'/s);
+});

@@ -5017,6 +5017,10 @@ ${indent}`);
             item.transform = { ...recordOf(item.transform), ...command.patch.transform };
             editChanged = true;
           }
+          if (command.patch.crop) {
+            item.crop = { ...command.patch.crop };
+            editChanged = true;
+          }
         }
         return {
           ...editChanged ? { candidateText: stringifyEdit(edit) } : {},
@@ -5084,6 +5088,9 @@ ${indent}`);
         const cut = edit.cuts[command.legacyIndex];
         if (!isRecord2(cut)) {
           throw new Error(`\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: index ${command.legacyIndex}`);
+        }
+        if (command.patch.crop) {
+          throw new Error("\u30AB\u30C3\u30C8\u306E crop \u66F8\u304D\u623B\u3057\u306B\u306F edit.json version 2 \u304C\u5FC5\u8981\u3067\u3059");
         }
         if (command.patch.transform) {
           cut.transform = { ...recordOf(cut.transform), ...command.patch.transform };

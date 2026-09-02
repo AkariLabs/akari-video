@@ -73,6 +73,7 @@
 ### 4-1. 画角（`cuts[].framing`）
 
 - **crop と keyframes の併存**: 両方宣言された場合は `keyframes` を優先する。`crop` は「1 点ズームの縮退形」であり、両立させる意味論が無いため（複製 drift の温床にもなる）
+- **幾何の基準（2026-09-02 追記・相互参照）**: `output.geometry` は未指定 = fit 互換 / `"source"` = 実寸基準を表すマーカーで、正本は `docs/contract-2026-08-02-preview-parity.md` §2.2（G1 は描画無変更・framing の再定義は G2）。
 - **scale < 1 の扱い**: `keyframes[].scale` は仕組み上「クロップ窓を縮めて拡大する」ため 1 未満（キャンバスの外まで見せる＝リビール）は原理的に表現できない。レンダ側で `max(1, scale)` にクランプする（silent drop ではなく仕組み上の上限として契約に明記）
 - **crop.w/h が init 一度しか評価されない**: ffmpeg の `crop` フィルタは `x`/`y` は `t` を使った毎フレーム再評価に対応するが、`w`/`h` は（この ffmpeg ビルドで）フィルタ初期化時の一度きりの評価に固定されており `eval` オプション自体が存在しない（実機検証: `t` を含む `w`/`h` 式は `crop=... w='...t...'` で `Error when evaluating the expression` を返す）。そのため実装は「`scale` を `eval=frame` で `width*scale(t) : height*scale(t)` に広げてから固定サイズ `width:height` で `crop` する」方式を採る（クロップ窓の拡大 = `scale` 側の時間関数、パン位置 = `crop` の `x`/`y` の時間関数、という役割分担）
 - **`crop` の `x`/`y` は上流フレームの実サイズを見ない**: 同フィルタの `iw`/`ih` 定数は（動的サイズの上流から来ていても）negotiate 済みの固定リンクサイズを指し、最初のフレームのサイズに固定されたままになることを実機検証で確認した。そのため `crop` の `x`/`y` 式は `iw`/`ih` を参照せず、`scale` 側と同じ `scale(t)` 式をそのまま再計算する（対称的だが唯一 crop から見て正しい現在値）

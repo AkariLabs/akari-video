@@ -38,7 +38,7 @@ const {
   TRANSITION_TYPE_IDS,
   withoutItemAnchors,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
-const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
+const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(import.meta.url)(
   "../../edit-store/lib/migrate/index.js",
 );
 
@@ -182,6 +182,7 @@ export async function lintProject(input, options = {}) {
     validateEngineCapabilities(rawEdit, internalEdit, engine, engineCapabilities.value, findings);
   }
   validateTransitionLayerEvacuations(rawEdit, internalEdit, findings);
+  validateGeometryFitCompat(rawEdit, internalEdit, findings);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
   if (rawEdit.version === 2) {
     validateLegacyNarrationTrim(rawAudio.narration, findings);
@@ -382,6 +383,23 @@ export async function lintProject(input, options = {}) {
   }
 
   return writeResult(findings, skipped, inputs, paths, options);
+}
+
+/**
+ * 幾何の統一 G1: `output.geometry` を持たない v2 文書は fit 互換モード（出力へ contain fit した後に
+ * transform）で描かれる。実寸基準へ移行できる media item があることを 1 件の warning で知らせる。
+ * error にはしない（既存プロジェクトの CI を壊さないため）。移行後（`"source"`）は出さない。
+ */
+function validateGeometryFitCompat(rawEdit, internalEdit, findings) {
+  if (!isRecord(rawEdit) || rawEdit.version !== 2) return;
+  if (isRecord(rawEdit.output) && rawEdit.output.geometry === "source") return;
+  if (collectFitBasisCandidates(internalEdit).length === 0) return;
+  addFinding(findings, {
+    severity: "warning",
+    check: "geometry.fit-compat",
+    message: "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+    path: "edit.json#output.geometry",
+  });
 }
 
 function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
