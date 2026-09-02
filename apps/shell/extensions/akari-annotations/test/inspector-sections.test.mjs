@@ -217,10 +217,16 @@ test('前後移動は重なり時も拒否せず新しい段を通知し、legac
 });
 
 test('BGM と音声クリップは共通のフェード・ダッキング節と固定既定値を使う', () => {
-  assert.match(inspectorWidgetSource, /const AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.05, duckRelease: 0\.3 \}/u);
+  assert.match(inspectorWidgetSource, /const AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.3, duckRelease: 0\.8 \}/u);
   assert.equal((inspectorWidgetSource.match(/label: 'フェード・ダッキング'/gu) ?? []).length, 2);
   assert.match(inspectorWidgetSource, /function duckingFields\(/u);
   assert.match(inspectorWidgetSource, /'audio-duck-preset'[\s\S]{0,300}options: \['-3', '-6', '-12'\]/u);
+});
+
+test('default change 2026-09-02: inspector displays attack 0.3 / release 0.8 without changing steps', () => {
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.3, duckRelease: 0\.8 \}/u);
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckAttack, 0, 2, 0\.01, 's'/u);
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckRelease, 0, 5, 0\.05, 's'/u);
 });
 
 test('ダッキング数値 UI は契約範囲と step を固定する', () => {

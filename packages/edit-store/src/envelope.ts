@@ -16,8 +16,8 @@ export interface EnvelopeGainEvent {
 }
 
 export const DEFAULT_DUCK_DB = -12;
-export const DEFAULT_DUCK_ATTACK_SEC = 0.05;
-export const DEFAULT_DUCK_RELEASE_SEC = 0.3;
+export const DEFAULT_DUCK_ATTACK_SEC = 0.3;
+export const DEFAULT_DUCK_RELEASE_SEC = 0.8;
 export const DEFAULT_DUCK_KEYS = ['narration', 'speech'] as const;
 
 const SAMPLE_STEP_SEC = 0.02;

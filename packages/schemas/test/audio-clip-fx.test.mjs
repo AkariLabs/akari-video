@@ -25,3 +25,15 @@ test('invalid clip FX example rejects ranges, vocabulary, and denoise method', (
     '/audio/bgm/denoise/method', '/audio/bgm/denoise/strength', '/audio/bgm/lowcut_hz',
   ]) assert.ok(paths.has(path), `${path}\n${JSON.stringify(validate.errors, null, 2)}`);
 });
+
+test('default change 2026-09-02: all legacy and v2 duck schema defaults are attack 0.3 / release 0.8', () => {
+  for (const definitionName of ['narrationItem', 'bgm', 'sfxItem', 'itemV2AudioMedia']) {
+    const properties = schema.$defs[definitionName].properties;
+    assert.equal(properties.duck_attack.default, 0.3, `${definitionName}.duck_attack`);
+    assert.equal(properties.duck_release.default, 0.8, `${definitionName}.duck_release`);
+    assert.equal(properties.duck_attack.minimum, 0, `${definitionName}.duck_attack minimum`);
+    assert.equal(properties.duck_attack.maximum, 2, `${definitionName}.duck_attack maximum`);
+    assert.equal(properties.duck_release.minimum, 0, `${definitionName}.duck_release minimum`);
+    assert.equal(properties.duck_release.maximum, 5, `${definitionName}.duck_release maximum`);
+  }
+});
