@@ -73,6 +73,47 @@ test('OSR page builder fails closed with the missing region-filter LUT id', asyn
   } finally { await rm(projectRoot, {recursive:true,force:true}); }
 });
 
+test('OSR page builder は captions.json で stale anchor cache を再解決し、不在時は保持する', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'osr-anchor-wiring-'));
+  const anchored = {
+    version: 2,
+    output: { width: 64, height: 36, fps: 30 },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
+    tracks: [
+      { id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }] },
+      { id: 'overlay', lane: 'visual', items: [{ id: 'box', at: 15, duration: 15, source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' } }] },
+    ],
+  };
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(anchored));
+    await writeFile(join(projectRoot, 'box.html'), '<div>box</div>');
+    let result = await loadAndBuildOsrPage({ projectRoot, duration: 4 });
+    assert.equal(result.edit.overlays[0].start, 0.5);
+    await writeFile(join(projectRoot, 'captions.json'), JSON.stringify([
+      { id: 'c-0003', start: 2, end: 3, text: 'caption' },
+    ]));
+    result = await loadAndBuildOsrPage({ projectRoot, duration: 4 });
+    assert.equal(result.edit.overlays[0].start, 2);
+    assert.equal(result.edit.overlays[0].duration, 1);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('OSR page builder の v1 拒否は captions.json の有無で同一', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'osr-anchor-v1-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify({
+      version: 1, output: { fps: 30 }, sources: [], cuts: [], overlays: [],
+    }));
+    await assert.rejects(() => loadAndBuildOsrPage({ projectRoot, duration: 1 }), /古い形式/u);
+    await writeFile(join(projectRoot, 'captions.json'), '[]\n');
+    await assert.rejects(() => loadAndBuildOsrPage({ projectRoot, duration: 1 }), /古い形式/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("page builder は同じ入力から同一バイトを生成する", () => {
   const input = { edit, captions, overlays, projectRoot: "/unused", duration: 2, frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;", lutCubeText: "TITLE warm\nLUT_3D_SIZE 2\n" };
   assert.equal(buildOsrPage(input).html, buildOsrPage(input).html);

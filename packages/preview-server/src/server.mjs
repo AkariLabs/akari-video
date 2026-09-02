@@ -22,6 +22,7 @@ import {
   applyCaptionStylePresets,
   projectSpeechDeclarations,
   TEXTSTYLE_CATALOG,
+  toAnchorCaptions,
 } from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
@@ -379,8 +380,16 @@ function readJson(filePath) {
 function readPreviewEdit(filePath) {
   try {
     const text = fs.readFileSync(filePath, 'utf-8');
+    const captionsPath = path.join(projectRoot, 'captions.json');
+    let captions;
+    try {
+      captions = fs.existsSync(captionsPath)
+        ? toAnchorCaptions(JSON.parse(fs.readFileSync(captionsPath, 'utf-8'))) : undefined;
+    } catch {
+      captions = undefined;
+    }
     return {
-      data: projectPreviewEdit(text, path.join(projectRoot, '.akari', 'preview-projection'), projectRoot),
+      data: projectPreviewEdit(text, path.join(projectRoot, '.akari', 'preview-projection'), projectRoot, captions),
     };
   } catch (error) {
     return { error };

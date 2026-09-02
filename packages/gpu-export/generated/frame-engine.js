@@ -4907,11 +4907,21 @@ ${indent}`);
     "packages/edit-store/lib/item-anchor.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.toAnchorCaptions = toAnchorCaptions;
       exports.resolveItemAnchor = resolveItemAnchor;
       exports.withoutItemAnchors = withoutItemAnchors;
       exports.resolveItemAnchors = resolveItemAnchors;
       var internal_model_1 = require_internal_model();
       var timeline_map_1 = require_timeline_map();
+      function toAnchorCaptions(raw) {
+        const rows = Array.isArray(raw) ? raw : isRecord2(raw) && Array.isArray(raw.captions) ? raw.captions : [];
+        return rows.filter((row) => isRecord2(row) && typeof row.id === "string" && row.id.trim().length > 0 && typeof row.start === "number" && Number.isFinite(row.start) && typeof row.end === "number" && Number.isFinite(row.end)).map((row) => ({
+          id: row.id,
+          start: row.start,
+          end: row.end,
+          ...row.timeDomain === "output" || row.timeDomain === void 0 && row.time_domain === "output" ? { timeDomain: "output" } : {}
+        }));
+      }
       function resolveItemAnchor(item, context) {
         const start = item.anchor.range?.start ?? context.caption.start;
         const end = item.anchor.range?.end ?? context.caption.end;

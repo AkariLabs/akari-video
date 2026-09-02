@@ -31,6 +31,7 @@ const {
   readInternalEdit,
   resolveItemAnchors,
   resolveCaptionDisplay,
+  toAnchorCaptions,
   visualContentEndSeconds,
   TRANSITION_TYPE_IDS,
   withoutItemAnchors,
@@ -1291,20 +1292,7 @@ function validateEditV2(edit, findings) {
 }
 
 function validateV2ItemAnchors(edit, captionsState, findings) {
-  const rows = Array.isArray(captionsState.value)
-    ? captionsState.value
-    : isRecord(captionsState.value) && Array.isArray(captionsState.value.captions)
-      ? captionsState.value.captions : [];
-  const captions = rows.filter(caption => isRecord(caption)
-    && isNonEmptyString(caption.id)
-    && isFiniteNumber(caption.start)
-    && isFiniteNumber(caption.end))
-    .map(caption => ({
-      id: caption.id,
-      start: caption.start,
-      end: caption.end,
-      ...(caption.time_domain === "output" ? { timeDomain: "output" } : {}),
-    }));
+  const captions = toAnchorCaptions(captionsState.value);
   const captionById = new Map(captions.map(caption => [caption.id, caption]));
   const entries = [];
   const visit = (items, parentPath) => {

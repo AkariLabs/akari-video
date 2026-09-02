@@ -21,6 +21,7 @@ const {
   filterCaptionRootByExcludedIds,
   resolveCaptionTrackZ,
   resolveRecordTrackZ,
+  toAnchorCaptions,
   TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
@@ -275,12 +276,15 @@ export async function loadAndBuildGpuPage({
 }) {
   const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
   const editText = await readFile(resolvedEditPath, "utf8");
-  const renderEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page"));
+  const captionsRoot = await readJsonIfPresent(join(projectRoot, "captions.json"), undefined);
+  const renderEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page"), {
+    captions: captionsRoot === undefined ? undefined : toAnchorCaptions(captionsRoot),
+  });
   const projectedEdit = renderEdit.edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   const captions = filterCaptionRootByExcludedIds(
-    applyCaptionStylePresets(await readJsonIfPresent(join(projectRoot, "captions.json"), []), TEXTSTYLE_CATALOG).root,
+    applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root,
     collectExcludedCaptionIds(prepared.edit),
   );
   const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({

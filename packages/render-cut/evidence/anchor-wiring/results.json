@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "all_pass": true,
+  "fixture": "fixture",
+  "checks": {
+    "plan_only_exit": 0,
+    "stale_lint_findings": 1,
+    "wired_timing": {
+      "start": 2,
+      "duration": 1
+    },
+    "refreshed_timing": {
+      "start": 2,
+      "duration": 1
+    },
+    "cached_timing_without_captions": {
+      "start": 1.5,
+      "duration": 1
+    },
+    "wired_matches_refreshed_framemd5": true,
+    "wired_differs_from_cached_framemd5": true,
+    "writeback_at_frames": 75,
+    "writeback_stale_findings": 0,
+    "output_domain_at_after_cut_frames": 150
+  },
+  "framemd5": {
+    "wired_sha256": "1ad92e0d5eb25d1e8545ea1a23b382e795f19aeca3d3a70a29fe596beac887b9",
+    "refreshed_sha256": "1ad92e0d5eb25d1e8545ea1a23b382e795f19aeca3d3a70a29fe596beac887b9",
+    "cached_sha256": "6ac973bb64437dc0c03b75ed5432923d2b59834a774bff0f586e583571e8c94b"
+  },
+  "artifacts": {
+    "stale_edit": "fixture/edit.stale.json",
+    "captions": "fixture/captions.json",
+    "overlay": "fixture/overlays/box.html",
+    "runtime_directory": "runs (ignored)"
+  }
+}

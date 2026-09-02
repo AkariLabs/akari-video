@@ -113,6 +113,18 @@ test('raw v2 projects through edit-store with proxy playback and source-path med
   assert.equal(legacy.audioBgm.id, 'bgm');
 });
 
+test('壊れた captions.json は raw v2 の editToTimeline を fail-soft 経路へ落とさない', () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-anchor-captions-fail-soft-'));
+  try {
+    fs.writeFileSync(path.join(project, 'captions.json'), '{broken');
+    const timeline = editToTimeline(rawV2Fixture(), project);
+    assert.equal(timeline.clips.length, 2);
+    assert.deepEqual(timeline.clips.map(clip => clip.track), [0, 1]);
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('invalid tracks hybrid falls back to the pre-v2 empty timeline instead of throwing', () => {
   const hybrid = {
     ...rawV2Fixture(),
@@ -174,6 +186,46 @@ test('v2 preview projection keeps overlays, all audio roles, and source mask dat
     mode: 'source',
     background: { type: 'color', color: '0x000000' },
   });
+});
+
+test('preview projection は生 captions で stale anchor cache を再解決し、省略時は保持する', () => {
+  const anchored = {
+    version: 2,
+    output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
+    tracks: [
+      { id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 300, source: { kind: 'media', src: 'main', in: 0, out: 10 } }] },
+      { id: 'overlay', lane: 'visual', items: [{ id: 'box', at: 15, duration: 15, source: { kind: 'html', path: 'box.html' }, anchor: { caption: 'c-0003' } }] },
+    ],
+  };
+  const cached = projectPreviewEdit(anchored, '/project/.akari/preview-projection', '/project');
+  const resolved = projectPreviewEdit(
+    anchored,
+    '/project/.akari/preview-projection',
+    '/project',
+    [{ id: 'c-0003', start: 2, end: 3 }],
+  );
+  assert.deepEqual(
+    { start: cached.overlays[0].start, duration: cached.overlays[0].duration },
+    { start: 0.5, duration: 0.5 },
+  );
+  assert.deepEqual(
+    { start: resolved.overlays[0].start, duration: resolved.overlays[0].duration },
+    { start: 2, duration: 1 },
+  );
+});
+
+test('preview projection の v1 は captions 引数の有無でバイト同一', () => {
+  const legacy = { version: 1, output: { fps: 30 }, sources: [], cuts: [], overlays: [] };
+  assert.throws(() => projectPreviewEdit(
+    legacy, '/project/.akari/preview-projection', '/project'
+  ), /古い形式/u);
+  assert.throws(() => projectPreviewEdit(
+    legacy,
+    '/project/.akari/preview-projection',
+    '/project',
+    [{ id: 'c-0003', start: 2, end: 3 }],
+  ), /古い形式/u);
 });
 
 async function freePort() {

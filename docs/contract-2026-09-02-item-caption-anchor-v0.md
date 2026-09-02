@@ -69,9 +69,15 @@ duration(own) = item.duration
 `resolveItemAnchors` を通してから内部モデルを構築する。渡されない場合は `at` / `duration` の
 キャッシュを従来どおり読み、アンカー導入前の挙動を変えない。
 
-本契約では render-cut / gpu / osr / shell preview / preview-server の呼び出しへ
-`options.captions` を配線しない。各出口はキャッシュを読むだけで同じ時刻を見る。字幕を書き換える側が
-保存前にアンカーを再解決する責務を持ち、この自動配線は T7b で行う。
+render-cut / gpu / osr / shell preview / preview-server の各出口は、captions.json を
+`toAnchorCaptions` で正規化して `readInternalEdit` の `options.captions` へ渡し、読込時にアンカーを
+再解決する。captions.json が無い場合は従来どおり `at` / `duration` のキャッシュを読む。
+
+字幕の時刻・参照集合を変える `setCaptionTiming` / `shiftCaption` / `insertCaption` /
+`removeCaption` は、captions.json の書き込み後に `refreshItemAnchors` でキャッシュを更新する。
+`writeEditSnapshot` と preview-server の captions PUT は呼び出し側が再解決の責務を持つ。
+captions.json と edit.json の 2 ファイル間に原子性はなく、途中で停止してキャッシュが古くなった場合は
+lint `v2.item-anchor-stale` が検出する。
 
 ## 4. mutation
 
@@ -94,8 +100,6 @@ duration(own) = item.duration
 ## 6. 非スコープ
 
 - 台本パネルの単語範囲ドラッグ、🎬 ボタンその他の UI
-- annotations の RPC / mutation wrapper
-- 出口側への `options.captions` 配線と字幕保存時の自動再解決
 - `itemAtV2` の string 拡張
 - 単語 index アンカー
 - `captions` / `caption` item へのアンカー

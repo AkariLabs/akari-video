@@ -57,6 +57,7 @@ var AkariEditKernel = (() => {
     resolveItemAnchors: () => resolveItemAnchors,
     sampleEnvelopeLinear: () => sampleEnvelopeLinear,
     sourceToOutput: () => sourceToOutput,
+    toAnchorCaptions: () => toAnchorCaptions,
     transitionProgressAt: () => transitionProgressAt,
     withoutItemAnchors: () => withoutItemAnchors
   });
@@ -3232,6 +3233,15 @@ var AkariEditKernel = (() => {
   }
 
   // src/item-anchor.ts
+  function toAnchorCaptions(raw) {
+    const rows = Array.isArray(raw) ? raw : isRecord3(raw) && Array.isArray(raw.captions) ? raw.captions : [];
+    return rows.filter((row) => isRecord3(row) && typeof row.id === "string" && row.id.trim().length > 0 && typeof row.start === "number" && Number.isFinite(row.start) && typeof row.end === "number" && Number.isFinite(row.end)).map((row) => ({
+      id: row.id,
+      start: row.start,
+      end: row.end,
+      ...row.timeDomain === "output" || row.timeDomain === void 0 && row.time_domain === "output" ? { timeDomain: "output" } : {}
+    }));
+  }
   function resolveItemAnchor(item, context) {
     const start = item.anchor.range?.start ?? context.caption.start;
     const end = item.anchor.range?.end ?? context.caption.end;
