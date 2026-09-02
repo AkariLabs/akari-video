@@ -164,7 +164,8 @@ import {
     MaterialDropZone,
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
-import { openTimelineContextMenu } from './akari-timeline-context-menu';
+import { openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
+import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
 import { TimelineCollapsedState } from './timeline/timeline-collapsed-state';
 import {
     applyTimelineCollapsedRows,
@@ -2153,6 +2154,83 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applySelection({ kind: 'audio', id });
         void this.ensureAudioDurationFetch(sfx.path, audioUri);
         this.renderStrip();
+    }
+
+    /** 音声クリップのダブルクリックから、波形上の音量キーフレーム専用画面を開く。 */
+    protected async openAudioKeyframeEditor(id: string): Promise<void> {
+        if (this.dragState || !this.location?.editUri) return;
+        const sfx = this.audioSfx.find(candidate => candidate.id === id);
+        const narration = this.audioNarration.find(candidate => candidate.id === id);
+        const bgm = id === this.audioBgm?.id ? this.audioBgm : undefined;
+        const audioKind = bgm ? 'bgm' as const : narration ? 'narration' as const : sfx ? 'sfx' as const : undefined;
+        const audio = bgm ?? narration ?? sfx;
+        if (!audioKind || !audio) {
+            this.showNotice('音声クリップが見つからないため、音量キーフレームを編集できません。');
+            return;
+        }
+        this.applySelection({ kind: 'audio', id });
+        try {
+            const audioUri = this.resolveEditMediaUri(audio.path, this.location.editUri).toString();
+            const durationResult = await this.ensureAudioDurationFetch(audio.path, audioUri);
+            const fallbackDisplayDuration = bgm ? this.contentEndDuration()
+                : narration ? this.narrationDisplayDuration(narration) : sfx!.duration;
+            const sourceInSeconds = 'in' in audio ? audio.in ?? 0 : 0;
+            const fallbackSourceDuration = Math.max(
+                'out' in audio ? audio.out ?? 0 : 0,
+                sourceInSeconds + fallbackDisplayDuration * (audio.speed ?? 1)
+            );
+            const sourceDurationSeconds = typeof durationResult === 'number'
+                ? durationResult : fallbackSourceDuration;
+            const durationSeconds = bgm ? this.contentEndDuration()
+                : narration ? this.narrationDisplayDuration(narration)
+                    : this.resolveSfxDisplayDuration(sfx!, sourceInSeconds, sourceDurationSeconds);
+            const waveformKey = `sfxwave:${audio.path}`;
+            let fullPeaks = this.waveformCache.get(waveformKey);
+            if (!Array.isArray(fullPeaks) && sourceDurationSeconds > 0) {
+                const result = await this.annotationsService.getClipWaveform({
+                    projectRootUri: this.location.root.toString(),
+                    videoUri: audioUri,
+                    startSeconds: 0,
+                    endSeconds: sourceDurationSeconds
+                });
+                if (result.status === 'ready' && result.peaks) {
+                    fullPeaks = result.peaks;
+                    this.waveformCache.set(waveformKey, result.peaks);
+                } else {
+                    fullPeaks = 'unavailable';
+                    this.waveformCache.set(waveformKey, 'unavailable');
+                    this.showFfmpegMissingNotice(result.reason);
+                }
+            }
+            const keyframeFrames = audioKind === 'bgm'
+                ? this.editDocument !== undefined
+                    && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined
+                : this.rawV2Item(id) !== undefined;
+            const dialog = new AkariAudioKeyframeDialog({
+                title: `音量キーフレーム — ${this.pathBaseName(audio.path)}`,
+                maxWidth: 840,
+                audioKind,
+                durationSeconds,
+                sourceDurationSeconds,
+                sourceInSeconds,
+                speed: audio.speed,
+                fps: this.fps,
+                keyframeFrames,
+                keyframes: audio.keyframes,
+                fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
+            });
+            const keyframes = await dialog.open();
+            if (keyframes === undefined) return;
+            const result = await this.handleInspectorWrite({
+                kind: 'audio-keyframes', id, audioKind,
+                value: keyframes.length > 0 ? keyframes : null
+            });
+            if (!result.ok) {
+                this.showNotice(`音量キーフレームを変更できません: ${result.message ?? '不明なエラー'}`);
+            }
+        } catch (error) {
+            this.showNotice(`音量キーフレームを開けません: ${this.errorMessage(error)}`);
+        }
     }
 
     protected exitAudioTrimmerMode(): void {
@@ -5675,6 +5753,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     event.stopPropagation();
                     this.applySelection({ kind: 'audio', id: bgm.id });
                 });
+                element.addEventListener('dblclick', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void this.openAudioKeyframeEditor(bgm.id);
+                });
             }
             this.updateBgmWaveform(element, bgm, end, bgmItemHeight, actualDuration);
         }
@@ -5730,6 +5813,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (created) element.addEventListener('click', event => {
                 event.stopPropagation();
                 this.applySelection({ kind: 'audio', id: narration.id });
+            });
+            if (created) element.addEventListener('dblclick', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                void this.openAudioKeyframeEditor(narration.id);
             });
         });
         // 音声クリップ版ソーストリマー（task 2026-08-18-audio-clip-trimmer-dblclick）: cuts の
@@ -8543,11 +8631,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.stopPropagation();
             if (!state.dragged) {
                 this.cancelDrag(state);
-                // 再ダブルクリック（エッジ／中央どちらでも）で解除。同じ pointerup ベースの
-                // 自前判定（detectAudioDoubleClick）を、通常音声クリップの入場判定と共有する。
+                // トリマーモード中でも音声クリップのダブルクリックは専用エディタを開く。
                 if ((state.kind === 'audio-trim' || state.kind === 'audio-slip')
                     && this.detectAudioDoubleClick(state.id, event.clientX, event.clientY)) {
                     this.exitAudioTrimmerMode();
+                    void this.openAudioKeyframeEditor(state.id);
                 }
                 return;
             }
@@ -9310,12 +9398,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.toggleTrimmerMode(state.index);
                     return;
                 }
-                // 音声クリップ版（task 2026-08-18-audio-clip-trimmer-dblclick）: 上記 cut-move と同じ
-                // pointerup ベースの自前ダブルクリック判定。'audio' は本体ドラッグ（エッジ以外）のみ
-                // （audio-trim はエッジドラッグなのでここには来ない）。
+                // 音声クリップは pointerup ベースの自前ダブルクリック判定から専用エディタを開く。
+                // ソーストリマーの入口はコンテキストメニュー「トリム（in/out）」へ移した。
                 if (state.kind === 'audio'
                     && this.detectAudioDoubleClick(state.id, event.clientX, event.clientY)) {
-                    this.toggleAudioTrimmerMode(state.id);
+                    void this.openAudioKeyframeEditor(state.id);
                     return;
                 }
                 const selected = this.selectionFromDragState(state);
@@ -11234,7 +11321,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!alreadyMultiSelected) this.applySelection(item);
         const row = item.kind === 'item'
             ? this.timelineTreeRows.find(candidate => candidate.id === item.id) : undefined;
-        const items = buildTimelineClipMenuItems(
+        const baseItems = buildTimelineClipMenuItems(
             item.kind === 'item' ? 'overlay' : item.kind,
             this.clipboard !== undefined,
             row ? {
@@ -11246,6 +11333,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 collapsed: row.collapsed,
                 hasParent: row.parentId !== undefined
             } : {}
+        );
+        const items = withAudioTrimMenuItem(
+            baseItems,
+            item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)
         );
         const clientX = event.clientX;
         openTimelineContextMenu({
@@ -11261,6 +11352,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 右クリックした X 位置（`clientX`）を使う（司令塔裁定1・事実2）。
      */
     protected dispatchTimelineClipMenuAction(id: string, item: TimelineSelectionItem, clientX: number): void {
+        if (id === 'audio-trim') {
+            if (item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)) {
+                this.toggleAudioTrimmerMode(item.id);
+            }
+            return;
+        }
         if (id === 'copy') {
             this.copySelectedItem();
             return;
