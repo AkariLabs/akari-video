@@ -19,7 +19,7 @@
 //   - 全エントリを最後まで走らせてから合否を返す（1 本目の赤で止めない）。要約は GITHUB_STEP_SUMMARY にも書く
 //
 // 実測の根拠（2026-09-02・macOS arm64・Node 26.3.0・ffmpeg / ffprobe なし・Chrome あり・npm install --ignore-scripts）:
-//   pure 14 パッケージ + scripts/test + skills 全 pass（tests 1271 / pass 1265 / fail 0 / skipped 6。edit-store 356/356 を含む）/
+//   pure 15 パッケージ + scripts/test + skills 全 pass（tests 1271 / pass 1265 / fail 0 / skipped 6。edit-store 356/356 を含む）/
 //   shell 7 か所 全 pass（akari-preview はブラウザ 1 ファイル除外で 509 pass）/
 //   quarantine: export-nle 20/21・akari-launcher 317/332 / media: ffmpeg・ffprobe 不在で赤（decision-cards はローカルでは
 //   Chrome があるため緑だが、CI Linux では /tmp プロファイルの rmdir ENOTEMPTY で落ち d5f2a7b6 以降 required unit を赤にしていた）
@@ -57,6 +57,7 @@ export const LANES = {
       pkg('project-scaffold'),
       pkg('schemas'),
       pkg('template-render'),
+      pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
