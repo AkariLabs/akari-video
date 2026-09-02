@@ -87,4 +87,5 @@ export interface AkariQuickExportService {
     getStatus(): Promise<QuickExportStatus>;
     cancel(): Promise<{ cancelled: boolean }>;
     revealArtifact(): Promise<{ revealed: boolean }>;
+    copyArtifact(): Promise<{ copied: boolean; reason?: string }>;
 }
