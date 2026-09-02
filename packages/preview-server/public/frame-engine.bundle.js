@@ -21226,6 +21226,12 @@ var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
+function resolveOptimizeForLatencyDefault() {
+  const runtime = globalThis;
+  const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  if (explicit === void 0 || explicit === null || explicit === "") return false;
+  return explicit === true || explicit === "1" || explicit === "true";
+}
 function uint323(bytes, offset) {
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
 }
@@ -21301,7 +21307,10 @@ var HttpRangeReader = class {
     maxDecodeQueueSize: 0,
     fullBodyFallback: false,
     fullBodyBytes: 0,
-    maxFutureFrames: 0
+    maxFutureFrames: 0,
+    graceWaits: 0,
+    targetSkips: 0,
+    droppedTargets: 0
   };
   fetchImpl;
   onWarning;
@@ -21513,7 +21522,7 @@ async function selectSupportedDecoderConfig(table, requested, knownSupport, call
     description: table.description,
     codedWidth: table.codedWidth,
     codedHeight: table.codedHeight,
-    optimizeForLatency: true
+    optimizeForLatency: callbacks.optimizeForLatency ?? resolveOptimizeForLatencyDefault()
   };
   const attempts = requested === "prefer-software" ? ["prefer-software"] : ["prefer-hardware", "prefer-software"];
   const support = knownSupport ?? await evaluateCodecSupport(table.codec, {
@@ -21548,7 +21557,7 @@ var DecoderExecutionError = class extends Error {
     this.name = "DecoderExecutionError";
   }
 };
-function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
+function futureFrameTimestampsToEvict(timestamps, limit, targetUs, futureLimit = Number.POSITIVE_INFINITY) {
   const evicted = [];
   let retained = timestamps.length;
   for (const timestamp of timestamps) {
@@ -21557,8 +21566,13 @@ function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
     evicted.push(timestamp);
     retained -= 1;
   }
+  if (Number.isFinite(futureLimit)) {
+    const future = timestamps.filter((timestamp) => timestamp >= targetUs && !evicted.includes(timestamp)).sort((left, right) => left - right);
+    for (const timestamp of future.slice(Math.max(0, Math.floor(futureLimit)))) evicted.push(timestamp);
+  }
   return evicted;
 }
+var FUTURE_FRAME_LIMIT = 16;
 var TargetFrameUnavailableError = class extends Error {
   constructor(targetUs) {
     super(`target frame ${targetUs}us was not produced`);
@@ -21630,7 +21644,8 @@ var RangeMp4Source = class _RangeMp4Source {
       this.options.codecSupport,
       {
         onCodecSupport: this.options.onCodecSupport,
-        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied
+        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
+        optimizeForLatency: this.options.optimizeForLatency
       }
     );
     this.decoderError = null;
@@ -21698,6 +21713,15 @@ var RangeMp4Source = class _RangeMp4Source {
     }
     if (frame.timestamp > target) {
       this.storeFutureFrame(frame);
+      const waiter = this.outputWaiter;
+      if (waiter && !waiter.isSettled()) {
+        waiter.laterFrames += 1;
+        const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
+        if (waiter.laterFrames > reorderWindow && !(this.activeCandidate && frameCovers(this.activeCandidate, waiter.targetUs))) {
+          this.shared.reader.stats.targetSkips += 1;
+          waiter.resolve();
+        }
+      }
       return;
     }
     if (!this.activeCandidate || frame.timestamp >= this.activeCandidate.timestamp) {
@@ -21718,7 +21742,8 @@ var RangeMp4Source = class _RangeMp4Source {
     for (const timestamp of futureFrameTimestampsToEvict(
       [...this.futureFrames.keys()],
       limit,
-      targetUs
+      targetUs,
+      FUTURE_FRAME_LIMIT
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -21738,6 +21763,7 @@ var RangeMp4Source = class _RangeMp4Source {
       promise,
       targetUs,
       sampleTimestampUs,
+      laterFrames: 0,
       isSettled: () => settled,
       resolve() {
         if (settled) return;
@@ -21787,7 +21813,8 @@ var RangeMp4Source = class _RangeMp4Source {
         this.options.onWarning?.(
           `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`
         );
-        await this.resetDecoder();
+        this.shared.reader.stats.droppedTargets += 1;
+        await this.resetDecoder({ keepFutureFrames: true });
       }
     }
     throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
@@ -21944,6 +21971,8 @@ var RangeMp4Source = class _RangeMp4Source {
     if (waiter.isSettled()) return "target-or-dequeue";
     if (decoder.decodeQueueSize === 0) {
       if (canSupply) return "needs-supply";
+      if (waiter.laterFrames > 0) return "grace-expired";
+      this.shared.reader.stats.graceWaits += 1;
       let graceTimer = null;
       const graceExpired = new Promise((resolve) => {
         graceTimer = setTimeout(() => resolve("grace-expired"), OUTPUT_GRACE_MS);
@@ -22012,7 +22041,7 @@ var RangeMp4Source = class _RangeMp4Source {
       if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
     }
   }
-  async resetDecoder() {
+  async resetDecoder(options = {}) {
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -22021,8 +22050,10 @@ var RangeMp4Source = class _RangeMp4Source {
     this.decoder = null;
     this.decoderFailure = null;
     this.rejectDecoderFailure = null;
-    for (const frame of this.futureFrames.values()) frame.close();
-    this.futureFrames.clear();
+    if (!options.keepFutureFrames) {
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+    }
     await this.configureDecoder();
   }
   async fork(id) {
