@@ -140,6 +140,7 @@ import {
     updateAudioNarrationPreferV2,
     updateAudioItemEnvelope,
     updateTreeV2Item,
+    updateItemDurationAndShiftFollowing as updateV2ItemDurationAndShiftFollowing,
     updateItem as updateV2Item
 } from '../common/edit-v2-mutations';
 import {
@@ -240,11 +241,28 @@ import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
+import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
+import {
+    isCutFramingWriteRequest,
+    readCutFraming,
+    updateCutFraming,
+    type CutFramingWriteRequest
+} from './inspector/framing-fields';
+import {
+    cutPlaybackDuration,
+    isCutFreezeWriteRequest,
+    isExplicitV0CutTimeline,
+    readCutFreeze,
+    resolveCutFreezeDisplayAt,
+    updateCutFreeze,
+    type CutFreezeWriteRequest
+} from './inspector/freeze-fields';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { ReviewModel } from './review-model';
 import {
+    AudioMasterWriteRequest,
     InspectorWriteRequest,
     InspectorWriteResult,
     KeyframeControlRequest,
@@ -1432,6 +1450,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: 1;
         z-index: 5;
     }
+    .akari-annotations-widget .akari-timeline-keyframe-property-selected {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
+        background: color-mix(in srgb, var(--theia-focusBorder) 22%, transparent);
+        color: var(--theia-foreground);
+    }
     .akari-annotations-widget .akari-annotations-strip-caption-text {
         width: 100%;
         height: 100%;
@@ -2403,6 +2427,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
+        if (request.kind === 'audio-master-enabled' || request.kind === 'audio-master-denoise'
+            || request.kind === 'audio-master-loudnorm' || request.kind === 'audio-master-true-peak') {
+            return this.handleAudioMasterWrite(request);
+        }
+        if ((isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request)) && this.legacyReadOnly) {
+            return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
+        }
+        if (isCutFramingWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
+            return this.handleLegacyCutFramingWrite(request);
+        }
+        if (isCutFreezeWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
+            return this.handleLegacyCutFreezeWrite(request);
+        }
         const v2Result = await this.handleInspectorWriteV2(request);
         if (v2Result) return v2Result;
         try {
@@ -2799,13 +2836,146 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    protected async handleLegacyCutFramingWrite(
+        request: CutFramingWriteRequest
+    ): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, any>;
+            const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
+            if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
+                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+            }
+            const framing = updateCutFraming(cut.framing, request);
+            if (JSON.stringify(cut.framing ?? null) === JSON.stringify(framing)) {
+                return { ok: true };
+            }
+            if (framing) cut.framing = framing;
+            else delete cut.framing;
+            const after = `${JSON.stringify(document, null, 2)}\n`;
+            await this.writeEditSnapshotGuarded(after);
+            const label = request.kind === 'cut-framing-keyframes'
+                ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
+    protected async handleLegacyCutFreezeWrite(
+        request: CutFreezeWriteRequest
+    ): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, any>;
+            const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
+            if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
+                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+            }
+            const playbackDuration = cutPlaybackDuration(cut);
+            const displayedAt = resolveCutFreezeDisplayAt(
+                cut.freeze,
+                this.playheadT,
+                this.segments[request.index]?.tlStart ?? 0,
+                playbackDuration
+            );
+            const freeze = updateCutFreeze(cut.freeze, request, displayedAt, playbackDuration);
+            if (freeze && isExplicitV0CutTimeline(cut, document.version)) {
+                throw new Error('明示 at/track を使う edit.json v0 ではフリーズを設定できません。');
+            }
+            if (JSON.stringify(cut.freeze ?? null) === JSON.stringify(freeze)) {
+                return { ok: true };
+            }
+            if (freeze) cut.freeze = freeze;
+            else delete cut.freeze;
+            const after = `${JSON.stringify(document, null, 2)}\n`;
+            await this.writeEditSnapshotGuarded(after);
+            const label = 'フリーズを変更';
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
+    protected async handleAudioMasterWrite(request: AudioMasterWriteRequest): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, unknown>;
+            const updated = updateAudioMasterDocument(document, request);
+            const after = `${JSON.stringify(updated, null, 2)}\n`;
+            if (after !== before) {
+                await this.writeEditSnapshotGuarded(after);
+                this.pushHistory({
+                    label: '音声マスターを変更',
+                    undo: async () => {
+                        await this.writeEditSnapshotGuarded(before);
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.writeEditSnapshotGuarded(after);
+                        await this.reloadEdit();
+                    }
+                });
+                await this.reloadEdit();
+            }
+            this.hideNotice();
+            this.footer.textContent = '音声マスターを変更しました。';
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
     protected async handleInspectorWriteV2(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
         if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
-            'cut-opacity', 'cut-source-in', 'cut-source-out'
+            'cut-opacity', 'cut-source-in', 'cut-source-out',
+            'cut-framing-crop-x', 'cut-framing-crop-y',
+            'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes',
+            'cut-freeze-at', 'cut-freeze-duration'
         ]);
         const layerKinds = new Set([
             'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
@@ -2825,6 +2995,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const legacyDocument = this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks);
+        if (legacyDocument && (isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request))) return undefined;
         if (envelopeKinds.has(request.kind)) {
             if (legacyDocument || this.editDocument?.version !== 2) return undefined;
             const bgmRequest = request.kind.startsWith('bgm-')
@@ -2934,6 +3105,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else if (request.kind === 'cut-opacity') {
                     patch = { opacity: request.value };
                     label = 'クリップの不透明度を変更';
+                } else if (isCutFramingWriteRequest(request)) {
+                    const raw = this.rawV2Item(itemId);
+                    const framing = updateCutFraming(raw?.source?.framing, request);
+                    patch = { source: { framing } };
+                    label = request.kind === 'cut-framing-keyframes'
+                        ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+                } else if (isCutFreezeWriteRequest(request)) {
+                    const raw = this.rawV2Item(itemId);
+                    const playbackDuration = cutPlaybackDuration(cut);
+                    const displayedAt = resolveCutFreezeDisplayAt(
+                        raw?.source?.freeze,
+                        this.playheadT,
+                        this.segments[indexed.index]?.tlStart ?? 0,
+                        playbackDuration
+                    );
+                    const freeze = updateCutFreeze(
+                        raw?.source?.freeze,
+                        request,
+                        displayedAt,
+                        playbackDuration
+                    );
+                    patch = {
+                        ...(request.kind === 'cut-freeze-duration' ? {
+                            duration: Math.max(1, this.frameAt(
+                                playbackDuration + (freeze?.duration_sec ?? 0)
+                            ))
+                        } : {}),
+                        source: { freeze }
+                    };
+                    label = 'フリーズを変更';
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
@@ -3010,6 +3211,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     sfxId: itemId, itemPatch: patch, legacyPatch: patch
                 })
                 : request.kind === 'item-field' ? updateTreeV2Item(doc, itemId, patch)
+                    : request.kind === 'cut-freeze-duration'
+                        ? updateV2ItemDurationAndShiftFollowing(doc, { itemId, patch })
                     : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
             if (needsTelopRebake) {
@@ -3226,18 +3429,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!segment || !cut) {
                 return undefined;
             }
+            const freeze = readCutFreeze((cut as EditCut & { freeze?: unknown }).freeze);
+            const rawKeyframes = this.rawKeyframeItem(this.cutItemId(selection.index))?.keyframes;
             return {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 trackName: this.trackDisplayNameForItem(this.cutItemId(selection.index)),
                 clipName: this.cutSourceName(cut) || this.cutItemId(selection.index),
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
+                playheadSeconds: this.playheadT,
                 ...(cut.src !== undefined ? {
                     src: cut.src,
                     sourcePath: this.sourceMap.get(cut.src)?.path
                 } : {}),
                 ...(cut.transform !== undefined ? { transform: cut.transform } : {}),
+                ...((cut as EditCut & { framing?: unknown }).framing !== undefined
+                    ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
+                ...(freeze ? { freeze } : {}),
                 ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
@@ -3252,11 +3462,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const crop = overlay.payload.crop && typeof overlay.payload.crop === 'object'
                 && !Array.isArray(overlay.payload.crop)
                 ? overlay.payload.crop as unknown as TimelineCropSnapshot : undefined;
+            const rawKeyframes = this.rawKeyframeItem(overlay.id)?.keyframes;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
                 trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
                 ...(crop !== undefined ? { crop } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 payload: overlay.payload
             };
         }
@@ -3283,6 +3495,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const raw = this.rawV2Item(layer.id);
+            const rawKeyframes = this.rawKeyframeItem(layer.id)?.keyframes;
             const params = raw?.source?.kind === 'telop' && raw.source.params
                 && typeof raw.source.params === 'object' && !Array.isArray(raw.source.params)
                 ? raw.source.params as Record<string, unknown> : undefined;
@@ -3300,6 +3513,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(crop !== undefined ? { crop } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
+                ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
                 ...(chromaKey !== undefined ? { chromaKey } : {}),
                 ...(layer.track !== undefined ? { track: layer.track } : {})
@@ -4593,6 +4807,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.rebuildSegments();
         this.notifyCaptionSourceMappingWarning();
+        this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
@@ -6284,6 +6499,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
         this.timelineOverlay.style.right = `${scrollbarWidth}px`;
         this.applySelectionClass();
+        this.applyKeyframePropertySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
     }
@@ -6939,6 +7155,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         property: propertyRow.property as KeyframeControlRequest['property'], times,
                         easing: this.segmentEasingAt(row.id, propertyRow.property, diamond.t)
                     };
+                    this.applyKeyframePropertySelectionClass();
                 });
                 marker.addEventListener('pointerdown', event => {
                     if (event.button !== 0) return;
@@ -7134,6 +7351,56 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return result;
     }
 
+    protected applyKeyframePropertySelectionClass(): void {
+        const selected = this.selectionModel.keyframeSelection;
+        const matches = (element: HTMLElement): boolean => selected !== undefined
+            && element.dataset.akariItemId === selected.itemId
+            && element.dataset.akariKeyframeProperty === selected.property;
+        for (const element of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-row]')
+        )) {
+            element.classList.toggle('akari-timeline-keyframe-property-selected', matches(element));
+        }
+        for (const element of Array.from(
+            this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-header]')
+        )) {
+            const selectedKey = selected ? `${selected.itemId}:${selected.property}` : '';
+            element.classList.toggle(
+                'akari-timeline-keyframe-property-selected',
+                element.dataset.akariKeyframePropertyHeader === selectedKey
+            );
+        }
+    }
+
+    protected scrollTimelineKeyframeRowIntoView(
+        itemId: string,
+        property: KeyframeControlRequest['property']
+    ): boolean {
+        let row: HTMLElement | undefined;
+        for (const candidate of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-keyframe-property-row]')
+        )) {
+            if (candidate.dataset.akariItemId === itemId
+                && candidate.dataset.akariKeyframeProperty === property) {
+                row = candidate;
+                break;
+            }
+        }
+        if (!row) return false;
+        const viewportHeight = this.stripScroll.clientHeight;
+        const top = row.offsetTop;
+        const bottom = top + row.offsetHeight;
+        const visibleTop = this.stripScroll.scrollTop;
+        const visibleBottom = visibleTop + viewportHeight;
+        if (top < visibleTop) {
+            this.stripScroll.scrollTop = top;
+        } else if (viewportHeight > 0 && bottom > visibleBottom) {
+            this.stripScroll.scrollTop = Math.max(0, bottom - viewportHeight);
+        }
+        this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
+        return true;
+    }
+
     protected async handleKeyframeControl(request: KeyframeControlRequest): Promise<InspectorWriteResult> {
         try {
             const itemId = request.itemId.startsWith('cut:')
@@ -7153,6 +7420,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (keyframeValueAt(point, request.property) !== undefined) times.push(Number(point.t));
             }
             times.sort((left, right) => left - right);
+            if (request.action === 'reveal') {
+                if (times.length === 0) throw new Error('キーフレームがありません。');
+                const nearest = times.reduce((best, candidate) =>
+                    Math.abs(candidate - t) < Math.abs(best - t) ? candidate : best);
+                this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId, property: request.property, times: [nearest],
+                    easing: this.segmentEasingAt(itemId, request.property, nearest)
+                };
+                this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
+                this.applyKeyframePropertySelectionClass();
+                if (!this.scrollTimelineKeyframeRowIntoView(itemId, request.property)) {
+                    throw new Error('キーフレーム行を表示できませんでした。');
+                }
+                return { ok: true };
+            }
             if (request.action === 'previous' || request.action === 'next') {
                 let target: number | undefined;
                 if (request.action === 'previous') {
@@ -7170,6 +7452,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         kind: 'keyframe', itemId, property: request.property, times: [target],
                         easing: this.segmentEasingAt(itemId, request.property, target)
                     };
+                    this.applyKeyframePropertySelectionClass();
                 }
                 return { ok: true };
             }

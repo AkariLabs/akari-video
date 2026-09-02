@@ -2,6 +2,8 @@ import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
+import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
+import type { CutFreeze } from './inspector/freeze-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -14,8 +16,12 @@ export interface TimelineCutSelection {
     sourceOut: number;
     outputStart: number;
     outputEnd: number;
+    playheadSeconds?: number;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    framing?: CutFraming;
+    freeze?: CutFreeze;
     opacity?: number;
+    keyframes?: readonly Record<string, unknown>[];
     speed?: number;
     transitionOut?: {
         type: ReadableTransitionType;
@@ -41,6 +47,7 @@ export interface TimelineOverlaySelection {
     track?: number;
     payload: Record<string, unknown>;
     crop?: TimelineCropSnapshot;
+    keyframes?: readonly Record<string, unknown>[];
     trackName: string;
     clipName: string;
 }
@@ -73,6 +80,7 @@ export interface TimelineLayerSelection {
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     crop?: TimelineCropSnapshot;
     opacity?: number;
+    keyframes?: readonly Record<string, unknown>[];
     blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
         | 'overlay' | 'hardlight' | 'softlight';
     chromaKey?: { color: string; similarity?: number; blend?: number };
@@ -191,6 +199,14 @@ export type TimelineSelectionSnapshot =
     | TimelineMultiSelectionSnapshot
     | undefined;
 
+/** edit.json の文書レベル audio.master をインスペクターへ運ぶスナップショット。 */
+export interface TimelineAudioMasterSnapshot {
+    enabled: boolean;
+    denoise?: 'off' | 'std' | 'strong';
+    loudnorm?: number;
+    truePeakDbtp?: number;
+}
+
 type InspectorWriteOperation =
     | {
         kind: 'item-field';
@@ -207,6 +223,13 @@ type InspectorWriteOperation =
     | { kind: 'cut-scale'; index: number; value: number | null }
     | { kind: 'cut-rotate'; index: number; value: number | null }
     | { kind: 'cut-opacity'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-x'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-y'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-w'; index: number; value: number | null }
+    | { kind: 'cut-framing-crop-h'; index: number; value: number | null }
+    | { kind: 'cut-framing-keyframes'; index: number; value: CutFramingKeyframe[] | null }
+    | { kind: 'cut-freeze-at'; index: number; value: number | null }
+    | { kind: 'cut-freeze-duration'; index: number; value: number | null }
     | { kind: 'cut-source-in'; index: number; value: number }
     | { kind: 'cut-source-out'; index: number; value: number }
     | { kind: 'layer-transform-x'; id: string; value: number | null }
@@ -256,7 +279,16 @@ type InspectorWriteOperation =
         id: string;
         audioKind: 'bgm' | 'sfx' | 'narration';
     }
+    | { kind: 'audio-master-enabled'; value: boolean }
+    | { kind: 'audio-master-denoise'; value: 'off' | 'std' | 'strong' | null }
+    | { kind: 'audio-master-loudnorm' | 'audio-master-true-peak'; value: number | null }
     | { kind: 'overlay-var'; id: string; name: string; value: string };
+
+export type AudioMasterWriteRequest = Extract<
+    InspectorWriteOperation,
+    { kind: 'audio-master-enabled' | 'audio-master-denoise'
+        | 'audio-master-loudnorm' | 'audio-master-true-peak' }
+>;
 
 /**
  * targets は複数選択の kind 非依存な一括 write 器。未指定なら各 operation の id/index が対象。
@@ -280,7 +312,7 @@ export interface TimelineKeyframeSelection {
 }
 
 export interface KeyframeControlRequest {
-    action: 'toggle' | 'previous' | 'next' | 'easing';
+    action: 'toggle' | 'previous' | 'next' | 'easing' | 'reveal';
     itemId: string;
     property: TimelineKeyframeSelection['property'];
     value?: number;
@@ -315,6 +347,7 @@ export class TimelineSelectionModel {
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
 
     protected _snapshot: TimelineSelectionSnapshot;
+    protected _audioMaster: TimelineAudioMasterSnapshot = { enabled: false };
     protected _treeSelection: TimelineTreeItemSelection | undefined;
     protected _keyframeSelection: TimelineKeyframeSelection | undefined;
     protected _fps = 30;
@@ -339,6 +372,15 @@ export class TimelineSelectionModel {
 
     set snapshot(value: TimelineSelectionSnapshot) {
         this._snapshot = value;
+        this.onChangedEmitter.fire();
+    }
+
+    get audioMaster(): TimelineAudioMasterSnapshot {
+        return this._audioMaster;
+    }
+
+    set audioMaster(value: TimelineAudioMasterSnapshot) {
+        this._audioMaster = value;
         this.onChangedEmitter.fire();
     }
 

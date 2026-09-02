@@ -14,9 +14,11 @@ export interface NumberFieldOptions {
 
 export interface KeyframeSeatOptions {
     active: boolean;
+    hasKeyframes: boolean;
     onToggle: () => void;
     onPrevious: () => void;
     onNext: () => void;
+    onReveal: () => void;
 }
 
 export const INSPECTOR_LIVE_PREVIEW_THROTTLE_MS = 30;
@@ -66,6 +68,21 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
     next.setAttribute('aria-label', '次のキーフレームへ');
     next.addEventListener('click', () => options?.onNext());
     group.append(previous, button, next);
+    if (options?.onReveal) {
+        const reveal = document.createElement('button');
+        reveal.type = 'button';
+        reveal.textContent = '⤢';
+        reveal.disabled = !options.hasKeyframes;
+        reveal.title = options.hasKeyframes
+            ? 'タイムラインのキーフレーム行を開く'
+            : 'キーフレームがありません';
+        reveal.setAttribute('aria-label', reveal.title);
+        reveal.setAttribute('data-akari-ui', `inspector-kf-jump:${name}`);
+        reveal.addEventListener('click', () => {
+            if (!reveal.disabled) options.onReveal();
+        });
+        group.appendChild(reveal);
+    }
     return group;
 }
 

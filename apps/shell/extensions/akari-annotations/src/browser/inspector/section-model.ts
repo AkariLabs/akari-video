@@ -1,6 +1,7 @@
 export interface InspectorSectionDef<TField> {
     id: string;
     label: string;
+    caption?: string;
     fields: ReadonlyArray<TField>;
     collapsedByDefault?: boolean;
     optionalFields?: ReadonlyArray<TField & { name: string }>;
@@ -27,7 +28,7 @@ export class InspectorSectionState {
     }
 }
 
-const ORDER = ['time', 'transform', 'crop', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
+const ORDER = ['time', 'transform', 'crop', 'framing', 'freeze', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
 
 export function composeInspectorSections<T extends { id: string }>(sections: readonly T[]): T[] {
     return [...sections].sort((left, right) => {
