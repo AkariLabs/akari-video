@@ -97,9 +97,28 @@ test('AKARI_FRAME_ENGINE の backend RPC はインスタンスで 1 回だけキ
     assert.match(compiledHandler, /preferences\.get\('akari\.preview\.frameEngine', true\)/);
 });
 
-test('frame-engine 有効時も overlay-only 更新は同じ runtime へ差分適用する', () => {
+test('frame-engine 有効時の incremental 更新は同じ webview の runtime へ差分適用する', () => {
+    assert.match(compiledHandler, /previewModelUpdateAction\)\(updateKind, frameEngineEnabled\)/);
     assert.match(compiledHandler,
-        /isOverlayOnlyPreviewModelUpdate\)\(widget\.akariPreviewModelSnapshot, nextSnapshot\)/);
+        /updateAction === 'legacy-incremental' \|\| updateAction === 'frame-engine-incremental'/);
+    assert.match(compiledHandler,
+        /sendMessage\(\{ type: 'akari-preview-model-update', summary \}\)/);
+    assert.match(bootstrap, /updateModel\(nextSummary\)/);
+    assert.match(bootstrap, /queueEngineSummaryUpdate\(\(\) => nextSummary, true\)/);
+    assert.match(bootstrap, /engine\.buildResolvedTimelinePlan\(nextCuts/);
+    assert.match(bootstrap, /createSchedulerForTimeline\(nextTimeline\)/);
+    assert.match(bootstrap, /createAudioSupplyForSummary\(nextSummary, nextCuts, nextDuration\)/);
+    assert.match(compiledHandler, /window\.akari\.frameEnginePendingSummary = nextSummary/);
+    assert.match(bootstrap, /await clock\.updateModel\(pendingSummary\)/);
+    assert.match(bootstrap,
+        /await renderFrame\(restoredPosition,[\s\S]*?root\.dataset\.frameEngineReady = 'true'/);
+});
+
+test('frame-engine runtime は crop を含むライブ値を再構築なしで再評価する', () => {
+    assert.match(bootstrap, /applyLivePreview\(message\)/);
+    assert.match(bootstrap, /message\.field\.startsWith\('crop\.'\)/);
+    assert.match(bootstrap, /summaryWithLivePreview\(current, message\)/);
+    assert.match(bootstrap, /applyEngineSummary\(resolveNext\(engineSummary\), rebuildServices\)/);
 });
 
 test('追跡済み frame-engine IIFE は必要な engine 部品を含む', () => {

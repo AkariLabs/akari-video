@@ -96,7 +96,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
     /**
      * scrub-number ドラッグ中に書き込みなしでプレビューへ即時反映する対象フィールド。
-     * cuts/layers の transform/opacity のみ設定する。
+     * cuts/layers の transform/opacity/crop に設定する。
      */
     liveField?: LivePreviewRequest['field'];
     previewOption?: (value: string) => void;
@@ -256,6 +256,7 @@ function CROP_FIELDS<TSnapshot extends { id: string; crop?: unknown }>(
         getEditValue: () => String(crop[axis]),
         inputKind: 'scrub-number',
         scrubStep: INSPECTOR_CROP_SCRUB_STEP,
+        liveField: `crop.${axis}`,
         min: 0,
         max: inspectorCropAxisMaximum(crop, axis),
         removable: true,

@@ -289,7 +289,7 @@ export interface KeyframeControlRequest {
 
 /**
  * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
- * ephemeral な通知。対象は cuts/layers の transform/opacity のみ。
+ * ephemeral な通知。対象は cuts/layers の transform/opacity/crop。
  */
 export type LivePreviewTarget =
     | { kind: 'cut'; index: number }
@@ -298,7 +298,8 @@ export type LivePreviewTarget =
 
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
-    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity';
+    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity'
+        | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h';
     value: number;
     easing?: string;
 }

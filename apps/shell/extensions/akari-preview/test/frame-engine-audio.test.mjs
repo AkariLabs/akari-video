@@ -59,7 +59,8 @@ test('shell frame-engine 音声 glue の生成 JS は構文として妥当', () 
 test('shell 評価台は旧音声を停止し、共有予定表と Web Audio を使う', () => {
   assert.match(bootstrap, /previewAudio\.pause\(\)/u);
   assert.match(bootstrap, /engine\.createPreviewAudioSupply\(/u);
-  assert.match(bootstrap, /engine\.projectSpeechDeclarations\(normalizedCuts/u);
+  assert.match(bootstrap, /createAudioSupplyForSummary\(engineSummary, normalizedCuts, totalDuration\)/u);
+  assert.match(bootstrap, /engine\.projectSpeechDeclarations\(/u);
   assert.doesNotMatch(bootstrap, /const createFrameEngineAudioSupply/u);
   assert.doesNotMatch(bootstrap, /createBufferSource\(\)|buildWebAudioSchedule/u,
     'bootstrap は共通供給の内部実装を複製しない');

@@ -173,6 +173,7 @@ test('クロップ節は layer / overlay / item の動画タブで変形直後�
   }
   assert.match(cropFieldsSource, /displayScale: INSPECTOR_CROP_DISPLAY_SCALE/u);
   assert.match(cropFieldsSource, /scrubStep: INSPECTOR_CROP_SCRUB_STEP/u);
+  assert.match(cropFieldsSource, /liveField: `crop\.\$\{axis\}`/u);
   assert.match(cropFieldsSource, /removable: true/u);
 
   const mediaFactories = [
