@@ -16,6 +16,7 @@ import { AkariRightPanelCuration } from './akari-right-panel-curation';
 import { AkariExportPreferenceContribution } from './akari-export-preferences';
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
+import { AkariExportBackgroundChip } from './export-dialog/export-background-chip';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
@@ -25,6 +26,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportDialog).toDynamicValue(ctx =>
         new AkariExportDialog(ctx.container.get(AkariExportSessionService))
     ).inSingletonScope();
+    bind(AkariExportBackgroundChip).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariExportBackgroundChip);
 
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>

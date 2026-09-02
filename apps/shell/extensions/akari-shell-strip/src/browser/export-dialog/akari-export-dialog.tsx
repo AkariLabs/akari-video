@@ -1,5 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import { ReactDialog } from '@theia/core/lib/browser/dialogs/react-dialog';
+import { Emitter, Event } from '@theia/core/lib/common';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariExportSessionService } from '../akari-export-session-service';
 import { ensureExportDialogStyle } from './export-dialog-style';
 import { ExportSetupView } from './export-setup-view';
@@ -8,15 +10,29 @@ import { ExportDoneView } from './export-done-view';
 import { ExportLintFailedView } from './export-lint-failed-view';
 
 export class AkariExportDialog extends ReactDialog<void> {
+    protected readonly visibilityEmitter = new Emitter<boolean>();
+    readonly onDidChangeVisibility: Event<boolean> = this.visibilityEmitter.event;
+
     constructor(protected readonly session: AkariExportSessionService) {
         super({ title: '書き出し', maxWidth: 880 });
         this.addClass('akari-export-dialog-host');
         ensureExportDialogStyle();
         this.toDispose.push(this.session.onDidChange(() => this.update()));
+        this.toDispose.push(this.visibilityEmitter);
     }
 
     get value(): void {
         return undefined;
+    }
+
+    protected override onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        this.visibilityEmitter.fire(true);
+    }
+
+    protected override onAfterDetach(msg: Message): void {
+        super.onAfterDetach(msg);
+        this.visibilityEmitter.fire(false);
     }
 
     protected render(): React.ReactNode {
