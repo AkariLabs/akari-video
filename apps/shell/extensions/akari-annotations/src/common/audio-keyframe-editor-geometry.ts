@@ -1,5 +1,10 @@
 export const AUDIO_KEYFRAME_MIN_DB = -30;
 export const AUDIO_KEYFRAME_MAX_DB = 9;
+export const AUDIO_KEYFRAME_MIN_POINTS = 2;
+export const AUDIO_KEYFRAME_MIN_POINTS_NOTICE =
+    'キーフレームは 2 点以上必要です。点を追加するか、この 1 点を削除してください。';
+
+export type AudioKeyframeWriteGuard = 'ok' | 'too-few';
 
 export interface AudioKeyframeTimePoint {
     readonly t: number;
@@ -25,6 +30,14 @@ function finiteOr(value: number, fallback: number): number {
 
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.max(minimum, Math.min(maximum, value));
+}
+
+/** 空の envelope は削除として許可し、変化を表せない 1 点だけを拒否する。 */
+export function audioKeyframeWriteGuard(
+    keyframes: readonly unknown[] | null
+): AudioKeyframeWriteGuard {
+    const pointCount = keyframes?.length ?? 0;
+    return pointCount > 0 && pointCount < AUDIO_KEYFRAME_MIN_POINTS ? 'too-few' : 'ok';
 }
 
 /** 全体ゲイン入力をエディタの表示範囲へ収め、未設定・不正値は 0 dB にする。 */
