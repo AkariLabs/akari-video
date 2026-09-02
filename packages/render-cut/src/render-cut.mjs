@@ -876,6 +876,7 @@ export async function loadOverlays(projectRoot, edit) {
 /** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
 export async function loadCaptions(projectRoot, edit) {
   const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = packageRequire("../../edit-store/lib/index.js");
+  const { protectedTermsFrom, resolveWordBookSync } = await import("../../word-book/src/index.mjs");
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
@@ -894,8 +895,15 @@ export async function loadCaptions(projectRoot, edit) {
   if (!captions) {
     throw new ExecutionError("captions.json root must be an array or an object with captions[]");
   }
-  const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), { output: edit.output });
+  const wordBook = resolveWordBookSync({ projectRoot });
+  const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), {
+    output: edit.output,
+    extra_protected_terms: protectedTermsFrom(wordBook.entries),
+  });
   if (resolved) {
+    if (resolved.word_book_fallbacks.length > 0) {
+      console.error(`単語帳: ${resolved.word_book_fallbacks.length} 行で行分割保護を外しました`);
+    }
     return {
       overlays: generateResolvedCaptionOverlays(resolved),
       warnings: presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`),

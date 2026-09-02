@@ -6,6 +6,7 @@ exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
 exports.shiftCaptionLine = shiftCaptionLine;
 exports.setCaptionTimingLine = setCaptionTimingLine;
 exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
 exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 exports.insertCaptionLine = insertCaptionLine;
 exports.removeCaptionLine = removeCaptionLine;
@@ -198,6 +199,23 @@ function updateCaptionFieldsInSource(source, captionId, updates) {
         nextElement = syncOptionalCaptionProperty(nextElement, 'unrecognized', updates.unrecognized === null || unrecognized?.length === 0 ? undefined : unrecognized, captionId);
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+function applyWordBookToCaptionsInSource(source, changes) {
+    if (changes.length === 0) {
+        return source;
+    }
+    let output = source;
+    for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'words', change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+    }
+    return output;
 }
 function updateCaptionTextStyleInSource(source, captionId, updates) {
     if (!captionId) {

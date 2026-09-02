@@ -123,6 +123,23 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         return null;
     }
     const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+    if (options.extra_protected_terms !== undefined
+        && (!Array.isArray(options.extra_protected_terms)
+            || options.extra_protected_terms.some(entry => !strictText(entry)))) {
+        fail('INVALID_POLICY', 'extra_protected_terms must contain only non-empty NFC trimmed strings');
+    }
+    const extraProtectedTerms = [...new Set(options.extra_protected_terms ?? [])];
+    const policyProtectedTerms = policy.break_hints?.protected_terms ?? [];
+    const incrementalProtectedTerms = extraProtectedTerms.filter(term => !policyProtectedTerms.includes(term));
+    const policyWithExtraTerms = incrementalProtectedTerms.length === 0
+        ? policy
+        : {
+            ...policy,
+            break_hints: {
+                ...policy.break_hints,
+                protected_terms: [...policyProtectedTerms, ...incrementalProtectedTerms]
+            }
+        };
     if (!Array.isArray(captionsRoot.captions))
         fail('INVALID_CAPTIONS', 'captions.json object root must contain captions[]');
     const captions = captionsRoot.captions;
@@ -155,6 +172,7 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         values.forEach((occurrence, index) => { occurrence.occurrence_index = index + 1; });
     }
     const boundaryProjection = [];
+    const wordBookFallbacks = [];
     const fragmentsByCaption = new Map();
     captions.forEach((caption, index) => {
         const text = caption.display_text ?? caption.text;
@@ -166,7 +184,22 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
         }
         else {
-            const split = splitCaptionFragments(text, policy);
+            let split;
+            try {
+                split = splitCaptionFragments(text, policyWithExtraTerms);
+            }
+            catch (error) {
+                if (!(error instanceof CaptionDisplayError)
+                    || error.code !== 'NO_WORD_BOUNDARY_SPLIT'
+                    || incrementalProtectedTerms.length === 0) {
+                    throw error;
+                }
+                split = splitCaptionFragments(text, policy);
+                wordBookFallbacks.push({
+                    caption_id: caption.id,
+                    dropped_terms: incrementalProtectedTerms.filter(term => text.includes(term))
+                });
+            }
             fragments = split.fragments;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
         }
@@ -216,7 +249,8 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         display_cue_count: displayCues.length,
         split_source_cue_count: splitCueIds.size,
         boundary_projection: boundaryProjection,
-        display_cues: displayCues
+        display_cues: displayCues,
+        word_book_fallbacks: wordBookFallbacks
     };
 }
 /**

@@ -55,6 +55,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
   const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
+  const wordBookScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'word-book.mjs');
 
   return {
     repoRoot,
@@ -71,7 +72,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     captureScript: existsSync(path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE)) ? path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE) : null,
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
     eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
-    mediaScript: existsSync(mediaScript) ? mediaScript : null
+    mediaScript: existsSync(mediaScript) ? mediaScript : null,
+    ...(existsSync(wordBookScript) ? { wordBookScript } : {})
   };
 }
 
@@ -105,6 +107,9 @@ export function resolveLauncherAssets({
     ...(candidate.captureScript ?? vendor.captureScript ? { captureScript: candidate.captureScript ?? vendor.captureScript } : {}),
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
     eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
-    mediaScript: candidate.mediaScript ?? vendor.mediaScript
+    mediaScript: candidate.mediaScript ?? vendor.mediaScript,
+    ...(candidate.wordBookScript ?? vendor.wordBookScript
+      ? { wordBookScript: candidate.wordBookScript ?? vendor.wordBookScript }
+      : {})
   };
 }
