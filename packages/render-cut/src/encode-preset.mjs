@@ -61,8 +61,9 @@ export function resolveEncodingPolicy({
   platform = process.platform,
 } = {}) {
   const editEncoding = edit?.output?.encoding ?? {};
+  const codec = normalizeVideoCodec(cli.codec ?? "h264");
   const hasOptIn = cli.quality !== undefined || cli.encoder !== undefined
-    || editEncoding.quality !== undefined || editEncoding.encoder !== undefined;
+    || cli.codec !== undefined || editEncoding.quality !== undefined || editEncoding.encoder !== undefined;
   if (!hasOptIn) return null;
   const qualityRequested = fieldRequest(cli.quality, editEncoding.quality, "standard");
   const encoderRequested = fieldRequest(cli.encoder, editEncoding.encoder, "x264");
@@ -81,19 +82,26 @@ export function resolveEncodingPolicy({
           env,
           spawnSyncImpl,
           platform,
+          codec,
         }).engine,
         origin: encoderRequested.value === "auto" ? "capability-resolution" : encoderRequested.origin,
       };
   const effectiveQuality = { ...qualityRequested };
   const encoderChoice = { engine: effectiveEncoder.value };
   return {
+    codec,
     requested: { quality: qualityRequested, encoder: encoderRequested },
     effective: { quality: effectiveQuality, encoder: effectiveEncoder },
-    video_encode_args: buildVideoEncodeArgs({ quality: effectiveQuality.value, encoderChoice, profile: "high" }),
+    video_encode_args: buildVideoEncodeArgs({
+      quality: effectiveQuality.value,
+      encoderChoice,
+      profile: codec === "hevc" ? "main" : "high",
+      codec,
+    }),
     non_encoding_stages: [
       {
         stage: "overlay_alpha_intermediate",
-        reason: "qtrle/ProRes 4444 carries transparency into composite and is not an H.264 delivery-video reencode",
+        reason: `qtrle/ProRes 4444 carries transparency into composite and is not a ${codec === "hevc" ? "HEVC" : "H.264"} delivery-video reencode`,
       },
       {
         stage: "audio_mix",
@@ -110,11 +118,20 @@ function fieldRequest(cliValue, editValue, compatibilityValue) {
 }
 
 const HARDWARE_ENCODERS = {
-  videotoolbox: "h264_videotoolbox",
-  nvenc: "h264_nvenc",
-  qsv: "h264_qsv",
-  amf: "h264_amf",
-  mf: "h264_mf",
+  h264: {
+    videotoolbox: "h264_videotoolbox",
+    nvenc: "h264_nvenc",
+    qsv: "h264_qsv",
+    amf: "h264_amf",
+    mf: "h264_mf",
+  },
+  hevc: {
+    videotoolbox: "hevc_videotoolbox",
+    nvenc: "hevc_nvenc",
+    qsv: "hevc_qsv",
+    amf: "hevc_amf",
+    mf: "hevc_mf",
+  },
 };
 
 // Process-wide cache keyed by ffmpeg binary and encoder name. A nested map avoids ambiguous
@@ -123,7 +140,8 @@ const encoderProbeCache = new Map();
 
 export function resetVideotoolboxCacheForTests() {
   for (const [ffmpegCommand, encoderResults] of encoderProbeCache) {
-    encoderResults.delete("videotoolbox");
+    encoderResults.delete("h264:videotoolbox");
+    encoderResults.delete("hevc:videotoolbox");
     if (encoderResults.size === 0) encoderProbeCache.delete(ffmpegCommand);
   }
 }
@@ -142,16 +160,21 @@ export function isVideotoolboxAvailable({
   ffmpegCommand,
   env = process.env,
   spawnSyncImpl = spawnSync,
+  codec = "h264",
 } = {}) {
   if (env.AKARI_EXPORT_FORCE_X264 === "1") return false;
   // Resolved lazily (only once the FORCE_X264 short-circuit above is ruled out) so a forced x264
   // choice never touches media-bin's resolveFfmpeg(), matching the pre-existing
   // "must not probe" contract this function has always had.
   const resolvedFfmpegCommand = ffmpegCommand ?? resolveFfmpeg();
-  const cached = cachedEncoderProbe(resolvedFfmpegCommand, "videotoolbox");
+  const resolvedCodec = normalizeVideoCodec(codec);
+  const cacheKey = `${resolvedCodec}:videotoolbox`;
+  const cached = cachedEncoderProbe(resolvedFfmpegCommand, cacheKey);
   if (cached !== undefined) return cached;
-  const available = hasVideotoolboxEncoder(resolvedFfmpegCommand, spawnSyncImpl) && videotoolboxSmokeTest(resolvedFfmpegCommand, spawnSyncImpl);
-  cacheEncoderProbe(resolvedFfmpegCommand, "videotoolbox", available);
+  const encoder = HARDWARE_ENCODERS[resolvedCodec].videotoolbox;
+  const available = hasEncoder(resolvedFfmpegCommand, encoder, spawnSyncImpl)
+    && videotoolboxSmokeTest(resolvedFfmpegCommand, encoder, spawnSyncImpl);
+  cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
   return available;
 }
 
@@ -161,19 +184,22 @@ export function isHardwareEncoderAvailable({
   env = process.env,
   spawnSyncImpl = spawnSync,
   platform = process.platform,
+  codec = "h264",
 } = {}) {
   if (env.AKARI_EXPORT_FORCE_X264 === "1") return false;
-  if (!Object.hasOwn(HARDWARE_ENCODERS, encoder)) throw new RangeError(`Unknown hardware encoder: ${encoder}`);
+  const resolvedCodec = normalizeVideoCodec(codec);
+  if (!Object.hasOwn(HARDWARE_ENCODERS[resolvedCodec], encoder)) throw new RangeError(`Unknown hardware encoder: ${encoder}`);
   if (encoder === "videotoolbox") {
-    return isVideotoolboxAvailable({ ffmpegCommand, env, spawnSyncImpl, platform });
+    return isVideotoolboxAvailable({ ffmpegCommand, env, spawnSyncImpl, platform, codec: resolvedCodec });
   }
   const resolvedFfmpegCommand = ffmpegCommand ?? resolveFfmpeg();
-  const cached = cachedEncoderProbe(resolvedFfmpegCommand, encoder);
+  const cacheKey = `${resolvedCodec}:${encoder}`;
+  const cached = cachedEncoderProbe(resolvedFfmpegCommand, cacheKey);
   if (cached !== undefined) return cached;
-  const ffmpegEncoder = HARDWARE_ENCODERS[encoder];
+  const ffmpegEncoder = HARDWARE_ENCODERS[resolvedCodec][encoder];
   const available = hasEncoder(resolvedFfmpegCommand, ffmpegEncoder, spawnSyncImpl)
     && hardwareEncoderSmokeTest(resolvedFfmpegCommand, encoder, ffmpegEncoder, spawnSyncImpl);
-  cacheEncoderProbe(resolvedFfmpegCommand, encoder, available);
+  cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
   return available;
 }
 
@@ -190,10 +216,6 @@ function cacheEncoderProbe(ffmpegCommand, encoder, available) {
   encoderResults.set(encoder, available);
 }
 
-function hasVideotoolboxEncoder(ffmpegCommand, spawnSyncImpl) {
-  return hasEncoder(ffmpegCommand, HARDWARE_ENCODERS.videotoolbox, spawnSyncImpl);
-}
-
 function hasEncoder(ffmpegCommand, encoder, spawnSyncImpl) {
   const result = spawnSyncImpl(ffmpegCommand, ["-hide_banner", "-encoders"], { encoding: "utf8" });
   if (result.error || result.status !== 0) return false;
@@ -204,7 +226,7 @@ function hasEncoder(ffmpegCommand, encoder, spawnSyncImpl) {
 
 // Encodes a single lavfi-generated 64x64 frame straight to /dev/null: no intermediate file, done
 // in tens of milliseconds (compatibility videotoolbox_smoke_test).
-function videotoolboxSmokeTest(ffmpegCommand, spawnSyncImpl) {
+function videotoolboxSmokeTest(ffmpegCommand, encoder, spawnSyncImpl) {
   const result = spawnSyncImpl(
     ffmpegCommand,
     [
@@ -219,7 +241,7 @@ function videotoolboxSmokeTest(ffmpegCommand, spawnSyncImpl) {
       "-frames:v",
       "1",
       "-c:v",
-      "h264_videotoolbox",
+      encoder,
       "-allow_sw",
       "1",
       "-f",
@@ -269,7 +291,9 @@ export function resolveEncoderChoice({
   env = process.env,
   spawnSyncImpl = spawnSync,
   platform = process.platform,
+  codec = "h264",
 } = {}) {
+  const resolvedCodec = normalizeVideoCodec(codec);
   if (requested === undefined || requested === null) return null;
   if (requested === "x264") return { engine: "x264" };
   if (requested === "videotoolbox") return { engine: "videotoolbox" };
@@ -289,6 +313,7 @@ export function resolveEncoderChoice({
         ffmpegCommand: resolvedFfmpegCommand,
         env,
         spawnSyncImpl,
+        codec: resolvedCodec,
       });
       return { engine: useVideotoolbox ? "videotoolbox" : "x264" };
     }
@@ -301,6 +326,7 @@ export function resolveEncoderChoice({
           env,
           spawnSyncImpl,
           platform,
+          codec: resolvedCodec,
         })) return { engine: encoder };
       }
     }
@@ -316,11 +342,15 @@ export function resolveEncoderChoice({
  * standard（crf 23 / preset medium。これは libx264 自体の既定と同値）、既定 encoder は x264
  * として解決する。
  */
-export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high" } = {}) {
+export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high", codec = "h264" } = {}) {
   if (!quality && !encoderChoice) return null;
   const resolvedPreset = QUALITY_PRESETS[quality ?? "standard"];
   if (!resolvedPreset) throw new RangeError(`Unknown --quality value: ${quality}`);
   const engine = encoderChoice?.engine ?? "x264";
+  const resolvedCodec = normalizeVideoCodec(codec);
+  if (resolvedCodec === "hevc") {
+    return buildHevcVideoEncodeArgs({ quality, engine, profile: profile ?? "main", preset: resolvedPreset });
+  }
   if (engine === "videotoolbox") {
     if (quality === "master") throw new RangeError("master quality does not support videotoolbox");
     return [
@@ -399,4 +429,58 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high" 
     "-color_range",
     "tv",
   ];
+}
+
+function buildHevcVideoEncodeArgs({ quality, engine, profile, preset }) {
+  const tag = ["-tag:v", "hvc1"];
+  if (engine === "videotoolbox") {
+    if (quality === "master") throw new RangeError("master quality does not support videotoolbox");
+    return [
+      "-c:v", "hevc_videotoolbox", "-allow_sw", "1",
+      "-b:v", scaledBitrateLabel(preset.videotoolboxBitrate, 0.6),
+      ...(profile ? ["-profile:v", profile] : []),
+      "-color_range", "tv", ...tag,
+    ];
+  }
+  const colorArgs = [
+    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+  ];
+  if (["nvenc", "qsv", "amf", "mf"].includes(engine)) {
+    if (quality === "master") throw new RangeError(`master quality does not support ${engine}; it requires x264`);
+    if (engine === "nvenc") {
+      return ["-c:v", "hevc_nvenc", "-rc", "vbr", "-cq", String(preset.crf), "-b:v", "0", "-preset", preset.nvencPreset,
+        ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+    }
+    if (engine === "qsv") {
+      return ["-c:v", "hevc_qsv", "-global_quality", String(preset.crf), "-preset", preset.qsvPreset,
+        ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+    }
+    if (engine === "amf") {
+      return ["-c:v", "hevc_amf", "-rc", "cqp", "-qp_i", String(preset.crf), "-qp_p", String(preset.crf),
+        "-quality", preset.amfQuality, ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+    }
+    return ["-c:v", "hevc_mf", "-rate_control", "quality", "-quality", String(preset.mfQuality), "-hw_encoding", "1",
+      ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+  }
+  if (engine !== "x264") throw new RangeError(`Unknown encoder engine: ${engine}`);
+  return [
+    "-c:v", "libx265",
+    ...(profile ? ["-profile:v", profile] : []),
+    "-preset", preset.preset,
+    "-crf", String(preset.crf),
+    "-x265-params", "log-level=error",
+    "-color_range", "tv",
+    ...tag,
+  ];
+}
+
+function scaledBitrateLabel(value, factor) {
+  const match = /^(\d+(?:\.\d+)?)([kKmM]?)$/u.exec(String(value ?? "").trim());
+  if (!match) throw new Error(`invalid VideoToolbox bitrate preset: ${value}`);
+  return `${Number((Number(match[1]) * factor).toFixed(3))}${match[2]}`;
+}
+
+function normalizeVideoCodec(value) {
+  if (value === "h264" || value === "hevc") return value;
+  throw new RangeError(`Unknown codec value: ${value}`);
 }

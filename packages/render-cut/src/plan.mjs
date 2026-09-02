@@ -44,6 +44,7 @@ export function buildPlan({
   captionOverlays = [],
   temporaryDirectory = join(projectRoot, ".akari", "render-tmp"),
   encodingPolicy,
+  codec = "h264",
   fpsOverride,
   resolvedEngine = "osr",
 }) {
@@ -114,16 +115,7 @@ export function buildPlan({
     predicted_duration_seconds: finalDurationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     output: relativeOrAbsolute(projectRoot, outputPath),
-    preset: {
-      video_codec: "h264",
-      profile: "high",
-      pixel_format: "yuv420p",
-      color_range: "tv",
-      audio_codec: "aac",
-      width: edit.output.width,
-      height: edit.output.height,
-      fps,
-    },
+    preset: buildVideoPreset({ codec, width: edit.output.width, height: edit.output.height, fps }),
     ...(encodingPolicy ? { encoding: encodingPolicy } : {}),
     rasterizer: { selected: resolvedEngine, order: [resolvedEngine] },
     intermediates: [
@@ -144,6 +136,20 @@ export function buildPlan({
         args: ["-v", "error", "-show_streams", "-show_format", "-of", "json", relativeOrAbsolute(projectRoot, outputPath)],
       },
     },
+  };
+}
+
+export function buildVideoPreset({ codec = "h264", width, height, fps }) {
+  if (!["h264", "hevc"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
+  return {
+    video_codec: codec,
+    profile: codec === "hevc" ? "main" : "high",
+    pixel_format: "yuv420p",
+    color_range: "tv",
+    audio_codec: "aac",
+    width,
+    height,
+    fps,
   };
 }
 

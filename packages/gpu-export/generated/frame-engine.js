@@ -16463,6 +16463,7 @@ ${indent}`);
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     RangeMp4Source: () => RangeMp4Source,
+    RefusalError: () => RefusalError,
     ScrubController: () => ScrubController,
     SpriteCompositor: () => SpriteCompositor,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
@@ -16515,6 +16516,7 @@ ${indent}`);
     h264CodecString: () => h264CodecString,
     hasCutLayerStyleVisual: () => hasCutLayerStyleVisual,
     hevcCodecString: () => hevcCodecString2,
+    hevcEncoderCodecString: () => hevcEncoderCodecString,
     invertMat3: () => invertMat3,
     isCaptionMotionSupported: () => isCaptionMotionSupported,
     isDecoderErrorMessage: () => isDecoderErrorMessage,
@@ -25224,6 +25226,9 @@ void main() {
   };
 
   // packages/frame-engine/src/exits/webcodecs.ts
+  var RefusalError = class extends Error {
+    name = "RefusalError";
+  };
   var H264_HIGH_PROFILE_BR_FACTOR = 1.25;
   var H264_LEVELS = [
     { level: "4.0", idc: 40, maxFs: 8192, maxMbps: 245760, maxBrKbps: 2e4 },
@@ -25266,10 +25271,38 @@ void main() {
     }
     return selectH264Level(options).codec;
   }
+  function hevcEncoderCodecString({ width, height, fps }) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      throw new RefusalError(`HEVC level selection needs a positive frame size, got ${width}x${height}`);
+    }
+    if (!Number.isFinite(fps) || fps <= 0) {
+      throw new RefusalError(`HEVC level selection needs a positive frame rate, got ${fps}`);
+    }
+    const pixels = width * height;
+    if (pixels <= 1920 * 1080 && fps <= 30) return "hvc1.1.6.L120.B0";
+    if (pixels <= 1920 * 1080 && fps <= 60 || pixels <= 2560 * 1440 && fps <= 30) return "hvc1.1.6.L123.B0";
+    if (pixels <= 3840 * 2160 && fps <= 30) return "hvc1.1.6.L150.B0";
+    if (pixels <= 3840 * 2160 && fps <= 60) return "hvc1.1.6.L153.B0";
+    if (pixels <= 8912896 && pixels * fps <= 1069547520) return "hvc1.1.6.L156.B0";
+    throw new RefusalError(`no HEVC Main profile level fits ${width}x${height}@${fps}fps (max is Level 5.2)`);
+  }
   function buildEncoderConfig(options) {
     const bitrate = options.bitrate ?? 8e6;
+    if (options.codec === "hevc") {
+      return {
+        codec: hevcEncoderCodecString(options),
+        width: options.width,
+        height: options.height,
+        bitrate,
+        framerate: options.fps,
+        hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
+        latencyMode: "realtime",
+        hevc: { format: "hevc" }
+      };
+    }
+    const legacyCodec = typeof options.codec === "string" && options.codec !== "h264" ? options.codec : void 0;
     return {
-      codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: options.codec }),
+      codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: legacyCodec }),
       width: options.width,
       height: options.height,
       bitrate,
@@ -25285,13 +25318,16 @@ void main() {
       this.options = options;
       this.config = buildEncoderConfig(options);
       this.encoder = new VideoEncoder({
-        output: (chunk) => {
+        output: (chunk, metadata) => {
           const bytes = new Uint8Array(chunk.byteLength);
           chunk.copyTo(bytes);
+          const description = this.options.codec === "hevc" && !this.decoderConfigSent && chunk.type === "key" ? copyDescription(metadata?.decoderConfig?.description) : void 0;
+          if (description) this.decoderConfigSent = true;
           this.writes.push(Promise.resolve(this.sink.write(bytes, {
             type: chunk.type,
             timestamp: chunk.timestamp,
-            duration: chunk.duration
+            duration: chunk.duration,
+            ...description ? { description } : {}
           })));
         },
         error: (error) => {
@@ -25307,6 +25343,7 @@ void main() {
     failure = null;
     frameNumber = 0;
     closed = false;
+    decoderConfigSent = false;
     queueWaiters = /* @__PURE__ */ new Set();
     static async isSupported(options) {
       if (typeof VideoEncoder === "undefined") return false;
@@ -25384,6 +25421,13 @@ void main() {
       for (const waiter of [...this.queueWaiters]) waiter();
     }
   };
+  function copyDescription(value) {
+    if (value === void 0) return void 0;
+    if (ArrayBuffer.isView(value)) {
+      return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+    }
+    return new Uint8Array(value.slice(0));
+  }
 
   // packages/frame-engine/src/exits/sprite-compositor.ts
   var TILE_INSTANCE_FLOATS = 30;

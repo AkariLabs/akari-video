@@ -56,3 +56,16 @@ test("quality presets scale with output pixels above 1080p and stay put at or be
     quality: "high", bitrate: 9_000_000, bitrateSource: "explicit",
   });
 });
+
+test("HEVC quality presets use 0.6x bitrate while an explicit bitrate stays unchanged", () => {
+  assert.deepEqual(resolveGpuEncoding({ quality: "standard", codec: "hevc" }), {
+    quality: "standard",
+    bitrate: 4_800_000,
+    bitrateSource: "quality-preset-codec-scaled",
+    baseBitrate: 8_000_000,
+    codecFactor: 0.6,
+  });
+  assert.deepEqual(resolveGpuEncoding({ quality: "standard", codec: "hevc", bitrate: 7_654_321 }), {
+    quality: "standard", bitrate: 7_654_321, bitrateSource: "explicit",
+  });
+});

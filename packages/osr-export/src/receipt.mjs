@@ -4,6 +4,7 @@ import { resolveMemoryBudget } from "./memory.mjs";
 export function buildOsrReceipt({
   tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null,
   gpuPreference = null, warmUp = null, outputScale = null,
+  codec = "h264",
 } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   return {
@@ -11,6 +12,7 @@ export function buildOsrReceipt({
       engine: "osr",
       launcher_tier: tier ?? null,
       verify,
+      codec,
       // Windows のアプリ別 GPU 設定の一時上書き（launchElectronExport の gpuPreference 記録・契約 §11.7）。他 OS は理由だけ。
       gpu_preference: normalizeGpuPreferenceRecord(gpuPreference),
     },

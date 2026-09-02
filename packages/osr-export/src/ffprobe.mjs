@@ -4,7 +4,7 @@ export function ffprobeTimeoutMs(frames) {
   return Math.max(120_000, Number(frames) * 100);
 }
 
-export async function verifyEncodedVideo({ command, path, frames, fps, width, height }) {
+export async function verifyEncodedVideo({ command, path, frames, fps, width, height, codec = "h264" }) {
   const parsed = await probeEncodedMedia({ command, path, frames });
   const stream = parsed.streams?.find((entry) => entry.codec_type === "video") ?? {};
   const duration = Number(parsed.format?.duration ?? stream.duration);
@@ -14,12 +14,12 @@ export async function verifyEncodedVideo({ command, path, frames, fps, width, he
     frames: measuredFrames === frames,
     duration: Number.isFinite(duration) && Math.abs(duration - expectedDuration) <= Math.max(0.01, 1 / fps),
     dimensions: stream.width === width && stream.height === height,
-    codec: stream.codec_name === "h264",
+    codec: stream.codec_name === codec,
   };
   return { matched: Object.values(checks).every(Boolean), checks, expected: { frames, fps, width, height, duration: expectedDuration }, measured: parsed };
 }
 
-export async function verifyFinalVideo({ command, path, frames, fps, width, height, requireAudio = false }) {
+export async function verifyFinalVideo({ command, path, frames, fps, width, height, codec = "h264", requireAudio = false }) {
   const parsed = await probeEncodedMedia({ command, path, frames });
   const video = parsed.streams?.find((entry) => entry.codec_type === "video") ?? {};
   const audio = parsed.streams?.find((entry) => entry.codec_type === "audio") ?? null;
@@ -36,7 +36,7 @@ export async function verifyFinalVideo({ command, path, frames, fps, width, heig
     frames: Number(video.nb_read_frames) === frames,
     duration: Number.isFinite(videoDuration) && Math.abs(videoDuration - expectedDuration) <= tolerance,
     dimensions: video.width === width && video.height === height,
-    codec: video.codec_name === "h264",
+    codec: video.codec_name === codec,
     audioPresence: !requireAudio || audio !== null,
     audioDuration: audio === null
       ? !requireAudio

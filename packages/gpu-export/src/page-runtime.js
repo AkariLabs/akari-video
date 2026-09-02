@@ -13,6 +13,7 @@
 
   const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
+  const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
   const CAPTION_MEASURE_DIFF_LIMIT = 20;
   const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
   const GPU_DIAGNOSTICS_MARKER = "AKARI_GPU_DIAGNOSTICS:";
@@ -66,9 +67,11 @@
   function describeEncoderTarget(config) {
     const width = config.outputWidth ?? config.width;
     const height = config.outputHeight ?? config.height;
-    let codec = "avc1.?";
+    let codec = config.codec === "hevc" ? "hvc1.?" : "avc1.?";
     try {
-      if (typeof FE.h264CodecString === "function") {
+      if (config.codec === "hevc" && typeof FE.hevcEncoderCodecString === "function") {
+        codec = FE.hevcEncoderCodecString({ width, height, fps: config.fps });
+      } else if (typeof FE.h264CodecString === "function") {
         codec = FE.h264CodecString({ width, height, fps: config.fps, bitrate: config.bitrate });
       }
     } catch (error) {
@@ -83,6 +86,7 @@
       height: config.outputHeight ?? config.height,
       fps: config.fps,
       bitrate: config.bitrate,
+      codec: config.codec ?? "h264",
     };
     const probe = async (hardwareAcceleration) => {
       try {
@@ -1707,7 +1711,7 @@
       if (!captureMode && supported) {
         const encodeWidth = config.outputWidth ?? config.width;
         const encodeHeight = config.outputHeight ?? config.height;
-        await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames });
+        await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames, codec: config.codec ?? "h264" });
         encoder = new FE.WebCodecsH264Encoder({
           write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
         }, {
@@ -1717,14 +1721,17 @@
           bitrate: config.bitrate,
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
+          codec: config.codec ?? "h264",
         });
       } else if (!captureMode && !config.verifyFrames) {
         // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
         // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
         // メッセージ末尾に marker + encodeURIComponent(JSON) も付ける（main 側 extractGpuDiagnostics が両方を見る）。
         const gpuDiagnostics = { renderer, encoder_support: encoderSupport };
+        const codecLabel = config.codec === "hevc" ? "HEVC" : "H.264";
+        const reason = config.codec === "hevc" ? `${HEVC_UNSUPPORTED_REASON}: ` : "";
         const unsupported = new Error(
-          `WebCodecs H.264 config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`
+          `${reason}WebCodecs ${codecLabel} config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`
           + ` renderer=${renderer?.renderer ?? "unknown"}`
           + ` ${GPU_DIAGNOSTICS_MARKER}${encodeURIComponent(JSON.stringify(gpuDiagnostics))}`,
         );
@@ -1894,6 +1901,7 @@
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
+              codec: config.codec ?? "h264",
               queueDepth: config.queueDepth,
               queueWaits,
               glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
@@ -1937,6 +1945,7 @@
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
+          codec: config.codec ?? "h264",
           queueDepth: config.queueDepth,
           queueWaits,
           glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
