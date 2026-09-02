@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as waitForImmediate } from 'node:timers/promises';
-import { AkariQuickExportServiceImpl } from '../lib/node/akari-quick-export-service.js';
+import {
+    AkariQuickExportServiceImpl,
+    buildRevealArtifactCommand
+} from '../lib/node/akari-quick-export-service.js';
 
 test('start: バックエンドの予期しない例外を failed へ終端させる', async () => {
     class ThrowingService extends AkariQuickExportServiceImpl {
@@ -128,4 +131,49 @@ test('start: render-cut の stage / frame 出力を status の詳細進捗へ載
     assert.equal(status.progressTotalFrames, 10);
     assert.equal(status.progressEngine, 'gpu');
     assert.equal(status.progressPercent, 33);
+});
+
+test('cancel: 実行中の子プロセスへ SIGTERM を送り cancelled へ終端する', async () => {
+    class CancelService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.signals = [];
+            this.fakeChild = {
+                kill: signal => {
+                    this.signals.push(signal);
+                    queueMicrotask(() => {
+                        this.activeChild = undefined;
+                        this.closeListener?.();
+                    });
+                    return true;
+                },
+                once: (event, listener) => {
+                    if (event === 'close') this.closeListener = listener;
+                    return this.fakeChild;
+                }
+            };
+        }
+        prime() {
+            this.running = true;
+            this.activeChild = this.fakeChild;
+            this.status = { phase: 'rendering', logTail: '' };
+        }
+    }
+    const service = new CancelService();
+    service.prime();
+    assert.deepEqual(await service.cancel(), { cancelled: true });
+    assert.deepEqual(service.signals, ['SIGTERM']);
+    assert.equal((await service.getStatus()).phase, 'cancelled');
+});
+
+test('revealArtifact: OS ごとのファイル管理コマンドを組み立てる', () => {
+    assert.deepEqual(buildRevealArtifactCommand('darwin', '/project/exports/final.mp4'), {
+        command: 'open', args: ['-R', '/project/exports/final.mp4']
+    });
+    assert.deepEqual(buildRevealArtifactCommand('win32', 'C:\\project\\exports\\final.mp4'), {
+        command: 'explorer', args: ['/select,C:\\project\\exports\\final.mp4']
+    });
+    assert.deepEqual(buildRevealArtifactCommand('linux', '/project/exports/final.mp4'), {
+        command: 'xdg-open', args: ['/project/exports']
+    });
 });

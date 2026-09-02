@@ -14,10 +14,17 @@ import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
 import { AkariRightPanelCuration } from './akari-right-panel-curation';
 import { AkariExportPreferenceContribution } from './akari-export-preferences';
+import { AkariExportSessionService } from './akari-export-session-service';
+import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
+    bind(AkariExportSessionService).toSelf().inSingletonScope();
+    // ReactDialog 自身の DialogProps コンストラクタ注入を通さず、必要な依存を明示して生成する。
+    bind(AkariExportDialog).toDynamicValue(ctx =>
+        new AkariExportDialog(ctx.container.get(AkariExportSessionService))
+    ).inSingletonScope();
 
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>
