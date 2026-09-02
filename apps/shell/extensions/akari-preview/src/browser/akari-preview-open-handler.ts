@@ -9709,6 +9709,50 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             // 静止画セグメント中は #preview-still が本編の見た目を担う（video は hidden のまま）。
             const cutMediaNow = () => (stillImage.style.display !== 'none' ? stillImage : video);
+            // frame-engine 面では本編の legacy media が idle（src 無し）なので要素からソース実寸を
+            // 取れない。crop はソースフレーム相対なので、cut を選んだときだけ metadata を 1 度読んで
+            // 実寸を測る（source id 単位でキャッシュ。再生には一切関与しない計測専用の要素）。
+            const cutSourceNaturalSizes = new Map();
+            const ensureCutSourceNaturalSize = () => {
+                const segment = segments[activeSegmentIndex];
+                const sourceId = segment && segment.kind === 'src' && typeof segment.src === 'string'
+                    ? segment.src : null;
+                if (!sourceId) return null;
+                if (cutSourceNaturalSizes.has(sourceId)) return cutSourceNaturalSizes.get(sourceId);
+                const imageUrl = (initial.imageSources || {})[sourceId];
+                const videoUrl = (initial.videoSources || {})[sourceId];
+                const url = typeof imageUrl === 'string' && imageUrl ? imageUrl : videoUrl;
+                if (typeof url !== 'string' || !url) return null;
+                cutSourceNaturalSizes.set(sourceId, null);
+                const isImage = typeof imageUrl === 'string' && Boolean(imageUrl);
+                const probe = document.createElement(isImage ? 'img' : 'video');
+                if (!isImage) {
+                    probe.preload = 'metadata';
+                    probe.muted = true;
+                }
+                probe.crossOrigin = 'anonymous';
+                const settle = () => {
+                    const width = isImage ? probe.naturalWidth : probe.videoWidth;
+                    const height = isImage ? probe.naturalHeight : probe.videoHeight;
+                    if (width > 0 && height > 0) {
+                        cutSourceNaturalSizes.set(sourceId, { width, height });
+                        updateCutSelectBox();
+                    }
+                    probe.removeAttribute('src');
+                    if (!isImage) probe.load();
+                };
+                probe.addEventListener(isImage ? 'load' : 'loadedmetadata', settle, { once: true });
+                probe.addEventListener('error', () => {
+                    console.warn('[akari-preview] cut source size probe failed', sourceId);
+                }, { once: true });
+                probe.src = url;
+                return null;
+            };
+            const cutNaturalSizeNow = () => {
+                const measured = mediaNaturalSizeOf(cutMediaNow());
+                if (measured.width > 0 && measured.height > 0) return measured;
+                return ensureCutSourceNaturalSize() || { width: 0, height: 0 };
+            };
             const cutCropNow = () => clampCrop(
                 Number(video.dataset.akariCropX),
                 Number(video.dataset.akariCropY),
@@ -9729,7 +9773,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
                 const transform = cutTransformNow();
-                const natural = mediaNaturalSizeOf(cutMediaNow());
+                const natural = cutNaturalSizeNow();
                 const useLayerStyle = cutUsesLayerStyleBox() && natural.width > 0 && natural.height > 0;
                 const size = useLayerStyle
                     ? cutLayerStyleBoxPxFn(natural, cutCropNow(), transform.scale)
@@ -9805,7 +9849,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     entry: null,
                     media,
                     visible: () => !(video.style.visibility === 'hidden' && stillImage.style.display === 'none'),
-                    naturalSize: () => mediaNaturalSizeOf(media),
+                    naturalSize: cutNaturalSizeNow,
                     transformNow: cutTransformNow,
                     cropNow: cutCropNow,
                     // 裁定 5: layer-style へ入っていない cut に初めて crop を書くときだけ fit を焼く。
@@ -9866,6 +9910,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 cutSelected = true;
+                ensureCutSourceNaturalSize();
                 selectLayer(null, { report: true });
                 if (typeof deselectCaption === 'function') deselectCaption({ report: true });
                 updateCutSelectBox();
