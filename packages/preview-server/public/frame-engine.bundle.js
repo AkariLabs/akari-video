@@ -2263,11 +2263,67 @@ var require_caption_store = __commonJS({
       return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
     }
     function serializeCaption(caption) {
+      const parts = [
+        `"id": ${JSON.stringify(caption.id)}`,
+        `"start": ${JSON.stringify(caption.start)}`,
+        `"end": ${JSON.stringify(caption.end)}`,
+        `"text": ${JSON.stringify(caption.text)}`,
+        `"speaker": ${JSON.stringify(caption.speaker)}`,
+        `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
+        `"edited": ${JSON.stringify(caption.edited)}`
+      ];
+      if (caption.src !== void 0) {
+        parts.push(`"src": ${JSON.stringify(caption.src)}`);
+      }
+      if (caption.timeDomain !== void 0) {
+        parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
+      }
+      if (caption.words !== void 0) {
+        parts.push(`"words": ${JSON.stringify(caption.words)}`);
+      }
       const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
-      const unrecognized = normalizedUnrecognized === void 0 ? "" : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
-      const timeDomain = caption.timeDomain === void 0 ? "" : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
-      const textStyle = caption.textStyle === void 0 ? "" : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-      return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+      if (normalizedUnrecognized !== void 0) {
+        parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
+      }
+      if (caption.style !== void 0) {
+        parts.push(`"style": ${JSON.stringify(caption.style)}`);
+      }
+      if (caption.displayText !== void 0) {
+        parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
+      }
+      if (caption.displayFragments !== void 0) {
+        parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
+      }
+      if (caption.stylePreset !== void 0) {
+        parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
+      }
+      if (caption.textStyle !== void 0) {
+        parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
+      }
+      const schemaKeys = /* @__PURE__ */ new Set([
+        "id",
+        "start",
+        "end",
+        "text",
+        "speaker",
+        "sourceRef",
+        "edited",
+        "src",
+        "time_domain",
+        "words",
+        "unrecognized",
+        "style",
+        "display_text",
+        "display_fragments",
+        "style_preset",
+        "text_style"
+      ]);
+      for (const [key, value] of Object.entries(caption.extra ?? {})) {
+        if (value !== void 0 && !schemaKeys.has(key)) {
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+        }
+      }
+      return `{ ${parts.join(", ")} }`;
     }
     function normalizeUnrecognized(value) {
       if (!Array.isArray(value))

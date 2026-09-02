@@ -19,10 +19,16 @@ export interface Caption {
     speaker: string | null;
     sourceRef: CaptionSourceRef | null;
     edited: boolean;
+    src?: string;
+    timeDomain?: 'source' | 'output';
     words?: CaptionWord[];
     unrecognized?: { start: number; end: number }[];
     style?: string;
     displayText?: string;
+    displayFragments?: string[];
+    stylePreset?: string;
+    textStyle?: unknown;
+    extra?: Record<string, unknown>;
 }
 
 export interface AnalysisSegment {
@@ -235,6 +241,8 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
             } else {
                 const preserved = { ...current };
                 delete preserved.unrecognized;
+                delete preserved.displayText;
+                delete preserved.displayFragments;
                 const unrecognized = clipUnrecognizedToRange(segment.unrecognized, segment.start, segment.end);
                 captions.push({
                     ...preserved,
@@ -314,6 +322,12 @@ function serializeCaption(caption: Caption): string {
     const sourceRef = caption.sourceRef === null
         ? 'null'
         : `{"segment":${JSON.stringify(caption.sourceRef.segment)}}`;
+    const src = caption.src === undefined
+        ? ''
+        : `,"src":${JSON.stringify(caption.src)}`;
+    const timeDomain = caption.timeDomain === undefined
+        ? ''
+        : `,"time_domain":${JSON.stringify(caption.timeDomain)}`;
     const words = caption.words === undefined
         ? ''
         : `,"words":${JSON.stringify(caption.words)}`;
@@ -326,10 +340,31 @@ function serializeCaption(caption: Caption): string {
     const displayText = caption.displayText === undefined
         ? ''
         : `,"display_text":${JSON.stringify(caption.displayText)}`;
+    const displayFragments = caption.displayFragments === undefined
+        ? ''
+        : `,"display_fragments":${JSON.stringify(caption.displayFragments)}`;
+    const stylePreset = caption.stylePreset === undefined
+        ? ''
+        : `,"style_preset":${JSON.stringify(caption.stylePreset)}`;
+    const textStyle = caption.textStyle === undefined
+        ? ''
+        : `,"text_style":${JSON.stringify(caption.textStyle)}`;
+    const schemaKeys = new Set([
+        'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
+        'time_domain', 'words', 'unrecognized', 'style', 'display_text',
+        'display_fragments', 'style_preset', 'text_style'
+    ]);
+    const extra = Object.entries(caption.extra ?? {}).flatMap(([key, value]) =>
+        value !== undefined && !schemaKeys.has(key)
+            ? `,${JSON.stringify(key)}:${JSON.stringify(value)}`
+            : []
+    ).join('');
     return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},` +
         `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},` +
         `"speaker":${caption.speaker === null ? 'null' : JSON.stringify(caption.speaker)},` +
-        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${unrecognized}${style}${displayText}}`;
+        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}` +
+        `${src}${timeDomain}${words}${unrecognized}${style}${displayText}${displayFragments}` +
+        `${stylePreset}${textStyle}${extra}}`;
 }
 
 function normalizeSegment(value: any): AnalysisSegment | undefined {
@@ -369,8 +404,25 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
     }
     const words = normalizeCaptionWords(value.words);
     const unrecognized = normalizeUnrecognized(value.unrecognized);
+    const src = typeof value.src === 'string' ? value.src : undefined;
+    const timeDomain = value.time_domain === 'source' || value.time_domain === 'output'
+        ? value.time_domain : undefined;
     const style = typeof value.style === 'string' ? value.style : undefined;
     const displayText = typeof value.display_text === 'string' ? value.display_text : undefined;
+    const displayFragments = Array.isArray(value.display_fragments)
+        && value.display_fragments.every((fragment: unknown) => typeof fragment === 'string')
+        ? [...value.display_fragments] as string[] : undefined;
+    const stylePreset = typeof value.style_preset === 'string' ? value.style_preset : undefined;
+    const textStyle = value.text_style !== null && typeof value.text_style === 'object'
+        && !Array.isArray(value.text_style) ? value.text_style : undefined;
+    const schemaKeys = new Set([
+        'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
+        'time_domain', 'words', 'unrecognized', 'style', 'display_text',
+        'display_fragments', 'style_preset', 'text_style'
+    ]);
+    const extra = Object.fromEntries(Object.keys(value).flatMap(key =>
+        schemaKeys.has(key) ? [] : [[key, value[key]]]
+    ));
     return {
         id: value.id,
         start,
@@ -379,10 +431,16 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         speaker: value.speaker,
         sourceRef: segment,
         edited: value.edited,
+        ...(src === undefined ? {} : { src }),
+        ...(timeDomain === undefined ? {} : { timeDomain }),
         ...(words === undefined ? {} : { words }),
         ...(unrecognized === undefined ? {} : { unrecognized }),
         ...(style === undefined ? {} : { style }),
-        ...(displayText === undefined ? {} : { displayText })
+        ...(displayText === undefined ? {} : { displayText }),
+        ...(displayFragments === undefined ? {} : { displayFragments }),
+        ...(stylePreset === undefined ? {} : { stylePreset }),
+        ...(textStyle === undefined ? {} : { textStyle }),
+        ...(Object.keys(extra).length === 0 ? {} : { extra })
     };
 }
 

@@ -1,5 +1,5 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
-import { applyCaptionTextEdit, type CaptionTextEditRecord } from './caption-words-rederive';
+import { applyCaptionTextEdit, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
 import { applyCaptionStylePresets } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
@@ -134,10 +134,17 @@ export interface CaptionRecord {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    src?: string;
+    words?: CaptionWordTiming[];
     unrecognized?: { start: number; end: number }[];
+    style?: 'karaoke' | 'pop' | 'reveal' | 'reveal-word';
+    displayText?: string;
+    displayFragments?: string[];
+    stylePreset?: string;
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
+    extra?: Record<string, unknown>;
 }
 
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
@@ -731,17 +738,54 @@ function insertIntoEmptyArray(inner: string, serialized: string, lineEnding: str
 }
 
 function serializeCaption(caption: CaptionRecord): string {
+    const parts = [
+        `"id": ${JSON.stringify(caption.id)}`,
+        `"start": ${JSON.stringify(caption.start)}`,
+        `"end": ${JSON.stringify(caption.end)}`,
+        `"text": ${JSON.stringify(caption.text)}`,
+        `"speaker": ${JSON.stringify(caption.speaker)}`,
+        `"sourceRef": ${JSON.stringify(caption.sourceRef)}`,
+        `"edited": ${JSON.stringify(caption.edited)}`
+    ];
+    if (caption.src !== undefined) {
+        parts.push(`"src": ${JSON.stringify(caption.src)}`);
+    }
+    if (caption.timeDomain !== undefined) {
+        parts.push(`"time_domain": ${JSON.stringify(caption.timeDomain)}`);
+    }
+    if (caption.words !== undefined) {
+        parts.push(`"words": ${JSON.stringify(caption.words)}`);
+    }
     const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
-    const unrecognized = normalizedUnrecognized === undefined
-        ? ''
-        : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
-    const timeDomain = caption.timeDomain === undefined
-        ? ''
-        : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
-    const textStyle = caption.textStyle === undefined
-        ? ''
-        : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+    if (normalizedUnrecognized !== undefined) {
+        parts.push(`"unrecognized": ${JSON.stringify(normalizedUnrecognized)}`);
+    }
+    if (caption.style !== undefined) {
+        parts.push(`"style": ${JSON.stringify(caption.style)}`);
+    }
+    if (caption.displayText !== undefined) {
+        parts.push(`"display_text": ${JSON.stringify(caption.displayText)}`);
+    }
+    if (caption.displayFragments !== undefined) {
+        parts.push(`"display_fragments": ${JSON.stringify(caption.displayFragments)}`);
+    }
+    if (caption.stylePreset !== undefined) {
+        parts.push(`"style_preset": ${JSON.stringify(caption.stylePreset)}`);
+    }
+    if (caption.textStyle !== undefined) {
+        parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
+    }
+    const schemaKeys = new Set([
+        'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
+        'time_domain', 'words', 'unrecognized', 'style', 'display_text',
+        'display_fragments', 'style_preset', 'text_style'
+    ]);
+    for (const [key, value] of Object.entries(caption.extra ?? {})) {
+        if (value !== undefined && !schemaKeys.has(key)) {
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+        }
+    }
+    return `{ ${parts.join(', ')} }`;
 }
 
 function normalizeUnrecognized(value: unknown): { start: number; end: number }[] | undefined {
