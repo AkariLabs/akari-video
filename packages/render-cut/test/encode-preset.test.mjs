@@ -174,3 +174,26 @@ test("isVideotoolboxAvailable caches its result per ffmpeg binary (process-wide,
   assert.equal(second, true);
   assert.equal(calls, callsAfterFirst, "second call must hit the cache, not spawn again");
 });
+
+test("HEVC software presets use libx265 with the H.264 CRF tiers and hvc1 tagging", () => {
+  for (const [quality, crf] of [["master", 15], ["high", 18], ["standard", 23], ["light", 26]]) {
+    const args = buildVideoEncodeArgs({ quality, encoderChoice: { engine: "x264" }, profile: "main", codec: "hevc" });
+    assert.equal(args[args.indexOf("-c:v") + 1], "libx265");
+    assert.equal(args[args.indexOf("-crf") + 1], String(crf));
+    assert.equal(args[args.indexOf("-profile:v") + 1], "main");
+    assert.equal(args[args.indexOf("-x265-params") + 1], "log-level=error");
+    assert.equal(args[args.indexOf("-tag:v") + 1], "hvc1");
+  }
+});
+
+test("HEVC hardware table maps all engines and VideoToolbox bitrate to 0.6x", () => {
+  for (const [engine, ffmpegEncoder] of [
+    ["videotoolbox", "hevc_videotoolbox"], ["nvenc", "hevc_nvenc"], ["qsv", "hevc_qsv"],
+    ["amf", "hevc_amf"], ["mf", "hevc_mf"],
+  ]) {
+    const args = buildVideoEncodeArgs({ quality: "high", encoderChoice: { engine }, profile: "main", codec: "hevc" });
+    assert.equal(args[args.indexOf("-c:v") + 1], ffmpegEncoder);
+    assert.equal(args[args.indexOf("-tag:v") + 1], "hvc1");
+    if (engine === "videotoolbox") assert.equal(args[args.indexOf("-b:v") + 1], "7.2M");
+  }
+});

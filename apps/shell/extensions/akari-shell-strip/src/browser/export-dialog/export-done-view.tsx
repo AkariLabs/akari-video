@@ -23,6 +23,7 @@ export function ExportDoneView(props: {
     const { session, snapshot } = props;
     const status = snapshot.status;
     const outputResolution = resolveOutputResolution(snapshot.video, snapshot.settings);
+    const codecLabel = snapshot.settings.codec === 'hevc' ? 'H.265' : 'H.264';
     const [copied, setCopied] = React.useState(false);
     const copyResetTimer = React.useRef<number | undefined>(undefined);
     React.useEffect(() => () => {
@@ -62,10 +63,10 @@ export function ExportDoneView(props: {
                                 <div><small>長さ</small><b>{formatDuration(snapshot.video.durationSeconds, true)}</b></div>
                                 <div><small>画角</small><b>{ratioLabel(snapshot.video)} · {outputResolution.width}×{outputResolution.height}</b></div>
                                 <div><small>fps</small><b>{snapshot.settings.fps ?? snapshot.video.fps ?? '—'}</b></div>
-                                <div><small>映像 / 音声</small><b>H.264 / AAC</b></div>
+                                <div><small>映像 / 音声</small><b>{codecLabel} / AAC</b></div>
                                 <div><small>エンジン</small><b>{engineLabel(snapshot)}</b></div>
                             </div>
-                            <div className='checks'><span>成果物の存在と容量を確認</span><span>編集の画角・fps と一致</span><span>H.264 / AAC · Rec.709</span></div>
+                            <div className='checks'><span>成果物の存在と容量を確認</span><span>編集の画角・fps と一致</span><span>{codecLabel} / AAC · Rec.709</span></div>
                         </div>
                         <div className='acts'>
                             <button type='button' className='btn primary' disabled={!status.artifactPath} onClick={() => void session.openArtifact(status.artifactPath)}>動画を開く</button>

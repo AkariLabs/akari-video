@@ -1,9 +1,10 @@
-import { QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
+import { QuickExportCodec, QuickExportEncoder, QuickExportEngine, QuickExportQuality } from './quick-export-cli';
 
 export interface ExportSettings {
     readonly quality: QuickExportQuality;
     readonly engine: QuickExportEngine;
     readonly encoder: QuickExportEncoder;
+    readonly codec: QuickExportCodec;
     readonly fps: number | undefined;
     readonly resolution: ExportResolution;
     readonly customWidth?: number;
@@ -61,7 +62,7 @@ export const EXPORT_QUALITY_CHOICES: readonly ExportQualityChoice[] = Object.fre
 
 export const EXPORT_FORMAT_SEATS: readonly ExportSettingSeat[] = Object.freeze([
     { id: 'h264', label: 'MP4 · H.264', description: 'SNS・Web・ふつうの納品', available: true, exit: 'GPU 直結' },
-    { id: 'h265', label: 'MP4 · H.265（HEVC）', description: '容量ほぼ半分。X は非対応', available: false, exit: 'GPU 直結のまま', tooltip: 'H.265: GPU 直結のまま容量を約半分に。近日' },
+    { id: 'hevc', label: 'MP4 · H.265（HEVC）', description: '容量ほぼ半分。X は非対応', available: true, exit: 'GPU 直結のまま', tooltip: 'H.265: GPU 直結のまま容量を約半分に。X は非対応です。' },
     { id: 'prores422', label: 'MOV · ProRes 422 HQ', description: '制作会社・TV への納品マスター', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 422 HQ: 制作会社向けの高品質な納品形式。近日' },
     { id: 'prores4444', label: 'MOV · ProRes 4444（透過）', description: '透過つきのテロップ素材', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 4444: 透過つきの動画を書き出します。近日' },
     { id: 'vp9', label: 'WebM · VP9（透過）', description: 'Web で使う透過動画', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'WebM VP9: Web 向けの透過動画を書き出します。近日' },
@@ -107,6 +108,11 @@ export function qualityChoiceForCli(value: QuickExportQuality): ExportQualityCho
 
 export function isMasterSelectable(encoder: QuickExportEncoder): boolean {
     return encoder === 'x264';
+}
+
+export function isFormatSelectable(id: string): id is QuickExportCodec {
+    return (id === 'h264' || id === 'hevc')
+        && EXPORT_FORMAT_SEATS.some(seat => seat.id === id && seat.available);
 }
 
 function finitePositive(value: unknown): number | undefined {
@@ -174,7 +180,7 @@ export function describeOutput(settings: ExportSettings, edit: unknown): readonl
         ? `そのまま（${dimensions}${fps ? ` · ${fps} fps` : ''}）`
         : `${resolved.width} × ${resolved.height}（${resolutionLabel[settings.resolution]}・${modeLabel[resolved.mode]}${fps ? ` · ${fps} fps` : ''}）`;
     return [
-        { label: '形式', value: 'MP4 · H.264 / AAC 48 kHz' },
+        { label: '形式', value: settings.codec === 'hevc' ? 'MP4 · H.265（HEVC） / AAC 48 kHz' : 'MP4 · H.264 / AAC 48 kHz' },
         { label: '画素数', value: pixelValue },
         { label: '音', value: 'ラウドネス −14 LUFS（既定）' },
         { label: '色', value: '8-bit · Rec.709' }

@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     describeOutput,
+    EXPORT_FORMAT_SEATS,
     EXPORT_QUALITY_CHOICES,
     EXPORT_SETTING_SEATS,
     isMasterSelectable,
+    isFormatSelectable,
     qualityChoiceForCli,
     resolveOutputResolution
 } from '../lib/common/export-settings.js';
@@ -88,4 +90,19 @@ test('describeOutput: 画素数行にプリセットと拡縮 mode を併記す�
         outputDirectoryUri: undefined, rerunLint: true, saveAsDefault: false
     }, { output: { width: 1920, height: 1080, fps: 30 } });
     assert.match(lines[1].value, /1280 × 720（720p・縮小/u);
+});
+
+test('H.265（HEVC）の形式席を選べ、形式説明が codec に追従する', () => {
+    const hevc = EXPORT_FORMAT_SEATS.find(seat => seat.id === 'hevc');
+    assert.equal(hevc?.available, true);
+    assert.match(hevc?.tooltip ?? '', /X は非対応/u);
+    assert.equal(isFormatSelectable('h264'), true);
+    assert.equal(isFormatSelectable('hevc'), true);
+    assert.equal(isFormatSelectable('prores422'), false);
+    const lines = describeOutput({
+        quality: 'standard', engine: 'auto', encoder: 'auto', codec: 'hevc', fps: undefined,
+        resolution: 'native', customWidth: undefined,
+        outputDirectoryUri: undefined, rerunLint: true, saveAsDefault: false
+    }, { output: { width: 1920, height: 1080, fps: 30 } });
+    assert.equal(lines[0].value, 'MP4 · H.265（HEVC） / AAC 48 kHz');
 });

@@ -67,9 +67,10 @@ const ENGINE_CHOICES = ["auto", "gpu", "osr"];
 const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
 const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
 const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
+const CODEC_CHOICES = ["h264", "hevc"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
+  [--codec h264|hevc] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
@@ -98,6 +99,9 @@ export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOs
     return { engine: "gpu", result: await runGpu() };
   } catch (error) {
     const reason = gpuRuntimeFallbackReason(error, FALLBACK_REASONS);
+    if (engineRequested === "gpu" && reason === "hevc-unsupported") {
+      throw new RefusalError("この GPU の WebCodecs は HEVC 圧縮に対応していません。--engine osr を使用してください");
+    }
     if (engineRequested !== "auto" || reason === null) throw error;
     return {
       engine: "osr",
@@ -144,6 +148,7 @@ export async function runCli(argv, io = console) {
 
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
+  const codec = options.codec ?? "h264";
   let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
@@ -160,7 +165,7 @@ export async function renderProject(input, options = {}, io = console) {
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(projectRoot, edit);
   const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
-    cli: { quality: options.quality, encoder: options.encoder },
+    cli: { quality: options.quality, encoder: options.encoder, ...(codec === "hevc" ? { codec } : {}) },
     edit,
     capabilities,
   });
@@ -223,10 +228,12 @@ export async function renderProject(input, options = {}, io = console) {
     captionOverlays,
     temporaryDirectory,
     encodingPolicy,
+    codec,
     fpsOverride: options.fps,
     resolvedEngine,
   });
   applyOutputScaleToPlan(plan, edit.output, options.scaleTo);
+  assertHevcPresetSupported(plan.preset);
   const state = {
     version: VERSION,
     phase: "planned",
@@ -268,6 +275,7 @@ export async function renderProject(input, options = {}, io = console) {
         ffprobe: capabilities.ffprobeVersion,
       },
       ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility),
+      codec,
     },
     artifacts: [],
     verify: null,
@@ -348,6 +356,7 @@ export async function renderProject(input, options = {}, io = console) {
       duration: plan.predicted_duration_seconds,
       frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
       quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+      codec,
       // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → auto）。Windows 以外は no-op。
       gpuPreference: options.gpuPreference,
       ffmpegCommand: capabilities.ffmpegCommand,
@@ -583,6 +592,7 @@ export function parseArguments(argv, env = process.env) {
     quality: undefined,
     encoder: undefined,
     engine: "auto",
+    codec: "h264",
     // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → auto に落ちる。
     gpuPreference: undefined,
     fps: undefined,
@@ -595,6 +605,10 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
     else if (argument === "--progress") options.progress = true;
+    else if (argument === "--codec") {
+      if (index + 1 >= argv.length) throw new Error("--codec requires a value");
+      options.codec = parseCodecValue(argv[++index]);
+    } else if (argument.startsWith("--codec=")) options.codec = parseCodecValue(argument.slice(8));
     else if (argument === "--engine") {
       if (index + 1 >= argv.length) throw new Error("--engine requires a value");
       options.engine = parseEngineValue(argv[++index]);
@@ -664,6 +678,13 @@ function parseEngineValue(value) {
   if (value === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
   if (!ENGINE_CHOICES.includes(value)) {
     throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
+  }
+  return value;
+}
+
+function parseCodecValue(value) {
+  if (!CODEC_CHOICES.includes(value)) {
+    throw new Error(`--codec must be one of ${CODEC_CHOICES.join("|")}, got: ${value}`);
   }
   return value;
 }
@@ -738,6 +759,15 @@ export function applyOutputScaleToPlan(plan, editOutput, scaleTo) {
     mode: toPixels > fromPixels ? "up" : toPixels < fromPixels ? "down" : "none",
   };
   return plan;
+}
+
+export function assertHevcPresetSupported(preset) {
+  if (preset?.video_codec !== "hevc") return;
+  const pixels = Number(preset.width) * Number(preset.height);
+  const samplesPerSecond = pixels * Number(preset.fps);
+  if (Number.isFinite(pixels) && Number.isFinite(samplesPerSecond)
+    && pixels > 0 && pixels <= 8_912_896 && samplesPerSecond <= 1_069_547_520) return;
+  throw new RefusalError(`HEVC Main profile Level 5.2 を超える出力には対応していません: ${preset.width}x${preset.height}@${preset.fps}fps`);
 }
 
 async function validateLint(projectRoot, force) {
@@ -1043,6 +1073,8 @@ export function verifyArtifact({
   const actualDuration = Number(measured.format?.duration ?? video?.duration);
   const actualFps = parseRate(video?.avg_frame_rate ?? video?.r_frame_rate);
   const expected = plan.preset;
+  const expectedVideoCodec = expected.video_codec ?? "h264";
+  const expectedVideoProfile = expected.profile ?? (expectedVideoCodec === "hevc" ? "main" : "high");
   const findings = [];
   // docs/contract-2026-08-18-v1-render-parity.md §2: v1's cuts[].track / at declarations now
   // reach a real gap-aware or track-stack render path under both the default and custom
@@ -1089,8 +1121,8 @@ export function verifyArtifact({
     fpsWithinOneFrameTolerance(actualFps, expected.fps, expectedFrameCount),
     `fps ${actualFps}; expected ${expected.fps} ±${oneFrameFpsTolerance(expected.fps, expectedFrameCount)} (1 frame of ${expectedFrameCount})`,
   );
-  compare(findings, "verify.video-codec", video?.codec_name === "h264", `video codec ${video?.codec_name ?? "missing"}; expected h264`);
-  compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === "high", `video profile ${video?.profile ?? "missing"}; expected High`);
+  compare(findings, "verify.video-codec", video?.codec_name === expectedVideoCodec, `video codec ${video?.codec_name ?? "missing"}; expected ${expectedVideoCodec}`);
+  compare(findings, "verify.video-profile", String(video?.profile ?? "").toLowerCase() === expectedVideoProfile, `video profile ${video?.profile ?? "missing"}; expected ${expectedVideoProfile}`);
   compare(findings, "verify.pixel-format", video?.pix_fmt === "yuv420p", `pixel format ${video?.pix_fmt ?? "missing"}; expected yuv420p`);
   compare(
     findings,

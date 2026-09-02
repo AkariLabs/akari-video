@@ -12,7 +12,8 @@ import { describeHardwareEncoderFailure, firstLine, HARDWARE_ENCODER_UNSUPPORTED
 import { buildGpuReceipt } from "./receipt.mjs";
 import { buildGpuElectronArguments, launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
 
-export const FALLBACK_REASONS = Object.freeze([CAPTION_MEASURE_UNSTABLE_REASON]);
+export const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
+export const FALLBACK_REASONS = Object.freeze([CAPTION_MEASURE_UNSTABLE_REASON, HEVC_UNSUPPORTED_REASON]);
 
 export function gpuRuntimeFallbackReason(error, fallbackReasons = FALLBACK_REASONS) {
   const reasonCode = typeof error?.reasonCode === "string" ? error.reasonCode : null;
@@ -35,6 +36,7 @@ export async function exportWithGpu({
   queueDepth = 4,
   quality = "high",
   bitrate = undefined,
+  codec = "h264",
   trapReadback = false,
   verifyFrames = false,
   dumpFrames = [],
@@ -59,6 +61,7 @@ export async function exportWithGpu({
     bitrate: bitrate ?? env.AKARI_GPU_BITRATE,
     width: outputWidth,
     height: outputHeight,
+    codec,
   });
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -79,6 +82,7 @@ export async function exportWithGpu({
       queueDepth,
       quality: encoding.quality,
       bitrate: encoding.bitrate,
+      codec,
       trapReadback,
       verifyFrames,
       dumpFrames,
@@ -96,7 +100,7 @@ export async function exportWithGpu({
       return {
         launcher,
         run,
-        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, finalVerify: null, profile: soft ? "soft" : "gpu", gpuPreference: gpuPreferenceRecord }),
+        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, finalVerify: null, profile: soft ? "soft" : "gpu", gpuPreference: gpuPreferenceRecord, codec }),
       };
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
@@ -124,7 +128,7 @@ export async function exportWithGpu({
         io.error?.(`gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: ${audio.source}`);
       }
     }
-    const finalVerify = await finalVerifier({
+    const finalVerify = normalizeCodecVerification(await finalVerifier({
       command: resolvedFfprobe,
       path: out,
       frames,
@@ -132,7 +136,7 @@ export async function exportWithGpu({
       width: outputWidth,
       height: outputHeight,
       requireAudio: audio.mode !== "none",
-    });
+    }), codec);
     finalVerify.avTermination = measureAvTermination(finalVerify, fps);
     finalVerify.checks = { ...finalVerify.checks, avTermination: finalVerify.avTermination.matched };
     if (!finalVerify.matched) throw new Error(`final ffprobe verification failed: ${JSON.stringify(finalVerify.checks)}`);
@@ -157,6 +161,7 @@ export async function exportWithGpu({
         audio,
         profile: soft ? "soft" : "gpu",
         gpuPreference: gpuPreferenceRecord,
+        codec,
       }),
     };
   } catch (error) {
@@ -173,6 +178,7 @@ function launchGpuExportWithOutputSize(launcher, options) {
       ...buildGpuElectronArguments(resolvedLauncher, resolvedOptions),
       "--output-width", String(resolvedOptions.outputWidth ?? resolvedOptions.width),
       "--output-height", String(resolvedOptions.outputHeight ?? resolvedOptions.height),
+      ...((resolvedOptions.codec ?? "h264") === "hevc" ? ["--codec", "hevc"] : []),
     ],
   });
 }
@@ -252,12 +258,13 @@ export async function captureFramesWithGpu({
   };
 }
 
-export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queueDepth = 4, quality = "high", bitrate = undefined, width = undefined, height = undefined, trapReadback = false, verifyFrames = false } = {}) {
+export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queueDepth = 4, quality = "high", bitrate = undefined, width = undefined, height = undefined, codec = "h264", trapReadback = false, verifyFrames = false } = {}) {
   const encoding = resolveGpuEncoding({
     quality,
     bitrate: bitrate ?? env.AKARI_GPU_BITRATE,
     width,
     height,
+    codec,
   });
   const resolved = {
     soft: soft || env.AKARI_GPU_SOFT === "1",
@@ -269,6 +276,14 @@ export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queu
   };
   if (resolved.trapReadback && resolved.verifyFrames) throw new Error("GPU readback trap and frame verification are mutually exclusive");
   return resolved;
+}
+
+export function normalizeCodecVerification(verification, codec = "h264") {
+  if (codec === "h264") return verification;
+  if (codec !== "hevc") throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
+  const video = verification?.measured?.streams?.find((stream) => stream.codec_type === "video");
+  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === "hevc" };
+  return { ...verification, checks, matched: Object.values(checks).every(Boolean) };
 }
 
 function formatEligibilityFailures(eligibility) {

@@ -21,6 +21,7 @@ export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 export type QuickExportQuality = 'master' | 'high' | 'standard' | 'light';
 export type QuickExportEngine = 'auto' | 'gpu' | 'osr';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
+export type QuickExportCodec = 'h264' | 'hevc';
 
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'
@@ -46,6 +47,7 @@ export function buildQuickExportEncoderChoices(
 /** render-cut --quality の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
 export const QUICK_EXPORT_DEFAULT_QUALITY: QuickExportQuality = 'standard';
 export const QUICK_EXPORT_DEFAULT_ENGINE: QuickExportEngine = 'auto';
+export const QUICK_EXPORT_DEFAULT_CODEC: QuickExportCodec = 'h264';
 /** render-cut の省略時は x264 固定になるため、シェルからは常に明示送信する既定値。 */
 export const QUICK_EXPORT_DEFAULT_ENCODER: QuickExportEncoder = 'auto';
 
@@ -57,6 +59,8 @@ export interface QuickExportRenderSettings {
     readonly engine?: QuickExportEngine;
     /** 未指定でも --encoder auto を明示送信する。 */
     readonly encoder?: QuickExportEncoder;
+    /** 未指定（h264）なら --codec を付けない。 */
+    readonly codec?: QuickExportCodec;
     /** 未指定（そのまま）なら --fps を付けない。 */
     readonly fps?: number;
     /** 未指定（そのまま）なら --scale-to を付けない。 */
@@ -140,6 +144,9 @@ export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRen
     }
     args.push('--engine', settings.engine ?? QUICK_EXPORT_DEFAULT_ENGINE);
     args.push('--encoder', settings.encoder ?? QUICK_EXPORT_DEFAULT_ENCODER);
+    if (settings.codec !== undefined && settings.codec !== QUICK_EXPORT_DEFAULT_CODEC) {
+        args.push('--codec', settings.codec);
+    }
     if (settings.fps !== undefined) {
         args.push('--fps', String(settings.fps));
     }

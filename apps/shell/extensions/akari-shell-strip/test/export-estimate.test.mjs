@@ -42,3 +42,10 @@ test('formatEstimate: 時間は 10 秒、容量は MB / GB 単位へ丸める', 
     assert.deepEqual(formatEstimate(4, 18_400_000), { time: '約 10 秒', size: '約 18 MB' });
     assert.deepEqual(formatEstimate(78, 1_240_000_000), { time: '約 1 分 20 秒', size: '約 1.2 GB' });
 });
+
+test('estimateExport: HEVC の容量目安は同じ設定の H.264 の 0.6 倍', () => {
+    const h264 = estimateExport({ ...BASE, codec: 'h264' });
+    const hevc = estimateExport({ ...BASE, codec: 'hevc' });
+    assert.equal(hevc.seconds, h264.seconds);
+    assert.equal(hevc.bytes, h264.bytes * 0.6);
+});

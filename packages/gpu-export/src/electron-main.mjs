@@ -20,6 +20,7 @@ const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
 const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
+const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
 const DOM_LAYER_SWITCHES = Object.freeze([
   ["enable-features", "CanvasDrawElement"],
   ["disable-gpu-vsync", null],
@@ -41,6 +42,7 @@ export async function runGpuExport(options) {
     queueDepth = 4,
     quality = "high",
     bitrate = undefined,
+    codec = "h264",
     soft = false,
     trapReadback = false,
     verifyFrames = false,
@@ -62,7 +64,8 @@ export async function runGpuExport(options) {
   if (trapReadback && (verifyFrames || requestedDumpFrames.length > 0)) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
-  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight });
+  if (!["h264", "hevc"].includes(codec)) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
+  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec });
   const outputScale = {
     from: [width, height],
     to: [outputWidth, outputHeight],
@@ -121,6 +124,7 @@ export async function runGpuExport(options) {
     queueDepth,
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    codec,
     outputWidth,
     outputHeight,
     soft,
@@ -171,26 +175,28 @@ export async function runGpuExport(options) {
     }
     return true;
   });
-  register("gpu:chunks-start", async () => {
+  register("gpu:chunks-start", async (_event, value) => {
     if (chunkState) throw new Error("chunk sink is already running");
+    if ((value?.codec ?? "h264") !== codec) throw new Error(`renderer codec ${value?.codec} does not match main codec ${codec}`);
     await mkdir(dirname(out), { recursive: true });
     const writer = await createIncrementalMp4Writer({
-      outputPath: out, width: outputWidth, height: outputHeight, fps, frames,
+      outputPath: out, width: outputWidth, height: outputHeight, fps, frames, codec,
     });
     chunkState = { writer };
     return true;
   });
   register("gpu:chunk", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
+    if (value?.description?.length > 0) chunkState.writer.setDecoderConfig(value.description, codec);
     return chunkState.writer.write(value);
   });
   register("gpu:chunks-finish", async () => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
     const mux = await state.writer.finish();
-    const ffprobe = await verifyEncodedVideo({
+    const ffprobe = normalizeCodecVerification(await verifyEncodedVideo({
       command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
-    });
+    }), codec);
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     chunkState = null;
     return { ...mux, ffprobe };
@@ -261,6 +267,7 @@ export async function runGpuExport(options) {
       width,
       height,
       output_scale: outputScale,
+      codec,
       fps,
       duration,
       gpu: {
@@ -290,6 +297,7 @@ export async function runGpuExport(options) {
       version: 1,
       status: "failed",
       error: stripGpuDiagnosticsMarker(String(error?.stack ?? error)),
+      codec,
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
       framesRequested: frames,
       gpu: {
@@ -320,7 +328,15 @@ export async function runGpuExport(options) {
 
 export function gpuFailureReasonCode(error) {
   const message = String(error?.stack ?? error);
+  if (message.includes(HEVC_UNSUPPORTED_REASON)) return HEVC_UNSUPPORTED_REASON;
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
+}
+
+export function normalizeCodecVerification(verification, codec = "h264") {
+  if (codec === "h264") return verification;
+  const video = verification?.measured?.streams?.find((stream) => stream.codec_type === "video");
+  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === "hevc" };
+  return { ...verification, checks, matched: Object.values(checks).every(Boolean) };
 }
 
 export function extractCaptionMeasureDiffs(error) {
@@ -446,6 +462,7 @@ export function parseElectronArguments(argv) {
     queueDepth: 4,
     quality: "high",
     bitrate: undefined,
+    codec: "h264",
     soft: false,
     trapReadback: false,
     verifyFrames: false,
@@ -468,6 +485,7 @@ export function parseElectronArguments(argv) {
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");
     else if (argument === "--bitrate") options.bitrate = positiveInteger(required(argv, ++index, "--bitrate"), "--bitrate");
+    else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--soft") options.soft = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
@@ -529,6 +547,10 @@ function positiveInteger(value, label) {
   const number = positiveNumber(value, label);
   if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`);
   return number;
+}
+function codecValue(value) {
+  if (!["h264", "hevc"].includes(value)) throw new Error(`--codec must be h264|hevc, got: ${value}`);
+  return value;
 }
 
 function parseFrameList(value, label = "--capture-frames") {
