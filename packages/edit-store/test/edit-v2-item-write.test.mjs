@@ -94,6 +94,36 @@ test('v2 slot edit merges source.params without returning an html file write', (
   });
 });
 
+test('v2 shape overlay accepts the shared transform patch without exposing an HTML file write', () => {
+  const value = v2();
+  value.tracks[1].items[0] = {
+    id: 'shape-1',
+    at: 0,
+    duration: 90,
+    source: { kind: 'shape', shape: 'ellipse' },
+  };
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay',
+    itemId: 'shape-1',
+    patch: { transform: { x: 40, y: 20, scale: 0.5 } },
+  });
+
+  assert.equal(result.htmlPath, undefined);
+  const written = JSON.parse(result.candidateText);
+  assert.deepEqual(written.tracks[1].items[0].transform, { x: 40, y: 20, scale: 0.5 });
+  assert.deepEqual(written.tracks[1].items[0].source, { kind: 'shape', shape: 'ellipse' });
+});
+
+test('v2 shape overlay rejects HTML-specific writes', () => {
+  const value = v2();
+  value.tracks[1].items[0] = {
+    id: 'shape-1', at: 0, duration: 90, source: { kind: 'shape', shape: 'rect' },
+  };
+  assert.throws(() => resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'shape-1', patch: { html: '<svg></svg>' },
+  }), /図形アイテムには/);
+});
+
 test('legacy v0/v1 documents stay on their existing collection route', () => {
   const legacyOverlay = {
     version: 1,
