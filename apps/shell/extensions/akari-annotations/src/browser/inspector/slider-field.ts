@@ -56,7 +56,7 @@ export function createSliderField(options: SliderFieldOptions): HTMLElement {
     const number = document.createElement('input');
     number.type = 'text';
     number.inputMode = 'decimal';
-    number.className = 'akari-inspector-slider-number';
+    number.className = 'akari-inspector-number-input akari-inspector-slider-number';
     number.value = formatNumberStep(displayValue, displayStep);
     const unit = document.createElement('span');
     unit.className = 'akari-inspector-slider-unit';

@@ -8,10 +8,12 @@ import {
 } from '../lib/browser/inspector/section-model.js';
 import {
   clampNumber,
+  createKeyframeSeat,
   INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
   numericStep
 } from '../lib/browser/inspector/number-field.js';
 import {
+  createSliderField,
   sliderFromDisplay,
   sliderToDisplay
 } from '../lib/browser/inspector/slider-field.js';
@@ -32,6 +34,59 @@ import {
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+
+class FakeElement {
+  constructor(tagName) {
+    this.tagName = tagName.toUpperCase();
+    this.children = [];
+    this.parentElement = null;
+    this.attributes = new Map();
+    this.style = {
+      values: new Map(),
+      setProperty: (name, value) => this.style.values.set(name, value)
+    };
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  }
+
+  addEventListener() {}
+
+  append(...children) {
+    children.forEach(child => this.appendChild(child));
+  }
+
+  appendChild(child) {
+    child.parentElement = this;
+    this.children.push(child);
+    return child;
+  }
+
+  blur() {}
+}
+
+function withFakeDocument(callback) {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { createElement: tagName => new FakeElement(tagName) }
+  });
+  try {
+    return callback();
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'document', original);
+    else delete globalThis.document;
+  }
+}
+
+function sourceBetween(start, end) {
+  const startIndex = inspectorWidgetSource.indexOf(start);
+  const endIndex = inspectorWidgetSource.indexOf(end, startIndex);
+  assert.notEqual(startIndex, -1, start);
+  assert.notEqual(endIndex, -1, end);
+  return inspectorWidgetSource.slice(startIndex, endIndex);
+}
 
 test('節合成は時間→変形→外観→種別固有→情報の順に固定する', () => {
   const sections = composeInspectorSections([
@@ -109,6 +164,71 @@ test('不透明度スライダーは内部 0..1 と表示 0..100% を往復す�
   assert.equal(sliderToDisplay(0.5, 100), 50);
   assert.equal(sliderFromDisplay(50, 100), 0.5);
   assert.equal(INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, 30);
+});
+
+test('KF 席の前後ナビは ‹ / › で、席本体の ◇ / ◆ と区別する', () => withFakeDocument(() => {
+  const inactive = createKeyframeSeat('opacity');
+  assert.deepEqual(inactive.children.map(child => child.textContent), ['‹', '◇', '›']);
+  assert.equal(inactive.children[1].className, 'akari-inspector-kf-seat');
+
+  const active = createKeyframeSeat('opacity', {
+    active: true,
+    onToggle() {},
+    onPrevious() {},
+    onNext() {}
+  });
+  assert.deepEqual(active.children.map(child => child.textContent), ['‹', '◆', '›']);
+}));
+
+test('スライダー数値はトラックの兄弟要素で、overlay 用クラスを持たない', () => withFakeDocument(() => {
+  const field = createSliderField({
+    name: 'opacity', label: '不透明度', value: 1,
+    min: 0, max: 1, step: 0.01, unit: '%', displayScale: 100,
+    onCommit: async () => true
+  });
+  const [range, number, unit, seat] = field.children;
+  assert.equal(range.className, 'akari-inspector-slider-range');
+  assert.equal(number.parentElement, field);
+  assert.equal(range.parentElement, field);
+  assert.match(number.className, /(?:^| )akari-inspector-number-input(?: |$)/u);
+  assert.doesNotMatch(number.className, /overlay/u);
+  assert.equal(unit.className, 'akari-inspector-slider-unit');
+  assert.equal(seat.className, 'akari-inspector-kf-controls');
+
+  const sliderCss = sourceBetween(
+    '.akari-inspector-widget .akari-inspector-slider-field {',
+    '.akari-inspector-widget [data-akari-easing-preview] button'
+  );
+  assert.match(sliderCss, /grid-template-columns: minmax\(0, 1fr\) 48px auto 54px/u);
+  const numberCssStart = inspectorWidgetSource.lastIndexOf(
+    '.akari-inspector-widget .akari-inspector-slider-number {'
+  );
+  const numberCssEnd = inspectorWidgetSource.indexOf(
+    '.akari-inspector-widget .akari-inspector-slider-unit {', numberCssStart
+  );
+  assert.notEqual(numberCssStart, -1);
+  assert.notEqual(numberCssEnd, -1);
+  const numberCss = inspectorWidgetSource.slice(numberCssStart, numberCssEnd);
+  assert.doesNotMatch(numberCss, /grid-column|z-index|justify-self|text-shadow|background:\s*transparent/u);
+}));
+
+test('cut / layer / overlay / item の変形節は拡縮・回転を既定 fields に含む', () => {
+  const factories = [
+    sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS'),
+    sourceBetween('function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('),
+    sourceBetween('function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('),
+    sourceBetween('function TREE_ITEM_SECTIONS(', '@injectable()')
+  ];
+  for (const source of factories) {
+    const transformFields = source.slice(
+      source.indexOf('const transformFields:'),
+      source.indexOf('return composeInspectorSections')
+    );
+    assert.match(transformFields, /name: 'transform-scale'/u);
+    assert.match(transformFields, /name: 'transform-rotate'/u);
+    assert.doesNotMatch(source, /const optionalFields/u);
+    assert.match(source, /\{ id: 'transform', label: '変形', fields: transformFields \}/u);
+  }
 });
 
 test('chroma は内部 0..1 と表示 0..100% を往復し、宣言の無い layer では読み取り専用になる', () => {

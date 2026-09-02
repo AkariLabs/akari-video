@@ -46,7 +46,7 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
     group.className = 'akari-inspector-kf-controls';
     const previous = document.createElement('button');
     previous.type = 'button';
-    previous.textContent = '◇';
+    previous.textContent = '‹';
     previous.title = '前のキーフレームへ';
     previous.setAttribute('aria-label', '前のキーフレームへ');
     previous.addEventListener('click', () => options?.onPrevious());
@@ -60,7 +60,7 @@ export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions):
     button.addEventListener('click', () => options?.onToggle());
     const next = document.createElement('button');
     next.type = 'button';
-    next.textContent = '◇';
+    next.textContent = '›';
     next.title = '次のキーフレームへ';
     next.setAttribute('aria-label', '次のキーフレームへ');
     next.addEventListener('click', () => options?.onNext());

@@ -236,9 +236,7 @@ function CUT_SECTIONS(
                 return requestWrite({ kind: 'cut-transform-y', index: snapshot.index, value: parsed });
             },
             reset: () => requestWrite({ kind: 'cut-transform-y', index: snapshot.index, value: null })
-        }
-    ];
-    const optionalFields: Array<InspectorFieldDef<TimelineCutSelection> & { name: string }> = [
+        },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
             getValue: () => String((snapshot.transform?.scale ?? 1) * 100),
@@ -271,7 +269,7 @@ function CUT_SECTIONS(
                 { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) }
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields, optionalFields },
+        { id: 'transform', label: '変形', fields: transformFields },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -338,9 +336,7 @@ function LAYER_SECTIONS(
             getEditValue: () => String(snapshot.transform?.y ?? 0), inputKind: 'scrub-number', scrubStep: 1,
             liveField: 'y', write: async (_snapshot, value) => requestWrite({ kind: 'layer-transform-y', id: snapshot.id, value: Number(value) }),
             reset: () => requestWrite({ kind: 'layer-transform-y', id: snapshot.id, value: null })
-        }
-    ];
-    const optionalFields: Array<InspectorFieldDef<TimelineLayerSelection> & { name: string }> = [
+        },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
             getValue: () => String((snapshot.transform?.scale ?? 1) * 100), getEditValue: () => String((snapshot.transform?.scale ?? 1) * 100),
@@ -382,7 +378,7 @@ function LAYER_SECTIONS(
                 { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields, optionalFields },
+        { id: 'transform', label: '変形', fields: transformFields },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -941,9 +937,7 @@ function OVERLAY_SECTIONS(
             getEditValue: () => String(number('y', 0)), inputKind: 'scrub-number', scrubStep: 1,
             write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: Number(value) }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
-        }
-    ];
-    const optionalFields: Array<InspectorFieldDef<TimelineOverlaySelection> & { name: string }> = [
+        },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
             getValue: () => String(number('scale', 1) * 100), getEditValue: () => String(number('scale', 1) * 100),
@@ -1016,7 +1010,7 @@ function OVERLAY_SECTIONS(
                 { name: 'overlay-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields, optionalFields },
+        { id: 'transform', label: '変形', fields: transformFields },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -1065,9 +1059,7 @@ function TREE_ITEM_SECTIONS(
             liveField: 'y', write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'transform.y', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
-        }
-    ];
-    const optionalFields: Array<InspectorFieldDef<TimelineTreeItemSnapshot> & { name: string }> = [
+        },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
             getValue: () => String(number('scale', 1) * 100), getEditValue: () => String(number('scale', 1) * 100),
@@ -1091,7 +1083,7 @@ function TREE_ITEM_SECTIONS(
             { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
-        { id: 'transform', label: '変形', fields: transformFields, optionalFields },
+        { id: 'transform', label: '変形', fields: transformFields },
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),
@@ -1413,15 +1405,13 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-textLink-foreground);
     }
     .akari-inspector-widget .akari-inspector-slider-field {
-        position: relative;
         display: grid;
-        grid-template-columns: minmax(80px, 1fr) auto 54px;
+        grid-template-columns: minmax(0, 1fr) 48px auto 54px;
         align-items: center;
         gap: 3px;
     }
     .akari-inspector-widget .akari-inspector-slider-range {
-        grid-column: 1 / 3;
-        grid-row: 1;
+        min-width: 0;
         width: 100%;
         height: 22px;
         margin: 0;
@@ -1451,26 +1441,11 @@ export class AkariInspectorWidget extends BaseWidget {
         outline-offset: -1px;
     }
     .akari-inspector-widget .akari-inspector-slider-number {
-        grid-column: 1;
-        grid-row: 1;
-        z-index: 1;
-        justify-self: center;
-        width: 54px;
-        border: none;
-        background: transparent;
-        outline: none;
-        color: var(--theia-input-foreground);
-        text-shadow: 0 1px 2px var(--theia-input-background);
-        pointer-events: auto;
-    }
-    .akari-inspector-widget .akari-inspector-slider-number:focus {
-        box-shadow: inset 0 -1px 0 var(--theia-focusBorder);
+        width: 48px;
     }
     .akari-inspector-widget .akari-inspector-slider-unit {
-        grid-column: 2;
-        grid-row: 1;
-        z-index: 1;
-        pointer-events: none;
+        color: var(--theia-descriptionForeground);
+        font-size: 10px;
     }
     .akari-inspector-widget [data-akari-easing-preview] button,
     .akari-inspector-popover-menu button,
