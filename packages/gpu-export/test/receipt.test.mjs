@@ -64,6 +64,16 @@ test("GPU receipt keeps unavailable renderer and encoder support explicit", () =
   assert.equal(receipt.gpu.encoder_support, null);
 });
 
+test("GPU receipt normalizes sampled 3D entrance mode and sampling costs", () => {
+  const three = {
+    overlays: [{ id: "three-title", entrance: { mode: "sampled" } }],
+    sampling: { count: 450, p50: 0.21, p95: 0.68 },
+  };
+  assert.deepEqual(buildGpuReceipt({ run: { three } }).gpu.three, three);
+  assert.equal(buildGpuReceipt({ run: { three: { overlays: [], sampling: { count: 1, p50: -1, p95: 2 } } } }).gpu.three, null);
+  assert.equal(buildGpuReceipt({ run: { three: { overlays: [{ id: "x", entrance: { mode: "none" } }], sampling: { count: 0, p50: null, p95: null } } } }).gpu.three, null);
+});
+
 test("GPU receipt records each normalized audio mode", () => {
   for (const audio of [
     { mode: "copy", source: "cut-audio.mp4", source_has_audio: true },

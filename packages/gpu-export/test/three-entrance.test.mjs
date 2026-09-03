@@ -5,7 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
-import { parseThreeEntrance } from "../src/three-entrance.mjs";
+import { parseThreeEntrance, scanThreeSampled } from "../src/three-entrance.mjs";
 
 const ROOTS = {
   "3d-lap-intro": {
@@ -125,17 +125,13 @@ test("transform x/y/scale variables and known timing keywords are supported", ()
   assert.deepEqual(parsed.entrance.timing, { x1: 0.42, y1: 0, x2: 0.58, y2: 1 });
 });
 
-test("3D entrance eligibility fails closed with a concrete condition", () => {
+test("3D entrance forms outside the curve grammar use computed-style sampling", () => {
   const cases = [
     ["rotate", fragment({ from: "translate(0px, 0px) rotate(12deg)" }), "three-entrance-unsupported-property:rotate"],
     ["skew", fragment({ from: "translate(0px, 0px) skew(12deg)" }), "three-entrance-unsupported-property:skew"],
     ["3D transform", fragment({ from: "translate3d(0px, 0px, 0px)" }), "three-entrance-unsupported-property:translate3d"],
-    ["filter", fragment({ from: "translate(0px, 0px); filter:blur(1px)" }), "three-entrance-unsupported-property:filter"],
-    ["clip path", fragment({ from: "translate(0px, 0px); clip-path:inset(0)" }), "three-entrance-unsupported-property:clip-path"],
     ["middle keyframe", fragment({ middle: "50% { opacity:.5; transform:translate(0px, 0px) scale(.9); }" }), "three-entrance-multi-keyframe"],
-    ["second animated element", fragment({ extraCss: ".child { animation:laptop-live__enter 1s linear 0s both; }" }), "three-entrance-multi-animated-element"],
     ["iteration count", fragment({ animation: "laptop-live__enter 1.1s linear 0s 2 both" }), "three-entrance-iteration-count"],
-    ["transition", fragment({ extraCss: ".laptop-live__canvas { transition:opacity 1s; }" }), "three-entrance-transition"],
     ["property registration", fragment({ extraCss: "@property --p { syntax:'<number>'; inherits:false; initial-value:0; }" }), "three-entrance-property"],
     ["fill omitted", fragment({ animation: "laptop-live__enter 1.1s linear 0s" }), "three-entrance-fill-mode"],
     ["multiple animations", fragment({ animation: "laptop-live__enter 1s linear both, other 1s linear both" }), "three-entrance-multiple-animation"],
@@ -144,10 +140,80 @@ test("3D entrance eligibility fails closed with a concrete condition", () => {
     ["wrong selector", fragment({ selectors: "[data-akari-active] .laptop-live" }), "three-entrance-selector"],
   ];
   for (const [label, html, reason] of cases) {
+    assert.equal(parseThreeEntrance(html).reason, reason, label);
+    const result = eligibility(html);
+    assert.equal(result.entries[0].classification, "three", label);
+    assert.equal(result.entries[0].reason, "three-scene-entrance-sampled", label);
+  }
+});
+
+test("3D sampled entrance keeps advanced CSS and animated descendants fail-closed", () => {
+  const cases = [
+    ["filter", fragment({ from: "translate(0px, 0px); filter:blur(1px)" }), "three-entrance-unsupported-property:filter"],
+    ["clip path", fragment({ from: "translate(0px, 0px); clip-path:inset(0)" }), "three-entrance-unsupported-property:clip-path"],
+    ["missing descendant", fragment({ extraCss: ".child { animation:laptop-live__enter 1s linear 0s both; }" }), "three-html-animated-descendants"],
+  ];
+  for (const [label, html, reason] of cases) {
     const result = eligibility(html);
     assert.equal(result.entries[0].classification, "degraded", label);
     assert.equal(result.entries[0].reason, reason, label);
   }
+});
+
+test("animation or transition on the canvas itself stays in the sampled chain", () => {
+  const result = eligibility(fragment({ extraCss: ".laptop-live__canvas { transition:opacity 1s; }" }));
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-entrance-sampled");
+});
+
+test("sampled 3D entrance reports real 3D transforms as a matrix blocker", () => {
+  const result = eligibility(fragment({ from: "translate(0px, 0px) rotateX(12deg)" }));
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.entries[0].reason, "three-entrance-3d-matrix");
+});
+
+test("sampled 3D fixtures classify supported forms, a canvas-ancestor wrapper, the classic curve, and siblings", async (t) => {
+  const cases = [
+    ["three-sampled-root-without-class.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-middle-keyframe.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-multiple-animation.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-transition.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-property.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-chain-wrapper.html", "three", "three-scene-entrance-sampled"],
+    ["three-curve-classic.html", "three", "three-scene-entrance-curve"],
+    ["three-sampled-animated-descendant.html", "degraded", "three-html-animated-descendants"],
+  ];
+  for (const [name, classification, reason] of cases) {
+    await t.test(name, async () => {
+      const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
+      const result = eligibility(html);
+      assert.equal(result.entries[0].classification, classification);
+      assert.equal(result.entries[0].reason, reason);
+      if (reason === "three-scene-entrance-sampled") assert.equal(scanThreeSampled(html).ok, true);
+    });
+  }
+});
+
+test("sampled scanning requires a well-formed root-to-canvas chain", () => {
+  const noCanvas = fragment().replace(/<canvas[\s\S]*?<\/canvas>/u, "");
+  assert.deepEqual(scanThreeSampled(noCanvas), { ok: false, reason: "three-entrance-canvas-missing" });
+  const malformed = fragment().replace("</div>", "</section>");
+  assert.deepEqual(scanThreeSampled(malformed), { ok: false, reason: "three-html-animated-descendants" });
+});
+
+test("sampled matrix helpers convert centered axis-aligned transforms and reject real 3D", async () => {
+  const internals = await runtimeInternals();
+  const identity3d = { m13: 0, m14: 0, m23: 0, m24: 0, m31: 0, m32: 0, m34: 0, m43: 0, m33: 1, m44: 1 };
+  const matrix = { ...identity3d, a: 0.817, b: 0, c: 0, d: 0.817, e: -204.32, f: 238.82 };
+  assert.equal(internals.isSupported2DMatrix(identity3d), true);
+  const state = internals.sampledDrawStateFromMatrix(matrix, 1920, 1080);
+  assert.equal(state.scaleX, 0.817);
+  assert.equal(state.scaleY, 0.817);
+  assert.ok(Math.abs(state.translateX + 380) <= 1e-9);
+  assert.ok(Math.abs(state.translateY - 140) <= 1e-9);
+  assert.equal(internals.isSupported2DMatrix({ ...identity3d, m34: -0.01 }), false);
+  assert.equal(internals.boxMatchesFrame({ x: 0.4, y: -0.4, width: 1920.5, height: 1079.5 }, 1920, 1080), true);
+  assert.equal(internals.boxMatchesFrame({ x: 100, y: 30, width: 120, height: 120 }, 1920, 1080), false);
 });
 
 test("parsed curves reproduce Chrome getComputedStyle ground truth at five local times", async () => {
@@ -185,4 +251,14 @@ test("ordered draws add entrance state only to entrance-enabled 3D sprites", asy
     { z: 0, index: 1, id: "direct", opacity: 1 },
     { z: 0, index: 2, id: "static", opacity: 1 },
   ]);
+  manifest.three[1].entranceMode = "sampled";
+  const sampled = internals.orderedSpriteDraws(
+    manifest,
+    1,
+    { activeAt() { return false; } },
+    new Map([["direct", { opacity: 0.4, translateX: 12, scaleX: 0.9 }]]),
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(sampled[1])), {
+    z: 0, index: 1, id: "direct", opacity: 0.4, translateX: 12, scaleX: 0.9,
+  });
 });

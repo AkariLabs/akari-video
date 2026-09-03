@@ -20,7 +20,7 @@
 | 分類 | 適格 | 意味 |
 |---|---|---|
 | `same` | はい | 静的 HTML は起動時、対応済み字幕は unit の初回活性時に 1 回だけスプライト化する |
-| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新する |
+| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新し、登場表現は `three-scene-entrance-curve` または `three-scene-entrance-sampled` で処理する |
 | `degraded` | いいえ | raster 自体は可能でも live DOM と同じ時間変化を保証できない |
 | `unsupported` | いいえ | v0 の表現範囲外であり、正しい完成画を生成できない |
 
@@ -361,35 +361,19 @@ receipt の `gpu.captions[].mode = "sprite"` と warning に出して書き出�
 （1.2〜1.3 倍）で、#120f 時点の 1.07〜1.14 倍からは改善している。RSS の上限は 531〜914 MB
 （1 GB 以内）、`--trap-readback` の読み戻しは 0 だった。
 
-## 10. v3 — 宣言型 3D の登場曲線
+## 10. v3 — 宣言型 3D の登場表現
 
-v3 は、宣言型 Three.js scene のルート要素にある 1 回きりの登場 CSS animation を時刻の関数へ解析し、
-3D canvas の sprite draw state として GPU-native に合成する。Three.js 自体は従来どおり engine clock の
-local seconds を `threeRuntime.render(container, t)` へ直接渡す。scene 内部の animation、動画 texture、
-ready 判定は変更しない。
+v3 は、宣言型 Three.js scene の HTML 部分にある CSS animation / transition / `@property` を GPU 経路で
+扱う。Three.js 自体は従来どおり engine clock の local seconds を
+`threeRuntime.render(container, t)` へ直接渡し、scene 内部の animation、動画 texture、ready 判定は
+変更しない。登場表現を従来の文法へ解析できる場合は理由 `three-scene-entrance-curve`、解析できない場合は
+計算済みスタイルを実測する理由 `three-scene-entrance-sampled` とする。解析不能だけを理由に fail-closed
+にはしない。CSS animation のない宣言型 3D は理由 `three-scene-canvas-direct` のままである。
 
-`three` 分類・理由 `three-scene-entrance-curve` にできるのは、次の条件をすべて満たす overlay だけである。
-
-- `<script type="application/json" data-akari-3d-scene>` が属性順にかかわらずちょうど 1 個あり、他の
-  script がない。
-- animation を持つのは HTML のルート要素 1 個だけで、selector は
-  `[data-akari-active] .root, [data-no-timeline] .root` の対である。canvas と fallback は動かさない。
-- animation は 1 本、iteration count は 1、direction は normal、delay は 0 以上、fill mode は
-  `both` または `forwards` である。timing は `linear`、`ease`、`ease-in`、`ease-out`、`ease-in-out`、
-  または妥当な `cubic-bezier(x1,y1,x2,y2)` に限る。
-- keyframe は `from` / `to` または 0% / 100% の 2 点だけで、両端に opacity と transform がある。
-  transform は `translate()` / `translateX()` / `translateY()` / `scale()` / `scaleX()` / `scaleY()`
-  だけを使う。px 平行移動と単位なし scale に加え、`var(--name, fallback)`、
-  `calc(var(--name) + Npx)`、`calc(var(--name) * N)` を受理する。
-
-transition、`@property`、複数 animation、複数の animated element、中間 keyframe、iteration count が
-1 以外、alternate / reverse、負の delay、fill mode の欠落、未知の timing、rotate / skew / 3D transform、
-filter、clip-path、解決不能な値は不可とし、`three-entrance-*` の具体的な理由で fail-closed にする。
-animation のない従来の宣言型 3D は理由 `three-scene-canvas-direct` と manifest 形を変えない。
-
-解析時は overlay の `vars` と `transform.x / y / scale` を CSS 変数へ解決する。未定義変数の既定値は
-平行移動が 0 px、scale が 1 である。manifest の `entrance` は次の additive な形を持ち、from / to は
-変数解決後の絶対値である。
+curve モードは従来どおり、対になった `[data-akari-active] .root, [data-no-timeline] .root` selector、
+1 本・2 endpoint の keyframe、既知の timing、非負 delay、iteration 1、normal direction、`both` または
+`forwards` fill、opacity と 2D translate / scale だけを解析する。overlay の `vars` と
+`transform.x / y / scale` を解決し、manifest の `entrance` に絶対値を置く。
 
 ```json
 {
@@ -416,6 +400,34 @@ value    = from + (to - from) * eased
 `getComputedStyle` と delay 前・登場中 3 点・終了後の 5 時刻で突き合わせた実測差は、translate 最大
 0.00043 px、scale 最大 0.000001、opacity 0 だった。検収閾値は translate 0.5 px 以下、opacity 0.005
 以下、3D 登場区間の GPU / OSR 外接矩形内 MAD 1.0 以下とする。
+
+sampled モードは overlay sheet が生成した paused WAAPI clone を使い、毎コマ、OSR と同じ合成時刻
+`seconds * 1000` を `currentTime` に設定する。`data-akari-active` を更新した後、overlay container から
+Three canvas までの各要素について計算済み opacity と transform を読み、transform-origin を含む 2D 行列を
+上から順に累積する。opacity は積を clamp する。サンプリングは engine clock の時刻だけの関数であり、
+壁時計や rAF の進行へ依存しない。
+
+`@property` を使う断片も `degraded` にはせず sampled として扱う。ただし書き出し用 sheet の WAAPI clone
+変換は登録済みカスタムプロパティの keyframe を引き継がないため、そのプロパティ自体は GPU / OSR の
+どちらでも補間されず初期値のまま描かれる。同じ keyframe に直接宣言した opacity / transform は補間され、
+両エンジンの結果も一致するためパリティは保たれる。カスタムプロパティ補間は sheet 側の別課題である。
+
+累積行列が軸平行な translate / scale だけなら 3D canvas を従来の texture のまま使い、中心基準の
+sprite draw state へ変換する。回転またはせん断を含む一般 2D affine は、出力寸法の中間 canvas へ
+`setTransform(a,b,c,d,e,f)` で描いてから恒等 draw state で合成する。perspective、実 Z 成分、その他の
+3D 行列は理由 `three-entrance-3d-matrix` で `degraded` にする。
+
+sampled 方式 A の対象は、断片 root から Three canvas までの祖先チェーン（両端を含む）である。
+このチェーン上の任意の要素にある animation / transition は累積行列へ含める。Three canvas の CSS
+ボックスが出力全面と一致しない場合は、軸平行な行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。
+canvas 以外の HTML（fallback や装飾）を DOM 層で別描画して合成順を保つ方式 B は本版では未実装である。
+祖先チェーン外に animation / transition がある、または保守的な静的走査でチェーン内だけと証明できない
+場合は `three-html-animated-descendants` で `degraded` にする。filter / clip-path など他の既存 hard
+blocker も従来どおり fail-closed とする。
+
+manifest の各 3D sprite は `entranceMode: "curve" | "sampled" | "none"` を持つ。run payload と receipt の
+`gpu.three.overlays[].entrance.mode` は登場表現について `curve` または `sampled` を記録し、
+`gpu.three.sampling` は sampled フレームの `count`、`p50`、`p95` ミリ秒を記録する。
 
 ## 11. v2 の cut 音声中間物（2026-08-29 追記）
 

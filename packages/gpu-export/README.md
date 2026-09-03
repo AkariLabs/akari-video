@@ -48,21 +48,27 @@ and a receipt warning rather than failing closed.
 Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
 ineligible and fail closed with a concrete reason.
 
-### Declarative 3D entrance curves (v3)
+### Declarative 3D entrances (v3)
 
-A declarative Three.js scene may keep one root-element entrance animation on the GPU path. It must
-use the paired `[data-akari-active] .root, [data-no-timeline] .root` selector, exactly one two-endpoint
-keyframe animation, a known CSS timing function, a non-negative delay, one iteration, normal direction,
-and `both` or `forwards` fill. Keyframes may animate only opacity and 2D translate/scale; supported CSS
-variables and `calc(var(...) + Npx)` / `calc(var(...) * N)` are resolved from overlay variables and
-x/y/scale transforms before export. The manifest records absolute opacity, translation, and scale
-endpoints, and the compositor evaluates the same curve on every frame while Three.js continues to use
-the engine's local clock.
+Declarative Three.js scenes keep CSS entrances on the GPU path even when they use transitions,
+`@property`, multiple animations, intermediate keyframes, alternate directions, rotation, or skew.
+The existing two-endpoint grammar remains the `curve` fast path. Other entrances confined to the
+root-to-Three-canvas ancestor chain use the `sampled` path: paused WAAPI animations are sought with
+composition time, and computed opacity and the 2D transform chain from the overlay container to the
+Three canvas are measured on every active frame. Axis-aligned transforms become sprite draw state when
+the canvas fills the output; rotation, shear, and non-full-frame canvases are drawn through an
+intermediate 2D canvas. Three.js itself continues to use the engine's local clock.
 
-Transitions, `@property`, multiple animations or animated elements, intermediate keyframes, alternate
-directions, rotate/skew/3D transforms, filter, and clip-path fail closed with a concrete
-`three-entrance-*` reason. A declarative 3D scene without CSS animation retains the existing
-`three-scene-canvas-direct` manifest shape and behavior.
+Registered custom-property keyframes are accepted into the sampled path, but the export sheet's WAAPI
+clone currently leaves those properties at their initial values in both GPU and OSR; directly declared
+opacity and transform keyframes still interpolate, so engine parity is preserved. Custom-property
+interpolation remains a separate export-sheet issue.
+
+Real 3D matrices fail closed as `three-entrance-3d-matrix`. Animation or transition outside the
+root-to-canvas ancestor chain fails closed as `three-html-animated-descendants`, because separate DOM
+rendering for fallback and decoration is not implemented in this version. Existing filter and clip-path
+blockers are unchanged. Manifests record `entranceMode`, and receipts record `curve` / `sampled` mode plus
+sample-count and p50/p95 sampling cost. Scenes without CSS animation remain `three-scene-canvas-direct`.
 
 `render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
 project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is

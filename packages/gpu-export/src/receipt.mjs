@@ -41,6 +41,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
       preview: normalizePreview(run?.preview),
       domLayer: run?.domLayer ?? null,
+      three: normalizeThreeSummary(run?.three),
       viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
     },
@@ -96,6 +97,27 @@ function normalizeViewport(value) {
   return requested === null || measured === null || display === null || typeof value.emulated !== "boolean"
     ? null
     : { requested, measured, emulated: value.emulated, display };
+}
+
+function normalizeThreeSummary(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.overlays) || !value.sampling || typeof value.sampling !== "object") {
+    return null;
+  }
+  const overlays = [];
+  for (const overlay of value.overlays) {
+    const mode = overlay?.entrance?.mode;
+    if (typeof overlay?.id !== "string" || overlay.id === "" || !["curve", "sampled"].includes(mode)) return null;
+    overlays.push({ id: overlay.id, entrance: { mode } });
+  }
+  const count = nonNegativeInteger(value.sampling.count);
+  if (count === null) return null;
+  if (count === 0) {
+    if (value.sampling.p50 !== null || value.sampling.p95 !== null) return null;
+    return { overlays, sampling: { count, p50: null, p95: null } };
+  }
+  const p50 = finiteNonNegative(value.sampling.p50);
+  const p95 = finiteNonNegative(value.sampling.p95);
+  return p50 === null || p95 === null ? null : { overlays, sampling: { count, p50, p95 } };
 }
 
 function normalizeSize(value) {

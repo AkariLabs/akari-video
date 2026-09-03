@@ -1247,7 +1247,7 @@
     };
   }
 
-  function orderedSpriteDraws(manifest, seconds, domRuntime) {
+  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null) {
     const values = [];
     for (const value of manifest.statics) {
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
@@ -1255,9 +1255,11 @@
     }
     for (const value of manifest.three) {
       if (!activeAt(value, seconds)) continue;
-      const state = value.entrance
-        ? threeEntranceStateAt(value.entrance, seconds - value.start)
-        : { opacity: 1 };
+      const state = value.entranceMode === "sampled" && threeStates?.has(value.id)
+        ? threeStates.get(value.id)
+        : value.entrance
+          ? threeEntranceStateAt(value.entrance, seconds - value.start)
+          : { opacity: 1 };
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
       values.push({ z, index: value.index, id: value.id, ...state });
     }
@@ -1276,6 +1278,184 @@
 
   function nextAnimationFrame() {
     return new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  function isSupported2DMatrix(matrix) {
+    const value = (name, fallback) => Number.isFinite(Number(matrix?.[name])) ? Number(matrix[name]) : fallback;
+    return Math.abs(value("m13", 0)) <= 1e-6
+      && Math.abs(value("m14", 0)) <= 1e-6
+      && Math.abs(value("m23", 0)) <= 1e-6
+      && Math.abs(value("m24", 0)) <= 1e-6
+      && Math.abs(value("m31", 0)) <= 1e-6
+      && Math.abs(value("m32", 0)) <= 1e-6
+      && Math.abs(value("m34", 0)) <= 1e-6
+      && Math.abs(value("m43", 0)) <= 1e-6
+      && Math.abs(value("m33", 1) - 1) <= 1e-6
+      && Math.abs(value("m44", 1) - 1) <= 1e-6;
+  }
+
+  function sampledDrawStateFromMatrix(matrix, width, height) {
+    if (!isSupported2DMatrix(matrix)) return null;
+    const a = Number(matrix.a);
+    const b = Number(matrix.b);
+    const c = Number(matrix.c);
+    const d = Number(matrix.d);
+    const e = Number(matrix.e);
+    const f = Number(matrix.f);
+    if (![a, b, c, d, e, f].every(Number.isFinite) || Math.abs(b) > 1e-6 || Math.abs(c) > 1e-6) return null;
+    const centerX = Number(width) / 2;
+    const centerY = Number(height) / 2;
+    return {
+      scaleX: a,
+      scaleY: d,
+      translateX: e - centerX * (1 - a),
+      translateY: f - centerY * (1 - d),
+    };
+  }
+
+  function untransformedBox(element) {
+    let x = 0;
+    let y = 0;
+    for (let current = element; current; current = current.offsetParent) {
+      x += Number(current.offsetLeft) || 0;
+      y += Number(current.offsetTop) || 0;
+    }
+    return {
+      x,
+      y,
+      width: Number(element.offsetWidth) || Number(element.width) || 0,
+      height: Number(element.offsetHeight) || Number(element.height) || 0,
+    };
+  }
+
+  function boxMatchesFrame(box, width, height, tolerance = 0.5) {
+    return Math.abs(Number(box?.x)) <= tolerance
+      && Math.abs(Number(box?.y)) <= tolerance
+      && Math.abs(Number(box?.width) - Number(width)) <= tolerance
+      && Math.abs(Number(box?.height) - Number(height)) <= tolerance;
+  }
+
+  class ThreeSamplingRuntime {
+    constructor(config, spriteCompositor) {
+      this.config = config;
+      this.spriteCompositor = spriteCompositor;
+      this.records = new Map();
+      this.entries = [];
+      this.sampleCostMs = [];
+    }
+
+    mount(overlayFrame, threeRecords, manifest) {
+      this.entries = (manifest?.three ?? []).filter((entry) => ["curve", "sampled"].includes(entry.entranceMode));
+      for (const entry of manifest?.three ?? []) {
+        if (entry.entranceMode !== "sampled") continue;
+        const existing = threeRecords.get(entry.id);
+        if (!existing) throw new Error(`3D overlay record is missing: ${entry.id}`);
+        const sceneContent = existing.container;
+        const container = sceneContent.parentElement;
+        if (!container?.classList.contains("akari-overlay-container")) {
+          throw new Error(`3D overlay container parent is invalid: ${entry.id}`);
+        }
+        const root = [...sceneContent.children]
+          .find((element) => !["SCRIPT", "STYLE", "LINK", "META"].includes(element.tagName));
+        if (!root) throw new Error(`3D sampled entrance root is missing: ${entry.id}`);
+        const reverseChain = [];
+        for (let node = existing.canvas; node; node = node.parentElement) {
+          reverseChain.push(node);
+          if (node === container) break;
+        }
+        if (reverseChain.at(-1) !== container) throw new Error(`3D sampled entrance canvas is outside its container: ${entry.id}`);
+        const canvasBox = untransformedBox(existing.canvas);
+        this.records.set(entry.id, {
+          entry,
+          container,
+          root,
+          canvas: existing.canvas,
+          canvasBox,
+          fullFrameCanvas: boxMatchesFrame(canvasBox, this.config.width, this.config.height),
+          chain: reverseChain.reverse(),
+          intermediate: null,
+          context: null,
+        });
+      }
+    }
+
+    syncActive(seconds) {
+      for (const record of this.records.values()) {
+        record.container.toggleAttribute("data-akari-active", activeAt(record.entry, seconds));
+      }
+    }
+
+    sampleAt(entry, seconds) {
+      const record = this.records.get(entry.id);
+      if (!record) throw new Error(`3D sampled entrance record is missing: ${entry.id}`);
+      const started = performance.now();
+      record.container.toggleAttribute("data-akari-active", true);
+      for (const animation of record.container.getAnimations({ subtree: true })) {
+        try { animation.pause(); } catch {}
+        try { animation.currentTime = seconds * 1000; } catch {}
+      }
+
+      const view = record.container.ownerDocument.defaultView;
+      const Matrix = view.DOMMatrix;
+      let matrix = new Matrix();
+      let opacity = 1;
+      for (const node of record.chain) {
+        const computed = view.getComputedStyle(node);
+        const nodeOpacity = Number.parseFloat(computed.opacity);
+        opacity *= Math.max(0, Math.min(1, Number.isFinite(nodeOpacity) ? nodeOpacity : 1));
+        if (computed.transform && computed.transform !== "none") {
+          const transform = new Matrix(computed.transform);
+          const box = untransformedBox(node);
+          const origin = computed.transformOrigin.split(/\s+/u);
+          const originX = box.x + (Number.parseFloat(origin[0]) || 0);
+          const originY = box.y + (Number.parseFloat(origin[1]) || 0);
+          const aroundOrigin = new Matrix()
+            .translate(originX, originY)
+            .multiply(transform)
+            .translate(-originX, -originY);
+          matrix = matrix.multiply(aroundOrigin);
+        }
+      }
+      if (!isSupported2DMatrix(matrix)) {
+        throw new Error(`3D transform matrix is not supported for sampled 3D entrance: ${entry.id}`);
+      }
+
+      const axisState = sampledDrawStateFromMatrix(matrix, this.config.width, this.config.height);
+      if (axisState && record.fullFrameCanvas) {
+        this.spriteCompositor.updateSprite(entry.id, record.canvas);
+        this.sampleCostMs.push(performance.now() - started);
+        return { opacity, ...axisState };
+      }
+
+      if (!record.intermediate) {
+        record.intermediate = document.createElement("canvas");
+        record.intermediate.width = this.config.width;
+        record.intermediate.height = this.config.height;
+        record.context = record.intermediate.getContext("2d", { alpha: true });
+        if (!record.context) throw new Error(`3D sampled entrance 2D canvas is unavailable: ${entry.id}`);
+      }
+      const context = record.context;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, this.config.width, this.config.height);
+      context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+      const box = record.canvasBox;
+      context.drawImage(record.canvas, box.x, box.y, box.width, box.height);
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      this.spriteCompositor.updateSprite(entry.id, record.intermediate);
+      this.sampleCostMs.push(performance.now() - started);
+      return { opacity };
+    }
+
+    summary() {
+      return {
+        overlays: this.entries.map((entry) => ({ id: entry.id, entrance: { mode: entry.entranceMode } })),
+        sampling: summarize(this.sampleCostMs),
+      };
+    }
+
+    dispose() {
+      this.records.clear();
+    }
   }
 
   class DomLayerRuntime {
@@ -1540,6 +1720,7 @@
 
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
+    sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame,
   };
 
   window.__akariGpuRun = async function () {
@@ -1600,6 +1781,7 @@
     let captureFrame = null;
     let drawTimingProbe = null;
     let domRuntime = null;
+    let threeSampling = null;
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
     const started = performance.now();
@@ -1698,6 +1880,8 @@
           spriteCompositor.registerSprite(value.id, canvas);
         }
       }
+      threeSampling = new ThreeSamplingRuntime(config, spriteCompositor);
+      threeSampling.mount(overlayFrame, threeRecords, config.spriteManifest);
       let verifyModule = null;
       if (config.verifyFrames || captureMode || dumpFrameNumbers.size > 0) {
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
@@ -1761,13 +1945,19 @@
             throw new Error(`direct upload fallback at frame ${frameNumber}`);
           }
           const threeStarted = performance.now();
+          const threeStates = new Map();
+          threeSampling.syncActive(seconds);
           if (threeRuntime) {
             for (const value of config.spriteManifest.three) {
               if (!activeAt(value, seconds)) continue;
               const record = threeRecords.get(value.id);
               if (!record) throw new Error(`3D overlay record is missing: ${value.id}`);
               threeRuntime.render(record.container, seconds - value.start);
-              spriteCompositor.updateSprite(value.id, record.canvas);
+              if (value.entranceMode === "sampled") {
+                threeStates.set(value.id, threeSampling.sampleAt(value, seconds));
+              } else {
+                spriteCompositor.updateSprite(value.id, record.canvas);
+              }
             }
           }
           stages.three.push(performance.now() - threeStarted);
@@ -1781,7 +1971,7 @@
           const domFrameCost = performance.now() - domStarted;
           stages.dom.push(domFrameCost);
           if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
-          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates);
           for (const unit of captionUnits) {
             if (seconds >= unit.cueStart + unit.cueDuration) {
               releaseCaptionUnit(unit, spriteCompositor);
@@ -1947,6 +2137,7 @@
               previewDisabledReason,
             },
             domLayer: domRuntime.summary(),
+            three: threeSampling.summary(),
           });
         }
       }
@@ -1995,6 +2186,7 @@
           previewDisabledReason,
         },
         domLayer: domRuntime.summary(),
+        three: threeSampling.summary(),
         mux,
         eligibility: config.eligibility,
         warnings,
@@ -2003,6 +2195,7 @@
       restoreTraps();
       encoder?.close();
       domRuntime?.dispose();
+      threeSampling?.dispose();
       spriteCompositor.dispose();
       engine.dispose();
     }

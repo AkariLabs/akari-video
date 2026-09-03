@@ -43,11 +43,12 @@ test("the product 3D fragment may contain its render canvas", () => {
   assert.deepEqual(result.entries[0].conditions, ["three-or-canvas-runtime"]);
 });
 
-test("the product 3D fragment becomes degraded when CSS animation is added", () => {
+test("the product 3D fragment samples CSS animation on its canvas ancestor chain", () => {
   const html = '<div><style>canvas{animation:spin 1s linear}@keyframes spin{to{transform:rotate(1turn)}}</style><canvas></canvas><script data-akari-3d-scene type="application/json">{}</script></div>';
   const result = evaluate([{ id: "animated-3d", html }]);
-  assert.equal(result.eligible, false);
-  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.eligible, true);
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-entrance-sampled");
   assert.ok(result.entries[0].conditions.includes("animation-timing"));
 });
 

@@ -80,6 +80,9 @@ export function buildGpuPage({
   const classifications = new Map(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay")
     .map((entry) => [entry.id, entry.classification]));
+  const overlayEligibility = new Map(resultEligibility.entries
+    .filter((entry) => entry.kind === "overlay")
+    .map((entry) => [entry.id, entry]));
   const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
@@ -126,15 +129,21 @@ export function buildGpuPage({
       params: overlayTextSlotParams(overlay),
     })),
     three: three.map(({ overlay, index }) => {
-      const parsed = parseThreeEntrance(overlay.html, {
-        vars: overlay.vars,
-        transform: overlay.transform,
-        role: overlay.role,
-      });
+      const reason = overlayEligibility.get(String(overlay.id))?.reason;
+      const entranceMode = reason === "three-scene-entrance-curve" ? "curve"
+        : reason === "three-scene-entrance-sampled" ? "sampled" : "none";
+      const parsed = entranceMode === "curve"
+        ? parseThreeEntrance(overlay.html, {
+          vars: overlay.vars,
+          transform: overlay.transform,
+          role: overlay.role,
+        })
+        : null;
       return {
         id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
         z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
-        ...(parsed.ok ? { entrance: parsed.entrance } : {}),
+        entranceMode,
+        ...(parsed?.ok ? { entrance: parsed.entrance } : {}),
       };
     }),
     dom,
