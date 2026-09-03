@@ -27,6 +27,7 @@ import {
   legacyTransformOpFor,
   telopParamControlKind
 } from '../lib/browser/inspector/field-mappings.js';
+import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -135,6 +136,54 @@ test('節合成は時間→変形→外観→種別固有→情報の順に固�
   ]);
 });
 
+test('cut の動画タブだけにフレーミングがクロップの直後へ出る', () => {
+  assert.deepEqual(composeInspectorSections([
+    { id: 'appearance' }, { id: 'framing' }, { id: 'crop' }, { id: 'transform' }
+  ]).map(section => section.id), ['transform', 'crop', 'framing', 'appearance']);
+  assert.equal(assignSectionToTab('cut', 'framing'), 'video');
+
+  const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
+  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'/u);
+  assert.match(cutFactory, /cutFramingFields\(snapshot, requestWrite\)/u);
+  for (const [start, end] of [
+    ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
+    ['function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS('],
+    ['function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS('],
+    ['function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('],
+    ['function TREE_ITEM_SECTIONS(', '@injectable()']
+  ]) {
+    assert.doesNotMatch(sourceBetween(start, end), /label: 'フレーミング'/u);
+  }
+});
+
+test('cut の動画タブだけにフリーズがフレーミングの直後へ出る', () => {
+  assert.deepEqual(composeInspectorSections([
+    { id: 'appearance' }, { id: 'freeze' }, { id: 'framing' }, { id: 'transform' }
+  ]).map(section => section.id), ['transform', 'framing', 'freeze', 'appearance']);
+  assert.equal(assignSectionToTab('cut', 'freeze'), 'video');
+
+  const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
+  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'[\s\S]{0,180}id: 'freeze', label: 'フリーズ'/u);
+  assert.match(cutFactory, /cutFreezeFields\(snapshot, requestWrite\)/u);
+  for (const [start, end] of [
+    ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
+    ['function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS('],
+    ['function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS('],
+    ['function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('],
+    ['function TREE_ITEM_SECTIONS(', '@injectable()']
+  ]) {
+    assert.doesNotMatch(sourceBetween(start, end), /label: 'フリーズ'/u);
+  }
+});
+
+test('ズーム KF がある間はフレーミング窓 4 行を disabled + title にする', () => {
+  const framingFields = sourceBetween('function cutFramingFields(', 'function CUT_SECTIONS(');
+  assert.match(framingFields, /const cropDisabled = keyframes\.length > 0/u);
+  assert.match(framingFields, /disabled: cropDisabled/u);
+  assert.match(framingFields, /title: cropDisabled \? CUT_FRAMING_CROP_DISABLED_TITLE/u);
+  assert.match(inspectorWidgetSource, /querySelectorAll\('button, input'\)[\s\S]{0,180}\.disabled = true/u);
+});
+
 test('イージング節は外観の直後に入り、KF 席から disabled 属性を除く', () => {
   const sections = composeInspectorSections([
     { id: 'info' }, { id: 'easing' }, { id: 'appearance' }, { id: 'transform' }
@@ -148,6 +197,17 @@ test('木 item snapshot がインスペクターへ時間・変形・外観を�
   assert.match(widgetSource, /this\.treeItemSnapshot\(treeSelection, raw\)/u);
   assert.match(inspectorWidgetSource, /case 'item':\s+sections = TREE_ITEM_SECTIONS/u);
   assert.match(inspectorWidgetSource, /id: 'transform', label: '変形'/u);
+});
+
+test('音声タブ末尾のマスターは cut と audio アイテムの両方へ出る', () => {
+  const masterFactory = sourceBetween('function AUDIO_MASTER_SECTION(', 'function OVERLAY_SECTIONS(');
+  assert.match(masterFactory, /label: 'マスター（書き出し全体）'/u);
+  assert.match(masterFactory, /プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）/u);
+  assert.equal((masterFactory.match(/name: 'audio-master-/gu) ?? []).length, 4);
+
+  const render = sourceBetween('protected render(): void', 'protected tabSourceHint(');
+  assert.match(render, /sectionKind !== 'audio'[\s\S]*AUDIO_PREVIEW_SECTIONS[\s\S]*appendSection\(AUDIO_MASTER_SECTION/u);
+  assert.match(render, /sectionKind === 'audio'[\s\S]*AUDIO_ITEM_PREVIEW_SECTIONS[\s\S]*appendSection\(AUDIO_MASTER_SECTION/u);
 });
 
 test('字幕位置は 3x3 grid から preview 所有の hover/preset イベントへ流す', () => {

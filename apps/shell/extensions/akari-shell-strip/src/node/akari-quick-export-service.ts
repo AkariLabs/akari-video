@@ -64,15 +64,16 @@ export interface RevealArtifactCommand {
 
 export function buildRevealArtifactCommand(
     platform: NodeJS.Platform,
-    artifactPath: string
+    artifactPath: string,
+    isDirectory = false
 ): RevealArtifactCommand {
     if (platform === 'darwin') {
-        return { command: 'open', args: ['-R', artifactPath] };
+        return { command: 'open', args: isDirectory ? [artifactPath] : ['-R', artifactPath] };
     }
     if (platform === 'win32') {
-        return { command: 'explorer', args: [`/select,${artifactPath}`] };
+        return { command: 'explorer', args: isDirectory ? [artifactPath] : [`/select,${artifactPath}`] };
     }
-    return { command: 'xdg-open', args: [dirname(artifactPath)] };
+    return { command: 'xdg-open', args: [isDirectory ? artifactPath : dirname(artifactPath)] };
 }
 
 /**
@@ -159,8 +160,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             return { revealed: false };
         }
         const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
-        const request = buildRevealArtifactCommand(this.platform(), artifactPath);
         try {
+            const artifact = await this.fsImpl.stat(artifactPath);
+            const request = buildRevealArtifactCommand(this.platform(), artifactPath, artifact.isDirectory());
             await this.spawnRevealCommand(request.command, request.args);
             return { revealed: true };
         } catch (error) {
@@ -354,10 +356,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         }
     }
 
-    protected async statOrUndefined(path: string): Promise<{ size: number } | undefined> {
+    protected async statOrUndefined(path: string): Promise<{ size: number; isDirectory: boolean } | undefined> {
         try {
             const stat = await this.fsImpl.stat(path);
-            return { size: stat.size };
+            if (!stat.isDirectory()) return { size: stat.size, isDirectory: false };
+            const children = await this.fsImpl.readdir(path, { withFileTypes: true });
+            const sizes = await Promise.all(children.filter(child => child.isFile()).map(async child => (await this.fsImpl.stat(join(path, child.name))).size));
+            return { size: sizes.reduce((sum, size) => sum + size, 0), isDirectory: true };
         } catch {
             return undefined;
         }

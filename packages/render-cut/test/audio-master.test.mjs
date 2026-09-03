@@ -380,6 +380,7 @@ process.exit(result.status ?? 2);
     const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
     assert.deepEqual(receipt.audio_qc, state.audio_qc);
     assert.equal(receipt.output.path, state.artifacts[0].path);
+    assert.deepEqual(await readdir(join(project, ".akari", "render-tmp")), []);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

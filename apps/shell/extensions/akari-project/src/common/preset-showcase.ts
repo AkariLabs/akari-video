@@ -1,4 +1,4 @@
-export type PresetShowcaseKind = 'telop' | 'lut';
+export type PresetShowcaseKind = 'telop' | 'lut' | 'textanim' | 'textstyle';
 
 export interface PresetShowcaseItem {
     kind: PresetShowcaseKind;
@@ -8,11 +8,14 @@ export interface PresetShowcaseItem {
     category?: string;
     description?: string;
     whenToUse?: string;
+    sampleText?: string;
 }
 
 export interface PresetShowcase {
     telop: PresetShowcaseItem[];
     lut: PresetShowcaseItem[];
+    textanim: PresetShowcaseItem[];
+    textstyle: PresetShowcaseItem[];
 }
 
 export interface PresetShowcaseChip {
@@ -52,11 +55,11 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
         if (!isRecord(parsed) || !isNonEmptyString(parsed.id) || !isNonEmptyString(parsed.name)) {
             continue;
         }
-        const tags = parseTags(parsed.tags);
-        if (!tags) {
-            continue;
-        }
         if (kind === 'telop') {
+            const tags = parseTags(parsed.tags);
+            if (!tags) {
+                continue;
+            }
             if (!isNonEmptyString(parsed.category)) {
                 continue;
             }
@@ -67,6 +70,45 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
                 category: parsed.category,
                 tags
             });
+            continue;
+        }
+        if (kind === 'textanim') {
+            if (!isNonEmptyString(parsed.category)
+                || !isNonEmptyString(parsed.description)
+                || !isNonEmptyString(parsed.sample_text)
+                || (parsed.slot !== 'in' && parsed.slot !== 'loop' && parsed.slot !== 'out')) {
+                continue;
+            }
+            items.push({
+                kind,
+                id: parsed.id,
+                name: parsed.name,
+                category: parsed.category,
+                description: parsed.description,
+                sampleText: parsed.sample_text,
+                tags: [parsed.slot]
+            });
+            continue;
+        }
+        if (kind === 'textstyle') {
+            if (parsed.kind !== 'textstyle'
+                || !isNonEmptyString(parsed.category)
+                || !isNonEmptyString(parsed.sample_text)
+                || !isRecord(parsed.style)) {
+                continue;
+            }
+            items.push({
+                kind,
+                id: parsed.id,
+                name: parsed.name,
+                category: parsed.category,
+                sampleText: parsed.sample_text,
+                tags: [parsed.category]
+            });
+            continue;
+        }
+        const tags = parseTags(parsed.tags);
+        if (!tags) {
             continue;
         }
         if (!isNonEmptyString(parsed.description) || !isNonEmptyString(parsed.when_to_use)) {
@@ -87,12 +129,15 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
 export function derivePresetShowcaseChips(showcase: PresetShowcase): PresetShowcaseChip[] {
     return [
         { category: 'preset:telop', label: 'テロップ', count: showcase.telop.length },
-        { category: 'preset:lut', label: 'LUT', count: showcase.lut.length }
+        { category: 'preset:lut', label: 'LUT', count: showcase.lut.length },
+        { category: 'preset:textanim', label: 'テキストアニメ', count: showcase.textanim.length },
+        { category: 'preset:textstyle', label: 'テキストスタイル', count: showcase.textstyle.length }
     ];
 }
 
-/** プリセット棚の検索対象は和名・id・タグだけに限定する。 */
-export function filterPresetShowcaseItems<T extends Pick<PresetShowcaseItem, 'name' | 'id' | 'tags'>>(
+/** プリセット棚を小文字包含で検索する。 */
+export function filterPresetShowcaseItems<T extends Pick<PresetShowcaseItem, 'name' | 'id' | 'tags'>
+    & Partial<Pick<PresetShowcaseItem, 'category' | 'description' | 'sampleText'>>>(
     items: readonly T[],
     query: string
 ): T[] {
@@ -100,7 +145,7 @@ export function filterPresetShowcaseItems<T extends Pick<PresetShowcaseItem, 'na
     if (!normalizedQuery) {
         return [...items];
     }
-    return items.filter(item => [item.name, item.id, ...item.tags]
+    return items.filter(item => [item.name, item.id, item.category ?? '', item.description ?? '', item.sampleText ?? '', ...item.tags]
         .join(' ')
         .toLowerCase()
         .includes(normalizedQuery));

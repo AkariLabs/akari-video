@@ -49,3 +49,16 @@ test('estimateExport: HEVC の容量目安は同じ設定の H.264 の 0.6 倍',
     assert.equal(hevc.seconds, h264.seconds);
     assert.equal(hevc.bytes, h264.bytes * 0.6);
 });
+
+test('estimateExport: ProRes 422 HQ は 1080p30 を約 220 Mbps で見積もる', () => {
+    const estimate = estimateExport({ ...BASE, codec: 'prores422' });
+    assert.equal(estimate.bytes, (220 + 1.536) * 1_000_000 * 10 / 8);
+});
+
+test('estimateExport: PNG は 1080p 基準 1 コマ 1.2 MB と画素数比で見積もる', () => {
+    const full = estimateExport({ ...BASE, codec: 'png' });
+    const halfPixels = estimateExport({ ...BASE, width: 960, height: 1080, codec: 'png' });
+    const audioBytes = 1.536 * 1_000_000 * 10 / 8;
+    assert.equal(full.bytes, 1_200_000 * 300 + audioBytes);
+    assert.equal(halfPixels.bytes, 1_200_000 * 300 * 0.5 + audioBytes);
+});

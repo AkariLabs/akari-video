@@ -4280,6 +4280,14 @@ ${indent}`);
         "hardlight",
         "softlight"
       ]);
+      var SHAPE_KINDS = /* @__PURE__ */ new Set([
+        "rect",
+        "rounded-rect",
+        "ellipse",
+        "line",
+        "arrow",
+        "speech-bubble"
+      ]);
       var ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
         "name",
@@ -4647,6 +4655,36 @@ ${indent}`);
               }
             }
             return;
+          case "shape":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
+            if (!SHAPE_KINDS.has(value.shape)) {
+              throw invalid(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+            }
+            if (hasOwn(value, "params")) {
+              requireRecord(value.params, `${path}.params`);
+              requireExactKeys(value.params, /* @__PURE__ */ new Set([
+                "width",
+                "height",
+                "fill",
+                "stroke",
+                "strokeWidth",
+                "cornerRadius"
+              ]), `${path}.params`);
+              for (const key of ["width", "height"]) {
+                if (hasOwn(value.params, key))
+                  requirePositiveNumber(value.params[key], `${path}.params.${key}`);
+              }
+              for (const key of ["fill", "stroke"]) {
+                if (hasOwn(value.params, key) && typeof value.params[key] !== "string") {
+                  throw invalid(`${path}.params.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+                }
+              }
+              for (const key of ["strokeWidth", "cornerRadius"]) {
+                if (hasOwn(value.params, key))
+                  requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
+              }
+            }
+            return;
           case "telop":
             requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
             requireText(value.preset, `${path}.preset`);
@@ -4966,25 +5004,29 @@ ${indent}`);
         let htmlPath;
         let editChanged = false;
         if (command.kind === "overlay") {
-          if (item.source.kind !== "html") {
-            throw new Error(`HTML \u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
+          if (item.source.kind !== "html" && item.source.kind !== "shape") {
+            throw new Error(`HTML/\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
           }
-          const source = item.source;
-          if (typeof command.patch.html === "string") {
-            htmlPath = source.path;
-          }
-          if (command.patch.params) {
-            for (const [name, value] of Object.entries(command.patch.params)) {
-              if (!name || typeof value !== "string") {
-                throw new Error("HTML params \u306F\u7A7A\u3067\u306A\u3044\u30AD\u30FC\u3068\u6587\u5B57\u5217\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
-              }
+          if (item.source.kind === "html") {
+            const source = item.source;
+            if (typeof command.patch.html === "string") {
+              htmlPath = source.path;
             }
-            source.params = { ...source.params, ...command.patch.params };
-            editChanged = true;
-          }
-          if (command.patch.vars) {
-            source.vars = { ...recordOf(source.vars), ...command.patch.vars };
-            editChanged = true;
+            if (command.patch.params) {
+              for (const [name, value] of Object.entries(command.patch.params)) {
+                if (!name || typeof value !== "string") {
+                  throw new Error("HTML params \u306F\u7A7A\u3067\u306A\u3044\u30AD\u30FC\u3068\u6587\u5B57\u5217\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+                }
+              }
+              source.params = { ...source.params, ...command.patch.params };
+              editChanged = true;
+            }
+            if (command.patch.vars) {
+              source.vars = { ...recordOf(source.vars), ...command.patch.vars };
+              editChanged = true;
+            }
+          } else if (command.patch.html !== void 0 || command.patch.params !== void 0 || command.patch.vars !== void 0) {
+            throw new Error(`\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.transform) {
             item.transform = { ...recordOf(item.transform), ...command.patch.transform };
@@ -5276,6 +5318,77 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/shape-markup.js
+  var require_shape_markup = __commonJS({
+    "packages/edit-store/lib/shape-markup.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.shapeMarkup = shapeMarkup;
+      var DEFAULT_WIDTH = 600;
+      var DEFAULT_HEIGHT = 340;
+      var DEFAULT_LINE_HEIGHT = 80;
+      var DEFAULT_FILL = "#f97316";
+      var DEFAULT_CORNER_RADIUS = 24;
+      var DEFAULT_LINE_STROKE_WIDTH = 8;
+      var SAFE_COLOR = /^[#a-zA-Z0-9(),.%\s-]{1,64}$/u;
+      function positiveNumber(value, fallback) {
+        return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+      }
+      function nonNegativeNumber(value, fallback) {
+        return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+      }
+      function color(value, fallback) {
+        if (typeof value !== "string" || !SAFE_COLOR.test(value))
+          return fallback;
+        const normalized = value.replace(/\s+/gu, " ").trim();
+        return normalized.length > 0 ? normalized : fallback;
+      }
+      function svg(width, height, body) {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`;
+      }
+      function filledShapeAttributes(fill, stroke, strokeWidth) {
+        return `fill="${fill}" stroke="${stroke ?? "none"}" stroke-width="${strokeWidth}"`;
+      }
+      function shapeMarkup(source) {
+        const params = source.params ?? {};
+        const width = positiveNumber(params.width, DEFAULT_WIDTH);
+        const height = positiveNumber(params.height, source.shape === "line" || source.shape === "arrow" ? DEFAULT_LINE_HEIGHT : DEFAULT_HEIGHT);
+        const fill = color(params.fill, DEFAULT_FILL);
+        const lineLike = source.shape === "line" || source.shape === "arrow";
+        const stroke = params.stroke === void 0 ? void 0 : color(params.stroke, lineLike ? fill : "none");
+        const strokeWidth = nonNegativeNumber(params.strokeWidth, lineLike ? DEFAULT_LINE_STROKE_WIDTH : 0);
+        const attributes = filledShapeAttributes(fill, stroke, strokeWidth);
+        switch (source.shape) {
+          case "rect":
+            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" ${attributes}/>`);
+          case "rounded-rect": {
+            const radius = nonNegativeNumber(params.cornerRadius, DEFAULT_CORNER_RADIUS);
+            return svg(width, height, `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" ${attributes}/>`);
+          }
+          case "ellipse":
+            return svg(width, height, `<ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" ${attributes}/>`);
+          case "line": {
+            const lineColor = stroke ?? fill;
+            return svg(width, height, `<line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"/>`);
+          }
+          case "arrow": {
+            const lineColor = stroke ?? fill;
+            const centerY = height / 2;
+            const headStart = width - Math.min(width, centerY);
+            return svg(width, height, `<path d="M 0 ${centerY} H ${headStart} M ${headStart} 0 L ${width} ${centerY} L ${headStart} ${height}" fill="none" stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`);
+          }
+          case "speech-bubble": {
+            const bodyBottom = height * 0.75;
+            const tailStart = width * 0.6;
+            const tailTip = width * 0.72;
+            const tailEnd = width * 0.82;
+            return svg(width, height, `<path d="M 0 0 H ${width} V ${bodyBottom} H ${tailEnd} L ${tailTip} ${height} L ${tailStart} ${bodyBottom} H 0 Z" ${attributes}/>`);
+          }
+        }
+      }
+    }
+  });
+
   // packages/edit-store/lib/internal-model.js
   var require_internal_model = __commonJS({
     "packages/edit-store/lib/internal-model.js"(exports) {
@@ -5293,6 +5406,7 @@ ${indent}`);
       var item_anchor_1 = require_item_anchor();
       var cut_adjacency_1 = require_cut_adjacency();
       var error_1 = require_error();
+      var shape_markup_1 = require_shape_markup();
       function readInternalEdit(source, options) {
         const text = typeof source === "string" ? source : JSON.stringify(source);
         if (typeof text !== "string") {
@@ -5500,6 +5614,8 @@ ${indent}`);
         switch (first?.source.kind) {
           case "html":
             return "overlays";
+          case "shape":
+            return "overlays";
           case "captions":
             return "captions";
           case "telop":
@@ -5626,6 +5742,7 @@ ${indent}`);
         const declaredKeyframes = item.keyframes;
         const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
         const common = {
+          ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
           ...item.blend !== void 0 ? { blend: item.blend } : {},
@@ -5647,6 +5764,7 @@ ${indent}`);
                 built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
                 break;
               case "html":
+              case "shape":
                 built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
                 break;
               case "telop":
@@ -5772,6 +5890,42 @@ ${indent}`);
                   ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
                   ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
                 },
+                declaration,
+                legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
+              }
+            });
+          }
+          case "shape": {
+            const html = (0, shape_markup_1.shapeMarkup)(item.source);
+            const declaration = {
+              id: item.id,
+              html,
+              htmlPath: "edit.json",
+              start: at2,
+              duration,
+              track: ref,
+              ...common
+            };
+            const value = {
+              id: item.id,
+              start: at2,
+              duration,
+              track: ref,
+              payload: declaration
+            };
+            return finish({
+              item: {
+                id: item.id,
+                atFrames,
+                durationFrames,
+                at: at2,
+                duration,
+                children: [],
+                // Deliberately omit html here: sourceById stamps a string source.html into htmlPath,
+                // which render-inputs later treats as a filesystem path. overlay-runtime parts.mjs
+                // uses item.source.html ?? declaration.html, so markup falls back to the declaration;
+                // apps/shell consumers protect the absent field with typeof guards or try/catch.
+                source: { kind: "html" },
                 declaration,
                 legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
               }
@@ -7619,12 +7773,12 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
       exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
+      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
       exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
       exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];
-      exports.SOURCE_KIND_V2 = ["media", "html", "telop", "filter", "group", "captions", "caption"];
+      exports.SOURCE_KIND_V2 = ["media", "html", "shape", "telop", "filter", "group", "captions", "caption"];
       exports.ITEM_V2_KEYS_BY_DEFINITION = {
         "itemV2Media": [
           "id",
@@ -7647,6 +7801,25 @@ ${indent}`);
           "source"
         ],
         "itemV2Html": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "anchor",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Shape": [
           "id",
           "name",
           "hidden",
@@ -7813,6 +7986,11 @@ ${indent}`);
           "exclude",
           "derivedFrom",
           "vars",
+          "params"
+        ],
+        "itemSourceShapeV2": [
+          "kind",
+          "shape",
           "params"
         ],
         "itemSourceTelopV2": [
@@ -9534,6 +9712,7 @@ ${indent}`);
       __exportStar(require_canonical(), exports);
       __exportStar(require_tree_ops(), exports);
       __exportStar(require_item_anchor(), exports);
+      __exportStar(require_shape_markup(), exports);
       __exportStar(require_cut_ranges(), exports);
       var legacy_parse_1 = require_legacy_parse();
       Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {

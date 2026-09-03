@@ -31,6 +31,7 @@ const expectedSources = [
   'legacy-audio-view.ts',
   'project.ts',
   'retime.ts',
+  'shape-markup.ts',
   'timeline-map.ts',
   'track-order.ts',
   'track-transition-compatibility.ts',

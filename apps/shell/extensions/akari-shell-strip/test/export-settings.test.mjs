@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+    containerForCodec,
     describeOutput,
     EXPORT_FORMAT_SEATS,
     EXPORT_QUALITY_CHOICES,
@@ -10,6 +11,28 @@ import {
     qualityChoiceForCli,
     resolveOutputResolution
 } from '../lib/common/export-settings.js';
+
+test('containerForCodec: MP4 / MOV / ディレクトリを codec から導く', () => {
+    assert.deepEqual(containerForCodec('h264'), { ext: 'mp4', kind: 'file' });
+    assert.deepEqual(containerForCodec('hevc'), { ext: 'mp4', kind: 'file' });
+    assert.deepEqual(containerForCodec('prores422'), { ext: 'mov', kind: 'file' });
+    assert.deepEqual(containerForCodec('png'), { ext: null, kind: 'directory' });
+});
+
+test('ProRes 422 HQ と連番 PNG の形式席・説明が選択形式に追従する', () => {
+    assert.equal(isFormatSelectable('prores422'), true);
+    assert.equal(isFormatSelectable('png'), true);
+    const base = {
+        quality: 'standard', engine: 'auto', encoder: 'auto', fps: undefined,
+        resolution: 'native', customWidth: undefined, outputDirectoryUri: undefined,
+        rerunLint: true, saveAsDefault: false
+    };
+    const prores = describeOutput({ ...base, codec: 'prores422' }, { output: { width: 1920, height: 1080, fps: 30 } });
+    assert.equal(prores[0].value, 'MOV · ProRes 422 HQ / PCM 48 kHz');
+    assert.equal(prores[3].value, '10-bit · Rec.709');
+    const png = describeOutput({ ...base, codec: 'png' }, { output: { width: 1920, height: 1080, fps: 30 } });
+    assert.equal(png[0].value, '連番 PNG / WAV 48 kHz');
+});
 
 test('3 択は標準 / 高画質 / 軽量を CLI 値へ対応させる', () => {
     assert.deepEqual(EXPORT_QUALITY_CHOICES.map(choice => [choice.label, choice.id]), [
@@ -98,7 +121,7 @@ test('H.265（HEVC）の形式席を選べ、形式説明が codec に追従す�
     assert.match(hevc?.tooltip ?? '', /X は非対応/u);
     assert.equal(isFormatSelectable('h264'), true);
     assert.equal(isFormatSelectable('hevc'), true);
-    assert.equal(isFormatSelectable('prores422'), false);
+    assert.equal(isFormatSelectable('prores422'), true);
     const lines = describeOutput({
         quality: 'standard', engine: 'auto', encoder: 'auto', codec: 'hevc', fps: undefined,
         resolution: 'native', customWidth: undefined,

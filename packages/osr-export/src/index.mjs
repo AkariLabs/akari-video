@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
-import { verifyFinalVideo } from "./ffprobe.mjs";
+import { verifyFinalVideo, verifyPngSequence } from "./ffprobe.mjs";
 import { buildOsrReceipt, normalizeOsrWarmUp } from "./receipt.mjs";
 import { launchElectronExport, resolveElectronLauncher } from "./runner.mjs";
 
@@ -38,7 +38,9 @@ export async function exportWithOsr({
   if (launcher.tier === 3) {
     throw new Error(`OSR export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
   }
-  const videoOnlyPath = `${out}.osr-video.mp4`;
+  const videoOnlyPath = codec === "png"
+    ? `${out}.osr-frames`
+    : `${out}.osr-video.${codec === "prores422" ? "mov" : "mp4"}`;
   try {
     const launched = await launcherRunner(launcher, {
       projectRoot, out: videoOnlyPath, fps, width, height, outputWidth, outputHeight, duration, frames, quality, encoder, codec,
@@ -51,14 +53,25 @@ export async function exportWithOsr({
       exit: "osr",
       extraArgs: [
         "--output-width", String(outputWidth), "--output-height", String(outputHeight),
-        ...(codec === "hevc" ? ["--codec", "hevc"] : []),
+        ...(codec === "h264" ? [] : ["--codec", codec]),
       ],
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
     const ffprobeCommandResolved = ffprobeCommand ?? resolveFfprobe({ env });
     let sourceHasAudio = false;
-    if (audioSourcePath) {
+    if (codec === "png") {
+      await rm(out, { recursive: true, force: true });
+      await rename(videoOnlyPath, out);
+      sourceHasAudio = await exportPcmAudio({
+        ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
+        ffprobeCommand: ffprobeCommandResolved,
+        audioPath: audioSourcePath,
+        outputPath: join(out, "audio.wav"),
+        frames,
+        fps,
+      });
+    } else if (audioSourcePath) {
       sourceHasAudio = await muxSourceAudio({
         ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
         ffprobeCommand: ffprobeCommandResolved,
@@ -67,19 +80,23 @@ export async function exportWithOsr({
         outputPath: out,
         frames,
         fps,
+        codec,
       });
     } else {
       await copyFile(videoOnlyPath, out);
     }
-    const finalVerify = normalizeCodecVerification(await verifyFinalVideo({
-      command: ffprobeCommandResolved,
-      path: out,
-      frames,
-      fps,
-      width: outputWidth,
-      height: outputHeight,
-      requireAudio: sourceHasAudio,
-    }), codec);
+    const finalVerify = codec === "png"
+      ? await verifyPngSequence({ command: ffprobeCommandResolved, directory: out, frames, width: outputWidth, height: outputHeight })
+      : normalizeCodecVerification(await verifyFinalVideo({
+          command: ffprobeCommandResolved,
+          path: out,
+          frames,
+          fps,
+          width: outputWidth,
+          height: outputHeight,
+          codec: codec === "prores422" ? "prores" : codec,
+          requireAudio: sourceHasAudio,
+        }), codec);
     const runPath = join(dirname(videoOnlyPath), "run.json");
     const run = { ...JSON.parse(await readFile(runPath, "utf8")), codec, finalVerify };
     await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
@@ -104,15 +121,17 @@ export async function exportWithOsr({
       }),
     };
   } finally {
-    await rm(videoOnlyPath, { force: true }).catch(() => {});
+    await rm(videoOnlyPath, { recursive: codec === "png", force: true }).catch(() => {});
   }
 }
 
 export function normalizeCodecVerification(verification, codec = "h264") {
   if (codec === "h264") return verification;
-  if (codec !== "hevc") throw new Error(`OSR codec must be h264|hevc, got: ${codec}`);
+  if (codec === "png") return verification;
+  if (codec !== "hevc" && codec !== "prores422") throw new Error(`OSR codec must be h264|hevc|prores422|png, got: ${codec}`);
   const video = verification?.measured?.streams?.find((stream) => stream.codec_type === "video");
-  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === "hevc" };
+  const expectedCodec = codec === "prores422" ? "prores" : "hevc";
+  const checks = { ...(verification?.checks ?? {}), codec: video?.codec_name === expectedCodec };
   return { ...verification, checks, matched: Object.values(checks).every(Boolean) };
 }
 
@@ -198,9 +217,8 @@ export async function captureFramesWithOsr({
   };
 }
 
-// 製品入口。インストール済みデスクトップアプリ（tier 1）は shell の electron-entry.js が --render を Theia より前に
-// 捕捉するようになった（2026-08-29 osr-headless-entry 合流・契約 §6 / §11.4 / §11.5）ため既定で候補に戻す。
-// v0.1.27 の間だけ allowInstalledDesktop 既定 false で外していた。明示の allowInstalledDesktop: false は今も使える。
+// 製品入口。インストール済みデスクトップアプリ（tier 1）はパッケージ配置では既定候補に含める。
+// 開発リポジトリ配置では同梱コードの世代違いを避けるため自動で外すが、env / 明示引数で上書きできる。
 export function resolveOsrLauncher(options = {}) {
   return resolveElectronLauncher(options);
 }
@@ -249,14 +267,29 @@ function normalizeCaptureFrames(frameNumbers, totalFrames) {
   }))].sort((left, right) => left - right);
 }
 
-export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps }) {
+export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps, codec = "h264" }) {
   const sourceHasAudio = (await capture(ffprobeCommand, [
     "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index", "-of", "csv=p=0", audioPath,
   ])).trim() !== "";
   const duration = frames / fps;
+  const pcm = codec === "prores422";
   const args = sourceHasAudio
-    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-t", String(duration), outputPath]
-    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-t", String(duration), outputPath];
+    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", ...(pcm ? ["-c:a", "pcm_s16le", "-ar", "48000"] : ["-c:a", "copy"]), "-t", String(duration), outputPath]
+    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", pcm ? "pcm_s16le" : "aac", ...(pcm ? ["-ar", "48000"] : []), "-t", String(duration), outputPath];
+  await spawnAndWait(ffmpegCommand, ["-hide_banner", "-loglevel", "warning", "-y", ...args]);
+  return sourceHasAudio;
+}
+
+export async function exportPcmAudio({ ffmpegCommand, ffprobeCommand, audioPath, outputPath, frames, fps }) {
+  const sourceHasAudio = audioPath
+    ? (await capture(ffprobeCommand, [
+        "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index", "-of", "csv=p=0", audioPath,
+      ])).trim() !== ""
+    : false;
+  const duration = frames / fps;
+  const args = sourceHasAudio
+    ? ["-i", audioPath, "-map", "0:a:0", "-vn", "-c:a", "pcm_s16le", "-ar", "48000", "-t", String(duration), outputPath]
+    : ["-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-vn", "-c:a", "pcm_s16le", "-ar", "48000", outputPath];
   await spawnAndWait(ffmpegCommand, ["-hide_banner", "-loglevel", "warning", "-y", ...args]);
   return sourceHasAudio;
 }

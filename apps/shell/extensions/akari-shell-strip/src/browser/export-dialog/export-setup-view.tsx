@@ -25,7 +25,12 @@ const ENGINE_LABELS: Readonly<Record<QuickExportEngine, string>> = {
 };
 
 const CODEC_LABELS: Readonly<Record<ExportSettings['codec'], string>> = {
-    h264: 'MP4 · H.264', hevc: 'MP4 · H.265（HEVC）'
+    h264: 'MP4 · H.264', hevc: 'MP4 · H.265（HEVC）',
+    prores422: 'MOV · ProRes 422 HQ', png: '連番 PNG'
+};
+
+const AUDIO_LABELS: Readonly<Record<ExportSettings['codec'], string>> = {
+    h264: 'AAC', hevc: 'AAC', prores422: 'PCM', png: 'WAV'
 };
 
 function encoderAvailable(encoder: QuickExportEncoder): boolean {
@@ -139,7 +144,7 @@ export function ExportSetupView(props: {
                             </div>
                             <button type='button' className='btn' onClick={() => void session.chooseOutputDirectory()}>変更…</button>
                         </div>
-                        <p className='fine'>同じ名前があれば final-2.mp4 にします。上書きはしません。</p>
+                        <p className='fine'>同じ名前があれば末尾に -2 を付けます。上書きはしません。</p>
 
                         <button
                             type='button'
@@ -148,7 +153,7 @@ export function ExportSetupView(props: {
                             onClick={() => setDetailsOpen(open => !open)}
                         >
                             <span className='car' /><span className='lb'>詳細設定</span>
-                            <span className='sum'>{CODEC_LABELS[snapshot.settings.codec]} / {ENGINE_LABELS[snapshot.settings.engine]} / {ENCODER_LABELS[snapshot.settings.encoder]} / AAC −14 LUFS</span>
+                            <span className='sum'>{CODEC_LABELS[snapshot.settings.codec]} / {ENGINE_LABELS[snapshot.settings.engine]} / {ENCODER_LABELS[snapshot.settings.encoder]} / {AUDIO_LABELS[snapshot.settings.codec]} −14 LUFS</span>
                         </button>
 
                         {detailsOpen && (
@@ -247,7 +252,7 @@ export function ExportSetupView(props: {
                                         {EXPORT_AUDIO_SEATS.map(seat => (
                                             <React.Fragment key={seat.id}>
                                                 <span>{seat.id === 'aac' ? 'コーデック' : seat.label}</span>
-                                                <div className='with'><div className='seg'><SegButton selected={seat.available} disabled={!seat.available} soon={!seat.available} title={seat.tooltip}>{seat.available ? seat.label : seat.description}</SegButton></div>{!seat.available && <i className='soon-tag'>近日</i>}</div>
+                                                <div className='with'><div className='seg'><SegButton selected={seat.available} disabled={!seat.available} soon={!seat.available} title={seat.tooltip}>{seat.id === 'aac' ? `${AUDIO_LABELS[snapshot.settings.codec]} 48 kHz` : seat.available ? seat.label : seat.description}</SegButton></div>{!seat.available && <i className='soon-tag'>近日</i>}</div>
                                             </React.Fragment>
                                         ))}
                                     </div>

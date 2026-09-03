@@ -1,22 +1,51 @@
 import { spawn } from "node:child_process";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
 
 export function ffprobeTimeoutMs(frames) {
   return Math.max(120_000, Number(frames) * 100);
 }
 
 export async function verifyEncodedVideo({ command, path, frames, fps, width, height, codec = "h264" }) {
+  if (codec === "png") return verifyPngSequence({ command, directory: path, frames, width, height });
   const parsed = await probeEncodedMedia({ command, path, frames });
   const stream = parsed.streams?.find((entry) => entry.codec_type === "video") ?? {};
   const duration = Number(parsed.format?.duration ?? stream.duration);
   const measuredFrames = Number(stream.nb_read_frames);
   const expectedDuration = frames / fps;
+  const expectedCodec = codec === "prores422" ? "prores" : codec;
   const checks = {
     frames: measuredFrames === frames,
     duration: Number.isFinite(duration) && Math.abs(duration - expectedDuration) <= Math.max(0.01, 1 / fps),
     dimensions: stream.width === width && stream.height === height,
-    codec: stream.codec_name === codec,
+    codec: stream.codec_name === expectedCodec,
+    ...(codec === "prores422" ? {
+      profile: stream.profile === 3 || String(stream.profile ?? "").toLowerCase() === "hq",
+      pixelFormat: stream.pix_fmt === "yuv422p10le",
+    } : {}),
   };
   return { matched: Object.values(checks).every(Boolean), checks, expected: { frames, fps, width, height, duration: expectedDuration }, measured: parsed };
+}
+
+export async function verifyPngSequence({ command, directory, frames, width, height }) {
+  const names = (await readdir(directory).catch(() => []))
+    .filter((name) => /^frame-\d{5}\.png$/u.test(name))
+    .sort();
+  const first = names[0] ? await probeEncodedMedia({ command, path: join(directory, names[0]), frames: 1 }) : null;
+  const last = names.length > 1 ? await probeEncodedMedia({ command, path: join(directory, names.at(-1)), frames: 1 }) : first;
+  const firstVideo = first?.streams?.find((entry) => entry.codec_type === "video") ?? null;
+  const lastVideo = last?.streams?.find((entry) => entry.codec_type === "video") ?? null;
+  const checks = {
+    frames: names.length === frames,
+    firstDimensions: firstVideo?.width === width && firstVideo?.height === height,
+    lastDimensions: lastVideo?.width === width && lastVideo?.height === height,
+  };
+  return {
+    matched: Object.values(checks).every(Boolean),
+    checks,
+    expected: { frames, width, height },
+    measured: { frameFiles: names, first, last },
+  };
 }
 
 export async function verifyFinalVideo({ command, path, frames, fps, width, height, codec = "h264", requireAudio = false }) {
@@ -66,7 +95,7 @@ function defaultAudioFrameSize(codecName) {
 async function probeEncodedMedia({ command, path, frames }) {
   const raw = await run(command, [
     "-v", "error", "-count_frames",
-    "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,pix_fmt,r_frame_rate,nb_read_frames,duration,sample_rate",
+    "-show_entries", "format=duration:stream=codec_type,codec_name,profile,width,height,pix_fmt,r_frame_rate,nb_read_frames,duration,sample_rate",
     "-of", "json", path,
   ], ffprobeTimeoutMs(frames));
   return JSON.parse(raw);

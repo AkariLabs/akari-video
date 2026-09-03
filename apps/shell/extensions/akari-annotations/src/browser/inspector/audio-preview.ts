@@ -57,10 +57,8 @@ function buildFades(): HTMLElement {
 
 function buildEnhancement(): HTMLElement {
     return buildRows('enhancement', [
-        ['ノイズ除去', '0'],
-        ['ボイス分離', '0'],
-        ['ラウドネス正規化', '−14 LUFS'],
-        ['True Peak', '−1.0 dBTP']
+        ['ノイズ除去（クリップ単位）', '0'],
+        ['ボイス分離', '0']
     ]);
 }
 

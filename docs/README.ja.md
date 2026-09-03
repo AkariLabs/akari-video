@@ -143,6 +143,8 @@
 | [contract-2026-09-02-audio-envelope-v1.md](./contract-2026-09-02-audio-envelope-v1.md) | 音声エンベロープ・カーネル v1 — 決定論ダッキング（duck_db / attack / release・鍵 = narration ∪ transcript 台詞区間・sidechaincompress 廃止 → amultiply）とクリップ所有の音量キーフレームをプレビュー / 書き出しで共有 |
 | [contract-2026-09-02-audio-insert-level-v1.md](./contract-2026-09-02-audio-insert-level-v1.md) | 挿入時の自動レベル合わせ v1 — ebur128 計測（sha1 キャッシュ）・役割別 LUFS 目標 + true peak ガード・`akari-media audio-level --write` が gain_db / 既定フェードを決定論で書き込む |
 | [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | 音声クリップ FX v1 — speed（rubberband・ピッチ保持）・pitch_semitones・denoise（fft / nlm）・lowcut_hz。プレビューは FLAC サイドカー（recipe v2）で書き出しと一致 |
+| [contract-2026-09-02-asset-reference-model.md](./contract-2026-09-02-asset-reference-model.md) | 素材の参照モデル v0 — マシン単位の共有ライブラリ（`~/.akari/assets`）・プロジェクトの参照台帳 `.akari/asset-references.json`・render-cut / edit-lint のフォールバック解決・実体化コマンド `akari-assets bundle` |
+| [contract-2026-09-02-shape-item-v0.md](./contract-2026-09-02-shape-item-v0.md) | 図形アイテム v0 — edit.json v2 の `shape` ソース（rect / rounded-rect / ellipse / line / arrow / speech-bubble）を edit-store が決定論インライン SVG の html オーバーレイへ降下（レンダラ無改修） |
 
 ### 方向性メモ
 

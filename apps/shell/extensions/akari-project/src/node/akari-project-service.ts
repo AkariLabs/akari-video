@@ -22,6 +22,7 @@ import {
     EditLintOutcome,
     MaterialThumbnailOutcome,
     PresetShowcase,
+    PresetShowcaseKind,
     ProjectGitEligibility,
     StoreConnectionStatus,
     StoreDevicePollOutcome,
@@ -279,15 +280,17 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     }
 
     async getPresetShowcase(): Promise<PresetShowcase> {
-        const [telop, lut] = await Promise.all([
+        const [telop, lut, textanim, textstyle] = await Promise.all([
             this.loadPresetShowcaseIndex('telop'),
-            this.loadPresetShowcaseIndex('lut')
+            this.loadPresetShowcaseIndex('lut'),
+            this.loadPresetShowcaseIndex('textanim'),
+            this.loadPresetShowcaseIndex('textstyle')
         ]);
-        return { telop, lut };
+        return { telop, lut, textanim, textstyle };
     }
 
-    protected async loadPresetShowcaseIndex(kind: 'telop' | 'lut'): Promise<PresetShowcase['telop']> {
-        const directory = kind === 'telop' ? 'telop' : 'luts';
+    protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind): Promise<PresetShowcase[PresetShowcaseKind]> {
+        const directory = kind === 'lut' ? 'luts' : kind;
         const candidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), directory, this.resourcesPath());
         for (const candidate of candidates) {
             try {

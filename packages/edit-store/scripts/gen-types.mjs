@@ -9,12 +9,12 @@ const motionSchema = JSON.parse(await readFile(join(repositoryRoot, 'packages/sc
 const definitions = editSchema.$defs;
 
 const itemDefinitionNames = [
-  'itemV2Media', 'itemV2Html', 'itemV2Telop', 'itemV2Filter',
+  'itemV2Media', 'itemV2Html', 'itemV2Shape', 'itemV2Telop', 'itemV2Filter',
   'itemV2Group', 'itemV2Captions', 'itemV2Caption', 'itemV2AudioMedia',
 ];
 const sourceDefinitionNames = [
   'itemSourceMediaV2', 'itemSourceAudioMediaV2', 'itemSourceHtmlV2',
-  'itemSourceTelopV2', 'itemSourceFilterV2', 'itemSourceGroupV2',
+  'itemSourceShapeV2', 'itemSourceTelopV2', 'itemSourceFilterV2', 'itemSourceGroupV2',
   'itemSourceCaptionsV2', 'itemSourceCaptionV2',
 ];
 

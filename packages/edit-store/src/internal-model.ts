@@ -20,6 +20,7 @@ import { AudioMediaItemV2, EditV2, ItemV2, KeyframesReferenceV2, TrackV2, readEd
 import { AnchorCaption, resolveItemAnchors, withoutItemAnchors } from './item-anchor';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
+import { shapeMarkup } from './shape-markup';
 
 export type InternalLane = 'visual' | 'audio';
 
@@ -512,6 +513,7 @@ function legacyKindOfV2Track(
     const first = track.items[0];
     switch (first?.source.kind) {
         case 'html': return 'overlays';
+        case 'shape': return 'overlays';
         case 'captions': return 'captions';
         case 'telop':
         case 'filter':
@@ -770,6 +772,7 @@ function buildV2VisualItem(
     const keyframes = Array.isArray(declaredKeyframes)
         ? declaredKeyframes.map(keyframe => ({ ...keyframe, t: keyframe.t / fps })) : undefined;
     const common = {
+        ...(item.hidden !== undefined ? { hidden: item.hidden } : {}),
         ...(item.transform !== undefined ? { transform: item.transform } : {}),
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
@@ -792,6 +795,7 @@ function buildV2VisualItem(
                     built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
                     break;
                 case 'html':
+                case 'shape':
                     built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
                     break;
                 case 'telop':
@@ -947,6 +951,31 @@ function buildV2VisualItem(
                         ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}),
                         ...(item.source.derivedFrom !== undefined ? { derivedFrom: item.source.derivedFrom } : {})
                     },
+                    declaration,
+                    legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
+                }
+            });
+        }
+        case 'shape': {
+            const html = shapeMarkup(item.source);
+            const declaration = {
+                id: item.id, html, htmlPath: 'edit.json', start: at, duration, track: ref, ...common
+            };
+            const value: EditOverlay = {
+                id: item.id,
+                start: at,
+                duration,
+                track: ref,
+                payload: declaration as Record<string, unknown>
+            };
+            return finish({
+                item: {
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
+                    // Deliberately omit html here: sourceById stamps a string source.html into htmlPath,
+                    // which render-inputs later treats as a filesystem path. overlay-runtime parts.mjs
+                    // uses item.source.html ?? declaration.html, so markup falls back to the declaration;
+                    // apps/shell consumers protect the absent field with typeof guards or try/catch.
+                    source: { kind: 'html' } as InternalHtmlSource,
                     declaration,
                     legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
                 }

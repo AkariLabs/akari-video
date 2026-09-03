@@ -21,7 +21,7 @@ export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 export type QuickExportQuality = 'master' | 'high' | 'standard' | 'light';
 export type QuickExportEngine = 'auto' | 'gpu' | 'osr';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
-export type QuickExportCodec = 'h264' | 'hevc';
+export type QuickExportCodec = 'h264' | 'hevc' | 'prores422' | 'png';
 
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'

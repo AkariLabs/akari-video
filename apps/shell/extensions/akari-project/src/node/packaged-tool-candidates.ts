@@ -40,7 +40,7 @@ export function editLintCliCandidates(dirnameValue: string, cwd: string, resourc
 export function presetShowcaseIndexCandidates(
     dirnameValue: string,
     cwd: string,
-    kind: 'telop' | 'luts',
+    kind: 'telop' | 'luts' | 'textanim' | 'textstyle',
     resourcesPath?: string
 ): string[] {
     const relativePath = `presets/${kind}/index.jsonl`;

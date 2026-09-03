@@ -3,6 +3,9 @@ import { QuickExportCodec, QuickExportEncoder, QuickExportEngine, QuickExportQua
 const REFERENCE_PIXELS = 1920 * 1080;
 const FIXED_OVERHEAD_SECONDS = 9;
 const AUDIO_BITRATE_MBPS = 0.192;
+const PCM_AUDIO_BITRATE_MBPS = 1.536;
+const PRORES_422_HQ_1080P30_MBPS = 220;
+const PNG_1080P_BYTES_PER_FRAME = 1_200_000;
 
 export interface ExportLastRun {
     readonly frames: number;
@@ -60,7 +63,8 @@ function positive(value: number, fallback: number): number {
 }
 
 /** auto は GPU 直結として見積もり、実測との照合にも同じ正規化を使う。 */
-function effectiveEngine(engine: QuickExportEngine): 'gpu' | 'osr' {
+function effectiveEngine(engine: QuickExportEngine, codec: QuickExportCodec = 'h264'): 'gpu' | 'osr' {
+    if (codec === 'prores422' || codec === 'png') return 'osr';
     return engine === 'osr' ? 'osr' : 'gpu';
 }
 
@@ -74,7 +78,8 @@ export function estimateExport(input: ExportEstimateInput): ExportEstimate {
     const height = positive(input.height, 1080);
     const fps = positive(input.fps, 30);
     const pixelRatio = (width * height) / REFERENCE_PIXELS;
-    const engine = effectiveEngine(input.engine);
+    const codec = input.codec ?? 'h264';
+    const engine = effectiveEngine(input.engine, codec);
     const lastRun = input.lastRun;
 
     let millisecondsPerFrame: number;
@@ -99,11 +104,21 @@ export function estimateExport(input: ExportEstimateInput): ExportEstimate {
     }
 
     const seconds = FIXED_OVERHEAD_SECONDS + frames * millisecondsPerFrame / 1000;
+    if (codec === 'png') {
+        const bytes = PNG_1080P_BYTES_PER_FRAME * frames * pixelRatio
+            + PCM_AUDIO_BITRATE_MBPS * 1_000_000 * (frames / fps) / 8;
+        return { seconds, bytes };
+    }
+    if (codec === 'prores422') {
+        const videoBitrate = PRORES_422_HQ_1080P30_MBPS * pixelRatio * (fps / 30);
+        const bytes = (videoBitrate + PCM_AUDIO_BITRATE_MBPS) * 1_000_000 * (frames / fps) / 8;
+        return { seconds, bytes };
+    }
     const videoBitrate = (input.encoder === 'x264'
         ? X264_BITRATE_MBPS[input.quality]
         : HARDWARE_BITRATE_MBPS[input.quality]) * pixelRatio;
     const durationSeconds = frames / fps;
-    const codecFactor = input.codec === 'hevc' ? 0.6 : 1;
+    const codecFactor = codec === 'hevc' ? 0.6 : 1;
     const bytes = (videoBitrate + AUDIO_BITRATE_MBPS) * 1_000_000 * durationSeconds / 8 * codecFactor;
     return { seconds, bytes };
 }
