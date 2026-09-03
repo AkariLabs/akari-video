@@ -50,7 +50,9 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    読み込む（troika は vendored three を alias 解決するため、three-bundle.js が
    `window.AkariThree.THREE` を作った後でないと壊れる。export 側
    `packages/render-cut/src/rasterize.mjs` はシートに `texts[]` 宣言があるときだけ
-   自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）
+   自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）。ランタイム読込後、
+   `font` 省略を許すホストは mount より前に
+   `window.akari.threeRuntime.configure({ defaultFontUrl })` を 1 回呼ぶ
 4. `src/interaction.css` と `src/minimap.css` を `<link>` する
 5. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
    （`summary` = `EditSummary`。下記参照）。以降はタイムライン更新のたびに
@@ -116,8 +118,10 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 ## このパッケージが公開するもの
 
 - `window.AkariThree` — pinned Three.js core と `GLTFLoader` / `RoomEnvironment`
-- `window.akari.threeRuntime.render(container, localSeconds)` / `.dispose(container)` /
-  `.inspect(container)`（`src/three-runtime.js`）。独自 rAF や wall-clock は持たない
+- `window.akari.threeRuntime.configure({ defaultFontUrl })` /
+  `.render(container, localSeconds)` / `.dispose(container)` / `.inspect(container)`
+  （`src/three-runtime.js`）。`defaultFontUrl` は `texts[].font` 省略時のホスト所有 URL。
+  独自 rAF や wall-clock は持たない
 - `window.akari.runtime.mount(summary, options?)` / `.tick(t, playing)` / `.unmount()` /
   `.configure(next)` / `.version`（`src/overlay-runtime.js`。`options.maxRenderSize` /
   `configure({ maxRenderSize })` は下記「ライブプレビューの tick 性能」）。`.version` は本パッケージ

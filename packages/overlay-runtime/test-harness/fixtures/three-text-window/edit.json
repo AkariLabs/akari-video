@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 25 },
+  "sources": [{ "id": "main", "path": "source.mp4", "proxy": null }],
+  "tracks": [
+    {
+      "id": "visual-main",
+      "lane": "visual",
+      "items": [
+        { "id": "cut-1", "at": 0, "duration": 100, "source": { "kind": "media", "src": "main", "in": 0, "out": 4 } }
+      ]
+    },
+    {
+      "id": "visual-overlay",
+      "lane": "visual",
+      "items": [
+        { "id": "text-window", "at": 0, "duration": 100, "source": { "kind": "html", "path": "overlays/text-window.html" } }
+      ]
+    }
+  ]
+}
