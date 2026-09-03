@@ -120,6 +120,137 @@ test('store download: 未購入（403）は exit 1', async () => {
   }
 });
 
+test('store download: unknown_product（404）は商品 id 付きの案内で exit 1', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      if (url.endsWith('/products')) return new Response(JSON.stringify({ products: [] }), { status: 200 });
+      return new Response(JSON.stringify({
+        error: 'unknown_product',
+        message: '商品が見つかりません'
+      }), { status: 404 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'missing-product'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) => l.includes('商品が見つかりません') && l.includes('missing-product')));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store download: artifact_missing（404）は未入稿の案内で exit 1', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      if (url.endsWith('/products')) return new Response(JSON.stringify({ products: [] }), { status: 200 });
+      return new Response(JSON.stringify({
+        error: 'artifact_missing',
+        message: '配布物が未入稿です。サポートへご連絡ください'
+      }), { status: 404 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'telop-rich-pack-01'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) => l.includes('配布物が未入稿です。サポートへご連絡ください')));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store download: bundle は構成商品の個別 download を案内する', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      return new Response(JSON.stringify({
+        error: 'artifact_missing',
+        message: '配布物が未入稿です。サポートへご連絡ください'
+      }), { status: 404 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'multi-device-combo'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) =>
+      l.includes('セット商品は構成商品を個別に download してください')
+      && l.includes('phone-pro-titanium')
+      && l.includes('laptop-slim-aluminum')
+      && l.includes('app-icon-squircle')));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store download: 未購入の bundle（403）は従来の購入確認エラーを出す', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      return new Response(JSON.stringify({ error: 'not_entitled' }), { status: 403 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'multi-device-combo'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) => l.includes('この商品の購入が確認できません: multi-device-combo')));
+    assert.ok(ctx.lines.every((l) => !l.includes('セット商品は構成商品を個別に download してください')));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store download: products 応答で判明した bundle を固定文言で案内する', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      if (url.endsWith('/products')) {
+        return new Response(JSON.stringify({
+          products: [{
+            id: 'creator-bundle',
+            price_jpy: 2400,
+            kind: 'bundle',
+            current_version: 1
+          }]
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        error: 'artifact_missing',
+        message: '配布物が未入稿です。サポートへご連絡ください'
+      }), { status: 404 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'creator-bundle'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) => l === 'セット商品は構成商品を個別に download してください'));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test('store download: 非 JSON 応答は従来の HTTP エラーへフォールバックする', async () => {
+  const ctx = makeContext({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/v1/entitlements')) return new Response(JSON.stringify(ENTITLEMENTS), { status: 200 });
+      return new Response('not json', { status: 500 });
+    }
+  });
+  try {
+    await runStoreCommand(['connect', '--token', TOKEN, '--url', 'http://localhost:9999/api/store'], ctx.options);
+    const result = await runStoreCommand(['download', 'broken-product'], ctx.options);
+    assert.equal(result.exitCode, 1);
+    assert.ok(ctx.lines.some((l) => l.includes('ダウンロードに失敗しました（500）')));
+  } finally {
+    ctx.cleanup();
+  }
+});
+
 test('store connect（既定 = デバイスフロー）: start → ブラウザ → 承認待ち → 保存', async () => {
   let claimCount = 0;
   const opened = [];
