@@ -2313,6 +2313,20 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       });
       continue;
     }
+    if (
+      Object.hasOwn(fragment.rootAttributes, "data-start")
+      || Object.hasOwn(fragment.rootAttributes, "data-duration")
+    ) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "overlays.root-data-attributes",
+        message:
+          "overlay fragment root must not declare data-start or data-duration; edit.json is the "
+          + "source of truth, and animation-delay inside the fragment uses local seconds from clip "
+          + "start 0, not absolute timeline seconds",
+        path: relativePath(paths.projectRoot, htmlPath),
+      });
+    }
     for (const [attribute, expected] of [
       ["data-start", overlay.start],
       ["data-duration", overlay.duration],
@@ -5465,7 +5479,8 @@ function parseDb(value) {
 }
 
 function inspectHtmlFragment(html) {
-  const tokens = html.match(/<!--[\s\S]*?-->|<![^>]*>|<\/?[A-Za-z][^>]*>/g) ?? [];
+  const workingHtml = maskHtmlFragmentContents(html);
+  const tokens = workingHtml.match(/<!--[\s\S]*?-->|<![^>]*>|<\/?[A-Za-z][^>]*>/g) ?? [];
   const stack = [];
   let rootCount = 0;
   let rootAttributes = {};
@@ -5474,8 +5489,12 @@ function inspectHtmlFragment(html) {
   let cursor = 0;
 
   for (const token of tokens) {
-    const index = html.indexOf(token, cursor);
-    if (index > cursor && stack.length === 0 && html.slice(cursor, index).trim() !== "") {
+    const index = workingHtml.indexOf(token, cursor);
+    if (
+      index > cursor
+      && stack.length === 0
+      && workingHtml.slice(cursor, index).trim() !== ""
+    ) {
       hasTopLevelText = true;
     }
     cursor = index + token.length;
@@ -5495,9 +5514,21 @@ function inspectHtmlFragment(html) {
     }
     if (!isVoidElement(name) && !/\/\s*>$/.test(token)) stack.push(name);
   }
-  if (html.slice(cursor).trim() !== "" && stack.length === 0) hasTopLevelText = true;
+  if (workingHtml.slice(cursor).trim() !== "" && stack.length === 0) hasTopLevelText = true;
   if (stack.length > 0) unbalanced = true;
   return { rootCount, rootAttributes, hasTopLevelText, unbalanced };
+}
+
+function maskHtmlFragmentContents(html) {
+  const mask = (content) => content.replace(/[^\r\n]/g, " ");
+  return html.replace(
+    /<!--([\s\S]*?)-->|(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)|(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi,
+    (_whole, comment, scriptOpen, scriptContent, scriptClose, styleOpen, styleContent, styleClose) => {
+      if (comment !== undefined) return `<!--${mask(comment)}-->`;
+      if (scriptOpen !== undefined) return `${scriptOpen}${mask(scriptContent)}${scriptClose}`;
+      return `${styleOpen}${mask(styleContent)}${styleClose}`;
+    },
+  );
 }
 
 function parseHtmlAttributes(openingTag) {

@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 20 }],
+  "overlays": [
+    { "id": "css-property", "html": "overlays/css-property.html", "start": 0, "duration": 1 },
+    { "id": "css-comment", "html": "overlays/css-comment.html", "start": 1, "duration": 1 },
+    { "id": "script-json", "html": "overlays/script-json.html", "start": 2, "duration": 1 },
+    { "id": "unbalanced", "html": "overlays/unbalanced.html", "start": 3, "duration": 1 },
+    { "id": "root-data-matched", "html": "overlays/root-data-matched.html", "start": 12, "duration": 1 },
+    { "id": "root-data-mismatched", "html": "overlays/root-data-mismatched.html", "start": 13, "duration": 1 }
+  ]
+}

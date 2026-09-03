@@ -10,6 +10,10 @@
 - particle や反復要素は先に DOM を確定し、index と固定 seed から値を作る。再生中に未 seed の乱数で作り直さない。
 - 外側コンテナの transform は AKARI の幾何操作用、断片内の子 transform は演出用として分離する。
 
+断片ルートには `data-start` / `data-duration` を置かない。タイムライン上の開始・長さは
+`edit.json` を正本とし、断片内部の `animation-delay` などの時刻はクリップ先頭を 0 とする
+ローカル秒で書く（タイムラインの絶対秒を入れない）。
+
 ## イージング語彙
 
 | 意図 | CSS 語彙 | 使い方 |
