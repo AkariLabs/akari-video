@@ -19,6 +19,12 @@ could not run.
 - `overlays.root-data-attributes`: warns whenever a fragment root declares `data-start` or
   `data-duration`; `edit.json` is the source of truth, and animation delays inside a fragment use
   local seconds starting at clip time 0.
+- `overlays.keyframes-sparse`: warns when a multi-step keyframes rule omits an animated property
+  from its 0% or 100% endpoint.
+- `overlays.base-hidden-state`: warns when a selector has a hidden base state but its animation
+  ends visible; keep the final resting state in the base rule and put the hidden state at 0%.
+- `overlays.preserve-3d-opacity-animation`: warns when one selector combines `preserve-3d` with an
+  opacity animation; move opacity to a parent so Blink does not flatten the 3D element.
 
 ## Media checks (`--media`)
 

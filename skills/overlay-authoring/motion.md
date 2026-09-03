@@ -97,6 +97,8 @@ rAF は、外部タイムラインから既に決めた状態を再描画する�
 
 ### 入場して留まる要素の base を隠れ状態にすると書き出しで消える（2026-08-14 実測）
 
+edit-lint: `overlays.base-hidden-state`
+
 WAAPI クローン化の前に、書き出しシートは仮想クロックで free-run するセットアップ期間を持つ。delay 0 の短尺アニメはこの間に完走扱いになり**クローン化を逃す**ことがある。以後その要素は base の CSS に戻るため、base に `opacity: 0` や `transform: scaleX(0)` のような「隠れ状態」を書いていると、**一瞬正しく見えた後（または最初から）完全に消える**。
 
 - 実例1: 見出し（delay 0・0.51s の叩きつけ）の base に `opacity: 0` → t≈0.3s では見えるが t≈0.6s 以降で消滅
@@ -115,6 +117,8 @@ WAAPI クローン化の前に、書き出しシートは仮想クロックで f
 - 直し方: `animation-delay` は**必ず shorthand と同じゲート付きルールの中**に書く。per-要素の値は inline `style="--d: 2.043s"` + ゲート内 `animation-delay: var(--d)` が定石。モディファイアクラスで delay を上書きする設計は禁止
 
 ### 多段 keyframes はプロパティを全ステップで明示する（密化・2026-08-14 実測）
+
+edit-lint: `overlays.keyframes-sparse`
 
 疎な keyframes（例: `transform` は全 6 ステップにあるが `opacity` は 0%/10%/55% にしか無い）は、**条件次第で WAAPI クローン化が黙って失敗**する（変換部の `catch {}` に握り潰され、元アニメも `animation-name: none` 済みのため**アニメーション丸ごと消滅**）。base が最終状態と一致していると「動かないだけで絵は正しい」ため発見が非常に難しい。
 
