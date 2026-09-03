@@ -176,6 +176,7 @@ export function buildAudioMixCommand({
     projectRoot,
     duration,
     ffprobeCommand,
+    fps: edit.output?.fps,
   });
   const hasNarration = narrationTracks.length > 0;
   const master = normalizeMasterPlan(edit.audio?.master);
@@ -342,7 +343,15 @@ export function buildAudioMixCommand({
     const sfxSourcePath = resolve(projectRoot, sfx.path);
     const needsEnvelopeDuration = Array.isArray(sfx.keyframes) || sfx.ducking === true;
     const clipSpeed = isFiniteNumber(sfx.speed) && sfx.speed > 0 ? sfx.speed : 1;
-    const trim = resolveSfxTrim(sfx, ffprobeCommand, sfxSourcePath, index, needsEnvelopeDuration, clipSpeed);
+    const trim = resolveSfxTrim(
+      sfx,
+      ffprobeCommand,
+      sfxSourcePath,
+      index,
+      needsEnvelopeDuration,
+      clipSpeed,
+      edit.output?.fps,
+    );
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     args.push("-i", sfxSourcePath);
@@ -457,7 +466,7 @@ function normalizeMasterPlan(master) {
 // filesystem and its declared values, skipping (with a warning) whatever cannot be rendered safely
 // instead of failing the whole export. Runs during planning so the resulting command is deterministic
 // for a fixed filesystem/edit.json pair.
-function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand }) {
+function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps }) {
   const warnings = [];
   const tracks = [];
   if (!Array.isArray(narration)) return { tracks, warnings };
@@ -498,7 +507,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
     if (gain_db !== rawGain) {
       warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
     }
-    const trim = resolveNarrationTrim(item, probe.duration, id);
+    const trim = resolveNarrationTrim(item, probe.duration, id, fps);
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     tracks.push({
@@ -510,7 +519,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
   return { tracks, warnings };
 }
 
-function resolveNarrationTrim(item, actualDuration, id) {
+function resolveNarrationTrim(item, actualDuration, id, fps) {
   const hasIn = item.in !== undefined;
   const hasOut = item.out !== undefined;
   if (!hasIn && !hasOut) {
@@ -527,9 +536,11 @@ function resolveNarrationTrim(item, actualDuration, id) {
     inSeconds = 0;
   }
   if (outSeconds > actualDuration) {
-    warnings.push(
-      `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
-    );
+    if (shouldWarnForOutClamp(outSeconds, actualDuration, fps)) {
+      warnings.push(
+        `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
+      );
+    }
     outSeconds = actualDuration;
   }
   if (outSeconds <= inSeconds) {
@@ -728,7 +739,15 @@ function resolveBgmInSeconds(bgm, ffprobeCommand, resolvedPath) {
 // effectiveDuration (the [in,out) window's own length, once knowable) is what audio-clip-fades'
 // resolveSfxFadeSeconds clamps fade_in/fade_out against -- null means "not knowable without a
 // probe that didn't happen" and the caller skips fade application rather than guessing.
-function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeDuration = false, speed = 1) {
+function resolveSfxTrim(
+  sfx,
+  ffprobeCommand,
+  resolvedPath,
+  index,
+  needsEnvelopeDuration = false,
+  speed = 1,
+  fps,
+) {
   const hasIn = sfx.in !== undefined;
   const hasOut = sfx.out !== undefined;
   const hasFade = sfx.fade_in !== undefined || sfx.fade_out !== undefined;
@@ -750,7 +769,7 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeD
       return { skip: true, trimFilter: "", effectiveDuration: null, warnings };
     }
     if (outSeconds === null || outSeconds > actualDuration) {
-      if (outSeconds !== null) {
+      if (outSeconds !== null && shouldWarnForOutClamp(outSeconds, actualDuration, fps)) {
         warnings.push(
           `${label}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
         );
@@ -774,6 +793,10 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeD
     inSeconds > 0 || end !== "" ? `atrim=start=${formatNumber(inSeconds)}${end},asetpts=PTS-STARTPTS,` : "";
   const effectiveDuration = outSeconds === null ? null : (outSeconds - inSeconds) / speed;
   return { skip: false, trimFilter, effectiveDuration, warnings };
+}
+
+function shouldWarnForOutClamp(outSeconds, actualDuration, fps) {
+  return !isPositiveNumber(fps) || outSeconds - actualDuration >= 1 / fps;
 }
 
 // audio.bgm.fadeIn/fadeOut clamp rule: the "clip" bgm occupies is the full timeline (it is
@@ -1348,9 +1371,8 @@ function isPositiveNumber(value) {
 
 export function selectDefaultOutput(projectRoot, edit, exists, codec = "h264") {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;
-  const namingSource = edit.sources[0]?.path;
-  const sourceName = basename(namingSource, extname(namingSource));
-  const stem = sanitizeName(configured ?? sourceName ?? "render");
+  const projectName = basename(resolve(projectRoot)) || null;
+  const stem = sanitizeName(configured ?? projectName ?? "render");
   const directory = join(projectRoot, "exports");
   const container = containerForCodec(codec);
   const suffix = container.ext ? `.${container.ext}` : "";

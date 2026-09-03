@@ -133,8 +133,8 @@ export async function runCli(argv, io = console) {
 
   try {
     const state = await renderProject(options.projectRoot, options, io);
-    for (const warning of state.warnings ?? []) {
-      io.error(`render-cut warning: ${warning}`);
+    for (const line of formatWarningLines(state.warnings ?? [])) {
+      io.error(line);
     }
     if (options.planOnly) {
       io.log(`PLAN: ${state.plan.output} (${state.plan.predicted_duration_seconds}s)`);
@@ -149,6 +149,29 @@ export async function runCli(argv, io = console) {
     io.error(`render-cut execution error: ${messageOf(error)}`);
     return 2;
   }
+}
+
+export function formatWarningLines(warnings, limit = 5) {
+  const groups = new Map();
+  for (const warning of warnings) {
+    const key = warningType(warning);
+    const group = groups.get(key) ?? [];
+    group.push(warning);
+    groups.set(key, group);
+  }
+  return [...groups.values()].flatMap((group) => [
+    ...group.slice(0, limit).map((warning) => `render-cut warning: ${warning}`),
+    ...(group.length > limit
+      ? [`render-cut warning: 他 ${group.length - limit} 件（同種）`]
+      : []),
+  ]);
+}
+
+function warningType(warning) {
+  return String(warning)
+    .replace(/audio\.sfx\[\d+\]/gu, "audio.sfx[]")
+    .replace(/^narration [^:]+:/u, "narration <id>:")
+    .replace(/(?<![\p{L}\p{N}_])[-+]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/giu, "<value>");
 }
 
 export async function renderProject(input, options = {}, io = console) {
