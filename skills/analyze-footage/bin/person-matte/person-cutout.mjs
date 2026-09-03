@@ -11,15 +11,24 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import { resolveFfmpeg } from "../../../../packages/media-bin/src/index.mjs";
+import { importPackage, resolvePackageFile } from "./resolve-packages.mjs";
 
 const require = createRequire(import.meta.url);
-const { readEditV2 } = require("../../../../packages/edit-store/lib/index.js");
+let dependencyError = null;
+let resolveFfmpeg;
+let readEditV2;
+let validateEditScript;
+try {
+  ({ resolveFfmpeg } = await importPackage("media-bin/src/index.mjs", { from: import.meta.url }));
+  ({ readEditV2 } = require(resolvePackageFile("edit-store/lib/index.js", { from: import.meta.url })));
+  validateEditScript = resolvePackageFile("schemas/bin/validate-edit.mjs", { from: import.meta.url });
+} catch (error) {
+  dependencyError = error;
+}
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
 const personMatteScript = path.join(scriptDir, "person-matte.mjs");
-const validateEditScript = path.resolve(scriptDir, "../../../../packages/schemas/bin/validate-edit.mjs");
 
 const QUALITIES = ["fast", "balanced", "accurate", "best"];
 const MODELS = ["mobilenetv3", "resnet50"];
@@ -365,6 +374,7 @@ function validateAndWrite(editPath, edit) {
 }
 
 async function execute(options) {
+  if (dependencyError) throw dependencyError;
   const { edit, editPath } = readProjectEdit(options.project);
   const plans = resolveCutPlans(edit, options.cuts, options.project);
   const patched = buildPatchedEdit(edit, plans);
@@ -440,7 +450,13 @@ function isMainModule() {
   }
 }
 
-if (isMainModule()) await main();
+if (isMainModule()) {
+  if (dependencyError) {
+    console.error(dependencyError.message);
+    process.exit(1);
+  }
+  await main();
+}
 
 export {
   DEFAULT_QUALITY,

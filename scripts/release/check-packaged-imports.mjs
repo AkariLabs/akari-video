@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // パッケージ版 Resources の静的 import グラフ検査 — 同梱漏れを CI で機械検出する。
 //
-// なぜ要るか: extraResources で配る CLI / ランタイム（render-cut・osr-export・gpu-export・edit-lint・
-// akari-launcher）は、モノレポでは隣の packages/ や skills/ を相対 import で参照できてしまう。
+// なぜ要るか: extraResources で配る CLI / ランタイム（skills/**/bin・render-cut・osr-export・
+// gpu-export・edit-lint・akari-launcher）は、モノレポでは隣の packages/ や skills/ を相対 import で参照できてしまう。
 // パッケージ版の Resources にその参照先が同梱されていないと、import 時点で ERR_MODULE_NOT_FOUND になり
 // 書き出しが全滅する（v0.1.25: packages/gpu-export と skills/analyze-footage/bin/person-matte の同梱漏れ、
 // および @webav/mp4box.js の同梱 node_modules 漏れ。実ビルドで再現・v0.1.26 で修正）。
@@ -12,7 +12,8 @@
 // やること:
 //   1. apps/shell/package.json の build.extraResources を読み、from → to を filter どおり模擬 Resources に
 //      symlink で組む（実ファイルはコピーしない。相対 import の解決は論理パスで行うので symlink で足りる）
-//   2. 入口 = 模擬 Resources 内の packages/*/bin/*.mjs 全部 + osr-export / gpu-export の src/electron-main.mjs
+//   2. 入口 = 模擬 Resources 内の packages/*/bin/*.mjs 全部 + skills/**/bin/**/*.mjs +
+//      osr-export / gpu-export の src/electron-main.mjs
 //   3. 静的 import（import … from / export … from / import "x"）を再帰的に辿る。相対は存在検査、
 //      bare は packages/node_modules（= resources/cli-node-modules）から解決。node: と electron は対象外
 //   4. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
@@ -176,6 +177,13 @@ export function defaultEntries(resourcesRoot) {
       const binDir = join(packagesDir, name, 'bin');
       if (name === 'node_modules' || !existsSync(binDir)) continue;
       for (const file of readdirSync(binDir)) if (file.endsWith('.mjs')) entries.push(join(binDir, file));
+    }
+  }
+  const skillsDir = join(resourcesRoot, 'skills');
+  if (existsSync(skillsDir)) {
+    for (const file of walkFiles(skillsDir)) {
+      const label = relative(skillsDir, file).split('\\').join('/');
+      if (label.includes('/bin/') && file.endsWith('.mjs')) entries.push(file);
     }
   }
   for (const runtime of ['osr-export', 'gpu-export']) {

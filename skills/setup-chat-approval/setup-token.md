@@ -3,7 +3,9 @@
 ## 1. doctor を実行する
 
 ```
-node skills/setup-chat-approval/bin/doctor.mjs [プロジェクトルート]
+SETUP_CHAT_SKILL=".claude/skills/setup-chat-approval"
+[ -d "$SETUP_CHAT_SKILL" ] || SETUP_CHAT_SKILL="skills/setup-chat-approval"
+node "$SETUP_CHAT_SKILL/bin/doctor.mjs" [プロジェクトルート]
 ```
 
 読み取り専用・無償・ネットワークを使わない。**トークンの値は出力されない**（有無と形の妥当性だけ）。
@@ -44,7 +46,7 @@ AKARI_TELEGRAM_BOT_TOKEN=<BotFather が出した値>
 1. ユーザーに、作った bot を Telegram で開いて `/start` か任意の一言を送ってもらう
 2. 次を実行する（`getUpdates` のみ・無償・読み取り専用）:
    ```
-   node skills/setup-chat-approval/bin/find-chat-id.mjs
+   node "$SETUP_CHAT_SKILL/bin/find-chat-id.mjs"
    ```
 3. 表示された ID を、ユーザー自身に追記してもらう:
    ```
@@ -62,6 +64,8 @@ AKARI_TELEGRAM_BOT_TOKEN=<BotFather が出した値>
 [`packages/schemas/examples/connections-v0-notify-valid/connections.json`](../../packages/schemas/examples/connections-v0-notify-valid/connections.json)。
 
 登録後、スキーマ検証で形を確かめる:
+
+次の検証器はモノレポでのみ実行可（プロジェクト配布版には同梱されていない）。
 
 ```
 node packages/schemas/bin/validate-connections.mjs <プロジェクト>/.akari/connections.json
