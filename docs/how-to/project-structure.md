@@ -72,3 +72,26 @@ entries only; recently updated candidates and symbolic links remain undecided.
 All save data is plain text (JSON / HTML), so committing it turns your edit history
 into version control by itself. "Revert to yesterday's edit" is just `git diff` and
 a revert.
+
+Rendered video, images, and audio stay on disk but are **kept out of the change history**.
+Automatic snapshots that pile up 100 MB mp4 files push `.git` into the gigabytes for a single
+40-second video, so the project `.gitignore` template excludes them.
+
+| In the history | Out of the history |
+|---|---|
+| `edit.json`, `captions.json`, `planning/`, `.akari/events/`, JSON and HTML under `.akari/reports/` | Source material in `assets/` |
+| Export settings under `exports/nle/` | Rendered video, images, and audio (`*.mp4`, `*.png`, `*.wav`, …) |
+| Keyframe curves under `motion/` | `.akari/render-tmp/`, `.akari/cache/`, `.akari/diffs/` |
+| Analysis results under `.akari/sidecars/` (expensive to rebuild, so they stay even when they are video) | |
+
+The app only manages the block between `# >>> AKARI Video ... >>>` and `# <<< ... <<<`.
+Lines you add outside that block are left untouched.
+
+Opening an older project brings its `.gitignore` up to date, drops the newly excluded
+generated files from the change history, and commits that once. **No file is removed from
+disk.** Past commits are never rewritten, so this alone does not shrink `.git`.
+
+To reclaim the past as well, run `git filter-repo` (or similar) yourself. One caveat: those
+tools **only rewrite commits**, so a ref that points straight at a tree — the checkpoints some
+AI coding tools create, for instance — keeps holding the old data, and the repository stops
+shrinking about halfway. Check `git for-each-ref` for refs you do not recognize before you gc.

@@ -1,11 +1,35 @@
-# Source video and audio are intentionally kept outside the project history.
+# >>> AKARI Video: 変更履歴に入れないもの（この囲みの中はアプリが更新します）>>>
+# 元の映像と音声はディスクに残したまま、変更履歴には入れません。
 assets/**
 !assets/.gitkeep
 
-# Temporary files used by the friendly "変更を見る" view.
+# 書き出した映像・音声・画像は edit.json と assets/ から作り直せます。
+# ディスクには残ります。変更履歴に入れないだけです。
+*.mp4
+*.mov
+*.m4v
+*.webm
+*.mkv
+*.avi
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.wav
+*.mp3
+
+# 書き出しの一時作業領域・キャッシュ・「変更を見る」の一時ファイル。
+.akari/render-tmp/**
+.akari/cache/**
 .akari/diffs/**
 !.akari/diffs/.gitkeep
 
-# Local operating-system files.
+# 素材の分析結果は作り直すのに手間がかかるので、変更履歴に残します。
+!.akari/sidecars/**
+
+# パソコンが作る一時ファイル。
 .DS_Store
 Thumbs.db
+# <<< AKARI Video: ここまで <<<
