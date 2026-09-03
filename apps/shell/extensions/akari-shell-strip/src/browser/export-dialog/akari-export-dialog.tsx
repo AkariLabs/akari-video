@@ -27,11 +27,14 @@ export class AkariExportDialog extends ReactDialog<void> {
 
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
+        // 開いた瞬間に lint を検査し直させる（保持された古い所見を出さないため）。
+        this.session.setDialogVisible(true);
         this.visibilityEmitter.fire(true);
     }
 
     protected override onAfterDetach(msg: Message): void {
         super.onAfterDetach(msg);
+        this.session.setDialogVisible(false);
         this.visibilityEmitter.fire(false);
     }
 

@@ -35,6 +35,32 @@ export type QuickExportStartOutcome =
     | { readonly accepted: true }
     | { readonly accepted: false; readonly reason: 'already-running' };
 
+/**
+ * 書き出しを始めずに edit-lint だけを走らせ直す要求（task 2026-09-03-export-lint-auto-recheck）。
+ * lint-failed の画面を開いている間、編集ドキュメントが変わるたびにフロントが呼ぶ。
+ */
+export interface QuickExportRecheckRequest {
+    readonly projectRootUri: string;
+}
+
+export type QuickExportRecheckOutcome =
+    /** 直っていた（status は idle へ戻す）。 */
+    | 'pass'
+    /** まだ lint NG（status の findings を最新へ差し替える）。 */
+    | 'lint-failed'
+    /** edit-lint を動かせなかった（status は触らない）。 */
+    | 'unavailable'
+    /** 書き出し実行中・再検査重複などで走らせなかった（status は触らない）。 */
+    | 'skipped';
+
+export interface QuickExportRecheckResult {
+    readonly outcome: QuickExportRecheckOutcome;
+    /** 再検査後の最新 status。フロントは追加の getStatus 無しでそのまま反映できる。 */
+    readonly status: QuickExportStatus;
+    /** unavailable / skipped のときの日本語 1 行。 */
+    readonly reason?: string;
+}
+
 export type QuickExportPhase =
     | 'idle'
     | 'linting'
@@ -61,6 +87,11 @@ export interface QuickExportStatus {
     readonly lintWarningCount?: number;
     /** lint-failed のときだけ、日本語要約と英語詳細の組み立てに使う findings。 */
     readonly lintFindings?: readonly QuickExportLintFinding[];
+    /**
+     * 最後に edit-lint を走らせ終えた時刻（epoch ms）。書き出し画面の
+     * 「直近の検査 HH:MM:SS」表示に使い、古い結果を見ていないことを人が確認できるようにする。
+     */
+    readonly lintCheckedAt?: number;
     /** done のときだけ、プロジェクトルート相対の出力先（例: 'exports/final.mp4'）。 */
     readonly artifactPath?: string;
     readonly artifactSize?: number;
@@ -93,6 +124,8 @@ export interface QuickExportStatus {
 export interface AkariQuickExportService {
     start(request: QuickExportStartRequest): Promise<QuickExportStartOutcome>;
     getStatus(): Promise<QuickExportStatus>;
+    /** 書き出しを始めずに edit-lint だけ走らせ直し、保持している lint 結果を更新する。 */
+    recheckLint(request: QuickExportRecheckRequest): Promise<QuickExportRecheckResult>;
     cancel(): Promise<{ cancelled: boolean }>;
     revealArtifact(): Promise<{ revealed: boolean }>;
     copyArtifact(): Promise<{ copied: boolean; reason?: string }>;
