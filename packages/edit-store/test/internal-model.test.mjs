@@ -7,6 +7,7 @@ import {
   readInternalEdit,
   readInternalSources,
   shapeMarkup,
+  timelineDurationSeconds,
   visualContentEndSeconds,
 } from '../lib/index.js';
 
@@ -303,6 +304,52 @@ test('visualContentEndSeconds は cuts/layers の振り分けに関わらず全 
   assert.equal(visualContentEndSeconds(readInternalEdit(fixture)), 5);
   // c1 だけの movedToNewTrack() でも 2s のまま — トラックを移しても値は変わらない。
   assert.equal(visualContentEndSeconds(readInternalEdit(movedToNewTrack())), 2);
+});
+
+test('timelineDurationSeconds は映像本体がある間 visualContentEndSeconds と同じ値を返す', () => {
+  const internal = readInternalEdit(base());
+  assert.deepEqual(timelineDurationSeconds(internal), {
+    seconds: visualContentEndSeconds(internal),
+    basis: 'visual',
+  });
+});
+
+test('timelineDurationSeconds は映像なしの html 2 件・入れ子 group・sfx から最大終端を導出する', () => {
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'hit', path: 'hit.wav', proxy: null }],
+    tracks: [
+      { id: 'overlays', lane: 'visual', items: [
+        { id: 'html-1', at: 0, duration: 60, source: { kind: 'html', path: 'one.html' } },
+        { id: 'html-2', at: 60, duration: 60, source: { kind: 'html', path: 'two.html' } },
+        { id: 'group-1', at: 120, duration: 60, source: { kind: 'group' }, items: [
+          { id: 'html-child', at: 0, duration: 60, source: { kind: 'html', path: 'child.html' } },
+        ] },
+      ] },
+      { id: 'sfx', lane: 'audio', items: [
+        {
+          id: 'hit-1', at: 150, duration: 60, role: 'sfx',
+          source: { kind: 'media', src: 'hit', in: 0, out: 2 },
+        },
+      ] },
+    ],
+  });
+  assert.equal(visualContentEndSeconds(internal), 0);
+  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 7, basis: 'overlays-audio' });
+});
+
+test('timelineDurationSeconds は bgm だけのタイムラインを empty とする', () => {
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'music', path: 'music.wav', proxy: null }],
+    tracks: [{ id: 'bgm', lane: 'audio', items: [{
+      id: 'music-1', at: 0, duration: 300, role: 'bgm',
+      source: { kind: 'media', src: 'music', in: 0, out: 10 },
+    }] }],
+  });
+  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 0, basis: 'empty' });
 });
 
 test('readInternalSources returns the v2 source table', () => {

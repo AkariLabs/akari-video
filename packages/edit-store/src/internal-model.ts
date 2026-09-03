@@ -264,6 +264,41 @@ export function visualContentEndSeconds(internal: InternalEdit): number {
     return maxEnd;
 }
 
+/**
+ * 出力タイムラインの総尺。映像本体がある間は visualContentEndSeconds を唯一の正本とし、
+ * 映像本体が 0 秒のときだけ overlays / 字幕 / narration / sfx の最大終端へ後退する。
+ * BGM は総尺に合わせて切られる素材なので、後退尺には含めない。
+ */
+export function timelineDurationSeconds(internal: InternalEdit): {
+    seconds: number;
+    basis: 'visual' | 'overlays-audio' | 'empty';
+} {
+    const visualEnd = visualContentEndSeconds(internal);
+    if (visualEnd > 0) {
+        return { seconds: visualEnd, basis: 'visual' };
+    }
+
+    let fallbackEnd = 0;
+    const walk = (item: InternalItem, lane: InternalLane): void => {
+        const isFallbackVisual = lane === 'visual'
+            && ['html', 'group', 'captions', 'caption'].includes(item.source.kind);
+        const isFallbackAudio = lane === 'audio'
+            && (item.legacy.collection === 'narration' || item.legacy.collection === 'sfx');
+        if (isFallbackVisual || isFallbackAudio) {
+            fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+        }
+        for (const child of item.children) walk(child, lane);
+    };
+
+    for (const track of internal.tracks) {
+        for (const item of track.items) walk(item, track.lane);
+    }
+
+    return fallbackEnd > 0
+        ? { seconds: fallbackEnd, basis: 'overlays-audio' }
+        : { seconds: 0, basis: 'empty' };
+}
+
 /** 全トラックの明示アイテムを、親→子の深さ優先で列挙する。 */
 export function* walkItems(internal: InternalEdit): Generator<InternalItem> {
     function* walk(item: InternalItem): Generator<InternalItem> {
