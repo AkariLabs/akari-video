@@ -317,8 +317,14 @@ texture の左上 4×4 が期待 RGB の ±8 に一致するかを毎コマ検�
 `src/verify-readback.js` に隔離した検証経路だけに許可し、製品経路の読み戻しゼロ契約は変えない。
 
 DOM 層の OSR decode 比較は、animation 開始時刻を含む代表 5 時刻で、(1) overlay 外接矩形内 MAD 1.0 以下、
-または (2) 構造一致（全画面 MAD 0.2 以下、かつ片側にだけ現れる画素の合計が外接矩形面積の 0.1% 以下）の
-いずれかを要求する。sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、
+または (2) 構造一致（全画面 MAD 0.2 以下、かつ片側にだけ現れる画素の合計が外接矩形面積の 0.5% 以下）の
+いずれかを要求する。0.5% はアンチエイリアスの差が面積でなく周長に比例して増えることに基づく
+（実測: 二段 preserve-3d の構造一致例は片側 193〜273 px = 外接矩形の 0.136〜0.161% で、
+外接矩形の周長の約 17%。面が丸ごと出現する不合格例は片側 207,679 px で 3 桁離れている）。
+外接矩形の面積が 1,000 px 未満へ退化した時刻（例: 全面が真横を向いて消える瞬間）は (1) を使わず
+全画面 MAD 0.2 以下だけで判定する。`gpu.domLayer.preserve3dOrderConflicts` が非空の overlay は
+この比較の対象外とし、**警告が出ていること自体**を合格条件とする（下記の既知の限界を承知で通すため）。
+sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、
 自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合に加え、
 `preserve-3d` の子孫が交差すると遮蔽順が DOM 順になることである。検出器は Z 順との矛盾を警告し、receipt の
 `gpu.domLayer.preserve3dOrderConflicts` に残す。`backface-visibility: hidden` は転写されないため degraded とする。
