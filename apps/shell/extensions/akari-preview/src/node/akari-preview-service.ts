@@ -282,6 +282,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
     protected readonly temporaryAudioFiles = new Map<string, string>();
     protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveAllowedWorkspaceRoots());
+    // 台帳で一度裏取りできた要求 root（realpath 済みの絶対パス）。resolveAllowedWorkspaceRoots() を参照。
+    protected readonly confirmedWorkspaceRoots = new Set<string>();
     protected speechAtempoModule: Promise<SpeechAtempoModule> | undefined;
 
     constructor() {
@@ -1251,6 +1253,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             if (!requestedRoots.every(requested => allowedRoots.some(allowed => this.contains(allowed, requested)))) {
                 throw new Error('The requested workspace root is not an open workspace');
             }
+            for (const requested of requestedRoots) {
+                this.confirmedWorkspaceRoots.add(requested);
+            }
             return requestedRoots;
         }
         const workspaceUri = await this.workspaceServer.getMostRecentlyUsedWorkspace();
@@ -1264,7 +1269,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const recentWorkspaces = await this.workspaceServer.getRecentWorkspaces();
         const mostRecentlyUsed = await this.workspaceServer.getMostRecentlyUsedWorkspace();
         const workspaceUris = [...new Set([...recentWorkspaces, mostRecentlyUsed])];
-        const roots: string[] = [];
+        // 台帳で一度「開いているワークスペース」と確認できた root は、このバックエンドの
+        // 寿命の間ずっと許可側に残す。台帳は永続ファイルなので、別ウィンドウの書き込みや
+        // 破損で開いているプロジェクトの行が落ちうる（akari-workspace-server.ts の頭）。
+        // 落ちた瞬間に配信を取り上げると「起動直後は見られたのに途中から拒否される」になる。
+        // 中身は必ず一度は台帳で裏取りした root だけで、要求値がそのまま入ることはない。
+        const roots: string[] = [...this.confirmedWorkspaceRoots];
         for (const workspaceUri of workspaceUris) {
             if (!workspaceUri) {
                 continue;
