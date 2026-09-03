@@ -4,22 +4,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+// 履歴に何を入れるかの単一の宣言（issue #48）。ここで別に書き起こすと、雛形とアプリ側の
+// 除外規則が片方だけ育つ。相対パスなのは npm 配布 tarball の vendor ミラーでも同じ深さに
+// 焼かれるため（akari-launcher/scripts/prepack.mjs の VENDOR_SOURCES）。
+import { PROJECT_GITIGNORE } from '../../akari-launcher/src/history-policy.mjs';
+
 const execFileAsync = promisify(execFile);
 
-export const PROJECT_GITIGNORE = [
-    '# Source video and audio are intentionally kept outside the project history.',
-    'assets/**',
-    '!assets/.gitkeep',
-    '',
-    '# Temporary files used by the friendly "変更を見る" view.',
-    '.akari/diffs/**',
-    '!.akari/diffs/.gitkeep',
-    '',
-    '# Local operating-system files.',
-    '.DS_Store',
-    'Thumbs.db',
-    ''
-].join('\n');
+export { PROJECT_GITIGNORE };
 
 const FALLBACK_CLAUDE_GUIDANCE = [
     '# AKARI Video プロジェクト',

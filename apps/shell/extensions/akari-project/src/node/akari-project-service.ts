@@ -43,6 +43,11 @@ import {
     removeCredentials,
     startDeviceConnection
 } from 'akari-video/src/store-device-connect.mjs';
+import {
+    applyHistoryPolicy,
+    hasGeneratedMediaExtension,
+    PROJECT_GITIGNORE
+} from 'akari-video/src/history-policy.mjs';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -589,6 +594,7 @@ try {
         }
         await this.ensureRuntimeDirectories(root);
         await this.ensureGitInitialized(root);
+        await this.migrateHistoryPolicy(root);
         const eventsDirectory = join(root, '.akari', 'events');
         try {
             const watcher = watch(eventsDirectory, (_event, fileName) => {
@@ -1115,11 +1121,68 @@ try {
         }
     }
 
+    /**
+     * 旧世代の `.gitignore` を現行の方針へ揃え、新たに対象外になった追跡済みファイルを
+     * 履歴から外す（`git rm --cached`）。**ディスク上のファイルは消さない** — 利用者の
+     * 成果物であり、消してよいかは `akari clean` の宣言表が別に判断する。
+     *
+     * 履歴そのもの（過去のコミットが抱える blob）は書き換えない。これは利用者の明示操作の
+     * 領域であり、移行だけでは `.git` は縮まず横ばいになる（issue #48）。
+     *
+     * 自分がルートである git リポジトリのときだけ動く。親リポジトリの中に置かれた
+     * プロジェクトの `.gitignore` を書き換えると、こちらが管理していないリポジトリの
+     * 追跡対象を黙って変えてしまうため。
+     */
+    protected async migrateHistoryPolicy(root: string): Promise<void> {
+        if ((await this.gitEligibility(root)) !== 'own-root') {
+            return;
+        }
+        try {
+            const gitignorePath = join(root, '.gitignore');
+            const current = await fs.readFile(gitignorePath, 'utf8').catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                    return undefined;
+                }
+                throw error;
+            });
+            const outcome = applyHistoryPolicy(current);
+            if (!outcome.changed) {
+                return;
+            }
+            await fs.writeFile(gitignorePath, outcome.text, 'utf8');
+            await this.runGit(root, ['add', '--', '.gitignore']);
+            const untracked = await this.untrackNewlyIgnoredFiles(root);
+            await this.commitIfChanged(root, untracked
+                ? '変更履歴に入れない生成物を整理（ファイルはそのまま残っています）'
+                : '変更履歴の設定を更新');
+        } catch (error) {
+            console.warn('[akari-project] history policy migration failed:', error);
+        }
+    }
+
+    /**
+     * 追跡済みだが現在は除外対象になっているファイルを索引から外す。作業ツリーには残す。
+     * 実プロジェクトでは 2,000 件規模になるため、コマンドラインの上限に当たらないよう分割する。
+     */
+    protected async untrackNewlyIgnoredFiles(root: string): Promise<number> {
+        const files = await this.gitPaths(root, ['ls-files', '-z', '--cached', '--ignored', '--exclude-standard']);
+        for (let index = 0; index < files.length; index += UNTRACK_BATCH_SIZE) {
+            const batch = files.slice(index, index + UNTRACK_BATCH_SIZE);
+            await this.runGit(root, ['rm', '--cached', '--quiet', '--force', '--', ...batch]);
+        }
+        return files.length;
+    }
+
+    /**
+     * 「変更を見る」に出しても意味の無いパスか。拡張子の集合は `.gitignore` 雛形と同じ
+     * `history-policy.mjs` から導く（片方だけが育つと、表示から外した生成物が履歴には
+     * 積まれ続ける — issue #48）。
+     */
     protected isInternalOrBinaryPath(file: string): boolean {
         if (file.startsWith('.akari/diffs/')) {
             return true;
         }
-        return new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.png', '.jpg', '.jpeg', '.gif', '.wav', '.mp3']).has(extname(file).toLowerCase());
+        return hasGeneratedMediaExtension(file);
     }
 
     protected async ensureRuntimeDirectories(root: string): Promise<void> {
@@ -1424,20 +1487,9 @@ try {
 }
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-const PROJECT_GITIGNORE = [
-    '# Source video and audio are intentionally kept outside the project history.',
-    'assets/**',
-    '!assets/.gitkeep',
-    '',
-    '# Temporary files used by the friendly "変更を見る" view.',
-    '.akari/diffs/**',
-    '!.akari/diffs/.gitkeep',
-    '',
-    '# Local operating-system files.',
-    '.DS_Store',
-    'Thumbs.db',
-    ''
-].join('\n');
+// 1 回の `git rm --cached` へ渡すパス数の上限。Windows のコマンドライン長（約 32,000 文字）に
+// 収まるよう、長いパスが並んでも余裕のある件数にしてある。
+const UNTRACK_BATCH_SIZE = 200;
 const FALLBACK_CLAUDE_GUIDANCE = [
     '# AKARI Video プロジェクト',
     '',

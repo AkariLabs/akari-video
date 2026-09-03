@@ -73,7 +73,12 @@ const VENDOR_SOURCES = [
   // 素材 resolver（`akari assets` — アカウントの素材 = 無料 + 購入済みの一覧・取得）。
   // 未同梱なら assetResolverCliPath が null になり、`akari assets` だけスキップされる
   // （タスク契約 2026-08-09-agent-assets-discovery）。
-  'packages/asset-resolver'
+  'packages/asset-resolver',
+  // 履歴に何を入れるかの宣言（history-policy.mjs）。project-scaffold が相対パスで参照するため、
+  // vendor ミラーにもモノレポと同じ深さで置く（`vendor/packages/akari-launcher/src/` →
+  // `vendor/packages/project-scaffold/src/` から `../../akari-launcher/src/` で解決できる）。
+  // 本体の src/ にも同じファイルが入るが、配布物の中で相対パスを 1 本に保つ方を採る。
+  'packages/akari-launcher/src/history-policy.mjs'
 ];
 
 if (process.argv[2] === 'clean') {
