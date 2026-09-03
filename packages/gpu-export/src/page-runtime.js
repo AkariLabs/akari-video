@@ -211,7 +211,6 @@
     async frameAt(seconds) {
       const clamped = Math.max(0, Math.min(Number(seconds) || 0, this.timeline.totalDuration));
       const plan = FE.evaluationPlanFromResolvedTimeline(this.timeline, Math.round(clamped * 1e6), this.sources, this.output);
-      if (plan.base.length === 0 && plan.layers.length === 0) throw new Error(`frame-engine produced an empty plan at ${seconds}s`);
       return FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
     }
 

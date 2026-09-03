@@ -119,6 +119,9 @@ frame-engine canvas は cuts、layers、transition、matte、LUT を評価する
 字幕・HTML・3D は LUT の外に置く。全 upload は `uploadPath = "direct"` を必須とし、fallback を検出した
 コマで書き出しを停止する。
 
+cuts と layers が同時に空のフレームは、出力解像度の黒 1 枚として合成する。その後の静的 HTML、3D、字幕の
+スプライト合成は通常どおりこの黒い frame-engine canvas の上へ重ねる。
+
 3D は engine の時計から得た local seconds を `threeRuntime.render(container, t)` へ直接渡して駆動する。
 GPU 出口は overlay sheet の `__akariSeek` を使用しない。毎コマの DOM animation 同期、全 container の
 visibility 更新、video seek 待ちを 3D canvas の texture 更新へ持ち込まないためである。sheet の
