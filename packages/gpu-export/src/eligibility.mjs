@@ -53,6 +53,10 @@ function hasDepthTransform(html) {
   return false;
 }
 
+function hasBackfaceHiddenWithDepthTransform(html) {
+  return /backface-visibility\s*:\s*hidden/iu.test(html) && hasDepthTransform(html);
+}
+
 const OVERLAY_CONDITIONS = [
   ["absolute-external-url", /(?:file:\/\/\/|https?:\/\/)/iu, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
@@ -63,6 +67,7 @@ const OVERLAY_CONDITIONS = [
   ["background-image-external-resource", /background(?:-image)?\s*:[^;}"'<>]*url\((?!["']?(?:data:|#))/iu, "external"],
   ["embedded-context", /<(?:iframe|object|embed)\b/iu, "dynamic"],
   ["css-3d-transform", hasDepthTransform, "dynamic"],
+  ["css-3d-backface-hidden", hasBackfaceHiddenWithDepthTransform, "dynamic"],
   ["self-driving-clock", /requestAnimationFrame\s*\(|setTimeout\s*\(|setInterval\s*\(|Date\.now\s*\(|performance\.now\s*\(/iu, "dynamic"],
   ["media-element", /<(?:video|audio)\b/iu, "dynamic"],
   ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b/iu, "dynamic"],
@@ -71,7 +76,10 @@ const OVERLAY_CONDITIONS = [
   ["advanced-css", /backdrop-filter|mix-blend-mode|filter\s*:|mask(?:-image)?\s*:|clip-path\s*:/iu, "dynamic"],
 ];
 
-const DOM_LAYER_CONDITIONS = new Set(["animation-timing", "advanced-css"]);
+// 2026-09-03 の実測では CSS 3D 幾何は e 0.5222 / f 0.2364 / h 0.1757 / d 0.5336 と
+// 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、
+// 幾何は DOM 層へ通し、裏面除去だけを別条件で fail-closed に保つ。
+const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
 const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
@@ -120,7 +128,7 @@ export function evaluateGpuEligibility({
         entries.push(sampled.ok
           ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names)
           : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", sampled.reason, names));
-      } else if (names.includes("css-3d-transform")) {
+      } else if (names.some((name) => name.startsWith("css-3d-"))) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "three-entrance-3d-matrix", names));
       } else {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason ?? names.join(", "), names));

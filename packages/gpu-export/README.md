@@ -15,9 +15,12 @@ keyframes, Web Animations, or `@property`. Dynamic HTML is mounted under a runti
 `canvas[layoutsubtree]`, fixed to the engine clock, copied with `drawElementImage`, and uploaded as
 a compositor texture without product-path pixel readback.
 
-Embedded contexts, CSS 3D transforms, self-driving JavaScript clocks, media elements, runtime
-scripts, and external resources fail closed. Karaoke and other word-level captions and emphasis
-words remain outside v1.
+Embedded contexts, self-driving JavaScript clocks, media elements, runtime scripts, external
+resources, and CSS 3D that uses `backface-visibility: hidden` fail closed. CSS 3D geometry is
+eligible, including `transform-style: preserve-3d`; however, preserve-3d occlusion follows DOM
+order on the GPU path. Authors must avoid overlapping its descendants. A detector warns when
+screen-space overlap conflicts with Z order and records the conflict in the receipt. Karaoke and
+other word-level captions and emphasis words remain outside v1.
 
 ### Word-level captions (v2)
 

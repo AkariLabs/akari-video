@@ -278,17 +278,26 @@ GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync
 宣言順で連続する項目をまとめ、静的 HTML、3D、DOM ランを元の index 順に合成したあと、字幕を最後に載せる。
 すべて LUT の外である。
 
+CSS 3D は次の 3 群に分けて判定する。
+
+- 幾何（`perspective` / `perspective-origin` / `rotateX/Y/3d` / `matrix3d` / 非ゼロの
+  `translateZ/3d`）は `dom` 適格とする。2026-09-03 の 8 fixture × 5 時刻の実測では最大外接矩形内 MAD
+  0.5336（2D ノイズ床 0.1929、予算 1.0）だった。次の例外を維持する。
+  **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
+  2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので 3D として検出しない。
+  Z が 0 以外、引数の個数が違う、Z が `var()` / `calc()` 等でリテラルとして読めない場合は 3D 幾何として扱う。
+  引数の切り出しは括弧の入れ子を数えるので、`translate3d(var(--x), calc(1px + 2px), 0)` のように X / Y が
+  CSS 変数・calc 駆動でも Z のリテラル 0 を読める（オーバーレイ規約は調整値を CSS 変数に出すため自然に現れる形）。
+- `backface-visibility: hidden` を伴う CSS 3D は `css-3d-backface-hidden` として fail-closed を維持する。
+  2026-09-03 の 8 fixture × 5 時刻の実測では外接矩形内 MAD 13.4318、GPU にだけ現れる画素が最大
+  207,679 px であり、裏面除去は転写されなかった。
+- `transform-style: preserve-3d` は `dom` 適格とする。ただし GPU 経路の遮蔽順は DOM 順になる。
+  子孫の描画域が画面上で交差し、手前の要素が DOM 上で先に描かれる矛盾対を検出した場合は警告するが、
+  fail-closed にはしない。
+
 次の条件は fail-closed のまま `degraded` とし、receipt に overlay id、理由、検出条件を全件残す。
 
 - `iframe`、`object`、`embed` の埋め込み context。
-- `perspective`、`preserve-3d`、`rotateX/Y/3d`、`matrix3d`、`translateZ/3d` のいずれかを含む
-  CSS 3D transform。先行実験では `translateZ` 単独・`perspective` 単独は正しく転写できたため、
-  将来はこの粒度まで緩和できる余地があるが、v1 では緩和しない。
-  **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
-  2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので検出しない。
-  Z が 0 以外、引数の個数が違う、Z が `var()` / `calc()` 等でリテラルとして読めない場合は従来どおり `degraded`。
-  引数の切り出しは括弧の入れ子を数えるので、`translate3d(var(--x), calc(1px + 2px), 0)` のように X / Y が
-  CSS 変数・calc 駆動でも Z のリテラル 0 を読める（オーバーレイ規約は調整値を CSS 変数に出すため自然に現れる形）。
 - `requestAnimationFrame`、`setTimeout`、`setInterval`、`Date.now`、`performance.now` で自走する時計。
 - `video`、`audio`、canvas/宣言型 3D 以外の runtime、JSON 以外の script。
 - 絶対 URL と外部 font/image/background resource。`background(-image)` の `url(` 走査は宣言の区切り
@@ -307,9 +316,18 @@ texture の左上 4×4 が期待 RGB の ±8 に一致するかを毎コマ検�
 環境では JS channel 指定へ切り替え、その mode も記録する。pixel read は
 `src/verify-readback.js` に隔離した検証経路だけに許可し、製品経路の読み戻しゼロ契約は変えない。
 
-DOM 層の OSR decode 比較は overlay 外接矩形内 MAD 1.0 以下を、animation 開始時刻を含む代表 5 時刻で
-要求する。sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、CSS 3D、
-自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合である。
+DOM 層の OSR decode 比較は、animation 開始時刻を含む代表 5 時刻で、(1) overlay 外接矩形内 MAD 1.0 以下、
+または (2) 構造一致（全画面 MAD 0.2 以下、かつ片側にだけ現れる画素の合計が外接矩形面積の 0.5% 以下）の
+いずれかを要求する。0.5% はアンチエイリアスの差が面積でなく周長に比例して増えることに基づく
+（実測: 二段 preserve-3d の構造一致例は片側 193〜273 px = 外接矩形の 0.136〜0.161% で、
+外接矩形の周長の約 17%。面が丸ごと出現する不合格例は片側 207,679 px で 3 桁離れている）。
+外接矩形の面積が 1,000 px 未満へ退化した時刻（例: 全面が真横を向いて消える瞬間）は (1) を使わず
+全画面 MAD 0.2 以下だけで判定する。`gpu.domLayer.preserve3dOrderConflicts` が非空の overlay は
+この比較の対象外とし、**警告が出ていること自体**を合格条件とする（下記の既知の限界を承知で通すため）。
+sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、
+自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合に加え、
+`preserve-3d` の子孫が交差すると遮蔽順が DOM 順になることである。検出器は Z 順との矛盾を警告し、receipt の
+`gpu.domLayer.preserve3dOrderConflicts` に残す。`backface-visibility: hidden` は転写されないため degraded とする。
 
 決定論には長尺時の既知の限界がある。短い書き出し（実測 450 / 678 / 900 コマ）は 2 走の全コマ SHA と
 MP4 SHA が一致した。一方、大きな文字を持つ DOM overlay を多数含む長い書き出し（実測 5400 コマ）では、

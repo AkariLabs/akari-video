@@ -1,0 +1,28 @@
+<div class="fx fx-a">
+  <style>
+    .fx-a, .fx-a *, .fx-a *::before, .fx-a *::after { box-sizing: border-box; }
+    .fx-a { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .a-stage { position: absolute; left: 180px; top: 130px; width: 1560px; height: 820px; perspective: 900px; perspective-origin: 50% 50%; }
+    .a-block { position: absolute; left: 0; top: 0; width: 320px; height: 180px; display: grid; place-items: center; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: 0.12em; opacity: 1; transform: translate3d(var(--x), var(--y), var(--z)) rotateY(0deg); }
+    .a-block--hidden { backface-visibility: hidden; }
+    [data-akari-active] .a-block, [data-no-timeline] .a-block { animation: a-turn 1.60s linear both; animation-delay: 0.30s; animation-iteration-count: 1; }
+    @keyframes a-turn {
+      0% { transform: translate3d(var(--x), var(--y), var(--z)) rotateY(180deg); opacity: 1; }
+      100% { transform: translate3d(var(--x), var(--y), var(--z)) rotateY(0deg); opacity: 1; }
+    }
+  </style>
+  <div class="a-stage">
+    <div class="a-block a-block--hidden" style="--x:80px;--y:70px;--z:0px;background:#d1495b">A1</div>
+    <div class="a-block a-block--hidden" style="--x:460px;--y:70px;--z:-200px;background:#00798c">A2</div>
+    <div class="a-block a-block--hidden" style="--x:840px;--y:70px;--z:-400px;background:#edae49">A3</div>
+    <div class="a-block a-block--hidden" style="--x:1220px;--y:70px;--z:150px;background:#30638e">A4</div>
+    <div class="a-block" style="--x:80px;--y:320px;--z:0px;background:#8f3985">B1</div>
+    <div class="a-block" style="--x:460px;--y:320px;--z:-200px;background:#2a9d8f">B2</div>
+    <div class="a-block" style="--x:840px;--y:320px;--z:-400px;background:#e76f51">B3</div>
+    <div class="a-block" style="--x:1220px;--y:320px;--z:150px;background:#5c6bc0">B4</div>
+    <div class="a-block" style="--x:80px;--y:570px;--z:0px;background:#6a994e">C1</div>
+    <div class="a-block" style="--x:460px;--y:570px;--z:-200px;background:#bc4749">C2</div>
+    <div class="a-block" style="--x:840px;--y:570px;--z:-400px;background:#577590">C3</div>
+    <div class="a-block" style="--x:1220px;--y:570px;--z:150px;background:#f3722c">C4</div>
+  </div>
+</div>

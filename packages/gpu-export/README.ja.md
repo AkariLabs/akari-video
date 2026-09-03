@@ -14,8 +14,11 @@ layer に加え、CSS animation、transition、keyframes、Web Animations、`@pr
 動的 HTML を扱います。動的 HTML は実行時に作る `canvas[layoutsubtree]` の下へ mount し、エンジン時計へ
 固定して `drawElementImage` で転写し、製品経路で pixel を読み戻さず compositor texture へ載せます。
 
-埋め込み context、CSS 3D transform、JavaScript の自走時計、media element、runtime script、外部
-resource は fail-closed です。karaoke などの語単位字幕と強調語は v1 でも対象外です。
+埋め込み context、JavaScript の自走時計、media element、runtime script、外部 resource、および
+`backface-visibility: hidden` を伴う CSS 3D は fail-closed です。CSS 3D 幾何は
+`transform-style: preserve-3d` を含めて適格ですが、GPU 経路での preserve-3d の遮蔽順は DOM 順です。
+authoring 規約として、その子孫同士を重ねてはいけません。画面上の重なりと Z 順が矛盾すると検出器が警告し、
+receipt に記録します。karaoke などの語単位字幕と強調語は v1 でも対象外です。
 
 ### 語単位字幕（v2）
 

@@ -1,0 +1,18 @@
+<div class="fx fx-e">
+  <style>
+    .fx-e, .fx-e *, .fx-e *::before, .fx-e *::after { box-sizing: border-box; }
+    .fx-e { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .e-item { position: absolute; left: 0; top: 0; display: grid; place-items: center; color: #ffffff; font-weight: 780; opacity: 1; transform: translate(var(--x), var(--y)) scale(1) translateZ(40px); }
+    .e-card { width: 800px; height: 320px; background: #30638e; font-size: 54px; letter-spacing: 0.10em; }
+    .e-chip { width: 220px; height: 92px; background: var(--color); font-size: 25px; letter-spacing: 0.08em; }
+    [data-akari-active] .e-item, [data-no-timeline] .e-item { animation: e-enter 1.60s linear both; animation-delay: 0.30s; animation-iteration-count: 1; }
+    @keyframes e-enter {
+      0% { transform: translate(calc(var(--x) - 96px), var(--y)) scale(0.88) translateZ(40px); opacity: 0; }
+      100% { transform: translate(var(--x), var(--y)) scale(1) translateZ(40px); opacity: 1; }
+    }
+  </style>
+  <div class="e-item e-card" style="--x:560px;--y:300px">DEPTH 40</div>
+  <div class="e-item e-chip" style="--x:560px;--y:670px;--color:#d1495b">CHIP A</div>
+  <div class="e-item e-chip" style="--x:850px;--y:670px;--color:#2a9d8f">CHIP B</div>
+  <div class="e-item e-chip" style="--x:1140px;--y:670px;--color:#8f3985">CHIP C</div>
+</div>

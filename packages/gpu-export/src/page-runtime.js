@@ -1335,6 +1335,132 @@
       && Math.abs(Number(box?.height) - Number(height)) <= tolerance;
   }
 
+  function rectsIntersect(left, right) {
+    return Number(left?.width) > 0 && Number(left?.height) > 0
+      && Number(right?.width) > 0 && Number(right?.height) > 0
+      && Number(left.x) < Number(right.x) + Number(right.width)
+      && Number(right.x) < Number(left.x) + Number(left.width)
+      && Number(left.y) < Number(right.y) + Number(right.height)
+      && Number(right.y) < Number(left.y) + Number(left.height);
+  }
+
+  function preserve3dSampleTimes(start, duration) {
+    const normalizedStart = Number.isFinite(Number(start)) ? Number(start) : 0;
+    const normalizedDuration = Number.isFinite(Number(duration)) && Number(duration) > 0 ? Number(duration) : 0;
+    if (normalizedDuration === 0) return Array(5).fill(normalizedStart);
+    const endInset = Math.min(Math.max(normalizedDuration / 1000, 1e-3), normalizedDuration / 8);
+    return [
+      normalizedStart,
+      normalizedStart + normalizedDuration / 4,
+      normalizedStart + normalizedDuration / 2,
+      normalizedStart + normalizedDuration * 3 / 4,
+      normalizedStart + normalizedDuration - endInset,
+    ];
+  }
+
+  function detectPreserve3dOrderConflicts(elements) {
+    const comparable = (Array.isArray(elements) ? elements : [])
+      .filter((element) => element?.paints === true)
+      .slice(0, 200);
+    const conflicts = [];
+    let pairs = 0;
+    for (let i = 0; i < comparable.length; i += 1) {
+      for (let j = i + 1; j < comparable.length; j += 1) {
+        if (pairs >= 2000) return conflicts;
+        pairs += 1;
+        const front = comparable[i];
+        const back = comparable[j];
+        if (Array.isArray(back.ancestors) && back.ancestors.includes(front.id)
+          && rectsIntersect(front.rect, back.rect)
+          && Number.isFinite(Number(front.z))
+          && Number.isFinite(Number(back.z))
+          && Number(front.z) > Number(back.z) + 0.5) {
+          conflicts.push({ front: front.label ?? front.id, back: back.label ?? back.id });
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  function computedColorHasAlpha(value) {
+    const color = String(value ?? "").trim().toLowerCase();
+    if (color === "" || color === "transparent") return false;
+    const slashAlpha = color.match(/\/\s*([\d.]+%?)(?:\s*\)|$)/u);
+    if (slashAlpha) {
+      const alpha = Number.parseFloat(slashAlpha[1]);
+      return Number.isFinite(alpha) && alpha > 0;
+    }
+    const commaParts = color.match(/^rgba?\(([^)]+)\)$/u)?.[1].split(",");
+    if (commaParts?.length === 4) {
+      const alpha = Number.parseFloat(commaParts[3]);
+      return Number.isFinite(alpha) && alpha > 0;
+    }
+    return true;
+  }
+
+  function directlyContainsText(element) {
+    return [...element.childNodes].some((node) => node.nodeType === 3 && /\S/u.test(node.textContent ?? ""));
+  }
+
+  function paintsElement(element, computed) {
+    if (computed.display === "none" || computed.visibility === "hidden" || Number.parseFloat(computed.opacity) === 0) return false;
+    if (computedColorHasAlpha(computed.backgroundColor) || computed.backgroundImage !== "none") return true;
+    for (const side of ["Top", "Right", "Bottom", "Left"]) {
+      if (Number.parseFloat(computed[`border${side}Width`]) > 0
+        && !["none", "hidden"].includes(computed[`border${side}Style`])
+        && computedColorHasAlpha(computed[`border${side}Color`])) return true;
+    }
+    return directlyContainsText(element);
+  }
+
+  function shortElementIdentifier(element) {
+    const classes = [...element.classList].slice(0, 2).map((name) => `.${name}`).join("");
+    const siblings = element.parentElement ? [...element.parentElement.children] : [element];
+    return `${element.tagName.toLowerCase()}${classes}:${Math.max(0, siblings.indexOf(element)) + 1}`;
+  }
+
+  function domTreePath(element, root) {
+    if (element === root) return "0";
+    const parts = [];
+    for (let current = element; current && current !== root; current = current.parentElement) {
+      if (!current.parentElement) return null;
+      parts.unshift([...current.parentElement.children].indexOf(current));
+    }
+    return `0/${parts.join("/")}`;
+  }
+
+  function collectPreserve3dElements(container) {
+    const elements = [container, ...container.querySelectorAll("*")];
+    const computed = new Map(elements.map((element) => [element, getComputedStyle(element)]));
+    const roots = elements.filter((element) => computed.get(element).transformStyle === "preserve-3d");
+    if (roots.length === 0) return [];
+    const collected = elements.filter((element) => roots.some((root) => root === element || root.contains(element)));
+    const collectedSet = new Set(collected);
+    const ids = new Map(collected.map((element) => [element, domTreePath(element, container)]));
+    return collected
+      .map((element) => {
+        const style = computed.get(element);
+        let z = 0;
+        if (style.transform && style.transform !== "none") {
+          try { z = Number(new DOMMatrix(style.transform).m43) || 0; } catch {}
+        }
+        const rect = element.getBoundingClientRect();
+        const ancestors = [];
+        for (let current = element.parentElement; current; current = current.parentElement) {
+          if (collectedSet.has(current)) ancestors.push(ids.get(current));
+          if (current === container) break;
+        }
+        return {
+          id: ids.get(element),
+          label: shortElementIdentifier(element),
+          ancestors,
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          z,
+          paints: paintsElement(element, style),
+        };
+      });
+  }
+
   class ThreeSamplingRuntime {
     constructor(config, spriteCompositor) {
       this.config = config;
@@ -1468,6 +1594,19 @@
       this.settlePolicy = null;
       this.api = { drawElementImage: null, devicePixelRatio: window.devicePixelRatio };
       this.metrics = { timeFixMs: [], waitMs: [], drawElementMs: [], uploadMs: [], domLayerCostMs: [], frameCostMs: [] };
+      this.preserve3dOrder = new Map(this.runs.flatMap((run) => run.entries).map((entry) => {
+        const start = Number(entry.start) || 0;
+        const duration = Math.max(0, Number(entry.duration) || 0);
+        return [String(entry.id), {
+          overlayId: String(entry.id),
+          times: preserve3dSampleTimes(start, duration),
+          next: 0,
+          samples: 0,
+          pairs: 0,
+          conflicts: [],
+          warned: false,
+        }];
+      }));
       this.sentinel = {
         checked: Boolean(config.verifyFrames && this.runs.length > 0),
         mode: config.verifyFrames && this.runs.length > 0 ? "css-mod" : "disabled",
@@ -1617,6 +1756,32 @@
       }
     }
 
+    async samplePreserve3dOrder(record, seconds) {
+      for (const { entry, container } of record.containers) {
+        if (!container.hasAttribute("data-akari-active")) continue;
+        const state = this.preserve3dOrder.get(String(entry.id));
+        if (!state) continue;
+        while (state.next < state.times.length && state.times[state.next] <= seconds) {
+          const sampleSeconds = state.times[state.next];
+          state.next += 1;
+          const conflicts = detectPreserve3dOrderConflicts(collectPreserve3dElements(container));
+          if (conflicts.length === 0) continue;
+          state.samples += 1;
+          state.pairs += conflicts.length;
+          for (const conflict of conflicts) {
+            if (state.conflicts.length >= 10) break;
+            state.conflicts.push({ seconds: sampleSeconds, front: conflict.front, back: conflict.back });
+          }
+          if (!state.warned) {
+            state.warned = true;
+            const message = `WARN overlay ${state.overlayId}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください`;
+            try { await bridge?.log?.(message); } catch {}
+            console.warn(message);
+          }
+        }
+      }
+    }
+
     async captureRun(run, seconds, frameNumber) {
       const record = this.records.get(run.runId);
       if (!record) throw new Error(`GPU DOM layer record is missing: ${run.runId}`);
@@ -1649,6 +1814,7 @@
       const waitStarted = performance.now();
       await this.settle(record);
       const waitMs = performance.now() - waitStarted;
+      await this.samplePreserve3dOrder(record, seconds);
       const drawStarted = performance.now();
       const context = record.context;
       context.setTransform(1, 0, 0, 1, 0, 0);
@@ -1708,6 +1874,9 @@
           breakdown: Object.fromEntries(Object.entries(this.metrics).map(([name, values]) => [name, summarize(values)])),
         },
         sentinel: this.sentinel,
+        preserve3dOrderConflicts: [...this.preserve3dOrder.values()]
+          .filter((state) => state.pairs > 0)
+          .map(({ overlayId, samples, pairs, conflicts }) => ({ overlayId, samples, pairs, conflicts })),
       };
     }
 
@@ -1720,7 +1889,8 @@
 
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
-    sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame,
+    sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
+    detectPreserve3dOrderConflicts,
   };
 
   window.__akariGpuRun = async function () {
