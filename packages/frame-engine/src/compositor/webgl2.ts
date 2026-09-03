@@ -1475,8 +1475,6 @@ export class WebGL2Compositor implements CompositorBackend {
     }
     if (layers.length !== plan.layers.length)
       throw new Error('layer inputs must match plan.layers');
-    if (base.length === 0 && layers.length === 0)
-      throw new Error('cannot compose an empty plan');
     const hasBlockedDirectInput = base.some(frame =>
       isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some(input =>
       input.kind !== 'filter' && ((isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format))
@@ -1521,7 +1519,8 @@ export class WebGL2Compositor implements CompositorBackend {
 
     // The no-layers path deliberately keeps the original direct-to-default-framebuffer draw.
     // Avoiding an FBO here structurally preserves the existing 28 golden frames byte-for-byte.
-    if (layers.length === 0 && !hasLook) {
+    // An empty base has no program, so let it fall through to the existing FBO black-clear path.
+    if (layers.length === 0 && !hasLook && baseProgram) {
       this.configureBaseDraw(plan, null, baseProgram!);
       draw();
       this.recordGlErrors(synchronization);

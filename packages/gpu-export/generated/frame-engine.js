@@ -5397,6 +5397,7 @@ ${indent}`);
       exports.readInternalEdit = readInternalEdit;
       exports.readInternalSources = readInternalSources;
       exports.visualContentEndSeconds = visualContentEndSeconds;
+      exports.timelineDurationSeconds = timelineDurationSeconds;
       exports.walkItems = walkItems;
       exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
       exports.projectLegacyEdit = projectLegacyEdit;
@@ -5445,6 +5446,27 @@ ${indent}`);
           }
         }
         return maxEnd;
+      }
+      function timelineDurationSeconds(internal) {
+        const visualEnd = visualContentEndSeconds(internal);
+        if (visualEnd > 0) {
+          return { seconds: visualEnd, basis: "visual" };
+        }
+        let fallbackEnd = 0;
+        const walk = (item, lane) => {
+          const isFallbackVisual = lane === "visual" && ["html", "group", "captions", "caption"].includes(item.source.kind);
+          const isFallbackAudio = lane === "audio" && (item.legacy.collection === "narration" || item.legacy.collection === "sfx");
+          if (isFallbackVisual || isFallbackAudio) {
+            fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+          }
+          for (const child of item.children)
+            walk(child, lane);
+        };
+        for (const track of internal.tracks) {
+          for (const item of track.items)
+            walk(item, track.lane);
+        }
+        return fallbackEnd > 0 ? { seconds: fallbackEnd, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
       }
       function* walkItems(internal) {
         function* walk(item) {
@@ -18316,8 +18338,6 @@ void main() {
       }
       if (layers.length !== plan.layers.length)
         throw new Error("layer inputs must match plan.layers");
-      if (base.length === 0 && layers.length === 0)
-        throw new Error("cannot compose an empty plan");
       const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => input.kind !== "filter" && (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format))));
       if (hasBlockedDirectInput && this.directUploadDisabled)
         this.failDirectUpload("direct upload is disabled for this session");
@@ -18346,7 +18366,7 @@ void main() {
           queries.push(query);
         }
       };
-      if (layers.length === 0 && !hasLook) {
+      if (layers.length === 0 && !hasLook && baseProgram) {
         this.configureBaseDraw(plan, null, baseProgram);
         draw();
         this.recordGlErrors(synchronization);
