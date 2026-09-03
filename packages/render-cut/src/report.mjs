@@ -10,6 +10,7 @@ export function renderReport(state, reportPath, projectRoot) {
   const attempts = state.provenance?.rasterizer?.attempts ?? [];
   const inputs = Object.entries(state.inputs ?? {});
   const findings = state.verify?.findings ?? [];
+  const blankFrames = state.verify?.declared?.blank_frames ?? [];
   const warnings = state.warnings ?? [];
 
   return `<!doctype html>
@@ -70,6 +71,12 @@ export function renderReport(state, reportPath, projectRoot) {
   <ul>${findings.length ? findings.map((finding) => `<li class="${escapeHtml(finding.severity)}"><code>${escapeHtml(finding.check)}</code> — ${escapeHtml(finding.message)}</li>`).join("") : "<li>Not run</li>"}</ul>
   ${state.artifacts?.length ? `<p>Artifact SHA-256: <code>${escapeHtml(state.artifacts[0].sha256)}</code></p>` : ""}
 
+  <h2>Blank-frame scan</h2>
+  <p>Every decoded frame is scanned; the minimum reported continuous interval is 0.3 seconds.</p>
+  <table><thead><tr><th>Start</th><th>Duration</th><th>YMAX max</th><th>Active overlays</th><th>Active cuts</th><th>Severity</th></tr></thead><tbody>
+    ${blankFrames.length ? blankFrames.map((interval) => `<tr class="${escapeHtml(interval.severity)}"><td>${escapeHtml(interval.start)}s</td><td>${escapeHtml(interval.duration)}s</td><td>${escapeHtml(interval.ymax_max)}</td><td>${formatIds(interval.active_overlays)}</td><td>${formatIds(interval.active_cuts)}</td><td>${escapeHtml(interval.severity)}</td></tr>`).join("") : '<tr><td colspan="6">No intervals reported</td></tr>'}
+  </tbody></table>
+
   ${state.contact_sheet ? `<h2>Contact sheet</h2>
   <p>Deterministic keyframes at (s): ${state.contact_sheet.timestamps_seconds.map((seconds) => escapeHtml(seconds)).join(", ")}</p>
   <img src="contact-sheet.png" alt="contact sheet" style="max-width:100%;border:1px solid #293451;border-radius:8px">` : ""}
@@ -78,6 +85,12 @@ export function renderReport(state, reportPath, projectRoot) {
 </body>
 </html>
 `;
+}
+
+function formatIds(ids) {
+  return Array.isArray(ids) && ids.length > 0
+    ? ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")
+    : "None";
 }
 
 function escapeHtml(value) {
