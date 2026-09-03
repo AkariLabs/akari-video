@@ -53,6 +53,56 @@ function findFile(dir, name) {
   return null;
 }
 
+const KNOWN_BUNDLE_COMPONENTS = new Map([
+  ['multi-device-combo', ['phone-pro-titanium', 'laptop-slim-aluminum', 'app-icon-squircle']]
+]);
+
+async function readJsonResponse(res) {
+  try {
+    const data = await res.json();
+    return data && typeof data === 'object' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function componentIds(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((component) => typeof component === 'string'
+      ? component
+      : component?.id ?? component?.product_id)
+    .filter((id) => typeof id === 'string' && id.length > 0);
+}
+
+function bundleDetails(data, productId) {
+  const candidates = [data, data?.product, data?.status];
+  const products = Array.isArray(data?.products) ? data.products : [];
+  const matchingProduct = products.find((product) =>
+    product?.id === productId || product?.product_id === productId);
+  if (matchingProduct) candidates.push(matchingProduct);
+
+  const bundle = candidates.find((candidate) => candidate?.kind === 'bundle');
+  if (!bundle) return null;
+  return { components: componentIds(bundle.components ?? data?.components) };
+}
+
+async function resolveBundleDetails(fetchImpl, creds, productId, errorData) {
+  const knownComponents = KNOWN_BUNDLE_COMPONENTS.get(productId);
+  if (knownComponents) return { components: knownComponents };
+
+  const fromError = bundleDetails(errorData, productId);
+  if (fromError) return fromError;
+
+  try {
+    const productsRes = await fetchImpl(`${creds.url}/products`);
+    if (!productsRes.ok) return null;
+    return bundleDetails(await readJsonResponse(productsRes), productId);
+  } catch {
+    return null;
+  }
+}
+
 export async function runStoreCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
   const env = options.env ?? process.env;
@@ -149,6 +199,27 @@ export async function runStoreCommand(args, options = {}) {
       return { exitCode: 1 };
     }
     if (!res.ok) {
+      const data = await readJsonResponse(res);
+      if (res.status === 404) {
+        const bundle = await resolveBundleDetails(fetchImpl, creds, productId, data);
+        if (bundle) {
+          const componentList = bundle.components.length > 0
+            ? `: ${bundle.components.join(', ')}`
+            : '';
+          log(`セット商品は構成商品を個別に download してください${componentList}`);
+          return { exitCode: 1 };
+        }
+      }
+      if (res.status === 404 && data?.error === 'unknown_product') {
+        log(`${typeof data.message === 'string' ? data.message : '商品が見つかりません'}（${productId}）`);
+        return { exitCode: 1 };
+      }
+      if (res.status === 404 && data?.error === 'artifact_missing') {
+        log(typeof data.message === 'string'
+          ? data.message
+          : '配布物が未入稿です。サポートへご連絡ください');
+        return { exitCode: 1 };
+      }
       log(`ダウンロードに失敗しました（${res.status}）`);
       return { exitCode: 1 };
     }
