@@ -11,8 +11,17 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { resolveFfmpeg, resolveFfprobe } from "../../../../packages/media-bin/src/index.mjs";
 import { probeAlphaSource } from "./mask-from-alpha.mjs";
+import { importPackage } from "./resolve-packages.mjs";
+
+let dependencyError = null;
+let resolveFfmpeg;
+let resolveFfprobe;
+try {
+  ({ resolveFfmpeg, resolveFfprobe } = await importPackage("media-bin/src/index.mjs", { from: import.meta.url }));
+} catch (error) {
+  dependencyError = error;
+}
 
 const scriptPath = fileURLToPath(import.meta.url);
 
@@ -79,6 +88,7 @@ function stats(histogram, count, total, maximum) {
 }
 
 export async function compareRoundtrip(alphaPath, maskPath, options = {}) {
+  if (dependencyError && (!options.ffmpeg || !options.ffprobe)) throw dependencyError;
   const ffmpeg = options.ffmpeg ?? resolveFfmpeg();
   const ffprobe = options.ffprobe ?? resolveFfprobe();
   const alphaProbe = probeAlphaSource(alphaPath, { ffprobe });
@@ -194,6 +204,10 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
+  if (dependencyError) {
+    console.error(dependencyError.message);
+    process.exit(1);
+  }
   try {
     const options = parseArguments(process.argv.slice(2));
     const result = await compareRoundtrip(options.alpha, options.mask, options);

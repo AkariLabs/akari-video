@@ -5,9 +5,21 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { DEFAULT_CONNECTIONS_REGISTRY } from "../../../packages/creator-root/src/index.mjs";
-import { resolveConnections } from "./resolve-connections.mjs";
+import { importPackage } from "./resolve-packages.mjs";
+
+let DEFAULT_CONNECTIONS_REGISTRY;
+let resolveConnections;
+
+async function loadDependencies() {
+  const [creatorRoot, connections] = await Promise.all([
+    importPackage("creator-root/src/index.mjs", { from: import.meta.url }),
+    import("./resolve-connections.mjs"),
+  ]);
+  DEFAULT_CONNECTIONS_REGISTRY = creatorRoot.DEFAULT_CONNECTIONS_REGISTRY;
+  resolveConnections = connections.resolveConnections;
+}
 
 const usage = "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
 const argument = process.argv[2];
@@ -36,6 +48,7 @@ const credentialsPath = path.resolve(
 const timeoutMs = 5_000;
 
 async function main() {
+  await loadDependencies();
   if (inputPath.endsWith(".json")) {
     await mainLegacy();
     return;
@@ -446,7 +459,18 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-main().catch(() => {
-  console.error("接続確認を完了できませんでした。connections.json の形式と書き込み権限を確認してください。");
-  process.exitCode = 1;
-});
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(path.resolve(process.argv[1]));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  main().catch((error) => {
+    console.error(error?.message ?? "接続確認を完了できませんでした。connections.json の形式と書き込み権限を確認してください。");
+    process.exit(1);
+  });
+}

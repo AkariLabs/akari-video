@@ -5,9 +5,18 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { resolveFfmpeg, resolveFfprobe } from "../../../../packages/media-bin/src/index.mjs";
 import { findAlphaModeTag } from "./alpha-tag.mjs";
 import { MASK_FORMAT, maskOutputArguments } from "./mask-format.mjs";
+import { importPackage } from "./resolve-packages.mjs";
+
+let dependencyError = null;
+let resolveFfmpeg;
+let resolveFfprobe;
+try {
+  ({ resolveFfmpeg, resolveFfprobe } = await importPackage("media-bin/src/index.mjs", { from: import.meta.url }));
+} catch (error) {
+  dependencyError = error;
+}
 
 const scriptPath = fileURLToPath(import.meta.url);
 
@@ -137,6 +146,7 @@ export function ensureMask(webmPath, options = {}) {
   const output = path.resolve(options.out ?? maskPathFor(input));
   const result = { ok: false, path: output, skipped: false, reason: null, elapsedMs: 0 };
   try {
+    if (dependencyError && (!options.ffmpeg || !options.ffprobe)) throw dependencyError;
     const inputStat = fs.statSync(input);
     if (!inputStat.isFile()) throw new Error(`入力が通常ファイルではありません: ${input}`);
     if (!options.force) {
@@ -241,6 +251,10 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
+  if (dependencyError) {
+    console.error(dependencyError.message);
+    process.exit(1);
+  }
   let response;
   try {
     const options = parseArguments(process.argv.slice(2));

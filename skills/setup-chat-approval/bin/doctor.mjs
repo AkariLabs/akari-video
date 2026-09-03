@@ -3,16 +3,25 @@
 // トークンの値は絶対に出力しない（有無と長さの妥当性だけを見る）。
 // 契約: docs/contract-2026-08-12-chat-approval-v0.md
 
+import { realpathSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-import {
-  CHAT_ENV_KEY,
-  TOKEN_ENV_KEY,
-  parseCredentials,
-} from "../../../packages/chat-bridge/src/telegram-core.mjs";
+import { importPackage } from "./resolve-packages.mjs";
+
+let CHAT_ENV_KEY;
+let TOKEN_ENV_KEY;
+let parseCredentials;
+
+async function loadDependencies() {
+  const telegram = await importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url });
+  CHAT_ENV_KEY = telegram.CHAT_ENV_KEY;
+  TOKEN_ENV_KEY = telegram.TOKEN_ENV_KEY;
+  parseCredentials = telegram.parseCredentials;
+}
 
 const PROVIDER_ID = "telegram-approval";
 
@@ -103,6 +112,7 @@ function decideState(credentials, registry) {
 }
 
 async function main() {
+  await loadDependencies();
   const projectRoot = path.resolve(process.argv[2] ?? process.cwd());
   const credentials = await inspectCredentials();
   const registry = await inspectRegistry(projectRoot);
@@ -126,7 +136,18 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(process.argv[1]));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  main().catch((error) => {
+    console.error(error?.message ?? "Telegram の接続状態を確認できませんでした。");
+    process.exit(1);
+  });
+}
