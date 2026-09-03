@@ -107,15 +107,7 @@ test("animation timing and advanced CSS are eligible separately and together", (
 test("DOM layer hard blockers fail closed with stable reasons", () => {
   const fixtures = [
     ["embedded-context", "<iframe></iframe>"],
-    ["css-3d-transform", "<style>.x{perspective:10px}</style>"],
-    ["css-3d-transform", "<style>.x{transform:perspective(10px)}</style>"],
-    ["css-3d-transform", "<style>.x{transform-style:preserve-3d}</style>"],
-    ["css-3d-transform", "<style>.x{transform:rotateX(2deg)}</style>"],
-    ["css-3d-transform", "<style>.x{transform:rotateY(2deg)}</style>"],
-    ["css-3d-transform", "<style>.x{transform:rotate3d(1,0,0,2deg)}</style>"],
-    ["css-3d-transform", "<style>.x{transform:matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)}</style>"],
-    ["css-3d-transform", "<style>.x{transform:translateZ(2px)}</style>"],
-    ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,3px)}</style>"],
+    ["css-3d-backface-hidden", "<style>.x{perspective:10px}.y{backface-visibility:hidden}</style>"],
     ["self-driving-clock", "<script>requestAnimationFrame(step)</script>"],
     ["self-driving-clock", "<script>setTimeout(step, 1)</script>"],
     ["self-driving-clock", "<script>setInterval(step, 1)</script>"],
@@ -241,7 +233,7 @@ test("flat translate3d/translateZ and same-document url(#) references stay eligi
   const keyframes = evaluate([{ id: "keyframes", html: "<style>@keyframes a{from{transform:translate3d(0,0,0)}to{transform:TRANSLATE3D(0, -20px, 0)}}</style>" }]);
   assert.equal(keyframes.entries[0].classification, "dom");
   assert.deepEqual(keyframes.entries[0].conditions, ["animation-timing"]);
-  const degraded = [
+  const geometry = [
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,3px)}</style>"],
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,var(--z))}</style>"],
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px)}</style>"],
@@ -250,6 +242,13 @@ test("flat translate3d/translateZ and same-document url(#) references stay eligi
     ["css-3d-transform", "<style>.x{transform:translateZ(var(--z, 0))}</style>"],
     ["css-3d-transform", "<style>.x{transform:translate3d(1px, 2px, 0</style>"],
     ["css-3d-transform", "<style>.x{transform:translateZ(2px)}</style>"],
+  ];
+  for (const [condition, html] of geometry) {
+    const result = evaluate([{ id: condition, html }]);
+    assert.equal(result.entries[0].classification, "dom", html);
+    assert.ok(result.entries[0].conditions.includes(condition), html);
+  }
+  const degraded = [
     ["background-image-external-resource", "<style>.x{background-image: url(foo.png)}</style>"],
     ["background-image-external-resource", "<div style=\"background: url('assets/bg.png')\"></div>"],
   ];

@@ -176,7 +176,7 @@ export async function runGpuExport(options) {
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
   register("gpu:config", () => runtimeConfig);
-  register("gpu:log", (_event, message) => { process.stdout.write(`[gpu-renderer] ${message}\n`); return true; });
+  register("gpu:log", (_event, message) => { (String(message).startsWith("WARN ") ? process.stderr : process.stdout).write(`[gpu-renderer] ${message}\n`); return true; });
   register("gpu:checkpoint", async (_event, value) => {
     if (fatalMemoryError) throw fatalMemoryError;
     const running = {
