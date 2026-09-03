@@ -43,6 +43,7 @@ async function loadRvmPackage() {
     const rvm = await importPackage("matte-rvm/src/index.mjs", { from: import.meta.url });
     return {
       resolveModel: rvm.resolveRvmModel,
+      resolveRuntime: rvm.resolveRvmRuntime,
       helper: resolvePackageFile("matte-rvm/bin/rvm-helper.mjs", { from: import.meta.url }),
     };
   } catch {
@@ -66,6 +67,9 @@ const DEFAULT_RVM_MODEL = "mobilenetv3";
 const TOOL_ID = "vision-person-segmentation";
 const RVM_TOOL_ID = "rvm-person-matting";
 const RVM_UNAVAILABLE_REASON = "RVM が入っていないため、この品質では人物マットを生成できません";
+const RVM_RUNTIME_UNAVAILABLE_REASON =
+  "RVM の実行環境が入っていないため、この品質では人物マットを生成できません";
+const RVM_RUNTIME_INSTALL_HINT = "cd packages/matte-rvm && npm install";
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -90,6 +94,7 @@ function checkAvailability({
   resolveFfmpegBin = resolveFfmpeg,
   resolveFfprobeBin = resolveFfprobe,
   resolveModel,
+  resolveRuntime,
   fileExists = fs.existsSync,
 } = {}) {
   if (platform !== "darwin" && platform !== "win32") {
@@ -149,11 +154,24 @@ function checkAvailability({
     if (typeof resolveModel !== "function") {
       return { available: false, reason: RVM_UNAVAILABLE_REASON };
     }
+    if (typeof resolveRuntime !== "function") {
+      return {
+        available: false,
+        reason: `${RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      };
+    }
+    const runtime = resolveRuntime();
+    if (!runtime.available) {
+      return {
+        available: false,
+        reason: `${runtime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${runtime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      };
+    }
     const model = resolveModel(DEFAULT_RVM_MODEL);
     if (model.missing) {
       return {
         available: false,
-        reason: `RVM model is not installed: ${model.path}. ${model.fetchHint}`,
+        reason: `${RVM_UNAVAILABLE_REASON}。直すには ${model.fetchHint} を実行してください`,
       };
     }
   }
@@ -262,14 +280,28 @@ function engineForPlatform(quality, platform = os.platform()) {
 function prepareExecution(options, {
   platform = os.platform(),
   resolveModel,
+  resolveRuntime,
   buildVisionHelper = buildHelper,
 } = {}) {
   const engine = engineForPlatform(options.quality, platform);
   if (engine === "rvm") {
-    if (typeof resolveModel !== "function") throw new Error(RVM_UNAVAILABLE_REASON);
+    if (typeof resolveModel !== "function") {
+      throw new Error(RVM_UNAVAILABLE_REASON);
+    }
+    if (typeof resolveRuntime !== "function") {
+      throw new Error(
+        `${RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      );
+    }
+    const runtime = resolveRuntime();
+    if (!runtime.available) {
+      throw new Error(
+        `${runtime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${runtime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      );
+    }
     const resolved = resolveModel(options.model);
     if (resolved.missing) {
-      throw new Error(`RVM model is not installed: ${resolved.path}. ${resolved.fetchHint}`);
+      throw new Error(`${RVM_UNAVAILABLE_REASON}。直すには ${resolved.fetchHint} を実行してください`);
     }
     return { ...options, engine, modelPath: resolved.path };
   }
@@ -639,24 +671,39 @@ async function main() {
   await loadMediaPackage();
   const platform = os.platform();
   const engine = engineForPlatform(options.quality, platform);
-  const rvm = engine === "rvm" ? await loadRvmPackage() : null;
-  let availability = checkAvailability({ platform, resolveModel: rvm?.resolveModel });
-  if (engine === "rvm" && !rvm && availability.available) {
+  const rvm = engine === "rvm" || options.check ? await loadRvmPackage() : null;
+  let availability = checkAvailability({
+    platform,
+    resolveModel: rvm?.resolveModel,
+    resolveRuntime: rvm?.resolveRuntime,
+  });
+  if (engine === "rvm" && availability.available && !rvm) {
     availability = { available: false, reason: RVM_UNAVAILABLE_REASON };
-  } else if (engine === "rvm" && rvm) {
-    const executionModel = rvm.resolveModel(options.model);
-    if (executionModel.missing) {
+  } else if (engine === "rvm" && availability.available && rvm) {
+    const executionRuntime = rvm.resolveRuntime();
+    if (!executionRuntime.available) {
       availability = {
         available: false,
-        reason: `RVM model is not installed: ${executionModel.path}. ${executionModel.fetchHint}`,
+        reason: `${executionRuntime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${executionRuntime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
       };
+    } else {
+      const executionModel = rvm.resolveModel(options.model);
+      if (executionModel.missing) {
+        availability = {
+          available: false,
+          reason: `${RVM_UNAVAILABLE_REASON}。直すには ${executionModel.fetchHint} を実行してください`,
+        };
+      }
     }
   }
   if (options.check) {
     const rvmModel = rvm
       ? rvm.resolveModel(DEFAULT_RVM_MODEL)
       : { model: DEFAULT_RVM_MODEL, missing: true, reason: RVM_UNAVAILABLE_REASON };
-    printJson({ ...availability, rvm_model: rvmModel });
+    const rvmRuntime = rvm
+      ? rvm.resolveRuntime()
+      : { available: false, reason: RVM_RUNTIME_UNAVAILABLE_REASON, installHint: RVM_RUNTIME_INSTALL_HINT };
+    printJson({ ...availability, rvm_model: rvmModel, rvm_runtime: rvmRuntime });
     return;
   }
   if (!options.input || !options.out) {
@@ -671,7 +718,11 @@ async function main() {
   }
 
   try {
-    const prepared = prepareExecution(options, { platform, resolveModel: rvm?.resolveModel });
+    const prepared = prepareExecution(options, {
+      platform,
+      resolveModel: rvm?.resolveModel,
+      resolveRuntime: rvm?.resolveRuntime,
+    });
     if (prepared.engine === "rvm") prepared.rvmHelper = rvm?.helper;
     printJson(await generate(prepared));
   } catch (error) {

@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { resolveRvmModel } from "../src/index.mjs";
+
+test("rvm-helper returns one plain JSON line when its runtime cannot be resolved", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "akari-rvm-helper-no-runtime-"));
+  const helper = path.join(directory, "rvm-helper.mjs");
+  try {
+    await copyFile(path.resolve(import.meta.dirname, "../bin/rvm-helper.mjs"), helper);
+    const result = spawnSync(process.execPath, [helper], { cwd: directory, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.equal(result.stdout.trimEnd().split("\n").length, 1);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.ok, false);
+    assert.match(output.reason, /RVM の実行環境が入っていない/u);
+    assert.match(output.reason, /cd packages\/matte-rvm && npm install/u);
+    assert.doesNotMatch(output.reason, /ERR_MODULE_NOT_FOUND|onnxruntime-node|optionalDependencies/u);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("rvm-helper uses the official automatic downsample ratios", async (t) => {
   const resolved = resolveRvmModel("mobilenetv3");

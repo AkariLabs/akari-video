@@ -8,6 +8,7 @@
 - [カットへ自動配線する](#カットへ自動配線する)
 - [analysis.json へ書く](#analysisjson-へ書く)
 - [グレースケールマスクを使う](#グレースケールマスクを使う)
+- [RVM の実行環境を入れる](#rvm-の実行環境を入れる)
 - [Windows 実機検証手順](#windows-実機検証手順)
 - [劣化](#劣化)
 
@@ -60,7 +61,7 @@ node "$PERSON_MATTE_BIN/person-matte.mjs" --check
 `available:true` 以外なら `reason` を報告し、マットを作らずに `null` のまま進む。結果には既定の
 RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、同梱メディア道具、VP9 alpha
 エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
-mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
+実行環境と mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
 ネットワークからツールを導入しない。Mac の Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
 バイナリはコミットしない（[.gitignore](.gitignore) 参照）。
 
@@ -183,6 +184,18 @@ node "$PERSON_MATTE_BIN/mask-roundtrip.mjs" --alpha <webm> --mask <mp4>
 alpha WebM を真値とみなす取り込み変換の基準である。併産された兄弟 2 形式の比較では、それぞれの
 符号化損失の和を測るため、この閾値で `ok:false` になっても変換精度の不合格を意味しない。
 
+## RVM の実行環境を入れる
+
+Windows で人物マットを作る場合と、Mac で `--quality best` を使う場合は、公開リポジトリのルートで
+次の 1 コマンドを実行する。`--check` の `rvm_runtime.available` が `false` のときも同じ手順で直せる。
+
+```bash
+cd packages/matte-rvm && npm install
+```
+
+モデルは別に配備する。実行環境を入れたあと、既定モデルは同じディレクトリで
+`npm run fetch:models` を実行して取得する。モデルをリポジトリへコミットしない。
+
 ## Windows 実機検証手順
 
 Windows では `fast` / `balanced` / `accurate` / `best` の全段が RVM mobilenetv3 を使う。
@@ -204,10 +217,11 @@ $PersonMatteBin = if (Test-Path ".claude\skills\analyze-footage\bin\person-matte
 node "$PersonMatteBin\person-matte.mjs" --check
 ```
 
-期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false` になる。
+期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false`、
+`rvm_runtime.available` が `true` になる。
 
 ```json
-{"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"}}
+{"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"},"rvm_runtime":{"available":true,"reason":null,"installHint":"cd packages/matte-rvm && npm install"}}
 ```
 
 次に、人物が映る実素材 1 本を `C:\Users\owner\Videos\person-input.mp4` へ置き、`balanced` で生成する。
@@ -238,6 +252,9 @@ node "$PersonMatteBin\person-matte.mjs" --input "$SOURCE" --out "$OUT" --quality
 - `elapsed_seconds`: ______ 秒
 
 つまずいた場合は `reason` を先に読む。
+
+- 実行環境不在: `rvm_runtime.available:false` を確認し、[RVM の実行環境を入れる](#rvm-の実行環境を入れる)
+  の 1 コマンドを実行してから再検査する。
 
 - モデル不在: `rvm_model.missing:true` または reason 内の `fetchHint` を確認し、次のコマンドで
   mobilenetv3 を取得してから再検査する。
