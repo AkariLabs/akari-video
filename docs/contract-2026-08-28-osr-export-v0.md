@@ -38,6 +38,10 @@ tier 3 の場合に `{ from: "gpu", reason: <launcher.reason> }` を記録する
 
 CSS animationはpauseし、`currentTime`を合成時刻へ設定する。Three.jsは対象区間のローカル時刻で描画する。動画要素は提示フレームの確定まで待つ。`frameNumber`はmainから明示的に渡し、秒から再計算しない。
 
+overlay sheet は各シークで活性区間の自由 HTML 容器へ `data-akari-active` を付与し、非活性区間では
+除去する。`#stage` の `data-no-timeline` は後方互換のため維持し、どちらの発火ゲートを使う断片も
+OSR で同じタイムライン時刻に同期する。
+
 ## 3. スタンプ行
 
 最下1行はフレーム番号 `n mod 65536` を次で符号化する。

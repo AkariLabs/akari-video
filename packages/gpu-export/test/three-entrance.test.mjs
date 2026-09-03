@@ -100,6 +100,18 @@ test("the product-shaped entrance is eligible and resolves CSS variables to abso
   assert.equal(result.entries[0].reason, "three-scene-entrance-curve");
 });
 
+test("HTML comments do not alter 3D entrance script counts or extracted CSS", () => {
+  const html = fragment().replace(
+    '<div class="laptop-live">',
+    '<!-- <script>ignored()</script><style>.bad{transition:all 1s}</style> --><div class="laptop-live">',
+  );
+  const parsed = parseThreeEntrance(html, { vars: { "--laptop-live-scale": "0.95" } });
+  assert.equal(parsed.ok, true);
+  const result = eligibility(html, { vars: { "--laptop-live-scale": "0.95" } });
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-entrance-curve");
+});
+
 test("transform x/y/scale variables and known timing keywords are supported", () => {
   const html = fragment({
     root: "model-live",

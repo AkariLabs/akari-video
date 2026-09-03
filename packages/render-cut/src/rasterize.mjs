@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripHtmlComments } from "./html-scan.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -11,7 +12,7 @@ const RECENT_FRAME_LIMIT = 5;
 // シートに埋まった 3D シーン宣言の数。負荷起因のタイムアウトかを一目で判断する材料。
 function countThreeDimensionalScenes(sheetPath) {
   try {
-    return readFileSync(sheetPath, "utf8").split("data-akari-3d-scene").length - 1;
+    return stripHtmlComments(readFileSync(sheetPath, "utf8")).split("data-akari-3d-scene").length - 1;
   } catch {
     return 0;
   }
@@ -69,18 +70,19 @@ const FONT_MIME_TYPES = new Map([
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
+  const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
       && Object.keys(overlay.params).length > 0,
   );
-  const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
-    overlay.html.includes("data-akari-3d-scene"),
+  const hasThreeDimensionalOverlay = strippedOverlayHtml.some((html) =>
+    /data-akari-3d-scene/u.test(html),
   );
   // texts[] を含む宣言だけ vendor-3d-text-bundle.js（troika-three-text）を追加で読み込む。
   // 素朴な文字列検査で足りるのは、他フラグ（hasResolvedSingleLineCaption 等）と同じ判断
   const hasThreeDimensionalTextOverlay = hasThreeDimensionalOverlay
-    && orderedOverlays.some((overlay) =>
-      overlay.html.includes("data-akari-3d-scene") && overlay.html.includes('"texts"'),
+    && strippedOverlayHtml.some((html) =>
+      /data-akari-3d-scene/u.test(html) && html.includes('"texts"'),
     );
   const sheetOverlays = hasThreeDimensionalOverlay
     ? orderedOverlays.map((overlay) => ({
@@ -267,7 +269,8 @@ ${nodes}${slotRuntimeScripts}
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
         const active = seconds >= start && seconds < start + duration;
-        container.style.visibility = active ? 'visible' : 'hidden';${threeSeekBranch}
+        container.style.visibility = active ? 'visible' : 'hidden';
+        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
       }
       window.__akariSyncAnimations(seconds);
       const videoSeekTimeoutMilliseconds = 5000;
@@ -491,7 +494,7 @@ function renderOverlayNode(overlay, index, fps) {
 }
 
 function embedThreeModels(html, projectRoot, overlayId) {
-  if (!html.includes("data-akari-3d-scene")) return html;
+  if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
   let declarationCount = 0;
   const embedded = html.replace(
     THREE_SCENE_SCRIPT_PATTERN,

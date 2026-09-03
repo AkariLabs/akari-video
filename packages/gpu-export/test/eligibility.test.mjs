@@ -76,6 +76,21 @@ test("declarative dynamic overlays use the DOM layer while external overlays rem
   assert.ok(result.entries[1].conditions.includes("absolute-external-url"));
 });
 
+test("a script tag mentioned only in an HTML comment does not degrade CSS animation", () => {
+  const html = "<!-- <script> none </script> --><style>.x{animation:fade 1s linear}@keyframes fade{to{opacity:1}}</style><div class=\"x\"></div>";
+  const result = evaluate([{ id: "commented-script", html }]);
+  assert.equal(result.entries[0].classification, "dom");
+  assert.equal(result.entries[0].reason, "dom-layer-draw-element");
+  assert.deepEqual(result.entries[0].conditions, ["animation-timing"]);
+});
+
+test("canvas and 3D markers mentioned only in HTML comments do not affect eligibility", () => {
+  const html = "<div>static</div><!-- <canvas></canvas> data-akari-3d-scene -->";
+  const result = evaluate([{ id: "commented-runtime", html }]);
+  assert.equal(result.entries[0].classification, "same");
+  assert.deepEqual(result.entries[0].conditions, []);
+});
+
 test("animation timing and advanced CSS are eligible separately and together", () => {
   const result = evaluate([
     { id: "animation", html: "<style>.x{transition:opacity 1s}</style>" },

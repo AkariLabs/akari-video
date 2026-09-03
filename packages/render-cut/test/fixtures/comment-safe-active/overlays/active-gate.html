@@ -1,0 +1,9 @@
+<div class="active-fixture"><style>
+  .active-fixture { position: absolute; inset: 0; }
+  .active-fixture__box { position: absolute; left: 20px; top: 60px; width: 40px; height: 40px; background: rgb(255 255 255); }
+  [data-akari-active] .active-fixture__box { animation: active-fixture-move 2s linear both; }
+  @keyframes active-fixture-move {
+    from { transform: translateX(0); background: rgb(255 255 255); }
+    to { transform: translateX(220px); background: rgb(255 0 0); }
+  }
+</style><div class="active-fixture__box"></div></div>
