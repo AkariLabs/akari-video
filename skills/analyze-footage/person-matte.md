@@ -8,6 +8,7 @@
 - [カットへ自動配線する](#カットへ自動配線する)
 - [analysis.json へ書く](#analysisjson-へ書く)
 - [グレースケールマスクを使う](#グレースケールマスクを使う)
+- [RVM の実行環境を入れる](#rvm-の実行環境を入れる)
 - [Windows 実機検証手順](#windows-実機検証手順)
 - [劣化](#劣化)
 
@@ -16,7 +17,7 @@
 人物マットは**人物演出（text-behind-person など）を使うと決めた素材でだけ**作る。既定の分析
 フローはマットを作らず `tracks.person_matte` に `null` を書く。データ契約は
 [docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md) が正本である。
-以下の `node bin/person-matte/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
+以下の `$PERSON_MATTE_BIN/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
 analyze-footage の手順から直接呼ぶものではない。内部のデコード・検証は生成器自身が担う。
 
 ## 実行するかを先に決める
@@ -52,13 +53,15 @@ Windows では全品質段が RVM mobilenetv3 になる。手順は [Windows 実
 ## 道具を確認する
 
 ```bash
-node bin/person-matte/person-matte.mjs --check
+PERSON_MATTE_BIN=".claude/skills/analyze-footage/bin/person-matte"
+[ -d "$PERSON_MATTE_BIN" ] || PERSON_MATTE_BIN="skills/analyze-footage/bin/person-matte"
+node "$PERSON_MATTE_BIN/person-matte.mjs" --check
 ```
 
 `available:true` 以外なら `reason` を報告し、マットを作らずに `null` のまま進む。結果には既定の
 RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、同梱メディア道具、VP9 alpha
 エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
-mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
+実行環境と mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
 ネットワークからツールを導入しない。Mac の Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
 バイナリはコミットしない（[.gitignore](.gitignore) 参照）。
 
@@ -67,7 +70,7 @@ mobilenetv3 モデルを要求する。メディア道具の探索はサイド�
 出力は analysis.json と同じディレクトリの `matte/person-matte.webm` に置く。
 
 ```bash
-node bin/person-matte/person-matte.mjs \
+node "$PERSON_MATTE_BIN/person-matte.mjs" \
   --input "$SOURCE" \
   --out "$OUT_DIR/matte/person-matte.webm"
 ```
@@ -103,7 +106,7 @@ Vision 時の `vision_ms_per_frame` または RVM 時の `rvm_ms_per_frame`、
   `out` / `speed` を解決し、速度適用済みの区間マットを作って v2 `edit.json` へ自動配線する。
 
 ```bash
-node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
+node "$PERSON_MATTE_BIN/person-cutout.mjs" \
   --project /path/to/project \
   --cut 0
 ```
@@ -126,7 +129,7 @@ atomic rename し、不合格時は元ファイルを変更しない。
 書き換えを一切行わず、予定するマット・レイヤー互換表示・track 順を stdout の 1 行 JSON で返す。
 
 ```bash
-node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
+node "$PERSON_MATTE_BIN/person-cutout.mjs" \
   --project /path/to/project \
   --cut 1,3 \
   --quality best \
@@ -167,38 +170,58 @@ node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
 あれば skip し、作り直す場合だけ `--force` を付ける。
 
 ```bash
-node bin/person-matte/mask-from-alpha.mjs \
+node "$PERSON_MATTE_BIN/mask-from-alpha.mjs" \
   --input "$OUT_DIR/matte/person-matte.webm"
 ```
 
-往復精度は `mask-roundtrip.mjs --alpha <webm> --mask <mp4>` で全フレーム比較できる。合否閾値は
+往復精度は次のコマンドで全フレーム比較できる。
+
+```bash
+node "$PERSON_MATTE_BIN/mask-roundtrip.mjs" --alpha <webm> --mask <mp4>
+```
+
+合否閾値は
 alpha WebM を真値とみなす取り込み変換の基準である。併産された兄弟 2 形式の比較では、それぞれの
 符号化損失の和を測るため、この閾値で `ok:false` になっても変換精度の不合格を意味しない。
+
+## RVM の実行環境を入れる
+
+Windows で人物マットを作る場合と、Mac で `--quality best` を使う場合は、公開リポジトリのルートで
+次の 1 コマンドを実行する。`--check` の `rvm_runtime.available` が `false` のときも同じ手順で直せる。
+
+```bash
+cd packages/matte-rvm && npm install
+```
+
+モデルは別に配備する。実行環境を入れたあと、既定モデルは同じディレクトリで
+`npm run fetch:models` を実行して取得する。モデルをリポジトリへコミットしない。
 
 ## Windows 実機検証手順
 
 Windows では `fast` / `balanced` / `accurate` / `best` の全段が RVM mobilenetv3 を使う。
 次の PowerShell コマンドは公開リポジトリのルートで実行する。Node.js 20 以上を前提とし、まず版を確認して
-`packages/matte-rvm` 内で依存と既定モデルを配備する。`npm install` の postinstall が
-mobilenetv3 を取得する。
+`packages/matte-rvm` 内で依存と既定モデルを明示的に配備する。
 
 ```powershell
 node --version
 cd packages\matte-rvm
 npm install
+npm run fetch:models
 cd ..\..
+$PersonMatteBin = if (Test-Path ".claude\skills\analyze-footage\bin\person-matte") { ".claude\skills\analyze-footage\bin\person-matte" } else { "skills\analyze-footage\bin\person-matte" }
 ```
 
 道具とモデルを検査する。
 
 ```powershell
-node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+node "$PersonMatteBin\person-matte.mjs" --check
 ```
 
-期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false` になる。
+期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false`、
+`rvm_runtime.available` が `true` になる。
 
 ```json
-{"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"}}
+{"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"},"rvm_runtime":{"available":true,"reason":null,"installHint":"cd packages/matte-rvm && npm install"}}
 ```
 
 次に、人物が映る実素材 1 本を `C:\Users\owner\Videos\person-input.mp4` へ置き、`balanced` で生成する。
@@ -207,7 +230,7 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
 ```powershell
 $SOURCE = "C:\Users\owner\Videos\person-input.mp4"
 $OUT = "C:\Users\owner\Videos\person-matte-balanced.webm"
-node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" --out "$OUT" --quality balanced
+node "$PersonMatteBin\person-matte.mjs" --input "$SOURCE" --out "$OUT" --quality balanced
 ```
 
 実際に返る 1 行 JSON から確認するキーの抜粋は次のとおりで、`ok:true`、`engine:"rvm"`、`model:"mobilenetv3"`、
@@ -230,6 +253,9 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
 
 つまずいた場合は `reason` を先に読む。
 
+- 実行環境不在: `rvm_runtime.available:false` を確認し、[RVM の実行環境を入れる](#rvm-の実行環境を入れる)
+  の 1 コマンドを実行してから再検査する。
+
 - モデル不在: `rvm_model.missing:true` または reason 内の `fetchHint` を確認し、次のコマンドで
   mobilenetv3 を取得してから再検査する。
 
@@ -237,7 +263,7 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
   cd packages\matte-rvm
   node scripts\fetch-models.mjs
   cd ..\..
-  node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+  node "$PersonMatteBin\person-matte.mjs" --check
   ```
 
 - 同梱メディア道具不在: `packages/media-bin` の postinstall が同梱バイナリを配備するため、
@@ -247,7 +273,7 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
   cd packages\media-bin
   npm install
   cd ..\..
-  node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+  node "$PersonMatteBin\person-matte.mjs" --check
   ```
 
 - `libvpx-vp9` 不在: 解決された encoder が VP9 alpha を書けない。`reason` に従って media-bin の配備と

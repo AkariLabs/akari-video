@@ -27,15 +27,33 @@ import { fileURLToPath } from "node:url";
 
 import { findAlphaModeTag } from "./alpha-tag.mjs";
 import { MASK_FORMAT, maskOutputArguments } from "./mask-format.mjs";
-import { DEFAULT_RVM_MODEL, resolveRvmModel } from "../../../../packages/matte-rvm/src/index.mjs";
-import { resolveFfmpeg, resolveFfprobe } from "../../../../packages/media-bin/src/index.mjs";
+import { importPackage, resolvePackageFile } from "./resolve-packages.mjs";
+
+let resolveFfmpeg;
+let resolveFfprobe;
+
+async function loadMediaPackage() {
+  const media = await importPackage("media-bin/src/index.mjs", { from: import.meta.url });
+  resolveFfmpeg = media.resolveFfmpeg;
+  resolveFfprobe = media.resolveFfprobe;
+}
+
+async function loadRvmPackage() {
+  try {
+    const rvm = await importPackage("matte-rvm/src/index.mjs", { from: import.meta.url });
+    return {
+      resolveModel: rvm.resolveRvmModel,
+      resolveRuntime: rvm.resolveRvmRuntime,
+      helper: resolvePackageFile("matte-rvm/bin/rvm-helper.mjs", { from: import.meta.url }),
+    };
+  } catch {
+    return null;
+  }
+}
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const helperSource = path.join(scriptDir, "person-matte-helper.swift");
 const defaultHelperBin = path.join(scriptDir, "person-matte-helper");
-const rvmHelper = fileURLToPath(
-  new URL("../../../../packages/matte-rvm/bin/rvm-helper.mjs", import.meta.url),
-);
 
 // スパイク実測（2026-07-23）で確定した既定値。入力解像度は Vision の速度にほぼ無関係
 // （quality ごとに内部で固定リサイズされる）ため、デコード幅は 1280 で統一する。
@@ -44,8 +62,14 @@ const DEFAULT_FPS = 24;
 const DEFAULT_QUALITY = "balanced";
 const QUALITIES = ["fast", "balanced", "accurate", "best"];
 const RVM_MODELS = ["mobilenetv3", "resnet50"];
+// packages/matte-rvm の正本と同じ既定モデル名を、RVM 未読込の経路でも使えるよう保持する。
+const DEFAULT_RVM_MODEL = "mobilenetv3";
 const TOOL_ID = "vision-person-segmentation";
 const RVM_TOOL_ID = "rvm-person-matting";
+const RVM_UNAVAILABLE_REASON = "RVM が入っていないため、この品質では人物マットを生成できません";
+const RVM_RUNTIME_UNAVAILABLE_REASON =
+  "RVM の実行環境が入っていないため、この品質では人物マットを生成できません";
+const RVM_RUNTIME_INSTALL_HINT = "cd packages/matte-rvm && npm install";
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -69,19 +93,28 @@ function checkAvailability({
   runSync = spawnSyncSafe,
   resolveFfmpegBin = resolveFfmpeg,
   resolveFfprobeBin = resolveFfprobe,
-  resolveModel = resolveRvmModel,
+  resolveModel,
+  resolveRuntime,
+  fileExists = fs.existsSync,
 } = {}) {
   if (platform !== "darwin" && platform !== "win32") {
     return { available: false, reason: `未対応のプラットフォームです（${platform}）` };
   }
 
   if (platform === "darwin") {
-    const swift = runSync("swiftc", ["-version"]);
-    if (swift.error?.code === "ENOENT") {
-      return { available: false, reason: "swiftc が PATH 上にありません" };
+    const hasHelperSource = fileExists(helperSource);
+    const hasBuiltHelper = fileExists(defaultHelperBin);
+    if (!hasHelperSource && !hasBuiltHelper) {
+      return { available: false, reason: "Vision の人物マット用ヘルパーがありません" };
     }
-    if (swift.error || swift.status !== 0) {
-      return { available: false, reason: "swiftc を起動できません" };
+    if (hasHelperSource) {
+      const swift = runSync("swiftc", ["-version"]);
+      if (swift.error?.code === "ENOENT") {
+        return { available: false, reason: "swiftc が PATH 上にありません" };
+      }
+      if (swift.error || swift.status !== 0) {
+        return { available: false, reason: "swiftc を起動できません" };
+      }
     }
   }
 
@@ -118,11 +151,27 @@ function checkAvailability({
   }
 
   if (platform === "win32") {
+    if (typeof resolveModel !== "function") {
+      return { available: false, reason: RVM_UNAVAILABLE_REASON };
+    }
+    if (typeof resolveRuntime !== "function") {
+      return {
+        available: false,
+        reason: `${RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      };
+    }
+    const runtime = resolveRuntime();
+    if (!runtime.available) {
+      return {
+        available: false,
+        reason: `${runtime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${runtime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      };
+    }
     const model = resolveModel(DEFAULT_RVM_MODEL);
     if (model.missing) {
       return {
         available: false,
-        reason: `RVM model is not installed: ${model.path}. ${model.fetchHint}`,
+        reason: `${RVM_UNAVAILABLE_REASON}。直すには ${model.fetchHint} を実行してください`,
       };
     }
   }
@@ -197,7 +246,13 @@ function parseArguments(argv) {
 }
 
 function needsBuild(helperBin) {
-  const sourceStat = fs.statSync(helperSource);
+  let sourceStat;
+  try {
+    sourceStat = fs.statSync(helperSource);
+  } catch (error) {
+    if (error?.code === "ENOENT" && fs.existsSync(helperBin)) return false;
+    throw error;
+  }
   try {
     return fs.statSync(helperBin).mtimeMs < sourceStat.mtimeMs;
   } catch (error) {
@@ -224,14 +279,29 @@ function engineForPlatform(quality, platform = os.platform()) {
 
 function prepareExecution(options, {
   platform = os.platform(),
-  resolveModel = resolveRvmModel,
+  resolveModel,
+  resolveRuntime,
   buildVisionHelper = buildHelper,
 } = {}) {
   const engine = engineForPlatform(options.quality, platform);
   if (engine === "rvm") {
+    if (typeof resolveModel !== "function") {
+      throw new Error(RVM_UNAVAILABLE_REASON);
+    }
+    if (typeof resolveRuntime !== "function") {
+      throw new Error(
+        `${RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      );
+    }
+    const runtime = resolveRuntime();
+    if (!runtime.available) {
+      throw new Error(
+        `${runtime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${runtime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      );
+    }
     const resolved = resolveModel(options.model);
     if (resolved.missing) {
-      throw new Error(`RVM model is not installed: ${resolved.path}. ${resolved.fetchHint}`);
+      throw new Error(`${RVM_UNAVAILABLE_REASON}。直すには ${resolved.fetchHint} を実行してください`);
     }
     return { ...options, engine, modelPath: resolved.path };
   }
@@ -341,7 +411,7 @@ async function generate(options) {
       "segment",
       process.execPath,
       [
-        rvmHelper,
+        options.rvmHelper,
         "--width", String(size.width),
         "--height", String(size.height),
         "--model", options.modelPath,
@@ -598,10 +668,42 @@ async function main() {
     return;
   }
 
+  await loadMediaPackage();
   const platform = os.platform();
-  const availability = checkAvailability({ platform });
+  const engine = engineForPlatform(options.quality, platform);
+  const rvm = engine === "rvm" || options.check ? await loadRvmPackage() : null;
+  let availability = checkAvailability({
+    platform,
+    resolveModel: rvm?.resolveModel,
+    resolveRuntime: rvm?.resolveRuntime,
+  });
+  if (engine === "rvm" && availability.available && !rvm) {
+    availability = { available: false, reason: RVM_UNAVAILABLE_REASON };
+  } else if (engine === "rvm" && availability.available && rvm) {
+    const executionRuntime = rvm.resolveRuntime();
+    if (!executionRuntime.available) {
+      availability = {
+        available: false,
+        reason: `${executionRuntime.reason ?? RVM_RUNTIME_UNAVAILABLE_REASON}。直すには ${executionRuntime.installHint ?? RVM_RUNTIME_INSTALL_HINT} を実行してください`,
+      };
+    } else {
+      const executionModel = rvm.resolveModel(options.model);
+      if (executionModel.missing) {
+        availability = {
+          available: false,
+          reason: `${RVM_UNAVAILABLE_REASON}。直すには ${executionModel.fetchHint} を実行してください`,
+        };
+      }
+    }
+  }
   if (options.check) {
-    printJson({ ...availability, rvm_model: resolveRvmModel(DEFAULT_RVM_MODEL) });
+    const rvmModel = rvm
+      ? rvm.resolveModel(DEFAULT_RVM_MODEL)
+      : { model: DEFAULT_RVM_MODEL, missing: true, reason: RVM_UNAVAILABLE_REASON };
+    const rvmRuntime = rvm
+      ? rvm.resolveRuntime()
+      : { available: false, reason: RVM_RUNTIME_UNAVAILABLE_REASON, installHint: RVM_RUNTIME_INSTALL_HINT };
+    printJson({ ...availability, rvm_model: rvmModel, rvm_runtime: rvmRuntime });
     return;
   }
   if (!options.input || !options.out) {
@@ -616,7 +718,12 @@ async function main() {
   }
 
   try {
-    const prepared = prepareExecution(options, { platform });
+    const prepared = prepareExecution(options, {
+      platform,
+      resolveModel: rvm?.resolveModel,
+      resolveRuntime: rvm?.resolveRuntime,
+    });
+    if (prepared.engine === "rvm") prepared.rvmHelper = rvm?.helper;
     printJson(await generate(prepared));
   } catch (error) {
     printJson({ ok: false, reason: summarize(error?.message, "人物マットの生成に失敗しました") });
@@ -633,7 +740,14 @@ function isMainModule() {
   }
 }
 
-if (isMainModule()) await main();
+if (isMainModule()) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error?.message ?? "人物マットを開始できませんでした。");
+    process.exit(1);
+  }
+}
 
 export {
   DEFAULT_DECODE_WIDTH,

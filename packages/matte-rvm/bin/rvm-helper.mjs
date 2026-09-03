@@ -8,7 +8,18 @@ import path from "node:path";
 import { once } from "node:events";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import ort from "onnxruntime-node";
+
+const RUNTIME_UNAVAILABLE_REASON =
+  "RVM の実行環境が入っていないため、この品質では人物マットを生成できません。直すには cd packages/matte-rvm && npm install を実行してください";
+
+async function loadRuntime(importRuntime = (specifier) => import(specifier)) {
+  try {
+    const loaded = await importRuntime("onnxruntime-node");
+    return loaded.default ?? loaded;
+  } catch {
+    return null;
+  }
+}
 
 function parseArguments(argv) {
   const options = {
@@ -80,7 +91,7 @@ async function writeFrame(frame) {
   if (!process.stdout.write(frame)) await once(process.stdout, "drain");
 }
 
-async function run(options) {
+async function run(options, ort) {
   const pixels = options.width * options.height;
   const frameBytes = pixels * 4;
   const ratio = options.downsampleRatio ?? recommendedRatio(options);
@@ -183,8 +194,13 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  run(parseArguments(process.argv.slice(2))).catch((error) => {
-    process.stderr.write(`${JSON.stringify({ error: String(error?.message ?? error) })}\n`);
-    process.exitCode = 1;
-  });
+  const ort = await loadRuntime();
+  if (!ort) {
+    process.stdout.write(`${JSON.stringify({ ok: false, reason: RUNTIME_UNAVAILABLE_REASON })}\n`);
+  } else {
+    run(parseArguments(process.argv.slice(2)), ort).catch((error) => {
+      process.stderr.write(`${JSON.stringify({ error: String(error?.message ?? error) })}\n`);
+      process.exitCode = 1;
+    });
+  }
 }

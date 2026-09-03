@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-    DEFAULT_CONNECTIONS_REGISTRY,
-    resolveCreatorRoot
-} from '../../../packages/creator-root/src/index.mjs';
+import { importPackage } from './resolve-packages.mjs';
+
+let DEFAULT_CONNECTIONS_REGISTRY;
+let resolveCreatorRoot;
+
+async function loadCreatorRoot() {
+    if (resolveCreatorRoot) return;
+    const creatorRoot = await importPackage('creator-root/src/index.mjs', { from: import.meta.url });
+    DEFAULT_CONNECTIONS_REGISTRY = creatorRoot.DEFAULT_CONNECTIONS_REGISTRY;
+    resolveCreatorRoot = creatorRoot.resolveCreatorRoot;
+}
 
 const PROVIDER_KINDS = new Set(['genai', 'image', 'video', 'tts', 'music', 'sns', 'analytics']);
 const PROVIDER_AUTHS = new Set(['login', 'env-key', 'oauth-mcp', 'none']);
@@ -99,6 +107,7 @@ export async function resolveConnections({
     env = process.env,
     platform = process.platform
 } = {}) {
+    await loadCreatorRoot();
     const resolvedProjectRoot = path.resolve(projectRoot);
     const projectPath = path.join(resolvedProjectRoot, '.akari', 'connections.json');
     const project = await readConnectionsFile(projectPath);
@@ -342,7 +351,21 @@ function clone(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-    const resolved = await resolveConnections({ projectRoot: process.argv[2] ?? process.cwd() });
-    process.stdout.write(`${JSON.stringify(resolved, null, 2)}\n`);
+function isMainModule() {
+    if (!process.argv[1]) return false;
+    try {
+        return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(process.argv[1]));
+    } catch {
+        return false;
+    }
+}
+
+if (isMainModule()) {
+    try {
+        const resolved = await resolveConnections({ projectRoot: process.argv[2] ?? process.cwd() });
+        process.stdout.write(`${JSON.stringify(resolved, null, 2)}\n`);
+    } catch (error) {
+        console.error(error?.message ?? '接続設定を解決できませんでした。');
+        process.exit(1);
+    }
 }
