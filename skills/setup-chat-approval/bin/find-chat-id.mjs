@@ -3,14 +3,26 @@
 // 読み取り専用（getUpdates のみ・無償）。credentials.env へは書き戻さない（人間が書く）。
 // トークンは出力に出さない。
 
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-import { parseCredentials, redactToken } from "../../../packages/chat-bridge/src/telegram-core.mjs";
+import { importPackage } from "./resolve-packages.mjs";
+
+let parseCredentials;
+let redactToken;
+
+async function loadDependencies() {
+  const telegram = await importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url });
+  parseCredentials = telegram.parseCredentials;
+  redactToken = telegram.redactToken;
+}
 
 async function main() {
+  await loadDependencies();
   const filePath =
     process.env.AKARI_CREDENTIALS_FILE ??
     path.join(homedir(), ".config", "akari-video", "credentials.env");
@@ -62,7 +74,18 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(process.argv[1]));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  main().catch((error) => {
+    console.error(error?.message ?? "Telegram の chat ID を確認できませんでした。");
+    process.exit(1);
+  });
+}

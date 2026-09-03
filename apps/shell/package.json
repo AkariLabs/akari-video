@@ -187,7 +187,8 @@
         "from": "../../skills/analyze-footage/bin/person-matte",
         "to": "skills/analyze-footage/bin/person-matte",
         "filter": [
-          "*.mjs"
+          "*.mjs",
+          "person-matte-helper.swift"
         ]
       },
       {
@@ -244,6 +245,14 @@
         ]
       },
       {
+        "from": "../../packages/chat-bridge",
+        "to": "packages/chat-bridge",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "resources/cli-node-modules",
         "to": "packages/node_modules"
       },
@@ -277,8 +286,10 @@
         "to": "packages/schemas",
         "filter": [
           "captions.schema.json",
+          "edit.schema.json",
           "interpretation.schema.json",
           "bin/validate-asset.mjs",
+          "bin/validate-edit.mjs",
           "bin/validate-interpretation.mjs",
           "bin/validate-word-book.mjs",
           "word-book.schema.json"

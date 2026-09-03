@@ -77,3 +77,4 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 - first-run・代理取得しない規律: [../setup-library/SKILL.md](../setup-library/SKILL.md)
 - 有償操作の承認ゲート: [../edit-plan/approvals-and-generation.md](../edit-plan/approvals-and-generation.md)
 - レジストリ検証: `node packages/schemas/bin/validate-connections.mjs .akari/connections.json`
+  （モノレポでのみ実行可。プロジェクト配布版には同梱されていない）
