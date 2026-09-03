@@ -1,6 +1,6 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
 import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
-import { parseThreeEntrance } from "./three-entrance.mjs";
+import { parseThreeEntrance, scanThreeSampled } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -72,6 +72,7 @@ const OVERLAY_CONDITIONS = [
 ];
 
 const DOM_LAYER_CONDITIONS = new Set(["animation-timing", "advanced-css"]);
+const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -110,10 +111,20 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
     } else if (isThreeOnlyOverlay(source, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
-    } else if (entrance?.ok && names.every((name) => ["three-or-canvas-runtime", "animation-timing"].includes(name))) {
-      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
-    } else if (entranceCandidate && !entrance.ok) {
-      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason, names));
+    } else if (entranceCandidate) {
+      const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
+      if (entrance.ok && withinSampledConditions) {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
+      } else if (withinSampledConditions) {
+        const sampled = scanThreeSampled(html);
+        entries.push(sampled.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", sampled.reason, names));
+      } else if (names.includes("css-3d-transform")) {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "three-entrance-3d-matrix", names));
+      } else {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason ?? names.join(", "), names));
+      }
     } else if (names.length === 0) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "same", "static-html-sprite", []));
     } else if (names.every((name) => DOM_LAYER_CONDITIONS.has(name))) {

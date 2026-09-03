@@ -1,0 +1,12 @@
+<div class="classic-curve">
+  <style>
+    [data-akari-active] .classic-curve, [data-no-timeline] .classic-curve { animation: classic-curve 1s linear 0s both; }
+    @keyframes classic-curve {
+      from { opacity: 0; transform: translate(-40px, 20px) scale(.8); }
+      to { opacity: 1; transform: translate(0px, 0px) scale(1); }
+    }
+  </style>
+  <canvas style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

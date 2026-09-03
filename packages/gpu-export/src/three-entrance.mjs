@@ -10,6 +10,55 @@ const TIMING_KEYWORDS = new Map([
 
 const fail = (reason) => ({ ok: false, reason });
 
+export function scanThreeSampled(html) {
+  const source = stripComments(stripHtmlComments(html));
+  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const declarations = scripts.filter((tag) =>
+    /\btype\s*=\s*["']application\/json["']/iu.test(tag)
+    && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
+  if (scripts.length !== 1 || declarations.length !== 1) return fail("three-entrance-script-count");
+
+  const parsedElements = sampledElements(source);
+  if (!parsedElements.ok) return fail("three-html-animated-descendants");
+  const { elements } = parsedElements;
+  const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
+  if (!root) return fail("three-entrance-root-missing");
+  const canvas = elements.find((element) => element.tag === "canvas");
+  const chain = sampledAncestorChain(root, canvas);
+  if (chain === null) return fail("three-entrance-canvas-missing");
+  const chainSet = new Set(chain);
+
+  for (const element of elements) {
+    const inlineStyle = element.attributes.get("style") ?? "";
+    if (/\b(?:animation|transition)(?:-[a-z-]+)?\s*:/iu.test(inlineStyle) && !chainSet.has(element)) {
+      return fail("three-html-animated-descendants");
+    }
+  }
+
+  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
+    .map((match) => match[1]).join("\n");
+  const withoutKeyframes = extractKeyframes(styleText);
+  if (!withoutKeyframes.ok) return fail("three-html-animated-descendants");
+  const withoutProperties = removeSampledAtRules(withoutKeyframes.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
+  if (!withoutProperties.ok || /@[a-z_-]+\b/iu.test(withoutProperties.css)) {
+    return fail("three-html-animated-descendants");
+  }
+  const parsedRules = parseRules(withoutProperties.css);
+  if (!parsedRules.ok) return fail("three-html-animated-descendants");
+  for (const rule of parsedRules.rules) {
+    if (!hasDeclaration(rule.declarations, "animation") && !hasDeclaration(rule.declarations, "transition")) continue;
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) return fail("three-html-animated-descendants");
+      const matches = elements.filter((element) => sampledCompoundMatches(compound, element));
+      if (matches.length === 0 || matches.some((element) => !chainSet.has(element))) {
+        return fail("three-html-animated-descendants");
+      }
+    }
+  }
+  return { ok: true };
+}
+
 export function parseThreeEntrance(html, { vars = {}, transform = {}, role = null } = {}) {
   const source = stripComments(stripHtmlComments(html));
   const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
@@ -72,6 +121,152 @@ export function parseThreeEntrance(html, { vars = {}, transform = {}, role = nul
 
 function stripComments(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, "");
+}
+
+function sampledElements(html) {
+  const withoutRawText = html.replace(
+    /<(style|script)\b([^>]*)>([\s\S]*?)<\/\1\s*>/giu,
+    (_match, tag, attributes, body) => `<${tag}${attributes}>${" ".repeat(body.length)}</${tag}>`,
+  );
+  const voidElements = new Set([
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
+  ]);
+  const elements = [];
+  const stack = [];
+  for (const token of sampledHtmlTags(withoutRawText)) {
+    const closing = token.match(/^<\s*\/\s*([a-z][a-z0-9-]*)\s*>$/iu);
+    if (closing) {
+      const tag = closing[1].toLowerCase();
+      if (stack.length === 0 || stack.at(-1).tag !== tag) return { ok: false, elements: [] };
+      stack.pop();
+      continue;
+    }
+    if (/^<\s*[!?]/u.test(token)) continue;
+    const match = token.match(/^<\s*([a-z][a-z0-9-]*)\b([\s\S]*?)>$/iu);
+    if (!match) return { ok: false, elements: [] };
+    const attributes = new Map();
+    const body = match[2].replace(/\/\s*$/u, "");
+    const pattern = /([^\s=/>]+)(?:\s*=\s*(?:(["'])([\s\S]*?)\2|([^\s>]+)))?/gu;
+    for (const attribute of body.matchAll(pattern)) {
+      attributes.set(attribute[1].toLowerCase(), attribute[3] ?? attribute[4] ?? "");
+    }
+    const tag = match[1].toLowerCase();
+    const element = { tag, attributes, parent: stack.at(-1) ?? null };
+    elements.push(element);
+    if (!voidElements.has(tag) && !/\/\s*>$/u.test(token)) stack.push(element);
+  }
+  return stack.length === 0 ? { ok: true, elements } : { ok: false, elements: [] };
+}
+
+function sampledHtmlTags(html) {
+  const tags = [];
+  let cursor = 0;
+  while (cursor < html.length) {
+    const open = html.indexOf("<", cursor);
+    if (open < 0) break;
+    let quote = null;
+    let close = -1;
+    for (let index = open + 1; index < html.length; index += 1) {
+      const character = html[index];
+      if (quote) {
+        if (character === "\\") index += 1;
+        else if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") quote = character;
+      else if (character === ">") {
+        close = index;
+        break;
+      }
+    }
+    if (close < 0) return ["<invalid>"];
+    tags.push(html.slice(open, close + 1));
+    cursor = close + 1;
+  }
+  return tags;
+}
+
+function sampledAncestorChain(root, canvas) {
+  if (!canvas) return null;
+  const reverse = [];
+  for (let element = canvas; element; element = element.parent) {
+    reverse.push(element);
+    if (element === root) return reverse.reverse();
+  }
+  return null;
+}
+
+function removeSampledAtRules(css, pattern) {
+  const spans = [];
+  for (const match of css.matchAll(pattern)) {
+    const open = match.index + match[0].lastIndexOf("{");
+    const close = matchingBrace(css, open);
+    if (close < 0) return { ok: false, css: "" };
+    spans.push([match.index, close + 1]);
+    pattern.lastIndex = close + 1;
+  }
+  let output = "";
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    output += css.slice(cursor, start);
+    cursor = end;
+  }
+  return { ok: true, css: output + css.slice(cursor) };
+}
+
+function rightmostSampledCompound(selector) {
+  const value = selector.trim();
+  let bracketDepth = 0;
+  let quote = null;
+  let start = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === "[") bracketDepth += 1;
+    else if (character === "]") bracketDepth -= 1;
+    else if (bracketDepth === 0 && (/\s/u.test(character) || ">+~".includes(character))) start = index + 1;
+  }
+  const compound = value.slice(start).trim();
+  return compound === "" || bracketDepth !== 0 || /[:*\s>+~]/u.test(compound) ? null : compound;
+}
+
+function sampledCompoundMatches(compound, element) {
+  let cursor = 0;
+  const tag = compound.match(/^[a-z][a-z0-9-]*/iu);
+  if (tag) {
+    if (tag[0].toLowerCase() !== element.tag) return false;
+    cursor = tag[0].length;
+  }
+  while (cursor < compound.length) {
+    const rest = compound.slice(cursor);
+    const className = rest.match(/^\.([a-z_][a-z0-9_-]*)/iu);
+    if (className) {
+      const classes = (element.attributes.get("class") ?? "").split(/\s+/u).filter(Boolean);
+      if (!classes.includes(className[1])) return false;
+      cursor += className[0].length;
+      continue;
+    }
+    const id = rest.match(/^#([a-z_][a-z0-9_-]*)/iu);
+    if (id) {
+      if (element.attributes.get("id") !== id[1]) return false;
+      cursor += id[0].length;
+      continue;
+    }
+    const attribute = rest.match(/^\[\s*([a-z_][a-z0-9_-]*)(?:\s*=\s*(?:(["'])(.*?)\2|([^\]\s]+)))?\s*\]/iu);
+    if (attribute) {
+      const name = attribute[1].toLowerCase();
+      if (!element.attributes.has(name)) return false;
+      const expected = attribute[3] ?? attribute[4];
+      if (expected !== undefined && element.attributes.get(name) !== expected) return false;
+      cursor += attribute[0].length;
+      continue;
+    }
+    return false;
+  }
+  return true;
 }
 
 function rootElement(html) {

@@ -1,0 +1,12 @@
+<div class="sampled-multiple">
+  <style>
+    [data-akari-active] .sampled-multiple, [data-no-timeline] .sampled-multiple {
+      animation: sampled-fade 1s linear both, sampled-move 1s ease-out both;
+    }
+    @keyframes sampled-fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes sampled-move { from { transform: translateX(-120px); } to { transform: translateX(0); } }
+  </style>
+  <canvas style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

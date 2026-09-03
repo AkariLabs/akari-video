@@ -1,0 +1,12 @@
+<div data-akari-3d-root>
+  <style>
+    [data-akari-3d-root] { position: absolute; inset: 0; opacity: 0; }
+    [data-akari-active] [data-akari-3d-root], [data-no-timeline] [data-akari-3d-root] {
+      animation: sampled-root 1s ease-out both;
+    }
+    @keyframes sampled-root { from { opacity: 0; transform: translateY(80px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+  <canvas style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

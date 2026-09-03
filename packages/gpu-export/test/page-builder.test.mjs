@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -317,6 +317,7 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
   });
   assert.deepEqual(result.spriteManifest.three[0], {
     id: "animated", start: 1, duration: 2, index: 0, z: 0,
+    entranceMode: "curve",
     entrance: {
       durationSec: 1.1,
       delaySec: 0.05,
@@ -327,10 +328,23 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
     },
   });
   assert.deepEqual(result.spriteManifest.three[1], {
-    id: "direct", start: 0, duration: 3, index: 1, z: 0,
+    id: "direct", start: 0, duration: 3, index: 1, z: 0, entranceMode: "none",
   });
   assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-curve");
   assert.equal(result.eligibility.entries[1].reason, "three-scene-canvas-direct");
+});
+
+test("GPU page manifest takes sampled entrance mode from eligibility", async () => {
+  const html = await readFile(join(import.meta.dirname, "fixtures", "three-sampled-middle-keyframe.html"), "utf8");
+  const overlays = [{ id: "sampled", start: 0, duration: 2, html }];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: resolve(import.meta.dirname, "../../.."), duration: 2,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.three, [{
+    id: "sampled", start: 0, duration: 2, index: 0, z: 0, entranceMode: "sampled",
+  }]);
+  assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-sampled");
 });
 
 test("GPU page carries text slot params to static sprites and DOM runs and inlines the slot runtime (#32)", () => {

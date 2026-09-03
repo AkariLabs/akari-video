@@ -43,21 +43,25 @@ unit 終了時に解放します。canvas / WebGL を汚染する Blob・HTTP UR
 karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
 具体的な理由を付けて fail-closed になります。
 
-### 宣言型 3D の登場曲線（v3）
+### 宣言型 3D の登場表現（v3）
 
-宣言型 Three.js scene は、ルート要素 1 個の登場 animation だけを GPU 経路で扱えます。
-`[data-akari-active] .root, [data-no-timeline] .root` の対になった selector、両端だけの keyframe
-1 本、既知の CSS timing、0 以上の delay、iteration 1 回、normal direction、`both` または
-`forwards` fill が必須です。keyframe で動かせるのは opacity と 2D translate / scale だけです。
-対応する CSS 変数と `calc(var(...) + Npx)` / `calc(var(...) * N)` は、書き出し前に overlay の
-vars と x / y / scale transform から解決します。manifest は opacity・平行移動・scale の絶対的な
-両端値を保持し、Three.js の内部 animation は従来どおりエンジンの local clock で動かしたまま、
-compositor が同じ登場曲線を毎コマ評価します。
+宣言型 Three.js scene は、transition、`@property`、複数 animation、中間 keyframe、alternate、
+rotate、skew を使う CSS 登場表現も GPU 経路で扱えます。従来の 2 endpoint 文法は `curve` の高速経路に
+残し、それ以外で断片 root から Three canvas までの祖先チェーン内に閉じた登場表現は `sampled` 経路へ
+送ります。paused WAAPI を合成時刻へ seek し、overlay container から Three canvas までの計算済み
+opacity と 2D transform をアクティブな毎コマで実測します。canvas が出力全面なら軸平行 transform は
+sprite draw state、回転・せん断・非全画面 canvas は中間 2D canvas で処理します。Three.js 自体は
+従来どおりエンジンの local clock で動きます。
 
-transition、`@property`、複数 animation、複数の animated element、中間 keyframe、alternate、
-rotate / skew / 3D transform、filter、clip-path は、具体的な `three-entrance-*` 理由で fail-closed
-になります。CSS animation のない宣言型 3D は、既存の `three-scene-canvas-direct` manifest 形と
-挙動を維持します。
+登録済みカスタムプロパティの keyframe も sampled 経路へ入りますが、現状の書き出し用 sheet の WAAPI
+clone では GPU / OSR ともプロパティが初期値のままです。直接宣言した opacity / transform は補間され、
+両エンジンのパリティは保たれます。カスタムプロパティ補間は書き出し用 sheet 側の別課題です。
+
+実 3D 行列は `three-entrance-3d-matrix` で fail-closed になります。root→canvas の祖先チェーン外に
+animation / transition がある場合は、fallback・装飾を別の DOM 描画で合成する方式が本版では未実装の
+ため、`three-html-animated-descendants` で fail-closed になります。既存の filter / clip-path blocker は不変です。
+manifest は `entranceMode`、receipt は `curve` / `sampled` mode と sample 数・sampling 費用 p50/p95 を
+記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
 
 `render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
 不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ
