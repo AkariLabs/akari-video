@@ -28,6 +28,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
+      # 同じ required の配布ゲートへ相乗りし、RVM コード・重みの混入を最短で止める。
+      # Node 組み込みのみで追加 install は不要なため、依存 staging より先に実行する。
+      - name: check-no-gpl-redistribution
+        run: node scripts/release/check-no-gpl-redistribution.mjs
       # v0.1.25 の同梱漏れ（packages/gpu-export / skills/analyze-footage/bin/person-matte / @webav/mp4box.js）は
       # モノレポのテストでは見えず、実ビルドのパッケージ版でだけ ERR_MODULE_NOT_FOUND になった。
       # release.yml と同じ手順で同梱 npm 入口を staging し、extraResources どおりの模擬 Resources から

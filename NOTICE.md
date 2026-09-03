@@ -47,9 +47,10 @@ Supply differs by platform (no official macOS binary distribution exists):
 
 ## Robust Video Matting (RVM)
 
-This product downloads and uses the official ONNX models from
-PeterL1n/RobustVideoMatting as a separate inference asset. Robust Video
-Matting is MIT licensed. Source and license:
+Robust Video Matting is GPL-3.0 licensed. This product distributes neither
+RVM code nor model weights. At the user's direction, model weights are
+downloaded from upstream onto the user's machine as an opt-in addition.
+Source and license:
 https://github.com/PeterL1n/RobustVideoMatting
 
 Model URLs and sha256 checksums are pinned in
