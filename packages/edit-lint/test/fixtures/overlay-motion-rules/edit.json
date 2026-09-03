@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 20 }],
+  "overlays": [
+    { "id": "keyframes-sparse", "html": "overlays/keyframes-sparse.html", "start": 0, "duration": 1 },
+    { "id": "keyframes-dense", "html": "overlays/keyframes-dense.html", "start": 1, "duration": 1 },
+    { "id": "base-hidden", "html": "overlays/base-hidden.html", "start": 2, "duration": 1 },
+    { "id": "base-final", "html": "overlays/base-final.html", "start": 3, "duration": 1 },
+    { "id": "preserve-opacity", "html": "overlays/preserve-opacity.html", "start": 4, "duration": 1 },
+    { "id": "preserve-parent-opacity", "html": "overlays/preserve-parent-opacity.html", "start": 5, "duration": 1 }
+  ]
+}

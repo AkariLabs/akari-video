@@ -1,0 +1,13 @@
+<div class="reveal-card">
+  <style>
+    .reveal-card { opacity: 0; }
+    @supports (animation-name: reveal-card) {
+      [data-akari-active] .reveal-card { animation: reveal-card 400ms both; }
+    }
+    @keyframes reveal-card {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+  </style>
+  Hidden base
+</div>

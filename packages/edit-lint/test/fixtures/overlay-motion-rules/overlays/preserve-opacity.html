@@ -1,0 +1,11 @@
+<div class="cube-card">
+  <style>
+    .cube-card { opacity: 1; transform-style: preserve-3d; }
+    [data-akari-active] .cube-card { animation: cube-entry 500ms both; }
+    @keyframes cube-entry {
+      0% { opacity: 0; transform: rotateY(-25deg); }
+      100% { opacity: 1; transform: rotateY(0); }
+    }
+  </style>
+  Preserve 3D with opacity
+</div>

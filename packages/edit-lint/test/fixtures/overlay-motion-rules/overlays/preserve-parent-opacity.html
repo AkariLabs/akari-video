@@ -1,0 +1,15 @@
+<div class="cube-scene">
+  <style>
+    .cube-scene { opacity: 1; animation: scene-entry 500ms both; }
+    .cube-scene__card { transform-style: preserve-3d; animation: card-entry 500ms both; }
+    @keyframes scene-entry {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes card-entry {
+      from { transform: rotateY(-25deg); }
+      to { transform: rotateY(0); }
+    }
+  </style>
+  <div class="cube-scene__card">Opacity on parent</div>
+</div>
