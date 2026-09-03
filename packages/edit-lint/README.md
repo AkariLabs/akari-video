@@ -59,6 +59,8 @@ are skipped with a reason.
 `timeline.items.order` is a default-path warning when a track's `items[]` are not stored in
 non-decreasing `at` order. It does not change the render meaning or fail lint.
 
+`timeline.duration-derived` is an info finding when a project without visual media derives its duration from overlays, captions, narration, or SFX; BGM never extends that fallback duration.
+
 ## Engine compatibility (`--engine`)
 
 Before export, check v2 projects against the selected renderer. Use `auto` when engine selection is

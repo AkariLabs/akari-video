@@ -89,6 +89,7 @@ export function buildPlan({
         sourceInputs: capabilities.sourceInputs,
         cutPath: cutAudioPath,
         cuts: edit.cuts,
+        duration: finalDurationSeconds,
         ffmpegCommand: capabilities.ffmpegCommand,
         ffprobeCommand: capabilities.ffprobeCommand,
         audioDurationCache: sourceAudioDurationCache,
@@ -870,11 +871,24 @@ export function buildMultiSourceAudioCutCommand({
   sourceInputs,
   cutPath,
   cuts,
+  duration,
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
   maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
 }) {
+  if (cuts.length === 0) {
+    return {
+      command: ffmpegCommand,
+      warnings: [],
+      args: [
+        "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-map", "0:a", "-vn", "-c:a", "aac", "-ar", "48000",
+        "-t", formatNumber(duration), cutPath,
+      ],
+    };
+  }
   const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
   const inputLimit = normalizeAudioInputLimit(maxInputsPerCommand);
   if (countAudioInputs(cuts, sourcesById) <= inputLimit) {

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { buildV2Plan, createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -108,6 +108,78 @@ test("narration and bgm never contribute to content duration", () => {
       },
     },
   }), 10);
+});
+
+test("cuts 0 件の v2 plan は overlays + sfx の導出尺を使う", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 320, height: 180, fps: 30 },
+      sources: [{ id: "hit", path: "assets/hit.wav" }],
+      tracks: [
+        { id: "overlays", lane: "visual", items: [
+          { id: "one", at: 0, duration: 60, source: { kind: "html", path: "overlays/one.html" } },
+          { id: "two", at: 60, duration: 90, source: { kind: "html", path: "overlays/two.html" } },
+        ] },
+        { id: "sfx", lane: "audio", items: [{
+          id: "hit-1", at: 120, duration: 60, role: "sfx",
+          source: { kind: "media", src: "hit", in: 0, out: 2 },
+        }] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/render.mp4",
+    capabilities: {
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      sourceInputs: [{ id: "hit", duration: 0, hasAudio: true }],
+    },
+  });
+  assert.equal(plan.predicted_duration_seconds, 6);
+  assert.ok(plan.commands.cut_audio.args.includes("anullsrc=channel_layout=stereo:sample_rate=48000"));
+  assert.ok(!plan.commands.cut_audio.args.some((argument) => argument.includes("concat=n=0")));
+  assert.deepEqual(
+    plan.commands.cut_audio.args.slice(-3),
+    ["-t", "6", "/project/.akari/render-tmp/cut-audio.mp4"],
+  );
+});
+
+test("cuts 1 件以上の cut_audio args は従来の引数列を保つ", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 320, height: 180, fps: 30 },
+      sources: [{ id: "main", path: "assets/main.mp4" }],
+      tracks: [{ id: "video", lane: "visual", items: [{
+        id: "main-1", at: 0, duration: 60,
+        source: { kind: "media", src: "main", in: 0, out: 2 },
+      }] }],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/render.mp4",
+    capabilities: {
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      sourceInputs: [{ id: "main", duration: 2, hasAudio: false }],
+    },
+  });
+  assert.deepEqual(plan.commands.cut_audio.args, [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-nostdin",
+    "-y",
+    "-filter_complex",
+    "anullsrc=r=48000:cl=stereo,atrim=duration=2,asetpts=PTS-STARTPTS[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+    "-map",
+    "[joineda]",
+    "-vn",
+    "-c:a",
+    "aac",
+    "-ar",
+    "48000",
+    "/project/.akari/render-tmp/cut-audio.mp4",
+  ]);
 });
 
 test("tail padding adds black video and silent audio through the final duration", () => {

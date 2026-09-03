@@ -62,6 +62,7 @@ const {
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
   resolveCaptionDisplay,
+  timelineDurationSeconds,
   toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
 // owner.json lets the next run reclaim a crashed process immediately. Directories created before
@@ -193,7 +194,7 @@ export async function renderProject(input, options = {}, io = console) {
   const renderRead = readRenderEdit(editText, renderTmpRoot, { captions });
   let edit = renderRead.edit;
   const internalEdit = renderRead.internal;
-  validateEditShape(edit);
+  validateEditShape(edit, internalEdit);
 
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(
@@ -1506,7 +1507,7 @@ async function assertContainedDirectory(root, directory, label) {
   }
 }
 
-function validateEditShape(edit) {
+function validateEditShape(edit, internalEdit) {
   if (!edit || typeof edit !== "object" || Array.isArray(edit)) throw new ExecutionError("edit.json must be an object");
   if (!edit.output || !positive(edit.output.width) || !positive(edit.output.height) || !positive(edit.output.fps)) throw new ExecutionError("edit.json output width, height, and fps must be positive numbers");
   {
@@ -1531,7 +1532,10 @@ function validateEditShape(edit) {
     }
     // v1 の cuts 空/欠落は v0 の「素材全体」ではなく空タイムラインを意味する。
     if (edit.cuts === undefined || (Array.isArray(edit.cuts) && edit.cuts.length === 0)) {
-      throw new RefusalError("edit.json version 1 has no output duration because cuts is empty");
+      const duration = internalEdit ? timelineDurationSeconds(internalEdit).seconds : 0;
+      if (!(duration > 0)) {
+        throw new RefusalError("edit.json version 1 has no output duration because cuts is empty");
+      }
     }
     if (!Array.isArray(edit.cuts)) throw new ExecutionError("edit.json cuts must be an array");
     for (const [index, cut] of edit.cuts.entries()) {

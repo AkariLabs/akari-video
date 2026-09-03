@@ -38,8 +38,8 @@ const {
   readInternalEdit,
   resolveItemAnchors,
   resolveCaptionDisplay,
+  timelineDurationSeconds,
   toAnchorCaptions,
-  visualContentEndSeconds,
   TRANSITION_TYPE_IDS,
   withoutItemAnchors,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
@@ -305,12 +305,19 @@ export async function lintProject(input, options = {}) {
     paths,
     structure.sourceIds,
   );
-  // 総尺の正本定義は「cuts の合計」ではなく「全 visual トラックのアイテムの最大終端」
-  // （packages/edit-store の visualContentEndSeconds、render-cut と共有）。段（トラック）を
-  // 移動しても cuts/layers の振り分けが変わるだけで total は動かない
-  // （P0 2026-08-20 track-identity-and-duration 指示 2）。cuts が構造的に不正なときは
-  // 従来どおり timeline を null にして下流の尺検証を止める。
-  const timeline = cutsStructureResult === null ? null : visualContentEndSeconds(internalEdit);
+  // 総尺は edit-store の共通定義で決める。映像本体がある間は従来の visual 最大終端のままで、
+  // 0 秒のときだけ overlays / 音声の終端へ後退する。cuts が構造的に不正なときは従来どおり
+  // timeline を null にして下流の尺検証を止める。
+  const timelineDuration = cutsStructureResult === null ? null : timelineDurationSeconds(internalEdit);
+  const timeline = timelineDuration?.seconds ?? null;
+  if (timelineDuration?.basis === "overlays-audio") {
+    addFinding(findings, {
+      severity: "info",
+      check: "timeline.duration-derived",
+      message: `映像素材が無いため尺を overlays / 音声の終端 ${formatNumber(timeline)} 秒から導出した`,
+      path: "edit.json#tracks",
+    });
+  }
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
