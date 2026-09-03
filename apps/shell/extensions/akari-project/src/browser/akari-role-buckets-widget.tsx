@@ -210,12 +210,14 @@ interface OutputEntry {
 /**
  * 非開発者モード向けの「素材」差し替えビュー。
  *
- * 標準 Explorer ツリーの代わりに、上下 2 分割のドメインビューを見せる
+ * 標準 Explorer ツリーの代わりにドメインビューを見せる
  * （U6 裁定 2026-08-03、正本: internal `planning/notes-2026-08-03-owner-feedback-shell-v013.md`）:
- * - 上段「素材」: assets/ カード + 未整理セクション + D&D。末尾の「＋ カタログから
- *   素材をさがす」ボタンで widget 内遷移してカタログ面を表示する（タブではない —
+ * - 最上部の固定セグメントで「プロジェクト」/「ライブラリ」を切り替える（タブではない —
  *   `topView` で表示先を切り替えるだけで、両者は同じ widget インスタンスの状態）
- * - 下段「できたもの」: プロジェクトの成果物を 4 グループ（編集データ / 企画・メモ /
+ * - 「プロジェクト」面は上下 2 分割。上段「素材」: assets/ カード + 未整理セクション + D&D
+ * - 「ライブラリ」面はパネル全体を使う 1 面（2026-09-03 オーナー指示）。共有の棚であって
+ *   プロジェクトの成果物とは別系統なので「できたもの」とは同居させない
+ * - 下段「できたもの」（プロジェクト面のみ）: プロジェクトの成果物を 4 グループ（編集データ / 企画・メモ /
  *   書き出し / レポート — OUTPUT_GROUPS）に分けて read-only 一覧表示。グループ内は
  *   新しい順。クリックで中央に開く（`openFile` — 既存の
  *   akari-menu-widget.openExportedArtifact と同じ `open(this.openers, uri)` 型）。
@@ -1829,26 +1831,37 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     // --- 描画 -----------------------------------------------------------------
 
     /**
-     * 上下 2 分割（U6）。上 = 素材（+ カタログへの widget 内遷移）/ 下 = できたもの。
-     * モック比率（上がやや広い）に合わせ flex-grow 1.2 : 1 を割り当てる
+     * プロジェクト面は上下 2 分割（U6）。上 = 素材 / 下 = できたもの。モック比率
+     * （上がやや広い）に合わせ flex-grow 1.2 : 1 を割り当てる
      * （`planning/attachments/2026-08-03-owner-feedback-shell-v013/shell-home-mock.html`
      * の `.lp-top { flex: 1.2 }` / `.lp-bottom { flex: 1 }` と同値）。
+     *
+     * ライブラリ面は 1 面（パネル全体）— 2026-09-03 オーナー指示「ライブラリ特化タブに
+     * した方がいい」。ライブラリはプロジェクトの外にある共有の棚で、プロジェクトの成果物
+     * （できたもの）とは別系統なので、同じ画面に並べる必然がない。プロジェクト面へ
+     * 戻せば「できたもの」も戻る（できたもの自体は撤去しない）。
      */
     protected override render(): React.ReactNode {
+        const libraryOnly = this.topView === 'catalog';
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div
+                style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+                data-akari-left-panel-layout={libraryOnly ? 'library-only' : 'split'}
+            >
                 <div style={{
-                    flex: '1.2 1 0%',
+                    flex: libraryOnly ? '1 1 0%' : '1.2 1 0%',
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    borderBottom: '1px solid var(--theia-sideBar-border)'
+                    borderBottom: libraryOnly ? undefined : '1px solid var(--theia-sideBar-border)'
                 }}>
                     {this.renderMaterialsPane()}
                 </div>
-                <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                    {this.renderOutputsPane()}
-                </div>
+                {!libraryOnly && (
+                    <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                        {this.renderOutputsPane()}
+                    </div>
+                )}
                 {this.renderLintBadge()}
             </div>
         );

@@ -1,0 +1,153 @@
+{
+  "00-boot-project-face": {
+    "widgetFound": true,
+    "titleBarPresent": true,
+    "titleBarHiddenClass": true,
+    "titleBarHeight": 0,
+    "titleBarText": "素材",
+    "layout": "split",
+    "outputsPanePresent": true,
+    "outputCardCount": 4,
+    "materialCardCount": 1,
+    "paneTop": 0,
+    "paneHeight": 646,
+    "segments": [
+      {
+        "view": "materials",
+        "selected": "true",
+        "rect": {
+          "x": 68,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      },
+      {
+        "view": "catalog",
+        "selected": "false",
+        "rect": {
+          "x": 149,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      }
+    ]
+  },
+  "01-library-face": {
+    "widgetFound": true,
+    "titleBarPresent": true,
+    "titleBarHiddenClass": true,
+    "titleBarHeight": 0,
+    "titleBarText": "素材",
+    "layout": "library-only",
+    "outputsPanePresent": false,
+    "outputCardCount": 0,
+    "materialCardCount": 0,
+    "paneTop": 0,
+    "paneHeight": 646,
+    "segments": [
+      {
+        "view": "materials",
+        "selected": "false",
+        "rect": {
+          "x": 68,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      },
+      {
+        "view": "catalog",
+        "selected": "true",
+        "rect": {
+          "x": 149,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      }
+    ]
+  },
+  "02-back-to-project-face": {
+    "widgetFound": true,
+    "titleBarPresent": true,
+    "titleBarHiddenClass": true,
+    "titleBarHeight": 0,
+    "titleBarText": "素材",
+    "layout": "split",
+    "outputsPanePresent": true,
+    "outputCardCount": 4,
+    "materialCardCount": 1,
+    "paneTop": 0,
+    "paneHeight": 646,
+    "segments": [
+      {
+        "view": "materials",
+        "selected": "true",
+        "rect": {
+          "x": 68,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      },
+      {
+        "view": "catalog",
+        "selected": "false",
+        "rect": {
+          "x": 149,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      }
+    ]
+  },
+  "03-search-view-title-bar": {
+    "icon": {
+      "x": 24,
+      "y": 76,
+      "count": 10
+    },
+    "titleBarHiddenClass": false,
+    "titleBarHeight": 35,
+    "titleBarText": "SEARCH"
+  },
+  "04-back-to-assets-view": {
+    "widgetFound": true,
+    "titleBarPresent": true,
+    "titleBarHiddenClass": true,
+    "titleBarHeight": 0,
+    "titleBarText": "素材",
+    "layout": "split",
+    "outputsPanePresent": true,
+    "outputCardCount": 4,
+    "materialCardCount": 1,
+    "paneTop": 0,
+    "paneHeight": 646,
+    "segments": [
+      {
+        "view": "materials",
+        "selected": "true",
+        "rect": {
+          "x": 68,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      },
+      {
+        "view": "catalog",
+        "selected": "false",
+        "rect": {
+          "x": 149,
+          "y": 8,
+          "width": 65,
+          "height": 47
+        }
+      }
+    ]
+  },
+  "99-errCount": 0
+}
