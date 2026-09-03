@@ -58,10 +58,36 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       hard_stop_exceeded: memory.hardStopExceeded ?? false,
     },
     output_scale: normalizeOutputScale(run?.output_scale),
+    sources: normalizeSourceSelections(run?.sources),
     run: run?.persistentPath ?? null,
     finalVerify,
     audio: normalizeGpuAudioRecord(audio),
   };
+}
+
+
+// 出口が素材ごとにどちらを読んだかの記録（契約 tasks/2026-09-03-export-original-source 指示 4）。
+// page-runtime の resolveSourceSelections が返した配列を、必須キーが揃った要素だけ残して写す。
+export function normalizeSourceSelections(value) {
+  if (!Array.isArray(value)) return null;
+  const entries = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.id !== "string" || entry.id === "") continue;
+    if (!["original", "proxy", "auto-proxy"].includes(entry.chosen)) continue;
+    if (typeof entry.reason !== "string" || entry.reason === "") continue;
+    if (typeof entry.path !== "string" || entry.path === "") continue;
+    entries.push({
+      id: entry.id,
+      chosen: entry.chosen,
+      reason: entry.reason,
+      path: entry.path,
+      width: Number.isInteger(entry.width) && entry.width > 0 ? entry.width : null,
+      height: Number.isInteger(entry.height) && entry.height > 0 ? entry.height : null,
+      ...(typeof entry.codec === "string" && entry.codec !== "" ? { codec: entry.codec } : {}),
+    });
+  }
+  return entries;
 }
 
 function normalizeOutputScale(value) {

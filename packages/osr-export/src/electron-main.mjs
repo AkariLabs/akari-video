@@ -170,6 +170,8 @@ export async function runOsrExport(options) {
       warnings: [...rendererWarnings],
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
+    // page-runtime の resolveSourceSelections が決めた素材ごとの chosen / reason / path / 寸法。
+    const sourceSelections = await readSourceSelections(windowRef);
     encoderSession = startRawVideoEncoder({
       ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, codec, edit: built.edit, queueDepth,
     });
@@ -263,6 +265,7 @@ export async function runOsrExport(options) {
       viewport,
       warm_up: warmUp,
       ffprobe,
+      sources: sourceSelections,
       warnings: [...rendererWarnings],
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
@@ -565,6 +568,16 @@ async function captureFrameBitmap({
     toBitmapMs,
     verifyMs: performance.now() - verifyStarted,
   };
+}
+
+/** 出口の素材選択記録をページから引き取る。未設定・失敗は空配列（run.json の他の項目は落とさない）。 */
+async function readSourceSelections(windowRef) {
+  try {
+    const value = await windowRef.webContents.executeJavaScript("window.__akariSourceSelections ?? []");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Adds renderer warnings in first-seen order; repeated seeks never duplicate run.json entries. */

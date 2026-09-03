@@ -16610,6 +16610,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    decodeStartSyncSample: () => decodeStartSyncSample,
     describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
@@ -22224,6 +22225,13 @@ void main() {
     }
     return 0;
   }
+  function decodeStartSyncSample(table, target) {
+    let index = precedingSyncSample(table, target.decodeIndex);
+    while (index > 0 && table.samples[index].timestampUs > target.timestampUs) {
+      index = precedingSyncSample(table, index - 1);
+    }
+    return index;
+  }
 
   // packages/frame-engine/src/decode/range-mp4-source.ts
   var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
@@ -22839,7 +22847,7 @@ void main() {
       const targetSample = sampleAtPresentationTime(table, targetUs);
       const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
       if (buffered) return buffered;
-      const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
+      const syncIndex = decodeStartSyncSample(table, targetSample);
       const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
       if (!forward) {
         if (this.currentSyncIndex >= 0) await this.resetDecoder();

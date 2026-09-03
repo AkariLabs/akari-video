@@ -9,6 +9,7 @@ import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
+import { resolveExportSourceMode } from "../../osr-export/src/export-source-mode.mjs";
 import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
 import { parseThreeEntrance } from "./three-entrance.mjs";
 
@@ -44,6 +45,8 @@ export function buildGpuPage({
   lutCubeText = null,
   layerLutCubeTexts = [],
   eligibility = null,
+  // 出口が読む素材（既定 original / 切り戻しは AKARI_EXPORT_SOURCE）。ページ側 config へ渡す。
+  sourceMode = resolveExportSourceMode(),
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
@@ -156,6 +159,7 @@ export function buildGpuPage({
     look: lookDeclaration,
     spriteManifest,
     eligibility: resultEligibility,
+    sourceMode,
   };
   const iframe = three.length > 0
     ? '<iframe id="akari-overlays" src="/overlay-sheet.html" title="AKARI 3D overlays"></iframe>'

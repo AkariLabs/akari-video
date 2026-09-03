@@ -336,3 +336,21 @@ export function precedingSyncSample(table: Mp4VideoSampleTable, decodeIndex: num
   }
   return 0;
 }
+
+/**
+ * デコードを流し始める sync サンプル。
+ *
+ * HEVC の open-GOP（CRA）では、sync より **前に表示される** leading picture が sync の **後ろ** の
+ * decode 位置に並ぶ。この sync から流すと leading picture の参照（sync より前の画）が欠けるため
+ * RASL としてデコーダに捨てられ、目標フレームが永久に出てこない（実測: iPhone HEVC
+ * IMG_3335.mov の 866666us = CRA 933333us の直前フレームで「returned no video frame」）。
+ * 表示順で sync より前にある目標は、1 つ前の sync から流して参照を揃える。
+ * pts == dts の closed GOP（H.264 の iPhone 素材や proxy の大半）ではこのループは回らない。
+ */
+export function decodeStartSyncSample(table: Mp4VideoSampleTable, target: Mp4VideoSample): number {
+  let index = precedingSyncSample(table, target.decodeIndex);
+  while (index > 0 && table.samples[index]!.timestampUs > target.timestampUs) {
+    index = precedingSyncSample(table, index - 1);
+  }
+  return index;
+}

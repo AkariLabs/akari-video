@@ -48,6 +48,23 @@ v2 プレビューでは `sources[].proxy` は任意の最適化である。宣�
 起動を速くする。宣言が無ければ `VideoDecoder.isConfigSupported` で器の実力を調べ、原本を直接読む。
 器が原本を扱えない場合は preview-server が同じプロキシ規格で自動生成する。
 
+#### 書き出し出口の `sources[].proxy`（2026-09-03 追記）
+
+`sources[].proxy` は**プレビューの最適化であって、書き出しの入力ではない**。書き出し出口
+（gpu-export / osr-export）は既定で `sources[].path` の**原本**を読む。プロキシは 406x720 など
+出力解像度より小さく作られるため、出口が流用すると 1080x1920 出力で幅 2.66 倍・面積 7.1 倍の
+アップスケールになり、エンコーダ設定では戻せない。
+
+- 判定はプレビューと同じ frame-engine の `chooseSource` / `needsCodecProbe` 一本に通す。
+  出口の既定 mode は `original`（`auto` は宣言 proxy を無条件に選ぶので使わない）。
+- `original` でも原本のコーデックをプローブし、`support.any === false` かつ proxy が実在する
+  ときだけ proxy へ退避する（`reason: codec-unsupported`）。このとき warning を 1 件出す。
+  プローブ不能（`support == null`）は原本のまま進む。
+- 切り戻し口は環境変数 `AKARI_EXPORT_SOURCE=proxy|original|auto` のみ。未設定・未知の値は
+  `original`。UI は持たない。
+- どちらを読んだかは `.akari/gpu-run.json` と OSR run.json / レシートの `sources[]` に
+  `{ id, chosen, reason, path, width, height }` として残す。
+
 参照は path ではなく安定した `id` で行う。これにより素材の差し替えや path 変更で cut や
 サイドカーの参照が壊れない。JSON Schema は将来の任意フィールドを許容する tolerant reader とし、
 既知フィールドの型、version ごとの必須形、`source` / `sources[]` の排他を検証する。

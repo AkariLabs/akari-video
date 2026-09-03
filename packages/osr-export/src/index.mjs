@@ -101,6 +101,7 @@ export async function exportWithOsr({
         gpuPreference: launched?.gpuPreference ?? null,
         outputScale: outputScaleRecord(width, height, outputWidth, outputHeight),
         codec,
+        sources: run?.sources ?? null,
       }),
     };
   } finally {

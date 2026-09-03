@@ -4,7 +4,7 @@ import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-ind
 import {
   buildVideoSampleTable,
   decodeEndForPresentationSample,
-  precedingSyncSample,
+  decodeStartSyncSample,
   sampleAtPresentationTime,
   type Mp4VideoSample,
   type Mp4VideoSampleTable,
@@ -804,7 +804,7 @@ export class RangeMp4Source {
     const targetSample = sampleAtPresentationTime(table, targetUs);
     const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
     if (buffered) return buffered;
-    const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
+    const syncIndex = decodeStartSyncSample(table, targetSample);
     const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0
       && targetUs > this.lastTargetUs
       && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);

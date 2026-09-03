@@ -9,6 +9,7 @@ import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
+import { resolveExportSourceMode } from "./export-source-mode.mjs";
 import { stampFunctionSource } from "./stamp.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -42,6 +43,8 @@ export function buildOsrPage({
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   lutCubeText = null,
   layerLutCubeTexts = [],
+  // 出口が読む素材（既定 original / 切り戻しは AKARI_EXPORT_SOURCE）。ページ側 config へ渡す。
+  sourceMode = resolveExportSourceMode(),
 } = {}) {
   // 直接呼びで段が分からない場合は、暗黙字幕トラックの既定どおり最前面へ置く。
   const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
@@ -69,7 +72,7 @@ export function buildOsrPage({
     cubeText: lutCubeText,
     intensity: Number(edit?.output?.look?.intensity ?? 1),
   };
-  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration };
+  const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, sourceMode };
   const pageHeight = height + (stampRow ? 1 : 0);
   const html = `<!doctype html>
 <html>

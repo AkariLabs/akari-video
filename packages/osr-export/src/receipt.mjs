@@ -5,6 +5,9 @@ export function buildOsrReceipt({
   tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null,
   gpuPreference = null, warmUp = null, outputScale = null,
   codec = "h264",
+  // OSR は receipt の run に run.json の**パス**を入れるので、素材選択の記録は別引数で受ける
+  // （run が object の直接呼びでは run.sources へ後退する）。
+  sources = null,
 } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   return {
@@ -33,9 +36,35 @@ export function buildOsrReceipt({
     // 起動直後の空 paint の warm-up（run.json warm_up・契約 §11.8）。無ければ null。
     warm_up: normalizeOsrWarmUp(warmUp),
     output_scale: normalizeOutputScale(outputScale),
+    sources: normalizeSourceSelections(sources ?? run?.sources),
     run,
     finalVerify,
   };
+}
+
+
+// 出口が素材ごとにどちらを読んだかの記録（契約 tasks/2026-09-03-export-original-source 指示 4）。
+// page-runtime の resolveSourceSelections が返した配列を、必須キーが揃った要素だけ残して写す。
+export function normalizeSourceSelections(value) {
+  if (!Array.isArray(value)) return null;
+  const entries = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.id !== "string" || entry.id === "") continue;
+    if (!["original", "proxy", "auto-proxy"].includes(entry.chosen)) continue;
+    if (typeof entry.reason !== "string" || entry.reason === "") continue;
+    if (typeof entry.path !== "string" || entry.path === "") continue;
+    entries.push({
+      id: entry.id,
+      chosen: entry.chosen,
+      reason: entry.reason,
+      path: entry.path,
+      width: Number.isInteger(entry.width) && entry.width > 0 ? entry.width : null,
+      height: Number.isInteger(entry.height) && entry.height > 0 ? entry.height : null,
+      ...(typeof entry.codec === "string" && entry.codec !== "" ? { codec: entry.codec } : {}),
+    });
+  }
+  return entries;
 }
 
 function normalizeOutputScale(value) {

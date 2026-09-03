@@ -46,20 +46,91 @@
     return /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/i.test(value);
   }
 
+  // 出口の素材選択は frame-engine の chooseSource / needsCodecProbe 一本に通す（プレビューと同一実装。
+  // 契約 tasks/2026-09-03-export-original-source）。既定 mode は 'original': 'auto' は宣言 proxy を
+  // 無条件で選ぶので出口では使わない（source-selection.ts の chooseSource 参照）。
+  function exportSourceMode(value) {
+    const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+    return normalized === "proxy" || normalized === "auto" ? normalized : "original";
+  }
+
+  // v0 の単一 source も v1 の sources[] と同じ 1 本の判定へ流す。
+  function declaredSources(edit) {
+    if (Array.isArray(edit.sources)) return edit.sources;
+    return edit.source && edit.source.path
+      ? [{ id: "default", path: edit.source.path, proxy: edit.source.proxy }]
+      : [];
+  }
+
+  // 素材ごとに { url, record } を決める。mode 'original' でも needsCodecProbe は true なので原本の
+  // codec を probe し、support.any === false かつ proxy が実在するときだけ proxy へ退避する
+  // （reason 'codec-unsupported' + warning 1 件）。probe 不能（support == null）は原本のまま進む。
+  async function resolveSourceSelections(sources, options) {
+    const engine = options.engine;
+    const toUrl = options.toUrl;
+    const looksLikeImage = options.looksLikeImage;
+    const onWarning = options.onWarning;
+    const mode = exportSourceMode(options.mode);
+    const declared = [];
+    for (const source of Array.isArray(sources) ? sources : []) {
+      if (!source || !source.id) continue;
+      const original = typeof source.path === "string" && source.path !== "" ? source.path : null;
+      const proxy = typeof source.proxy === "string" && source.proxy !== "" ? source.proxy : null;
+      const path = original === null ? proxy : original;
+      if (path === null) continue;
+      declared.push({
+        id: String(source.id),
+        path,
+        proxy: original !== null && proxy !== null && proxy !== original ? proxy : null,
+      });
+    }
+    const resolved = await Promise.all(declared.map(async (entry) => {
+      const hasProxy = entry.proxy !== null;
+      const originalUrl = toUrl(entry.path);
+      const probe = !looksLikeImage(entry.path) && engine.needsCodecProbe(mode, hasProxy)
+        ? await engine.probeSourceCodec(originalUrl)
+        : null;
+      const decision = engine.chooseSource({ mode, hasProxy, support: probe ? probe.support : null });
+      const useProxy = decision.chosen === "proxy" && hasProxy;
+      const path = useProxy ? entry.proxy : entry.path;
+      const url = useProxy ? toUrl(entry.proxy) : originalUrl;
+      // レシートの width / height は「実際に読んだ側」の実測値にする（後から出口の入力を検算できる）。
+      let info = useProxy || probe === null ? null : probe.info;
+      if (info === null && !looksLikeImage(path)) {
+        const chosenProbe = await engine.probeSourceCodec(url);
+        info = chosenProbe ? chosenProbe.info : null;
+      }
+      if (useProxy && decision.reason === "codec-unsupported") {
+        onWarning("原本を再生できないためプロキシで書き出しました: " + entry.id);
+      }
+      return {
+        id: entry.id,
+        url,
+        record: {
+          id: entry.id,
+          chosen: useProxy ? "proxy" : decision.chosen,
+          reason: decision.reason,
+          path,
+          width: info && Number.isInteger(info.codedWidth) ? info.codedWidth : null,
+          height: info && Number.isInteger(info.codedHeight) ? info.codedHeight : null,
+          ...(info && typeof info.codec === "string" ? { codec: info.codec } : {}),
+        },
+      };
+    }));
+    return {
+      urls: new Map(resolved.map((entry) => [entry.id, entry.url])),
+      records: resolved.map((entry) => entry.record),
+    };
+  }
+
   class OsrFrameEngineRuntime {
-    constructor() {
+    // sourceUrls は resolveSourceSelections が決めた id -> URL（既定は原本）。
+    constructor(sourceUrls) {
       this.canvas = document.getElementById("akari-engine");
       this.compositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
       this.metrics = new FE.FrameMetrics();
       const cuts = normalizedCuts(config.edit);
-      const urls = new Map();
-      if (Array.isArray(config.edit.sources)) {
-        for (const source of config.edit.sources) {
-          if (source && source.id && (source.proxy || source.path)) urls.set(String(source.id), mediaUrl(source.proxy || source.path));
-        }
-      } else if (config.edit.source && config.edit.source.path) {
-        urls.set("default", mediaUrl(config.edit.source.path));
-      }
+      const urls = new Map(sourceUrls instanceof Map ? sourceUrls : []);
       const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : []).map((layer) => {
         if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return layer;
         if (typeof layer.filter.cubeText !== "string") return layer;
@@ -150,7 +221,16 @@
       else overlayFrame.addEventListener("load", resolve, { once: true });
     });
     await overlayFrame.contentWindow.__akariReady;
-    engineRuntime = new OsrFrameEngineRuntime();
+    const sourceSelection = await resolveSourceSelections(declaredSources(config.edit), {
+      engine: FE,
+      toUrl: mediaUrl,
+      looksLikeImage: isImage,
+      onWarning: warn,
+      mode: config.sourceMode,
+    });
+    // electron-main が run.json / レシートへ写す（どちらを読んだかの実測記録）。
+    window.__akariSourceSelections = sourceSelection.records;
+    engineRuntime = new OsrFrameEngineRuntime(sourceSelection.urls);
     await engineRuntime.renderAt(0);
     await engineRuntime.renderAt(0);
     await animationFrames(2);
