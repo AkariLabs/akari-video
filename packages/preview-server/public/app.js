@@ -3438,6 +3438,9 @@ function ensureThreeRuntime(needsText = false) {
     threeRuntimeReady = (async () => {
       await prerequisites;
       await loadThreeScript('/three-runtime.js');
+      window.akari.threeRuntime.configure({
+        defaultFontUrl: '/__akari/fonts/zen-kaku-gothic-new-black.ttf',
+      });
       return Boolean(window.akari?.threeRuntime);
     })().catch((e) => {
       console.warn('[preview] 3D ランタイムを読み込めませんでした', e);

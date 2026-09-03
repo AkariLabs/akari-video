@@ -38,6 +38,16 @@ const THREE_TEXT_BUNDLE_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js",
 );
+const DEFAULT_THREE_FONT_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf",
+);
+let defaultThreeFontDataUri;
+function resolveDefaultThreeFontDataUri() {
+  defaultThreeFontDataUri ??=
+    `data:font/ttf;base64,${readFileSync(DEFAULT_THREE_FONT_PATH).toString("base64")}`;
+  return defaultThreeFontDataUri;
+}
 const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
 const TEXTURE_MIME_TYPES = new Map([
   [".avif", "image/avif"],
@@ -534,6 +544,9 @@ function embedThreeModels(html, projectRoot, overlayId) {
       if (hasTexts) {
         embeddedDescriptor.texts = descriptor.texts.map((textDescriptor) => {
           const font = textDescriptor.font;
+          if (font === undefined) {
+            return { ...textDescriptor, font: resolveDefaultThreeFontDataUri() };
+          }
           if (typeof font !== "string"
             || font.length === 0
             || font.startsWith("/")

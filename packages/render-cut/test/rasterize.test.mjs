@@ -51,6 +51,38 @@ test("a genuine 3D declaration still embeds its model as a data URI", async (t) 
   assert.match(sheet, /window\.akari\.threeRuntime/u);
 });
 
+test("3D text without font embeds the repository default in the scene descriptor", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "akari-default-three-font-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  const html = '<div><canvas></canvas><script type="application/json" data-akari-3d-scene>'
+    + '{"texts":[{"id":"title","text":"既定"}]}</script></div>';
+  const sheet = renderOverlaySheet({
+    overlays: [{ id: "three-text", start: 0, duration: 1, html }],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot,
+    duration: 1,
+  });
+  assert.match(sheet, /"texts":\[\{"id":"title","text":"既定","font":"data:font\/ttf;base64,/u);
+  assert.doesNotMatch(sheet, /threeRuntime\.configure\(\{defaultFontUrl:/u);
+});
+
+test("3D text with an explicit font keeps embedding that project font", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "akari-explicit-three-font-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  await mkdir(join(projectRoot, "fonts"));
+  await writeFile(join(projectRoot, "fonts", "explicit.ttf"), "explicit-font");
+  const html = '<div><canvas></canvas><script type="application/json" data-akari-3d-scene>'
+    + '{"texts":[{"id":"title","text":"明示","font":"fonts/explicit.ttf"}]}</script></div>';
+  const sheet = renderOverlaySheet({
+    overlays: [{ id: "three-text", start: 0, duration: 1, html }],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot,
+    duration: 1,
+  });
+  assert.match(sheet, /"font":"data:font\/ttf;base64,ZXhwbGljaXQtZm9udA=="/u);
+  assert.doesNotMatch(sheet, /threeRuntime\.configure\(\{defaultFontUrl:/u);
+});
+
 test("generated __akariSeek toggles data-akari-active with visibility", async () => {
   const overlays = [
     { id: "first", start: 0, duration: 2, html: '<div class="x">first</div>' },

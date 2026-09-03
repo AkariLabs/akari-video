@@ -4,6 +4,7 @@ window.akari = window.akari || {};
 window.akari.threeRuntime = (() => {
   const instances = new WeakMap();
   const failedContainers = new WeakSet();
+  let hostConfiguration = { defaultFontUrl: null };
   // --- ライブプレビュー専用の事前マウント（premount）。task 2026-08-29-overlay-3d-premount ---
   // 既定は無効。書き出し（render-cut の rasterize / osr-export / gpu-export）は
   // configurePremount() を呼ばないので、以下の分岐はすべて素通りし、生成される絵は 1 バイトも
@@ -246,8 +247,33 @@ window.akari.threeRuntime = (() => {
       if (typeof entry.text !== "string" || entry.text.length === 0) {
         throw new TypeError(`texts[${entry.id}].text は非空文字列である必要があります`);
       }
-      if (typeof entry.font !== "string" || entry.font.length === 0) {
+      if (entry.font === undefined) {
+        if (typeof hostConfiguration.defaultFontUrl !== "string"
+          || hostConfiguration.defaultFontUrl.length === 0) {
+          throw new TypeError(
+            `texts[${entry.id}].font が省略されていますが、既定フォント URL が未設定です`
+          );
+        }
+      } else if (typeof entry.font !== "string" || entry.font.length === 0) {
         throw new TypeError(`texts[${entry.id}].font は配信 URL である必要があります`);
+      }
+      if (entry.window !== undefined) {
+        const windowDescriptor = entry.window;
+        if (!windowDescriptor
+          || typeof windowDescriptor !== "object"
+          || Array.isArray(windowDescriptor)) {
+          throw new TypeError(`texts[${entry.id}].window は start / duration を指定する object である必要があります`);
+        }
+        if (typeof windowDescriptor.start !== "number"
+          || !Number.isFinite(windowDescriptor.start)
+          || windowDescriptor.start < 0) {
+          throw new TypeError(`texts[${entry.id}].window.start は 0 以上の数値である必要があります`);
+        }
+        if (typeof windowDescriptor.duration !== "number"
+          || !Number.isFinite(windowDescriptor.duration)
+          || windowDescriptor.duration <= 0) {
+          throw new TypeError(`texts[${entry.id}].window.duration は正の数値である必要があります`);
+        }
       }
       const mode = entry.mode ?? "flat";
       if (mode !== "flat" && mode !== "extrude") {
@@ -517,7 +543,13 @@ window.akari.threeRuntime = (() => {
     }
     // texts[] があれば model は任意化される（両方あれば併存。§3.1）
     const hasTexts = descriptor.texts !== undefined;
-    if (hasTexts) validateTexts(descriptor.texts);
+    if (hasTexts) {
+      validateTexts(descriptor.texts);
+      descriptor.texts = descriptor.texts.map((entry) => ({
+        ...entry,
+        font: entry.font ?? hostConfiguration.defaultFontUrl,
+      }));
+    }
     const hasNonEmptyTexts = hasTexts && descriptor.texts.length > 0;
     if (descriptor.physics !== undefined) {
       if (!hasNonEmptyTexts) {
@@ -1027,7 +1059,7 @@ window.akari.threeRuntime = (() => {
     for (const entry of instance.textAnimEntries) entry.isPhysicsTarget = targetIds.has(entry.id);
     // layout 開始のときだけ char.base + entry.layout を要る（spawn 開始は seed だけで決まる）
     const physicsCharEntries = physicsEntries.flatMap(
-      (entry) => entry.chars.map((char) => ({ char, layout: entry.layout }))
+      (entry) => entry.chars.map((char) => ({ char, layout: entry.layout, window: entry.window }))
     );
     const physicsChars = physicsCharEntries.map((item) => item.char);
 
@@ -1087,6 +1119,7 @@ window.akari.threeRuntime = (() => {
     instance.physicsBuffer = { dt, duration, frameCount, charCount: bodies.length };
     instance.physicsData = data;
     instance.physicsChars = physicsChars.map((char) => char.node);
+    instance.physicsWindows = physicsCharEntries.map((entry) => entry.window);
     instance.physicsPresimMs = (typeof performance !== "undefined" ? performance.now() : 0) - startedAt;
   }
 
@@ -1098,14 +1131,17 @@ window.akari.threeRuntime = (() => {
     const chars = instance.physicsChars;
     if (!buffer || !data || !chars || chars.length === 0) return;
     const { dt, duration, frameCount, charCount } = buffer;
-    const clampedTime = Math.min(Math.max(0, localSeconds), duration);
-    const frac = clampedTime / dt;
-    const frame0 = Math.min(frameCount - 1, Math.floor(frac));
-    const frame1 = Math.min(frameCount - 1, frame0 + 1);
-    const alpha = frame1 === frame0 ? 0 : frac - frame0;
-    const base0 = frame0 * charCount * 3;
-    const base1 = frame1 * charCount * 3;
     for (let i = 0; i < charCount; i += 1) {
+      // texts[].window の開始を、この文字にとっての physics t=0 とする。
+      // 窓省略時は start=0 なので従来の lookup と同一になる。
+      const windowStart = instance.physicsWindows?.[i]?.start ?? 0;
+      const clampedTime = Math.min(Math.max(0, localSeconds - windowStart), duration);
+      const frac = clampedTime / dt;
+      const frame0 = Math.min(frameCount - 1, Math.floor(frac));
+      const frame1 = Math.min(frameCount - 1, frame0 + 1);
+      const alpha = frame1 === frame0 ? 0 : frac - frame0;
+      const base0 = frame0 * charCount * 3;
+      const base1 = frame1 * charCount * 3;
       const x0 = data[base0 + i * 3 + 0];
       const y0 = data[base0 + i * 3 + 1];
       const angle0 = data[base0 + i * 3 + 2];
@@ -1142,6 +1178,11 @@ window.akari.threeRuntime = (() => {
       amplitude: finiteNumber(anim.amplitude, 1),
       seed: finiteNumber(anim.seed, 0),
     };
+  }
+
+  function resolveTextWindow(descriptor) {
+    if (descriptor === undefined) return { start: 0, duration: Infinity };
+    return { start: descriptor.start, duration: descriptor.duration };
   }
 
   // extrude 押し出しパラメータの既定値（contract-2026-08-12-3d-text-rail.md §3.1 の例値をそのまま採用）
@@ -1269,7 +1310,14 @@ window.akari.threeRuntime = (() => {
       // physics 対象は updatePhysicsChars が per-char position/rotation を書くため、
       // anim の group/char リセット（layout 基準位置への巻き戻し）を通さない（排他。§3.1）
       if (entry.isPhysicsTarget) continue;
-      applyTextAnimation(entry, localSeconds);
+      applyTextAnimation(entry, localSeconds - entry.window.start);
+    }
+  }
+
+  function updateTextVisibility(instance, localSeconds) {
+    for (const entry of instance.textAnimEntries) {
+      const { start, duration } = entry.window;
+      entry.group.visible = localSeconds >= start && localSeconds < start + duration;
     }
   }
 
@@ -1380,6 +1428,7 @@ window.akari.threeRuntime = (() => {
     const group = new THREE.Group();
     const layout = resolveTextLayout(textDescriptor.layout);
     const anim = resolveTextAnim(textDescriptor.anim);
+    const visibilityWindow = resolveTextWindow(textDescriptor.window);
     const size = finiteNumber(textDescriptor.size, 0.5);
     const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
     const extrudeParams = resolveTextExtrude(textDescriptor.extrude);
@@ -1405,7 +1454,14 @@ window.akari.threeRuntime = (() => {
     });
     instance.textsGroup.add(group);
     instance.textNodes.push(...charEntries.map((entry) => entry.node));
-    instance.textAnimEntries.push({ id: textDescriptor.id, group, layout, anim, chars: charEntries });
+    instance.textAnimEntries.push({
+      id: textDescriptor.id,
+      group,
+      layout,
+      anim,
+      window: visibilityWindow,
+      chars: charEntries,
+    });
   }
 
   // texts[] を mode ごとに展開する（flat: per-char troika Text / extrude: opentype 押し出し
@@ -1423,6 +1479,7 @@ window.akari.threeRuntime = (() => {
       const group = new THREE.Group();
       const layout = resolveTextLayout(textDescriptor.layout);
       const anim = resolveTextAnim(textDescriptor.anim);
+      const visibilityWindow = resolveTextWindow(textDescriptor.window);
       const size = finiteNumber(textDescriptor.size, 0.5);
       const color = typeof textDescriptor.color === "string" ? textDescriptor.color : "#ffffff";
       const chars = [...textDescriptor.text];
@@ -1450,7 +1507,14 @@ window.akari.threeRuntime = (() => {
       });
       instance.textsGroup.add(group);
       instance.textNodes.push(...charEntries.map((entry) => entry.node));
-      instance.textAnimEntries.push({ id: textDescriptor.id, group, layout, anim, chars: charEntries });
+      instance.textAnimEntries.push({
+        id: textDescriptor.id,
+        group,
+        layout,
+        anim,
+        window: visibilityWindow,
+        chars: charEntries,
+      });
     }
     await Promise.all(syncPromises);
   }
@@ -1468,10 +1532,22 @@ window.akari.threeRuntime = (() => {
   // 目に見えて軽くなる。書き出し（render-cut の rasterize）は渡さない = 従来どおり等倍のまま。
   // CSS サイズ（setSize の第 3 引数 false）は変えないので、見た目の寸法は縮まずアスペクトも保つ。
   function rendererSize(instance, maxRenderSize) {
-    const rect = instance.canvas.getBoundingClientRect();
-    const containerRect = instance.container.getBoundingClientRect();
-    const cssWidth = Math.max(1, Math.round(rect.width || containerRect.width || 1));
-    const cssHeight = Math.max(1, Math.round(rect.height || containerRect.height || 1));
+    // getBoundingClientRect() は CSS rotate 後の外接矩形を返すため、回転角だけで camera.aspect が
+    // 変わり投影が歪む。transform の影響を受けない要素固有のレイアウト寸法を使う。
+    const cssWidth = Math.max(1, Math.round(
+      instance.canvas.offsetWidth
+      || instance.canvas.clientWidth
+      || instance.container.offsetWidth
+      || instance.container.clientWidth
+      || 1
+    ));
+    const cssHeight = Math.max(1, Math.round(
+      instance.canvas.offsetHeight
+      || instance.canvas.clientHeight
+      || instance.container.offsetHeight
+      || instance.container.clientHeight
+      || 1
+    ));
     const cap = Number(maxRenderSize);
     const longest = Math.max(cssWidth, cssHeight);
     const scale = Number.isFinite(cap) && cap > 0 && longest > cap ? cap / longest : 1;
@@ -1579,6 +1655,7 @@ window.akari.threeRuntime = (() => {
     rendererSize(instance, instance.maxRenderSize);
     applyProjectionKnobs(instance);
     if (instance.mixer) instance.mixer.setTime(Math.max(0, localSeconds));
+    if (instance.textAnimEntries.length > 0) updateTextVisibility(instance, localSeconds);
     if (instance.textAnimEntries.length > 0) updateTextAnimations(instance, localSeconds);
     if (instance.physicsBuffer) updatePhysicsChars(instance, localSeconds);
     // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
@@ -1643,6 +1720,7 @@ window.akari.threeRuntime = (() => {
     instance.physicsBuffer = null;
     instance.physicsData = null;
     instance.physicsChars = [];
+    instance.physicsWindows = [];
     releaseVideoTextures(instance);
     instance.model = null;
     instance.mixer = null;
@@ -1695,6 +1773,19 @@ window.akari.threeRuntime = (() => {
         : undefined,
     };
     return { ...premountPolicy };
+  }
+
+  function configure(options) {
+    if (!options || typeof options !== "object" || Array.isArray(options)) {
+      throw new TypeError("threeRuntime.configure は options object を必要とします");
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "defaultFontUrl")) {
+      if (typeof options.defaultFontUrl !== "string" || options.defaultFontUrl.length === 0) {
+        throw new TypeError("threeRuntime.configure.defaultFontUrl は非空の URL 文字列である必要があります");
+      }
+      hostConfiguration = { ...hostConfiguration, defaultFontUrl: options.defaultFontUrl };
+    }
+    return { ...hostConfiguration };
   }
 
   function materialHasVideoTexture(material) {
@@ -1863,6 +1954,7 @@ window.akari.threeRuntime = (() => {
       physicsBuffer: null,
       physicsData: null,
       physicsChars: [],
+      physicsWindows: [],
       physicsPresimMs: null,
       // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
       // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
@@ -1944,6 +2036,7 @@ window.akari.threeRuntime = (() => {
       instance.physicsBuffer = null;
       instance.physicsData = null;
       instance.physicsChars = [];
+      instance.physicsWindows = [];
       releaseVideoTextures(instance);
       instance.status = "error";
       console.error("[akari-three] 3D scene の読み込みに失敗しました", error);
@@ -2125,6 +2218,7 @@ window.akari.threeRuntime = (() => {
       // task 2026-08-06-live-knob-camera-v2）。view が null なら「3 プロパティとも未宣言で
       // camera.view に一切触れていない」= 後方互換の直接証拠になる
       cameraFov: instance.camera.fov,
+      cameraAspect: instance.camera.aspect,
       // camera.fromModel の配線確認（"model" = glb 内カメラで描画している）と、
       // クリップ評価後のカメラ実位置（ベイク済みカメラワークが動いている直接証拠）
       cameraSource: instance.cameraSource,
@@ -2202,6 +2296,7 @@ window.akari.threeRuntime = (() => {
   attachHostPremountDriver();
 
   return {
+    configure,
     dispose,
     inspect,
     render,

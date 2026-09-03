@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const SERVER = path.join(REPOSITORY_ROOT, 'packages', 'preview-server', 'src', 'server.mjs');
+const APP = path.join(REPOSITORY_ROOT, 'packages', 'preview-server', 'public', 'app.js');
 const TEST_MEDIA = path.join(REPOSITORY_ROOT, 'test-project', 'source.mp4');
 const SYSTEM_CHROME = process.env.CHROME_PATH
   || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : undefined);
@@ -29,7 +30,7 @@ const textOverlay = {
   html: '<div style="position:absolute;inset:0"><canvas style="width:100%;height:100%"></canvas>'
     + '<div data-akari-3d-fallback>loading</div>'
     + '<script type="application/json" data-akari-3d-scene>'
-    + '{"texts":[{"id":"title","text":"A","font":"/assets/fonts/akari-noto-sans-jp.ttf","size":0.5}]}'
+    + '{"texts":[{"id":"title","text":"既定","size":0.5}]}'
     + '<\/script></div>',
 };
 
@@ -117,6 +118,17 @@ async function waitForTextScene(page) {
   }, null, { timeout: 20_000 });
 }
 
+test('preview-server fixes the default 3D font route and configures the runtime', () => {
+  const serverSource = fs.readFileSync(SERVER, 'utf8');
+  const appSource = fs.readFileSync(APP, 'utf8');
+  assert.match(serverSource,
+    /DEFAULT_THREE_FONT_ROUTE = '\/__akari\/fonts\/zen-kaku-gothic-new-black\.ttf'/u);
+  assert.match(serverSource,
+    /overlay-runtime\/test-harness\/fonts\/ZenKakuGothicNew-Black\.ttf/u);
+  assert.match(appSource,
+    /threeRuntime\.configure\(\{\s*defaultFontUrl: '\/__akari\/fonts\/zen-kaku-gothic-new-black\.ttf'/u);
+});
+
 test('3D text bundle is text-only, ordered, and safe after a runtime-only scene', async (t) => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-preview-three-text-'));
   fs.copyFileSync(TEST_MEDIA, path.join(project, 'source.mp4'));
@@ -162,6 +174,12 @@ test('3D text bundle is text-only, ordered, and safe after a runtime-only scene'
   const orderedContext = await browser.newContext();
   const orderedPage = await orderedContext.newPage();
   const orderedRequests = runtimeRequests(orderedPage);
+  const orderedFontRequests = [];
+  orderedPage.on('request', request => {
+    if (new URL(request.url()).pathname === '/__akari/fonts/zen-kaku-gothic-new-black.ttf') {
+      orderedFontRequests.push(request.url());
+    }
+  });
   const orderedConsole = [];
   orderedPage.on('console', message => orderedConsole.push(message.text()));
   await orderedPage.goto(`${server.base}/?mode=output&frameEngine=0`, { waitUntil: 'load' });
@@ -171,6 +189,9 @@ test('3D text bundle is text-only, ordered, and safe after a runtime-only scene'
     '/vendor-3d-text-bundle.js',
     '/three-runtime.js',
   ]);
+  assert.ok(orderedFontRequests.length >= 1);
+  assert.equal(await orderedPage.evaluate(() => window.akari.threeRuntime.configure({}).defaultFontUrl),
+    '/__akari/fonts/zen-kaku-gothic-new-black.ttf');
   assert.equal(orderedConsole.some(message => message.includes('TroikaText')), false, orderedConsole.join('\n'));
   await orderedContext.close();
 });
