@@ -417,7 +417,8 @@ test("verifyArtifact appends declared checks after the unchanged eleven checks a
   ]);
   assert.equal(verification.declared.audio_level.verdict, "pass");
   assert.deepEqual(verification.declared.motion, []);
-  assert.equal(calls.length, 3);
+  assert.deepEqual(verification.declared.blank_frames, []);
+  assert.equal(calls.length, 4);
 });
 
 test("verifyArtifact keeps pass when motion measurement adds a static-camera warning", () => {

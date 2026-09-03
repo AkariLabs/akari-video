@@ -55,6 +55,7 @@ import {
   judgeMotion,
   measureAudioLevel,
 } from "./verify-declared.mjs";
+import { scanBlankFrames } from "./verify-blank.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -78,6 +79,7 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
   [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
+  [--no-verify-blank]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -479,6 +481,7 @@ export async function renderProject(input, options = {}, io = console) {
         edit,
         ffprobeCommand: capabilities.ffprobeCommand,
         ffmpegCommand: capabilities.ffmpegCommand,
+        verifyBlank: options.verifyBlank,
       });
       state.artifacts = [{
         path: relativeOrAbsolute(projectRoot, failedArtifactPath),
@@ -546,6 +549,7 @@ export async function renderProject(input, options = {}, io = console) {
       edit,
       ffprobeCommand: capabilities.ffprobeCommand,
       ffmpegCommand: capabilities.ffmpegCommand,
+      verifyBlank: options.verifyBlank,
     });
     state.verify = verification;
     reporter.stageEnd("verify");
@@ -672,6 +676,7 @@ export function parseArguments(argv, env = process.env) {
     scaleTo: undefined,
     progress: false,
     preview: undefined,
+    verifyBlank: true,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -679,6 +684,7 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
     else if (argument === "--progress") options.progress = true;
+    else if (argument === "--no-verify-blank") options.verifyBlank = false;
     else if (argument === "--preview") {
       if (index + 1 >= argv.length) throw new Error("--preview requires a value");
       options.preview = parsePreviewValue(argv[++index]);
@@ -1261,6 +1267,7 @@ export function verifyArtifact({
   ffprobeCommand = resolveFfprobe(),
   ffmpegCommand = resolveFfmpeg(),
   spawnSyncImpl = spawnSync,
+  verifyBlank = true,
 }) {
   if (plan.preset?.video_codec === "png") {
     return verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl });
@@ -1371,6 +1378,16 @@ export function verifyArtifact({
     spawnSyncImpl,
   });
   findings.push(...motion.findings);
+  const blankFrames = verifyBlank
+    ? scanBlankFrames({
+        outputPath,
+        fps: expected.fps,
+        edit,
+        ffmpegCommand,
+        spawnSyncImpl,
+      })
+    : { intervals: [], findings: [] };
+  findings.push(...blankFrames.findings);
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
@@ -1389,6 +1406,7 @@ export function verifyArtifact({
     declared: {
       audio_level: audioLevel.record,
       motion: motion.records,
+      blank_frames: blankFrames.intervals,
     },
   };
 }
@@ -1429,7 +1447,7 @@ function verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl }) 
       last,
       audio,
     },
-    declared: { audio_level: null, motion: [] },
+    declared: { audio_level: null, motion: [], blank_frames: [] },
   };
 }
 
@@ -1584,7 +1602,12 @@ function addWarning(state, warning) {
 
 export function logVerificationResult(state, io = console) {
   for (const finding of state.verify?.findings ?? []) {
-    if (finding.severity === "warning") io.log(`WARN ${finding.check}: ${finding.message}`);
+    if (finding.severity === "warning") {
+      const write = finding.check === "verify.blank-frames" && typeof io.error === "function"
+        ? io.error.bind(io)
+        : io.log.bind(io);
+      write(`WARN ${finding.check}: ${finding.message}`);
+    }
   }
   io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
   return state.verify.verdict === "pass" ? 0 : 1;
