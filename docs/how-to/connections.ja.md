@@ -44,8 +44,10 @@ doctor は各 provider の結果を由来レイヤー（project / workspace / �
 
 デスクトップシェルの接続ボタンはパートナーカタログを開きます。カードは
 エージェント CLI（PTY タブで動く）またはエディタ拡張 1 つに対応します。現在のカタログは
-**CLI 7 種** — Claude Code・Codex・opencode・Copilot・Cursor・Antigravity・Grok Build —
-と Claude Code / Codex の拡張 2 種を同梱しています。カタログはデータ駆動
+**CLI 8 種** — Claude Code・Codex・opencode・Command Code・Copilot・Cursor・Antigravity・
+Grok Build — と Claude Code / Codex の拡張 2 種を同梱しています。Command Code は Node.js 22
+以上が必要で、未導入時は公式の `npm install -g command-code` パッケージ経路をシェルが使います。
+カタログはデータ駆動
 （`partner-catalog.json`）でリリースごとに増えるため、この一覧はスナップショットです。
 どのパートナーから接続しても、最終的に同じ `.akari/` 配下のファイル契約に収束します。
 

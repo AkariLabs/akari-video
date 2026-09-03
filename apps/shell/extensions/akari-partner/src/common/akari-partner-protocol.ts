@@ -1,6 +1,6 @@
 export const AKARI_PARTNER_SERVICE_PATH = '/services/akari-partner';
 
-export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+export type PartnerAgentId = 'claude' | 'codex' | 'opencode' | 'commandcode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
 
 export interface BootstrapResult {
     executablePath: string;
@@ -27,6 +27,8 @@ export interface BinaryVerificationResult {
 /** The unmodified CLI launch plan used by the partner PTY. */
 export interface PartnerLaunchPlan {
     agent: PartnerAgentId;
+    /** Override for wrappers that the PTY backend cannot execute directly (for example npm .cmd shims on Windows). */
+    executablePath?: string;
     args: string[];
     log: string[];
     /**
@@ -108,7 +110,7 @@ export interface AkariPartnerServer {
      * のみ PATH へ前置する（このメソッドとは別に、そこで再度冪等にシムの有無を見る）。
      */
     ensureCli(): Promise<EnsureCliResult>;
-    prepareLaunch(agent: PartnerAgentId): Promise<PartnerLaunchPlan>;
+    prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan>;
     getRenderPins(): Promise<RenderPins>;
     /**
      * 接続成立時にアプリ単位マーカーを書き、書いた内容を返す。フロントエンドが

@@ -116,6 +116,53 @@ export function bootstrapRunner(): void {
         return candidates;
     }
 
+    function commandCodeCandidates(): string[] {
+        // npm の global --prefix は POSIX では <prefix>/bin、Windows では
+        // <prefix> 直下へ shim を置く。フル名は両 OS 共通で、Windows の予約済み
+        // `cmd` とも衝突しない。
+        const extraCandidates = process.platform === 'win32'
+            ? [
+                path.join(os.homedir(), '.local', 'command-code'),
+                path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'npm', 'command-code')
+            ]
+            : [
+                '/opt/homebrew/bin/command-code',
+                '/usr/local/bin/command-code',
+                '/usr/bin/command-code'
+            ];
+        return scriptInstallCandidates('command-code', extraCandidates);
+    }
+
+    function npmCandidates(): string[] {
+        const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const wellKnown = process.platform === 'win32'
+            ? [
+                path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', executable),
+                path.join(windowsLocalAppData, 'Programs', 'nodejs', executable)
+            ]
+            : ['/opt/homebrew/bin/npm', '/usr/local/bin/npm', '/usr/bin/npm'];
+        return [
+            ...scriptInstallCandidates('npm'),
+            ...wellKnown
+        ];
+    }
+
+    function nodeCandidates(npmExecutable?: string): string[] {
+        const executable = process.platform === 'win32' ? 'node.exe' : 'node';
+        const sibling = npmExecutable ? [path.join(path.dirname(npmExecutable), executable)] : [];
+        const wellKnown = process.platform === 'win32'
+            ? [
+                path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', executable),
+                path.join(windowsLocalAppData, 'Programs', 'nodejs', executable)
+            ]
+            : ['/opt/homebrew/bin/node', '/usr/local/bin/node', '/usr/bin/node'];
+        return [
+            ...sibling,
+            ...scriptInstallCandidates('node'),
+            ...wellKnown
+        ];
+    }
+
     async function request(url: string, accept = 'application/octet-stream', timeoutMs = requestTimeoutMs): Promise<Buffer> {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -461,6 +508,80 @@ export function bootstrapRunner(): void {
             manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）'
         }
     };
+
+    const commandCodeManualInstall = 'npm install -g command-code（Node.js 22 以上が必要）';
+
+    async function requireCommandCodeVersion(executable: string, env: NodeJS.ProcessEnv): Promise<string> {
+        try {
+            return (await runCapture(executable, ['--version'], env)).trim();
+        } catch (error) {
+            throw new Error(`Command Code の起動確認に失敗しました。Node.js 22 以上を確認して再インストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
+        }
+    }
+
+    async function installCommandCode(): Promise<BootstrapOutcome> {
+        const candidates = commandCodeCandidates();
+        if (!forceReinstall) {
+            const existing = await firstExecutable(candidates);
+            if (existing) {
+                const validationPath = [path.dirname(existing), process.env.PATH ?? '', explicitSystemPath]
+                    .filter(Boolean)
+                    .join(path.delimiter);
+                const version = await requireCommandCodeVersion(existing, { ...process.env, PATH: validationPath });
+                console.log(`既存の commandcode ${version || '(version unknown)'} を検出: ${existing}`);
+                return { executablePath: existing, reused: true };
+            }
+        }
+
+        const npmExecutable = await firstExecutable(npmCandidates());
+        if (!npmExecutable) {
+            throw new Error(`commandcode は npm が見つからないため自動インストールできません。手動でインストールしてください: ${commandCodeManualInstall}`);
+        }
+        const nodeExecutable = await firstExecutable(nodeCandidates(npmExecutable));
+        if (!nodeExecutable) {
+            throw new Error(`commandcode は Node.js が見つからないため自動インストールできません。手動でインストールしてください: ${commandCodeManualInstall}`);
+        }
+
+        const runtimePath = [
+            path.dirname(nodeExecutable),
+            path.dirname(npmExecutable),
+            process.env.PATH ?? '',
+            explicitSystemPath
+        ]
+            .filter(Boolean)
+            .join(path.delimiter);
+        const installEnv = { ...process.env, PATH: runtimePath };
+        let nodeVersion: string;
+        try {
+            nodeVersion = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], installEnv)).trim();
+        } catch (error) {
+            throw new Error(`commandcode の Node.js バージョン確認に失敗しました。手動でインストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
+        }
+        const nodeMajor = Number.parseInt(nodeVersion.split('.')[0], 10);
+        if (!Number.isFinite(nodeMajor) || nodeMajor < 22) {
+            throw new Error(`Command Code は Node.js 22 以上が必要です（検出: ${nodeVersion || '不明'}）。${commandCodeManualInstall}`);
+        }
+
+        const prefix = path.join(os.homedir(), '.local');
+        console.log(`Command Code を npm 公式パッケージからユーザー領域へインストールしています: ${prefix}`);
+        try {
+            await run(npmExecutable, [
+                'install', '--global', '--prefix', prefix,
+                '--no-audit', '--no-fund',
+                'command-code'
+            ], installEnv);
+        } catch (error) {
+            throw new Error(`commandcode のインストールに失敗しました。手動でインストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
+        }
+        const executable = await firstExecutable(candidates);
+        if (!executable) {
+            console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
+            throw new Error(`npm install は完了しましたが Command Code の実行ファイルが見つかりませんでした。手動でインストールしてください: ${commandCodeManualInstall}`);
+        }
+        const version = await requireCommandCodeVersion(executable, installEnv);
+        console.log(`Command Code ${version || '(version unknown)'} を検出: ${executable}`);
+        return { executablePath: executable, reused: false };
+    }
 
     function manualInstallGuidance(config: ScriptInstallAgentConfig): string {
         return process.platform === 'win32' && config.manualInstallCommandWin32
@@ -818,14 +939,17 @@ export function bootstrapRunner(): void {
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
-            && agent !== 'copilot' && agent !== 'cursor' && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, copilot, cursor, antigravity, or grok');
+            && agent !== 'commandcode' && agent !== 'copilot' && agent !== 'cursor'
+            && agent !== 'antigravity' && agent !== 'grok') {
+            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, copilot, cursor, antigravity, or grok');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
             outcome = await runClaudeInstaller();
         } else if (agent === 'codex') {
             outcome = await installCodexBinary();
+        } else if (agent === 'commandcode') {
+            outcome = await installCommandCode();
         } else {
             outcome = await runScriptInstaller(scriptInstallAgentConfigs[agent]);
         }

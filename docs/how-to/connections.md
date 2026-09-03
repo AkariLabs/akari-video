@@ -46,8 +46,10 @@ too, e.g. "make local whisper the default for transcription."
 
 The desktop shell's connect button opens a partner catalog: each card connects one
 agent CLI (in a PTY tab) or one editor extension. The current catalog ships
-**7 CLIs** — Claude Code, Codex, opencode, Copilot, Cursor, Antigravity, and
-Grok Build — plus the Claude Code and Codex extensions. The catalog is data-driven
+**8 CLIs** — Claude Code, Codex, opencode, Command Code, Copilot, Cursor,
+Antigravity, and Grok Build — plus the Claude Code and Codex extensions. Command
+Code requires Node.js 22 or newer; when it is not installed, the shell uses the
+official `npm install -g command-code` package flow. The catalog is data-driven
 (`partner-catalog.json`) and grows over releases, so treat this list as a snapshot,
 not a promise. Whichever partner you connect, everything converges on the same file
 contracts under `.akari/`.

@@ -66,6 +66,7 @@ const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     claude: ['Claude Code'],
     codex: ['Codex'],
     opencode: [],
+    commandcode: [],
     copilot: [],
     cursor: [],
     antigravity: [],
@@ -383,12 +384,12 @@ export class AkariPartnerWidget extends ReactWidget {
                 }
             }
             await this.ensureCliProvisioned(entry);
-            const launch = await this.partnerServer.prepareLaunch(entry.agent);
+            const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath);
             this.setProgress(entry, 'パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
                 title: entry.name,
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
-                shellPath: bootstrap.executablePath,
+                shellPath: launch.executablePath ?? bootstrap.executablePath,
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
                 shellArgs: launch.args,
                 cwd,
