@@ -1437,6 +1437,12 @@
           "check": "overlays.data-attributes",
           "message": "data-start must match edit.json value 1",
           "path": "overlays/cap-a.html"
+        },
+        {
+          "severity": "warning",
+          "check": "overlays.root-data-attributes",
+          "message": "overlay fragment root must not declare data-start or data-duration; edit.json is the source of truth, and animation-delay inside the fragment uses local seconds from clip start 0, not absolute timeline seconds",
+          "path": "overlays/cap-a.html"
         }
       ],
       "skipped": [
@@ -1759,6 +1765,12 @@
           "check": "geometry.fit-compat",
           "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
           "path": "edit.json#output.geometry"
+        },
+        {
+          "severity": "warning",
+          "check": "overlays.root-data-attributes",
+          "message": "overlay fragment root must not declare data-start or data-duration; edit.json is the source of truth, and animation-delay inside the fragment uses local seconds from clip start 0, not absolute timeline seconds",
+          "path": "overlays/cap-a.html"
         }
       ],
       "skipped": [

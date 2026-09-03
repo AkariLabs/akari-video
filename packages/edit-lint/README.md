@@ -10,6 +10,16 @@ node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json> [--json]
 Exit code `0` means PASS, `1` means lint findings include an error, and `2` means the lint command
 could not run.
 
+## Overlay fragment checks
+
+- `overlays.html-root`: errors unless a referenced overlay HTML fragment has exactly one balanced
+  root element.
+- `overlays.data-attributes`: errors when a fragment root's `data-start` or `data-duration` does not
+  match `edit.json`.
+- `overlays.root-data-attributes`: warns whenever a fragment root declares `data-start` or
+  `data-duration`; `edit.json` is the source of truth, and animation delays inside a fragment use
+  local seconds starting at clip time 0.
+
 ## Media checks (`--media`)
 
 Media decoding is opt-in. Without `--media`, edit-lint does not probe or decode media for these
