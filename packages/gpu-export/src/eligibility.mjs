@@ -1,4 +1,5 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
+import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
 import { parseThreeEntrance } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
@@ -92,8 +93,9 @@ export function evaluateGpuEligibility({
   for (const [index, overlay] of (edit.overlays ?? []).entries()) {
     if (overlay?.enabled === false) continue;
     const html = typeof overlay?.html === "string" ? overlay.html : "";
+    const source = stripHtmlComments(html);
     const conditions = OVERLAY_CONDITIONS
-      .filter(([, pattern]) => (typeof pattern === "function" ? pattern(html) : pattern.test(html)))
+      .filter(([, pattern]) => (typeof pattern === "function" ? pattern(source) : pattern.test(source)))
       .map(([condition, , kind]) => ({ condition, kind }));
     if (Array.isArray(overlay?.keyframes)) {
       conditions.unshift({ condition: "item-keyframes", kind: "dynamic" });
@@ -106,7 +108,7 @@ export function evaluateGpuEligibility({
       : null;
     if (names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
-    } else if (isThreeOnlyOverlay(html, names)) {
+    } else if (isThreeOnlyOverlay(source, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (entrance?.ok && names.every((name) => ["three-or-canvas-runtime", "animation-timing"].includes(name))) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));

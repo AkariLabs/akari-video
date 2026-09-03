@@ -1,3 +1,5 @@
+import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
+
 const TIMING_KEYWORDS = new Map([
   ["linear", "linear"],
   ["ease", { x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 }],
@@ -9,7 +11,7 @@ const TIMING_KEYWORDS = new Map([
 const fail = (reason) => ({ ok: false, reason });
 
 export function parseThreeEntrance(html, { vars = {}, transform = {}, role = null } = {}) {
-  const source = stripComments(String(html ?? ""));
+  const source = stripComments(stripHtmlComments(html));
   const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)
