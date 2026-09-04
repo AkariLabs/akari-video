@@ -61,7 +61,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 4. 同じコマンドを再実行し、error finding がなく `verdict: "pass"` になるまで繰り返す。analysis.json または captions.json が無い検査は `skipped[]` で確認する。
 5. 書き出し前は、使う出口に合わせて `--engine gpu` または `--engine osr` を追加して再実行する。
    書き出し側が出口を自動選択する場合は `--engine auto` を使い、エンジン適合性も PASS させる。
-6. PASS 後に、カット境界と overlay の開始・終了フレームを実際に視認する。機械検査の PASS を意味的な品質確認の代わりにしない。
+6. PASS 後に、カット境界と overlay の開始・終了フレームを実際に視認する。**開始・終了フレームに加えて中間時刻（各区間の 1/4・1/2・3/4）も必ず視認する** — 拍ちょうど・カット境界ちょうどのフレームは区間の境界値（0% / 100% = 画面外・opacity 0）に必ず当たるため、正常な動きを事故と誤診する（`akari capture --auto` は各オーバーレイ / 字幕区間の中点を含む代表時刻を決定論で導出する）。機械検査の PASS を意味的な品質確認の代わりにしない。
 7. `<project>/.akari/reports/edit-lint-report.html` とフレーム視認結果を編集レポートへ反映し、checkpoint 状態と provenance を実態に合わせて閉じる。
 
 音声も確認するときだけ `--media` を追加する。無音区間と音量値は既定で warning になり、次の明示閾値を指定した検査だけが FAIL になり得る。
