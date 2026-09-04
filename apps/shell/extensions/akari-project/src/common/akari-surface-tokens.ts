@@ -30,13 +30,18 @@ export const AKARI_SURFACE = {
  * 線の階層（spec §2）。カード外周 `--akari-line`（alpha .13）が最強で、
  * **カードの中にはそれより強い線を置かない**。
  *
- * `hairline` は外周のおよそ半分（alpha ≒ .07）。直値を書かずに済ませるため
- * `color-mix` で外周の変数から派生させる（Chromium 111+ / 実機 142 で確認済み）。
- * ライトでは `--akari-line` が `rgba(0,0,0,.13)` になるので、派生も自動で黒側へ倒れる。
+ * `hairline` は外周のおよそ半分（alpha ≒ .07）。実体は akari-theme が両テーマ分を
+ * 供給する `--akari-line-inner`（**不透明**の #1b1b1b / #ededed）。
+ *
+ * ここを半透明の `color-mix` で済ませないのは、raised 面（--akari-card）の上に
+ * 重ねたとき合成値が #242424 まで持ち上がり、カード外周の実効値（#262626）と
+ * 並んでしまい**階層が崩れる**ため（レーン A report §4-1 の実測）。カード面の上では
+ * 両者はピクセル一致し、raised の上でだけ不透明版が正しく弱くなる。
+ * フォールバックは変数が来る前の一瞬のための color-mix 版。
  */
 export const AKARI_LINE = {
     /** カード内の区切り（レール仕切り・タブ下・セクション境）。 */
-    hairline: 'color-mix(in srgb, var(--akari-line) 54%, transparent)',
+    hairline: 'var(--akari-line-inner, color-mix(in srgb, var(--akari-line) 54%, transparent))',
     /** カード外周と同じ強さ。カードの中では原則使わない。 */
     edge: 'var(--akari-line)',
     /** 選択・フォーカスを示す線（面ではなくアクセント色で示す）。 */
