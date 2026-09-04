@@ -74,7 +74,11 @@ jobs:
       # ローカル実測 2026-09-02（macOS arm64・Node 26.3.0）: added 1480 packages / 7 s（キャッシュ有）。
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: check frame-engine bundle drift (3 consumers)
+      # frame-engine 3 consumers + preview-server の Web UI バンドル 5 本
+      # （pen-visuals / overlay-interaction.bundle.js / overlay-interaction.css / edit-kernel / frame-engine）を
+      # 1 ステップでまとめて検査する。preview-server 側は packages/preview-server/package.json の build
+      # スクリプトを読み、一時ディレクトリへ再生成してバイト比較するため working tree を汚さない。
+      - name: check generated bundle drift (frame-engine 3 consumers + preview-server 5 bundles)
         run: node scripts/ci/check-frame-engine-drift.mjs
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
