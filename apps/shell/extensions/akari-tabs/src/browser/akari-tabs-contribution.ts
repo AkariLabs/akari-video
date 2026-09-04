@@ -20,6 +20,11 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { EditorManager } from '@theia/editor/lib/browser/editor-manager';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
+import {
+    parseRenderStateFacts,
+    RENDER_STATE_RELATIVE_PATH,
+    shouldHoldArtifactOpen
+} from '../common/artifact-open-gate';
 
 const DEFAULT_ARTIFACT_GLOBS = [
     'planning/**/*.md',
@@ -29,6 +34,8 @@ const DEFAULT_ARTIFACT_GLOBS = [
 const DEFAULT_SIDECAR_SUFFIXES = ['.meta.json', '.decisions.json', '.analysis.json'];
 const DECISIONS_SUFFIX = '.decisions.json';
 const EDITING_RECENCY_MS = 2000;
+/** レンダー完走を待つ間の再確認間隔（`.akari/render.json` の読み直し）。 */
+const RENDER_SETTLE_POLL_MS = 1000;
 
 interface RootConfiguration {
     root: URI;
@@ -78,6 +85,8 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
     protected readonly badgeRevisions = new Map<string, number>();
     protected readonly editingTimers = new Map<string, number>();
     protected readonly opening = new Map<string, Promise<void>>();
+    /** onStop 後に自動オープンの待機ループを畳むためのフラグ。 */
+    protected stopped = false;
 
     async onStart(_app: FrontendApplication): Promise<void> {
         this.toDispose.pushAll([
@@ -95,6 +104,7 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
     }
 
     onStop(): void {
+        this.stopped = true;
         this.rootWatchers.dispose();
         this.toDispose.dispose();
         for (const key of this.editingTimers.keys()) {
@@ -234,6 +244,10 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
     }
 
     protected async doOpenArtifact(uri: URI): Promise<void> {
+        // 成果物ができた瞬間ではなく、それを作っているレンダーが完走してから開く
+        // （artifact-open-gate の背景コメント参照。openArtifact の opening マップが
+        //  この待機ごと重複実行を畳むので、待っている間に同じ成果物の変更が重ねて来ても走るのは 1 本）。
+        await this.awaitRenderSettled(uri);
         const existing = await this.findOpenWidget(uri);
         if (existing) {
             await this.shell.activateWidget(existing.id);
@@ -243,6 +257,48 @@ export class AkariTabsContribution implements FrontendApplicationContribution, T
         const options: WidgetOpenerOptions = { mode: 'activate', widgetOptions: { area: 'main' } };
         await open(this.openerService, uri, options);
         this.ensureBadgeState(uri);
+    }
+
+    /**
+     * この成果物を名指しているレンダーが走行中の間だけ待つ。
+     * 走っていない（= 手で置かれた成果物・既に完走済み）ときは一度も待たずに返る。
+     */
+    protected async awaitRenderSettled(artifact: URI): Promise<void> {
+        const configuration = this.configurationForArtifact(artifact);
+        const relative = configuration?.root.relative(artifact)?.toString().replace(/\\/g, '/');
+        if (!configuration || !relative) {
+            return;
+        }
+        const stateUri = this.childUri(configuration.root, RENDER_STATE_RELATIVE_PATH);
+        const startedAt = Date.now();
+        while (!this.stopped) {
+            const renderState = parseRenderStateFacts(await this.readTextOrUndefined(stateUri));
+            const hold = shouldHoldArtifactOpen({
+                renderState,
+                artifactRelativePath: relative,
+                waitedMs: Date.now() - startedAt
+            });
+            if (!hold) {
+                return;
+            }
+            await this.delay(RENDER_SETTLE_POLL_MS);
+        }
+    }
+
+    protected childUri(root: URI, relativePath: string): URI {
+        return relativePath.split('/').filter(Boolean).reduce((uri, segment) => uri.resolve(segment), root);
+    }
+
+    protected async readTextOrUndefined(uri: URI): Promise<string | undefined> {
+        try {
+            return (await this.fileService.readFile(uri)).value.toString();
+        } catch {
+            return undefined;
+        }
+    }
+
+    protected delay(ms: number): Promise<void> {
+        return new Promise(resolve => window.setTimeout(resolve, ms));
     }
 
     protected async findOpenWidget(uri: URI): Promise<Widget | undefined> {

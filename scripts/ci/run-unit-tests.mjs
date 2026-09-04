@@ -85,6 +85,7 @@ export const LANES = {
       ext('akari-project'),
       ext('akari-shell-strip'),
       ext('akari-surfaces'),
+      ext('akari-tabs'),
       ext('akari-transcript'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
