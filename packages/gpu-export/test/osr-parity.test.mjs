@@ -72,6 +72,26 @@ test("(a) DOM 層は非活性コンテナのアニメも毎コマ止めて時刻
   assert.match(syncAnimations, /querySelectorAll\('\.akari-overlay-container'\)/u);
 });
 
+test("(a) 時間窓の外のコンテナは display で落とす（visibility だけでは子孫に打ち消される）", () => {
+  const captureRun = pageRuntimeSource.slice(
+    pageRuntimeSource.indexOf("async captureRun(run, seconds, frameNumber)"),
+    pageRuntimeSource.indexOf("recordFrameCost(value)"),
+  );
+  // visibility は継承するだけで、子孫の visibility: visible に打ち消される。実制作の断片は
+  // 「基本 hidden・ゲートアニメの 0% が visible」と書くため、非活性コンテナでその 0% を
+  // 適用した瞬間に中身が出る（実測: 配置 110s の B ロールが 0s のフレームへ 3 枚出た）。
+  // display: none は子孫から打ち消せないので、こちらを必ず併せて書くこと。issue #53 (a)
+  assert.match(captureRun, /container\.style\.display = active \? "" : "none";/u);
+  assert.match(captureRun, /container\.style\.visibility = active \? "visible" : "hidden";/u);
+  const displayIndex = captureRun.indexOf("container.style.display");
+  const pinIndex = captureRun.indexOf("container.getAnimations({ subtree: true })");
+  assert.ok(displayIndex >= 0 && pinIndex >= 0);
+  assert.ok(
+    displayIndex < pinIndex,
+    "display の切り替えはアニメ固定より手前で行うこと（活性へ戻ったフレームで先にボックスを作る）",
+  );
+});
+
 test("(c) 動画テクスチャのシークは 1 実装をシートから共有する", () => {
   assert.match(rasterizeSource, /window\.__akariSeekVideos = async function\(seconds\)/u);
   assert.match(rasterizeSource, /const warnings = await window\.__akariSeekVideos\(seconds\);/u);
