@@ -45,6 +45,7 @@ export async function exportWithGpu({
   // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
   gpuPreference = undefined,
   eligibility,
+  force = false,
   ffmpegCommand = null,
   ffprobeCommand = null,
   env = process.env,
@@ -55,7 +56,7 @@ export async function exportWithGpu({
   audioMuxer = muxSourceAudio,
   finalVerifier = verifyFinalVideo,
 } = {}) {
-  if (eligibility?.eligible !== true) {
+  if (eligibility?.eligible !== true && !(force && eligibility?.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(eligibility)}`);
   }
   const encoding = resolveGpuEncoding({
@@ -91,6 +92,7 @@ export async function exportWithGpu({
       preview,
       previewOutputDirectory,
       gpuPreference,
+      force,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -104,7 +106,7 @@ export async function exportWithGpu({
       return {
         launcher,
         run,
-        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, finalVerify: null, profile: soft ? "soft" : "gpu", gpuPreference: gpuPreferenceRecord, codec }),
+        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, forced: force ? eligibility : null, finalVerify: null, profile: soft ? "soft" : "gpu", gpuPreference: gpuPreferenceRecord, codec }),
       };
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
@@ -161,6 +163,7 @@ export async function exportWithGpu({
         launcher,
         run: persistentRun,
         eligibility,
+        forced: force ? eligibility : null,
         finalVerify,
         audio,
         profile: soft ? "soft" : "gpu",
@@ -201,6 +204,7 @@ export async function captureFramesWithGpu({
   duration,
   frames = Math.round(duration * fps),
   eligibility,
+  force = false,
   soft = false,
   gpuPreference = undefined,
   env = process.env,
@@ -209,7 +213,7 @@ export async function captureFramesWithGpu({
   launcherResolver = resolveGpuLauncher,
   launcherRunner = launchGpuExport,
 } = {}) {
-  if (eligibility?.eligible !== true) {
+  if (eligibility?.eligible !== true && !(force && eligibility?.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(eligibility)}`);
   }
   const requestedFrames = normalizeCaptureFrames(frameNumbers, frames);
@@ -238,6 +242,7 @@ export async function captureFramesWithGpu({
       captureFrames: requestedFrames,
       captureOutputDirectory: outputDirectory,
       gpuPreference,
+      force,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });

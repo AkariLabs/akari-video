@@ -181,6 +181,7 @@ export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
   const env = options.env ?? process.env;
+  const forceGpu = engineRequested === "gpu" && readForceGpu(env);
   assertCodecEngine(codec, engineRequested);
   const container = containerForCodec(codec);
   let resolvedEngine = container.kind === "directory" || container.ext === "mov"
@@ -239,9 +240,16 @@ export async function renderProject(input, options = {}, io = console) {
         captions: plannedCaptions.captions,
         defaultTextStyle: plannedCaptions.defaultTextStyle,
         emphasisWords: plannedCaptions.emphasisWords,
+        forceDegraded: forceGpu,
       })
     : null;
-  assertGpuEligibility(engineRequested, gpuEligibility);
+  assertGpuEligibility(engineRequested, gpuEligibility, { force: forceGpu });
+  const gpuForceBypassed = forceGpu
+    && gpuEligibility?.eligible === false
+    && gpuEligibility?.summary?.unsupported === 0;
+  if (gpuForceBypassed) {
+    io.error(`[force-gpu] 適格性を迂回しました（検証用・納品不可）: ${formatGpuEligibilityFailures(gpuEligibility)}`);
+  }
   resolvedEngine = container.ext === "mp4"
     ? resolveEngineChoice(engineRequested, process.platform, gpuEligibility)
     : "osr";
@@ -323,6 +331,7 @@ export async function renderProject(input, options = {}, io = console) {
     },
     artifacts: [],
     verify: null,
+    ...(gpuForceBypassed ? { gpu_forced: true } : {}),
     ...(captionLayout ? { caption_layout: captionLayout } : {}),
   };
   if (engineRequested === "auto" && gpuEligibility?.eligible === false) {
@@ -416,6 +425,7 @@ export async function renderProject(input, options = {}, io = console) {
         runGpu: () => exportWithGpu({
           ...commonV2Options,
           eligibility: gpuEligibility,
+          force: forceGpu,
           launcher: gpuLauncher,
           preview: options.preview ?? "auto",
           previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
@@ -750,9 +760,15 @@ export function buildEngineProvenance(requested, platform, launcher = undefined,
   };
 }
 
-export function assertGpuEligibility(requested, eligibility) {
+export function readForceGpu(env) {
+  return env?.AKARI_FORCE_GPU === "1";
+}
+
+export function assertGpuEligibility(requested, eligibility, { force = false } = {}) {
   if (requested !== "gpu" || eligibility?.eligible === true) return;
-  throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}`);
+  if (force && eligibility?.summary?.unsupported === 0) return;
+  const suffix = force ? "（AKARI_FORCE_GPU は degraded のみ対象）" : "";
+  throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}${suffix}`);
 }
 
 export function assertOsrLauncherAvailable(launcher) {
@@ -762,7 +778,7 @@ export function assertOsrLauncherAvailable(launcher) {
 
 function formatGpuEligibilityFailures(eligibility) {
   if (!eligibility?.entries) return "eligibility result is missing";
-  return eligibility.entries.filter((entry) => ["degraded", "unsupported"].includes(entry.classification))
+  return eligibility.entries.filter((entry) => entry.forced === true || ["degraded", "unsupported"].includes(entry.classification))
     .map((entry) => `${entry.kind}:${entry.id}:${entry.reason}`).join("; ") || "unknown reason";
 }
 

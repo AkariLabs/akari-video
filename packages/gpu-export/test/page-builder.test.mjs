@@ -137,6 +137,35 @@ test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   assert.doesNotMatch(result.html, /\/Users\//);
 });
 
+test("GPU page builders pass forceDegraded into eligibility and create DOM runs", async () => {
+  const overlays = [{ id: "forced", start: 0, duration: 1, html: "<iframe></iframe>", vars: {} }];
+  const direct = buildGpuPage({
+    edit: { ...edit, overlays },
+    overlays,
+    captions: [],
+    projectRoot: "/unused",
+    duration: 1,
+    forceDegraded: true,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+  });
+  assert.equal(direct.eligibility.entries[0].classification, "dom");
+  assert.equal(direct.eligibility.entries[0].forced, true);
+  assert.equal(direct.spriteManifest.dom[0].entries[0].id, "forced");
+
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-force-page-builder-"));
+  try {
+    await writeFile(join(projectRoot, "edit.json"), JSON.stringify(zAxisEdit(["low"])));
+    await writeFile(join(projectRoot, "low.html"), "<iframe></iframe>");
+    const loaded = await loadAndBuildGpuPage({ projectRoot, duration: 1, forceDegraded: true });
+    assert.equal(loaded.eligibility.entries[0].classification, "dom");
+    assert.equal(loaded.eligibility.entries[0].forced, true);
+    assert.equal(loaded.spriteManifest.dom[0].entries[0].id, "low");
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test("GPU page builder は字幕段の最下・中間・最上を overlays 2 段と同じ z 軸へ載せる", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "gpu-track-z-"));
   try {

@@ -44,6 +44,7 @@ export function buildGpuPage({
   lutCubeText = null,
   layerLutCubeTexts = [],
   eligibility = null,
+  forceDegraded = false,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
@@ -76,6 +77,7 @@ export function buildGpuPage({
     captions: captionRoot,
     defaultTextStyle,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    forceDegraded,
   });
   const classifications = new Map(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay")
@@ -282,6 +284,7 @@ export async function loadAndBuildGpuPage({
   width,
   height,
   duration,
+  forceDegraded = false,
 }) {
   const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
   const editText = await readFile(resolvedEditPath, "utf8");
@@ -322,6 +325,7 @@ export async function loadAndBuildGpuPage({
     captions,
     defaultTextStyle: Array.isArray(captions) ? null : captions?.default_text_style ?? null,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    forceDegraded,
   });
   const page = buildGpuPage({
     edit,
@@ -336,6 +340,7 @@ export async function loadAndBuildGpuPage({
     lutCubeText,
     layerLutCubeTexts,
     eligibility,
+    forceDegraded,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };
 }

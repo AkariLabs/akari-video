@@ -35,3 +35,11 @@ test("parseElectronArguments: preview 出力ディレクトリを受け取る", 
     "/tmp/x",
   );
 });
+
+test("parseElectronArguments: force eligibility は明示時だけ有効になる", () => {
+  assert.equal(parseElectronArguments(baseArguments).forceEligibility, false);
+  assert.equal(
+    parseElectronArguments([...baseArguments, "--force-eligibility"]).forceEligibility,
+    true,
+  );
+});

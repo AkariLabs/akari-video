@@ -2,7 +2,7 @@ import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preferenc
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
-export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null, codec = run?.codec ?? "h264" } = {}) {
+export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, forced = null, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null, codec = run?.codec ?? "h264" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   const memory = run?.memory ?? {};
   return {
@@ -44,6 +44,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       three: normalizeThreeSummary(run?.three),
       viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
+      forced: normalizeForcedEligibility(forced),
     },
     memory: {
       profile: memory.profile ?? fallbackBudget.profile,
@@ -63,6 +64,14 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     finalVerify,
     audio: normalizeGpuAudioRecord(audio),
   };
+}
+
+function normalizeForcedEligibility(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.entries)) return null;
+  const forcedEntries = value.entries.filter((entry) => entry?.forced === true);
+  if (forcedEntries.some((entry) => typeof entry.id !== "string" || typeof entry.reason !== "string")) return null;
+  const reasons = forcedEntries.map((entry) => ({ id: entry.id, reason: entry.reason }));
+  return { reasons };
 }
 
 function normalizeOutputScale(value) {

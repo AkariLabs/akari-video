@@ -53,6 +53,7 @@ export async function runGpuExport(options) {
     bitrate = undefined,
     codec = "h264",
     soft = false,
+    forceEligibility = false,
     trapReadback = false,
     verifyFrames = false,
     dumpFrames = [],
@@ -116,8 +117,9 @@ export async function runGpuExport(options) {
     width,
     height,
     duration,
+    forceDegraded: forceEligibility,
   });
-  if (!built.eligibility.eligible) {
+  if (!built.eligibility.eligible && !(forceEligibility && built.eligibility.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(built.eligibility)}`);
   }
   const server = await startStaticServer({
@@ -515,6 +517,7 @@ export function parseElectronArguments(argv) {
     bitrate: undefined,
     codec: "h264",
     soft: false,
+    forceEligibility: false,
     trapReadback: false,
     verifyFrames: false,
     dumpFrames: [],
@@ -540,6 +543,7 @@ export function parseElectronArguments(argv) {
     else if (argument === "--bitrate") options.bitrate = positiveInteger(required(argv, ++index, "--bitrate"), "--bitrate");
     else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--soft") options.soft = true;
+    else if (argument === "--force-eligibility") options.forceEligibility = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"), "--dump-frames");

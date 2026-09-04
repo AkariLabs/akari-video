@@ -41,3 +41,7 @@ stem はファイル名に使える形へ sanitize されます。既存成果�
 走査には `-skip_frame` も縮小も使わないため、デコードした全フレームを測定し、報告可能な最小区間は 0.3 秒のままです。各区間は `verify.declared.blank_frames` と HTML レポートへ、活性な overlay / cut の ID とともに保存されます。宣言上活性な overlay または cut が 1 件以上あれば `warning`、0 件なら `info` です。これらの finding は検証 verdict を変えません。
 
 この走査を無効にするには `--no-verify-blank` を指定します。
+
+## 開発専用の GPU 強制経路
+
+degraded overlay を best-effort の DOM 層で検証する場合に限り、明示した `--engine gpu` とともに `AKARI_FORCE_GPU=1` を設定します。この迂回は検証専用で、出力には GPU 強制の刻印が付くため、納品物には絶対に使用しないでください。
