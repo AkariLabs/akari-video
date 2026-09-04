@@ -20,7 +20,7 @@
 | 分類 | 適格 | 意味 |
 |---|---|---|
 | `same` | はい | 静的 HTML は起動時、対応済み字幕は unit の初回活性時に 1 回だけスプライト化する |
-| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新し、登場表現は `three-scene-entrance-curve` または `three-scene-entrance-sampled` で処理する |
+| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新し、登場表現は `three-scene-entrance-curve`、`three-scene-entrance-sampled`、または `three-scene-sampled-composite` で処理する |
 | `degraded` | いいえ | raster 自体は可能でも live DOM と同じ時間変化を保証できない |
 | `unsupported` | いいえ | v0 の表現範囲外であり、正しい完成画を生成できない |
 
@@ -305,12 +305,18 @@ CSS 3D は次の 3 群に分けて判定する。
   外部扱いしない（2026-08-31・issue #33。それまでは末尾に `;` の無いインライン style から後続 SVG の
   `fill="url(#id)"` まで走査が届いて誤検出していた）。
 - `drawElementImage` が利用できない実行環境、または device pixel ratio が 1 でない環境。
-- 宣言型 3D が sampled 経路の入口条件（`three-or-canvas-runtime` / `animation-timing`）を満たさない場合は
-  `three-sampled-condition:<条件名を , 連結>` とし、curve 解析の失敗理由を流用しない。CSS 3D 条件がある場合は
-  従来どおり `three-entrance-3d-matrix` とする。
+- 宣言型 3D が composite 経路の入口条件（`three-or-canvas-runtime` / `animation-timing` /
+  `css-3d-transform` / `advanced-css`）を満たさない場合は `three-sampled-condition:<条件名を , 連結>` とし、
+  curve 解析の失敗理由を流用しない。CSS 3D 幾何は composite 経路で断片全体を転写するため適格とする。
 - root〜Three canvas の祖先チェーン上の `filter` / `clip-path` / `mask(-image)` / `backdrop-filter` /
-  `mix-blend-mode` に対する `three-sampled-chain-css:<プロパティ>` は、`advanced-css` が入口条件に含まれない
-  現状では到達しないガードであり、方式 B で解禁したときに効くため走査側に保持する。
+  `mix-blend-mode` に対する `three-sampled-chain-css:<プロパティ>` は、canvas だけを合成する方式 A（sampled）専用の
+  ガードとして走査側に保持する。方式 B（composite）はチェーン内外とも断片全体を転写するため `advanced-css` を通す。
+- composite 候補に `@property` がある場合は `three-composite-property` とする。overlay sheet の WAAPI clone と
+  DOM 層の素の CSS animation でカスタムプロパティ補間が割れる可能性があるため、実測までは fail-closed とする。
+- `transform-style: preserve-3d` を宣言する要素の要素の子に、Three canvas への祖先チェーン上の要素と
+  チェーン外の Z を持つ変形を宣言した要素が同居する場合は `three-composite-preserve-3d-siblings` とする。
+  静的に判定できない場合も同じ理由で degraded へ倒す（2026-09-04 実測: 外接矩形 MAD 5.0082。
+  OSR は z 深度で、GPU は DOM 順で重ねるため）。
 
 settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
 `requestPaint()` と `paint` event（上限 250 ms）を待つ。API がない Chromium では computed style、
@@ -439,25 +445,37 @@ Three canvas までの各要素について計算済み opacity と transform �
 累積行列が軸平行な translate / scale だけなら 3D canvas を従来の texture のまま使い、中心基準の
 sprite draw state へ変換する。回転またはせん断を含む一般 2D affine は、出力寸法の中間 canvas へ
 `setTransform(a,b,c,d,e,f)` で描いてから恒等 draw state で合成する。perspective、実 Z 成分、その他の
-3D 行列は理由 `three-entrance-3d-matrix` で `degraded` にする。
+3D 行列は方式 A では扱わず、方式 B の断片全体転写へ回す。
 
 sampled 方式 A の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つで、対象は断片 root から
 Three canvas までの祖先チェーン（両端を含む）である。このチェーン上の任意の要素にある
 animation / transition は累積行列へ含める。Three canvas の CSS ボックスが出力全面と一致しない場合は、軸平行な
-行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。canvas 以外の HTML（fallback や装飾）を DOM 層で別描画して
-合成順を保つ方式 B は本版では未実装であり、祖先チェーン外に animation / transition がある、または保守的な静的走査で
-チェーン内だけと証明できない場合は `three-html-animated-descendants` で `degraded` にする。`advanced-css`
-（`clip-path` / `filter` / `mask` / `backdrop-filter` / `mix-blend-mode`）はサンプリング経路の対象外とする。チェーン上の
-宣言は方式 A が canvas へ適用しない（適用するのは opacity と transform だけ）ため絵に出せず、チェーン外の要素は GPU
-出口が canvas だけを texture 化するため描かれない（2026-09-04 の実測: 装飾矩形の描画画素は GPU 0 px / OSR 22,889 px。
-同じ現象は本改訂前の版でも同一）。安全に通せる部分集合が無いため、方式 B の実装後に再検討する。入口条件を満たさない
-断片の理由は `three-sampled-condition:<条件名>` とし、curve 解析の失敗理由を流用しない。CSS 3D 条件がある場合は
-従来どおり `three-entrance-3d-matrix` とする。チェーン上の advanced CSS を検出する
-`three-sampled-chain-css:<プロパティ>` は、方式 B で解禁したときのガードとして走査側に保持する。
+行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。
 
-manifest の各 3D sprite は `entranceMode: "curve" | "sampled" | "none"` を持つ。run payload と receipt の
-`gpu.three.overlays[].entrance.mode` は登場表現について `curve` または `sampled` を記録し、
-`gpu.three.sampling` は sampled フレームの `count`、`p50`、`p95` ミリ秒を記録する。
+方式 B（composite）は、方式 A で祖先チェーン内だけと証明できない断片、CSS 3D 幾何、または
+`advanced-css` を持つ断片を理由 `three-scene-sampled-composite` で処理する。Three.js は overlay sheet で従来どおり
+描画し、その Three canvas を DOM 層コピー側の同じ canvas 要素へ毎コマ `drawImage` で中継する。その後、paused WAAPI を
+合成時刻へ seek して断片 root 全体を `drawElementImage` する。DOM 層コピー側の `[data-akari-3d-fallback]` は
+`hidden` と `display:none !important` で隠す。断片内は canvas を含む DOM 順と z-index がそのまま効き、断片間は従来どおり
+track z、宣言 index の順で合成する。これにより祖先チェーン上の 3D 行列と、チェーン内外の `advanced-css` も転写される。
+
+CSS 3D の判定は DOM 層と同じ 3 群を使う。`backface-visibility:hidden` と深度 transform の組み合わせだけは
+`css-3d-backface-hidden` で degraded を維持する。`transform-style:preserve-3d` の交差は composite として通し、
+検出した場合は stderr と receipt の `preserve3dOrderConflicts` へ警告を残す。それ以外の CSS 3D は通す。
+ただし `preserve-3d` 空間で兄弟同士（3D canvas と兄弟要素など）が z 深度で並び替わる断片は、GPU が DOM 順で描くため
+OSR と絵が変わる（2026-09-04 実測: 外接矩形 MAD 5.0082、OSR では z>0 の兄弟だけが canvas の前）。この型は
+`three-composite-preserve-3d-siblings` で fail-closed にし、警告なしで絵が変わる断片を通さない。DOM 層の
+`preserve3dOrderConflicts` 検出器を兄弟対まで広げれば再解禁できる（次ラウンド候補）。親子対は従来どおり、
+検出器の警告を receipt に残して通す（実測パリティ 0.6374）。
+composite 候補の `@property` は、overlay sheet と DOM 層で補間結果が割れる可能性があるため
+`three-composite-property` で fail-closed とする。方式 A の `three-sampled-chain-css:<プロパティ>` ガードは残すが、
+方式 B ではチェーン内外とも断片全体を描くため `advanced-css` を通す。その他の入口外条件は
+`three-sampled-condition:<条件名>` とし、curve 解析の失敗理由を流用しない。
+
+manifest の各 3D sprite は `entranceMode: "curve" | "sampled" | "composite" | "none"` を持つ。run payload と receipt の
+`gpu.three.overlays[].entrance.mode` は `curve` / `sampled` / `composite` を記録し、`gpu.three.sampling` は sampled
+フレームの `count`、`p50`、`p95` ミリ秒を記録する。composite がある場合は `gpu.three.composite` に overlay 数、
+DOM 要素数、canvas 中継費用と DOM 層費用の p50/p95 を記録する。
 
 ## 11. v2 の cut 音声中間物（2026-08-29 追記）
 

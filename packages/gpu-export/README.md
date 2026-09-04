@@ -67,16 +67,27 @@ clone currently leaves those properties at their initial values in both GPU and 
 opacity and transform keyframes still interpolate, so engine parity is preserved. Custom-property
 interpolation remains a separate export-sheet issue.
 
-The sampled path admits `three-or-canvas-runtime` and `animation-timing`. Real 3D matrices fail closed as
-`three-entrance-3d-matrix`. Animation or transition outside the root-to-canvas ancestor chain fails closed as
-`three-html-animated-descendants`, because separate DOM rendering for fallback and decoration is not implemented
-in this version. Fragments with `advanced-css` degrade as `three-sampled-condition:advanced-css`; they will be
-reconsidered after that separate DOM rendering (method B) is implemented. Candidates that do not meet the sampled
-entry conditions report `three-sampled-condition:<condition>` rather than reusing a curve-parser reason. The scan
-still retains `three-sampled-chain-css:<property>` for `filter`, `clip-path`, `mask(-image)`, `backdrop-filter`, or
-`mix-blend-mode` on the root-to-canvas chain as a guard for enabling `advanced-css` under method B. Manifests record
-`entranceMode`, and receipts record `curve` / `sampled` mode plus sample-count and p50/p95 sampling cost. Scenes
-without CSS animation remain `three-scene-canvas-direct`.
+The sampled path admits `three-or-canvas-runtime` and `animation-timing`. When method A cannot describe the fragment
+from its root-to-canvas chain, method B classifies it as `three-scene-sampled-composite`. Three.js still renders in
+the overlay sheet; each frame copies that canvas into the matching canvas in the DOM-layer clone, hides
+`[data-akari-3d-fallback]`, then transfers the whole fragment with `drawElementImage`. This preserves DOM order and
+z-index around the canvas, while overlays remain ordered by track z and declaration index.
+
+Composite scenes admit CSS 3D geometry and `advanced-css` both inside and outside the canvas chain. They reuse the
+DOM layer's CSS 3D policy: depth transforms pass, preserve-3d order conflicts pass with a warning, and
+`backface-visibility:hidden` with depth remains degraded as `css-3d-backface-hidden`. `@property` remains fail-closed
+as `three-composite-property` until sheet/DOM custom-property interpolation parity is measured. Other conditions
+outside the composite entry set report `three-sampled-condition:<condition>`. The method-A scan retains
+`three-sampled-chain-css:<property>` as its own guard.
+
+Composite scenes now fail closed as `three-composite-preserve-3d-siblings` when a `preserve-3d` element has both the
+Three-canvas chain child and an off-chain child with a depth transform. GPU paints those siblings in DOM order, so it
+diverged from OSR (measured 2026-09-04: bounding-box MAD 5.0082; OSR put only z>0 siblings in front of the canvas).
+Extending `preserve3dOrderConflicts` to sibling pairs can re-enable this shape in a later round. Parent-child conflicts
+continue to pass with a warning (measured parity 0.6374).
+Manifests record `entranceMode`, and receipts record
+`curve` / `sampled` / `composite`, sampling cost, plus composite DOM-element and p50/p95 copy/DOM-layer costs.
+Scenes without CSS animation remain `three-scene-canvas-direct`.
 
 `render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
 project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is

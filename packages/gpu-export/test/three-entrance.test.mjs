@@ -5,7 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
-import { parseThreeEntrance, scanThreeSampled } from "../src/three-entrance.mjs";
+import { parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "../src/three-entrance.mjs";
 
 const ROOTS = {
   "3d-lap-intro": {
@@ -147,7 +147,7 @@ test("3D entrance forms outside the curve grammar use computed-style sampling", 
   }
 });
 
-test("3D sampled entrance keeps chain CSS and animated descendants fail-closed", () => {
+test("3D sampled scan keeps chain CSS guards while eligibility falls through to composite", () => {
   const chainCssCases = [
     ["keyframe filter", fragment({ from: "translate(0px, 0px); filter:blur(1px)" }), "three-sampled-chain-css:filter"],
     ["keyframe clip path", fragment({ from: "translate(0px, 0px); clip-path:inset(0)" }), "three-sampled-chain-css:clip-path"],
@@ -157,15 +157,15 @@ test("3D sampled entrance keeps chain CSS and animated descendants fail-closed",
   for (const [label, html, reason] of chainCssCases) {
     assert.deepEqual(scanThreeSampled(html), { ok: false, reason }, label);
     const result = eligibility(html);
-    assert.equal(result.entries[0].classification, "degraded", label);
-    assert.equal(result.entries[0].reason, "three-sampled-condition:advanced-css", label);
+    assert.equal(result.entries[0].classification, "three", label);
+    assert.equal(result.entries[0].reason, "three-scene-sampled-composite", label);
   }
 
   const missingDescendant = fragment({ extraCss: ".child { animation:laptop-live__enter 1s linear 0s both; }" });
-  assert.deepEqual(scanThreeSampled(missingDescendant), { ok: false, reason: "three-html-animated-descendants" });
+  assert.deepEqual(scanThreeSampled(missingDescendant), { ok: false, reason: "three-sampled-outside-chain" });
   const result = eligibility(missingDescendant);
-  assert.equal(result.entries[0].classification, "degraded");
-  assert.equal(result.entries[0].reason, "three-html-animated-descendants");
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-sampled-composite");
 });
 
 test("animation or transition on the canvas itself stays in the sampled chain", () => {
@@ -174,17 +174,17 @@ test("animation or transition on the canvas itself stays in the sampled chain", 
   assert.equal(result.entries[0].reason, "three-scene-entrance-sampled");
 });
 
-test("sampled 3D entrance reports real 3D transforms as a matrix blocker", () => {
+test("sampled 3D entrance routes real 3D transforms through composite", () => {
   const result = eligibility(fragment({ from: "translate(0px, 0px) rotateX(12deg)" }));
-  assert.equal(result.entries[0].classification, "degraded");
-  assert.equal(result.entries[0].reason, "three-entrance-3d-matrix");
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-sampled-composite");
 });
 
 test("sampled advanced CSS fixtures distinguish outside-chain, on-chain, and unsupported script conditions", async () => {
   const cases = [
-    ["three-sampled-advanced-css-outside-chain.html", "degraded", "three-sampled-condition:advanced-css", { ok: true }],
-    ["three-sampled-advanced-css-on-chain.html", "degraded", "three-sampled-condition:advanced-css", { ok: false, reason: "three-sampled-chain-css:filter" }],
-    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime,advanced-css", null],
+    ["three-sampled-advanced-css-outside-chain.html", "three", "three-scene-sampled-composite", { ok: true }],
+    ["three-sampled-advanced-css-on-chain.html", "three", "three-scene-sampled-composite", { ok: false, reason: "three-sampled-chain-css:filter" }],
+    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime", null],
   ];
   for (const [name, classification, reason, sampled] of cases) {
     const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
@@ -219,23 +219,23 @@ test("sampled chain CSS detects inline declarations in document order", () => {
   );
   assert.deepEqual(scanThreeSampled(html), { ok: false, reason: "three-sampled-chain-css:filter" });
   const result = eligibility(html);
-  assert.equal(result.entries[0].classification, "degraded");
-  assert.equal(result.entries[0].reason, "three-sampled-condition:advanced-css");
+  assert.equal(result.entries[0].classification, "three");
+  assert.equal(result.entries[0].reason, "three-scene-sampled-composite");
 });
 
 test("sampled 3D fixtures classify supported forms, a canvas-ancestor wrapper, the classic curve, and siblings", async (t) => {
   const cases = [
     ["three-sampled-root-without-class.html", "three", "three-scene-entrance-sampled"],
-    ["three-sampled-advanced-css-outside-chain.html", "degraded", "three-sampled-condition:advanced-css"],
-    ["three-sampled-advanced-css-on-chain.html", "degraded", "three-sampled-condition:advanced-css"],
-    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime,advanced-css"],
+    ["three-sampled-advanced-css-outside-chain.html", "three", "three-scene-sampled-composite"],
+    ["three-sampled-advanced-css-on-chain.html", "three", "three-scene-sampled-composite"],
+    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime"],
     ["three-sampled-middle-keyframe.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-multiple-animation.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-transition.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-property.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-chain-wrapper.html", "three", "three-scene-entrance-sampled"],
     ["three-curve-classic.html", "three", "three-scene-entrance-curve"],
-    ["three-sampled-animated-descendant.html", "degraded", "three-html-animated-descendants"],
+    ["three-sampled-animated-descendant.html", "three", "three-scene-sampled-composite"],
   ];
   for (const [name, classification, reason] of cases) {
     await t.test(name, async () => {
@@ -252,7 +252,58 @@ test("sampled scanning requires a well-formed root-to-canvas chain", () => {
   const noCanvas = fragment().replace(/<canvas[\s\S]*?<\/canvas>/u, "");
   assert.deepEqual(scanThreeSampled(noCanvas), { ok: false, reason: "three-entrance-canvas-missing" });
   const malformed = fragment().replace("</div>", "</section>");
-  assert.deepEqual(scanThreeSampled(malformed), { ok: false, reason: "three-html-animated-descendants" });
+  assert.deepEqual(scanThreeSampled(malformed), { ok: false, reason: "three-sampled-outside-chain" });
+});
+
+test("composite scanning accepts a well-formed scene and rejects its four hard blockers", () => {
+  const valid = fragment({ extraCss: ".deco { animation:laptop-live__enter 1s linear both; }" });
+  assert.deepEqual(scanThreeComposite(valid), { ok: true });
+  assert.deepEqual(scanThreeComposite(valid.replace(
+    '<script type="application/json"',
+    '<script type="application/json" data-akari-3d-scene>{}</script><script type="application/json"',
+  )), { ok: false, reason: "three-entrance-script-count" });
+  assert.deepEqual(scanThreeComposite(valid.replace(/<canvas[\s\S]*?<\/canvas>/u, "")), {
+    ok: false, reason: "three-entrance-canvas-missing",
+  });
+  assert.deepEqual(scanThreeComposite(valid.replace("</style>", "@property --phase { syntax:'<number>'; inherits:false; initial-value:0; }</style>")), {
+    ok: false, reason: "three-composite-property",
+  });
+  assert.deepEqual(scanThreeComposite("<style></style><script type=\"application/json\" data-akari-3d-scene>{}</script>"), {
+    ok: false, reason: "three-entrance-root-missing",
+  });
+});
+
+test("composite fixtures classify with the contracted reason", async () => {
+  for (const name of [
+    "three-composite-s1-title.html",
+    "three-composite-s2-panel.html",
+    "three-composite-s6-scatter.html",
+    "three-sampled-animated-descendant.html",
+    "three-sampled-advanced-css-outside-chain.html",
+    "three-sampled-advanced-css-on-chain.html",
+  ]) {
+    const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
+    const result = eligibility(html);
+    assert.equal(result.entries[0].classification, "three", name);
+    assert.equal(result.entries[0].reason, "three-scene-sampled-composite", name);
+  }
+  const backface = await readFile(join(import.meta.dirname, "fixtures", "three-composite-backface-hidden.html"), "utf8");
+  const result = eligibility(backface);
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.entries[0].reason, "css-3d-backface-hidden");
+});
+
+test("preserve-3d depth-sorted siblings fail closed without changing the flat s6 composite", async () => {
+  const cases = [
+    ["three-composite-preserve-3d-siblings.html", "degraded", "three-composite-preserve-3d-siblings"],
+    ["three-composite-s6-scatter.html", "three", "three-scene-sampled-composite"],
+  ];
+  for (const [name, classification, reason] of cases) {
+    const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
+    const result = eligibility(html);
+    assert.equal(result.entries[0].classification, classification, name);
+    assert.equal(result.entries[0].reason, reason, name);
+  }
 });
 
 test("sampled matrix helpers convert centered axis-aligned transforms and reject real 3D", async () => {
@@ -296,6 +347,7 @@ test("ordered draws add entrance state only to entrance-enabled 3D sprites", asy
     three: [
       { id: "animated", index: 0, start: 1, duration: 3, entrance: parsed.entrance },
       { id: "direct", index: 1, start: 0, duration: 4 },
+      { id: "composite", index: 3, start: 0, duration: 4, entranceMode: "composite" },
     ],
     dom: [],
   };
@@ -315,4 +367,5 @@ test("ordered draws add entrance state only to entrance-enabled 3D sprites", asy
   assert.deepEqual(JSON.parse(JSON.stringify(sampled[1])), {
     z: 0, index: 1, id: "direct", opacity: 0.4, translateX: 12, scaleX: 0.9,
   });
+  assert.equal(sampled.some((draw) => draw.id === "composite"), false);
 });

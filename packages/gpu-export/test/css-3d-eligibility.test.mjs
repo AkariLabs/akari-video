@@ -128,7 +128,7 @@ test("preserve-3d conflict detector ignores non-painting elements", async () => 
   assert.equal(conflicts.length, 0);
 });
 
-test("Three entrances route every css-3d condition through the matrix blocker", () => {
+test("Three entrances keep backface-hidden fail-closed while composite handles CSS 3D geometry", () => {
   const entry = evaluate(`
     <style>
       .scene { perspective: 900px; }
@@ -139,7 +139,7 @@ test("Three entrances route every css-3d condition through the matrix blocker", 
     <script type="application/json" data-akari-3d-scene>{}</script>
   `);
   assert.equal(entry.classification, "degraded");
-  assert.equal(entry.reason, "three-entrance-3d-matrix");
+  assert.equal(entry.reason, "css-3d-backface-hidden");
   assert.ok(entry.conditions.includes("css-3d-backface-hidden"));
 });
 

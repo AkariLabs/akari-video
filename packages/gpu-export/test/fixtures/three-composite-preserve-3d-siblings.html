@@ -1,0 +1,28 @@
+<div class="s6-scatter">
+  <style>
+    .s6-scatter { position: absolute; inset: 0; perspective: 1000px; transform-style: preserve-3d; }
+    .s6-scatter__canvas { position: absolute; left: 200px; top: 70px; width: 240px; height: 220px; }
+    .s6-scatter__card { position: absolute; left: 270px; top: 130px; width: 100px; height: 72px; border-radius: 12px; display: grid; place-items: center; color: white; background: linear-gradient(135deg, #7c3aed, #22d3ee); }
+    [data-akari-active] .s6-scatter__card--1, [data-no-timeline] .s6-scatter__card--1 { animation: s6-scatter-1 1.4s ease-out both; }
+    [data-akari-active] .s6-scatter__card--2, [data-no-timeline] .s6-scatter__card--2 { animation: s6-scatter-2 1.4s ease-out both; }
+    [data-akari-active] .s6-scatter__card--3, [data-no-timeline] .s6-scatter__card--3 { animation: s6-scatter-3 1.4s ease-out both; }
+    [data-akari-active] .s6-scatter__card--4, [data-no-timeline] .s6-scatter__card--4 { animation: s6-scatter-4 1.4s ease-out both; }
+    [data-akari-active] .s6-scatter__card--5, [data-no-timeline] .s6-scatter__card--5 { animation: s6-scatter-5 1.4s ease-out both; }
+    [data-akari-active] .s6-scatter__card--6, [data-no-timeline] .s6-scatter__card--6 { animation: s6-scatter-6 1.4s ease-out both; }
+    @keyframes s6-scatter-1 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(-220px, -84px, -80px) rotateY(-28deg); } }
+    @keyframes s6-scatter-2 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(-184px, 92px, 30px) rotateY(22deg); } }
+    @keyframes s6-scatter-3 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(-72px, -112px, -20px) rotateY(-16deg); } }
+    @keyframes s6-scatter-4 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(74px, 108px, 50px) rotateY(18deg); } }
+    @keyframes s6-scatter-5 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(176px, -92px, -40px) rotateY(-24deg); } }
+    @keyframes s6-scatter-6 { from { transform: translate3d(0, 0, 0) rotateY(0); } to { transform: translate3d(216px, 82px, 70px) rotateY(30deg); } }
+  </style>
+  <div class="s6-scatter__card s6-scatter__card--1">1</div>
+  <div class="s6-scatter__card s6-scatter__card--2">2</div>
+  <div class="s6-scatter__card s6-scatter__card--3">3</div>
+  <canvas class="s6-scatter__canvas"></canvas>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <div class="s6-scatter__card s6-scatter__card--4">4</div>
+  <div class="s6-scatter__card s6-scatter__card--5">5</div>
+  <div class="s6-scatter__card s6-scatter__card--6">6</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

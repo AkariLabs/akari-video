@@ -115,18 +115,53 @@ function normalizeThreeSummary(value) {
   const overlays = [];
   for (const overlay of value.overlays) {
     const mode = overlay?.entrance?.mode;
-    if (typeof overlay?.id !== "string" || overlay.id === "" || !["curve", "sampled"].includes(mode)) return null;
+    if (typeof overlay?.id !== "string" || overlay.id === "" || !["curve", "sampled", "composite"].includes(mode)) return null;
     overlays.push({ id: overlay.id, entrance: { mode } });
   }
   const count = nonNegativeInteger(value.sampling.count);
   if (count === null) return null;
+  let sampling;
   if (count === 0) {
     if (value.sampling.p50 !== null || value.sampling.p95 !== null) return null;
-    return { overlays, sampling: { count, p50: null, p95: null } };
+    sampling = { count, p50: null, p95: null };
+  } else {
+    const p50 = finiteNonNegative(value.sampling.p50);
+    const p95 = finiteNonNegative(value.sampling.p95);
+    if (p50 === null || p95 === null) return null;
+    sampling = { count, p50, p95 };
   }
-  const p50 = finiteNonNegative(value.sampling.p50);
-  const p95 = finiteNonNegative(value.sampling.p95);
-  return p50 === null || p95 === null ? null : { overlays, sampling: { count, p50, p95 } };
+  const normalized = { overlays, sampling };
+  if (value.composite !== undefined && value.composite !== null) {
+    const composite = normalizeThreeCompositeSummary(value.composite);
+    if (composite === null) return null;
+    normalized.composite = composite;
+  }
+  return normalized;
+}
+
+function normalizeThreeCompositeSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  const overlays = nonNegativeInteger(value.overlays);
+  const domElements = nonNegativeInteger(value.domElements);
+  const copy = normalizeCostPercentiles(value.copy, true);
+  const domLayerCostMs = normalizeCostPercentiles(value.domLayerCostMs, false);
+  return overlays === null || domElements === null || copy === null || domLayerCostMs === null
+    ? null
+    : { overlays, domElements, copy, domLayerCostMs };
+}
+
+function normalizeCostPercentiles(value, includeCount) {
+  if (!value || typeof value !== "object") return null;
+  const count = includeCount ? nonNegativeInteger(value.count) : null;
+  if (includeCount && count === null) return null;
+  if (value.p50 === null && value.p95 === null) {
+    if (includeCount && count !== 0) return null;
+    return includeCount ? { count, p50: null, p95: null } : { p50: null, p95: null };
+  }
+  const p50 = finiteNonNegative(value.p50);
+  const p95 = finiteNonNegative(value.p95);
+  if (p50 === null || p95 === null) return null;
+  return includeCount ? { count, p50, p95 } : { p50, p95 };
 }
 
 function normalizeSize(value) {
