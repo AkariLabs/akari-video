@@ -3,6 +3,8 @@
 //     mount(summary, options) / configure() / createOverlayRuntime() で上書き・無効化できること
 // (b) 非 3D 断片の getAnimations({ subtree: true }) が 250ms 以内の連続 tick で 1 回しか
 //     呼ばれず、可視化フリップと 250ms 経過で引き直されること（[data-akari-active] ゲートは維持）
+// (c) 3D 断片でも同じ CSS アニメ同期を通すこと（three のシーンと断片の CSS は別物で、
+//     後者を進めるのは tick の仕事。回帰: 2026-09-04）
 // 実 DOM（CSS animation の生成・three の描画）は扱わない。実ブラウザでの挙動は
 // entry-animation-hit-region.test.mjs / premount.test.mjs が担う。
 // 実行: node --test packages/overlay-runtime/test-harness/overlay-runtime-tick.test.mjs
@@ -250,4 +252,44 @@ test("入場アニメの確定判定（hitPolicyPending）もキャッシュ済�
     1,
     "確定判定も pause/currentTime 同期と同じキャッシュを使い、getAnimations は 1 回",
   );
+});
+
+// 回帰（2026-09-04 実機報告「3D モデルがずっと画面に残る」）:
+// 3D 分岐が CSS アニメ同期の手前で continue していたため、3D 宣言を含む断片の CSS アニメが
+// 1 本も pause / currentTime されず、壁時計で走り切って animation-fill-mode の最終姿勢へ
+// 張り付いていた。実機の S4 断片は 3D ステージの出入りを 45 秒の CSS アニメだけで持って
+// いるので、最終姿勢 = 画面中央に居座る絵になっていた。
+// 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも等しく
+// 掛けているため、飛ばすとプレビューと書き出しで絵が食い違う。
+test("3D 断片の CSS アニメもタイムラインへ同期する（three の描画とは別口）", async () => {
+  const animation = {
+    paused: false,
+    currentTime: null,
+    pause() { this.paused = true; },
+    effect: { getComputedTiming: () => ({ endTime: 800 }) },
+  };
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cube", start: 0, duration: 10, html: THREE_HTML }] });
+  const container = host.stage.children[0];
+  const cubeCalls = () => host.getAnimationsCalls.filter((call) => call.element === container).length;
+
+  host.clock = 1000;
+  host.runtime.tick(1.5, true);
+  assert.equal(animation.paused, true, "3D 断片の CSS アニメも pause する（壁時計で走らせない）");
+  assert.equal(animation.currentTime, 1500, "currentTime は断片のローカル時刻（= tick 時刻 - start）");
+  assert.equal(cubeCalls(), 1);
+  assert.deepEqual(own(host.getAnimationsCalls[0].options), { subtree: true });
+  assert.equal(host.renderCalls.length, 1, "CSS 同期を通しても three の描画は従来どおり呼ぶ");
+  assert.equal(host.renderCalls[0].seconds, 1.5);
+
+  // 壁時計を大きく進めてもタイムライン位置にだけ追従する
+  host.clock = 9000;
+  host.runtime.tick(3, true);
+  assert.equal(animation.currentTime, 3000, "壁時計ではなくタイムライン位置へ同期する");
+  assert.equal(cubeCalls(), 2, "250ms 超過で引き直すのは非 3D 断片と同じ");
+
+  // 巻き戻しても同じ（シークで過去へ戻す経路）
+  host.clock = 9300;
+  host.runtime.tick(0.5, true);
+  assert.equal(animation.currentTime, 500);
 });
