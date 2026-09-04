@@ -33,11 +33,25 @@ test('page runtime delegates an empty evaluation plan without throwing', async (
     output: { width: 640, height: 360, colorSpace: 'bt709-limited' },
     compositor: {},
     metrics: {},
+    fps: 30,
+    reaper: {
+      reap(plan, frameNumber) {
+        calls.push({ kind: 'reap', plan, frameNumber });
+        return { released: 0, liveStreams: 0 };
+      },
+      released() { return 0; },
+    },
   };
 
   const actual = await frameAt.call(runtime, 3);
   assert.equal(actual, expected);
   assert.equal(calls[0].timeUs, 3_000_000);
-  assert.deepEqual(calls[1].plan.base, []);
-  assert.deepEqual(calls[1].plan.layers, []);
+  // 回収は「plan を組んだ後・評価する前」。逆順だと解放したいフレームと新しいフレームが
+  // 同時に生きる瞬間ができる（issue #52）
+  assert.deepEqual(calls.map((call) => call.kind), ['plan', 'reap', 'evaluate']);
+  assert.equal(calls[1].frameNumber, 90);
+  assert.deepEqual(calls[2].plan.base, []);
+  assert.deepEqual(calls[2].plan.layers, []);
+  assert.equal(runtime.decoderSessions.live, 0);
+  assert.equal(runtime.decoderSessions.released, 0);
 });

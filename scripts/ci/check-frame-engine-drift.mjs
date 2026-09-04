@@ -8,7 +8,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const checks = [
   ['packages/gpu-export', 'packages/gpu-export/scripts/bundle-frame-engine.mjs'],
   ['packages/osr-export', 'packages/osr-export/scripts/bundle-frame-engine.mjs'],
-  ['apps/shell/extensions/akari-preview', 'apps/shell/extensions/akari-preview/scripts/bundle-frame-engine.mjs']
+  ['apps/shell/extensions/akari-preview', 'apps/shell/extensions/akari-preview/scripts/bundle-frame-engine.mjs'],
+  ['packages/preview-server', 'scripts/ci/check-preview-server-drift.mjs']
 ];
 const failed = [];
 
@@ -30,5 +31,5 @@ if (failed.length > 0) {
   process.stderr.write(`[frame-engine-drift] drift check failed: ${failed.join(', ')}\n`);
   process.exitCode = 1;
 } else {
-  process.stdout.write('[frame-engine-drift] all frame-engine bundles are current\n');
+  process.stdout.write('[frame-engine-drift] all bundle drift checks passed\n');
 }

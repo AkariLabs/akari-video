@@ -8,6 +8,7 @@ import test from "node:test";
 import { logVerificationResult, parseArguments, verifyArtifact } from "../src/render-cut.mjs";
 import { renderReport } from "../src/report.mjs";
 import {
+  BLANK_FRAME_SPREAD_TOLERANCE,
   activeIdsForInterval,
   blankFrameFindings,
   blankIntervalSeverity,
@@ -25,6 +26,15 @@ function metadata(values, sampleFps = fps) {
   return values.map((ymax, index) => [
     `[Parsed_metadata_1] frame:${index} pts:${index} pts_time:${index / sampleFps}`,
     `[Parsed_metadata_1] lavfi.signalstats.YMAX=${ymax}`,
+  ].join("\n")).join("\n");
+}
+
+function metadataWithRanges(values, sampleFps = fps) {
+  return values.map(({ ymin, ymax }, index) => [
+    `[Parsed_metadata_1] frame:${index} pts:${index} pts_time:${index / sampleFps}`,
+    `[Parsed_metadata_1] lavfi.signalstats.YMIN=${ymin}`,
+    `[Parsed_metadata_2] frame:${index} pts:${index} pts_time:${index / sampleFps}`,
+    `[Parsed_metadata_2] lavfi.signalstats.YMAX=${ymax}`,
   ].join("\n")).join("\n");
 }
 
@@ -56,6 +66,48 @@ test("signalstats parser and lower-five-percent background estimator are determi
   assert.equal(estimateBackgroundYmax(Array.from({ length: 100 }, (_, index) => index)), 2);
 });
 
+test("signalstats parser assembles YMIN and YMAX per frame and keeps YMAX-only compatibility", () => {
+  assert.deepEqual(parseSignalstatsMetadata(metadataWithRanges([
+    { ymin: 16, ymax: 16 },
+    { ymin: 18, ymax: 34 },
+  ])), [
+    { frame: 0, pts: 0, pts_time: 0, ymin: 16, ymax: 16 },
+    { frame: 1, pts: 1, pts_time: 1 / fps, ymin: 18, ymax: 34 },
+  ]);
+  assert.deepEqual(parseSignalstatsMetadata(metadata([16], 10)), [
+    { frame: 0, pts: 0, pts_time: 0, ymax: 16 },
+  ]);
+  assert.deepEqual(detectBlankIntervals(parseSignalstatsMetadata(metadata(Array(10).fill(16), 10)), {
+    fps: 10,
+    backgroundYmax: 16,
+  }), [{ start: 0, duration: 1, ymax_max: 16 }]);
+});
+
+test("signalstats parser merges duplicate headings from the two metadata filters", () => {
+  const output = [
+    "[Parsed_metadata_1 @ 0x100] frame:0    pts:0       pts_time:0",
+    "[Parsed_metadata_1 @ 0x100] lavfi.signalstats.YMIN=16",
+    "[Parsed_metadata_2 @ 0x200] frame:0    pts:0       pts_time:0",
+    "[Parsed_metadata_2 @ 0x200] lavfi.signalstats.YMAX=32",
+  ].join("\n");
+  assert.deepEqual(parseSignalstatsMetadata(output), [
+    { frame: 0, pts: 0, pts_time: 0, ymin: 16, ymax: 32 },
+  ]);
+});
+
+test("signalstats parser requires both frame and pts to match before merging headings", () => {
+  const output = [
+    "[Parsed_metadata_1 @ 0x100] frame:0 pts:0 pts_time:0",
+    "[Parsed_metadata_1 @ 0x100] lavfi.signalstats.YMAX=16",
+    "[Parsed_metadata_2 @ 0x200] frame:0 pts:1 pts_time:1",
+    "[Parsed_metadata_2 @ 0x200] lavfi.signalstats.YMAX=32",
+  ].join("\n");
+  assert.deepEqual(parseSignalstatsMetadata(output), [
+    { frame: 0, pts: 0, pts_time: 0, ymax: 16 },
+    { frame: 0, pts: 1, pts_time: 1, ymax: 32 },
+  ]);
+});
+
 test("interval detection reports 0.3 seconds and drops a 0.2-second run", () => {
   const samples = parseSignalstatsMetadata(metadata([
     ...Array(9).fill(16), ...Array(3).fill(200), ...Array(6).fill(16), ...Array(3).fill(200),
@@ -63,6 +115,18 @@ test("interval detection reports 0.3 seconds and drops a 0.2-second run", () => 
   assert.deepEqual(detectBlankIntervals(samples, { fps, backgroundYmax: 16 }), [
     { start: 0, duration: 0.3, ymax_max: 16 },
   ]);
+});
+
+test("spread gate rejects non-flat frames independently of the YMAX threshold", () => {
+  const samples = parseSignalstatsMetadata(metadataWithRanges([
+    ...Array(10).fill({ ymin: 16, ymax: 32 }),
+    ...Array(10).fill({ ymin: 16, ymax: 33 }),
+  ], 10));
+  assert.deepEqual(detectBlankIntervals(samples, {
+    fps: 10,
+    backgroundYmax: 33,
+    spreadTolerance: BLANK_FRAME_SPREAD_TOLERANCE,
+  }), [{ start: 0, duration: 1, ymax_max: 32 }]);
 });
 
 test("active IDs use overlay timing plus explicit and sequential cut output timing", () => {
@@ -112,7 +176,7 @@ test("scan invokes one injected signalstats plus metadata pass", () => {
   });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "ffmpeg-test");
-  assert.equal(calls[0].args[calls[0].args.indexOf("-vf") + 1], "signalstats,metadata=print:key=lavfi.signalstats.YMAX");
+  assert.equal(calls[0].args[calls[0].args.indexOf("-vf") + 1], "signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX");
   assert.equal(result.intervals.length, 1);
 });
 
@@ -178,7 +242,7 @@ test("--no-verify-blank disables scanning and records zero intervals", () => {
         }),
         stderr: "",
       };
-      if (args.includes("signalstats,metadata=print:key=lavfi.signalstats.YMAX")) signalstatsCalls += 1;
+      if (args.includes("signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX")) signalstatsCalls += 1;
       return { status: 0, stdout: "frame=10\nprogress=end\n", stderr: "" };
     },
   });
@@ -225,6 +289,24 @@ test("blank warning is written to stderr and the HTML report includes the interv
   assert.match(html, /<h2>Blank-frame scan<\/h2>/u);
   assert.match(html, /<code>title<\/code>/u);
   assert.match(html, /minimum reported continuous interval is 0\.3 seconds/u);
+});
+
+test("findings append background_ymax and spread tolerance without changing the existing prefix", () => {
+  const interval = {
+    start: 1,
+    duration: 0.5,
+    ymax_max: 16,
+    active_overlays: ["title"],
+    active_cuts: [],
+    severity: "warning",
+  };
+  const legacyMessage = blankFrameFindings([interval])[0].message;
+  const message = blankFrameFindings([interval], {
+    backgroundYmax: 16,
+    spreadTolerance: BLANK_FRAME_SPREAD_TOLERANCE,
+  })[0].message;
+  assert.equal(legacyMessage, "空フレーム候補 1s–1.5s（0.5 秒、YMAX 最大 16）; 活性 overlay:title");
+  assert.equal(message, `${legacyMessage}; background_ymax 16; spread 許容 16`);
 });
 
 test("a detected blank-frame warning does not change verifyArtifact's pass verdict", () => {
@@ -297,6 +379,63 @@ test("a one-second white background is detected by relative YMAX sticking", asyn
     assert.equal(result.intervals.length, 1, JSON.stringify(result, null, 2));
     assert.ok(result.background_ymax > 200, JSON.stringify(result));
     assert.ok(Math.abs(result.intervals[0].duration - 1) <= frame);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real dark grid with a moving box is not reported as blank", async (t) => {
+  if (!ffmpegAvailable) return t.skip("ffmpeg unavailable");
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-blank-grid-"));
+  try {
+    const path = join(directory, "dark-grid.mkv");
+    runFfmpeg([
+      "-f", "lavfi", "-i", `color=c=0x0a0d14:size=320x180:rate=${fps}:duration=1.5,drawgrid=width=32:height=32:thickness=2:color=0xb4b4b4,drawbox=x='mod(t*160\\,280)':y=70:w=28:h=28:color=0x9aa0ff:t=fill`,
+      "-c:v", "ffv1", path,
+    ]);
+    const result = scanBlankFrames({ outputPath: path, fps });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.intervals.length, 0, JSON.stringify(result, null, 2));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real flat black and middle-gray frames are each reported as one interval", async (t) => {
+  if (!ffmpegAvailable) return t.skip("ffmpeg unavailable");
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-blank-flat-"));
+  try {
+    for (const [name, color] of [["black", "black"], ["gray", "0x808080"]]) {
+      const path = join(directory, `${name}.mkv`);
+      runFfmpeg([
+        "-f", "lavfi", "-i", `color=c=${color}:size=320x180:rate=${fps}:duration=1`,
+        "-c:v", "ffv1", path,
+      ]);
+      const result = scanBlankFrames({ outputPath: path, fps });
+      assert.equal(result.ok, true, result.error);
+      assert.equal(result.intervals.length, 1, `${name}: ${JSON.stringify(result, null, 2)}`);
+      assert.ok(Math.abs(result.intervals[0].duration - 1) <= frame, JSON.stringify(result));
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("real testsrc2 and dark-grid concat is not reported as blank", async (t) => {
+  if (!ffmpegAvailable) return t.skip("ffmpeg unavailable");
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-blank-grid-concat-"));
+  try {
+    const path = join(directory, "grid-concat.mkv");
+    runFfmpeg([
+      "-f", "lavfi", "-i", `testsrc2=size=320x180:rate=${fps}:duration=2`,
+      "-f", "lavfi", "-i", `color=c=0x0a0d14:size=320x180:rate=${fps}:duration=1.5,drawgrid=width=32:height=32:thickness=2:color=0xb4b4b4,drawbox=x='mod(t*160\\,280)':y=70:w=28:h=28:color=0x9aa0ff:t=fill`,
+      "-f", "lavfi", "-i", `testsrc2=size=320x180:rate=${fps}:duration=2`,
+      "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+      "-map", "[v]", "-c:v", "ffv1", path,
+    ]);
+    const result = scanBlankFrames({ outputPath: path, fps });
+    assert.equal(result.ok, true, result.error);
+    assert.equal(result.intervals.length, 0, JSON.stringify(result, null, 2));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

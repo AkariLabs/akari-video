@@ -94,6 +94,12 @@
         videoSources.set(id, source);
       }
       this.sources = new Map([...videoSources, ...images]);
+      // GPU 経路と同じ規律: 書き出しは厳密に前方順なので、plan から外れたカットのデコーダ
+      // セッションは捨てる。カット本数ぶん積み上げると長尺で RSS が hard stop に当たる
+      // （issue #52。#28 の再発予防でもある）
+      this.fps = Number(config.fps) > 0 ? Number(config.fps) : 30;
+      this.reaper = new FE.StreamReaper(lookahead.values(), { graceFrames: Math.max(1, Math.round(this.fps)) });
+      this.decoderSessions = { live: 0, released: 0 };
       this.timeline = FE.buildResolvedTimelinePlan(cuts, {
         fps: config.fps,
         layers: engineLayers,
@@ -108,6 +114,8 @@
     async renderAt(seconds) {
       const clamped = Math.max(0, Math.min(Number(seconds) || 0, this.timeline.totalDuration));
       const plan = FE.evaluationPlanFromResolvedTimeline(this.timeline, Math.round(clamped * 1e6), this.sources, this.output);
+      const reaped = this.reaper.reap(plan, Math.round(clamped * this.fps));
+      this.decoderSessions = { live: reaped.liveStreams, released: this.reaper.released() };
       if (plan.base.length === 0 && plan.layers.length === 0) {
         const context = this.canvas.getContext("webgl2");
         if (context) {
@@ -163,7 +171,11 @@
     const result = await overlayFrame.contentWindow.__akariSeek(seconds);
     stampRow.style.backgroundColor = window.__akariEncodeStamp(frameNumber).css;
     await animationFrames(2);
-    return { warnings: warnings.concat(result && Array.isArray(result.warnings) ? result.warnings : []) };
+    return {
+      warnings: warnings.concat(result && Array.isArray(result.warnings) ? result.warnings : []),
+      // RSS はデコーダセッション数に比例して伸びる（issue #28 / #52）。run.json の memory へ運ぶ
+      decoderSessions: engineRuntime.decoderSessions,
+    };
   };
 
   window.__akariSettle = async function () {

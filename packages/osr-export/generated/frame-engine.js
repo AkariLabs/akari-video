@@ -16799,6 +16799,7 @@ ${indent}`);
     RefusalError: () => RefusalError,
     ScrubController: () => ScrubController,
     SpriteCompositor: () => SpriteCompositor,
+    StreamReaper: () => StreamReaper,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
     TimeoutError: () => TimeoutError,
     WarmupManager: () => WarmupManager,
@@ -16866,6 +16867,7 @@ ${indent}`);
     parseFlacStreamInfo: () => parseFlacStreamInfo,
     parseSourceSelectionMode: () => parseSourceSelectionMode,
     parseWavHeader: () => parseWavHeader,
+    planStreamsBySource: () => planStreamsBySource,
     precedingSyncSample: () => precedingSyncSample,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
@@ -24284,6 +24286,37 @@ void main() {
       this.caches.clear();
       this.inFlight.clear();
     }
+    /**
+     * 生きている stream（キャッシュを持つもの + 内側のソースが掴んでいるデコーダのレーン）。
+     * StreamReaper がこの一覧を見て「plan に載っていない stream」を選ぶ。
+     */
+    liveStreamIds() {
+      const ids = new Set(this.caches.keys());
+      const inner = this.source;
+      if (typeof inner.liveStreamIds === "function") {
+        for (const streamId of inner.liveStreamIds()) ids.add(streamId);
+      }
+      return [...ids];
+    }
+    /**
+     * stream 1 本ぶんのキャッシュと、内側のデコーダセッションを解放する。書き出しは厳密に前方順で
+     * 過去フレームを読み直さないので、plan から外れたカットはここで捨ててよい（issue #52）。
+     * 進行中の prefetch は握っている frame を put() でキャッシュへ戻すため、in-flight の間は
+     * 解放しない（次のフレームで回収される）。
+     */
+    releaseStream(streamId) {
+      for (const key of this.inFlight.keys()) {
+        if (key.slice(0, key.lastIndexOf(":")) === streamId) return false;
+      }
+      const cache = this.caches.get(streamId);
+      if (cache) {
+        cache.clear();
+        this.caches.delete(streamId);
+      }
+      const inner = this.source;
+      const releasedSession = typeof inner.releaseSession === "function" ? inner.releaseSession(streamId) : false;
+      return Boolean(cache) || releasedSession;
+    }
     frameNumber(timeUs) {
       return Math.max(0, Math.round(timeUs * this.fps / 1e6));
     }
@@ -24294,6 +24327,92 @@ void main() {
         this.caches.set(streamId, cache);
       }
       return cache;
+    }
+  };
+
+  // packages/frame-engine/src/decode/stream-reaper.ts
+  function isReapable(source) {
+    const value = source;
+    return typeof value.liveStreamIds === "function" && typeof value.releaseStream === "function";
+  }
+  function planStreamsBySource(plan) {
+    const streams = /* @__PURE__ */ new Map();
+    const add = (source, streamId) => {
+      if (!source) return;
+      let ids = streams.get(source);
+      if (!ids) {
+        ids = /* @__PURE__ */ new Set();
+        streams.set(source, ids);
+      }
+      ids.add(streamId);
+    };
+    for (const layer of plan.base) {
+      if (layer.kind === "image") continue;
+      add(layer.source, layer.id);
+    }
+    for (const layer of plan.layers) {
+      if (layer.kind === "filter") continue;
+      add(layer.source, `layer-${layer.id}`);
+      if (layer.mask) add(layer.mask.source, `layer-${layer.id}-mask`);
+    }
+    return streams;
+  }
+  var StreamReaper = class {
+    sources;
+    lastSeen = /* @__PURE__ */ new Map();
+    graceFrames;
+    releasedTotal = 0;
+    constructor(sources, options = {}) {
+      this.sources = [...sources].filter(isReapable);
+      const grace = Number(options.graceFrames);
+      this.graceFrames = Number.isFinite(grace) && grace >= 0 ? Math.floor(grace) : 30;
+    }
+    /**
+     * 1 フレームぶんの回収。plan を評価する **前** に呼ぶ（新しい decode が始まる前に空ける）。
+     */
+    reap(plan, frameNumber) {
+      const inUse = planStreamsBySource(plan);
+      const frame = Number.isFinite(frameNumber) ? Math.round(frameNumber) : 0;
+      let released = 0;
+      let liveStreams = 0;
+      for (const source of this.sources) {
+        const seen = this.seenFor(source);
+        const active = inUse.get(source);
+        if (active) for (const streamId of active) seen.set(streamId, frame);
+        for (const streamId of [...source.liveStreamIds()]) {
+          const last = seen.get(streamId);
+          if (last === void 0) {
+            seen.set(streamId, frame);
+            continue;
+          }
+          if (frame - last <= this.graceFrames) continue;
+          if (source.releaseStream(streamId)) {
+            released += 1;
+            seen.delete(streamId);
+          }
+        }
+        liveStreams += source.liveStreamIds().length;
+      }
+      this.releasedTotal += released;
+      return { released, liveStreams };
+    }
+    /** 現在生きている stream の総数（run.json の memory ブロックに出す可視化用）。 */
+    liveStreams() {
+      let total = 0;
+      for (const source of this.sources) total += source.liveStreamIds().length;
+      return total;
+    }
+    /** これまでに解放した stream の累計。 */
+    released() {
+      return this.releasedTotal;
+    }
+    seenFor(source) {
+      let seen = this.lastSeen.get(source);
+      if (!seen) {
+        seen = /* @__PURE__ */ new Map();
+        this.lastSeen.set(source, seen);
+      }
+      return seen;
     }
   };
 

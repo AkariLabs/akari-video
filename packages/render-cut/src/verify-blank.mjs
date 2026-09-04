@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 
 export const BLANK_FRAME_MIN_DURATION_SECONDS = 0.3;
 export const BLANK_FRAME_YMAX_TOLERANCE = 8;
+export const BLANK_FRAME_SPREAD_TOLERANCE = 16;
 export const BLANK_FRAME_BACKGROUND_FRACTION = 0.05;
 
 const CAPTURE_LIMIT_BYTES = 64 * 1024 * 1024;
@@ -9,24 +10,36 @@ const CAPTURE_LIMIT_BYTES = 64 * 1024 * 1024;
 export function parseSignalstatsMetadata(output) {
   const samples = [];
   let pending = null;
+
+  const finish = () => {
+    if (!pending) return;
+    if (Number.isFinite(pending.pts_time) && Number.isFinite(pending.ymax)) {
+      samples.push(pending);
+    }
+    pending = null;
+  };
+
   for (const line of textOf(output).split(/\r?\n/u)) {
     const frame = /frame:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:\s*([^\s]+)/u.exec(line);
     if (frame) {
+      const frameNumber = Number(frame[1]);
+      const pts = Number(frame[2]);
+      if (pending?.frame === frameNumber && pending?.pts === pts) continue;
+      finish();
       pending = {
-        frame: Number(frame[1]),
-        pts: Number(frame[2]),
+        frame: frameNumber,
+        pts,
         pts_time: Number(frame[3]),
       };
       continue;
     }
-    const ymax = /lavfi\.signalstats\.YMAX=([+-]?(?:\d+(?:\.\d*)?|\.\d+))/u.exec(line);
-    if (!ymax || !pending) continue;
-    const value = Number(ymax[1]);
-    if (Number.isFinite(pending.pts_time) && Number.isFinite(value)) {
-      samples.push({ ...pending, ymax: value });
-    }
-    pending = null;
+    const stat = /lavfi\.signalstats\.(YMIN|YMAX)=([+-]?(?:\d+(?:\.\d*)?|\.\d+))/u.exec(line);
+    if (!stat || !pending) continue;
+    const value = Number(stat[2]);
+    if (!Number.isFinite(value)) continue;
+    pending[stat[1].toLowerCase()] = value;
   }
+  finish();
   return samples;
 }
 
@@ -52,6 +65,7 @@ export function detectBlankIntervals(
     fps,
     backgroundYmax = estimateBackgroundYmax(samples),
     tolerance = BLANK_FRAME_YMAX_TOLERANCE,
+    spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
     minimumDurationSeconds = BLANK_FRAME_MIN_DURATION_SECONDS,
   } = {},
 ) {
@@ -81,7 +95,11 @@ export function detectBlankIntervals(
       finish();
       continue;
     }
-    if (sample.ymax <= threshold) {
+    // Blank frames are flat (YMAX ~= YMIN), while drawn detail can keep YMIN low and raise
+    // YMAX, so spread separates dark content without an absolute brightness threshold.
+    const spreadIsBlank = !Number.isFinite(sample.ymin)
+      || sample.ymax - sample.ymin <= spreadTolerance;
+    if (sample.ymax <= threshold && spreadIsBlank) {
       if (!run) run = { start: sample.pts_time, frames: 0, ymaxMax: sample.ymax };
       run.frames += 1;
       run.ymaxMax = Math.max(run.ymaxMax, sample.ymax);
@@ -142,7 +160,10 @@ export function annotateBlankIntervals(intervals, edit) {
   });
 }
 
-export function blankFrameFindings(intervals) {
+export function blankFrameFindings(intervals, { backgroundYmax, spreadTolerance } = {}) {
+  const thresholdDetails = Number.isFinite(backgroundYmax) && Number.isFinite(spreadTolerance)
+    ? `; background_ymax ${formatSeconds(backgroundYmax)}; spread 許容 ${formatSeconds(spreadTolerance)}`
+    : "";
   return (Array.isArray(intervals) ? intervals : []).map((interval) => {
     const active = [
       ...(interval.active_overlays ?? []).map((id) => `overlay:${id}`),
@@ -151,7 +172,7 @@ export function blankFrameFindings(intervals) {
     return {
       severity: interval.severity,
       check: "verify.blank-frames",
-      message: `空フレーム候補 ${formatSeconds(interval.start)}s–${formatSeconds(interval.start + interval.duration)}s（${formatSeconds(interval.duration)} 秒、YMAX 最大 ${formatSeconds(interval.ymax_max)}）${active.length > 0 ? `; 活性 ${active.join(", ")}` : "; 活性 overlay/cut なし"}`,
+      message: `空フレーム候補 ${formatSeconds(interval.start)}s–${formatSeconds(interval.start + interval.duration)}s（${formatSeconds(interval.duration)} 秒、YMAX 最大 ${formatSeconds(interval.ymax_max)}）${active.length > 0 ? `; 活性 ${active.join(", ")}` : "; 活性 overlay/cut なし"}${thresholdDetails}`,
     };
   });
 }
@@ -160,11 +181,14 @@ export function scanBlankFrames({
   outputPath,
   fps,
   edit = null,
+  spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
   ffmpegCommand = "ffmpeg",
   spawnSyncImpl = spawnSync,
 }) {
   // No -skip_frame or scale is used: signalstats sees every decoded frame, so the minimum
   // detectable/reported run remains exactly BLANK_FRAME_MIN_DURATION_SECONDS (subject to fps).
+  // Print only YMIN and YMAX: all signalstats keys inflate capture by about 13x per frame and
+  // can exhaust CAPTURE_LIMIT_BYTES on long artifacts.
   const result = spawnSyncImpl(
     ffmpegCommand,
     [
@@ -176,7 +200,7 @@ export function scanBlankFrames({
       "-map",
       "0:v:0",
       "-vf",
-      "signalstats,metadata=print:key=lavfi.signalstats.YMAX",
+      "signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX",
       "-an",
       "-sn",
       "-dn",
@@ -199,14 +223,14 @@ export function scanBlankFrames({
   }
   const backgroundYmax = estimateBackgroundYmax(samples);
   const intervals = annotateBlankIntervals(
-    detectBlankIntervals(samples, { fps, backgroundYmax }),
+    detectBlankIntervals(samples, { fps, backgroundYmax, spreadTolerance }),
     edit,
   );
   return {
     ok: true,
     background_ymax: backgroundYmax,
     intervals,
-    findings: blankFrameFindings(intervals),
+    findings: blankFrameFindings(intervals, { backgroundYmax, spreadTolerance }),
     error: null,
   };
 }
