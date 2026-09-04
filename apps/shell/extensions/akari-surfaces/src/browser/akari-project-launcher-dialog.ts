@@ -1,4 +1,5 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
@@ -76,9 +77,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
                 width: 'min(1040px, calc(100vw - 48px))',
                 maxWidth: '1040px',
                 maxHeight: 'calc(100vh - 48px)',
-                borderRadius: '18px',
+                borderRadius: `${AKARI_RADIUS.card}px`,
                 overflow: 'hidden',
-                border: '1px solid var(--theia-widget-border)',
+                border: AKARI_BORDER.edge,
                 boxShadow: '0 24px 72px rgba(0, 0, 0, 0.48)',
                 background: 'var(--theia-editor-background)'
             });
@@ -116,7 +117,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         Object.assign(newProjectButton.style, {
             // 主動線は広がった格子に引きずられず、従来どおり中央の 1 本のままにする。
             display: 'block', width: '100%', maxWidth: '520px', margin: '0 auto',
-            padding: '13px 18px', borderRadius: '10px',
+            padding: '13px 18px', borderRadius: `${AKARI_RADIUS.panel}px`,
             fontWeight: '700', fontSize: '14.5px', minHeight: 'auto', height: 'auto'
         });
         newProjectButton.addEventListener('click', () => void this.handleStartNewProject());
@@ -216,8 +217,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
             badge.textContent = badgeText;
             Object.assign(badge.style, {
                 flex: '0 0 auto', maxWidth: '52%', overflow: 'hidden', textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap', padding: '2px 8px', borderRadius: '999px',
-                border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
+                whiteSpace: 'nowrap', padding: '2px 8px', borderRadius: `${AKARI_RADIUS.chip}px`,
+                border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
+                color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
             });
             body.appendChild(badge);
         }

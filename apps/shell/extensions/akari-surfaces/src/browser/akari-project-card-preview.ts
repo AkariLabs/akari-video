@@ -15,7 +15,7 @@ export const PROJECT_CARD_CYCLE_INTERVAL_MS = 650;
  * インラインスタイルで素直に勝てる（別途 CSS を被せる必要はない）。角丸が見えるかどうかは
  * 単に値の問題で、10px では 240px 幅のカードに対して弱く「角が落ちている」程度にしか読めない。
  */
-export const PROJECT_CARD_RADIUS_PX = 14;
+export const PROJECT_CARD_RADIUS_PX = 12;
 
 /**
  * カード 1 枚ぶんのサムネ再生。ポスターを敷き、ホバー／フォーカスのあいだだけ

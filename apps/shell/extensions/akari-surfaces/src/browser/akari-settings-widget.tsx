@@ -3,6 +3,12 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
+    AKARI_BORDER,
+    AKARI_INK,
+    AKARI_RADIUS,
+    AKARI_SURFACE
+} from 'akari-project/lib/common/akari-surface-tokens';
+import {
     AKARI_AGENT_TURN_END_NOTIFICATION,
     AKARI_CLOUD_ACCOUNT,
     AKARI_DEVELOPER_MODE,
@@ -70,10 +76,10 @@ export class AkariSettingsWidget extends ReactWidget {
         const inputStyle: React.CSSProperties = {
             width: '100%',
             boxSizing: 'border-box',
-            color: 'var(--theia-input-foreground)',
-            background: 'var(--theia-input-background)',
-            border: '1px solid var(--theia-input-border, var(--theia-contrastBorder))',
-            borderRadius: 4,
+            color: AKARI_INK,
+            background: AKARI_SURFACE.raised,
+            border: AKARI_BORDER.hairline,
+            borderRadius: AKARI_RADIUS.panel,
             padding: '7px 8px'
         };
         return (
@@ -138,7 +144,10 @@ export class AkariSettingsWidget extends ReactWidget {
                 </label>
 
                 {this.developerMode && (
-                    <aside style={{ padding: 10, borderRadius: 6, background: 'var(--theia-editorWidget-background)' }}>
+                    <aside style={{
+                        padding: 10, borderRadius: AKARI_RADIUS.panel,
+                        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised
+                    }}>
                         Developer mode が有効です。標準のフル設定とソースエディタも利用できます。
                     </aside>
                 )}

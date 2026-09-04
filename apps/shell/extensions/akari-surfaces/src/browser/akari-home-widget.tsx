@@ -74,6 +74,13 @@ import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
+    AKARI_BORDER,
+    AKARI_INK,
+    AKARI_LINE,
+    AKARI_RADIUS,
+    AKARI_SURFACE
+} from 'akari-project/lib/common/akari-surface-tokens';
+import {
     StoreConnectionFlowController,
     StoreConnectionFlowPhase
 } from 'akari-project/lib/common/store-connection-flow';
@@ -2233,10 +2240,7 @@ export class AkariHomeWidget extends ReactWidget {
     /** 取り込み完了後の一時的なステータス表示（v3 renderProjectOverview から再利用）。 */
     protected renderImportedNotice(): React.ReactNode {
         return (
-            <div role='status' style={{
-                marginBottom: 16, padding: '10px 14px', borderRadius: 8,
-                border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)'
-            }}>
+            <div role='status' style={homeFlowStyles.importedNotice}>
                 {this.importedNotice}
             </div>
         );
@@ -2312,10 +2316,10 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected renderDashboardHeader(): React.ReactNode {
         return (
-            <header style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
-                    <div style={{ display: 'flex', gap: 8 }}>
+            <header style={homeFlowStyles.dashboardHeader}>
+                <div style={homeFlowStyles.dashboardHeaderRow}>
+                    <h1 style={homeFlowStyles.dashboardTitle}>ホーム</h1>
+                    <div style={homeFlowStyles.dashboardHeaderActions}>
                         <button
                             type='button'
                             className='theia-button secondary'
@@ -2724,26 +2728,49 @@ export class AkariHomeWidget extends ReactWidget {
 const PROJECT_CARD_GRID_GAP = 10;
 const PROJECT_CARD_GRID_COLUMNS = 'repeat(auto-fill, minmax(min(150px, calc(33.333% - 7px)), 1fr))';
 
+//
+// 2026-09-05（カード言語そろえ・レーン B）: 面と線を
+// `akari-project/common/akari-surface-tokens` へ一本化した。
+// それまでは `--theia-editorWidget-background`(=VS Code 既定の #252526) と
+// `--theia-widget-border`(=#262626) を直接参照していたため、
+//   * 面が黒×オレンジのパレットから浮く（#252526 はパレットに無い灰）
+//   * 項目の枠（#262626）がカード外周のヘアライン（alpha .13 ≒ 33）より明るく、
+//     線の階層が逆転する
+// という 2 つの症状が出ていた。spec.md §1 §2 §3 に合わせ、
+//   面 = raised(--akari-card) / 線 = hairline(外周の約半分) / 角丸 = 8 か 6
+// で統一する。色は必ずトークン経由（= 変数参照）にすること。
 const homeFlowStyles: Record<string, React.CSSProperties> = {
     eyebrow: { fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     h2: { fontSize: 22, fontWeight: 800, lineHeight: 1.4, margin: 0 },
     sub: { color: 'var(--theia-descriptionForeground)', fontSize: 13.5, marginTop: 8, maxWidth: '38em' },
 
+    // ダッシュボード見出し行。見出しが「ホー / ム」と折り返さないよう縮ませない。
+    dashboardHeader: { marginBottom: 14 },
+    dashboardHeaderRow: {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap'
+    },
+    dashboardTitle: { margin: 0, fontSize: 21, flex: '0 0 auto', whiteSpace: 'nowrap' },
+    dashboardHeaderActions: { display: 'flex', gap: 8, flex: '0 1 auto', flexWrap: 'wrap' },
+
     cta: {
-        display: 'inline-block', padding: '12px 30px', borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+        display: 'inline-block', padding: '12px 30px', borderRadius: AKARI_RADIUS.panel, fontWeight: 700, fontSize: 14.5,
         minHeight: 'auto', height: 'auto'
     },
 
-    setupReopenButton: { minHeight: 'auto', height: 'auto', padding: '5px 10px', fontSize: 11.5 },
+    setupReopenButton: {
+        minHeight: 'auto', height: 'auto', padding: '5px 10px', fontSize: 11.5,
+        borderRadius: AKARI_RADIUS.chip
+    },
 
     // 案内カード（説明 / 過去プロジェクトのフォールバック / 接続）。ロックではないので画面を占有せず 1 枚に収める。
     card: {
         display: 'flex', alignItems: 'flex-start', gap: 13, marginBottom: 12, padding: '13px 15px',
-        borderRadius: 12, border: '1px solid var(--theia-widget-border)',
-        background: 'var(--theia-editorWidget-background)'
+        borderRadius: AKARI_RADIUS.panel, border: AKARI_BORDER.hairline,
+        background: AKARI_SURFACE.raised
     },
     cardMark: {
-        width: 38, height: 38, flex: '0 0 auto', borderRadius: 11,
+        width: 38, height: 38, flex: '0 0 auto', borderRadius: AKARI_RADIUS.panel,
         background: 'var(--theia-button-background)', display: 'flex', alignItems: 'center', justifyContent: 'center'
     },
     cardBody: { flex: '1 1 auto', minWidth: 0 },
@@ -2751,7 +2778,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     cardLead: { color: 'var(--theia-descriptionForeground)', fontSize: 12.5, lineHeight: 1.75, margin: '6px 0 0', maxWidth: '44em' },
     cardFine: { marginTop: 8, marginBottom: 0, fontSize: 11, opacity: 0.6, fontFamily: 'monospace' },
     cardCta: {
-        flex: '0 0 auto', padding: '9px 18px', borderRadius: 9, fontWeight: 700, fontSize: 13,
+        flex: '0 0 auto', padding: '9px 18px', borderRadius: AKARI_RADIUS.chip, fontWeight: 700, fontSize: 13,
         minHeight: 'auto', height: 'auto'
     },
 
@@ -2799,13 +2826,15 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     projectRow: { display: 'flex', alignItems: 'stretch', gap: 6 },
     projectRevealButton: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flex: '0 0 auto', minHeight: 'auto', height: 'auto', padding: '0 12px', borderRadius: 9
+        flex: '0 0 auto', minHeight: 'auto', height: 'auto', padding: '0 12px',
+        borderRadius: AKARI_RADIUS.panel
     },
+    // リスト項目は spec §2 の「原則 枠を持たず背景（raised）で分ける」。
     projectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
-        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
+        border: '1px solid transparent', background: AKARI_SURFACE.raised,
+        color: AKARI_INK, cursor: 'pointer', textAlign: 'left'
     },
     projectItemBody: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
     projectItemName: { fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -2813,15 +2842,16 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     chipIcon: { fontSize: 14, color: 'var(--theia-focusBorder)' },
     // U3: 現在開いている行の ▶ マークと「開いています」/「単体」バッジ。
     projectCurrentArrow: { color: 'var(--theia-focusBorder)', fontSize: 11, flex: '0 0 auto' },
+    // チップは枠を持たず、1 段上の面（elevated）で親のリスト項目から分ける。
     projectBadge: {
-        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
-        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
-        background: 'var(--theia-editorWidget-background)'
+        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px',
+        borderRadius: AKARI_RADIUS.chip, border: '1px solid transparent',
+        color: 'var(--theia-descriptionForeground)', background: AKARI_SURFACE.elevated
     },
 
     // F5「+ 新しい動画を始める」（プロジェクト一覧の先頭）。
     newProjectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
         justifyContent: 'flex-start', textAlign: 'left'
     },
@@ -2829,8 +2859,8 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     // U2 状態バッジ（旧 F6 現在地 1 行を置換）。
     statusBadge: {
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-        marginTop: 8, marginBottom: 4, padding: '9px 13px', borderRadius: 10,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        marginTop: 8, marginBottom: 4, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         fontSize: 13
     },
     statusBadgeIn: { borderColor: 'var(--theia-focusBorder)' },
@@ -2839,14 +2869,14 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         flexBasis: '100%', color: 'var(--theia-descriptionForeground)', fontSize: 11.5, paddingLeft: 2
     },
     joinButton: {
-        flex: '0 0 auto', padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+        flex: '0 0 auto', padding: '5px 14px', borderRadius: AKARI_RADIUS.chip, fontSize: 12, fontWeight: 700,
         minHeight: 'auto', height: 'auto'
     },
 
     // dashboard 内に展開する進め方フォーム（ステージではない）。
     intakeSection: {
-        marginBottom: 22, padding: '16px 18px', borderRadius: 12,
-        border: '1px solid var(--theia-focusBorder)', background: 'var(--theia-editorWidget-background)'
+        marginBottom: 22, padding: '16px 18px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.accent, background: AKARI_SURFACE.raised
     },
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
@@ -2860,16 +2890,20 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
     },
     reviewNotice: {
-        marginBottom: 16, padding: '9px 13px', borderRadius: 9, fontSize: 12.5,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        marginBottom: 16, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel, fontSize: 12.5,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         color: 'var(--theia-descriptionForeground)'
+    },
+    importedNotice: {
+        marginBottom: 16, padding: '10px 14px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised
     },
 
     // 更新ホームバナー（U2 v0・D5 裁定）。新版がある時だけ出る・常時領域を専有しない。
     updateBanner: {
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, padding: '11px 16px',
-        borderRadius: 10, border: '1px solid var(--theia-focusBorder)',
-        background: 'var(--theia-editorWidget-background)'
+        borderRadius: AKARI_RADIUS.panel, border: AKARI_BORDER.accent,
+        background: AKARI_SURFACE.raised
     },
     updateBannerIcon: { fontSize: 16, color: 'var(--theia-focusBorder)', flex: '0 0 auto' },
     updateBannerText: { fontSize: 13, flex: '1 1 auto' },
@@ -2877,7 +2911,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     updateBannerFallbackText: { fontSize: 11.5, color: 'var(--theia-descriptionForeground)', lineHeight: 1.5 },
     updateBannerActions: { display: 'flex', gap: 8, flex: '0 0 auto' },
     updateBannerButton: {
-        fontSize: 12, padding: '6px 12px', borderRadius: 8, minHeight: 'auto', height: 'auto'
+        fontSize: 12, padding: '6px 12px', borderRadius: AKARI_RADIUS.chip, minHeight: 'auto', height: 'auto'
     },
 
     // D&D 復活: dragover 中だけ面全体に重なるオーバーレイ（静的レイアウトには何も足さない）。
@@ -2885,8 +2919,8 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
         background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
-        border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
-        color: 'var(--theia-editorWidget-foreground)'
+        border: '2px dashed var(--theia-focusBorder)', borderRadius: AKARI_RADIUS.card,
+        color: AKARI_INK
     },
 
     // F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
@@ -2896,15 +2930,17 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
     },
     welcomeStack: { width: 'min(480px, 92%)', display: 'flex', flexDirection: 'column', gap: 14 },
+    // ウェルカムは「カード面の上に置く 1 枚のパネル」。外殻カードと同じ 12px にすると
+    // 二重の 12px が入れ子になって見えるので、内側のパネル階層 = 8px に揃える。
     welcomeCard: {
-        width: '100%', boxSizing: 'border-box', padding: '28px 28px 22px', borderRadius: 14,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        width: '100%', boxSizing: 'border-box', padding: '28px 28px 22px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         display: 'flex', flexDirection: 'column', alignItems: 'stretch'
     },
     welcomeLogo: { fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 4 },
     welcomeSub: { color: 'var(--theia-descriptionForeground)', fontSize: 13, textAlign: 'center', marginBottom: 20 },
     welcomeNewButton: {
-        width: '100%', padding: '13px', borderRadius: 9, fontSize: 15, fontWeight: 800,
+        width: '100%', padding: '13px', borderRadius: AKARI_RADIUS.panel, fontSize: 15, fontWeight: 800,
         minHeight: 'auto', height: 'auto', marginBottom: 16
     },
     welcomeListHeading: {
@@ -2912,16 +2948,17 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         color: 'var(--theia-descriptionForeground)', margin: '0 0 8px'
     },
     welcomeList: { display: 'grid', gridTemplateColumns: PROJECT_CARD_GRID_COLUMNS, gap: PROJECT_CARD_GRID_GAP, marginBottom: 4 },
+    // ウェルカムカード（raised）の中の項目。同じ面だと沈むので 1 段上の elevated で分ける。
     welcomeProjectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 8,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 13, minHeight: 'auto', height: 'auto', width: '100%',
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
-        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
+        border: '1px solid transparent', background: AKARI_SURFACE.elevated,
+        color: AKARI_INK, cursor: 'pointer', textAlign: 'left'
     },
     welcomeProjectBadge: {
-        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
-        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
-        background: 'var(--theia-editorWidget-background)'
+        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px',
+        borderRadius: AKARI_RADIUS.chip, border: AKARI_BORDER.hairline,
+        color: 'var(--theia-descriptionForeground)', background: 'transparent'
     },
     welcomeOpenFolder: {
         display: 'block', margin: '14px auto 0', background: 'transparent', border: 'none',
@@ -2938,17 +2975,17 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
 
 function homeFlowCheckStyle(checked: boolean): React.CSSProperties {
     return {
-        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px', borderRadius: 11,
-        background: checked ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
-        border: `1px solid ${checked ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`, cursor: 'pointer'
+        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px', borderRadius: AKARI_RADIUS.panel,
+        background: checked ? 'var(--theia-list-activeSelectionBackground)' : AKARI_SURFACE.elevated,
+        border: `1px solid ${checked ? AKARI_LINE.accent : 'transparent'}`, cursor: 'pointer'
     };
 }
 
 function homeFlowPillStyle(selected: boolean): React.CSSProperties {
     return {
-        position: 'relative', display: 'inline-block', padding: '7px 15px', borderRadius: 999, fontSize: 12.5,
-        border: `1px solid ${selected ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-        background: selected ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
+        position: 'relative', display: 'inline-block', padding: '7px 15px', borderRadius: AKARI_RADIUS.chip, fontSize: 12.5,
+        border: `1px solid ${selected ? AKARI_LINE.accent : 'transparent'}`,
+        background: selected ? 'var(--theia-list-activeSelectionBackground)' : AKARI_SURFACE.elevated,
         cursor: 'pointer'
     };
 }
