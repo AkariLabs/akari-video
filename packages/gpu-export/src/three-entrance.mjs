@@ -29,6 +29,8 @@ export function scanThreeSampled(html) {
   if (chain === null) return fail("three-entrance-canvas-missing");
   const chainSet = new Set(chain);
 
+  // advanced-css は 2026-09-04 時点で sampled 経路の入口条件に含まれないため、この検査は eligibility 経由では
+  // 到達しない。方式 B で解禁したときに必要になるガードとして、scanThreeSampled の単体テストで維持する。
   let inlineChainCssProperty = null;
   for (const element of elements) {
     if (!chainSet.has(element) || !element.attributes.has("style")) continue;

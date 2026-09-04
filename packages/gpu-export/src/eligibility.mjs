@@ -80,7 +80,10 @@ const OVERLAY_CONDITIONS = [
 // 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、
 // 幾何は DOM 層へ通し、裏面除去だけを別条件で fail-closed に保つ。
 const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
-const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "advanced-css"]);
+// 2026-09-04 の実測では advanced-css は祖先チェーン上だと方式 A が opacity / transform しか canvas へ
+// 適用しないため絵に出ず、チェーン外でも canvas だけを texture 化するため描かれなかった
+// （装飾矩形 GPU 0 px / OSR 22,889 px）。安全な部分集合がないため、方式 B の実装後に再検討する。
+const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -122,7 +125,7 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (entranceCandidate) {
       const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
-      if (entrance.ok && withinSampledConditions && !names.includes("advanced-css")) {
+      if (entrance.ok && withinSampledConditions) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
       } else if (withinSampledConditions) {
         const sampled = scanThreeSampled(html);

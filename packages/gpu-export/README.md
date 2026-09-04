@@ -67,14 +67,14 @@ clone currently leaves those properties at their initial values in both GPU and 
 opacity and transform keyframes still interpolate, so engine parity is preserved. Custom-property
 interpolation remains a separate export-sheet issue.
 
-The sampled path admits `three-or-canvas-runtime`, `animation-timing`, and `advanced-css`. Real 3D matrices
-fail closed as `three-entrance-3d-matrix`. Animation or transition outside the root-to-canvas ancestor chain
-fails closed as `three-html-animated-descendants`, because separate DOM rendering for fallback and decoration
-is not implemented in this version. Since sampled composition applies only opacity and transforms from the
-chain, `filter`, `clip-path`, `mask(-image)`, `backdrop-filter`, or `mix-blend-mode` on a chain element fails as
-`three-sampled-chain-css:<property>`; declarations outside the chain follow the current Three rendering scope.
-Candidates that do not meet the sampled entry conditions fail as `three-sampled-condition:<condition>` rather
-than reusing a curve-parser reason, while CSS 3D conditions retain `three-entrance-3d-matrix`. Manifests record
+The sampled path admits `three-or-canvas-runtime` and `animation-timing`. Real 3D matrices fail closed as
+`three-entrance-3d-matrix`. Animation or transition outside the root-to-canvas ancestor chain fails closed as
+`three-html-animated-descendants`, because separate DOM rendering for fallback and decoration is not implemented
+in this version. Fragments with `advanced-css` degrade as `three-sampled-condition:advanced-css`; they will be
+reconsidered after that separate DOM rendering (method B) is implemented. Candidates that do not meet the sampled
+entry conditions report `three-sampled-condition:<condition>` rather than reusing a curve-parser reason. The scan
+still retains `three-sampled-chain-css:<property>` for `filter`, `clip-path`, `mask(-image)`, `backdrop-filter`, or
+`mix-blend-mode` on the root-to-canvas chain as a guard for enabling `advanced-css` under method B. Manifests record
 `entranceMode`, and receipts record `curve` / `sampled` mode plus sample-count and p50/p95 sampling cost. Scenes
 without CSS animation remain `three-scene-canvas-direct`.
 
