@@ -86,5 +86,13 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         root.setProperty('--akari-elevated', palette.elevated);
         root.setProperty('--akari-bg', palette.bg);
         root.setProperty('--akari-ink', palette.ink);
+        // akari-shell-card-layout.ts が参照するカードレイアウト用の 2 値。
+        // ground = カードの隙間から覗く面。line = カードのヘアライン輪郭
+        // （オーナー確定値 alpha 0.13。ダークは白・ライトは黒を薄く重ねる）。
+        root.setProperty('--akari-ground', palette.bgDeep);
+        root.setProperty(
+            '--akari-line',
+            type === 'light' || type === 'hcLight' ? 'rgba(0, 0, 0, 0.13)' : 'rgba(255, 255, 255, 0.13)'
+        );
     }
 }

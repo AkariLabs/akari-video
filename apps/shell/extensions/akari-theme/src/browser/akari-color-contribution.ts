@@ -105,7 +105,10 @@ export class AkariColorContribution implements ColorContribution {
             { id: 'editorGutter.background', defaults: t('bg'), description: 'override' },
 
             // --- アクティビティバーのアクティブ表示 ---
-            { id: 'activityBar.background', defaults: t('bgDeep'), description: 'override' },
+            // カードレイアウト（akari-shell-card-layout.ts）では縦アイコンバーは
+            // パネルと同じ 1 枚のカードの中に同居する。地の色（bgDeep）のままだと
+            // カードに穴が空いて見えるため、パネル面と同じ bg に合わせる。
+            { id: 'activityBar.background', defaults: t('bg'), description: 'override' },
             { id: 'activityBar.foreground', defaults: t('accent'), description: 'override' },
             { id: 'activityBar.inactiveForeground', defaults: t('faint'), description: 'override' },
             { id: 'activityBar.activeBorder', defaults: t('accent'), description: 'override' },
@@ -153,6 +156,10 @@ export class AkariColorContribution implements ColorContribution {
             { id: 'sideBarTitle.foreground', defaults: t('ink'), description: 'override' },
 
             // --- タブ ---
+            // タブ帯もカードの中身なので、地ではなくカード面と同じ bg に置く
+            // （既定は VS Code 由来の #252526）。tabsBorder はタブ下のヘアライン。
+            { id: 'editorGroupHeader.tabsBackground', defaults: t('bg'), description: 'override' },
+            { id: 'editorGroupHeader.tabsBorder', defaults: t('border'), description: 'override' },
             { id: 'tab.activeBackground', defaults: t('bg'), description: 'override' },
             { id: 'tab.activeForeground', defaults: t('ink'), description: 'override' },
             { id: 'tab.inactiveBackground', defaults: t('bgDeep'), description: 'override' },
