@@ -305,6 +305,12 @@ CSS 3D は次の 3 群に分けて判定する。
   外部扱いしない（2026-08-31・issue #33。それまでは末尾に `;` の無いインライン style から後続 SVG の
   `fill="url(#id)"` まで走査が届いて誤検出していた）。
 - `drawElementImage` が利用できない実行環境、または device pixel ratio が 1 でない環境。
+- 宣言型 3D の sampled 経路で、root〜Three canvas の祖先チェーン上に `filter` / `clip-path` /
+  `mask(-image)` / `backdrop-filter` / `mix-blend-mode` がある場合。理由は
+  `three-sampled-chain-css:<プロパティ>` とする。
+- 宣言型 3D が sampled 経路の入口条件を満たさない場合。理由は
+  `three-sampled-condition:<条件名>` とし、curve 解析の失敗理由を流用しない。CSS 3D 条件がある場合は
+  従来どおり `three-entrance-3d-matrix` とする。
 
 settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
 `requestPaint()` と `paint` event（上限 250 ms）を待つ。API がない Chromium では computed style、
@@ -435,13 +441,17 @@ sprite draw state へ変換する。回転またはせん断を含む一般 2D a
 `setTransform(a,b,c,d,e,f)` で描いてから恒等 draw state で合成する。perspective、実 Z 成分、その他の
 3D 行列は理由 `three-entrance-3d-matrix` で `degraded` にする。
 
-sampled 方式 A の対象は、断片 root から Three canvas までの祖先チェーン（両端を含む）である。
-このチェーン上の任意の要素にある animation / transition は累積行列へ含める。Three canvas の CSS
-ボックスが出力全面と一致しない場合は、軸平行な行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。
-canvas 以外の HTML（fallback や装飾）を DOM 層で別描画して合成順を保つ方式 B は本版では未実装である。
-祖先チェーン外に animation / transition がある、または保守的な静的走査でチェーン内だけと証明できない
-場合は `three-html-animated-descendants` で `degraded` にする。filter / clip-path など他の既存 hard
-blocker も従来どおり fail-closed とする。
+sampled 方式 A の入口条件は `three-or-canvas-runtime` / `animation-timing` / `advanced-css` の 3 つで、
+対象は断片 root から Three canvas までの祖先チェーン（両端を含む）である。このチェーン上の任意の要素にある
+animation / transition は累積行列へ含める。Three canvas の CSS ボックスが出力全面と一致しない場合は、軸平行な
+行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。方式 A が canvas へ適用するのはチェーン上の opacity と
+transform だけなので、同じチェーン上に `filter` / `clip-path` / `mask(-image)` / `backdrop-filter` /
+`mix-blend-mode` があれば、絵へ反映できないものとして `three-sampled-chain-css:<プロパティ>` で fail-closed にする。
+チェーン外にあるこれらの宣言は現行 three 経路の描画範囲に従う。canvas 以外の HTML（fallback や装飾）を DOM 層で
+別描画して合成順を保つ方式 B は本版では未実装であり、祖先チェーン外に animation / transition がある、または
+保守的な静的走査でチェーン内だけと証明できない場合は `three-html-animated-descendants` で `degraded` にする。
+入口条件を満たさない場合は `three-sampled-condition:<条件名>` とし、curve 解析の失敗理由を流用しない。ただし
+CSS 3D 条件がある場合は従来どおり `three-entrance-3d-matrix` とする。
 
 manifest の各 3D sprite は `entranceMode: "curve" | "sampled" | "none"` を持つ。run payload と receipt の
 `gpu.three.overlays[].entrance.mode` は登場表現について `curve` または `sampled` を記録し、

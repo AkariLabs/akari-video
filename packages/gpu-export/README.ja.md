@@ -60,9 +60,14 @@ sprite draw state、回転・せん断・非全画面 canvas は中間 2D canvas
 clone では GPU / OSR ともプロパティが初期値のままです。直接宣言した opacity / transform は補間され、
 両エンジンのパリティは保たれます。カスタムプロパティ補間は書き出し用 sheet 側の別課題です。
 
+sampled 経路の入口条件は `three-or-canvas-runtime` / `animation-timing` / `advanced-css` の 3 つです。
 実 3D 行列は `three-entrance-3d-matrix` で fail-closed になります。root→canvas の祖先チェーン外に
 animation / transition がある場合は、fallback・装飾を別の DOM 描画で合成する方式が本版では未実装の
-ため、`three-html-animated-descendants` で fail-closed になります。既存の filter / clip-path blocker は不変です。
+ため、`three-html-animated-descendants` で fail-closed になります。sampled 合成がチェーンから適用するのは
+opacity と transform だけなので、チェーン要素上の `filter` / `clip-path` / `mask(-image)` /
+`backdrop-filter` / `mix-blend-mode` は `three-sampled-chain-css:<プロパティ>` で fail-closed にし、チェーン外の
+宣言は現行 Three 描画範囲に従います。sampled の入口条件を満たさない候補は curve 解析の理由を流用せず
+`three-sampled-condition:<条件名>` とし、CSS 3D 条件だけは `three-entrance-3d-matrix` を維持します。
 manifest は `entranceMode`、receipt は `curve` / `sampled` mode と sample 数・sampling 費用 p50/p95 を
 記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
 

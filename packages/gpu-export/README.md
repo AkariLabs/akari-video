@@ -67,11 +67,16 @@ clone currently leaves those properties at their initial values in both GPU and 
 opacity and transform keyframes still interpolate, so engine parity is preserved. Custom-property
 interpolation remains a separate export-sheet issue.
 
-Real 3D matrices fail closed as `three-entrance-3d-matrix`. Animation or transition outside the
-root-to-canvas ancestor chain fails closed as `three-html-animated-descendants`, because separate DOM
-rendering for fallback and decoration is not implemented in this version. Existing filter and clip-path
-blockers are unchanged. Manifests record `entranceMode`, and receipts record `curve` / `sampled` mode plus
-sample-count and p50/p95 sampling cost. Scenes without CSS animation remain `three-scene-canvas-direct`.
+The sampled path admits `three-or-canvas-runtime`, `animation-timing`, and `advanced-css`. Real 3D matrices
+fail closed as `three-entrance-3d-matrix`. Animation or transition outside the root-to-canvas ancestor chain
+fails closed as `three-html-animated-descendants`, because separate DOM rendering for fallback and decoration
+is not implemented in this version. Since sampled composition applies only opacity and transforms from the
+chain, `filter`, `clip-path`, `mask(-image)`, `backdrop-filter`, or `mix-blend-mode` on a chain element fails as
+`three-sampled-chain-css:<property>`; declarations outside the chain follow the current Three rendering scope.
+Candidates that do not meet the sampled entry conditions fail as `three-sampled-condition:<condition>` rather
+than reusing a curve-parser reason, while CSS 3D conditions retain `three-entrance-3d-matrix`. Manifests record
+`entranceMode`, and receipts record `curve` / `sampled` mode plus sample-count and p50/p95 sampling cost. Scenes
+without CSS animation remain `three-scene-canvas-direct`.
 
 `render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
 project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is

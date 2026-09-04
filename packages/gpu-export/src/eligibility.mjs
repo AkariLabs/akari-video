@@ -80,7 +80,7 @@ const OVERLAY_CONDITIONS = [
 // 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、
 // 幾何は DOM 層へ通し、裏面除去だけを別条件で fail-closed に保つ。
 const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
-const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
+const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "advanced-css"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -122,7 +122,7 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (entranceCandidate) {
       const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
-      if (entrance.ok && withinSampledConditions) {
+      if (entrance.ok && withinSampledConditions && !names.includes("advanced-css")) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
       } else if (withinSampledConditions) {
         const sampled = scanThreeSampled(html);
@@ -132,7 +132,14 @@ export function evaluateGpuEligibility({
       } else if (names.some((name) => name.startsWith("css-3d-"))) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "three-entrance-3d-matrix", names));
       } else {
-        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason ?? names.join(", "), names));
+        const unsupported = names.filter((name) => !SAMPLED_CONDITIONS.has(name));
+        entries.push(entry(
+          "overlay",
+          overlay.id ?? `overlay-${index}`,
+          "degraded",
+          `three-sampled-condition:${unsupported.join(",")}`,
+          names,
+        ));
       }
     } else if (names.length === 0) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "same", "static-html-sprite", []));

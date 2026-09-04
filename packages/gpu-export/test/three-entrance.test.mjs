@@ -147,13 +147,16 @@ test("3D entrance forms outside the curve grammar use computed-style sampling", 
   }
 });
 
-test("3D sampled entrance keeps advanced CSS and animated descendants fail-closed", () => {
+test("3D sampled entrance keeps chain CSS and animated descendants fail-closed", () => {
   const cases = [
-    ["filter", fragment({ from: "translate(0px, 0px); filter:blur(1px)" }), "three-entrance-unsupported-property:filter"],
-    ["clip path", fragment({ from: "translate(0px, 0px); clip-path:inset(0)" }), "three-entrance-unsupported-property:clip-path"],
+    ["keyframe filter", fragment({ from: "translate(0px, 0px); filter:blur(1px)" }), "three-sampled-chain-css:filter"],
+    ["keyframe clip path", fragment({ from: "translate(0px, 0px); clip-path:inset(0)" }), "three-sampled-chain-css:clip-path"],
+    ["rule filter", fragment({ extraCss: ".laptop-live { filter:blur(1px); }" }), "three-sampled-chain-css:filter"],
+    ["rule clip path", fragment({ extraCss: ".laptop-live { clip-path:inset(0); }" }), "three-sampled-chain-css:clip-path"],
     ["missing descendant", fragment({ extraCss: ".child { animation:laptop-live__enter 1s linear 0s both; }" }), "three-html-animated-descendants"],
   ];
   for (const [label, html, reason] of cases) {
+    assert.deepEqual(scanThreeSampled(html), { ok: false, reason }, label);
     const result = eligibility(html);
     assert.equal(result.entries[0].classification, "degraded", label);
     assert.equal(result.entries[0].reason, reason, label);
@@ -172,9 +175,49 @@ test("sampled 3D entrance reports real 3D transforms as a matrix blocker", () =>
   assert.equal(result.entries[0].reason, "three-entrance-3d-matrix");
 });
 
+test("sampled advanced CSS fixtures distinguish outside-chain, on-chain, and unsupported script conditions", async () => {
+  const cases = [
+    ["three-sampled-advanced-css-outside-chain.html", "three", "three-scene-entrance-sampled", { ok: true }],
+    ["three-sampled-advanced-css-on-chain.html", "degraded", "three-sampled-chain-css:filter", { ok: false, reason: "three-sampled-chain-css:filter" }],
+    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime", null],
+  ];
+  for (const [name, classification, reason, sampled] of cases) {
+    const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
+    const result = eligibility(html);
+    assert.equal(result.entries[0].classification, classification, name);
+    assert.equal(result.entries[0].reason, reason, name);
+    if (sampled !== null) assert.deepEqual(scanThreeSampled(html), sampled, name);
+  }
+});
+
+test("sampled candidates report unsupported conditions instead of curve-parser reasons", () => {
+  const html = fragment().replace(
+    '<script type="application/json"',
+    '<video></video><script type="application/json"',
+  );
+  const result = eligibility(html);
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.entries[0].reason, "three-sampled-condition:media-element");
+  assert.equal(result.entries[0].reason.startsWith("three-entrance-"), false);
+});
+
+test("sampled chain CSS detects inline declarations in document order", () => {
+  const html = fragment().replace(
+    '<div class="laptop-live">',
+    '<div class="laptop-live" style="filter: blur(1px)">',
+  );
+  assert.deepEqual(scanThreeSampled(html), { ok: false, reason: "three-sampled-chain-css:filter" });
+  const result = eligibility(html);
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.entries[0].reason, "three-sampled-chain-css:filter");
+});
+
 test("sampled 3D fixtures classify supported forms, a canvas-ancestor wrapper, the classic curve, and siblings", async (t) => {
   const cases = [
     ["three-sampled-root-without-class.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-advanced-css-outside-chain.html", "three", "three-scene-entrance-sampled"],
+    ["three-sampled-advanced-css-on-chain.html", "degraded", "three-sampled-chain-css:filter"],
+    ["three-sampled-no-css3d-blocked-by-script.html", "degraded", "three-sampled-condition:script-runtime"],
     ["three-sampled-middle-keyframe.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-multiple-animation.html", "three", "three-scene-entrance-sampled"],
     ["three-sampled-transition.html", "three", "three-scene-entrance-sampled"],
