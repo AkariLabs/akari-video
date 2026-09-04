@@ -65,7 +65,7 @@ export class AkariExportDialog extends ReactDialog<void> {
                 </div>
                 {view === 'running' && <ExportRunningView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'done' && <ExportDoneView session={this.session} snapshot={snapshot} close={() => this.close()} />}
-                {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} />}
+                {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'setup' && <ExportSetupView session={this.session} snapshot={snapshot} />}
             </div>
         );

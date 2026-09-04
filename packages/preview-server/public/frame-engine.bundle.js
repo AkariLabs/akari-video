@@ -2092,7 +2092,8 @@ var require_caption_store = __commonJS({
           changed++;
           continue;
         }
-        if (hasPreset && record.style_preset === presetId)
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
           continue;
         let nextElement;
         if (hasPreset) {
@@ -2107,10 +2108,30 @@ var require_caption_store = __commonJS({
             nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
           }
         }
+        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;
       }
       return { source: output, changed };
+    }
+    function shadowedPresetStyleKeys(presetId, textStyle) {
+      const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId) ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : void 0;
+      if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
+        return [];
+      }
+      const style = textStyle;
+      return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+    }
+    function pruneShadowedTextStyle(element, keys, captionId) {
+      if (keys.length === 0) {
+        return element;
+      }
+      const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+      let textStyle = located.text;
+      for (const key of keys) {
+        textStyle = removeObjectProperty(textStyle, key);
+      }
+      return Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(element, "text_style") : element.slice(0, located.start) + textStyle + element.slice(located.end);
     }
     function insertCaptionLine(source, caption) {
       const parsed = parseCaptions(source);

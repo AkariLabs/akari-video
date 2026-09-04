@@ -147,7 +147,7 @@ const STYLE = `
 .akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
-.akari-daihon-pop { position:fixed; z-index:40; background:#20252e; border:1px solid #3a4356; border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,.5); min-width:168px; }
+.akari-daihon-pop { position:fixed; z-index:40; background:#20252e; border:1px solid #3a4356; border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,.5); min-width:168px; overflow-y:auto; overscroll-behavior:contain; }
 .akari-daihon-pop .akari-daihon-pttl { font-size:10.5px; color:#6b7480; padding:2px 6px; }
 .akari-daihon-pop button { background:none; border:none; color:#e9ecf2; text-align:left; font:inherit; font-size:12.5px; padding:5px 8px; border-radius:5px; cursor:pointer; }
 .akari-daihon-pop button:hover { background:#2a313d; }
@@ -155,7 +155,7 @@ const STYLE = `
 .akari-daihon-pop button.primary { background:#223832; border:1px solid #2f5348; color:#7fe7d3; border-radius:5px; }
 .akari-daihon-pop .akari-daihon-fieldrow { display:flex; gap:6px; align-items:center; font-size:12px; padding:2px 6px; color:#b9c1cf; }
 .akari-daihon-pop .akari-daihon-fieldrow input { width:52px; font:inherit; font-size:12px; text-align:right; background:#12151a; color:#e9ecf2; border:1px solid #333b48; border-radius:5px; padding:2px 6px; }
-.akari-daihon-tplgrid { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:4px 6px; }
+.akari-daihon-tplgrid { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:4px 6px; min-height:0; overflow-y:auto; overscroll-behavior:contain; align-content:start; }
 .akari-daihon-tplcard { border:1px solid #333b48; border-radius:7px; padding:6px 8px 5px; cursor:pointer; text-align:center; position:relative; background:#171b21; }
 .akari-daihon-tplcard:hover,.akari-daihon-tplcard.selected { border-color:#53d1bc; }
 .akari-daihon-tplcard .tprev { display:block; font-size:15px; line-height:1.5; border-radius:4px; padding:2px 4px; }
@@ -1051,6 +1051,8 @@ export class AkariDaihonWidget extends BaseWidget {
                     this.closePop();
                     void this.applyPreset(this.rowOrder(), current.presetId, current.name, false);
                 }, 'primary'));
+                // 適用ボタンが生えたぶん高くなるので置き直す（ボタンが画面外に出ないように）。
+                this.positionPop(pop, anchor, 270);
             });
             grid.appendChild(card);
         }
@@ -1110,11 +1112,39 @@ export class AkariDaihonWidget extends BaseWidget {
         pop.className = 'akari-daihon-pop';
         if (width) pop.style.width = `${width}px`;
         document.body.appendChild(pop);
-        const anchorRect = anchor.getBoundingClientRect();
-        const left = Math.max(8, Math.min(window.innerWidth - (width ?? 190) - 8, anchorRect.left));
-        pop.style.left = `${left}px`;
-        pop.style.top = `${Math.min(window.innerHeight - 220, anchorRect.bottom + 4)}px`;
+        this.positionPop(pop, anchor, width);
+        // 呼び出し側は openPop の直後に中身を同期で append する。マイクロタスクなら
+        // その append 後・描画前に走るので、実寸を測って置き直しても瞬きが出ない
+        // （字幕テンプレのピッカーは 13 枚 2 列 = 実測 450px 級で、決め打ちの高さでは
+        //  画面外へはみ出して選べなかった — オーナー報告 2026-09-04）。
+        queueMicrotask(() => {
+            if (pop.isConnected) this.positionPop(pop, anchor, width);
+        });
         return pop;
+    }
+
+    /**
+     * ポップを画面内に収める。下に入り切らなければ上へ出し、それでも足りなければ
+     * 広い側へ出して max-height でスクロールさせる（はみ出したまま掴めない状態を作らない）。
+     */
+    protected positionPop(pop: HTMLDivElement, anchor: HTMLElement, width?: number): void {
+        const margin = 8;
+        const gap = 4;
+        const anchorRect = anchor.getBoundingClientRect();
+        const popWidth = width ?? pop.offsetWidth ?? 190;
+        pop.style.left = `${Math.max(margin, Math.min(window.innerWidth - popWidth - margin, anchorRect.left))}px`;
+        const spaceBelow = window.innerHeight - anchorRect.bottom - gap - margin;
+        const spaceAbove = anchorRect.top - gap - margin;
+        // max-height を外した素の高さを測る（前回の測定結果に引きずられないため）。
+        pop.style.maxHeight = '';
+        const wanted = pop.offsetHeight;
+        const openUp = wanted > spaceBelow && spaceAbove > spaceBelow;
+        const available = Math.max(120, openUp ? spaceAbove : spaceBelow);
+        pop.style.maxHeight = `${available}px`;
+        const height = Math.min(wanted, available);
+        pop.style.top = `${Math.max(margin, openUp
+            ? anchorRect.top - gap - height
+            : Math.min(anchorRect.bottom + gap, window.innerHeight - margin - height))}px`;
     }
 
     protected closePop(): void {
