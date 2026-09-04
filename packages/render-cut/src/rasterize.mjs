@@ -97,7 +97,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const sheetOverlays = hasThreeDimensionalOverlay
     ? orderedOverlays.map((overlay) => ({
         ...overlay,
-        html: embedThreeModels(overlay.html, projectRoot, overlay.id),
+        html: embedThreeModels(overlay.html, projectRoot, overlay.id, overlay.vars ?? {}),
       }))
     : orderedOverlays;
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
@@ -503,7 +503,7 @@ function renderOverlayNode(overlay, index, fps) {
   return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params}${keyframes} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
 }
 
-function embedThreeModels(html, projectRoot, overlayId) {
+function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
   if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
   let declarationCount = 0;
   const embedded = html.replace(
@@ -601,22 +601,50 @@ function embedThreeModels(html, projectRoot, overlayId) {
               || !override
               || typeof override !== "object"
               || Array.isArray(override)
-              || Object.keys(override).some((key) => key !== "texture")
+              || Object.keys(override).some(
+                (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+              )
               || typeof override.texture !== "string"
-              || override.texture.length === 0
-              || override.texture.startsWith("/")
-              || /^[a-z][a-z\d+.-]*:/i.test(override.texture)) {
+              || override.texture.length === 0) {
               throw new TypeError(
                 `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
               );
             }
-            const texture = readFileSync(resolve(projectRoot, override.texture));
-            const mimeType = textureMimeType(override.texture);
+            if (override.textureVar !== undefined
+              && (typeof override.textureVar !== "string"
+                || !/^--[A-Za-z_][A-Za-z0-9_-]*$/u.test(override.textureVar))) {
+              throw new TypeError(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.textureVar must be a CSS custom property name`,
+              );
+            }
+            const variableTexture = override.textureVar === undefined
+              ? undefined
+              : overlayVars[override.textureVar];
+            let texturePath = typeof variableTexture === "string" && variableTexture.length > 0
+              ? variableTexture
+              : override.texture;
+            const textureVariableMatch = /^var\(\s*(--[\w-]+)\s*\)$/u.exec(texturePath);
+            if (textureVariableMatch) {
+              const resolvedTexture = overlayVars[textureVariableMatch[1]];
+              if (typeof resolvedTexture !== "string" || resolvedTexture.length === 0) {
+                throw new TypeError(
+                  `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
+                );
+              }
+              texturePath = resolvedTexture;
+            }
+            if (texturePath.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(texturePath)) {
+              throw new TypeError(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
+              );
+            }
+            const texture = readFileSync(resolve(projectRoot, texturePath));
+            const mimeType = textureMimeType(texturePath);
             if (mimeType.startsWith("video/") && texture.length > MAX_VIDEO_TEXTURE_BYTES) {
               throw new Error(
                 `3D overlay ${overlayId} materialOverrides.${materialName}.texture is too large `
                   + `(${Math.round(texture.length / 1024 / 1024)}MiB > ${MAX_VIDEO_TEXTURE_BYTES / 1024 / 1024}MiB): `
-                  + `${override.texture}\n`
+                  + `${texturePath}\n`
                   + "  Give the 720p editing proxy, not the master. The sheet embeds this as base64\n"
                   + "  (~1.37x), and live preview seeks it on every tick.\n"
                   + `  ffmpeg -i <master> -vf scale=-2:720 -c:v libx264 -crf 23 -preset medium `
@@ -624,7 +652,9 @@ function embedThreeModels(html, projectRoot, overlayId) {
               );
             }
             return [materialName, {
+              ...override,
               texture: `data:${mimeType};base64,${texture.toString("base64")}`,
+              textureVar: undefined,
             }];
           }),
         );
