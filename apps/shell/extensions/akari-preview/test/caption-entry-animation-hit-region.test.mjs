@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -29,7 +29,9 @@ function captionEntryAnimationsSettled(animations) {
 function loadPuppeteer() {
     const roots = [resolve(repositoryRoot, 'packages/render-cut')];
     const gitFile = resolve(repositoryRoot, '.git');
-    if (existsSync(gitFile)) {
+    // .git は git worktree では「gitdir: ...」を書いたファイル、通常の clone では
+  // ディレクトリ。existsSync だけで通すと clone 側で readFileSync が EISDIR で落ちる。
+  if (existsSync(gitFile) && statSync(gitFile).isFile()) {
         const gitDir = readFileSync(gitFile, 'utf8').trim().replace(/^gitdir:\s*/, '');
         const marker = `${join('.git', 'worktrees')}/`;
         const markerIndex = gitDir.indexOf(marker);
