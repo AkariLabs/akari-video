@@ -17,6 +17,7 @@ export * from './decode/guard.js';
 export * from './decode/still-image.js';
 export * from './cache/lookahead-cache.js';
 export * from './cache/lookahead-source.js';
+export * from './decode/stream-reaper.js';
 export * from './cache/warmup-manager.js';
 export * from './cache/preview-scheduler.js';
 export * from './cache/scrub-controller.js';

@@ -274,15 +274,10 @@ ${nodes}${slotRuntimeScripts}
       };
       if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(hold);
     })();
-    window.__akariSeek = async function(seconds) {${threeSeekCollector}
-      for (const container of document.querySelectorAll('.akari-overlay-container')) {
-        const start = Number(container.dataset.start);
-        const duration = Number(container.dataset.duration);
-        const active = seconds >= start && seconds < start + duration;
-        container.style.visibility = active ? 'visible' : 'hidden';
-        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
-      }
-      window.__akariSyncAnimations(seconds);
+    // 動画テクスチャのシークだけを切り出した入口。GPU 直描き経路（gpu-export）はこのシートの
+    // __akariSeek を呼ばず自前で 3D を描くので、video を進める部分だけをここから呼ぶ。
+    // 切り出さないと GPU の 3D 動画テクスチャは 0 秒の絵に固定される（issue #53 (c)）。
+    window.__akariSeekVideos = async function(seconds) {
       const videoSeekTimeoutMilliseconds = 5000;
       const waitForVideo = (video, index) => new Promise((resolve) => {
         let animationFrameOne = null;
@@ -348,9 +343,20 @@ ${nodes}${slotRuntimeScripts}
           finish();
         }
       });
-      const warnings = (await Promise.all(
+      return (await Promise.all(
         Array.from(document.querySelectorAll('video'), waitForVideo),
-      )).filter(Boolean);${threeDrawStep}
+      )).filter(Boolean);
+    };
+    window.__akariSeek = async function(seconds) {${threeSeekCollector}
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {
+        const start = Number(container.dataset.start);
+        const duration = Number(container.dataset.duration);
+        const active = seconds >= start && seconds < start + duration;
+        container.style.visibility = active ? 'visible' : 'hidden';
+        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
+      }
+      window.__akariSyncAnimations(seconds);
+      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}
       await Promise.resolve();
       return { warnings };
     };${threeReadySetup}

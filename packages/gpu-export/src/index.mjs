@@ -4,6 +4,7 @@ import { basename, dirname, join, relative } from "node:path";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
 import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preference.mjs";
+import { MEMORY_HARD_STOP_REASON } from "../../osr-export/src/memory.mjs";
 import { muxSourceAudio } from "../../osr-export/src/index.mjs";
 import { verifyFinalVideo } from "../../osr-export/src/ffprobe.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
@@ -13,7 +14,13 @@ import { buildGpuReceipt } from "./receipt.mjs";
 import { buildGpuElectronArguments, launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
 
 export const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
-export const FALLBACK_REASONS = Object.freeze([CAPTION_MEASURE_UNSTABLE_REASON, HEVC_UNSUPPORTED_REASON]);
+// auto のとき OSR へ切り替えて完走させる失敗理由。memory-hard-stop は「この機械では
+// GPU 経路の RSS が予算を超える」であって編集の不備ではない（issue #52）
+export const FALLBACK_REASONS = Object.freeze([
+  CAPTION_MEASURE_UNSTABLE_REASON,
+  HEVC_UNSUPPORTED_REASON,
+  MEMORY_HARD_STOP_REASON,
+]);
 
 export function gpuRuntimeFallbackReason(error, fallbackReasons = FALLBACK_REASONS) {
   const reasonCode = typeof error?.reasonCode === "string" ? error.reasonCode : null;

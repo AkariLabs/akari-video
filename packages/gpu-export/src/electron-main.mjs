@@ -7,7 +7,7 @@ import electron from "electron";
 
 import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
 import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
-import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { createMemorySampler, memoryHardStopError, MEMORY_HARD_STOP_MARKER, MEMORY_HARD_STOP_REASON, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
@@ -130,6 +130,7 @@ export async function runGpuExport(options) {
   });
   const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
   let fatalMemoryError = null;
+  let lastDecoderSessions = null;
   const memoryWarnings = [];
   const memorySampler = createMemorySampler({
     budget: memoryBudget,
@@ -138,7 +139,7 @@ export async function runGpuExport(options) {
       return total > 0 ? total : process.memoryUsage().rss;
     },
     onWarning: (bytes) => memoryWarnings.push(`RSS warning: ${bytes} bytes`),
-    onHardStop: (bytes) => { fatalMemoryError = new Error(`RSS hard stop: ${bytes} bytes`); },
+    onHardStop: (bytes) => { fatalMemoryError = memoryHardStopError(bytes); },
   });
   const runPath = captureMode ? out : join(dirname(out), "run.json");
   const runtimeConfig = {
@@ -181,15 +182,19 @@ export async function runGpuExport(options) {
   register("gpu:log", (_event, message) => { (String(message).startsWith("WARN ") ? process.stderr : process.stdout).write(`[gpu-renderer] ${message}\n`); return true; });
   register("gpu:checkpoint", async (_event, value) => {
     if (fatalMemoryError) throw fatalMemoryError;
+    const { decoderSessions, ...checkpoint } = value ?? {};
+    if (decoderSessions) lastDecoderSessions = decoderSessions;
     const running = {
-      ...value,
+      ...checkpoint,
       gpu: {
         ...value?.gpu,
         platform: process.platform,
         chromium: process.versions.chrome,
         devices: gpuDevices,
       },
-      memory: memorySampler.snapshot(),
+      // RSS はデコーダセッション数に比例して伸びる（issue #28 / #52）。ランプの原因を後から
+      // 突き合わせられるよう、memory と同じブロックに生存セッション数を残す
+      memory: { ...memorySampler.snapshot(), decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport,
       output_scale: outputScale,
@@ -324,7 +329,7 @@ export async function runGpuExport(options) {
           ? { disabledReason: previewDisabledReason ?? result.gpu.previewDisabledReason }
           : {}),
       },
-      memory: { ...memory, warnings: memoryWarnings },
+      memory: { ...memory, warnings: memoryWarnings, decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport,
       ffprobe: result?.mux?.ffprobe ?? null,
@@ -361,7 +366,7 @@ export async function runGpuExport(options) {
         frames: previewFramesWritten,
         ...(previewDisabledReason ? { disabledReason: previewDisabledReason } : {}),
       },
-      memory: memorySampler.stop("failed"),
+      memory: { ...memorySampler.stop("failed"), decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport: viewport ?? error?.viewport ?? null,
       output_scale: outputScale,
@@ -382,6 +387,9 @@ export async function runGpuExport(options) {
 export function gpuFailureReasonCode(error) {
   const message = String(error?.stack ?? error);
   if (message.includes(HEVC_UNSUPPORTED_REASON)) return HEVC_UNSUPPORTED_REASON;
+  // RSS hard stop は「この機械では GPU 経路が通らない」であって編集の不備ではないので、
+  // auto なら OSR で完走させる（issue #52）
+  if (message.includes(MEMORY_HARD_STOP_MARKER)) return MEMORY_HARD_STOP_REASON;
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
 }
 
