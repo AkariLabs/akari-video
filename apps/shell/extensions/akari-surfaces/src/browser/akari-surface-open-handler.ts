@@ -345,6 +345,10 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
             });
             document.addEventListener('keydown', event => {
                 if (!active) return;
+                // IME 変換中の Escape は「変換の取り消し」であって「編集の中止」ではない（issue #51）。
+                // 判定の正本は akari-preview の isImeCompositionKeydown だが、akari-surfaces は
+                // akari-preview に依存していないので、注入スクリプト内で同じ条件を持つ。
+                if (event.isComposing || event.keyCode === 229) return;
                 if (event.key === 'Escape') {
                     event.preventDefault();
                     cancelEditing(active.element);

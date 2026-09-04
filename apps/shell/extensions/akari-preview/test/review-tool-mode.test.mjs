@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
     REVIEW_TOOL_MODE_INITIAL,
     isEditableEventTarget,
+    isImeCompositionKeydown,
     reduceReviewToolMode,
     reviewToolModeForShortcutKey,
     shouldStopEditableDeletionKeydown
@@ -88,4 +89,29 @@ test('Delete, Backspace, and command-cut stop at an editable webview target with
     assert.equal(shouldStopEditableDeletionKeydown(
         { tagName: 'INPUT', type: 'range' }, null, 'Delete', false, false
     ), false);
+});
+
+// issue #51: IME 変換中のスペースで再生が走る。isComposing は Theia の webview→ホスト転送
+// (plugin-ext pre/main.js の did-keydown が積むのは key/keyCode/code/修飾キー/repeat だけ) で
+// 失われるため、転送経路では keyCode 229 だけが手掛かりになる。両方見ることが要件。
+
+test('native composing keydown is recognized (mac / Windows とも isComposing が立つ経路)', () => {
+    assert.equal(isImeCompositionKeydown({ isComposing: true, key: ' ', keyCode: 32 }), true);
+    assert.equal(isImeCompositionKeydown({ isComposing: true, key: 'a', keyCode: 65 }), true);
+});
+
+test('forwarded composing keydown is recognized by keyCode 229 alone', () => {
+    // Theia が合成するイベントには isComposing が無い（undefined）。229 が唯一残るシグナル。
+    assert.equal(isImeCompositionKeydown({ key: ' ', keyCode: 229 }), true);
+    assert.equal(isImeCompositionKeydown({ isComposing: false, key: 'Process', keyCode: 229 }), true);
+});
+
+test('ordinary keydown stays a shortcut on both platforms', () => {
+    assert.equal(isImeCompositionKeydown({ isComposing: false, key: ' ', keyCode: 32 }), false);
+    assert.equal(isImeCompositionKeydown({ key: ' ', keyCode: 32 }), false);
+    assert.equal(isImeCompositionKeydown({ key: 'Escape', keyCode: 27 }), false);
+    assert.equal(isImeCompositionKeydown({ key: 'a', keyCode: 65 }), false);
+    assert.equal(isImeCompositionKeydown({}), false);
+    assert.equal(isImeCompositionKeydown(null), false);
+    assert.equal(isImeCompositionKeydown(undefined), false);
 });

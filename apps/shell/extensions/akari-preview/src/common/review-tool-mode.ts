@@ -90,6 +90,30 @@ export function isEditableEventTarget(target: EditableTargetLike | null | undefi
     return !nonTextInputTypes.includes(type);
 }
 
+export interface CompositionKeydownLike {
+    isComposing?: boolean;
+    keyCode?: number;
+}
+
+/**
+ * IME 変換中の keydown か（issue #51）。素のキーを取るショートカット（Space での再生トグル、
+ * タイムラインの a / b / n / m 等）は変換中に走ってはいけない。
+ *
+ * `isComposing` だけでは足りない。Theia の webview→ホスト転送
+ * （plugin-ext pre/main.js の did-keydown は key / keyCode / code / 修飾キー / repeat しか積まず、
+ * keybinding.ts の asKeyboardEventInit がそれをそのまま KeyboardEventInit にする）では
+ * `isComposing` が欠落し、ホスト側で合成されたイベントでは常に false になる。
+ * 一方 `keyCode` は転送されるため、Windows / macOS 共通の IME センチネルである 229 が
+ * 転送経路で唯一残る手掛かりになる。両方見ることで、webview 内のネイティブイベントと
+ * ホスト側の合成イベントの双方を、OS によらず同じ条件で弾ける。
+ */
+export function isImeCompositionKeydown(event: CompositionKeydownLike | null | undefined): boolean {
+    if (!event) {
+        return false;
+    }
+    return event.isComposing === true || event.keyCode === 229;
+}
+
 /**
  * Theia forwards an inner webview keydown to the host iframe. Stop only destructive editing keys
  * before that bridge; do not preventDefault, so the browser still edits the focused text.

@@ -4,7 +4,7 @@ import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
+import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import {
     areCutsAdjacent,
     cutOverlapFrames,
@@ -1709,6 +1709,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             nudgeValue = undefined;
         };
         const keydown = (event: KeyboardEvent): void => {
+            // IME 変換中は素のキーを一切ショートカットに使わせない（issue #51）。Escape も変換の取り消しは
+            // IME の仕事なので、下の Escape 分岐より前で降りる。ここは window の capture であり、Theia が
+            // webview から転送してきた合成 keydown も通る。転送では target が iframe になって
+            // isEditableTarget を素通りするため、変換判定が最後の砦になる。
+            if (isImeCompositionKeydown(event)) return;
             // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
             this.flushStripRender();
             if (event.key === 'Escape' && this.dragState) {
