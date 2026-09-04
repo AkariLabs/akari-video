@@ -279,6 +279,33 @@ function createOverlayRuntime(options = {}) {
         overlay.container.style.setProperty("--rotate", overlay.isBackground ? "0deg" : `${state.rotate}deg`);
         overlay.container.style.setProperty("opacity", String(state.opacity));
       }
+      // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
+      // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
+      // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
+      // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
+      // Animation オブジェクトはライブなので、キャッシュ済みでも pause / currentTime の書き込みと
+      // 下の entryAnimationsSettled() の読み取りは現在値で動く。
+      //
+      // 3D 断片も必ずここを通す。three のシーンは three 側が時刻を持つ（mixer.setTime）が、
+      // 断片の **CSS** アニメを進めるのは誰の仕事でもなくなる。以前は 3D 分岐がこの手前で
+      // continue していたため、3D 宣言を含む断片の CSS アニメが 1 本も同期されず、壁時計で
+      // 走り切って animation-fill-mode の最終姿勢に張り付いていた（実機報告 2026-09-04:
+      // S4 の 3D ステージが画面中央に残り続ける。仕様は translate3d(142%) = 局所 7 秒まで画面外）。
+      // 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも
+      // 等しく掛けているので、ここで飛ばすとプレビューと書き出しで絵が食い違う。
+      const nowMs = performance.now();
+      if (
+        overlay.animations === undefined ||
+        nowMs - overlay.animationsAt > ANIMATIONS_CACHE_MS
+      ) {
+        overlay.animations = overlay.container.getAnimations({ subtree: true });
+        overlay.animationsAt = nowMs;
+      }
+      const animations = overlay.animations;
+      for (const animation of animations) {
+        animation.pause();
+        animation.currentTime = localTimeMs;
+      }
       if (overlay.isThreeDimensional) {
         // syncVideos: ライブプレビューでは動画テクスチャの時刻を誰も進めないので、
         // ここで overlay のローカル時刻へ合わせる（書き出しは rasterize が自前で
@@ -298,32 +325,13 @@ function createOverlayRuntime(options = {}) {
         if (overlay.hitPolicyPending) {
           window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
           window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-          if (entryAnimationsSettled(overlay.container.getAnimations({ subtree: true }))) {
+          if (entryAnimationsSettled(animations)) {
             window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);
             window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
             overlay.hitPolicyPending = false;
           }
         }
         continue;
-      }
-      // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
-      // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
-      // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
-      // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
-      // Animation オブジェクトはライブなので、キャッシュ済みでも pause / currentTime の書き込みと
-      // 下の entryAnimationsSettled() の読み取りは現在値で動く。
-      const nowMs = performance.now();
-      if (
-        overlay.animations === undefined ||
-        nowMs - overlay.animationsAt > ANIMATIONS_CACHE_MS
-      ) {
-        overlay.animations = overlay.container.getAnimations({ subtree: true });
-        overlay.animationsAt = nowMs;
-      }
-      const animations = overlay.animations;
-      for (const animation of animations) {
-        animation.pause();
-        animation.currentTime = localTimeMs;
       }
       // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
       // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の
