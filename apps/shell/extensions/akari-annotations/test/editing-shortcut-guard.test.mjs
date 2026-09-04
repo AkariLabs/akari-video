@@ -24,6 +24,14 @@ const recorder = readFileSync(
     join(here, '..', '..', 'akari-preview', 'src', 'browser', 'review-session-recorder.ts'),
     'utf8'
 );
+const numberField = readFileSync(
+    join(here, '..', 'src', 'browser', 'inspector', 'number-field.ts'),
+    'utf8'
+);
+const surfaces = readFileSync(
+    join(here, '..', '..', 'akari-surfaces', 'src', 'browser', 'akari-surface-open-handler.ts'),
+    'utf8'
+);
 
 test('typing targets share one guard before timeline and preview shortcuts', () => {
     for (const target of [
@@ -93,4 +101,35 @@ test('the forwarded-keydown path is covered because Theia drops isComposing but 
 
     // 変換していない通常のスペースは、転送されてきてもショートカットのまま。
     assert.equal(isImeCompositionKeydown({ ...forwarded, keyCode: 32 }), false);
+});
+
+// issue #51 続き: 変換中の Escape は「変換の取り消し」であって、編集の中止やドラッグの巻き戻しでは
+// ない。Escape を消費する側にも同じ判定を通す。
+
+test('IME composition also disarms Escape consumers', () => {
+    // インスペクタの数値ドラッグ（ホスト側なので共通の純関数を使う）。
+    assert.match(numberField, /if \(isImeCompositionKeydown\(event\)\) return;[\s\S]{0,120}?if \(event\.key === 'Escape'\)/);
+    assert.match(numberField, /import \{ isImeCompositionKeydown \} from 'akari-preview\/lib\/common\/review-tool-mode';/);
+
+    // akari-surfaces は akari-preview に依存していないため、注入スクリプト内で同じ条件を持つ。
+    // 判定が二重管理になるので、条件そのものが一致していることをここで縛る。
+    assert.match(surfaces, /if \(event\.isComposing \|\| event\.keyCode === 229\) return;[\s\S]{0,120}?if \(event\.key === 'Escape'\)/);
+});
+
+test('the inlined surfaces condition stays equivalent to the canonical predicate', () => {
+    const canonical = readFileSync(
+        join(here, '..', '..', 'akari-preview', 'src', 'common', 'review-tool-mode.ts'),
+        'utf8'
+    );
+    assert.match(canonical, /return event\.isComposing === true \|\| event\.keyCode === 229;/);
+    // 正本が変わったら surfaces の複製も落ちるように、229 と isComposing の両方を要求する。
+    assert.ok(surfaces.includes('event.isComposing || event.keyCode === 229'));
+    for (const probe of [{ isComposing: true }, { keyCode: 229 }]) {
+        assert.equal(isImeCompositionKeydown(probe), true);
+        assert.equal(Boolean(probe.isComposing || probe.keyCode === 229), true, 'inlined form agrees');
+    }
+    for (const probe of [{ isComposing: false, keyCode: 32 }, {}]) {
+        assert.equal(isImeCompositionKeydown(probe), false);
+        assert.equal(Boolean(probe.isComposing || probe.keyCode === 229), false, 'inlined form agrees');
+    }
 });
