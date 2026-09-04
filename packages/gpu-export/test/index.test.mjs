@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
+import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
 
 test("GPU runtime fallback reasons are a closed shared set", () => {
   assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported"]);
@@ -44,6 +44,59 @@ test("GPU export force passes degraded-only eligibility but not unsupported elig
     launcherResolver: async () => { resolved = true; return { tier: 2 }; },
   }), /caption:c:motion/u);
   assert.equal(resolved, false);
+});
+
+test("GPU export forwards force to the launcher runner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-index-force-export-"));
+  const out = join(root, "render", "composite.mp4");
+  await mkdir(join(root, "render"), { recursive: true });
+  try {
+    let launchOptions;
+    await assert.rejects(exportWithGpu({
+      projectRoot: root,
+      out,
+      fps: 30,
+      width: 320,
+      height: 180,
+      duration: 1,
+      force: true,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        launchOptions = options;
+        throw new Error("stop after observing launcher options");
+      },
+    }), /stop after observing launcher options/u);
+    assert.equal(launchOptions.force, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("GPU capture forwards force to the launcher runner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-index-force-capture-"));
+  try {
+    let launchOptions;
+    await assert.rejects(captureFramesWithGpu({
+      projectRoot: root,
+      outputDirectory: join(root, "frames"),
+      frameNumbers: [0],
+      fps: 30,
+      width: 320,
+      height: 180,
+      duration: 1,
+      force: true,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        launchOptions = options;
+        throw new Error("stop after observing launcher options");
+      },
+    }), /stop after observing launcher options/u);
+    assert.equal(launchOptions.force, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("GPU export rejects tier 3", async () => {

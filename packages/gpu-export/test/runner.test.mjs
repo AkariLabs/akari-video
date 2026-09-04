@@ -29,6 +29,22 @@ test("runner forwards sorted dump frame numbers", () => {
   assert.equal(args[args.indexOf("--dump-frames") + 1], "0,12,29");
 });
 
+test("runner forwards force eligibility to the Electron child", () => {
+  const args = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
+    duration: 1, frames: 30, force: true,
+  });
+  assert.ok(args.includes("--force-eligibility"));
+});
+
+test("runner omits force eligibility by default", () => {
+  const args = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
+    duration: 1, frames: 30,
+  });
+  assert.equal(args.includes("--force-eligibility"), false);
+});
+
 test("runner resolves quality bitrate and keeps master fail-closed", () => {
   const args = buildGpuElectronArguments({ tier: 2 }, {
     projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,

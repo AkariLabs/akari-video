@@ -92,6 +92,7 @@ export async function exportWithGpu({
       preview,
       previewOutputDirectory,
       gpuPreference,
+      force,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -241,6 +242,7 @@ export async function captureFramesWithGpu({
       captureFrames: requestedFrames,
       captureOutputDirectory: outputDirectory,
       gpuPreference,
+      force,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });

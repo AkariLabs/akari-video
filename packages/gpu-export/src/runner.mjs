@@ -29,6 +29,7 @@ export function buildGpuElectronArguments(launcher, options) {
   const extraArgs = [
     "--bitrate", String(encoding.bitrate),
     ...(options.editPath ? ["--edit", options.editPath] : []),
+    ...(options.force ? ["--force-eligibility"] : []),
     ...(options.trapReadback ? ["--trap-readback"] : []),
     ...(options.verifyFrames ? ["--verify-frames"] : []),
     ...(options.dumpFrames?.length > 0 ? ["--dump-frames", options.dumpFrames.join(",")] : []),
