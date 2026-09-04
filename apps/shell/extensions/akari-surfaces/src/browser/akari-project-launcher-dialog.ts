@@ -1,4 +1,5 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
@@ -60,9 +61,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
                 width: 'min(520px, calc(100vw - 48px))',
                 maxWidth: '520px',
                 maxHeight: 'calc(100vh - 48px)',
-                borderRadius: '18px',
+                borderRadius: `${AKARI_RADIUS.card}px`,
                 overflow: 'hidden',
-                border: '1px solid var(--theia-widget-border)',
+                border: AKARI_BORDER.edge,
                 boxShadow: '0 24px 72px rgba(0, 0, 0, 0.48)',
                 background: 'var(--theia-editor-background)'
             });
@@ -98,7 +99,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         newProjectButton.className = 'theia-button main';
         newProjectButton.setAttribute('data-akari-launcher-new-project', 'true');
         Object.assign(newProjectButton.style, {
-            display: 'block', width: '100%', padding: '13px 18px', borderRadius: '10px',
+            display: 'block', width: '100%', padding: '13px 18px', borderRadius: `${AKARI_RADIUS.panel}px`,
             fontWeight: '700', fontSize: '14.5px', minHeight: 'auto', height: 'auto'
         });
         newProjectButton.addEventListener('click', () => void this.handleStartNewProject());
@@ -160,7 +161,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         button.disabled = row.current;
         Object.assign(button.style, {
             display: 'flex', alignItems: 'center', gap: '9px', width: '100%',
-            padding: '10px 12px', borderRadius: '9px', textAlign: 'left',
+            padding: '10px 12px', borderRadius: `${AKARI_RADIUS.panel}px`, textAlign: 'left',
             minHeight: 'auto', height: 'auto'
         });
         const icon = document.createElement('span');
@@ -175,8 +176,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
             const badge = document.createElement('span');
             badge.textContent = badgeText;
             Object.assign(badge.style, {
-                flex: '0 0 auto', padding: '2px 8px', borderRadius: '999px',
-                border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
+                flex: '0 0 auto', padding: '2px 8px', borderRadius: `${AKARI_RADIUS.chip}px`,
+                border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
+                color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
             });
             button.appendChild(badge);
         }

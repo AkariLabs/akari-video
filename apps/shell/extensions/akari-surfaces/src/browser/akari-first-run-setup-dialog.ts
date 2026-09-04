@@ -1,4 +1,5 @@
 import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
+import { AKARI_BORDER, AKARI_INK, AKARI_LINE, AKARI_RADIUS, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import { CommandService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import URI from '@theia/core/lib/common/uri';
@@ -40,7 +41,7 @@ const CREATOR_ROOT_POINTER_FILENAME = 'creator-root.json';
 const FIRST_RUN_ONBOARDING_MARKER_FILENAME = 'first-run-onboarding-v0.json';
 /** 本文で使う中立トーン色。`descriptionForeground` はテーマによって背景と同化するため、
  *  説明文・注記など読ませたい本文には使わない（裁定 A6・コントラスト改善）。 */
-const BODY_TEXT_COLOR = 'var(--theia-editorWidget-foreground)';
+const BODY_TEXT_COLOR = AKARI_INK;
 
 export interface AkariFirstRunSetupDialogProps extends DialogProps {
     onWorkspaceCreated: () => Promise<void>;
@@ -150,9 +151,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
                 width: 'min(820px, calc(100vw - 48px))',
                 maxWidth: '820px',
                 maxHeight: 'calc(100vh - 48px)',
-                borderRadius: '18px',
+                borderRadius: `${AKARI_RADIUS.card}px`,
                 overflow: 'hidden',
-                border: '1px solid var(--theia-widget-border)',
+                border: AKARI_BORDER.edge,
                 boxShadow: '0 24px 72px rgba(0, 0, 0, 0.48)',
                 background: 'var(--theia-editor-background)'
             });
@@ -191,8 +192,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             node.textContent = step.label;
             node.setAttribute('data-akari-setup-step-label', step.id);
             Object.assign(node.style, {
-                padding: '5px 11px', borderRadius: '999px',
-                border: '1px solid var(--theia-widget-border)',
+                padding: '5px 11px', borderRadius: `${AKARI_RADIUS.chip}px`,
+                border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
                 color: 'var(--theia-descriptionForeground)', fontSize: '11.5px'
             });
             this.stepNodes.set(step.id, node);
@@ -202,12 +203,12 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
 
         this.errorNotice.setAttribute('role', 'alert');
         Object.assign(this.errorNotice.style, {
-            display: 'none', marginBottom: '12px', padding: '9px 12px', borderRadius: '8px',
+            display: 'none', marginBottom: '12px', padding: '9px 12px', borderRadius: `${AKARI_RADIUS.panel}px`,
             border: '1px solid var(--theia-errorForeground)', color: 'var(--theia-errorForeground)'
         });
         Object.assign(this.panel.style, {
-            padding: '20px', borderRadius: '14px', border: '1px solid var(--theia-widget-border)',
-            background: 'var(--theia-editorWidget-background)', position: 'relative'
+            padding: '20px', borderRadius: `${AKARI_RADIUS.panel}px`, border: AKARI_BORDER.hairline,
+            background: AKARI_SURFACE.raised, position: 'relative'
         });
         this.body.append(header, this.errorNotice, this.panel);
         this.contentNode.appendChild(this.body);
@@ -217,8 +218,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         this.node.setAttribute('data-akari-first-run-step', this.step);
         for (const [candidate, node] of this.stepNodes) {
             const active = candidate === this.step;
-            node.style.borderColor = active ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)';
-            node.style.color = active ? 'var(--theia-editorWidget-foreground)' : 'var(--theia-descriptionForeground)';
+            node.style.borderColor = active ? AKARI_LINE.accent : 'transparent';
+            node.style.color = active ? AKARI_INK : 'var(--theia-descriptionForeground)';
             node.style.fontWeight = active ? '700' : '400';
         }
         this.errorNotice.textContent = this.setupError ?? '';
@@ -321,7 +322,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         row.setAttribute('data-akari-tool-available', String(tool.available));
         Object.assign(row.style, {
             display: 'flex', alignItems: 'flex-start', gap: '11px', padding: '11px 0',
-            borderTop: '1px solid var(--theia-widget-border)',
+            borderTop: AKARI_BORDER.hairline,
             opacity: tool.available ? '0.55' : '1'
         });
 
@@ -334,7 +335,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             leading.textContent = '✓';
             leading.setAttribute('aria-hidden', 'true');
             Object.assign(leading.style, {
-                borderRadius: '999px', border: '1px solid var(--theia-widget-border)',
+                borderRadius: '999px', border: AKARI_BORDER.hairline,
                 color: 'var(--theia-descriptionForeground)', fontWeight: '800'
             });
         } else {
@@ -366,7 +367,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         const badge = document.createElement('span');
         badge.textContent = info.badge;
         Object.assign(badge.style, {
-            padding: '2px 7px', borderRadius: '999px', border: '1px solid var(--theia-widget-border)',
+            padding: '2px 7px', borderRadius: `${AKARI_RADIUS.chip}px`, border: AKARI_BORDER.ghost,
+            background: AKARI_SURFACE.elevated,
             color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
         });
         const size = document.createElement('span');
@@ -379,8 +381,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         availability.textContent = tool.available ? 'インストール済み' : '未インストール';
         availability.setAttribute('data-akari-tool-availability-label', 'true');
         Object.assign(availability.style, {
-            padding: '2px 7px', borderRadius: '999px', fontSize: '10.5px', fontWeight: '700',
-            border: `1px solid ${tool.available ? 'var(--theia-widget-border)' : 'var(--theia-focusBorder)'}`,
+            padding: '2px 7px', borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '10.5px', fontWeight: '700',
+            border: tool.available ? AKARI_BORDER.hairline : AKARI_BORDER.accent,
             color: tool.available ? 'var(--theia-descriptionForeground)' : 'var(--theia-focusBorder)'
         });
         nameRow.append(name, availability, badge, size);
@@ -450,7 +452,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
 
         const track = document.createElement('div');
         Object.assign(track.style, {
-            height: '6px', borderRadius: '999px', overflow: 'hidden', background: 'var(--theia-widget-border)'
+            height: '6px', borderRadius: '999px', overflow: 'hidden', background: AKARI_SURFACE.elevated
         });
         const fill = document.createElement('div');
         const percent = Math.round(((progress.index - 1) / progress.total) * 100);
@@ -575,7 +577,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         pathRow.setAttribute('data-akari-setup-workspace-path', 'true');
         Object.assign(pathRow.style, {
             display: 'flex', alignItems: 'center', gap: '10px', marginTop: '18px', padding: '12px 14px',
-            borderRadius: '9px', border: '1px solid var(--theia-widget-border)'
+            borderRadius: `${AKARI_RADIUS.panel}px`, border: AKARI_BORDER.hairline
         });
         const icon = document.createElement('span');
         icon.className = 'codicon codicon-folder';
@@ -757,8 +759,8 @@ function createActions(sticky = false): HTMLElement {
         Object.assign(actions.style, {
             position: 'sticky', bottom: '0', zIndex: '2',
             margin: '20px -20px -20px', padding: '14px 20px 20px',
-            background: 'var(--theia-editorWidget-background)',
-            borderTop: '1px solid var(--theia-widget-border)'
+            background: AKARI_SURFACE.raised,
+            borderTop: AKARI_BORDER.hairline
         });
     }
     return actions;
@@ -800,7 +802,7 @@ function createProgressBarElement(progress: AkariToolInstallProgress): HTMLEleme
     const track = document.createElement('div');
     Object.assign(track.style, {
         position: 'relative', height: '5px', borderRadius: '999px', overflow: 'hidden',
-        background: 'var(--theia-widget-border)'
+        background: AKARI_SURFACE.elevated
     });
     const fill = document.createElement('div');
     Object.assign(fill.style, {
@@ -855,7 +857,7 @@ function createPartnerLayoutDiagram(): SVGSVGElement {
     frame.setAttribute('x', '4'); frame.setAttribute('y', '4');
     frame.setAttribute('width', '392'); frame.setAttribute('height', '202');
     frame.setAttribute('rx', '10');
-    Object.assign(frame.style, { fill: 'var(--theia-editor-background)', stroke: 'var(--theia-widget-border)' });
+    Object.assign(frame.style, { fill: AKARI_SURFACE.card, stroke: AKARI_LINE.hairline });
     frame.setAttribute('stroke-width', '1.5');
 
     const header = svgEl('rect');
@@ -868,7 +870,7 @@ function createPartnerLayoutDiagram(): SVGSVGElement {
     center.setAttribute('x', '18'); center.setAttribute('y', '38');
     center.setAttribute('width', '236'); center.setAttribute('height', '158');
     center.setAttribute('rx', '8');
-    Object.assign(center.style, { fill: 'var(--theia-editorWidget-background)', stroke: 'var(--theia-widget-border)' });
+    Object.assign(center.style, { fill: AKARI_SURFACE.raised, stroke: AKARI_LINE.hairline });
     center.setAttribute('stroke-width', '1');
 
     const centerLabel = svgEl('text');
@@ -888,7 +890,7 @@ function createPartnerLayoutDiagram(): SVGSVGElement {
     partner.setAttribute('x', '264'); partner.setAttribute('y', '38');
     partner.setAttribute('width', '120'); partner.setAttribute('height', '158');
     partner.setAttribute('rx', '7');
-    Object.assign(partner.style, { fill: 'var(--theia-editorWidget-background)' });
+    Object.assign(partner.style, { fill: AKARI_SURFACE.raised });
 
     const partnerLabelBg = svgEl('rect');
     partnerLabelBg.setAttribute('x', '268'); partnerLabelBg.setAttribute('y', '46');
