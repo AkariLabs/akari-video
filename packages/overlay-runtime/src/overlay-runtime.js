@@ -45,9 +45,14 @@ function createOverlayRuntime(options = {}) {
 
   // packages/overlay-runtime/package.json の version と同期させる。ブラウザに
   // <script> で直接読み込まれるホスト（npm 解決を経ない）が、mount 済みの
-  // window.akari.runtime.version から機能検出できるようにする（例: 0.2.0 以降 =
-  // 多層テキスト断片の data-mirror 同期に対応。P0-R 契約 §4）。
-  const RUNTIME_VERSION = "0.2.0";
+  // window.akari.runtime.version から機能検出できるようにする。
+  //   0.2.0 以降 = 多層テキスト断片の data-mirror 同期に対応（P0-R 契約 §4）
+  //   0.5.0 以降 = テキスト分割 data-akari-split に対応
+  //                （contract-2026-08-15-telop-motion-grammar-v0）
+  // ※ 2026-08-15 時点でこの定数は 0.2.0 のまま package.json だけ 0.4.0 へ
+  //   進んでおり、min_overlay_runtime_version の機能検出が実態とずれていた。
+  //   分割対応の追加に合わせて両方を 0.5.0 へ揃える。
+  const RUNTIME_VERSION = "0.5.0";
 
   function finiteNumber(value, fallback) {
     const number = Number(value);
@@ -186,6 +191,14 @@ function createOverlayRuntime(options = {}) {
       for (const mirror of container.querySelectorAll('[data-mirror="text"]')) {
         mirror.setAttribute("aria-hidden", "true");
       }
+
+      // テキスト分割断片（data-akari-split="bunsetsu" 等）: 断片は分割済みの
+      // <span class="akari-u" style="--i:N"> で出荷する規約だが、出荷漏れ・
+      // vars によるテキスト差し替えに備えて mount 時にも整える（冪等）。
+      // 断片は script を持たない前提のため、data-mirror と同じくランタイムが担う
+      // （telop.md「テキスト分割と stagger 規約」・
+      //  akari-video-internal contract-2026-08-15-telop-motion-grammar-v0 §4）。
+      window.akari.textSplit?.applyAll(container);
 
       fragment.appendChild(container);
       const mountedOverlay = {

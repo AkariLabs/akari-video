@@ -44,12 +44,38 @@ export function buildHarnessHtml({
 
   // AKARI のオーバーレイシートと同じ入れ子（container[inset:0] > .scene-content[inset:0]）を
   // 再現する。ここが本番と違うと、書き出した絵が編集画面と食い違う。
+  // モーション語彙（var(--ease-*) / var(--anim-duration-*) の解決先）も本番シートと同じく
+  // 定義する。無いと語彙を参照する断片の animation 宣言が丸ごと無効になる
   return `<!doctype html><html><head><meta charset="utf-8"><base href="${fragmentBaseUrl}"><style>
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: ${background}; }
   #stage { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; }
   .akari-overlay-container { position: absolute; inset: 0; ${vars} }
   .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-</style></head><body><div id="stage"><div class="akari-overlay-container"><div class="scene-content">${fragment}</div></div></div></body></html>`;
+</style><style>${loadMotionVocabularyCss()}</style></head><body><div id="stage"><div class="akari-overlay-container"><div class="scene-content">${fragment}</div></div></div></body></html>`;
+}
+
+// モーション語彙の単一定義（overlay-runtime が正典）。モノレポ配置を第一に探し、
+// 無い環境では node_modules 解決を試す。どちらも無ければ警告して素通しする
+// （語彙を使わない断片は困らない。使う断片は絵が止まるので気づける）
+let motionVocabularyCssCache;
+export function loadMotionVocabularyCss() {
+  if (motionVocabularyCssCache !== undefined) return motionVocabularyCssCache;
+  const candidates = [
+    resolve(dirname(new URL(import.meta.url).pathname), "../../overlay-runtime/src/motion-vocab.css"),
+  ];
+  try {
+    const require = createRequire(import.meta.url);
+    candidates.push(require.resolve("@akari-video/overlay-runtime/src/motion-vocab.css"));
+  } catch {}
+  for (const candidate of candidates) {
+    try {
+      motionVocabularyCssCache = readFileSync(candidate, "utf8");
+      return motionVocabularyCssCache;
+    } catch {}
+  }
+  console.warn("[template-render] motion-vocab.css が見つからないため、イージング語彙なしで描画します");
+  motionVocabularyCssCache = "";
+  return motionVocabularyCssCache;
 }
 
 /**
