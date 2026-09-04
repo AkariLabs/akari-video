@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "bundle:frame-engine": "node scripts/bundle-frame-engine.mjs",
+    "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
     "build": "node scripts/bundle-frame-engine.mjs && tsc -b",
     "clean": "rimraf lib",
     "test": "tsc -b && node --test test/*.test.mjs"

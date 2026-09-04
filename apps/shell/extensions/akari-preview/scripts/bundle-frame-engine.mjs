@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
-import { mkdir, rename, rm } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const extensionRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,6 +11,7 @@ const outputDirectory = path.join(extensionRoot, 'generated');
 const output = path.join(outputDirectory, 'frame-engine.js');
 const temporaryOutput = path.join(outputDirectory, 'frame-engine.js.tmp');
 const entry = path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts');
+const check = process.argv.includes('--check');
 const require = createRequire(import.meta.url);
 
 function oneLine(value) {
@@ -22,18 +22,24 @@ function skip(reason) {
   console.log(`[bundle-frame-engine] skipped: ${oneLine(reason)}`);
 }
 
-let esbuild;
+let buildSync;
 try {
-  esbuild = require.resolve('esbuild/bin/esbuild');
+  ({ buildSync } = require('esbuild'));
 } catch {
   const candidates = [
-    path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-    path.join(shellRoot, 'node_modules', 'esbuild', 'bin', 'esbuild')
+    path.join(repoRoot, 'node_modules', 'esbuild'),
+    path.join(shellRoot, 'node_modules', 'esbuild')
   ];
-  esbuild = candidates.find(candidate => existsSync(candidate));
+  for (const candidate of candidates) {
+    try {
+      ({ buildSync } = require(candidate));
+      break;
+    } catch {}
+  }
 }
 
-if (!esbuild) {
+if (!buildSync) {
+  if (check) throw new Error('esbuild が見つかりません');
   skip('esbuild が見つかりません');
   process.exit(0);
 }
@@ -41,23 +47,41 @@ if (!esbuild) {
 await mkdir(outputDirectory, { recursive: true });
 await rm(temporaryOutput, { force: true });
 const banner = '// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。';
-const result = spawnSync(process.execPath, [
-  esbuild,
-  entry,
-  '--bundle',
-  '--format=iife',
-  '--global-name=AkariFrameEngine',
-  '--platform=browser',
-  '--target=chrome122',
-  `--banner:js=${banner}`,
-  `--outfile=${temporaryOutput}`
-], { cwd: repoRoot, encoding: 'utf8' });
-
-if (result.status !== 0 || !existsSync(temporaryOutput)) {
+try {
+  buildSync({
+    entryPoints: [entry],
+    bundle: true,
+    format: 'iife',
+    globalName: 'AkariFrameEngine',
+    platform: 'browser',
+    target: ['chrome122'],
+    banner: { js: banner },
+    absWorkingDir: repoRoot,
+    outfile: temporaryOutput,
+    logLevel: 'silent'
+  });
+} catch (error) {
   await rm(temporaryOutput, { force: true });
-  skip(result.stderr || result.error?.message || `esbuild exit ${result.status}`);
+  if (check) throw error;
+  skip(error?.message);
+  process.exit(0);
+}
+if (!existsSync(temporaryOutput)) {
+  if (check) throw new Error('esbuild が出力を生成しませんでした');
+  skip('esbuild が出力を生成しませんでした');
   process.exit(0);
 }
 
-await rename(temporaryOutput, output);
-console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, output)}`);
+if (check) {
+  if (!existsSync(output) || !Buffer.from(await readFile(output)).equals(Buffer.from(await readFile(temporaryOutput)))) {
+    await rm(temporaryOutput, { force: true });
+    process.stderr.write('frame-engine bundle drift detected\n');
+    process.exitCode = 1;
+  } else {
+    await rm(temporaryOutput, { force: true });
+    process.stdout.write('frame-engine bundle is current\n');
+  }
+} else {
+  await rename(temporaryOutput, output);
+  console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, output)}`);
+}
