@@ -137,6 +137,7 @@ import {
 } from '../common/review-preview-state';
 import {
     isEditableEventTarget,
+    isImeCompositionKeydown,
     ReviewToolMode,
     shouldStopEditableDeletionKeydown
 } from '../common/review-tool-mode';
@@ -12721,6 +12722,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const isEditable = (${isEditableEventTarget.toString()});
             const shouldStopEditableDeletionKeydownFn = (${shouldStopEditableDeletionKeydown.toString()});
+            const isImeComposing = (${isImeCompositionKeydown.toString()});
             document.addEventListener('keydown', event => {
                 if (shouldStopEditableDeletionKeydownFn(
                     event.target,
@@ -13002,8 +13004,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.stopPropagation();
                 window.akari.exitFullscreen();
             }, true);
+            // isEditable だけでは IME 変換中のスペースを止められない（issue #51）。変換候補を送る
+            // スペースで再生が走ると、日本語入力のたびにプレビューが動いて制作が中断される。
             window.addEventListener('keydown', event => {
-                if ((event.code !== 'Space' && event.key !== ' ')
+                if (isImeComposing(event)
+                    || (event.code !== 'Space' && event.key !== ' ')
                     || isEditable(event.target)
                     || isEditable(document.activeElement)
                     || playToggle.disabled) return;

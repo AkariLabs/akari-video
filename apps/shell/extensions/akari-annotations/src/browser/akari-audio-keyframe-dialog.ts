@@ -1,6 +1,7 @@
 import { AbstractDialog, DialogError, DialogMode, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AudioEnvelopeKeyframePayload } from '../common/akari-annotations-protocol';
+import { isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import {
     AUDIO_KEYFRAME_MAX_DB,
     AUDIO_KEYFRAME_MIN_DB,
@@ -121,6 +122,8 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeD
     protected playbackDisposed = false;
 
     protected readonly dialogKeydown = (event: KeyboardEvent): void => {
+        // IME 変換中は Space / Delete / Escape を IME に渡す（issue #51）。
+        if (isImeCompositionKeydown(event)) return;
         if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
