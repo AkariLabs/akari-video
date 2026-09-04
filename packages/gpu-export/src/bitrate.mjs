@@ -17,7 +17,13 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
     throw new Error(`GPU quality must be one of ${QUALITY_LEVELS.join("|")}, got: ${quality}`);
   }
   if (bitrate !== undefined && bitrate !== null) {
-    return { quality, bitrate: positiveBitrate(bitrate, "--bitrate"), bitrateSource: "explicit" };
+    return {
+      quality,
+      bitrate: positiveBitrate(bitrate, "--bitrate"),
+      bitrateSource: "explicit",
+      quantizer: null,
+      rateControl: "bitrate",
+    };
   }
   const codecFactor = CODEC_FACTORS[codec];
   if (codecFactor === undefined) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
@@ -25,9 +31,15 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
   if (preset === null) {
     throw new Error("master は GPU 出口では --bitrate の明示が必要です");
   }
+  const quantizer = codec === "hevc"
+    ? QUALITY_PRESETS[quality].webcodecsHevcQuantizer
+    : QUALITY_PRESETS[quality].webcodecsQuantizer;
+  const rateControl = "quantizer";
   const baseBitrate = parsePresetBitrate(preset);
   const scale = gpuBitrateScale({ width, height });
-  if (scale === 1 && codecFactor === 1) return { quality, bitrate: baseBitrate, bitrateSource: "quality-preset" };
+  if (scale === 1 && codecFactor === 1) {
+    return { quality, bitrate: baseBitrate, bitrateSource: "quality-preset", quantizer, rateControl };
+  }
   const scaled = Math.round((baseBitrate * scale * codecFactor) / GPU_BITRATE_ROUNDING_BPS) * GPU_BITRATE_ROUNDING_BPS;
   if (scale === 1) {
     return {
@@ -36,6 +48,8 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
       bitrateSource: "quality-preset-codec-scaled",
       baseBitrate,
       codecFactor,
+      quantizer,
+      rateControl,
     };
   }
   return {
@@ -45,6 +59,8 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
     baseBitrate,
     bitrateScale: Number(scale.toFixed(4)),
     ...(codecFactor === 1 ? {} : { codecFactor }),
+    quantizer,
+    rateControl,
   };
 }
 
