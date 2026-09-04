@@ -36,6 +36,14 @@ const THREE_TEXT_BUNDLE_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js",
 );
+// モーション語彙（イージング名 + 対象別既定尺の CSS 変数）。プレビュー側はホストが
+// <link> するのと同じ内容を、語彙を参照するシートにだけ埋め込む（パリティ）。
+// 参照しないシートに埋め込まないのは、非対象シートのバイト同一性を守るため
+// （threeRuntimeScripts の出し分けと同じ判断）
+const MOTION_VOCAB_CSS_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/motion-vocab.css",
+);
 const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
 const TEXTURE_MIME_TYPES = new Map([
   [".avif", "image/avif"],
@@ -89,6 +97,13 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const nodes = sheetOverlays
     .map((overlay, index) => renderOverlayNode(overlay, index))
     .join("\n");
+  // 断片がモーション語彙（var(--ease-*) / var(--anim-duration-*)）を参照するときだけ
+  // 語彙定義を埋め込む。overlays[].vars 経由の参照は container の style 属性に乗るので
+  // nodes の文字列検査で両方拾える
+  const usesMotionVocabulary = /var\(\s*--(?:ease-|anim-duration-)/u.test(nodes);
+  const motionVocabularyStyle = usesMotionVocabulary
+    ? `\n  <style>\n${readFileSync(MOTION_VOCAB_CSS_PATH, "utf8")}  </style>`
+    : "";
   const threeTextBundleScript = hasThreeDimensionalTextOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_TEXT_BUNDLE_PATH, "utf8"))}</script>`
     : "";
@@ -133,7 +148,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${threeRuntimeScripts}
+  </style>${motionVocabularyStyle}${threeRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>

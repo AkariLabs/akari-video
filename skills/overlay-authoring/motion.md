@@ -12,15 +12,40 @@
 
 ## イージング語彙
 
-| 意図 | CSS 語彙 | 使い方 |
-|---|---|---|
-| 等速・進捗・連続回転 | `linear` | 速度変化そのものに意味がない動き |
-| 入場・減速して止まる | `ease-out` | 画面外から定位置へ入る要素 |
-| 退場・加速して去る | `ease-in` | 定位置から画面外へ出る要素 |
-| 姿勢 A と B の往復 | `ease-in-out` | カード反転、視線移動、穏やかな遷移 |
-| 離散切替 | `steps()` | カウンタの桁、LED、コマ送り風表現 |
+数値の `cubic-bezier()` を断片に直書きしない。ランタイムの語彙
+（`packages/overlay-runtime/src/motion-vocab.css`。ホストが読み込み、書き出し側は
+rasterize.mjs が同じ内容をシートへ埋め込む）を **名前で** 呼ぶ。
 
-独自 `cubic-bezier()` は named easing で意図を表せない場合だけ使い、CSS 変数化して理由を残す。標準キーワードの定義は [W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) を参照する。
+| 変数 | 質感 | 使いどころ |
+|---|---|---|
+| `--ease-smooth` | **既定**。すっと出て長く減速 | 入場・移動・サイズ変化の第一候補。未指定の `var(--anim-easing)` はこれになる |
+| `--ease-natural` | 中庸の立ち上がり + 長い減速の尾 | リストの送り、続きものの移動 |
+| `--ease-slowdown` | 初速最大 → 匍匐して止まる | 勢いから静止へ。強い ease-out |
+| `--ease-accelerate` | 深い溜め → 加速して去る | 退場。**直後にカットが来る前提**の動き |
+| `--ease-overshoot` | バネ。目標を大きく越えてから戻る（約 +90%） | 強調の飛び込み・ポップイン |
+| `--ease-overshoot-mid` / `--ease-overshoot-soft` | 同じバネの控えめ段（約 +66% / +32%） | 移動量がやや大きいときの逃がし先 |
+| `--ease-impulse` | 突進して小さく上振れ | 高速スライドイン |
+| `--ease-linear` | 等速 | 進捗・連続回転など、速度変化に意味がない動き |
+| `--ease-snap-out` / `--ease-hard-out` / `--ease-deep-inout` / `--ease-snappy` | 切れ味系の補助語彙 | テロップの歯切れを出したいとき（telop.md） |
+
+`--anim-duration` に入れる尺の相場も対象別の変数がある:
+
+| 変数 | 値 | 対象 |
+|---|---|---|
+| `--anim-duration-telop` | 500ms | テロップ（1 文字 / 1 文節あたり） |
+| `--anim-duration-shape` | 800ms | 図形・帯・カード |
+| `--anim-duration-group` | 1000ms | ラッパ `<div>` ごと動かすとき |
+
+**overshoot / impulse は「小さい移動・スケールのポップ」専用**。越え量は移動量に
+**比例**するため、画面幅級の搬入（数百 px の translate）に掛けると目標を数百 px
+突き抜けて画面外へ飛ぶ。長距離の搬入は `--ease-smooth` / `--ease-natural`、退場は
+`--ease-accelerate`、ポップ強調（scale 0.7→1、数十 px の移動）にだけ overshoot 系を使う。
+どうしても大きめの移動で使うときは `-mid` / `-soft` へ落とす。
+
+CSS 標準キーワード（`ease-out` 等）より上記の語彙を優先する。離散切替（カウンタの桁・
+LED・コマ送り風）だけは標準の `steps()` を使う。語彙で意図を表せない場合に限り
+`cubic-bezier()` を新設し、CSS 変数化して理由を残す。標準キーワードの定義は
+[W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) を参照する。
 
 ## compositor 合成の制約
 

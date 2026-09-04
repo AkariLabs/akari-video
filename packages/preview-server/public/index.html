@@ -9,6 +9,10 @@
      グリッド項目として新しい行を作ってしまいプレビューが縮む。shell は同じ CSS を
      webview へインライン注入している（サーフェス間パリティ） -->
 <link rel="stylesheet" href="/overlay-interaction.css">
+<!-- モーション語彙（packages/overlay-runtime/src/motion-vocab.css の写し・build が生成）。
+     断片の var(--ease-*) / var(--anim-duration-*) の解決先。書き出し側は
+     render-cut/rasterize.mjs が同じ内容をシートへ埋め込む（サーフェス間パリティ） -->
+<link rel="stylesheet" href="/overlay-motion-vocab.css">
 <style>
 @font-face { font-family: "AKARI Noto Sans JP"; src: url("/assets/fonts/akari-noto-sans-jp.ttf") format("truetype-variations"); font-weight: 100 900; font-style: normal; font-display: block; }
 :root { color-scheme: dark; font-family: "AKARI Noto Sans JP", system-ui, sans-serif; }
@@ -200,6 +204,11 @@ input[type=range] { width: 100%; }
 <div id="shortcut-help" hidden><div id="shortcut-help-inner"><h2>⌨ キーボードショートカット</h2><table><tr><td>Space</td><td>再生/一時停止</td></tr><tr><td>← →</td><td>1フレーム戻る/進む</td></tr><tr><td>↑ ↓</td><td>10秒戻る/進む</td></tr><tr><td>, .</td><td>前/次のカット境界へ</td></tr><tr><td>Home / End</td><td>先頭/末尾へ</td></tr><tr><td>?</td><td>このヘルプを表示/非表示</td></tr><tr><td>Escape</td><td>選択解除 / ポップアップを閉じる</td></tr><tr><td>0</td><td>選択中の素材の位置を戻す（作者の位置へ）</td></tr><tr><td>Delete / Backspace</td><td>選択中の素材を削除</td></tr><tr><td>ダブルクリック</td><td>シークバー: カット情報を開く</td></tr></table><div class="close-hint">もう一度 ? を押して閉じる</div></div></div>
 <!-- オーバーレイ操作は packages/overlay-runtime/src/interaction.js（単一正本・スナップ最新版）の
      esbuild バンドル。旧 391 行フォーク（overlay-interaction.js）は Phase 2-4 で廃棄 -->
+<!-- テキスト分割（data-akari-split）。budoux → text-split の順で読む。
+     interaction.js は window.akari.textSplit を任意依存として参照する
+     （未読込でも編集は動く。分割の畳み/再分割だけが働かない） -->
+<script src="/budoux-ja-bundle.js"></script>
+<script src="/text-split.js"></script>
 <script src="/overlay-interaction.bundle.js"></script>
 <script type="module" src="/app.js"></script>
 </body>

@@ -1472,6 +1472,25 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       });
       continue;
     }
+    // テキスト分割断片の CSS animation は [data-akari-active] ゲートの中で宣言する
+    // （skills/overlay-authoring/telop.md「テキスト分割と stagger 規約」）。
+    // getAnimations() のコストはドキュメント全体の animation 総数に比例するため、
+    // ゲート無しの断片が 1 つでも混ざると全体の tick が落ちる。分割はその危険を
+    // 分割数ぶんに増幅する（実測: 1,200 断片 × 8 分割 = 9,600 本で 221ms/tick。
+    // akari-video-internal contract-2026-08-15-telop-motion-grammar-v0 §6）。
+    if (/\bdata-akari-split\s*=/.test(html) && /(^|[^-\w])animation\s*:/.test(html)) {
+      const gated = /\[data-akari-active\][^{}]*\.[^{}]*\{[^{}]*animation\s*:/.test(html);
+      if (!gated) {
+        addFinding(findings, {
+          severity: "error",
+          check: "overlays.split-animation-gate",
+          message:
+            "text-split fragment must declare animations under a [data-akari-active] selector",
+          path: relativePath(paths.projectRoot, htmlPath),
+        });
+      }
+    }
+
     for (const [attribute, expected] of [
       ["data-start", overlay.start],
       ["data-duration", overlay.duration],

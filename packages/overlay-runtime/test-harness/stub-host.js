@@ -98,6 +98,37 @@ const STUB_SUMMARY = {
         "</div>",
       ].join("\n"),
     },
+    // テキスト分割検証フィクスチャ（contract-2026-08-15-telop-motion-grammar-v0）:
+    // data-akari-split="bunsetsu" を宣言し、断片は「未分割のまま」出荷している。
+    // mount() が分割し、--i を振ることを検証する（出荷漏れの安全網が働くこと）。
+    // stagger は [data-akari-active] ゲート内で calc(var(--i) * ...) で表現する。
+    {
+      id: "cap-text-split",
+      start: 120,
+      duration: 20,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      vars: {},
+      html: [
+        '<div class="split-root" style="position:absolute;left:50%;top:50%;',
+        'transform:translate(-50%,-50%);">',
+        "  <style>",
+        "    .split-root .line { --anim-duration:500ms; --anim-stagger:150ms;",
+        '      font-weight:800; font-family:"Hiragino Sans", sans-serif; font-size:48px;',
+        "      color:#fff; }",
+        "    /* ★ ゲート内でだけ animation を宣言する（契約 §6 の性能要件） */",
+        "    [data-akari-active] .split-root .line .akari-u {",
+        "      animation: split-root__in var(--anim-duration) both paused;",
+        "      animation-delay: calc(var(--i) * var(--anim-stagger));",
+        "    }",
+        "    @keyframes split-root__in {",
+        "      from { opacity:0; transform:translateY(50px); }",
+        "      to   { opacity:1; transform:none; }",
+        "    }",
+        "  </style>",
+        '  <div class="line" data-akari-split="bunsetsu">今日はとてもいい天気ですね</div>',
+        "</div>",
+      ].join("\n"),
+    },
   ],
 };
 

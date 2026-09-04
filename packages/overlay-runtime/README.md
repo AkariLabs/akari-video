@@ -45,8 +45,12 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    `window.AkariThree.THREE` を作った後でないと壊れる。export 側
    `packages/render-cut/src/rasterize.mjs` はシートに `texts[]` 宣言があるときだけ
    自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）
-4. `src/interaction.css` と `src/minimap.css` を `<link>` する
-5. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
+4. テキスト分割断片（`data-akari-split`）を扱うホストは、`src/interaction.js` より前に
+   `src/vendor/budoux-ja-bundle.js` → `src/text-split.js` の順で読み込む。
+   未読込でも他機能は動くが、日本語の文節分割が精度の落ちる近似になり
+   （実測 85% → 65%）、編集時の畳み／再分割も働かない
+5. `src/motion-vocab.css`（イージング語彙 + 対象別既定尺の単一定義。断片の `var(--ease-*)` / `var(--anim-duration-*)` の解決先）と `src/interaction.css`・`src/minimap.css` を `<link>` する
+6. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
    （`summary` = `EditSummary`。下記参照）。以降はタイムライン更新のたびに
    `window.akari.runtime.tick(t, playing)` を呼ぶ
 
@@ -140,6 +144,36 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 旧バージョン（`data-mirror` 未知）でも断片は全層に同一テキストを焼いて出荷される前提の
 ため初期表示は正しいが、ライブ編集の層間同期は v0.2.0 以降でのみ効く。
 
+### テキスト分割（`data-akari-split`、v0.5.0〜）
+
+文字・単語・文節ごとに時間差で出す演出のための分割プリミティブ。
+**断片は分割済みで出荷し、stagger は CSS の `calc(var(--i) * var(--anim-stagger))` で
+表現する**（断片に `<script>` は書かない）。作法の正本は
+`skills/overlay-authoring/telop.md`「テキスト分割と stagger 規約」。
+
+ランタイムの担当は `data-mirror="text"` と同じく DOM 操作のみ:
+
+| 契機 | 動作 |
+|---|---|
+| `mount()` | 宣言はあるが未分割の要素を分割する（出荷漏れの安全網・冪等） |
+| 編集開始 | 分割を素のテキストへ畳む（span のまま contenteditable にすると壊れる） |
+| 編集確定 | 確定テキストで分割し直し `--i` を振り直す。保存 HTML は分割済み |
+
+公開 API（`window.akari.textSplit`）:
+
+- `segment(text, mode)` → `string[]`（`none`/`chars`/`bunsetsu`/`words`/`lines`）
+- `apply(el)` / `applyAll(root)` → 分割して `<span class="akari-u" style="--i:N">` にする
+- `collapse(el)` → 素のテキストへ戻す
+- `closestHost(el)` → 最も近い `[data-akari-split]` 祖先
+
+日本語の `bunsetsu` は `vendor/budoux-ja-bundle.js`（BudouX / Apache-2.0）が担う。
+未読込時は `Intl.Segmenter` ベースの近似へ退避し、コンソールに一度だけ警告を出す。
+
+**性能**: 分割は 1 断片の CSS animation を分割数ぶんに増やす。
+断片側は必ず `[data-akari-active]` ゲートの中で `animation` を宣言すること
+（ゲート有り 1,200 断片 × 16 分割 = 0.023ms/tick に対し、
+ゲート無し 1,200 断片 × 8 分割は 221ms/tick。`packages/edit-lint` が機械検査する）。
+
 ## ディレクトリ
 
 ```
@@ -151,10 +185,14 @@ src/
   vendor/opentype.js-LICENSE.txt        opentype.js の MIT License
   vendor/matter-js-LICENSE.txt          matter-js の MIT License
   vendor/poly-decomp-LICENSE.txt        poly-decomp の MIT License
+  vendor/budoux-ja-bundle.js  BudouX（日本語の表示単位分割）の単一 IIFE
+  vendor/budoux-LICENSE.txt   BudouX の Apache License 2.0
+  text-split.js        data-akari-split の分割 / 畳み / 再分割（v0.5.0〜）
   three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
   overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
   interaction.js       legacy ui/interaction.js を無改変移送
   interaction.css       legacy ui/interaction.css を無改変移送
+  motion-vocab.css      イージング語彙 + 対象別既定尺（正典。skills/overlay-authoring/motion.md 参照）
   minimap.js            legacy ui/minimap.js を無改変移送
   minimap.css           legacy ui/style.css 206〜234 行（#minimap ブロック）を抽出
 docs/

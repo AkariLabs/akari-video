@@ -56,6 +56,7 @@ YouTube の safe zone も全端末保証ではない。オーガニック投稿�
 
 - 字幕の出入りは短い opacity / translate を使い、保持中は動かさない。
 - 1 文字ずつの出現は可読速度とシーク再現性を損ねやすい。必要な演出だけに限定し、文字 DOM は先に確定しておく。
+  日本語で時間差の出現をやるなら 1 文字ではなく**文節単位**にする（下の「テキスト分割と stagger 規約」）。
 - CSS animation / WAAPI を使い、ランタイムが `currentTime = (t - start) * 1000` を設定できる形にする。
 - 位置移動の transform は断片内の子要素へ付け、AKARI が所有する外側コンテナの幾何 transform と分離する。
 
@@ -71,6 +72,83 @@ OUT の `both`（= backwards fill）は**遅延中に OUT の開始値（`opacit
 - 単一アニメの断片（stagger / loop）では起きない。IN と OUT を 1 本のプロパティに並べたときだけ
 - チェック: 断片の冒頭数フレームをシークし、IN の開始値（opacity 0 / 画面外）から始まることを目視する
 - この罠は IN/OUT の 2 段に限らず一般化できる（3 段以上の連鎖、点滅ループの片端省略など）。`motion.md`「複数アニメーションを同一プロパティへ連鎖させるときの暗黙 0% 上書き」を参照
+
+## テキスト分割と stagger 規約（2026-08-15）
+
+文字・単語・文節ごとに時間差で出す演出は、**断片が分割済みで出荷し、
+stagger は CSS の `calc()` で表現する**。断片に `<script>` は書かない。
+
+```html
+<div class="foo__line" data-akari-split="bunsetsu"
+  ><span class="akari-u" style="--i:0">今日は</span
+  ><span class="akari-u" style="--i:1">とても</span
+  ><span class="akari-u" style="--i:2">いい</span
+  ><span class="akari-u" style="--i:3">天気ですね</span></div>
+```
+
+```css
+.foo__line{
+  --anim-duration: var(--anim-duration-telop, 500ms);  /* 1 要素の尺（対象別の相場は motion.md） */
+  --anim-stagger:  150ms;                              /* ずらし */
+  --anim-easing:   var(--ease-snap-out);               /* 語彙は motion.md「イージング語彙」。未指定なら smooth */
+}
+/* ★ [data-akari-active] ゲートの中で宣言する（下の「性能」参照） */
+[data-akari-active] .foo__line .akari-u{
+  animation: foo__in var(--anim-duration) var(--anim-easing) both paused;
+  animation-delay: calc(var(--i) * var(--anim-stagger));
+}
+@keyframes foo__in{
+  from{ opacity:0; transform: translateY(var(--anim-distance, 50px)); }
+  to  { opacity:1; transform: none; }
+}
+```
+
+- **`animation-delay: calc(var(--i) * var(--anim-stagger))` の 1 行がすべて**。
+  どの `@keyframes`（= どの演出）にも同じ形で stagger が掛かる。
+  演出ごとに遅延を書き並べない
+- **ツマミは CSS 変数**にする。`edit.json` の `vars` から上書きできる
+- **`--i` は 0 始まりの通し番号**。`--n` に総数が入る（ランタイムが振る）
+
+### 分割単位（`data-akari-split`）
+
+| 値 | 単位 | 使いどころ |
+|---|---|---|
+| `bunsetsu` | 文節（日本語の表示単位） | **日本語テロップの既定** |
+| `chars` | 1 文字 | 演出用。可読速度を損ねるので多用しない |
+| `words` | 単語 | 欧文向け。**日本語では分かち書きしないので機能しない** |
+| `lines` | 行 | 行単位で送る |
+| `none` | 分割しない | — |
+
+日本語の文節分割は BudouX（`src/vendor/budoux-ja-bundle.js`・Apache-2.0）で行う。
+`Intl.Segmenter` 単体の単語分割は助詞がバラけるため使わない
+（`今日 | は | とても | いい | 天気 | です | ね` になる）。
+
+### ランタイムの担当（断片は書かなくてよい）
+
+`data-mirror="text"` と同じく、DOM 操作はランタイムが持つ:
+
+- **mount 時**: 宣言はあるが未分割の要素を分割する（出荷漏れの安全網・冪等）
+- **編集開始時**: 分割を素のテキストへ畳む（`<span>` のまま contenteditable にすると
+  打鍵で span が割れる・キャレットが単位境界で飛ぶ）
+- **編集確定時**: 確定したテキストで分割し直し、`--i` を振り直す。
+  保存される HTML は**分割済みの状態**（書き出しは断片の HTML をそのまま使うため）
+
+必要ランタイム: **0.5.0 以降**。素材の `meta.json` に
+`min_overlay_runtime_version: "0.5.0"` を宣言する。
+
+### 性能 — `[data-akari-active]` ゲートは必須（実測）
+
+分割は 1 断片の CSS animation を分割数ぶんに増やす。ゲートが無いと即死する:
+
+| 条件 | 現存 animation | 1 tick |
+|---|---:|---:|
+| ゲート有り・1,200 断片 × 16 分割・可視 60 | 960 | **0.023ms** |
+| ゲート無し・1,200 断片 × 8 分割 | 9,600 | **221ms** |
+| ゲート無し・上記 + 可視 60 | 9,600 | **11,783ms** |
+
+`getAnimations()` のコストは「ドキュメント全体に現存する CSS animation の総数」に
+比例する。ゲートの中で宣言すれば非可視分は現存しないので、**分割そのものは無害**。
+ゲートを忘れた断片が 1 つあるだけで全体が落ちる。
 
 ## 多層テキスト断片と data-mirror 規約（2026-08-06）
 
