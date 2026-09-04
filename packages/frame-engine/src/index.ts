@@ -24,6 +24,8 @@ export * from './audio/preview-audio-supply.js';
 export * from './metrics/collector.js';
 export * from './metrics/frame-diff.js';
 export * from './look/cube.js';
+export * from './adjust/kernel.js';
+export * from './adjust/bake.js';
 export * from './exits/present.js';
 export * from './exits/readback.js';
 export * from './exits/webcodecs.js';
