@@ -9,6 +9,7 @@ const TIMING_KEYWORDS = new Map([
 ]);
 
 const fail = (reason) => ({ ok: false, reason });
+const SAMPLED_CHAIN_CSS_PROPERTIES = ["filter", "clip-path", "mask", "backdrop-filter", "mix-blend-mode"];
 
 export function scanThreeSampled(html) {
   const source = stripComments(stripHtmlComments(html));
@@ -27,6 +28,17 @@ export function scanThreeSampled(html) {
   const chain = sampledAncestorChain(root, canvas);
   if (chain === null) return fail("three-entrance-canvas-missing");
   const chainSet = new Set(chain);
+
+  // advanced-css は 2026-09-04 時点で sampled 経路の入口条件に含まれないため、この検査は eligibility 経由では
+  // 到達しない。方式 B で解禁したときに必要になるガードとして、scanThreeSampled の単体テストで維持する。
+  let inlineChainCssProperty = null;
+  for (const element of elements) {
+    if (!chainSet.has(element) || !element.attributes.has("style")) continue;
+    const parsed = parseDeclarations(element.attributes.get("style"));
+    if (!parsed.ok) return fail("three-html-animated-descendants");
+    inlineChainCssProperty = firstSampledChainCssProperty(parsed.values);
+    if (inlineChainCssProperty !== null) break;
+  }
 
   for (const element of elements) {
     const inlineStyle = element.attributes.get("style") ?? "";
@@ -54,6 +66,31 @@ export function scanThreeSampled(html) {
       if (matches.length === 0 || matches.some((element) => !chainSet.has(element))) {
         return fail("three-html-animated-descendants");
       }
+    }
+  }
+  if (inlineChainCssProperty !== null) return fail(`three-sampled-chain-css:${inlineChainCssProperty}`);
+  for (const rule of parsedRules.rules) {
+    const property = firstSampledChainCssProperty(rule.declarations);
+    if (property === null) continue;
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) return fail(`three-sampled-chain-css:${property}`);
+      if (elements.some((element) => chainSet.has(element) && sampledCompoundMatches(compound, element))) {
+        return fail(`three-sampled-chain-css:${property}`);
+      }
+    }
+  }
+  const inlineChainStyles = chain
+    .map((element) => element.attributes.get("style") ?? "")
+    .join("\n");
+  for (const keyframe of withoutKeyframes.keyframes) {
+    if (!sampledCssNameAppears(withoutKeyframes.css, keyframe.name)
+      && !sampledCssNameAppears(inlineChainStyles, keyframe.name)) continue;
+    const parsedKeyframe = parseRules(keyframe.body);
+    if (!parsedKeyframe.ok) return fail("three-html-animated-descendants");
+    for (const rule of parsedKeyframe.rules) {
+      const property = firstSampledChainCssProperty(rule.declarations);
+      if (property !== null) return fail(`three-sampled-chain-css:${property}`);
     }
   }
   return { ok: true };
@@ -358,6 +395,20 @@ function parseDeclarations(body) {
 
 function hasDeclaration(declarations, prefix) {
   return [...declarations.keys()].some((property) => property === prefix || property.startsWith(`${prefix}-`));
+}
+
+function firstSampledChainCssProperty(declarations) {
+  for (const prefix of SAMPLED_CHAIN_CSS_PROPERTIES) {
+    const property = [...declarations.keys()]
+      .find((name) => name === prefix || name.startsWith(`${prefix}-`));
+    if (property !== undefined) return property;
+  }
+  return null;
+}
+
+function sampledCssNameAppears(css, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "iu").test(css);
 }
 
 function parseEntranceSelector(value, rootClasses) {

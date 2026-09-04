@@ -60,11 +60,17 @@ sprite draw state、回転・せん断・非全画面 canvas は中間 2D canvas
 clone では GPU / OSR ともプロパティが初期値のままです。直接宣言した opacity / transform は補間され、
 両エンジンのパリティは保たれます。カスタムプロパティ補間は書き出し用 sheet 側の別課題です。
 
-実 3D 行列は `three-entrance-3d-matrix` で fail-closed になります。root→canvas の祖先チェーン外に
-animation / transition がある場合は、fallback・装飾を別の DOM 描画で合成する方式が本版では未実装の
-ため、`three-html-animated-descendants` で fail-closed になります。既存の filter / clip-path blocker は不変です。
-manifest は `entranceMode`、receipt は `curve` / `sampled` mode と sample 数・sampling 費用 p50/p95 を
-記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
+sampled 経路の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つです。実 3D 行列は
+`three-entrance-3d-matrix` で fail-closed になります。root→canvas の祖先チェーン外に animation /
+transition がある場合は、fallback・装飾を別の DOM 描画で合成する方式が本版では未実装のため、
+`three-html-animated-descendants` で fail-closed になります。`advanced-css` を持つ断片は
+`three-sampled-condition:advanced-css` で degraded とし、その別 DOM 描画（方式 B）の実装後に再検討します。
+sampled の入口条件を満たさない候補は curve 解析の理由を流用せず `three-sampled-condition:<条件名>` を
+報告します。root→canvas チェーン上の `filter` / `clip-path` / `mask(-image)` / `backdrop-filter` /
+`mix-blend-mode` に対する `three-sampled-chain-css:<プロパティ>` は、方式 B で `advanced-css` を解禁するときの
+ガードとして走査側に残します。manifest は `entranceMode`、receipt は `curve` / `sampled` mode と sample 数・
+sampling 費用 p50/p95 を記録します。CSS animation のない scene は従来どおり
+`three-scene-canvas-direct` です。
 
 `render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
 不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ
