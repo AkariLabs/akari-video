@@ -16,22 +16,26 @@ const EXPECTED_FIXTURES = new Map([
   ["css-3d/f-perspective-only-2d.html", ["dom", "dom-layer-draw-element", ["css-3d-transform", "animation-timing"]]],
   ["css-3d/g-2d-baseline.html", ["dom", "dom-layer-draw-element", ["animation-timing"]]],
   ["css-3d/h-backface-control.html", ["dom", "dom-layer-draw-element", ["css-3d-transform", "animation-timing"]]],
+  ["three-composite-backface-hidden.html", ["degraded", "css-3d-backface-hidden", ["css-3d-transform", "css-3d-backface-hidden", "three-or-canvas-runtime", "animation-timing"]]],
+  ["three-composite-s1-title.html", ["three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "animation-timing"]]],
+  ["three-composite-s2-panel.html", ["three", "three-scene-sampled-composite", ["css-3d-transform", "three-or-canvas-runtime", "animation-timing"]]],
+  ["three-composite-s6-scatter.html", ["three", "three-scene-sampled-composite", ["css-3d-transform", "three-or-canvas-runtime", "animation-timing"]]],
   ["three-curve-classic.html", ["three", "three-scene-entrance-curve", ["three-or-canvas-runtime", "animation-timing"]]],
-  ["three-sampled-advanced-css-on-chain.html", ["degraded", "three-sampled-condition:advanced-css", ["three-or-canvas-runtime", "animation-timing", "advanced-css"]]],
-  ["three-sampled-advanced-css-outside-chain.html", ["degraded", "three-sampled-condition:advanced-css", ["three-or-canvas-runtime", "animation-timing", "advanced-css"]]],
-  ["three-sampled-animated-descendant.html", ["degraded", "three-html-animated-descendants", ["three-or-canvas-runtime", "animation-timing"]]],
+  ["three-sampled-advanced-css-on-chain.html", ["three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "animation-timing", "advanced-css"]]],
+  ["three-sampled-advanced-css-outside-chain.html", ["three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "animation-timing", "advanced-css"]]],
+  ["three-sampled-animated-descendant.html", ["three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-chain-wrapper.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-middle-keyframe.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-multiple-animation.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
-  ["three-sampled-no-css3d-blocked-by-script.html", ["degraded", "three-sampled-condition:script-runtime,advanced-css", ["three-or-canvas-runtime", "script-runtime", "animation-timing", "advanced-css"]]],
+  ["three-sampled-no-css3d-blocked-by-script.html", ["degraded", "three-sampled-condition:script-runtime", ["three-or-canvas-runtime", "script-runtime", "animation-timing", "advanced-css"]]],
   ["three-sampled-property.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-root-without-class.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-transition.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
 ]);
 
-test("forceDegraded routes both measured degraded fixtures through DOM while preserving eligibility truth", async () => {
+test("forceDegraded routes backface-hidden fixtures through DOM while preserving eligibility truth", async () => {
   const overlays = await Promise.all([
-    ["three", "three-sampled-animated-descendant.html"],
+    ["three", "three-composite-backface-hidden.html"],
     ["css-3d", "css-3d/a-perspective-rotatey.html"],
   ].map(async ([id, file]) => ({ id, html: await readFile(join(FIXTURE_ROOT, file), "utf8") })));
   const result = evaluateGpuEligibility({
@@ -41,7 +45,7 @@ test("forceDegraded routes both measured degraded fixtures through DOM while pre
 
   assert.deepEqual(result.entries.map((entry) => entry.classification), ["dom", "dom"]);
   assert.deepEqual(result.entries.map((entry) => entry.reason), [
-    "forced-dom:three-html-animated-descendants",
+    "forced-dom:css-3d-backface-hidden",
     "forced-dom:css-3d-transform, css-3d-backface-hidden, animation-timing",
   ]);
   assert.deepEqual(result.entries.map((entry) => entry.forced), [true, true]);

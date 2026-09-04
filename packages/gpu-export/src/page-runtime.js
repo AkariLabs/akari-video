@@ -1254,6 +1254,7 @@
       if (activeAt(value, seconds)) values.push({ z, index: value.index, id: value.id, opacity: 1 });
     }
     for (const value of manifest.three) {
+      if (value.entranceMode === "composite") continue;
       if (!activeAt(value, seconds)) continue;
       const state = value.entranceMode === "sampled" && threeStates?.has(value.id)
         ? threeStates.get(value.id)
@@ -1471,7 +1472,7 @@
     }
 
     mount(overlayFrame, threeRecords, manifest) {
-      this.entries = (manifest?.three ?? []).filter((entry) => ["curve", "sampled"].includes(entry.entranceMode));
+      this.entries = (manifest?.three ?? []).filter((entry) => ["curve", "sampled", "composite"].includes(entry.entranceMode));
       for (const entry of manifest?.three ?? []) {
         if (entry.entranceMode !== "sampled") continue;
         const existing = threeRecords.get(entry.id);
@@ -1576,6 +1577,65 @@
       return {
         overlays: this.entries.map((entry) => ({ id: entry.id, entrance: { mode: entry.entranceMode } })),
         sampling: summarize(this.sampleCostMs),
+      };
+    }
+
+    dispose() {
+      this.records.clear();
+    }
+  }
+
+  class ThreeCompositeRuntime {
+    constructor(domRuntime) {
+      this.domRuntime = domRuntime;
+      this.records = new Map();
+      this.copyMs = [];
+    }
+
+    mount(manifest, threeRecords) {
+      for (const entry of manifest?.three ?? []) {
+        if (entry.entranceMode !== "composite") continue;
+        const source = threeRecords.get(entry.id)?.canvas;
+        if (!source) throw new Error(`3D composite source canvas is missing: ${entry.id}`);
+        const container = this.domRuntime.containerFor(entry.id);
+        if (!container) throw new Error(`3D composite DOM container is missing: ${entry.id}`);
+        const target = container.querySelector("canvas");
+        if (!target) throw new Error(`3D composite target canvas is missing: ${entry.id}`);
+        const context = target.getContext("2d", { alpha: true });
+        if (!context) throw new Error(`3D composite target 2D canvas is unavailable: ${entry.id}`);
+        for (const fallback of container.querySelectorAll("[data-akari-3d-fallback]")) {
+          fallback.hidden = true;
+          fallback.style.setProperty("display", "none", "important");
+        }
+        this.records.set(entry.id, {
+          source,
+          target,
+          context,
+          domElements: container.querySelectorAll("*").length,
+        });
+      }
+    }
+
+    syncAt(entry, _seconds) {
+      const record = this.records.get(entry.id);
+      if (!record) throw new Error(`3D composite record is missing: ${entry.id}`);
+      const started = performance.now();
+      if (record.target.width !== record.source.width) record.target.width = record.source.width;
+      if (record.target.height !== record.source.height) record.target.height = record.source.height;
+      record.context.setTransform(1, 0, 0, 1, 0, 0);
+      record.context.clearRect(0, 0, record.target.width, record.target.height);
+      record.context.drawImage(record.source, 0, 0);
+      this.copyMs.push(performance.now() - started);
+    }
+
+    summary() {
+      if (this.records.size === 0) return null;
+      const domLayerCost = summarize(this.domRuntime.metrics.domLayerCostMs);
+      return {
+        overlays: this.records.size,
+        domElements: [...this.records.values()].reduce((sum, record) => sum + record.domElements, 0),
+        copy: summarize(this.copyMs),
+        domLayerCostMs: { p50: domLayerCost.p50, p95: domLayerCost.p95 },
       };
     }
 
@@ -1714,6 +1774,15 @@
 
     activeAt(run, seconds) {
       return runActiveAt(run, seconds);
+    }
+
+    containerFor(id) {
+      const target = String(id);
+      for (const record of this.records.values()) {
+        const match = record.containers.find(({ entry }) => String(entry.id) === target);
+        if (match) return match.container;
+      }
+      return null;
     }
 
     async settle(record) {
@@ -1952,6 +2021,7 @@
     let drawTimingProbe = null;
     let domRuntime = null;
     let threeSampling = null;
+    let threeComposite = null;
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
     const started = performance.now();
@@ -2047,7 +2117,7 @@
           const canvas = container.querySelector("canvas");
           if (!canvas) throw new Error(`3D sprite canvas is missing: ${value.id}`);
           threeRecords.set(value.id, { container, canvas });
-          spriteCompositor.registerSprite(value.id, canvas);
+          if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
       }
       threeSampling = new ThreeSamplingRuntime(config, spriteCompositor);
@@ -2070,6 +2140,8 @@
         : null;
       domRuntime = new DomLayerRuntime(config, config.spriteManifest.dom, spriteCompositor, sentinelVerifier);
       await domRuntime.mount();
+      threeComposite = new ThreeCompositeRuntime(domRuntime);
+      threeComposite.mount(config.spriteManifest, threeRecords);
       const hardwareAcceleration = config.soft ? "prefer-software" : "prefer-hardware";
       encoderSupport = captureMode ? null : await collectEncoderSupport(config);
       supported = captureMode || encoderSupport[hardwareAcceleration];
@@ -2123,7 +2195,9 @@
               const record = threeRecords.get(value.id);
               if (!record) throw new Error(`3D overlay record is missing: ${value.id}`);
               threeRuntime.render(record.container, seconds - value.start);
-              if (value.entranceMode === "sampled") {
+              if (value.entranceMode === "composite") {
+                threeComposite.syncAt(value, seconds);
+              } else if (value.entranceMode === "sampled") {
                 threeStates.set(value.id, threeSampling.sampleAt(value, seconds));
               } else {
                 spriteCompositor.updateSprite(value.id, record.canvas);
@@ -2307,7 +2381,7 @@
               previewDisabledReason,
             },
             domLayer: domRuntime.summary(),
-            three: threeSampling.summary(),
+            three: { ...threeSampling.summary(), composite: threeComposite.summary() },
           });
         }
       }
@@ -2356,7 +2430,7 @@
           previewDisabledReason,
         },
         domLayer: domRuntime.summary(),
-        three: threeSampling.summary(),
+        three: { ...threeSampling.summary(), composite: threeComposite.summary() },
         mux,
         eligibility: config.eligibility,
         warnings,
@@ -2366,6 +2440,7 @@
       encoder?.close();
       domRuntime?.dispose();
       threeSampling?.dispose();
+      threeComposite?.dispose();
       spriteCompositor.dispose();
       engine.dispose();
     }

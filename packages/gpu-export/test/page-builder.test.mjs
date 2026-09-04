@@ -376,6 +376,26 @@ test("GPU page manifest takes sampled entrance mode from eligibility", async () 
   assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-sampled");
 });
 
+test("GPU page puts composite Three overlays in the Three manifest and a shared DOM run", async () => {
+  const compositeHtml = await readFile(join(import.meta.dirname, "fixtures", "three-composite-s1-title.html"), "utf8");
+  const overlays = [
+    { id: "dom-before", z: 2, start: 0, duration: 2, html: "<style>.x{animation:x 1s linear}@keyframes x{to{opacity:.5}}</style><div class=\"x\">before</div>" },
+    { id: "composite", z: 2, start: 0, duration: 2, html: compositeHtml },
+    { id: "dom-after", z: 2, start: 0, duration: 2, html: "<style>.y{animation:y 1s linear}@keyframes y{to{opacity:.5}}</style><div class=\"y\">after</div>" },
+  ];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: resolve(import.meta.dirname, "../../.."), duration: 2,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.three, [{
+    id: "composite", start: 0, duration: 2, index: 1, z: 2, entranceMode: "composite",
+  }]);
+  assert.equal(result.spriteManifest.dom.length, 1);
+  assert.deepEqual(result.spriteManifest.dom[0].entries.map(({ id, composite }) => [id, composite]), [
+    ["dom-before", undefined], ["composite", true], ["dom-after", undefined],
+  ]);
+});
+
 test("GPU page carries text slot params to static sprites and DOM runs and inlines the slot runtime (#32)", () => {
   const overlays = [
     { id: "static", start: 0, duration: 1, html: '<div><span data-akari-slot="credit">x</span></div>', params: { credit: "A" } },

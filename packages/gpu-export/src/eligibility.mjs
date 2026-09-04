@@ -1,6 +1,6 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
 import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
-import { parseThreeEntrance, scanThreeSampled } from "./three-entrance.mjs";
+import { parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -80,10 +80,8 @@ const OVERLAY_CONDITIONS = [
 // 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、
 // 幾何は DOM 層へ通し、裏面除去だけを別条件で fail-closed に保つ。
 const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
-// 2026-09-04 の実測では advanced-css は祖先チェーン上だと方式 A が opacity / transform しか canvas へ
-// 適用しないため絵に出ず、チェーン外でも canvas だけを texture 化するため描かれなかった
-// （装飾矩形 GPU 0 px / OSR 22,889 px）。安全な部分集合がないため、方式 B の実装後に再検討する。
 const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
+const COMPOSITE_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "css-3d-transform", "advanced-css"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -125,17 +123,27 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (entranceCandidate) {
       const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
-      if (entrance.ok && withinSampledConditions) {
+      if (names.includes("css-3d-backface-hidden")) {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
+      } else if (entrance.ok && withinSampledConditions) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
       } else if (withinSampledConditions) {
         const sampled = scanThreeSampled(html);
-        entries.push(sampled.ok
-          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names)
-          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", sampled.reason, names));
-      } else if (names.some((name) => name.startsWith("css-3d-"))) {
-        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "three-entrance-3d-matrix", names));
+        if (sampled.ok) {
+          entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names));
+          continue;
+        }
+        const composite = scanThreeComposite(html);
+        entries.push(composite.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
+      } else if (names.every((name) => COMPOSITE_CONDITIONS.has(name))) {
+        const composite = scanThreeComposite(html);
+        entries.push(composite.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
       } else {
-        const unsupported = names.filter((name) => !SAMPLED_CONDITIONS.has(name));
+        const unsupported = names.filter((name) => !COMPOSITE_CONDITIONS.has(name));
         entries.push(entry(
           "overlay",
           overlay.id ?? `overlay-${index}`,

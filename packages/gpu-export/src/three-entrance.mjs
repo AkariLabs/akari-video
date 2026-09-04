@@ -20,7 +20,7 @@ export function scanThreeSampled(html) {
   if (scripts.length !== 1 || declarations.length !== 1) return fail("three-entrance-script-count");
 
   const parsedElements = sampledElements(source);
-  if (!parsedElements.ok) return fail("three-html-animated-descendants");
+  if (!parsedElements.ok) return fail("three-sampled-outside-chain");
   const { elements } = parsedElements;
   const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
   if (!root) return fail("three-entrance-root-missing");
@@ -29,13 +29,13 @@ export function scanThreeSampled(html) {
   if (chain === null) return fail("three-entrance-canvas-missing");
   const chainSet = new Set(chain);
 
-  // advanced-css は 2026-09-04 時点で sampled 経路の入口条件に含まれないため、この検査は eligibility 経由では
-  // 到達しない。方式 B で解禁したときに必要になるガードとして、scanThreeSampled の単体テストで維持する。
+  // advanced-css は方式 A の入口条件に含まれないため、この検査は eligibility 経由では到達しない。
+  // canvas 単独合成へ条件を広げる場合のガードとして、scanThreeSampled の単体テストで維持する。
   let inlineChainCssProperty = null;
   for (const element of elements) {
     if (!chainSet.has(element) || !element.attributes.has("style")) continue;
     const parsed = parseDeclarations(element.attributes.get("style"));
-    if (!parsed.ok) return fail("three-html-animated-descendants");
+    if (!parsed.ok) return fail("three-sampled-outside-chain");
     inlineChainCssProperty = firstSampledChainCssProperty(parsed.values);
     if (inlineChainCssProperty !== null) break;
   }
@@ -43,28 +43,28 @@ export function scanThreeSampled(html) {
   for (const element of elements) {
     const inlineStyle = element.attributes.get("style") ?? "";
     if (/\b(?:animation|transition)(?:-[a-z-]+)?\s*:/iu.test(inlineStyle) && !chainSet.has(element)) {
-      return fail("three-html-animated-descendants");
+      return fail("three-sampled-outside-chain");
     }
   }
 
   const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
     .map((match) => match[1]).join("\n");
   const withoutKeyframes = extractKeyframes(styleText);
-  if (!withoutKeyframes.ok) return fail("three-html-animated-descendants");
+  if (!withoutKeyframes.ok) return fail("three-sampled-outside-chain");
   const withoutProperties = removeSampledAtRules(withoutKeyframes.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
   if (!withoutProperties.ok || /@[a-z_-]+\b/iu.test(withoutProperties.css)) {
-    return fail("three-html-animated-descendants");
+    return fail("three-sampled-outside-chain");
   }
   const parsedRules = parseRules(withoutProperties.css);
-  if (!parsedRules.ok) return fail("three-html-animated-descendants");
+  if (!parsedRules.ok) return fail("three-sampled-outside-chain");
   for (const rule of parsedRules.rules) {
     if (!hasDeclaration(rule.declarations, "animation") && !hasDeclaration(rule.declarations, "transition")) continue;
     for (const selector of splitTopLevel(rule.selector, ",")) {
       const compound = rightmostSampledCompound(selector);
-      if (compound === null) return fail("three-html-animated-descendants");
+      if (compound === null) return fail("three-sampled-outside-chain");
       const matches = elements.filter((element) => sampledCompoundMatches(compound, element));
       if (matches.length === 0 || matches.some((element) => !chainSet.has(element))) {
-        return fail("three-html-animated-descendants");
+        return fail("three-sampled-outside-chain");
       }
     }
   }
@@ -87,12 +87,31 @@ export function scanThreeSampled(html) {
     if (!sampledCssNameAppears(withoutKeyframes.css, keyframe.name)
       && !sampledCssNameAppears(inlineChainStyles, keyframe.name)) continue;
     const parsedKeyframe = parseRules(keyframe.body);
-    if (!parsedKeyframe.ok) return fail("three-html-animated-descendants");
+    if (!parsedKeyframe.ok) return fail("three-sampled-outside-chain");
     for (const rule of parsedKeyframe.rules) {
       const property = firstSampledChainCssProperty(rule.declarations);
       if (property !== null) return fail(`three-sampled-chain-css:${property}`);
     }
   }
+  return { ok: true };
+}
+
+export function scanThreeComposite(html) {
+  const source = stripComments(stripHtmlComments(html));
+  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const declarations = scripts.filter((tag) =>
+    /\btype\s*=\s*["']application\/json["']/iu.test(tag)
+    && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
+  if (scripts.length !== 1 || declarations.length !== 1) return fail("three-entrance-script-count");
+
+  const parsedElements = sampledElements(source);
+  if (!parsedElements.ok) return fail("three-entrance-canvas-missing");
+  const { elements } = parsedElements;
+  const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
+  if (!root) return fail("three-entrance-root-missing");
+  const canvas = elements.find((element) => element.tag === "canvas");
+  if (sampledAncestorChain(root, canvas) === null) return fail("three-entrance-canvas-missing");
+  if (/@property\b/iu.test(source)) return fail("three-composite-property");
   return { ok: true };
 }
 

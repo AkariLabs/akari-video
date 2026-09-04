@@ -60,17 +60,24 @@ sprite draw state、回転・せん断・非全画面 canvas は中間 2D canvas
 clone では GPU / OSR ともプロパティが初期値のままです。直接宣言した opacity / transform は補間され、
 両エンジンのパリティは保たれます。カスタムプロパティ補間は書き出し用 sheet 側の別課題です。
 
-sampled 経路の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つです。実 3D 行列は
-`three-entrance-3d-matrix` で fail-closed になります。root→canvas の祖先チェーン外に animation /
-transition がある場合は、fallback・装飾を別の DOM 描画で合成する方式が本版では未実装のため、
-`three-html-animated-descendants` で fail-closed になります。`advanced-css` を持つ断片は
-`three-sampled-condition:advanced-css` で degraded とし、その別 DOM 描画（方式 B）の実装後に再検討します。
-sampled の入口条件を満たさない候補は curve 解析の理由を流用せず `three-sampled-condition:<条件名>` を
-報告します。root→canvas チェーン上の `filter` / `clip-path` / `mask(-image)` / `backdrop-filter` /
-`mix-blend-mode` に対する `three-sampled-chain-css:<プロパティ>` は、方式 B で `advanced-css` を解禁するときの
-ガードとして走査側に残します。manifest は `entranceMode`、receipt は `curve` / `sampled` mode と sample 数・
-sampling 費用 p50/p95 を記録します。CSS animation のない scene は従来どおり
-`three-scene-canvas-direct` です。
+sampled 経路の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つです。方式 A が
+root→canvas の祖先チェーンだけでは断片を説明できない場合は、方式 B で
+`three-scene-sampled-composite` に分類します。Three.js は従来どおり overlay sheet で描画し、毎コマその
+canvas を DOM 層コピー内の対応 canvas へ中継し、`[data-akari-3d-fallback]` を隠してから断片全体を
+`drawElementImage` で転写します。これにより canvas 前後の DOM 順と z-index を保ち、断片間は track z と
+宣言 index の順を維持します。
+
+composite は canvas チェーン内外の CSS 3D 幾何と `advanced-css` を扱います。CSS 3D は DOM 層と同じ判定を
+再利用し、深度 transform は通し、preserve-3d の順序競合は警告付きで通し、深度を伴う
+`backface-visibility:hidden` だけ `css-3d-backface-hidden` で degraded のままにします。`@property` は
+sheet / DOM 間のカスタムプロパティ補間パリティを実測するまで `three-composite-property` で fail-closed です。
+既知の例外として、`preserve-3d` 空間で 3D canvas と兄弟カードなどが z 深度で並び替わる断片は、GPU が
+DOM 順で描くため OSR と絵が変わります（2026-09-04 実測: 外接矩形 MAD 5.0082。OSR では z>0 の兄弟だけが
+canvas の前）。現行検出器は親子対だけを比較するため、この型は警告されません。
+composite の入口外条件は `three-sampled-condition:<条件名>` を報告します。方式 A の
+`three-sampled-chain-css:<プロパティ>` ガードは残します。manifest は `entranceMode`、receipt は
+`curve` / `sampled` / `composite` mode、sampling 費用、composite の DOM 要素数と canvas 中継・DOM 層費用の
+p50/p95 を記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
 
 `render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
 不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ

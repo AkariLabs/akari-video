@@ -88,7 +88,10 @@ export function buildGpuPage({
   const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
-  const dom = buildDomRuns(indexedOverlays, classifications, duration);
+  const compositeIds = new Set(resultEligibility.entries
+    .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
+    .map((entry) => entry.id));
+  const dom = buildDomRuns(indexedOverlays, classifications, duration, compositeIds);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
@@ -133,7 +136,8 @@ export function buildGpuPage({
     three: three.map(({ overlay, index }) => {
       const reason = overlayEligibility.get(String(overlay.id))?.reason;
       const entranceMode = reason === "three-scene-entrance-curve" ? "curve"
-        : reason === "three-scene-entrance-sampled" ? "sampled" : "none";
+        : reason === "three-scene-entrance-sampled" ? "sampled"
+          : reason === "three-scene-sampled-composite" ? "composite" : "none";
       const parsed = entranceMode === "curve"
         ? parseThreeEntrance(overlay.html, {
           vars: overlay.vars,
@@ -228,12 +232,13 @@ export function buildGpuPage({
   };
 }
 
-function buildDomRuns(indexedOverlays, classifications, duration) {
+function buildDomRuns(indexedOverlays, classifications, duration, compositeIds = new Set()) {
   const runs = [];
   let current = null;
   for (const { overlay, index } of indexedOverlays) {
     const z = Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0;
-    if (classifications.get(String(overlay.id)) !== "dom") {
+    const id = String(overlay.id);
+    if (classifications.get(id) !== "dom" && !compositeIds.has(id)) {
       current = null;
       continue;
     }
@@ -250,6 +255,7 @@ function buildDomRuns(indexedOverlays, classifications, duration) {
       transform: overlay.transform ?? {},
       role: overlay.role ?? null,
       params: overlayTextSlotParams(overlay),
+      ...(compositeIds.has(id) ? { composite: true } : {}),
     });
   }
   return runs;
