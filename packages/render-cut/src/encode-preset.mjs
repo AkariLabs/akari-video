@@ -11,6 +11,13 @@ import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 export const QUALITY_LEVELS = ["master", "high", "standard", "light"];
 export const ENCODER_CHOICES = ["auto", "videotoolbox", "nvenc", "qsv", "amf", "mf", "x264"];
 
+// 2026-09-04 に 1920×1080 / 30fps / 4 秒の参照素材 3 本（複雑 = testsrc2 / 中間 =
+// testsrc2,gblur=sigma=6 / 暗く単純 = color=0x0a0d14 + 低コントラスト矩形）で SSIM を実測し、
+// 複雑素材で libx264（H.264）/ libx265（HEVC）の同じ段と SSIM が最も近い値を選んだ。
+// 再計測なしにこの数値を書き換えてはいけない。VideoToolbox の -q:v は大きいほど高品質、
+// WebCodecs の quantizer は小さいほど高品質で、スケールの向きが逆になる。WebCodecs 側も
+// 同じ手順だが、x264 に対してエンコーダ実装由来の約 0.004 の一定の SSIM 差が quantizer 化の
+// 前からあるため、その一定差を差し引いた目標値に最も近い QP を選んでいる。
 export const QUALITY_PRESETS = {
   master: {
     crf: 15,
@@ -20,6 +27,10 @@ export const QUALITY_PRESETS = {
     qsvPreset: null,
     amfQuality: null,
     mfQuality: null,
+    videotoolboxQuality: null,
+    videotoolboxHevcQuality: null,
+    webcodecsQuantizer: null,
+    webcodecsHevcQuantizer: null,
   },
   high: {
     crf: 18,
@@ -30,6 +41,10 @@ export const QUALITY_PRESETS = {
     amfQuality: "quality",
     // h264_mf uses CODECAPI_AVEncCommonQuality (0..100, larger is better), not a CRF scale.
     mfQuality: 85,
+    videotoolboxQuality: 66,
+    videotoolboxHevcQuality: 76,
+    webcodecsQuantizer: 18,
+    webcodecsHevcQuantizer: 16,
   },
   standard: {
     crf: 23,
@@ -39,6 +54,10 @@ export const QUALITY_PRESETS = {
     qsvPreset: "medium",
     amfQuality: "balanced",
     mfQuality: 70,
+    videotoolboxQuality: 55,
+    videotoolboxHevcQuality: 62,
+    webcodecsQuantizer: 26,
+    webcodecsHevcQuantizer: 24,
   },
   light: {
     crf: 26,
@@ -48,6 +67,10 @@ export const QUALITY_PRESETS = {
     qsvPreset: "fast",
     amfQuality: "speed",
     mfQuality: 55,
+    videotoolboxQuality: 47,
+    videotoolboxHevcQuality: 53,
+    webcodecsQuantizer: 30,
+    webcodecsHevcQuantizer: 30,
   },
 };
 
@@ -97,6 +120,7 @@ export function resolveEncodingPolicy({
   env = process.env,
   spawnSyncImpl = spawnSync,
   platform = process.platform,
+  warn = (message) => { process.stderr.write(`${message}\n`); },
 } = {}) {
   const editEncoding = edit?.output?.encoding ?? {};
   const codec = normalizeVideoCodec(cli.codec ?? "h264");
@@ -127,6 +151,37 @@ export function resolveEncodingPolicy({
       };
   const effectiveQuality = { ...qualityRequested };
   const encoderChoice = { engine: effectiveEncoder.value };
+  const usesVideotoolboxQualityMode = effectiveEncoder.value === "videotoolbox"
+    && (codec === "h264" || codec === "hevc")
+    && effectiveQuality.value !== "master";
+  let videotoolboxRateControl = "bitrate";
+  let fallbackReason = null;
+  if (usesVideotoolboxQualityMode) {
+    const qualityModeAvailable = isVideotoolboxQualityModeAvailable({
+      ffmpegCommand: capabilities.ffmpegCommand,
+      env,
+      spawnSyncImpl,
+      codec,
+    });
+    if (qualityModeAvailable) {
+      videotoolboxRateControl = "quality";
+    } else {
+      fallbackReason = env.AKARI_EXPORT_FORCE_FIXED_BITRATE === "1"
+        ? "forced-fixed-bitrate"
+        : "videotoolbox-quality-mode-unavailable";
+      warn(
+        `[encode] videotoolbox の品質モード（-q:v）が使えないため固定ビットレート（${videotoolboxBitrateForCodec(effectiveQuality.value, codec)}）へ切り替えました`
+        + `（quality=${effectiveQuality.value} codec=${codec}）`,
+      );
+    }
+  }
+  const rateControl = buildRateControlReceipt({
+    engine: effectiveEncoder.value,
+    codec,
+    quality: effectiveQuality.value,
+    videotoolboxRateControl,
+    fallbackReason,
+  });
   return {
     codec,
     requested: { quality: qualityRequested, encoder: encoderRequested },
@@ -136,7 +191,9 @@ export function resolveEncodingPolicy({
       encoderChoice,
       profile: codec === "hevc" ? "main" : codec === "prores422" ? "3" : "high",
       codec,
+      videotoolboxRateControl,
     }),
+    rate_control: rateControl,
     non_encoding_stages: [
       {
         stage: "overlay_alpha_intermediate",
@@ -185,6 +242,8 @@ export function resetVideotoolboxCacheForTests() {
     encoderResults.delete("h264:videotoolbox");
     encoderResults.delete("hevc:videotoolbox");
     encoderResults.delete("prores422:videotoolbox");
+    encoderResults.delete("h264:videotoolbox-quality");
+    encoderResults.delete("hevc:videotoolbox-quality");
     if (encoderResults.size === 0) encoderProbeCache.delete(ffmpegCommand);
   }
 }
@@ -217,6 +276,35 @@ export function isVideotoolboxAvailable({
   const encoder = HARDWARE_ENCODERS[hardwareCodecKey(resolvedCodec)].videotoolbox;
   const available = hasEncoder(resolvedFfmpegCommand, encoder, spawnSyncImpl)
     && videotoolboxSmokeTest(resolvedFfmpegCommand, encoder, spawnSyncImpl);
+  cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
+  return available;
+}
+
+export function isVideotoolboxQualityModeAvailable({
+  ffmpegCommand,
+  env = process.env,
+  spawnSyncImpl = spawnSync,
+  codec = "h264",
+} = {}) {
+  if (env.AKARI_EXPORT_FORCE_FIXED_BITRATE === "1") return false;
+  const resolvedFfmpegCommand = ffmpegCommand ?? resolveFfmpeg();
+  const resolvedCodec = normalizeVideoCodec(codec);
+  if (resolvedCodec !== "h264" && resolvedCodec !== "hevc") {
+    throw new RangeError(`VideoToolbox quality mode does not support codec: ${resolvedCodec}`);
+  }
+  const cacheKey = `${resolvedCodec}:videotoolbox-quality`;
+  const cached = cachedEncoderProbe(resolvedFfmpegCommand, cacheKey);
+  if (cached !== undefined) return cached;
+  const encoder = HARDWARE_ENCODERS[resolvedCodec].videotoolbox;
+  const standardQuality = resolvedCodec === "hevc"
+    ? QUALITY_PRESETS.standard.videotoolboxHevcQuality
+    : QUALITY_PRESETS.standard.videotoolboxQuality;
+  const available = videotoolboxQualitySmokeTest(
+    resolvedFfmpegCommand,
+    encoder,
+    standardQuality,
+    spawnSyncImpl,
+  );
   cacheEncoderProbe(resolvedFfmpegCommand, cacheKey, available);
   return available;
 }
@@ -288,6 +376,35 @@ function videotoolboxSmokeTest(ffmpegCommand, encoder, spawnSyncImpl) {
       encoder,
       "-allow_sw",
       "1",
+      "-f",
+      "null",
+      "-",
+    ],
+    { encoding: "utf8" },
+  );
+  return !result.error && result.status === 0;
+}
+
+function videotoolboxQualitySmokeTest(ffmpegCommand, encoder, quality, spawnSyncImpl) {
+  const result = spawnSyncImpl(
+    ffmpegCommand,
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black:s=64x64:r=24",
+      "-frames:v",
+      "1",
+      "-c:v",
+      encoder,
+      "-allow_sw",
+      "1",
+      "-q:v",
+      String(quality),
       "-f",
       "null",
       "-",
@@ -387,7 +504,13 @@ export function resolveEncoderChoice({
  * standard（crf 23 / preset medium。これは libx264 自体の既定と同値）、既定 encoder は x264
  * として解決する。
  */
-export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high", codec = "h264" } = {}) {
+export function buildVideoEncodeArgs({
+  quality,
+  encoderChoice,
+  profile = "high",
+  codec = "h264",
+  videotoolboxRateControl = "bitrate",
+} = {}) {
   if (!quality && !encoderChoice) return null;
   const resolvedPreset = QUALITY_PRESETS[quality ?? "standard"];
   if (!resolvedPreset) throw new RangeError(`Unknown --quality value: ${quality}`);
@@ -413,7 +536,13 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
     ];
   }
   if (resolvedCodec === "hevc") {
-    return buildHevcVideoEncodeArgs({ quality, engine, profile: profile ?? "main", preset: resolvedPreset });
+    return buildHevcVideoEncodeArgs({
+      quality,
+      engine,
+      profile: profile ?? "main",
+      preset: resolvedPreset,
+      videotoolboxRateControl,
+    });
   }
   if (engine === "videotoolbox") {
     if (quality === "master") throw new RangeError("master quality does not support videotoolbox");
@@ -422,8 +551,9 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
       "h264_videotoolbox",
       "-allow_sw",
       "1",
-      "-b:v",
-      resolvedPreset.videotoolboxBitrate,
+      ...(videotoolboxRateControl === "quality" && resolvedPreset.videotoolboxQuality != null
+        ? ["-q:v", String(resolvedPreset.videotoolboxQuality)]
+        : ["-b:v", resolvedPreset.videotoolboxBitrate]),
       ...(profile ? ["-profile:v", profile] : []),
       ...COLOR_ARGS,
       ...H264_COLOR_TAG_BSF,
@@ -489,13 +619,15 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
   ];
 }
 
-function buildHevcVideoEncodeArgs({ quality, engine, profile, preset }) {
+function buildHevcVideoEncodeArgs({ quality, engine, profile, preset, videotoolboxRateControl }) {
   const tag = ["-tag:v", "hvc1"];
   if (engine === "videotoolbox") {
     if (quality === "master") throw new RangeError("master quality does not support videotoolbox");
     return [
       "-c:v", "hevc_videotoolbox", "-allow_sw", "1",
-      "-b:v", scaledBitrateLabel(preset.videotoolboxBitrate, 0.6),
+      ...(videotoolboxRateControl === "quality" && preset.videotoolboxHevcQuality != null
+        ? ["-q:v", String(preset.videotoolboxHevcQuality)]
+        : ["-b:v", scaledBitrateLabel(preset.videotoolboxBitrate, 0.6)]),
       ...(profile ? ["-profile:v", profile] : []),
       ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag,
     ];
@@ -528,6 +660,43 @@ function buildHevcVideoEncodeArgs({ quality, engine, profile, preset }) {
     ...HEVC_COLOR_TAG_BSF,
     ...tag,
   ];
+}
+
+function buildRateControlReceipt({ engine, codec, quality, videotoolboxRateControl, fallbackReason }) {
+  if (codec === "prores422" || codec === "png") {
+    return {
+      engine,
+      mode: "quality",
+      quality_value: null,
+      bitrate: null,
+      fallback_reason: null,
+    };
+  }
+  const preset = QUALITY_PRESETS[quality];
+  if (engine === "videotoolbox") {
+    const usesQuality = videotoolboxRateControl === "quality";
+    return {
+      engine,
+      mode: usesQuality ? "quality" : "fixed-bitrate",
+      quality_value: usesQuality
+        ? (codec === "hevc" ? preset.videotoolboxHevcQuality : preset.videotoolboxQuality)
+        : null,
+      bitrate: usesQuality ? null : videotoolboxBitrateForCodec(quality, codec),
+      fallback_reason: fallbackReason,
+    };
+  }
+  return {
+    engine,
+    mode: "quality",
+    quality_value: engine === "mf" ? preset.mfQuality : preset.crf,
+    bitrate: null,
+    fallback_reason: null,
+  };
+}
+
+function videotoolboxBitrateForCodec(quality, codec) {
+  const bitrate = QUALITY_PRESETS[quality].videotoolboxBitrate;
+  return codec === "hevc" ? scaledBitrateLabel(bitrate, 0.6) : bitrate;
 }
 
 function scaledBitrateLabel(value, factor) {

@@ -101,6 +101,10 @@ test("encoder x quality argument snapshots preserve legacy bytes and fix every h
     qsvPreset: null,
     amfQuality: null,
     mfQuality: null,
+    videotoolboxQuality: null,
+    videotoolboxHevcQuality: null,
+    webcodecsQuantizer: null,
+    webcodecsHevcQuantizer: null,
   });
 });
 

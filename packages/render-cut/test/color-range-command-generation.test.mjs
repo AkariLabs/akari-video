@@ -67,6 +67,7 @@ test("all H.264 and HEVC encoder branches emit the complete bt709 tags and metad
         encoderChoice: { engine },
         profile,
         codec,
+        ...(engine === "videotoolbox" ? { videotoolboxRateControl: "quality" } : {}),
       });
       const policy = resolveEncodingPolicy({
         cli: { quality: "standard", encoder: engine, codec },
