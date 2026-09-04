@@ -12,18 +12,22 @@ export function gpuBitrateScale({ width = undefined, height = undefined } = {}) 
   return Math.max(1, (Number(width) * Number(height)) / GPU_BITRATE_REFERENCE_PIXELS);
 }
 
-export function resolveGpuEncoding({ quality = "high", bitrate = undefined, width = undefined, height = undefined, codec = "h264" } = {}) {
+export function resolveGpuEncoding({ quality = "high", bitrate = undefined, width = undefined, height = undefined, codec = "h264", quantizer = undefined } = {}) {
   if (!QUALITY_LEVELS.includes(quality)) {
     throw new Error(`GPU quality must be one of ${QUALITY_LEVELS.join("|")}, got: ${quality}`);
   }
   if (bitrate !== undefined && bitrate !== null) {
-    return {
-      quality,
-      bitrate: positiveBitrate(bitrate, "--bitrate"),
-      bitrateSource: "explicit",
-      quantizer: null,
-      rateControl: "bitrate",
-    };
+    const resolvedBitrate = positiveBitrate(bitrate, "--bitrate");
+    const forwarded = normalizeForwardedQuantizer(quantizer);
+    // 親（index.mjs → runner.mjs → electron-main.mjs）は quality プリセットから解決したときだけ
+    // quantizer を同伴させる。ユーザーが --bitrate を明示した経路には同伴しないので、
+    // 従来どおり固定ビットレートのまま（bitrateSource は "explicit"）。
+    if (forwarded === null || QUALITY_PRESETS[quality]?.videotoolboxBitrate == null) {
+      return { quality, bitrate: resolvedBitrate, bitrateSource: "explicit", quantizer: null, rateControl: "bitrate" };
+    }
+    // 同伴があれば由来は quality プリセット。ビットレート値は親が解決したものをそのまま使い、
+    // bitrateSource / baseBitrate などの内訳はプリセット解決から引き継ぐ。
+    return { ...resolveGpuEncoding({ quality, width, height, codec }), bitrate: resolvedBitrate, quantizer: forwarded, rateControl: "quantizer" };
   }
   const codecFactor = CODEC_FACTORS[codec];
   if (codecFactor === undefined) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
@@ -31,14 +35,14 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
   if (preset === null) {
     throw new Error("master は GPU 出口では --bitrate の明示が必要です");
   }
-  const quantizer = codec === "hevc"
+  const presetQuantizer = codec === "hevc"
     ? QUALITY_PRESETS[quality].webcodecsHevcQuantizer
     : QUALITY_PRESETS[quality].webcodecsQuantizer;
   const rateControl = "quantizer";
   const baseBitrate = parsePresetBitrate(preset);
   const scale = gpuBitrateScale({ width, height });
   if (scale === 1 && codecFactor === 1) {
-    return { quality, bitrate: baseBitrate, bitrateSource: "quality-preset", quantizer, rateControl };
+    return { quality, bitrate: baseBitrate, bitrateSource: "quality-preset", quantizer: presetQuantizer, rateControl };
   }
   const scaled = Math.round((baseBitrate * scale * codecFactor) / GPU_BITRATE_ROUNDING_BPS) * GPU_BITRATE_ROUNDING_BPS;
   if (scale === 1) {
@@ -48,7 +52,7 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
       bitrateSource: "quality-preset-codec-scaled",
       baseBitrate,
       codecFactor,
-      quantizer,
+      quantizer: presetQuantizer,
       rateControl,
     };
   }
@@ -59,7 +63,7 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined, widt
     baseBitrate,
     bitrateScale: Number(scale.toFixed(4)),
     ...(codecFactor === 1 ? {} : { codecFactor }),
-    quantizer,
+    quantizer: presetQuantizer,
     rateControl,
   };
 }
@@ -75,5 +79,14 @@ export function parsePresetBitrate(value) {
 function positiveBitrate(value, label) {
   const number = Number(value);
   if (!Number.isInteger(number) || number <= 0) throw new Error(`${label} must be a positive integer`);
+  return number;
+}
+
+function normalizeForwardedQuantizer(value) {
+  if (value === undefined || value === null) return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 51) {
+    throw new Error("GPU quantizer must be an integer between 0 and 51");
+  }
   return number;
 }

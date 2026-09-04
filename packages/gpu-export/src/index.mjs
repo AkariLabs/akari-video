@@ -43,6 +43,7 @@ export async function exportWithGpu({
   queueDepth = 4,
   quality = "high",
   bitrate = undefined,
+  quantizer = undefined,
   codec = "h264",
   trapReadback = false,
   verifyFrames = false,
@@ -72,6 +73,7 @@ export async function exportWithGpu({
     width: outputWidth,
     height: outputHeight,
     codec,
+    quantizer,
   });
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -92,6 +94,8 @@ export async function exportWithGpu({
       queueDepth,
       quality: encoding.quality,
       bitrate: encoding.bitrate,
+      // 親が quality プリセットから解決した QP を子へ同伴させる（--bitrate 明示時は null）。
+      quantizer: encoding.quantizer,
       codec,
       trapReadback,
       verifyFrames,
@@ -290,6 +294,7 @@ export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queu
     queueDepth: env.AKARI_GPU_QUEUE_DEPTH === undefined ? positiveInteger(queueDepth, "queueDepth") : positiveInteger(env.AKARI_GPU_QUEUE_DEPTH, "AKARI_GPU_QUEUE_DEPTH"),
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    quantizer: encoding.quantizer,
     trapReadback: trapReadback || env.AKARI_GPU_TRAP_READBACK === "1",
     verifyFrames: verifyFrames || env.AKARI_GPU_VERIFY_FRAMES === "1",
   };

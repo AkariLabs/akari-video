@@ -24,9 +24,26 @@ test("an explicit bitrate overrides every quality preset including master", () =
   assert.deepEqual(resolveGpuEncoding({ quality: "high", bitrate: 60_000_000 }), {
     quality: "high", bitrate: 60_000_000, bitrateSource: "explicit", quantizer: null, rateControl: "bitrate",
   });
-  assert.deepEqual(resolveGpuEncoding({ quality: "master", bitrate: 80_000_000 }), {
+  assert.deepEqual(resolveGpuEncoding({ quality: "master", bitrate: 80_000_000, quantizer: 18 }), {
     quality: "master", bitrate: 80_000_000, bitrateSource: "explicit", quantizer: null, rateControl: "bitrate",
   });
+});
+
+test("a forwarded quantizer restores quality-preset rate control after the parent resolves bitrate", () => {
+  assert.deepEqual(resolveGpuEncoding({
+    quality: "standard", bitrate: 8_000_000, width: 1920, height: 1080, codec: "h264", quantizer: 26,
+  }), {
+    quality: "standard", bitrate: 8_000_000, bitrateSource: "quality-preset", quantizer: 26, rateControl: "quantizer",
+  });
+});
+
+test("forwarded quantizers must be integers in the WebCodecs QP range", () => {
+  for (const quantizer of [-1, 52, 1.5]) {
+    assert.throws(
+      () => resolveGpuEncoding({ quality: "standard", bitrate: 8_000_000, quantizer }),
+      /GPU quantizer must be an integer between 0 and 51/u,
+    );
+  }
 });
 
 test("GPU bitrate preset errors use platform-neutral wording", () => {

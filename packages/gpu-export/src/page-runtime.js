@@ -2041,6 +2041,7 @@
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
+    let rateControlResolution = null;
     let encodeCanvas = null;
     let supported = false;
     let hashFrame = null;
@@ -2181,9 +2182,7 @@
         const encodeWidth = config.outputWidth ?? config.width;
         const encodeHeight = config.outputHeight ?? config.height;
         await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames, codec: config.codec ?? "h264" });
-        encoder = new FE.WebCodecsH264Encoder({
-          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
-        }, {
+        const encoderOptions = {
           width: encodeWidth,
           height: encodeHeight,
           fps: config.fps,
@@ -2191,7 +2190,26 @@
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
           codec: config.codec ?? "h264",
-        });
+          ...(Number.isInteger(config.quantizer) ? { quantizer: config.quantizer } : {}),
+        };
+        // quantizer 対応の可否をエンコーダ 1 本につき 1 回だけ確認する（frame-engine 側の実装）。
+        rateControlResolution = await FE.WebCodecsH264Encoder.resolveRateControl(encoderOptions);
+        if (config.forceFixedBitrate && rateControlResolution.rateControl === "quantizer") {
+          rateControlResolution = {
+            options: { ...encoderOptions, quantizer: undefined },
+            rateControl: "bitrate",
+            fallbackReason: "forced-fixed-bitrate",
+          };
+        }
+        // 無言のフォールバック禁止（裁定 3）: stderr に 1 行（WARN 接頭辞が main で stderr へ回る）。
+        if (rateControlResolution.fallbackReason !== null) {
+          try {
+            await bridge.log(`WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（${config.bitrate}bps）へ切り替えました（quality=${config.quality} codec=${config.codec ?? "h264"} reason=${rateControlResolution.fallbackReason}）`);
+          } catch {}
+        }
+        encoder = new FE.WebCodecsH264Encoder({
+          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
+        }, rateControlResolution.options, rateControlResolution);
       } else if (!captureMode && !config.verifyFrames) {
         // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
         // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
@@ -2410,6 +2428,10 @@
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
+              bitrateSource: config.bitrateSource ?? null,
+              rateControl: rateControlResolution?.rateControl ?? null,
+              rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+              quantizer: rateControlResolution?.options?.quantizer ?? null,
               codec: config.codec ?? "h264",
               queueDepth: config.queueDepth,
               queueWaits,
@@ -2461,6 +2483,10 @@
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
+          bitrateSource: config.bitrateSource ?? null,
+          rateControl: rateControlResolution?.rateControl ?? null,
+          rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+          quantizer: rateControlResolution?.options?.quantizer ?? null,
           codec: config.codec ?? "h264",
           queueDepth: config.queueDepth,
           queueWaits,
