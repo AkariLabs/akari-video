@@ -174,11 +174,20 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
 
     protected apply(): void {
         const type = this.themeService.getCurrentTheme().type;
-        const palette = type === 'light' || type === 'hcLight' ? LIGHT : DARK;
+        const light = type === 'light' || type === 'hcLight';
+        const palette = light ? LIGHT : DARK;
         const root = document.documentElement.style;
         for (const [id, value] of Object.entries(forced(palette))) {
             root.setProperty(`--theia-${id.replace(/\./g, '-')}`, value);
         }
+        // ネイティブフォームコントロールの配色スキーム。
+        // シェルの document には color-scheme が無く、OS 既定（ライト）で描かれる。
+        // accent-color（akari-button-style-contribution.ts）が効くのは **チェック時だけ**で、
+        // 未チェックのチェックボックス／ラジオは macOS 既定の白い箱のまま残り、
+        // ダークのカードの上で最も明るい面になってしまう（設定パネルで実測）。
+        // color-scheme を渡すと未チェック時もブラウザが暗い箱を描く。
+        // ライトは既定と同じなので実質ダーク専用の修正。
+        root.setProperty('color-scheme', light ? 'light' : 'dark');
         // akari-button-style-contribution.ts の注入 CSS が参照する自前変数。
         // --theia-* と違い他所から書き換えられないので、テーマ追従はここで一元管理する。
         root.setProperty('--akari-accent', palette.accent);
@@ -191,10 +200,7 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         // ground = カードの隙間から覗く面。line = カードのヘアライン輪郭
         // （オーナー確定値 alpha 0.13。ダークは白・ライトは黒を薄く重ねる）。
         root.setProperty('--akari-ground', palette.bgDeep);
-        root.setProperty(
-            '--akari-line',
-            type === 'light' || type === 'hcLight' ? 'rgba(0, 0, 0, 0.13)' : 'rgba(255, 255, 255, 0.13)'
-        );
+        root.setProperty('--akari-line', light ? 'rgba(0, 0, 0, 0.13)' : 'rgba(255, 255, 255, 0.13)');
         // カードの中の区切り（レール仕切り・タブ下・セクション境）。
         // --akari-line より必ず弱い（spec §2 / 値の由来は akari-theme-tokens.ts）。
         root.setProperty('--akari-line-inner', palette.lineInner);
