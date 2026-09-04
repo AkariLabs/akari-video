@@ -15,22 +15,49 @@
 
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TAG = '[resign-electron]';
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const electronAppPath = path.join(shellRoot, 'node_modules', 'electron', 'dist', 'Electron.app');
+
+// electron は npm workspaces が monorepo ルートの node_modules へ hoist するため、
+// apps/shell/node_modules/electron は通常存在しない。shellRoot 固定でパスを組むと
+// hoist 先を見逃して「未インストール」と誤判定し、黙ってスキップする。すると
+// @theia/ffmpeg に署名を壊された .app がそのまま残り、Apple Silicon では
+// 「Electron main: loading modules...」の直後に無言で kill される（このファイル冒頭の
+// 注記そのものの症状。2026-09-04 に npm ci 済みの clone で実測）。
+// require.resolve は shellRoot から node_modules を遡るので、ネスト配置と hoist の
+// どちらでも当たる。electron の package.json に exports が無いのでサブパス解決も通る。
+const requireFromShell = createRequire(import.meta.url);
+function resolveElectronAppPath() {
+  try {
+    const packageJsonPath = requireFromShell.resolve('electron/package.json', { paths: [shellRoot] });
+    return path.join(path.dirname(packageJsonPath), 'dist', 'Electron.app');
+  } catch {
+    return null;
+  }
+}
+const electronAppPath = resolveElectronAppPath();
 
 if (process.platform !== 'darwin') {
   console.log(`${TAG} platform=${process.platform}: darwin 専用のステップのため no-op`);
   process.exit(0);
 }
 
+if (!electronAppPath) {
+  console.log(
+    `${TAG} electron パッケージを ${path.relative(process.cwd(), shellRoot)} から解決できません` +
+    '（electron devDependency 未インストールの可能性）— スキップ'
+  );
+  process.exit(0);
+}
+
 if (!existsSync(electronAppPath)) {
   console.log(
-    `${TAG} ${path.relative(shellRoot, electronAppPath)} が見つかりません` +
-    '（electron devDependency 未インストールの可能性）— スキップ'
+    `${TAG} ${path.relative(process.cwd(), electronAppPath)} が見つかりません` +
+    '（electron のバイナリ取得前の可能性）— スキップ'
   );
   process.exit(0);
 }
@@ -55,6 +82,6 @@ if (result.status !== 0) {
 }
 
 console.log(
-  `${TAG} OK — ${path.relative(shellRoot, electronAppPath)} をアドホック再署名しました` +
+  `${TAG} OK — ${path.relative(process.cwd(), electronAppPath)} をアドホック再署名しました` +
   '（@theia/ffmpeg の libffmpeg 差し替えで壊れた署名の自己修復 / 開発ビルド専用）'
 );

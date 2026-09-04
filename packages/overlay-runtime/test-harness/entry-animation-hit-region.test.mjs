@@ -2,14 +2,7 @@
 // pointer-events 規約だけでクリック可能なことを headless Chrome の実クリックで防ぐ。
 // 実行: node --test packages/overlay-runtime/test-harness/entry-animation-hit-region.test.mjs
 import assert from "node:assert/strict";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -24,7 +17,9 @@ const HEIGHT = 1920;
 function loadPuppeteer() {
   const roots = [resolve(HERE, "../../render-cut")];
   const gitFile = resolve(HERE, "../../../.git");
-  if (existsSync(gitFile)) {
+  // .git は git worktree では「gitdir: ...」を書いたファイル、通常の clone では
+  // ディレクトリ。existsSync だけで通すと clone 側で readFileSync が EISDIR で落ちる。
+  if (existsSync(gitFile) && statSync(gitFile).isFile()) {
     const gitDir = readFileSync(gitFile, "utf8").trim().replace(/^gitdir:\s*/, "");
     const marker = `${join(".git", "worktrees")}/`;
     const markerIndex = gitDir.indexOf(marker);
