@@ -1868,11 +1868,22 @@
       const started = performance.now();
       for (const { entry, container, itemKeyframes } of record.containers) {
         const active = activeAt(entry, seconds);
+        // 時間窓の外は display: none で落とす。visibility: hidden は継承するだけなので、
+        // 子孫が visibility: visible を再宣言すると打ち消される — 実制作の断片は
+        // 「基本 hidden・ゲートアニメの 0% が visible」という書き方をするため、非活性の
+        // コンテナで 0% を適用した瞬間に中身が見えてしまう（実測: s35 の B ロール写真が
+        // 配置 110s なのに 0s のフレームへ出た）。display: none は子孫から打ち消せない。
+        // 断片側も同じ意図のガード（:not([data-akari-active]) > .x { display: none !important }）
+        // を持つが、そちらは直下セレクタなので .scene-content を挟む構造では当たらない。
+        // issue #53 (a)
+        container.style.display = active ? "" : "none";
         container.style.visibility = active ? "visible" : "hidden";
         container.toggleAttribute("data-akari-active", active);
         // 活性・非活性を問わず毎コマ止めて時刻を書く。非活性を飛ばすと、時間窓の外の断片の
         // CSS アニメが壁時計で走り切り（書き出しは分単位）、fill-mode: both/forwards の姿勢に
         // 張り付いたまま窓に入ってくる = 同じ時刻でも直前に何を撮ったかで絵が変わる。
+        // display: none の間は CSS アニメ自体が動かないので固定は不要だが、活性へ戻った
+        // フレームで必ずこの行を通るため、時刻の書き込みは同じ 1 か所に残す。
         // OSR の __akariSyncAnimations は active 判定を持たず全コンテナを固定している
         // （render-cut/src/rasterize.mjs）。issue #53 (a)
         for (const animation of container.getAnimations({ subtree: true })) {
