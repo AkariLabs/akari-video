@@ -30,6 +30,14 @@ const CSS = `
     background-color: var(--akari-accent, #f97316) !important;
     color: var(--akari-bg, #0a0a0a) !important;
 }
+
+/* Theia 既定の border-radius は 2px。カード言語（spec §3 のボタン段 = 6px）から
+   外れており、明示指定を忘れた箇所にだけ 2px が漏れる — 実測ではメニューの
+   一覧行がそれだった。個別に足して回るのではなく、既定そのものを段へ寄せる。
+   個別に 8px 等を指定している箇所（一覧行など）はそちらが優先される。 */
+.theia-button {
+    border-radius: 6px;
+}
 .theia-button:hover:not([disabled]) {
     background-color: var(--akari-accent-light, #fb923c) !important;
 }
