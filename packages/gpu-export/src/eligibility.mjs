@@ -97,6 +97,7 @@ export function evaluateGpuEligibility({
   captions = [],
   defaultTextStyle = null,
   emphasisWords = [],
+  forceDegraded = false,
 } = {}) {
   const entries = [];
   for (const [index, overlay] of (edit.overlays ?? []).entries()) {
@@ -184,11 +185,19 @@ export function evaluateGpuEligibility({
       wordSupport.hasWordDisplay ? ["words"] : [],
     ));
   }
+  const originalDegraded = entries.filter((value) => value.classification === "degraded").length;
+  const forcedEntries = forceDegraded
+    ? entries.map((value) => value.kind === "overlay" && value.classification === "degraded"
+      ? { ...value, classification: "dom", reason: `forced-dom:${value.reason}`, forced: true }
+      : value)
+    : entries;
   const summary = { same: 0, three: 0, dom: 0, degraded: 0, unsupported: 0 };
-  for (const value of entries) summary[value.classification] += 1;
+  for (const value of forcedEntries) summary[value.classification] += 1;
+  summary.degraded = originalDegraded;
+  if (forceDegraded) summary.forced = forcedEntries.filter((value) => value.forced === true).length;
   return {
     eligible: summary.degraded === 0 && summary.unsupported === 0,
-    entries,
+    entries: forcedEntries,
     summary,
   };
 }

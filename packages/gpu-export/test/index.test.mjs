@@ -20,6 +20,32 @@ test("GPU export rejects ineligible projects before launcher resolution", async 
   assert.equal(resolved, false);
 });
 
+test("GPU export force passes degraded-only eligibility but not unsupported eligibility", async () => {
+  let resolved = false;
+  await assert.rejects(exportWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "overlay", id: "x", classification: "dom", reason: "forced-dom:script", forced: true }],
+      summary: { degraded: 1, unsupported: 0, forced: 1 },
+    },
+    launcherResolver: async () => { resolved = true; return { tier: 3, reason: "fixture" }; },
+  }), /GPU export unavailable: fixture/u);
+  assert.equal(resolved, true);
+
+  resolved = false;
+  await assert.rejects(exportWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "caption", id: "c", classification: "unsupported", reason: "motion" }],
+      summary: { degraded: 0, unsupported: 1, forced: 0 },
+    },
+    launcherResolver: async () => { resolved = true; return { tier: 2 }; },
+  }), /caption:c:motion/u);
+  assert.equal(resolved, false);
+});
+
 test("GPU export rejects tier 3", async () => {
   await assert.rejects(exportWithGpu({
     eligibility: { eligible: true, entries: [] },

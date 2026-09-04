@@ -42,3 +42,7 @@ Blank-frame verification is enabled by default for rendered video artifacts. One
 The scan does not use `-skip_frame` or scaling, so every decoded frame is measured and the minimum reportable interval remains 0.3 seconds. Each interval is stored in `verification.declared.blank_frames` and shown in the HTML report with active overlay and cut IDs. An interval is a `warning` when at least one declared overlay or cut is active and `info` otherwise. These findings never change the verification verdict.
 
 Use `--no-verify-blank` to disable this scan.
+
+## Development-only GPU override
+
+Set `AKARI_FORCE_GPU=1` only when running an explicit `--engine gpu` export to evaluate degraded overlays through the best-effort DOM layer. This override is strictly for verification, marks the output as GPU-forced, and must never be used for a deliverable.

@@ -44,6 +44,7 @@ export function renderReport(state, reportPath, projectRoot) {
 <main>
   <h1>render-cut report</h1>
   <div class="meta">State version ${escapeHtml(state.version)} · phase ${escapeHtml(state.phase)}</div>
+  ${state.gpu_forced === true ? '<p class="warning">検証用（GPU 強制）</p>' : ""}
   <div class="summary">
     <span class="badge ${escapeHtml(state.verify?.verdict ?? "planned")}">${escapeHtml(state.verify?.verdict ?? "planned")}</span>
     <span class="badge">${escapeHtml(state.plan.predicted_duration_seconds)}s predicted</span>

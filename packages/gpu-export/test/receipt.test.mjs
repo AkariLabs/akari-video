@@ -64,6 +64,28 @@ test("GPU receipt keeps unavailable renderer and encoder support explicit", () =
   assert.equal(receipt.gpu.encoder_support, null);
 });
 
+test("GPU receipt records normalized forced overlay reasons", () => {
+  const forced = {
+    entries: [
+      { kind: "overlay", id: "a", classification: "dom", reason: "forced-dom:first", forced: true },
+      { kind: "caption", id: "b", classification: "same", reason: "caption-sprite" },
+      { kind: "overlay", id: "c", classification: "dom", reason: "forced-dom:second", forced: true },
+    ],
+  };
+  assert.deepEqual(buildGpuReceipt({ forced }).gpu.forced, {
+    reasons: [
+      { id: "a", reason: "forced-dom:first" },
+      { id: "c", reason: "forced-dom:second" },
+    ],
+  });
+});
+
+test("GPU receipt keeps an absent or malformed forced record null", () => {
+  assert.equal(buildGpuReceipt().gpu.forced, null);
+  assert.equal(buildGpuReceipt({ forced: { entries: "invalid" } }).gpu.forced, null);
+  assert.equal(buildGpuReceipt({ forced: { entries: [{ id: 42, reason: null, forced: true }] } }).gpu.forced, null);
+});
+
 test("GPU receipt normalizes sampled 3D entrance mode and sampling costs", () => {
   const three = {
     overlays: [{ id: "three-title", entrance: { mode: "sampled" } }],
