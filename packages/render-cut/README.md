@@ -39,7 +39,7 @@ allowed to replace a declared input.
 
 Blank-frame verification is enabled by default for rendered video artifacts. One full-frame ffmpeg pass runs `signalstats,metadata=print` and estimates the background YMAX as the median of the lowest 5% of YMAX observations. A frame is background-stuck when `YMAX <= background + 8`; only continuous intervals of at least 0.3 seconds are reported.
 
-The scan does not use `-skip_frame` or scaling, so every decoded frame is measured and the minimum reportable interval remains 0.3 seconds. Each interval is stored in `verification.declared.blank_frames` and shown in the HTML report with active overlay and cut IDs. An interval is a `warning` when at least one declared overlay or cut is active and `info` otherwise. These findings never change the verification verdict.
+The scan does not use `-skip_frame` or scaling, so every decoded frame is measured and the minimum reportable interval remains 0.3 seconds. Each interval is stored in `verify.declared.blank_frames` and shown in the HTML report with active overlay and cut IDs. An interval is a `warning` when at least one declared overlay or cut is active and `info` otherwise. These findings never change the verification verdict.
 
 Use `--no-verify-blank` to disable this scan.
 

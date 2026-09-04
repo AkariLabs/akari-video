@@ -13,7 +13,8 @@ import { scanLocalLibrary } from './library.mjs';
 export async function composeState({ env = process.env, fetchImpl = fetch } = {}) {
   const home = resolveAkariHome(env);
   const catalog = await loadCatalog({ env, fetchImpl });
-  const base = resolveEffectiveBase(env, catalog);
+  const hasCatalogItems = catalog.items.some((item) => item.source !== 'installed');
+  const base = hasCatalogItems ? resolveEffectiveBase(env, catalog) : null;
   const installed = scanLocalLibrary(home);
 
   // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）

@@ -75,6 +75,11 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
    尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。
 7. verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` へ自動生成したコンタクトシート（plan から決定論導出した代表時刻 — 冒頭・各カット境界の直後・各オーバーレイ/字幕区間の中点・終盤 — をタイル結合した静止画。`render.json` の `contact_sheet.timestamps_seconds` に時刻列を記録）をキーフレーム視認の起点にする。これで足りない区間（コンタクトシートの上限枚数を超えて間引かれた箇所など）だけ追加でフレーム抽出して視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。
+
+   **サンプリングの罠 — 境界時刻のフレームだけで判定しない。** 拍ちょうど・カット境界ちょうどのフレームは、区間の境界値（0% / 100% = 画面外・opacity 0）に必ず当たる。duration がちょうど 1 拍の要素はこの位置で消えて見えるため、**正常な動きを「アニメが死んでいる」と誤診する**。
+
+   - **中間時刻（各区間の 1/4・1/2・3/4）を必ず見る**。時刻列（`render.json` の `contact_sheet.timestamps_seconds`）に各オーバーレイ / 字幕区間の**中点**が含まれていることを確認し、間引かれて中点が無い区間は [`akari capture --auto`](../../docs/contract-2026-08-29-capture-v0.md)（同じ代表時刻を決定論で導出。`-t <時刻>` との和集合も可）で撮り足す。
+   - **空フレーム走査 warning の読み方**（既定 ON・`--no-verify-blank` で OFF）: `verify.findings` の `verify.blank-frames` は、輝度が背景レベルに張り付いた**連続 0.3 秒以上**の区間を挙げたもの。severity は、その区間に宣言上活性な overlay / cut が **1 件以上あれば `warning`**（カットの尺に対して中身のアニメが先に終わった疑い＝要調査）、**活性 0 件なら `info`**（意図した黒区間の可能性が高く、そのまま無視してよい）。区間表と活性 id は `render.json` の `verify.declared.blank_frames` と HTML レポートで読む。これらの finding は verify の verdict を変えない。
 8. 機械検証値、成果物 SHA-256、採用したラスタライズ手段、フォールバック理由、コンタクトシート起点のキーフレーム視認結果を報告する。verify FAIL の場合は納品可能と表現せず、`.akari/render-tmp/` を保持して原因を報告する。
 
 ## 出力契約
