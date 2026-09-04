@@ -81,6 +81,10 @@ const forced = (p: AkariPalette): Record<string, string> => ({
     'editorWidget.background': p.card,
     'editorHoverWidget.background': p.card,
     'editorSuggestWidget.background': p.card,
+    // 面だけ直すと文字色が VS Code 既定の #cccccc のまま残り、LP の ink と
+    // 半段ずれる（ターミナルのリンク hover ツールチップ等）。対で固定する。
+    'editorWidget.foreground': p.ink,
+    'editorHoverWidget.foreground': p.ink,
     'editorActionList.background': p.card,
     'quickInput.background': p.card,
     'peekViewResult.background': p.card,
