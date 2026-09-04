@@ -119,10 +119,19 @@ window.akari.threeRuntime = (() => {
   // materialOverrides.texture が動画かどうか。export では相対パスが data URI へ
   // 埋め込まれた後にランタイムへ届くので、拡張子と data: の MIME 型の両方を見る
   const VIDEO_TEXTURE_PATTERN = /^data:video\/|\.(?:mp4|m4v|mov|webm)(?:[?#]|$)/i;
+  const CSS_VAR_REFERENCE_PATTERN = /^var\(\s*(--[\w-]+)\s*\)$/;
+  const CSS_CUSTOM_PROPERTY_PATTERN = /^--[A-Za-z_][A-Za-z0-9_-]*$/;
 
   function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
+  }
+
+  function resolveCssVarReference(computedStyle, raw) {
+    if (typeof raw !== "string") return raw;
+    const match = CSS_VAR_REFERENCE_PATTERN.exec(raw);
+    if (!match) return raw;
+    return computedStyle.getPropertyValue(match[1]).trim() || null;
   }
 
   // 標準ツマミ 3 種（--akari-3d-pan-x / --akari-3d-pan-y / --akari-3d-zoom）の生値を
@@ -614,10 +623,28 @@ window.akari.threeRuntime = (() => {
           || !override
           || typeof override !== "object"
           || Array.isArray(override)
-          || Object.keys(override).some((key) => key !== "texture")
+          || Object.keys(override).some(
+            (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+          )
           || typeof override.texture !== "string"
           || override.texture.length === 0) {
           throw new TypeError("materialOverrides は material 名ごとに texture URL を指定してください");
+        }
+        if (override.textureVar !== undefined
+          && (typeof override.textureVar !== "string"
+            || !CSS_CUSTOM_PROPERTY_PATTERN.test(override.textureVar))) {
+          throw new TypeError("materialOverrides.textureVar は CSS カスタムプロパティ名である必要があります");
+        }
+        if (override.brightness !== undefined
+          && !(
+            typeof override.brightness === "number"
+            && Number.isFinite(override.brightness)
+            && override.brightness >= 0
+            && override.brightness <= 4
+          )
+          && !(typeof override.brightness === "string"
+            && CSS_VAR_REFERENCE_PATTERN.test(override.brightness))) {
+          throw new TypeError("materialOverrides.brightness は 0〜4 の数値または var(--xxx) である必要があります");
         }
       }
     }
@@ -704,11 +731,73 @@ window.akari.threeRuntime = (() => {
     });
 
     const textureLoader = new THREE.TextureLoader();
-    await Promise.all(Object.entries(overrides).map(async ([materialName, override]) => {
+    // カスタムプロパティは断片ルートから canvas へ継承されるため、投影ツマミと同じ
+    // canvas の computed style を mount 時に 1 回だけ読めば、断片ルートを読むのと等価になる。
+    const computedStyle = getComputedStyle(instance.canvas);
+    instance.materialOverrideReport = await Promise.all(
+      Object.entries(overrides).map(async ([materialName, override]) => {
+      let resolvedTexture = null;
+      let resolvedFrom = "literal";
+      if (override.textureVar !== undefined) {
+        const variableValue = computedStyle.getPropertyValue(override.textureVar).trim();
+        if (variableValue !== "") {
+          resolvedTexture = variableValue;
+          resolvedFrom = "cssVar";
+        }
+      }
+      if (resolvedTexture === null) {
+        resolvedTexture = resolveCssVarReference(computedStyle, override.texture);
+        if (resolvedTexture === null) {
+          console.warn(
+            `[akari-three] materialOverrides の "${materialName}" は texture の CSS 変数が空のため適用しません`
+          );
+          return {
+            name: materialName,
+            applied: false,
+            resolvedFrom: "unresolved",
+            brightness: 1,
+            emissiveIntensity: null,
+            video: false,
+          };
+        }
+        if (resolvedTexture !== override.texture) resolvedFrom = "cssVar";
+      }
+
+      let brightness = 1;
+      if (override.brightness !== undefined) {
+        const resolvedBrightness = resolveCssVarReference(computedStyle, override.brightness);
+        if (resolvedBrightness === null || resolvedBrightness === "") {
+          console.warn(
+            `[akari-three] materialOverrides の "${materialName}" は brightness の CSS 変数が空のため 1 を使います`
+          );
+        } else {
+          const numericBrightness = Number(resolvedBrightness);
+          if (!Number.isFinite(numericBrightness)) {
+            console.warn(
+              `[akari-three] materialOverrides の "${materialName}" は brightness が数値でないため 1 を使います`
+            );
+          } else {
+            brightness = Math.min(4, Math.max(0, numericBrightness));
+            if (brightness !== numericBrightness) {
+              console.warn(
+                `[akari-three] materialOverrides の "${materialName}" は brightness を 0〜4 に収めました`
+              );
+            }
+          }
+        }
+      }
+
       const materials = materialsByName.get(materialName);
       if (!materials?.size) {
         console.warn(`[akari-three] materialOverrides の対象が見つかりません: ${materialName}`);
-        return;
+        return {
+          name: materialName,
+          applied: false,
+          resolvedFrom: "missing-material",
+          brightness,
+          emissiveIntensity: null,
+          video: false,
+        };
       }
       // 貼り先が発光しない材質だと、この override は**黙って無効**になる。
       // 下の代入先は emissiveMap で、three は emissive（glTF の emissiveFactor）を掛けてから
@@ -728,7 +817,7 @@ window.akari.threeRuntime = (() => {
           + "対象にしてください。",
         );
       }
-      const texture = await loadTexture(THREE, instance, textureLoader, override.texture);
+      const texture = await loadTexture(THREE, instance, textureLoader, resolvedTexture);
       texture.flipY = false;
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
@@ -764,8 +853,20 @@ window.akari.threeRuntime = (() => {
           configuredTextures.set(configurationKey, configuredTexture);
         }
         material.emissiveMap = configuredTexture;
+        if (brightness !== 1) {
+          material.emissiveIntensity = (material.emissiveIntensity ?? 1) * brightness;
+        }
         material.needsUpdate = true;
       }
+      const firstMaterial = materials.values().next().value;
+      return {
+        name: materialName,
+        applied: true,
+        resolvedFrom,
+        brightness,
+        emissiveIntensity: firstMaterial?.emissiveIntensity ?? null,
+        video: Boolean(texture.isVideoTexture),
+      };
     }));
   }
 
@@ -1956,6 +2057,8 @@ window.akari.threeRuntime = (() => {
       physicsChars: [],
       physicsWindows: [],
       physicsPresimMs: null,
+      // materialOverrides の解決結果（inspect() から検証・証跡に使う）。
+      materialOverrideReport: [],
       // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
       // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
       contentReady: false,
@@ -2191,6 +2294,8 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // materialOverrides の CSS 変数解決・適用結果（検証・証跡用）。
+      materialOverrides: instance.materialOverrideReport.map((entry) => ({ ...entry })),
       // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）
       textNodes: instance.textNodes.length,
       textBlocks: instance.textAnimEntries.length,
