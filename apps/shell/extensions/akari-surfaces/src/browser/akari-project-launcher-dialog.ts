@@ -4,6 +4,7 @@ import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/c
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import type { ProjectListRow } from './akari-home-widget';
+import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 
 // プロジェクト・ランチャー（task 2026-08-17-home-launcher-popup・裁定 D + §3.2）。
 // 将来「事業（チャンネル）画面」へ育てる置き場（裁定 D4）だが、今回は
@@ -25,7 +26,19 @@ export interface AkariProjectLauncherDialogProps extends DialogProps {
     onOpenProject: (uri: URI) => void;
     /** × / Esc / 一覧選択のいずれかで閉じたときに呼ぶ（同一セッション内の自動再表示抑止用）。 */
     onDismissed: () => void;
+    /**
+     * カード 1 枚ぶんのサムネを解決する（file URL の配列。先頭がポスター、以降がホバー時に
+     * ループさせるコマ）。絵が無いプロジェクトは空配列。生成は home widget 側が
+     * `AkariProjectService.resolveProjectCardThumbnails` へ委ね、ここは受け取って貼るだけ。
+     */
+    loadThumbnails: (uri: URI) => Promise<string[]>;
 }
+
+// カード格子。`min(目標幅, calc(33.333% - gap 調整))` は素材／カタログ面
+// （akari-project の `MATERIAL_GRID_COLUMNS` / `CATALOG_GRID_COLUMNS`）と同じ流儀で、
+// 「広ければ列が増え、狭くても 3 列を割らない」を 1 本の式で満たす。既定の最大幅では 4 列。
+const CARD_GRID_GAP = '12px';
+const CARD_GRID_COLUMNS = 'repeat(auto-fill, minmax(min(200px, calc(33.333% - 8px)), 1fr))';
 
 /**
  * ホーム / ウェルカムの手前に立つ専用ポップアップ。中身は「+ 新しい動画を始める」（主動線）と
@@ -38,6 +51,8 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     protected readonly listSection = document.createElement('div');
     protected startingNewProject = false;
     protected newProjectButton: HTMLButtonElement | undefined;
+    /** カードごとのサムネ再生。ダイアログを閉じるときにまとめて止める。 */
+    protected readonly previews: ProjectCardPreview[] = [];
 
     constructor(protected readonly props: AkariProjectLauncherDialogProps) {
         super(props);
@@ -57,8 +72,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         const dialogBlock = this.contentNode.parentElement;
         if (dialogBlock) {
             Object.assign(dialogBlock.style, {
-                width: 'min(520px, calc(100vw - 48px))',
-                maxWidth: '520px',
+                // カード格子ぶんの横幅（既定の最大幅でちょうど 4 列。窓が狭ければ 3→2→1 列へ落ちる）。
+                width: 'min(1040px, calc(100vw - 48px))',
+                maxWidth: '1040px',
                 maxHeight: 'calc(100vh - 48px)',
                 borderRadius: '18px',
                 overflow: 'hidden',
@@ -98,7 +114,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         newProjectButton.className = 'theia-button main';
         newProjectButton.setAttribute('data-akari-launcher-new-project', 'true');
         Object.assign(newProjectButton.style, {
-            display: 'block', width: '100%', padding: '13px 18px', borderRadius: '10px',
+            // 主動線は広がった格子に引きずられず、従来どおり中央の 1 本のままにする。
+            display: 'block', width: '100%', maxWidth: '520px', margin: '0 auto',
+            padding: '13px 18px', borderRadius: '10px',
             fontWeight: '700', fontSize: '14.5px', minHeight: 'auto', height: 'auto'
         });
         newProjectButton.addEventListener('click', () => void this.handleStartNewProject());
@@ -145,48 +163,104 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         this.listSection.appendChild(heading);
 
         const list = document.createElement('div');
-        Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '6px' });
+        Object.assign(list.style, {
+            display: 'grid',
+            gridTemplateColumns: CARD_GRID_COLUMNS,
+            gap: CARD_GRID_GAP
+        });
         for (const row of rows) {
             list.appendChild(this.createRow(row));
         }
         this.listSection.appendChild(list);
     }
 
-    protected createRow(row: ProjectListRow): HTMLButtonElement {
+    /**
+     * カード 1 枚。上が 16:9 のサムネ、下が名前とバッジ。サムネは非同期に届くので、
+     * 先にプレースホルダのまま組み立てて、解決したら差し替える（列挙の描画は待たない）。
+     */
+    protected createRow(row: ProjectListRow): HTMLElement {
+        // カードの外枠は div。開くボタンは「いま開いています」のとき disabled になるが、
+        // disabled なボタンはマウスイベントを飲むため、ホバー再生は外枠の div で受ける
+        // （そうしないと開いているプロジェクトのカードだけ再生しない）。
+        const card = document.createElement('div');
+        card.setAttribute('data-akari-project-card', 'true');
+        Object.assign(card.style, { display: 'flex', minWidth: '0' });
+
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'theia-button secondary';
         button.setAttribute('data-akari-launcher-row', 'true');
         button.disabled = row.current;
         Object.assign(button.style, {
-            display: 'flex', alignItems: 'center', gap: '9px', width: '100%',
-            padding: '10px 12px', borderRadius: '9px', textAlign: 'left',
-            minHeight: 'auto', height: 'auto'
+            display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0',
+            padding: '0', borderRadius: `${PROJECT_CARD_RADIUS_PX}px`, textAlign: 'left', overflow: 'hidden',
+            minHeight: 'auto', height: 'auto', width: '100%'
         });
-        const icon = document.createElement('span');
-        icon.className = 'codicon codicon-folder';
-        icon.setAttribute('aria-hidden', 'true');
+
+        const thumbnail = this.createThumbnail(row, card);
+        const body = document.createElement('span');
+        Object.assign(body.style, {
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '9px 11px', minWidth: '0'
+        });
         const name = document.createElement('span');
         name.textContent = row.name;
-        Object.assign(name.style, { flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-        button.append(icon, name);
+        Object.assign(name.style, {
+            flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap', fontWeight: '600'
+        });
+        body.appendChild(name);
         const badgeText = row.current ? '開いています' : (!row.standalone && row.channel) ? row.channel : row.standalone ? '単体' : undefined;
         if (badgeText) {
             const badge = document.createElement('span');
             badge.textContent = badgeText;
             Object.assign(badge.style, {
-                flex: '0 0 auto', padding: '2px 8px', borderRadius: '999px',
+                flex: '0 0 auto', maxWidth: '52%', overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap', padding: '2px 8px', borderRadius: '999px',
                 border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
             });
-            button.appendChild(badge);
+            body.appendChild(badge);
         }
+        button.append(thumbnail, body);
+        button.title = badgeText ? `${row.name}（${badgeText}）` : row.name;
+
         if (!row.current) {
             button.addEventListener('click', () => {
                 this.props.onOpenProject(row.uri);
                 this.close();
             });
         }
-        return button;
+        card.appendChild(button);
+        return card;
+    }
+
+    /**
+     * サムネ面。既定はフォルダアイコンのプレースホルダで、絵が解決できたら 1 枚目（ポスター）を
+     * 敷く。2 枚目以降はホバー／フォーカスするまで DOM に載せない — 一覧を開いた瞬間に
+     * プロジェクト数 × 5 枚を読み込ませないため。
+     */
+    protected createThumbnail(row: ProjectListRow, card: HTMLElement): HTMLElement {
+        const frame = document.createElement('span');
+        frame.setAttribute('data-akari-launcher-thumbnail', 'true');
+        Object.assign(frame.style, {
+            position: 'relative', display: 'block', width: '100%', aspectRatio: '16 / 9',
+            background: 'var(--theia-editorWidget-background)', overflow: 'hidden'
+        });
+        const placeholder = document.createElement('span');
+        placeholder.className = 'codicon codicon-device-camera-video';
+        placeholder.setAttribute('aria-hidden', 'true');
+        Object.assign(placeholder.style, {
+            position: 'absolute', inset: '0', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '22px', opacity: '0.35'
+        });
+        frame.appendChild(placeholder);
+
+        const preview = new ProjectCardPreview(frame, card);
+        this.previews.push(preview);
+        void this.props.loadThumbnails(row.uri)
+            .then(frames => preview.adopt(frames))
+            .catch(() => undefined);
+        return frame;
     }
 
     /**
@@ -209,6 +283,15 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
             this.startingNewProject = false;
             this.renderNewProjectButton();
         }
+    }
+
+    /** 閉じたときにコマ送りのタイマーを残さない（ダイアログは開き直しのたびに作り直される）。 */
+    override dispose(): void {
+        for (const preview of this.previews) {
+            preview.dispose();
+        }
+        this.previews.length = 0;
+        super.dispose();
     }
 
     get value(): void {

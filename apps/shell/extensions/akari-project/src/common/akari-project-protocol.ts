@@ -69,6 +69,27 @@ export interface MaterialThumbnailOutcome {
     cacheRelativePath?: string;
 }
 
+/**
+ * プロジェクトカードのサムネ解決の結果（プロジェクト選択画面のカード 1 枚ぶん）。
+ * `MaterialThumbnailOutcome` と同じく available=false は「プレースホルダのまま運用する」の意で、
+ * ffmpeg 不在・元動画不在・生成失敗のいずれでも例外を投げず常にこの形で返す。
+ */
+export interface ProjectCardThumbnailsOutcome {
+    available: boolean;
+    /**
+     * 絵の由来。プロジェクトの進み具合そのままの 3 段で、良いほうが勝つ:
+     * `export`（書き出し済みの完成品）> `edit`（`edit.json` で組んだタイムラインの絵。
+     * ただしテロップ等の重ね物は乗らない）> `material`（まだ素材だけ）。
+     */
+    origin?: 'export' | 'edit' | 'material';
+    /**
+     * `.akari/cache/project-card/<key>/` 配下のプロジェクト相対パス（available=true のときのみ）。
+     * 先頭がポスター、以降がホバー時にループさせるコマ。最大 5 枚だが、
+     * 一部のコマ抜きだけ失敗したときは取れたぶんだけが入る（fail-soft）。
+     */
+    frames?: string[];
+}
+
 /** カタログカードの由来。resolver 系だけが取得状態バッジ + 「使う」を持つ。 */
 export type AssetCatalogItemOrigin = 'resolver' | 'local';
 
@@ -218,6 +239,16 @@ export interface AkariProjectService {
      * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
      */
     resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image'): Promise<MaterialThumbnailOutcome>;
+    /**
+     * プロジェクト選択画面のカード用サムネ（ポスター + ホバーでループするコマ）を解決する。
+     * 元動画は「`.akari/render.json` が記録した検収済み出力 → `exports/` の最新動画 →
+     * `assets/` の最新動画」の順で選び、`.akari/cache/project-card/<key>/` に JPEG で貯める。
+     * キーは元動画の path+size+mtime 由来（`resolveMaterialThumbnail` と同じ規約）なので、
+     * **書き出し直せばキーが変わって自動で作り直る** — これが「出力完了で更新される」の実体で、
+     * render-cut 側には一切手を入れていない。ffmpeg 不在・元動画不在・生成失敗はすべて
+     * available=false（プレースホルダ運用）へ黙って落ちる。
+     */
+    resolveProjectCardThumbnails(projectUri: string): Promise<ProjectCardThumbnailsOutcome>;
     /**
      * カタログ面「1 ビュー」。resolver の合成カタログ（packages/asset-resolver。
      * 無料 + 購入済み + 取得状態）と、ローカル catalog/（外部ソース系。preferenceRoot /
