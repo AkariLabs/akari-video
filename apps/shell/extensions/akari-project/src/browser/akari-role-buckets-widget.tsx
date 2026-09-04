@@ -15,6 +15,7 @@ import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesys
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
     AKARI_BORDER,
+    AKARI_FAINT,
     AKARI_INK,
     AKARI_RADIUS,
     AKARI_SURFACE
@@ -2170,7 +2171,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             // 未分析の灰点は「まだ何もしていない」印。カードより目立つと
                             // 面の階層が壊れるので、分析済み（アクセント）だけを前に出す。
                             opacity: entry.analyzed ? 1 : 0.45,
-                            background: entry.analyzed ? 'var(--theia-badge-background)' : 'var(--theia-descriptionForeground)'
+                            background: entry.analyzed ? 'var(--theia-badge-background)' : AKARI_FAINT
                         }}
                     />
                     <button
