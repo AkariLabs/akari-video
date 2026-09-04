@@ -53,6 +53,23 @@ export const QUALITY_PRESETS = {
 
 const PRORES_QSCALE = Object.freeze({ master: 5, high: 9, standard: 11, light: 13 });
 
+const COLOR_ARGS = [
+  "-colorspace",
+  "bt709",
+  "-color_primaries",
+  "bt709",
+  "-color_trc",
+  "bt709",
+  "-color_range",
+  "tv",
+];
+
+// ffmpeg 7 以降は primaries / transfer をフレーム側のプロパティから取り、rawvideo / lavfi の
+// unspecified 値で CLI 指定を上書きする。エンコーダ非依存で成果物へ bt709 を記録するため、
+// metadata bitstream filter で符号化後の VUI を明示的に補正する。
+const H264_COLOR_TAG_BSF = ["-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
+const HEVC_COLOR_TAG_BSF = ["-bsf:v", "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
+
 const CONTAINERS = Object.freeze({
   h264: Object.freeze({ ext: "mp4", kind: "file" }),
   hevc: Object.freeze({ ext: "mp4", kind: "file" }),
@@ -408,22 +425,12 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
       "-b:v",
       resolvedPreset.videotoolboxBitrate,
       ...(profile ? ["-profile:v", profile] : []),
-      "-color_range",
-      "tv",
+      ...COLOR_ARGS,
+      ...H264_COLOR_TAG_BSF,
     ];
   }
   if (["nvenc", "qsv", "amf", "mf"].includes(engine)) {
     if (quality === "master") throw new RangeError(`master quality does not support ${engine}; it requires x264`);
-    const colorArgs = [
-      "-colorspace",
-      "bt709",
-      "-color_primaries",
-      "bt709",
-      "-color_trc",
-      "bt709",
-      "-color_range",
-      "tv",
-    ];
     if (engine === "nvenc") {
       return [
         "-c:v", "h264_nvenc",
@@ -432,7 +439,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
         "-b:v", "0",
         "-preset", resolvedPreset.nvencPreset,
         ...(profile ? ["-profile:v", profile] : []),
-        ...colorArgs,
+        ...COLOR_ARGS,
+        ...H264_COLOR_TAG_BSF,
       ];
     }
     if (engine === "qsv") {
@@ -441,7 +449,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
         "-global_quality", String(resolvedPreset.crf),
         "-preset", resolvedPreset.qsvPreset,
         ...(profile ? ["-profile:v", profile] : []),
-        ...colorArgs,
+        ...COLOR_ARGS,
+        ...H264_COLOR_TAG_BSF,
       ];
     }
     if (engine === "amf") {
@@ -452,7 +461,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
         "-qp_p", String(resolvedPreset.crf),
         "-quality", resolvedPreset.amfQuality,
         ...(profile ? ["-profile:v", profile] : []),
-        ...colorArgs,
+        ...COLOR_ARGS,
+        ...H264_COLOR_TAG_BSF,
       ];
     }
     return [
@@ -461,7 +471,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
       "-quality", String(resolvedPreset.mfQuality),
       "-hw_encoding", "1",
       ...(profile ? ["-profile:v", profile] : []),
-      ...colorArgs,
+      ...COLOR_ARGS,
+      ...H264_COLOR_TAG_BSF,
     ];
   }
   if (engine !== "x264") throw new RangeError(`Unknown encoder engine: ${engine}`);
@@ -473,8 +484,8 @@ export function buildVideoEncodeArgs({ quality, encoderChoice, profile = "high",
     resolvedPreset.preset,
     "-crf",
     String(resolvedPreset.crf),
-    "-color_range",
-    "tv",
+    ...COLOR_ARGS,
+    ...H264_COLOR_TAG_BSF,
   ];
 }
 
@@ -486,28 +497,25 @@ function buildHevcVideoEncodeArgs({ quality, engine, profile, preset }) {
       "-c:v", "hevc_videotoolbox", "-allow_sw", "1",
       "-b:v", scaledBitrateLabel(preset.videotoolboxBitrate, 0.6),
       ...(profile ? ["-profile:v", profile] : []),
-      "-color_range", "tv", ...tag,
+      ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag,
     ];
   }
-  const colorArgs = [
-    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
-  ];
   if (["nvenc", "qsv", "amf", "mf"].includes(engine)) {
     if (quality === "master") throw new RangeError(`master quality does not support ${engine}; it requires x264`);
     if (engine === "nvenc") {
       return ["-c:v", "hevc_nvenc", "-rc", "vbr", "-cq", String(preset.crf), "-b:v", "0", "-preset", preset.nvencPreset,
-        ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+        ...(profile ? ["-profile:v", profile] : []), ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag];
     }
     if (engine === "qsv") {
       return ["-c:v", "hevc_qsv", "-global_quality", String(preset.crf), "-preset", preset.qsvPreset,
-        ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+        ...(profile ? ["-profile:v", profile] : []), ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag];
     }
     if (engine === "amf") {
       return ["-c:v", "hevc_amf", "-rc", "cqp", "-qp_i", String(preset.crf), "-qp_p", String(preset.crf),
-        "-quality", preset.amfQuality, ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+        "-quality", preset.amfQuality, ...(profile ? ["-profile:v", profile] : []), ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag];
     }
     return ["-c:v", "hevc_mf", "-rate_control", "quality", "-quality", String(preset.mfQuality), "-hw_encoding", "1",
-      ...(profile ? ["-profile:v", profile] : []), ...colorArgs, ...tag];
+      ...(profile ? ["-profile:v", profile] : []), ...COLOR_ARGS, ...HEVC_COLOR_TAG_BSF, ...tag];
   }
   if (engine !== "x264") throw new RangeError(`Unknown encoder engine: ${engine}`);
   return [
@@ -516,7 +524,8 @@ function buildHevcVideoEncodeArgs({ quality, engine, profile, preset }) {
     "-preset", preset.preset,
     "-crf", String(preset.crf),
     "-x265-params", "log-level=error",
-    "-color_range", "tv",
+    ...COLOR_ARGS,
+    ...HEVC_COLOR_TAG_BSF,
     ...tag,
   ];
 }

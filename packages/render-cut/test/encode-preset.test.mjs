@@ -56,13 +56,13 @@ test("only output.encoding opts in; an unknown root encoding field is never used
     quality: { value: "master", origin: "edit" },
     encoder: { value: "x264", origin: "edit" },
   });
-  assert.deepEqual(policy.video_encode_args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-color_range", "tv"]);
+  assert.deepEqual(policy.video_encode_args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"]);
 });
 
 test("master is x264 CRF15 slow and rejects explicit auto/videotoolbox", () => {
   const policy = resolveEncodingPolicy({ edit: { output: { encoding: { quality: "master" } } } });
   assert.deepEqual(policy.effective.encoder, { value: "x264", origin: "master-required" });
-  assert.deepEqual(policy.video_encode_args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-color_range", "tv"]);
+  assert.deepEqual(policy.video_encode_args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"]);
   for (const encoder of ["auto", "videotoolbox"]) {
     assert.throws(() => resolveEncodingPolicy({ cli: { quality: "master", encoder }, edit: { output: {} } }), /requires x264/u);
   }
@@ -71,7 +71,7 @@ test("master is x264 CRF15 slow and rejects explicit auto/videotoolbox", () => {
 test("buildVideoEncodeArgs standard quality matches libx264's own defaults (crf 23 / preset medium)", () => {
   assert.equal(QUALITY_PRESETS.standard.crf, 23);
   const args = buildVideoEncodeArgs({ quality: "standard", encoderChoice: null });
-  assert.deepEqual(args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "23", "-color_range", "tv"]);
+  assert.deepEqual(args, ["-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "23", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"]);
 });
 
 test("buildVideoEncodeArgs high/light quality map to crf 18/26", () => {
@@ -85,7 +85,7 @@ test("buildVideoEncodeArgs high/light quality map to crf 18/26", () => {
 
 test("buildVideoEncodeArgs videotoolbox engine uses bitrate instead of crf/preset", () => {
   const args = buildVideoEncodeArgs({ quality: "high", encoderChoice: { engine: "videotoolbox" } });
-  assert.deepEqual(args, ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "12M", "-profile:v", "high", "-color_range", "tv"]);
+  assert.deepEqual(args, ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "12M", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"]);
   assert.ok(!args.includes("-crf"));
   assert.ok(!args.includes("-preset"));
 });
