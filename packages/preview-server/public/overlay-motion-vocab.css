@@ -1,0 +1,20 @@
+/* ../overlay-runtime/src/motion-vocab.css */
+:root {
+  --ease-linear: linear;
+  --ease-smooth: cubic-bezier(0.38, 0, 0.1, 1.1);
+  --ease-natural: cubic-bezier(0.6, 0.2, 0, 1.03);
+  --ease-slowdown: cubic-bezier(0.11, 0.86, 0.98, 0.9);
+  --ease-accelerate: cubic-bezier(1, 0, 0.98, 0.8);
+  --ease-overshoot: cubic-bezier(0.17, 3.75, 0, 0.74);
+  --ease-impulse: cubic-bezier(0.43, 1.41, 0.02, 1.01);
+  --ease-overshoot-mid: cubic-bezier(0.18, 3.16, 0.07, 0.83);
+  --ease-overshoot-soft: cubic-bezier(0.17, 2.21, 0.17, 0.97);
+  --ease-snap-out: cubic-bezier(0.89, 0, 0.08, 1);
+  --ease-hard-out: cubic-bezier(0, 0.61, 0, 1);
+  --ease-deep-inout: cubic-bezier(0.86, 0, 0.33, 1);
+  --ease-snappy: cubic-bezier(0.6, 0, 0.2, 1);
+  --anim-duration-telop: 500ms;
+  --anim-duration-shape: 800ms;
+  --anim-duration-group: 1000ms;
+  --anim-easing: var(--ease-smooth);
+}

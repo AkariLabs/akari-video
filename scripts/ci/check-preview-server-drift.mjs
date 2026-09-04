@@ -17,6 +17,9 @@ const expectedOutputs = new Set([
   'public/pen-visuals.bundle.js',
   'public/overlay-interaction.bundle.js',
   'public/overlay-interaction.css',
+  // モーション語彙（イージング名 + 対象別既定尺）。断片の var(--ease-*) の解決先で、
+  // 書き出し側は rasterize が同じ 1 枚を埋め込む（プレビューとのパリティ）。
+  'public/overlay-motion-vocab.css',
   'public/edit-kernel.bundle.js',
   'public/frame-engine.bundle.js'
 ]);

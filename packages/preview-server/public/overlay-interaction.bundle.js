@@ -1079,6 +1079,7 @@
       const edit = activeEdit;
       activeEdit = null;
       syncMirrorLayers(edit.container, edit.element);
+      if (edit.splitHost) window.akari.textSplit?.apply?.(edit.splitHost);
       restoreAttribute(
         edit.element,
         "contenteditable",
@@ -1155,6 +1156,11 @@
         slotName: slotNameForElement(element),
         writeContext: captureWriteContext()
       };
+      const splitHost = window.akari.textSplit?.closestHost?.(element);
+      if (splitHost) {
+        activeEdit.splitHost = splitHost;
+        window.akari.textSplit.collapse(splitHost);
+      }
       element.setAttribute("contenteditable", "true");
       element.setAttribute("spellcheck", "false");
       element.setAttribute("data-akari-interaction-editing", "true");
