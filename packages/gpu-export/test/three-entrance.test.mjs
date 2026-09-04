@@ -293,6 +293,19 @@ test("composite fixtures classify with the contracted reason", async () => {
   assert.equal(result.entries[0].reason, "css-3d-backface-hidden");
 });
 
+test("preserve-3d depth-sorted siblings fail closed without changing the flat s6 composite", async () => {
+  const cases = [
+    ["three-composite-preserve-3d-siblings.html", "degraded", "three-composite-preserve-3d-siblings"],
+    ["three-composite-s6-scatter.html", "three", "three-scene-sampled-composite"],
+  ];
+  for (const [name, classification, reason] of cases) {
+    const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
+    const result = eligibility(html);
+    assert.equal(result.entries[0].classification, classification, name);
+    assert.equal(result.entries[0].reason, reason, name);
+  }
+});
+
 test("sampled matrix helpers convert centered axis-aligned transforms and reject real 3D", async () => {
   const internals = await runtimeInternals();
   const identity3d = { m13: 0, m14: 0, m23: 0, m24: 0, m31: 0, m32: 0, m34: 0, m43: 0, m33: 1, m44: 1 };

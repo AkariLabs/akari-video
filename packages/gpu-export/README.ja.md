@@ -71,9 +71,11 @@ composite は canvas チェーン内外の CSS 3D 幾何と `advanced-css` を�
 再利用し、深度 transform は通し、preserve-3d の順序競合は警告付きで通し、深度を伴う
 `backface-visibility:hidden` だけ `css-3d-backface-hidden` で degraded のままにします。`@property` は
 sheet / DOM 間のカスタムプロパティ補間パリティを実測するまで `three-composite-property` で fail-closed です。
-既知の例外として、`preserve-3d` 空間で 3D canvas と兄弟カードなどが z 深度で並び替わる断片は、GPU が
-DOM 順で描くため OSR と絵が変わります（2026-09-04 実測: 外接矩形 MAD 5.0082。OSR では z>0 の兄弟だけが
-canvas の前）。現行検出器は親子対だけを比較するため、この型は警告されません。
+`preserve-3d` 要素に Three canvas チェーン上の子と、深度 transform を持つチェーン外の子が同居する composite は
+`three-composite-preserve-3d-siblings` で fail-closed にします。GPU はこれらの兄弟を DOM 順で描くため OSR と
+絵が変わっていました（2026-09-04 実測: 外接矩形 MAD 5.0082。OSR では z>0 の兄弟だけが canvas の前）。
+`preserve3dOrderConflicts` を兄弟対まで広げれば次ラウンドで再解禁できます。親子対は従来どおり警告付きで通します
+（実測パリティ 0.6374）。
 composite の入口外条件は `three-sampled-condition:<条件名>` を報告します。方式 A の
 `three-sampled-chain-css:<プロパティ>` ガードは残します。manifest は `entranceMode`、receipt は
 `curve` / `sampled` / `composite` mode、sampling 費用、composite の DOM 要素数と canvas 中継・DOM 層費用の

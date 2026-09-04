@@ -10,6 +10,55 @@ const TIMING_KEYWORDS = new Map([
 
 const fail = (reason) => ({ ok: false, reason });
 const SAMPLED_CHAIN_CSS_PROPERTIES = ["filter", "clip-path", "mask", "backdrop-filter", "mix-blend-mode"];
+const CSS_3D_TRANSFORM_PATTERN = /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(/iu;
+const TRANSLATE_FUNCTION_PATTERN = /\b(translateZ|translate3d)\s*\(/giu;
+const ZERO_LENGTH_PATTERN = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?$/iu;
+const PRESERVE_3D_DECLARATION_PATTERN = /transform-style\s*:\s*preserve-3d/iu;
+const PRESERVE_3D_SIBLINGS_REASON = "three-composite-preserve-3d-siblings";
+
+function isZeroLength(value) {
+  return ZERO_LENGTH_PATTERN.test(String(value ?? "").trim());
+}
+
+/**
+ * `name(` の直後から対応する `)` までを、入れ子の括弧（`var()` / `calc()` 等）を数えながら切り出し、
+ * 最上位のカンマで引数へ分ける。`translate3d(var(--x), var(--y), 0)` のように X / Y が CSS 変数駆動でも
+ * Z のリテラル 0 を読めるようにする（オーバーレイ規約は調整値を CSS 変数に出すので自然に現れる形）。
+ * 閉じ括弧が見つからなければ null（= 読めないので 3D 扱い）。
+ */
+function readTopLevelArguments(html, openIndex) {
+  const parts = [];
+  let depth = 0;
+  let start = openIndex;
+  for (let index = openIndex; index < html.length; index += 1) {
+    const character = html[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") {
+      if (depth === 0) {
+        parts.push(html.slice(start, index));
+        return parts;
+      }
+      depth -= 1;
+    } else if (character === "," && depth === 0) {
+      parts.push(html.slice(start, index));
+      start = index + 1;
+    }
+  }
+  return null;
+}
+
+// Z がリテラル 0 の translateZ / translate3d は 2D と同値なので除外し、それ以外の
+// CSS 3D 語彙は eligibility と composite の兄弟対走査で共有する。
+export function hasDepthTransform(html) {
+  if (CSS_3D_TRANSFORM_PATTERN.test(html)) return true;
+  for (const match of html.matchAll(TRANSLATE_FUNCTION_PATTERN)) {
+    const parts = readTopLevelArguments(html, match.index + match[0].length);
+    if (parts === null) return true;
+    const expectedArity = match[1].toLowerCase() === "translatez" ? 1 : 3;
+    if (parts.length !== expectedArity || !isZeroLength(parts[parts.length - 1])) return true;
+  }
+  return false;
+}
 
 export function scanThreeSampled(html) {
   const source = stripComments(stripHtmlComments(html));
@@ -110,9 +159,93 @@ export function scanThreeComposite(html) {
   const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
   if (!root) return fail("three-entrance-root-missing");
   const canvas = elements.find((element) => element.tag === "canvas");
-  if (sampledAncestorChain(root, canvas) === null) return fail("three-entrance-canvas-missing");
+  const chain = sampledAncestorChain(root, canvas);
+  if (chain === null) return fail("three-entrance-canvas-missing");
   if (/@property\b/iu.test(source)) return fail("three-composite-property");
+  const preserve3dSiblings = scanCompositePreserve3dSiblings(source, elements, chain);
+  if (!preserve3dSiblings.ok) return preserve3dSiblings;
   return { ok: true };
+}
+
+function scanCompositePreserve3dSiblings(source, elements, chain) {
+  if (!PRESERVE_3D_DECLARATION_PATTERN.test(source)) return { ok: true };
+
+  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
+    .map((match) => match[1]).join("\n");
+  const extracted = extractKeyframes(styleText);
+  if (!extracted.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+  const withoutProperties = removeSampledAtRules(extracted.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
+  if (!withoutProperties.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+  const parsedRules = parseRules(withoutProperties.css);
+  if (!parsedRules.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+
+  const declaredStyles = new Map(elements.map((element) => [element, []]));
+  const animationDeclarations = new Map(elements.map((element) => [element, []]));
+  const preserveElements = new Set();
+
+  for (const element of elements) {
+    const inlineStyle = element.attributes.get("style");
+    if (inlineStyle === undefined) continue;
+    declaredStyles.get(element).push(inlineStyle);
+    const parsed = parseDeclarations(inlineStyle);
+    if (!parsed.ok) {
+      if (PRESERVE_3D_DECLARATION_PATTERN.test(inlineStyle)) return fail(PRESERVE_3D_SIBLINGS_REASON);
+      continue;
+    }
+    if (parsed.values.get("transform-style")?.trim().toLowerCase() === "preserve-3d") {
+      preserveElements.add(element);
+    }
+    collectAnimationDeclarations(parsed.values, animationDeclarations.get(element));
+  }
+
+  for (const rule of parsedRules.rules) {
+    const declaresPreserve = rule.declarations.get("transform-style")?.trim().toLowerCase() === "preserve-3d";
+    const ruleText = serializeDeclarations(rule.declarations);
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) {
+        if (declaresPreserve) return fail(PRESERVE_3D_SIBLINGS_REASON);
+        continue;
+      }
+      const matches = elements.filter((element) => sampledCompoundMatches(compound, element));
+      if (matches.length === 0 && declaresPreserve) return fail(PRESERVE_3D_SIBLINGS_REASON);
+      for (const element of matches) {
+        declaredStyles.get(element).push(ruleText);
+        collectAnimationDeclarations(rule.declarations, animationDeclarations.get(element));
+        if (declaresPreserve) preserveElements.add(element);
+      }
+    }
+  }
+
+  for (const element of elements) {
+    const namedAnimations = animationDeclarations.get(element).join("\n");
+    for (const keyframe of extracted.keyframes) {
+      if (sampledCssNameAppears(namedAnimations, keyframe.name)) {
+        declaredStyles.get(element).push(keyframe.body);
+      }
+    }
+  }
+
+  const chainSet = new Set(chain);
+  for (const element of preserveElements) {
+    const children = elements.filter((candidate) => candidate.parent === element);
+    if (!children.some((child) => chainSet.has(child))) continue;
+    const outsideChildren = children.filter((child) => !chainSet.has(child));
+    if (outsideChildren.some((child) => hasDepthTransform(declaredStyles.get(child).join("\n")))) {
+      return fail(PRESERVE_3D_SIBLINGS_REASON);
+    }
+  }
+  return { ok: true };
+}
+
+function collectAnimationDeclarations(declarations, output) {
+  for (const [property, value] of declarations) {
+    if (property === "animation" || property === "animation-name") output.push(value);
+  }
+}
+
+function serializeDeclarations(declarations) {
+  return [...declarations].map(([property, value]) => `${property}:${value}`).join(";");
 }
 
 export function parseThreeEntrance(html, { vars = {}, transform = {}, role = null } = {}) {

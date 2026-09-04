@@ -313,6 +313,10 @@ CSS 3D は次の 3 群に分けて判定する。
   ガードとして走査側に保持する。方式 B（composite）はチェーン内外とも断片全体を転写するため `advanced-css` を通す。
 - composite 候補に `@property` がある場合は `three-composite-property` とする。overlay sheet の WAAPI clone と
   DOM 層の素の CSS animation でカスタムプロパティ補間が割れる可能性があるため、実測までは fail-closed とする。
+- `transform-style: preserve-3d` を宣言する要素の要素の子に、Three canvas への祖先チェーン上の要素と
+  チェーン外の Z を持つ変形を宣言した要素が同居する場合は `three-composite-preserve-3d-siblings` とする。
+  静的に判定できない場合も同じ理由で degraded へ倒す（2026-09-04 実測: 外接矩形 MAD 5.0082。
+  OSR は z 深度で、GPU は DOM 順で重ねるため）。
 
 settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
 `requestPaint()` と `paint` event（上限 250 ms）を待つ。API がない Chromium では computed style、
@@ -459,8 +463,10 @@ CSS 3D の判定は DOM 層と同じ 3 群を使う。`backface-visibility:hidde
 `css-3d-backface-hidden` で degraded を維持する。`transform-style:preserve-3d` の交差は composite として通し、
 検出した場合は stderr と receipt の `preserve3dOrderConflicts` へ警告を残す。それ以外の CSS 3D は通す。
 ただし `preserve-3d` 空間で兄弟同士（3D canvas と兄弟要素など）が z 深度で並び替わる断片は、GPU が DOM 順で描くため
-OSR と絵が変わる（2026-09-04 実測: 外接矩形 MAD 5.0082、OSR では z>0 の兄弟だけが canvas の前）。現行検出器は
-親子対だけを比較するため、この型は警告されない。
+OSR と絵が変わる（2026-09-04 実測: 外接矩形 MAD 5.0082、OSR では z>0 の兄弟だけが canvas の前）。この型は
+`three-composite-preserve-3d-siblings` で fail-closed にし、警告なしで絵が変わる断片を通さない。DOM 層の
+`preserve3dOrderConflicts` 検出器を兄弟対まで広げれば再解禁できる（次ラウンド候補）。親子対は従来どおり、
+検出器の警告を receipt に残して通す（実測パリティ 0.6374）。
 composite 候補の `@property` は、overlay sheet と DOM 層で補間結果が割れる可能性があるため
 `three-composite-property` で fail-closed とする。方式 A の `three-sampled-chain-css:<プロパティ>` ガードは残すが、
 方式 B ではチェーン内外とも断片全体を描くため `advanced-css` を通す。その他の入口外条件は

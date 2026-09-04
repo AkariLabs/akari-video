@@ -80,9 +80,11 @@ as `three-composite-property` until sheet/DOM custom-property interpolation pari
 outside the composite entry set report `three-sampled-condition:<condition>`. The method-A scan retains
 `three-sampled-chain-css:<property>` as its own guard.
 
-One known exception is a `preserve-3d` space that depth-sorts siblings such as a Three canvas and sibling cards: GPU
-paints them in DOM order, so it diverges from OSR (measured 2026-09-04: bounding-box MAD 5.0082; OSR put only z>0
-siblings in front of the canvas). The current detector compares parent-child pairs only and does not warn on this shape.
+Composite scenes now fail closed as `three-composite-preserve-3d-siblings` when a `preserve-3d` element has both the
+Three-canvas chain child and an off-chain child with a depth transform. GPU paints those siblings in DOM order, so it
+diverged from OSR (measured 2026-09-04: bounding-box MAD 5.0082; OSR put only z>0 siblings in front of the canvas).
+Extending `preserve3dOrderConflicts` to sibling pairs can re-enable this shape in a later round. Parent-child conflicts
+continue to pass with a warning (measured parity 0.6374).
 Manifests record `entranceMode`, and receipts record
 `curve` / `sampled` / `composite`, sampling cost, plus composite DOM-element and p50/p95 copy/DOM-layer costs.
 Scenes without CSS animation remain `three-scene-canvas-direct`.

@@ -17,6 +17,7 @@ const EXPECTED_FIXTURES = new Map([
   ["css-3d/g-2d-baseline.html", ["dom", "dom-layer-draw-element", ["animation-timing"]]],
   ["css-3d/h-backface-control.html", ["dom", "dom-layer-draw-element", ["css-3d-transform", "animation-timing"]]],
   ["three-composite-backface-hidden.html", ["degraded", "css-3d-backface-hidden", ["css-3d-transform", "css-3d-backface-hidden", "three-or-canvas-runtime", "animation-timing"]]],
+  ["three-composite-preserve-3d-siblings.html", ["degraded", "three-composite-preserve-3d-siblings", ["css-3d-transform", "three-or-canvas-runtime", "animation-timing"]]],
   ["three-composite-s1-title.html", ["three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-composite-s2-panel.html", ["three", "three-scene-sampled-composite", ["css-3d-transform", "three-or-canvas-runtime", "animation-timing"]]],
   ["three-composite-s6-scatter.html", ["three", "three-scene-sampled-composite", ["css-3d-transform", "three-or-canvas-runtime", "animation-timing"]]],
