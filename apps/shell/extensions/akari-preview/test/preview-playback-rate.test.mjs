@@ -95,3 +95,19 @@ test('p5 rate UI は zoom の直前にあり、契約どおりの 7 プリセッ
     )].map(match => Number(match[1]));
     assert.deepEqual(values, [...PREVIEW_RATE_PRESETS]);
 });
+
+test('p7 webview 埋め込み関数は素のコンテキストで自己完結して動く', () => {
+    const isolatedClamp = vm.runInNewContext('(' + clampPreviewPlaybackRate.toString() + ')', {});
+    const isolatedFormat = vm.runInNewContext('(' + formatPreviewRateLabel.toString() + ')', {});
+    const isolatedEffectiveRate = vm.runInNewContext('(' + effectiveMediaRate.toString() + ')', {});
+    const isolatedFreezeHold = vm.runInNewContext('(' + freezeHoldMs.toString() + ')', {});
+    const isolatedWallClock = vm.runInNewContext('(' + wallClockOutputTime.toString() + ')', {});
+
+    assert.equal(isolatedClamp(5), 3);
+    assert.equal(isolatedClamp(0), 1);
+    assert.equal(isolatedClamp(Number.NaN), 1);
+    assert.equal(isolatedFormat(1.25), '1.25×');
+    assert.equal(isolatedEffectiveRate(2, 1.5), 3);
+    assert.equal(isolatedFreezeHold(1, 2), 500);
+    assert.equal(isolatedWallClock(10, 0, 2000, 2), 14);
+});
