@@ -113,6 +113,7 @@
 | ファイル | 内容 |
 |---|---|
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | エンジン v2 パリティ契約 — `T → frame` 評価関数 1 個・プレビューの器 2 個・OSR 出口 1 個・golden frame 検収 1 本 |
+| [contract-2026-09-03-preview-playback-rate-v1.md](./contract-2026-09-03-preview-playback-rate-v1.md) | プレビュー再生速度 v1 — 0.5×〜3× のプリセット・widget 生存期間の状態保持・出力タイムライン時計・frame-engine / legacy 両音声経路のピッチ保持 |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: 他社 NLE への片道書き出し（FCPXML / FCP7 XML / SRT）— **BETA・実 NLE 取り込み未確認** |
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | ページ全体 Electron OSR 書き出し v0 — 4層ページ、seek/paint検証、器のフォールバック、メモリ上限 |
 | [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU 直結書き出し v0 — 適格性、読み戻しゼロの WebCodecs 経路、逐次 MP4 mux（moov 予約枠・仮ファイル無し・ffmpeg プロセス無し）、fallback、決定論 gate |

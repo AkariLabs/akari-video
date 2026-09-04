@@ -24,6 +24,7 @@ const sourceHandler = readFileSync(
     'utf8'
 );
 const generatedBundle = join(extensionRoot, 'generated', 'frame-engine.js');
+const generatedWorkletBundle = join(extensionRoot, 'generated', 'preview-audio-worklet.js');
 
 // webview 内で実行する文字列は tsc の構文検査外なので、compiled lib のテンプレートを
 // 実行時と同じ JS へ戻して vm.Script で検査する。
@@ -229,6 +230,23 @@ test('配布スクリプトが frame-engine bundle を asar 内へ登録する',
     assert.match(verifyScript, /'\/lib\/overlay-runtime\/frame-engine\.js'/);
 });
 
+test('p6 pitch-shift worklet bundle を生成し asar 内へ登録する', () => {
+    assert.ok(existsSync(generatedWorkletBundle), 'generated/preview-audio-worklet.js が存在しない');
+    const bundle = readFileSync(generatedWorkletBundle, 'utf8');
+    assert.match(bundle, /registerProcessor\("akari-pitch-shift"/);
+    const copyScript = readFileSync(
+        join(repoRoot, 'apps', 'shell', 'resources', 'scripts', 'copy-native-helpers.mjs'),
+        'utf8'
+    );
+    const verifyScript = readFileSync(
+        join(repoRoot, 'apps', 'shell', 'resources', 'scripts', 'verify-asar-contents.mjs'),
+        'utf8'
+    );
+    assert.match(copyScript, /generated', 'preview-audio-worklet\.js'/);
+    assert.match(copyScript, /overlayRuntimeDestination, 'preview-audio-worklet\.js'/);
+    assert.match(verifyScript, /'\/lib\/overlay-runtime\/preview-audio-worklet\.js'/);
+});
+
 test('frame-engine bundle は生成元から再生成しても byte drift がない', t => {
     const rootNodeModules = join(repoRoot, 'node_modules');
     const esbuild = join(rootNodeModules, 'esbuild', 'bin', 'esbuild');
@@ -255,6 +273,36 @@ test('frame-engine bundle は生成元から再生成しても byte drift がな
             logLevel: 'silent'
         });
         assert.deepEqual(readFileSync(rebuilt), readFileSync(generatedBundle));
+    } finally {
+        rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+});
+
+test('p6 pitch-shift worklet bundle は生成元から再生成しても byte drift がない', t => {
+    const rootNodeModules = join(repoRoot, 'node_modules');
+    const esbuild = join(rootNodeModules, 'esbuild', 'bin', 'esbuild');
+    if (!existsSync(rootNodeModules) || !existsSync(esbuild)) {
+        t.skip('リポジトリ直下の node_modules または esbuild が無いため drift 検査を省略');
+        return;
+    }
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'akari-pitch-worklet-drift-'));
+    const rebuilt = join(temporaryDirectory, 'preview-audio-worklet.js');
+    const { buildSync } = require(join(rootNodeModules, 'esbuild'));
+    try {
+        buildSync({
+            entryPoints: [join(repoRoot, 'packages', 'frame-engine', 'src', 'audio', 'pitch-shift-worklet.ts')],
+            bundle: true,
+            format: 'iife',
+            platform: 'browser',
+            target: ['chrome122'],
+            banner: {
+                js: '// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。'
+            },
+            absWorkingDir: repoRoot,
+            outfile: rebuilt,
+            logLevel: 'silent'
+        });
+        assert.deepEqual(readFileSync(rebuilt), readFileSync(generatedWorkletBundle));
     } finally {
         rmSync(temporaryDirectory, { recursive: true, force: true });
     }

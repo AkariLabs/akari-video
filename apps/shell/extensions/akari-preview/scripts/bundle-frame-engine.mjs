@@ -9,9 +9,6 @@ const extensionRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const shellRoot = path.resolve(extensionRoot, '../..');
 const repoRoot = path.resolve(shellRoot, '../..');
 const outputDirectory = path.join(extensionRoot, 'generated');
-const output = path.join(outputDirectory, 'frame-engine.js');
-const temporaryOutput = path.join(outputDirectory, 'frame-engine.js.tmp');
-const entry = path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts');
 const require = createRequire(import.meta.url);
 
 function oneLine(value) {
@@ -39,25 +36,40 @@ if (!esbuild) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
-await rm(temporaryOutput, { force: true });
 const banner = '// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。';
-const result = spawnSync(process.execPath, [
-  esbuild,
-  entry,
-  '--bundle',
-  '--format=iife',
-  '--global-name=AkariFrameEngine',
-  '--platform=browser',
-  '--target=chrome122',
-  `--banner:js=${banner}`,
-  `--outfile=${temporaryOutput}`
-], { cwd: repoRoot, encoding: 'utf8' });
+const bundles = [
+  {
+    entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts'),
+    output: path.join(outputDirectory, 'frame-engine.js'),
+    globalName: 'AkariFrameEngine'
+  },
+  {
+    entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'audio', 'pitch-shift-worklet.ts'),
+    output: path.join(outputDirectory, 'preview-audio-worklet.js')
+  }
+];
 
-if (result.status !== 0 || !existsSync(temporaryOutput)) {
+for (const bundle of bundles) {
+  const temporaryOutput = `${bundle.output}.tmp`;
   await rm(temporaryOutput, { force: true });
-  skip(result.stderr || result.error?.message || `esbuild exit ${result.status}`);
-  process.exit(0);
-}
+  const result = spawnSync(process.execPath, [
+    esbuild,
+    bundle.entry,
+    '--bundle',
+    '--format=iife',
+    ...(bundle.globalName ? [`--global-name=${bundle.globalName}`] : []),
+    '--platform=browser',
+    '--target=chrome122',
+    `--banner:js=${banner}`,
+    `--outfile=${temporaryOutput}`
+  ], { cwd: repoRoot, encoding: 'utf8' });
 
-await rename(temporaryOutput, output);
-console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, output)}`);
+  if (result.status !== 0 || !existsSync(temporaryOutput)) {
+    await rm(temporaryOutput, { force: true });
+    skip(result.stderr || result.error?.message || `esbuild exit ${result.status}`);
+    process.exit(0);
+  }
+
+  await rename(temporaryOutput, bundle.output);
+  console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, bundle.output)}`);
+}

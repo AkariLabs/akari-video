@@ -106,6 +106,14 @@ import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import {
+    clampPreviewPlaybackRate,
+    effectiveMediaRate,
+    formatPreviewRateLabel,
+    freezeHoldMs,
+    PREVIEW_RATE_PRESETS,
+    wallClockOutputTime
+} from '../common/preview-playback-rate';
+import {
     classifyPreviewModelUpdate,
     isPreviewModelResourceChange,
     previewModelUpdateAction
@@ -704,6 +712,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
      *  再生位置復元に使う（raw kind は reviewTransportByEdit に乗らないため別経路が要る）。 */
     akariPreviewLastKnownTime?: number;
     akariPreviewLastKnownPlaying?: boolean;
+    /** この widget が生きている間だけ保持するプレビュー再生速度。 */
+    akariPreviewPlaybackRate?: number;
     akariPreviewFrameEngineOptOut?: boolean;
 }
 
@@ -823,6 +833,11 @@ interface PreviewPlaybackTickRequest {
     time: number;
     playing: boolean;
     rate?: number;
+}
+
+interface PreviewPlaybackRateRequest {
+    type: 'akari-preview-playback-rate';
+    rate: number;
 }
 
 interface PreviewOverlaySelectedRequest {
@@ -2150,6 +2165,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.akariPreviewFrameEngineOptOut = true;
                 this.queueRefresh(widget, identityUri, kind, widget.akariPreviewLastKnownTime, true);
             }
+            if (this.isPlaybackRateRequest(message)) {
+                widget.akariPreviewPlaybackRate = message.rate;
+            }
             if (this.isPlaybackTickRequest(message)) {
                 this.forwardPlaybackTick(widget, message);
             }
@@ -2310,6 +2328,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && Number.isFinite(message.time)
             && typeof message.playing === 'boolean'
             && (message.rate === undefined || (Number.isFinite(message.rate) && message.rate > 0));
+    }
+
+    protected isPlaybackRateRequest(message: any): message is PreviewPlaybackRateRequest {
+        return message?.type === 'akari-preview-playback-rate'
+            && Number.isFinite(message.rate)
+            && message.rate >= 0.5
+            && message.rate <= 3;
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
@@ -3176,7 +3201,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             originalSourceUrlById,
             frameEngineSourceMode,
             frameEngineForceSoftware,
-            frameEngineReadyTimeoutMs
+            frameEngineReadyTimeoutMs,
+            widget.akariPreviewPlaybackRate ?? 1
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -5329,7 +5355,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         originalSourceUrlById: Record<string, string> = {},
         frameEngineSourceMode = 'auto',
         frameEngineForceSoftware = false,
-        frameEngineReadyTimeoutMs?: number
+        frameEngineReadyTimeoutMs?: number,
+        initialPlaybackRate = 1
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -5380,6 +5407,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             initialPlaying,
+            initialPlaybackRate: clampPreviewPlaybackRate(initialPlaybackRate),
+            previewAudioWorkletUrl: assets.previewAudioWorkletUrl ?? null,
             reloadNotice,
             frameEngineEnabled: Boolean(frameEngineScripts),
             frameEngineMetricsEnabled,
@@ -5603,16 +5632,21 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
 .icon-button[hidden] { display: none; }
 .icon-button[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.48); }
-.icon-button:disabled, .zoom-preset:disabled { opacity: 0.45; cursor: default; }
+.icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.45; cursor: default; }
 .icon-button svg { width: 18px; height: 18px; fill: currentColor; stroke: currentColor; }
+.rate-button { width: auto; min-width: 36px; padding: 0 6px; font-variant-numeric: tabular-nums; }
 #time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; }
 .zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
 .zoom-popup[hidden] { display: none; }
 .zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d8d8d8; font-size: 12px; }
 #zoom-value { color: #fff; font-variant-numeric: tabular-nums; }
+#rate-value { color: #fff; font-variant-numeric: tabular-nums; }
 #zoom-slider { width: 100%; }
 .zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
 .zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
+.rate-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.rate-preset { height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0 4px; background: #303030; color: #fff; font-size: 11px; cursor: pointer; }
+.rate-preset[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.35); }
 </style>
 </head>
 <body>
@@ -5708,8 +5742,21 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     </div>
     <div class="transport-right">
       <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
+      <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="再生速度" title="再生速度" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
+      <div id="rate-popup" class="zoom-popup" hidden>
+        <div class="zoom-popup-header"><span>再生速度</span><span id="rate-value">1×</span></div>
+        <div class="rate-presets">
+          <button class="rate-preset" type="button" data-rate="0.5" data-akari-ui="preview:rate:0.5" aria-pressed="false">0.5×</button>
+          <button class="rate-preset" type="button" data-rate="0.75" data-akari-ui="preview:rate:0.75" aria-pressed="false">0.75×</button>
+          <button class="rate-preset" type="button" data-rate="1" data-akari-ui="preview:rate:1" aria-pressed="true">1×</button>
+          <button class="rate-preset" type="button" data-rate="1.25" data-akari-ui="preview:rate:1.25" aria-pressed="false">1.25×</button>
+          <button class="rate-preset" type="button" data-rate="1.5" data-akari-ui="preview:rate:1.5" aria-pressed="false">1.5×</button>
+          <button class="rate-preset" type="button" data-rate="2" data-akari-ui="preview:rate:2" aria-pressed="false">2×</button>
+          <button class="rate-preset" type="button" data-rate="3" data-akari-ui="preview:rate:3" aria-pressed="false">3×</button>
+        </div>
+      </div>
       <div id="zoom-popup" class="zoom-popup" hidden>
         <div class="zoom-popup-header"><span>ズーム</span><span id="zoom-value">100%</span></div>
         <input id="zoom-slider" type="range" min="0" max="1" step="0.001" aria-label="ズーム倍率" title="ダブルクリックで100%">
@@ -5761,6 +5808,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected hostAdapterScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             const vscode = acquireVsCodeApi();
             const pending = new Map();
             // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）: updateStageScale
@@ -5782,6 +5830,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let video = document.getElementById('preview-video');
             let standbyVideo = document.getElementById('standby-video');
             const transitionVideo = document.getElementById('transition-video');
+            for (const media of [video, standbyVideo, transitionVideo]) media.preservesPitch = true;
             const stillImage = document.getElementById('preview-still');
             const transitionStill = document.getElementById('transition-still');
             const outputPreviewLink = document.getElementById('output-preview-link');
@@ -5826,6 +5875,7 @@ body { display: grid; place-items: center; padding: 32px; }
             if (initial.reloadNotice) showReloadToast();
 
             window.akari = window.akari || {};
+            window.akari.previewPlaybackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
             window.akari.state = { editPath: initial.editPath, summary: initial.summary };
             window.akari.showWriteError = error => {
                 const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
@@ -5889,7 +5939,50 @@ body { display: grid; place-items: center; padding: 32px; }
                     return null;
                 }
                 const masterGain = context.createGain();
-                masterGain.connect(context.destination);
+                let playbackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
+                let pitchShiftNode = null;
+                let pitchShiftReady = false;
+                let stretcher = 'none';
+                let pitchShiftWarningEmitted = false;
+                const warnPitchShiftUnavailable = error => {
+                    if (pitchShiftWarningEmitted) return;
+                    pitchShiftWarningEmitted = true;
+                    console.warn('[akari-preview] pitch-preserving playback unavailable; using native playback rate', error);
+                };
+                const routeMasterBus = () => {
+                    try { masterGain.disconnect(); } catch (_error) { /* already detached */ }
+                    if (pitchShiftNode) {
+                        try { pitchShiftNode.disconnect(); } catch (_error) { /* already detached */ }
+                    }
+                    stretcher = 'none';
+                    if (playbackRate !== 1 && pitchShiftReady) {
+                        try {
+                            pitchShiftNode = pitchShiftNode || new AudioWorkletNode(context, 'akari-pitch-shift', {
+                                parameterData: { ratio: 1 / playbackRate }
+                            });
+                            const ratio = pitchShiftNode.parameters.get('ratio');
+                            if (ratio) ratio.value = 1 / playbackRate;
+                            masterGain.connect(pitchShiftNode);
+                            pitchShiftNode.connect(context.destination);
+                            stretcher = 'worklet';
+                            return;
+                        } catch (error) {
+                            warnPitchShiftUnavailable(error);
+                        }
+                    }
+                    masterGain.connect(context.destination);
+                };
+                routeMasterBus();
+                if (initial.previewAudioWorkletUrl) {
+                    if (context.audioWorklet && typeof context.audioWorklet.addModule === 'function') {
+                        void context.audioWorklet.addModule(initial.previewAudioWorkletUrl).then(() => {
+                            pitchShiftReady = true;
+                            routeMasterBus();
+                        }, warnPitchShiftUnavailable);
+                    } else {
+                        warnPitchShiftUnavailable(new Error('AudioContext.audioWorklet is unavailable'));
+                    }
+                }
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx/bgm trim + schedule
                 // math, shared with this same module's node:test unit tests
                 // (test/audio-schedule.test.mjs) via src/common/audio-schedule.ts -- see that file's
@@ -6119,6 +6212,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const envelopeGain = context.createGain();
                             source.buffer = decoded.bgm.buffer;
                             source.loop = true;
+                            source.playbackRate.value = playbackRate;
                             source.connect(gain);
                             gain.connect(envelopeGain);
                             envelopeGain.connect(masterGain);
@@ -6136,7 +6230,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             // otherwise untouched; this only computes where playback begins.
                             const bgmOffset = bgmLoopOffsetSecondsFn(decoded.bgm.sourceOffset || 0, startAt, decoded.bgm.durationSec);
                             source.start(contextStart, bgmOffset);
-                            source.stop(contextStart + remaining);
+                            source.stop(contextStart + remaining / playbackRate);
                             scheduledBgm = true;
                         } catch (error) {
                             warnUnavailable('bgm', 'bgm', error);
@@ -6158,6 +6252,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const envelopeGain = context.createGain();
                             const baseGainLinear = dbToLinear(item.gainDb);
                             source.buffer = item.buffer;
+                            source.playbackRate.value = playbackRate;
                             gain.gain.value = baseGainLinear;
                             source.connect(gain);
                             gain.connect(envelopeGain);
@@ -6178,13 +6273,13 @@ body { display: grid; place-items: center; padding: 32px; }
                                 const fadeSchedule = sfxFadeGainScheduleFn(item.fadeIn, item.fadeOut, item.durationSec, scheduleWindow.elapsedIntoItemSec, available);
                                 if (fadeSchedule.length > 0) {
                                     hasFade = true;
-                                    const startTime = contextStart + delay;
+                                    const startTime = contextStart + delay / playbackRate;
                                     gain.gain.cancelScheduledValues(startTime);
                                     gain.gain.setValueAtTime(baseGainLinear * fadeSchedule[0].gainMultiplier, startTime);
                                     for (let i = 1; i < fadeSchedule.length; i += 1) {
                                         gain.gain.linearRampToValueAtTime(
                                             baseGainLinear * fadeSchedule[i].gainMultiplier,
-                                            startTime + fadeSchedule[i].offsetSec
+                                            startTime + fadeSchedule[i].offsetSec / playbackRate
                                         );
                                     }
                                 }
@@ -6193,7 +6288,7 @@ body { display: grid; place-items: center; padding: 32px; }
                                 source, gain, envelopeGain, kind, item.id, item.track, item,
                                 baseGainLinear, hasFade
                             );
-                            source.start(contextStart + delay, offset, available);
+                            source.start(contextStart + delay / playbackRate, offset, available);
                             return true;
                         } catch (error) {
                             warnUnavailable(kind, item.id, error);
@@ -6223,6 +6318,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         console.warn('[akari-preview] AudioContext resume failed; continuing with video only', error);
                     }),
                     playFrom: timelineTime => controller.resume().then(() => scheduleFrom(timelineTime)),
+                    setRate: (value, timelineTime, playing) => {
+                        const nextRate = clampPreviewPlaybackRateFn(value);
+                        if (nextRate === playbackRate) return Promise.resolve();
+                        playbackRate = nextRate;
+                        routeMasterBus();
+                        return playing ? scheduleFrom(timelineTime) : Promise.resolve();
+                    },
                     pause: () => {
                         generation += 1;
                         stopSources();
@@ -6283,6 +6385,9 @@ body { display: grid; place-items: center; padding: 32px; }
                             sfx: active.filter(item => item.kind === 'sfx').length,
                             narration: active.filter(item => item.kind === 'narration').length
                         },
+                        rate: playbackRate,
+                        pitchPreserved: playbackRate === 1 || stretcher === 'worklet',
+                        stretcher,
                         masterGainLinear: masterGain.gain.value,
                         bgmGainLinear: bgmGain ? bgmGain.gain.value : null,
                         duckGainDb: lastDuckGainDb
@@ -6315,7 +6420,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
-                vscode.postMessage({ type: 'akari-preview-playback-tick', time, playing, rate: video.playbackRate || 1 });
+                vscode.postMessage({
+                    type: 'akari-preview-playback-tick', time, playing,
+                    rate: clampPreviewPlaybackRateFn(window.akari.previewPlaybackRate)
+                });
+            };
+            window.akari.persistPlaybackRate = rate => {
+                vscode.postMessage({ type: 'akari-preview-playback-rate', rate });
             };
             window.akari.reviewTransport = event => {
                 vscode.postMessage({ type: 'akari-preview-review-transport-event', event });
@@ -6773,6 +6884,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected frameEngineBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview || {};
+            const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             let engineSummary = initial.summary || {};
             const engine = window.AkariFrameEngine;
             const filterRenderableFrameEngineLayersFn = (${filterRenderableFrameEngineLayers.toString()});
@@ -6896,6 +7008,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             let scheduler = null;
             let audioSupply = null;
+            let rate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
             const percentile = values => {
                 if (values.length === 0) return null;
                 const sorted = [...values].sort((left, right) => left - right);
@@ -7141,15 +7254,19 @@ body { display: grid; place-items: center; padding: 32px; }
                         const url = sourceUrls.get(declaration.src);
                         return url ? [{ ...declaration, url }] : [];
                     });
-                    return engine.createPreviewAudioSupply({
+                    const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
                         declarations,
                         speech,
-                        pauseWatchdogMs: false
+                        pauseWatchdogMs: false,
+                        pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
+                    supply.setRate(rate);
+                    return supply;
                 };
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
+                window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
                 const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
                 let look = null;
                 if (projectedLook && typeof projectedLook.cubeText === 'string') {
@@ -7301,6 +7418,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     get totalDuration() {
                         return totalDuration;
                     },
+                    get rate() {
+                        return rate;
+                    },
+                    setRate(value) {
+                        const nextRate = clampPreviewPlaybackRateFn(value);
+                        if (nextRate === rate) return position;
+                        if (playing) position = audioSupply.position(position);
+                        rate = nextRate;
+                        playAnchorMs = performance.now();
+                        playAnchorPosition = position;
+                        audioSupply.setRate(rate);
+                        return position;
+                    },
                     seek(seconds, continuePlaying = playing) {
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
@@ -7321,7 +7451,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!playing) return position;
                         const fallbackPosition = Math.min(
                             totalDuration,
-                            playAnchorPosition + (performance.now() - playAnchorMs) / 1000
+                            playAnchorPosition + (performance.now() - playAnchorMs) / 1000 * rate
                         );
                         // playbackTime() は position() と同じ値を返すが、音声が止まっていれば
                         // startFrom を張り直す（空の予定表 / 失敗の直後は 500 ms 空ける）。以前は
@@ -7464,6 +7594,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (window.akari && window.akari.frameEngineClock === clock) {
                         delete window.akari.frameEngineClock;
                     }
+                    delete window.akariFrameEngineAudioAnalyser;
                     disposed = true;
                     scrub.dispose();
                     scheduler.dispose();
@@ -7480,6 +7611,12 @@ body { display: grid; place-items: center; padding: 32px; }
     protected previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const clampPreviewPlaybackRate = (${clampPreviewPlaybackRate.toString()});
+            const effectiveMediaRateFn = (${effectiveMediaRate.toString()});
+            const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
+            const freezeHoldMsFn = (${freezeHoldMs.toString()});
+            const wallClockOutputTimeFn = (${wallClockOutputTime.toString()});
+            const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
             let summary = initial.summary;
             let video = document.getElementById('preview-video');
@@ -7523,10 +7660,12 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.addEventListener('akari-frame-engine-ready', () => {
                 refreshIndicators();
+                if (window.akari.frameEngineClock) window.akari.frameEngineClock.setRate(previewRate);
                 applyInitialPosition();
                 restoreInitialPlayback();
             });
             const penToggle = document.getElementById('pen-toggle');
+            const rateToggle = document.getElementById('rate-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
             const seek = document.getElementById('seek');
@@ -7536,6 +7675,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const zoomLayer = document.getElementById('zoom-layer');
             const previewStage = document.getElementById('preview-stage');
             const zoomPopup = document.getElementById('zoom-popup');
+            const ratePopup = document.getElementById('rate-popup');
+            const rateValue = document.getElementById('rate-value');
             const zoomSlider = document.getElementById('zoom-slider');
             const zoomValue = document.getElementById('zoom-value');
             const zoomMinimap = document.getElementById('zoom-minimap');
@@ -7601,6 +7742,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 layers: initialAllTracksMutedScopes.includes('layers')
             };
             let globalMuted = initial.muted === true;
+            let previewRate = 1;
+            previewRate = clampPreviewPlaybackRate(initial.initialPlaybackRate);
+            window.akari.previewPlaybackRate = previewRate;
+            for (const media of [video, standbyVideo, transitionVideo]) {
+                media.preservesPitch = true;
+                media.playbackRate = previewRate;
+            }
             video.dataset.akariGlobalMuted = String(globalMuted);
             video.muted = globalMuted;
             standbyVideo.muted = true;
@@ -8359,6 +8507,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                 } else {
                     layerVideo.muted = true;
+                    layerVideo.preservesPitch = true;
                     layerVideo.playsInline = true;
                     // engine 面は配置・選択に必要な媒体実寸だけを取得する。src より先に
                     // metadata を宣言し、既定の auto として本体を読み始める競合を避ける。
@@ -10604,9 +10753,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[activeSegmentIndex];
                 const speed = segment && segment.kind === 'src'
                     && Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
-                if (video.playbackRate !== speed) {
-                    video.playbackRate = speed;
-                    window.akari.reviewTransport({ type: 'rate', value: speed, timelineT: outputTime });
+                const effectiveRate = effectiveMediaRateFn(speed, previewRate);
+                if (video.playbackRate !== effectiveRate) {
+                    video.playbackRate = effectiveRate;
                 }
             };
             // v1 マルチソース（edit.json sources[] + cuts[].src）。id → ストリーム URL の表を
@@ -10670,7 +10819,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const seekStandby = () => {
                     if (standbyPreloadKey !== key || currentStandbyVideoSourceId !== nextId) return;
                     const speed = Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
-                    standbyVideo.playbackRate = speed;
+                    standbyVideo.playbackRate = effectiveMediaRateFn(speed, previewRate);
                     standbyVideo.muted = true;
                     standbyVideo.pause();
                     if (Math.abs((standbyVideo.currentTime || 0) - target) <= 0.001) {
@@ -10788,7 +10937,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (transitionVideo.readyState < HTMLMediaElement.HAVE_METADATA) return;
                     const speed = Number.isFinite(upcoming.incoming.speed) && upcoming.incoming.speed > 0
                         ? upcoming.incoming.speed : 1;
-                    transitionVideo.playbackRate = speed;
+                    transitionVideo.playbackRate = effectiveMediaRateFn(speed, previewRate);
                     if (outputTime < upcoming.start) {
                         const target = upcoming.incoming.in;
                         if (Math.abs((transitionVideo.currentTime || 0) - target) > 0.001) {
@@ -12180,7 +12329,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         seekIncoming();
                         tick(true);
                     })) seekIncoming();
-                    transitionVideo.playbackRate = incomingSpeed;
+                    transitionVideo.playbackRate = effectiveMediaRateFn(incomingSpeed, previewRate);
 
                     const cutsTrackMuted = allTracksMutedByScope.cuts
                         || mutedTracksByScope.cuts.has(window.incoming.track);
@@ -12212,7 +12361,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         ? Math.max(0, layerVideo.duration - 0.001)
                         : layer.duration;
                     const target = Math.min(localTime, mediaEnd);
-                    let deferredPlaybackRate = 1;
+                    let deferredPlaybackRate = effectiveMediaRateFn(1, previewRate);
+                    if (!frameEngineMediaIdle && layerVideo.tagName === 'VIDEO'
+                        && Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
+                        layerVideo.playbackRate = deferredPlaybackRate;
+                    }
                     if (entry.deferredTelop && frameEngineMediaIdle) {
                         const bakePending = layer.proxyMissing
                             || !(typeof layer.src === 'string' && layer.src);
@@ -12256,7 +12409,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (deferredAction.phase === 'inactive') {
                             layerVideo.style.display = 'none';
                             if (!layerVideo.paused) layerVideo.pause();
-                            layerVideo.playbackRate = 1;
+                            layerVideo.playbackRate = effectiveMediaRateFn(1, previewRate);
                             continue;
                         }
                         if (deferredAction.phase === 'baking') {
@@ -12295,7 +12448,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             continue;
                         }
                         entry.deferredHasPresentedFrame = true;
-                        deferredPlaybackRate = deferredAction.playbackRate;
+                        deferredPlaybackRate = effectiveMediaRateFn(deferredAction.playbackRate, previewRate);
                     }
                     const active = activeWindow
                         && !layer.proxyMissing
@@ -12342,11 +12495,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     // engine 面では legacy media を表示幾何の台帳としてだけ使う。ここまでの
                     // display / dataset 更新は維持し、再生・シーク・画素走査へは進めない。
                     if (frameEngineMediaIdle) continue;
-                    if (entry.deferredTelop) {
-                        if (Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
-                            layerVideo.playbackRate = deferredPlaybackRate;
-                        }
-                    } else {
+                    if (Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
+                        layerVideo.playbackRate = deferredPlaybackRate;
+                    }
+                    if (!entry.deferredTelop) {
                         const tolerance = isPlaying ? 0.05 : 0.001;
                         if (Math.abs((layerVideo.currentTime || 0) - target) > tolerance) {
                             try {
@@ -12449,7 +12601,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (segment && (segment.kind === 'gap' || segmentIsStill)) {
                     if (isPlaying) {
                         outputTime = clamp(
-                            gapOutputOrigin + (performance.now() - gapWallClockOriginMs) / 1000,
+                            wallClockOutputTimeFn(
+                                gapOutputOrigin, gapWallClockOriginMs, performance.now(), previewRate
+                            ),
                             segment.outStart,
                             segment.outEnd
                         );
@@ -12468,7 +12622,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             const freezeCheck = checkCutFreezeCrossingFn(segment.freeze, playedCutLocalSeconds(segment));
                             if (freezeCheck.shouldHold) {
                                 freezeHoldConsumedForSegmentIndex = activeSegmentIndex;
-                                freezeHoldUntilMs = performance.now() + freezeCheck.holdSeconds * 1000;
+                                freezeHoldUntilMs = performance.now()
+                                    + freezeHoldMsFn(freezeCheck.holdSeconds, previewRate);
                                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                             }
                         }
@@ -12487,7 +12642,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         const freezeCheck = checkCutFreezeCrossingFn(activeSegment.freeze, playedCutLocalSeconds(activeSegment));
                         if (freezeCheck.shouldHold) {
                             freezeHoldConsumedForSegmentIndex = activeSegmentIndex;
-                            freezeHoldUntilMs = performance.now() + freezeCheck.holdSeconds * 1000;
+                            freezeHoldUntilMs = performance.now()
+                                + freezeHoldMsFn(freezeCheck.holdSeconds, previewRate);
                             video.pause();
                             if (window.akari.previewAudio) window.akari.previewAudio.pause();
                         }
@@ -12590,6 +12746,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 skipBack.disabled = true;
                 skipForward.disabled = true;
                 waveformToggle.disabled = true;
+                rateToggle.disabled = true;
                 zoomToggle.disabled = true;
                 fullscreenToggle.disabled = true;
                 seek.disabled = true;
@@ -12608,6 +12765,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 skipBack.disabled = false;
                 skipForward.disabled = false;
                 waveformToggle.disabled = false;
+                rateToggle.disabled = false;
                 zoomToggle.disabled = false;
                 fullscreenToggle.disabled = false;
                 seek.disabled = false;
@@ -12873,9 +13031,90 @@ body { display: grid; place-items: center; padding: 32px; }
                 waveformDragPointer = null;
                 endScrubDrag();
             });
+            const renderPreviewRate = () => {
+                const label = formatPreviewRateLabelFn(previewRate);
+                rateToggle.textContent = label;
+                rateValue.textContent = label;
+                for (const preset of document.querySelectorAll('.rate-preset[data-rate]')) {
+                    const value = Number(preset.getAttribute('data-rate'));
+                    preset.setAttribute('aria-pressed', String(Math.abs(value - previewRate) <= 1e-9));
+                }
+            };
+            const setPreviewPlaybackRate = value => {
+                const nextRate = clampPreviewPlaybackRate(value);
+                if (!previewRatePresets.includes(nextRate) || nextRate === previewRate) {
+                    renderPreviewRate();
+                    return;
+                }
+                const previousRate = previewRate;
+                const now = performance.now();
+                const segment = segments[activeSegmentIndex];
+                if (!window.akari.frameEngineClock
+                    && segment && (segment.kind === 'gap' || isStillSegment(segment))) {
+                    if (isPlaying) {
+                        outputTime = clamp(
+                            wallClockOutputTimeFn(gapOutputOrigin, gapWallClockOriginMs, now, previousRate),
+                            segment.outStart,
+                            segment.outEnd
+                        );
+                    }
+                    gapOutputOrigin = outputTime;
+                    gapWallClockOriginMs = now;
+                } else if (!window.akari.frameEngineClock && segment && segment.kind === 'src') {
+                    // playbackRate を変える前の media clock を現在位置へ写し、次の tick で
+                    // 最後に描画した位置へ巻き戻らないようにする。
+                    outputTime = outputTimeForSourceClockFn(
+                        segment,
+                        video.currentTime,
+                        outputTime,
+                        !sourceSwapPending
+                    );
+                }
+                if (freezeHoldUntilMs > now) {
+                    const remainingTimelineSeconds = (freezeHoldUntilMs - now) / 1000 * previousRate;
+                    freezeHoldUntilMs = now + freezeHoldMsFn(remainingTimelineSeconds, nextRate);
+                }
+                previewRate = nextRate;
+                window.akari.previewPlaybackRate = previewRate;
+                const frameEngineClock = window.akari.frameEngineClock;
+                if (frameEngineClock) {
+                    outputTime = frameEngineClock.setRate(previewRate);
+                } else {
+                    syncSegmentPlaybackRate();
+                    renderTransitionPlate(outputTime);
+                    renderLayers(outputTime);
+                    if (window.akari.previewAudio) {
+                        void window.akari.previewAudio.setRate(previewRate, outputTime, isPlaying);
+                    }
+                }
+                window.akari.persistPlaybackRate(previewRate);
+                window.akari.reviewTransport({ type: 'rate', value: previewRate, timelineT: outputTime });
+                renderPreviewRate();
+                tick(true);
+            };
+            renderPreviewRate();
+            rateToggle.addEventListener('click', () => {
+                ratePopup.hidden = !ratePopup.hidden;
+                rateToggle.setAttribute('aria-expanded', String(!ratePopup.hidden));
+                if (!ratePopup.hidden) {
+                    zoomPopup.hidden = true;
+                    zoomToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+            for (const preset of document.querySelectorAll('.rate-preset[data-rate]')) {
+                preset.addEventListener('click', () => {
+                    setPreviewPlaybackRate(Number(preset.getAttribute('data-rate')));
+                    ratePopup.hidden = true;
+                    rateToggle.setAttribute('aria-expanded', 'false');
+                });
+            }
             zoomToggle.addEventListener('click', () => {
                 zoomPopup.hidden = !zoomPopup.hidden;
                 zoomToggle.setAttribute('aria-expanded', String(!zoomPopup.hidden));
+                if (!zoomPopup.hidden) {
+                    ratePopup.hidden = true;
+                    rateToggle.setAttribute('aria-expanded', 'false');
+                }
             });
             indicatorToggle.addEventListener('click', () => {
                 indicatorPopup.hidden = !indicatorPopup.hidden;
@@ -12896,6 +13135,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!zoomPopup.hidden && !event.target.closest('.transport-right')) {
                     zoomPopup.hidden = true;
                     zoomToggle.setAttribute('aria-expanded', 'false');
+                }
+                if (!ratePopup.hidden && !event.target.closest('.transport-right')) {
+                    ratePopup.hidden = true;
+                    rateToggle.setAttribute('aria-expanded', 'false');
                 }
                 if (!indicatorPopup.hidden && !event.target.closest('.transport-left')) {
                     indicatorPopup.hidden = true;

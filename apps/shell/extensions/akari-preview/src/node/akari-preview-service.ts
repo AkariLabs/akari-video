@@ -269,6 +269,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
     protected frameEngineSource: Buffer | null | undefined;
+    protected previewAudioWorkletSource: Buffer | null | undefined;
     // URL 配信: `/static/<content-hash>/<name>` → 本体。内容が変わらない限り同じ URL を返す
     // （webview 側の immutable キャッシュを setHTML をまたいで有効に保つ）。
     protected staticAssets = new Map<string, StaticAsset>();
@@ -381,6 +382,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     async getOverlayRuntimeAssetUrls(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssetUrls> {
         const sources = this.loadOverlayRuntimeSources();
         const frameEngine = options?.includeFrameEngine === true ? this.loadFrameEngineSource() : undefined;
+        const previewAudioWorklet = this.loadPreviewAudioWorkletSource();
         const port = await this.ensureServer();
         const origin = `http://127.0.0.1:${port}`;
         const javascript = 'text/javascript; charset=utf-8';
@@ -397,6 +399,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             interactionCss: sources.interactionCss,
             webviewKernelJavaScriptUrl: url('webview-kernel.js', sources.webviewKernel, javascript),
             ...(frameEngine ? { frameEngineJavaScriptUrl: url('frame-engine.js', frameEngine, javascript) } : {}),
+            ...(previewAudioWorklet ? {
+                previewAudioWorkletUrl: url('preview-audio-worklet.js', previewAudioWorklet, javascript)
+            } : {}),
             captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf')
         };
     }
@@ -1599,6 +1604,40 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // akari-preview の追跡済み generated/ を読む。legacy 明示時は呼ばれない任意資産。
     protected findFrameEngineBundle(): string | undefined {
         const fileName = 'frame-engine.js';
+        const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
+        if (this.isFile(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(
+                ancestor,
+                'apps/shell/extensions/akari-preview/generated',
+                fileName
+            );
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+        return undefined;
+    }
+
+    protected loadPreviewAudioWorkletSource(): Buffer | undefined {
+        if (this.previewAudioWorkletSource === undefined) {
+            const bundle = this.findPreviewAudioWorkletBundle();
+            this.previewAudioWorkletSource = bundle ? readFileSync(bundle) : null;
+        }
+        return this.previewAudioWorkletSource ?? undefined;
+    }
+
+    protected findPreviewAudioWorkletBundle(): string | undefined {
+        const fileName = 'preview-audio-worklet.js';
         const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
         if (this.isFile(packagedCandidate)) {
             return packagedCandidate;
