@@ -130,7 +130,7 @@ export async function resolve(
     throw new AssetResolverError(`カタログに files[] がありません: ${item.id}`, 'invalid_catalog_item');
   }
 
-  const base = resolveEffectiveBase(env, catalog);
+  const base = item.source === 'installed' ? null : resolveEffectiveBase(env, catalog);
   await mkdir(home, { recursive: true });
   const tempRoot = await mkdtemp(path.join(home, '.tmp-resolve-'));
   // validate-asset はディレクトリ名（basename）= id・親ディレクトリ名 = category を要求するので、

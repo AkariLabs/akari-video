@@ -19,6 +19,9 @@ function joinRemote(base, key) {
 
 /** files[] エントリ 1 件を { location, remote } に解決する */
 export function resolveFileLocation(base, fileEntry) {
+  if (fileEntry.local_path) {
+    return { location: fileEntry.local_path, remote: false };
+  }
   if (fileEntry.url) {
     if (!isRemoteLocation(fileEntry.url)) {
       throw new Error(`files[].url は絶対 URL である必要があります: ${fileEntry.url}`);
@@ -31,7 +34,7 @@ export function resolveFileLocation(base, fileEntry) {
     }
     return { location: path.join(base, fileEntry.key), remote: false };
   }
-  throw new Error('files[] エントリに url か key のどちらかが必要です');
+  throw new Error('files[] エントリに local_path / url / key のいずれかが必要です');
 }
 
 /**
