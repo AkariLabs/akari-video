@@ -233,6 +233,9 @@ test('frame-engine bundle は生成元から再生成しても byte drift がな
     const rootNodeModules = join(repoRoot, 'node_modules');
     const esbuild = join(rootNodeModules, 'esbuild', 'bin', 'esbuild');
     if (!existsSync(rootNodeModules) || !existsSync(esbuild)) {
+        if (process.env.CI) {
+            assert.fail('CI ではリポジトリ直下の node_modules と esbuild が必須です');
+        }
         t.skip('リポジトリ直下の node_modules または esbuild が無いため drift 検査を省略');
         return;
     }

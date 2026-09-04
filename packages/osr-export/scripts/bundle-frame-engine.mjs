@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -14,23 +13,32 @@ const entry = join(repoRoot, "packages", "frame-engine", "src", "index.ts");
 const check = process.argv.includes("--check");
 const require = createRequire(import.meta.url);
 
-let esbuild;
-try { esbuild = require.resolve("esbuild/bin/esbuild"); }
-catch {
-  esbuild = [join(repoRoot, "node_modules", "esbuild", "bin", "esbuild")].find(existsSync);
-}
-if (!esbuild) throw new Error("esbuild が見つかりません");
+let buildSync;
+try { ({ buildSync } = require("esbuild")); }
+catch { ({ buildSync } = require(join(repoRoot, "node_modules", "esbuild"))); }
 
 await mkdir(outputDirectory, { recursive: true });
 await rm(temporaryOutput, { force: true });
 const banner = "// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。";
-const result = spawnSync(process.execPath, [
-  esbuild, entry, "--bundle", "--format=iife", "--global-name=AkariFrameEngine",
-  "--platform=browser", "--target=chrome122", `--banner:js=${banner}`, `--outfile=${temporaryOutput}`,
-], { cwd: repoRoot, encoding: "utf8" });
-if (result.status !== 0 || !existsSync(temporaryOutput)) {
+try {
+  buildSync({
+    entryPoints: [entry],
+    bundle: true,
+    format: "iife",
+    globalName: "AkariFrameEngine",
+    platform: "browser",
+    target: ["chrome122"],
+    banner: { js: banner },
+    absWorkingDir: repoRoot,
+    outfile: temporaryOutput,
+    logLevel: "silent",
+  });
+} catch (error) {
   await rm(temporaryOutput, { force: true });
-  throw new Error(result.stderr || result.error?.message || `esbuild exit ${result.status}`);
+  throw error;
+}
+if (!existsSync(temporaryOutput)) {
+  throw new Error("esbuild が出力を生成しませんでした");
 }
 if (check) {
   if (!existsSync(output) || !Buffer.from(await readFile(output)).equals(Buffer.from(await readFile(temporaryOutput)))) {
