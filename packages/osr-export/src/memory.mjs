@@ -22,6 +22,15 @@ export const SOFT_MEMORY_HARD_STOP_BYTES = 2048 * 1024 * 1024;
 export const MEMORY_WARNING_BYTES = GPU_MEMORY_WARNING_BYTES;
 export const MEMORY_HARD_STOP_BYTES = GPU_MEMORY_HARD_STOP_BYTES;
 
+// hard stop に当たったときの identity。GPU 経路はこの reasonCode を見て OSR へフォールバックする
+// （issue #52: 98% 地点で落ちて成果物ゼロ = 前版で出せていたものが出せない退行だった）。
+export const MEMORY_HARD_STOP_MARKER = "RSS hard stop:";
+export const MEMORY_HARD_STOP_REASON = "memory-hard-stop";
+
+export function memoryHardStopError(bytes) {
+  return new Error(`${MEMORY_HARD_STOP_MARKER} ${bytes} bytes`);
+}
+
 export function memoryBudgetScale({ width = undefined, height = undefined } = {}) {
   if (!(Number(width) > 0) || !(Number(height) > 0)) return 1;
   return Math.max(1, (Number(width) * Number(height)) / MEMORY_REFERENCE_PIXELS);

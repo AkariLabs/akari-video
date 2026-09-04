@@ -7,7 +7,7 @@ import test from "node:test";
 import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
 
 test("GPU runtime fallback reasons are a closed shared set", () => {
-  assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported"]);
+  assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported", "memory-hard-stop"]);
   assert.equal(Object.isFrozen(FALLBACK_REASONS), true);
 });
 

@@ -91,7 +91,7 @@ export function buildGpuPage({
   const compositeIds = new Set(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
     .map((entry) => entry.id));
-  const dom = buildDomRuns(indexedOverlays, classifications, duration, compositeIds);
+  const dom = buildDomRuns(indexedOverlays, classifications, compositeIds);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
@@ -128,7 +128,7 @@ export function buildGpuPage({
       };
     }),
     statics: statics.map(({ overlay, index }) => ({
-      id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
+      id: String(overlay.id), ...overlayWindow(overlay, "statics"),
       html: overlay.html, vars: resolveOverlayVars(overlay), index,
       z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
       params: overlayTextSlotParams(overlay),
@@ -146,7 +146,7 @@ export function buildGpuPage({
         })
         : null;
       return {
-        id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
+        id: String(overlay.id), ...overlayWindow(overlay, "three"), index,
         z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
         entranceMode,
         ...(parsed?.ok ? { entrance: parsed.entrance } : {}),
@@ -197,7 +197,10 @@ export function buildGpuPage({
   <div id="akari-stage">
     <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
     <canvas id="akari-final" width="${width}" height="${height}"></canvas>
-    <div id="akari-dom-stage"></div>
+    <!-- data-no-timeline: 断片の規約は [data-akari-active] .x, [data-no-timeline] .x { animation: ... }。
+         OSR のシートは #stage に data-no-timeline を持つ（render-cut/src/rasterize.mjs）。
+         GPU の DOM ステージに無いと、no-timeline アームだけで宣言した断片が GPU だけ動かない（issue #53 (c)） -->
+    <div id="akari-dom-stage" data-no-timeline></div>
     ${iframe}
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
@@ -232,7 +235,25 @@ export function buildGpuPage({
   };
 }
 
-function buildDomRuns(indexedOverlays, classifications, duration, compositeIds = new Set()) {
+/**
+ * overlay の時間窓。overlay-runtime の overlayRecord が start / duration をスプレッドより後ろで
+ * 無条件に書き、edit-store が atFrames / fps で秒へ正規化するので、ここへ来る時点で必ず有限数。
+ * 既定値（?? 0 / ?? duration）を置くと、欠けたときに「OSR は絶対に出さない・GPU は全尺出す」
+ * という最悪の非対称になる（OSR のシートは formatNumber(undefined) が "NaN" を書き、
+ * seconds >= NaN が常に false になるため）。黙って全尺にせず fail-closed にする（issue #53）。
+ */
+function overlayWindow(overlay, kind) {
+  const start = Number(overlay?.start);
+  const duration = Number(overlay?.duration);
+  if (!Number.isFinite(start) || !Number.isFinite(duration)) {
+    throw new Error(
+      `${kind} overlay ${overlay?.id} has no finite time window: start=${overlay?.start} duration=${overlay?.duration}`,
+    );
+  }
+  return { start, duration };
+}
+
+function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set()) {
   const runs = [];
   let current = null;
   for (const { overlay, index } of indexedOverlays) {
@@ -248,8 +269,7 @@ function buildDomRuns(indexedOverlays, classifications, duration, compositeIds =
     }
     current.entries.push({
       id: String(overlay.id),
-      start: Number(overlay.start ?? 0),
-      duration: Number(overlay.duration ?? duration),
+      ...overlayWindow(overlay, "dom"),
       html: String(overlay.html ?? "").replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
       vars: resolveOverlayVars(overlay),
       transform: overlay.transform ?? {},

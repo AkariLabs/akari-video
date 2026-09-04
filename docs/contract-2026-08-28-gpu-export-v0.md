@@ -123,10 +123,15 @@ cuts と layers が同時に空のフレームは、出力解像度の黒 1 枚�
 スプライト合成は通常どおりこの黒い frame-engine canvas の上へ重ねる。
 
 3D は engine の時計から得た local seconds を `threeRuntime.render(container, t)` へ直接渡して駆動する。
-GPU 出口は overlay sheet の `__akariSeek` を使用しない。毎コマの DOM animation 同期、全 container の
-visibility 更新、video seek 待ちを 3D canvas の texture 更新へ持ち込まないためである。sheet の
+GPU 出口は overlay sheet の `__akariSeek` を使用しない。毎コマの DOM animation 同期と全 container の
+visibility 更新を 3D canvas の texture 更新へ持ち込まないためである。sheet の
 `__akariReady` は起動時に 1 回だけ待ち、各 scene が ready でない場合は overlay id と状態を示して
 fail-closed にする。active 区間は最終 compositor の draw へ積むかどうかで決める。
+
+**2026-09-04 改訂（issue #53）**: video seek 待ちだけは例外とし、sheet が公開する `__akariSeekVideos(seconds)`
+（`__akariSeek` から切り出した video 部分・OSR と同一実装）を毎コマ、3D 描画の前に呼ぶ。3D 断片の動画テクスチャは
+`<video>` の提示フレームから上がるため、シーク → 提示確定 → 3D 描画 の順序が必要で（`3d.md`）、呼ばないと
+GPU 経路の動画テクスチャは起動時の 0 秒の絵に固定される。シートに `<video>` が無ければ呼ばない。
 
 ## 4. 読み戻しゼロ
 
@@ -186,6 +191,26 @@ exit code 2 で中止する。edit.json の音声を混ぜる製品経路は §1
 software MP4 SHA はエンコーダが決定論的な場合だけ必須とし、それ以外は警告を伴う診断値とする。
 GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以下、字幕 cue の代表 5 時刻の
 下半分 MAD 1.0 以下、3D 区間 MAD 1.0 以下を固定閾値とする。
+
+**2026-09-04 追加（issue #53）— 2 経路で同じでなければならない 4 点**:
+
+1. **overlay へ渡す時刻は `frameNumber / fps`**。µs へ丸めてはならない。overlay の `start` は必ず
+   `atFrames / fps` なので、丸めると比較が 1 ulp で反転し、カット境界の 1 コマだけ絵が食い違う。
+   この `seconds` は時間窓判定・CSS アニメ位相・item keyframes のフレーム番号すべてに流れる。
+2. **時間窓の外の container も毎コマ pause して `currentTime` を書く**。飛ばすと窓の外の断片の CSS アニメが
+   壁時計（書き出しは分単位）で走り切り、`animation-fill-mode: both/forwards` の最終姿勢に張り付いたまま
+   窓へ入ってくる = 同じ時刻でも直前に何を撮ったかで絵が変わる。OSR の `__akariSyncAnimations` は
+   active 判定を持たない。
+3. **DOM ステージのルートに `data-no-timeline`**。断片の規約は
+   `[data-akari-active] .x, [data-no-timeline] .x { animation: … }` の 2 アームで、OSR のシートは `#stage` に
+   これを持つ。GPU 側に無いと no-timeline アームだけで宣言した断片が GPU でのみ動かない。
+4. **静的スプライトは overlay の `transform` を落とさない**。`.akari-sprite-root` に OSR の
+   `.akari-overlay-container` と同じ `translate/scale/rotate` + `transform-origin: center` を宣言する
+   （`role: "background"` は両経路とも恒等固定）。
+
+あわせて、manifest 生成時に overlay の `start` / `duration` が有限数でなければ fail-closed とする。
+既定値（`?? 0` / `?? duration`）を置くと、欠けたときに「OSR は絶対に出さない・GPU は全尺出す」という
+最悪の非対称になる（OSR は `formatNumber(undefined)` が `"NaN"` を書き、`seconds >= NaN` が常に偽になる）。
 
 ## 7. receipt
 

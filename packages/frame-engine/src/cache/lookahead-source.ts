@@ -89,6 +89,41 @@ export class LookaheadFrameSource implements NativeFrameSource {
     this.inFlight.clear();
   }
 
+  /**
+   * 生きている stream（キャッシュを持つもの + 内側のソースが掴んでいるデコーダのレーン）。
+   * StreamReaper がこの一覧を見て「plan に載っていない stream」を選ぶ。
+   */
+  liveStreamIds(): readonly string[] {
+    const ids = new Set(this.caches.keys());
+    const inner = this.source as { liveStreamIds?: () => readonly string[] };
+    if (typeof inner.liveStreamIds === 'function') {
+      for (const streamId of inner.liveStreamIds()) ids.add(streamId);
+    }
+    return [...ids];
+  }
+
+  /**
+   * stream 1 本ぶんのキャッシュと、内側のデコーダセッションを解放する。書き出しは厳密に前方順で
+   * 過去フレームを読み直さないので、plan から外れたカットはここで捨ててよい（issue #52）。
+   * 進行中の prefetch は握っている frame を put() でキャッシュへ戻すため、in-flight の間は
+   * 解放しない（次のフレームで回収される）。
+   */
+  releaseStream(streamId: string): boolean {
+    for (const key of this.inFlight.keys()) {
+      if (key.slice(0, key.lastIndexOf(':')) === streamId) return false;
+    }
+    const cache = this.caches.get(streamId);
+    if (cache) {
+      cache.clear();
+      this.caches.delete(streamId);
+    }
+    const inner = this.source as { releaseSession?: (streamId: string) => boolean };
+    const releasedSession = typeof inner.releaseSession === 'function'
+      ? inner.releaseSession(streamId)
+      : false;
+    return Boolean(cache) || releasedSession;
+  }
+
   private frameNumber(timeUs: number): number {
     return Math.max(0, Math.round(timeUs * this.fps / 1e6));
   }

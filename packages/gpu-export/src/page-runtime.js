@@ -197,6 +197,13 @@
         }
       }
       this.sources = new Map([...videoSources, ...images]);
+      // 書き出しは厳密に前方順なので、plan から外れたカットのデコーダセッションは捨ててよい。
+      // 捨てないとカット本数ぶんのセッションが最後まで積み上がり、長尺で RSS が hard stop に
+      // 当たって成果物ゼロで終わる（issue #52）。grace は 1 秒 — トランジションの送出側は
+      // plan に載るので 0 でも壊れないが、数フレームだけ間の空く層で fork をやり直さないため。
+      this.fps = Number(config.fps) > 0 ? Number(config.fps) : 30;
+      this.reaper = new FE.StreamReaper(lookahead.values(), { graceFrames: Math.max(1, Math.round(this.fps)) });
+      this.decoderSessions = { live: 0, released: 0 };
       this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit), {
         fps: config.fps,
         layers: engineLayers,
@@ -211,6 +218,10 @@
     async frameAt(seconds) {
       const clamped = Math.max(0, Math.min(Number(seconds) || 0, this.timeline.totalDuration));
       const plan = FE.evaluationPlanFromResolvedTimeline(this.timeline, Math.round(clamped * 1e6), this.sources, this.output);
+      // 新しい decode が始まる前に空ける（評価の後ろに置くと、解放したいフレームと新しい
+      // フレームが同時に生きる瞬間ができる）
+      const reaped = this.reaper.reap(plan, Math.round(clamped * this.fps));
+      this.decoderSessions = { live: reaped.liveStreams, released: this.reaper.released() };
       return FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
     }
 
@@ -271,7 +282,7 @@
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(vars)}">
           <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -1859,6 +1870,15 @@
         const active = activeAt(entry, seconds);
         container.style.visibility = active ? "visible" : "hidden";
         container.toggleAttribute("data-akari-active", active);
+        // 活性・非活性を問わず毎コマ止めて時刻を書く。非活性を飛ばすと、時間窓の外の断片の
+        // CSS アニメが壁時計で走り切り（書き出しは分単位）、fill-mode: both/forwards の姿勢に
+        // 張り付いたまま窓に入ってくる = 同じ時刻でも直前に何を撮ったかで絵が変わる。
+        // OSR の __akariSyncAnimations は active 判定を持たず全コンテナを固定している
+        // （render-cut/src/rasterize.mjs）。issue #53 (a)
+        for (const animation of container.getAnimations({ subtree: true })) {
+          try { animation.pause(); } catch {}
+          try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
+        }
         if (!active) continue;
         if (itemKeyframes) {
           const state = window.akari.keyframes.interpolateKeyframes(
@@ -1872,10 +1892,6 @@
           container.style.setProperty("--scale", background ? "1" : String(state.scale));
           container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
           container.style.setProperty("opacity", String(state.opacity));
-        }
-        for (const animation of container.getAnimations({ subtree: true })) {
-          try { animation.pause(); } catch {}
-          try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
         }
       }
       this.setSentinelFrame(record, frameNumber);
@@ -2022,6 +2038,8 @@
     let domRuntime = null;
     let threeSampling = null;
     let threeComposite = null;
+    let overlaySheetHasVideo = false;
+    const overlayVideoWarnings = new Set();
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
     const started = performance.now();
@@ -2120,6 +2138,9 @@
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
       }
+      overlaySheetHasVideo = Boolean(overlayFrame)
+        && typeof overlayFrame.contentWindow?.__akariSeekVideos === "function"
+        && overlayFrame.contentDocument.querySelector("video") !== null;
       threeSampling = new ThreeSamplingRuntime(config, spriteCompositor);
       threeSampling.mount(overlayFrame, threeRecords, config.spriteManifest);
       let verifyModule = null;
@@ -2177,8 +2198,12 @@
       }
       for (let sequenceIndex = 0; sequenceIndex < sequenceLength; sequenceIndex += 1) {
         const frameNumber = captureMode ? frameSequence[sequenceIndex] : sequenceIndex;
-        const timeUs = Math.round(frameNumber / config.fps * 1e6);
-        const seconds = timeUs / 1e6;
+        // overlay の時間窓判定・CSS アニメ位相・item keyframes のフレーム番号はすべてこの seconds から
+        // 流れる。overlay の start は必ず atFrames / fps なので、同じ「フレーム番号 / fps」で作らないと
+        // カット境界がちょうど丸め誤差の効く点に乗り、境界フレーム 1 枚だけ OSR と食い違う
+        // （issue #53 (b)。OSR は osr-export/src/electron-main.mjs の __akariSeek(frame / fps)）。
+        // 映像レイヤーは frameAt が内部で Math.round(seconds * 1e6) を掛け直すので影響しない。
+        const seconds = frameNumber / config.fps;
         const evaluateStarted = performance.now();
         const frame = await engine.frameAt(seconds);
         stages.evaluate.push(performance.now() - evaluateStarted);
@@ -2190,6 +2215,16 @@
           const threeStates = new Map();
           threeSampling.syncActive(seconds);
           if (threeRuntime) {
+            // シーク → 提示フレーム確定 → 3D 描画 の順を守る（3d.md）。順序が逆だと <video> が
+            // 1 コマ前の絵のままテクスチャへ上がる。GPU 経路はシートの __akariSeek を呼ばないので
+            // video 部分だけをここで呼ぶ（呼ばないと動画テクスチャは 0 秒の絵に固定される。issue #53 (c)）
+            if (overlaySheetHasVideo) {
+              for (const message of await overlayFrame.contentWindow.__akariSeekVideos(seconds)) {
+                if (overlayVideoWarnings.has(message)) continue;
+                overlayVideoWarnings.add(message);
+                warn(message);
+              }
+            }
             for (const value of config.spriteManifest.three) {
               if (!activeAt(value, seconds)) continue;
               const record = threeRecords.get(value.id);
@@ -2382,6 +2417,9 @@
             },
             domLayer: domRuntime.summary(),
             three: { ...threeSampling.summary(), composite: threeComposite.summary() },
+            // 生存デコーダセッション数。#28 の時点で「RSS はセッション数に比例」と分かって
+            // いたのに記録が無く、issue #52 でまた手探りになったので run.json に残す
+            decoderSessions: engine.decoderSessions,
           });
         }
       }
