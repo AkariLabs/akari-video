@@ -74,6 +74,8 @@ jobs:
       # ローカル実測 2026-09-02（macOS arm64・Node 26.3.0）: added 1480 packages / 7 s（キャッシュ有）。
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: check frame-engine bundle drift (3 consumers)
+        run: node scripts/ci/check-frame-engine-drift.mjs
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
 
@@ -135,6 +137,14 @@ jobs:
           node-version: '26.3.0'
           cache: npm
           cache-dependency-path: apps/shell/package-lock.json
+
+      # frame-engine の再バンドルには repoRoot の node_modules が必要。CI の drift 検査を
+      # 依存不足で skip させず実行するため、shell 側とは別にルート依存も用意する。
+      # root の npm ci は workspaces を reify して apps/shell/node_modules を空にするため、
+      # 必ず shell install より前に置く（2026-09-04 実測: 804 → 1 エントリ）。
+      - name: Install workspace dependencies for frame-engine drift check (repo root)
+        working-directory: ${{ github.workspace }}
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       # apps/shell/package-lock.json は 2026-08-19 から追跡対象（apps/shell/.gitignore 参照）なので
       # `npm ci` を使う（2026-09-02 に `npm install` から切替。`npm install` はその日のレジストリで
