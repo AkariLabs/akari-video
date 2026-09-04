@@ -30,14 +30,20 @@ export const AKARI_SURFACE = {
  * 線の階層（spec §2）。カード外周 `--akari-line`（alpha .13）が最強で、
  * **カードの中にはそれより強い線を置かない**。
  *
- * `hairline` は外周のおよそ半分（alpha ≒ .07）。直値を書かずに済ませるため
- * `color-mix` で外周の変数から派生させる（Chromium 111+ / 実機 142 で確認済み）。
- * ライトでは `--akari-line` が `rgba(0,0,0,.13)` になるので、派生も自動で黒側へ倒れる。
+ * `hairline` の正は akari-theme が供給する **`--akari-line-inner`（不透明値）**。
+ * フォールバックの `color-mix` は、その変数がまだ無いビルドのための保険で、
+ * **カード面（`--akari-bg` = #0a0a0a）の上ではピクセル等価**（どちらも #1b1b1b）。
+ *
+ * 半透明ではなく不透明を正にしている理由（レーン A 指摘・実測で確認）:
+ * 半透明の線は下地に乗って明るくなるので、raised（#141414）の上に置くと
+ * 実効 #242424 まで浮き上がり、カード外周の実効値（card 面の上で #2a2a2a）と
+ * ほぼ並んでしまう = 階層が成立しない。不透明 #1b1b1b ならどの面の上でも
+ * 外周より確実に弱い。ライトは `--akari-line-inner` が #ededed へ入れ替わる。
  */
 export const AKARI_LINE = {
     /** カード内の区切り（レール仕切り・タブ下・セクション境）。 */
-    hairline: 'color-mix(in srgb, var(--akari-line) 54%, transparent)',
-    /** カード外周と同じ強さ。カードの中では原則使わない。 */
+    hairline: 'var(--akari-line-inner, color-mix(in srgb, var(--akari-line) 54%, transparent))',
+    /** カード外周と同じ強さ。カードの中では原則使わない（浮くダイアログの輪郭のみ）。 */
     edge: 'var(--akari-line)',
     /** 選択・フォーカスを示す線（面ではなくアクセント色で示す）。 */
     accent: 'var(--akari-accent)'
@@ -64,3 +70,10 @@ export const AKARI_RADIUS = {
 
 /** 文字色。`--theia-editorWidget-foreground`(#cccccc) はパレット外なので使わない。 */
 export const AKARI_INK = 'var(--akari-ink)';
+
+/**
+ * いちばん弱い前景（状態を示す小さな点・補助記号）。
+ * `--akari-faint` が無いビルドでは `--theia-descriptionForeground`（実測 #717171 で
+ * パレットの faint #737373 とほぼ同値）へ落ちる。
+ */
+export const AKARI_FAINT = 'var(--akari-faint, var(--theia-descriptionForeground))';
