@@ -1,6 +1,6 @@
 // テキスト分割プリミティブ
 //
-// 契約: akari-video-internal planning/contract-2026-08-15-telop-motion-grammar-v0.md
+// 契約: 内部リポ akari-video-internal のテロップ運動文法契約 v0（2026-08-15）
 //
 // 断片は `data-akari-split="bunsetsu"` のような宣言だけを持ち、分割済みの
 // `<span class="akari-u" style="--i:N">` で出荷する。ランタイムは

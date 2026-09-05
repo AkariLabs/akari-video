@@ -1,7 +1,7 @@
 /**
  * カード言語の面・線・角丸トークン（シェル内側の画面が参照する唯一の出所）。
  *
- * 正本: `akari-video-internal:tasks/2026-09-05-shell-card-polish/spec.md`。
+ * 正本: 内部リポ akari-video-internal のカード意匠 spec（2026-09-05）。
  * 外殻（4 枚のカードの隙間・角丸・ヘアライン）は akari-theme の
  * `akari-shell-card-layout.ts` が持つ。ここが決めるのは**カードの中身**だけ。
  *
