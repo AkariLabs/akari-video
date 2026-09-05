@@ -27,6 +27,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   requestPreviewAudioSidecar,
+  promotePreviewAudioSidecars,
   subscribePreviewAudioSidecarEvents,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
@@ -36,7 +37,7 @@ import {
   PROXY_RECIPE_VERSION,
 } from '../../media-bin/src/proxy-recipe.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
-import { prepareFrameEngineAudioSummary } from './preview-audio-summary.mjs';
+import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 
 const args = process.argv.slice(2);
@@ -119,6 +120,14 @@ const THREE_ROUTES = {
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
 // --- ffmpeg/ffprobe detection ---
+function toolCommand(binPath, args) {
+  // Windows は非実行形式ファイルの spawn に EFTYPE を同期 throw するため、スクリプトは Node で起動する。
+  if (['.mjs', '.js', '.cjs'].includes(path.extname(binPath).toLowerCase())) {
+    return { command: process.execPath, args: [binPath, ...args] };
+  }
+  return { command: binPath, args };
+}
+
 function tryResolve(resolver) {
   try {
     return resolver();
@@ -136,11 +145,12 @@ const autoProxyJobs = new Map();
 function detectFrameRate(filePath) {
   if (!hasFfprobe || frameRateCache.has(filePath)) return frameRateCache.get(filePath);
   try {
-    const r = spawnSync(ffprobePath, [
+    const tool = toolCommand(ffprobePath, [
       '-v', 'error', '-select_streams', 'v:0',
       '-show_entries', 'stream=r_frame_rate',
       '-of', 'csv=p=0', filePath,
-    ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
+    ]);
+    const r = spawnSync(tool.command, tool.args, { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
     const frameRate = r.status === 0 ? parseFrameRate(r.stdout.toString().trim()) : undefined;
     frameRateCache.set(filePath, frameRate);
     return frameRate;
@@ -237,13 +247,14 @@ function startAutoProxy(filePath) {
   autoProxyJobs.set(filePath, pending);
   let child;
   try {
-    child = spawn(ffmpegPath, [
+    const tool = toolCommand(ffmpegPath, [
       '-i', filePath,
       ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
       '-c:a', 'aac',
       '-movflags', '+faststart',
       '-y', temporaryProxy,
-    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    ]);
+    child = spawn(tool.command, tool.args, { stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (error) {
     // Windows は spawn 不能な実行ファイル（拡張子が実行形式でない等）で EFTYPE を
     // 同期 throw する。'error' イベントは届かないので、ここで受けないとルート越しに
@@ -570,6 +581,20 @@ const router = {
   'GET /api/preview-audio/status': (req, res) => {
     respond(res, 200, { items: latestPreviewAudioSummary?.items ?? [], ts: Date.now() });
   },
+  'POST /api/preview-audio/priority': async (req, res) => {
+    let parsed;
+    try { parsed = JSON.parse(await collectBody(req)); }
+    catch { return respond(res, 400, { error: 'Invalid JSON' }); }
+    if (!Number.isFinite(parsed?.t)) return respond(res, 400, { error: 'Invalid preview audio time' });
+    try {
+      return respond(res, 200, promotePreviewAudioSummaryAt(latestPreviewAudioSummary, parsed.t, {
+        cacheDir: previewAudioCacheDir, promoteSidecars: promotePreviewAudioSidecars,
+      }));
+    } catch (error) {
+      console.error('[preview] audio priority failed:', error);
+      return respond(res, 500, { error: 'Preview audio priority failed' });
+    }
+  },
   'GET /api/summary': async (req, res) => {
     // 準備段（sidecar 生成・掃除・probe）の例外は 1 リクエストの 500 で済ませる。
     // 以前は unhandled rejection でプロセスが落ち、プレビュー全体が消えていた。
@@ -784,7 +809,8 @@ const REVIEW_ROUTES = [
     // Save as webm first, convert to wav via ffmpeg if available
     fs.writeFileSync(path.join(sessionDir, 'audio.webm'), buf);
     if (hasFfmpeg) {
-      const r = spawnSync(ffmpegPath, ['-y', '-i', path.join(sessionDir, 'audio.webm'), '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', wavPath], { stdio: 'ignore', timeout: 30000 });
+      const tool = toolCommand(ffmpegPath, ['-y', '-i', path.join(sessionDir, 'audio.webm'), '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', wavPath]);
+      const r = spawnSync(tool.command, tool.args, { stdio: 'ignore', timeout: 30000 });
       if (r.status !== 0) console.warn('[review] ffmpeg audio conversion failed');
     } else {
       // Without ffmpeg, save raw blob as wav (likely not playable but preserves data)
@@ -959,10 +985,7 @@ const sweepAudio = () => {
   } catch (error) { console.warn('[preview] audio cache sweep failed', error); }
 };
 let audioSweepInterval;
-const audioSweepStartup = setTimeout(() => {
-  sweepAudio();
-  audioSweepInterval = setInterval(sweepAudio, 10 * 60 * 1000).unref();
-}, 60 * 1000).unref();
+let audioSweepStartup;
 server.on('close', () => {
   unsubscribePreviewAudio();
   clearTimeout(audioSweepStartup);
@@ -999,20 +1022,38 @@ function scheduleReload() {
   }, 120);
 }
 
-fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
-  if (filename === 'edit.json' || filename === 'captions.json') {
-    scheduleReload();
+function isEntrypoint() {
+  if (!process.argv[1]) return true;
+  try {
+    return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(process.argv[1]);
+  } catch {
+    return true; // 判定できないときは本体起動に倒し、サーバが起動しない事故を防ぐ。
   }
-});
-console.log(`[watch] watching ${projectRoot}`);
+}
 
-server.listen(port, host, () => {
-  const displayHost = host === '0.0.0.0' ? 'localhost' : host;
-  console.log(`\n  AKARI Video Preview Server`);
-  console.log(`  http://${displayHost}:${port}`);
-  console.log(`  bind: ${host}:${port}`);
-  console.log(`  project: ${projectRoot}`);
-  if (hasFfprobe) console.log(`  ffprobe: available`);
-  if (hasFfmpeg) console.log(`  ffmpeg: available (HEVC proxy enabled)`);
-  if (!hasFfprobe) console.log(`  ffprobe: not found (HEVC detection disabled)`);
-});
+export const __testing = { hasMoovBox, usableProxy, toolCommand, MAX_PROXY_BOX_SCAN };
+
+if (isEntrypoint()) {
+  audioSweepStartup = setTimeout(() => {
+    sweepAudio();
+    audioSweepInterval = setInterval(sweepAudio, 10 * 60 * 1000).unref();
+  }, 60 * 1000).unref();
+
+  fs.watch(projectRoot, { recursive: false }, (eventType, filename) => {
+    if (filename === 'edit.json' || filename === 'captions.json') {
+      scheduleReload();
+    }
+  });
+  console.log(`[watch] watching ${projectRoot}`);
+
+  server.listen(port, host, () => {
+    const displayHost = host === '0.0.0.0' ? 'localhost' : host;
+    console.log(`\n  AKARI Video Preview Server`);
+    console.log(`  http://${displayHost}:${port}`);
+    console.log(`  bind: ${host}:${port}`);
+    console.log(`  project: ${projectRoot}`);
+    if (hasFfprobe) console.log(`  ffprobe: available`);
+    if (hasFfmpeg) console.log(`  ffmpeg: available (HEVC proxy enabled)`);
+    if (!hasFfprobe) console.log(`  ffprobe: not found (HEVC detection disabled)`);
+  });
+}

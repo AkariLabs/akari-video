@@ -26,6 +26,8 @@ export interface TimelineCutSelection {
     adjust?: InspectorAdjustSnapshot;
     keyframes?: readonly Record<string, unknown>[];
     speed?: number;
+    audioGainDb?: number;
+    audioMute?: boolean;
     transitionOut?: {
         type: ReadableTransitionType;
         duration: number;
@@ -240,6 +242,8 @@ type InspectorWriteOperation =
     }
     | { kind: 'cut-transition-out'; index: number; value: { type: TransitionType; duration: number } | null }
     | { kind: 'cut-speed'; index: number; value: number | null }
+    | { kind: 'cut-audio-gain'; index: number; value: number | null }
+    | { kind: 'cut-audio-mute'; index: number; value: boolean }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
     | { kind: 'cut-transform-y'; index: number; value: number | null }
     | { kind: 'cut-scale'; index: number; value: number | null }

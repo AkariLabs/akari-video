@@ -6,6 +6,7 @@ import {
   projectLegacyEdit,
   readInternalEdit,
   readInternalSources,
+  serializeEdit,
   shapeMarkup,
   timelineDurationSeconds,
   visualContentEndSeconds,
@@ -26,6 +27,20 @@ const base = () => ({
       { id: 'l1', at: 15, duration: 30, source: { kind: 'media', src: 'pip', in: 0, out: 1 } },
     ] },
   ],
+});
+
+test('visual embedded speech controls project to cuts and survive canonical read/write', () => {
+  const edit = base();
+  Object.assign(edit.tracks[0].items[0].source, { gain_db: -12, mute: true });
+  const internal = readInternalEdit(edit);
+  const cut = projectLegacyEdit(internal).cuts[0];
+  assert.equal(cut.gain_db, -12);
+  assert.equal(cut.mute, true);
+  const serialized = serializeEdit(edit);
+  const roundtrip = readInternalEdit(JSON.parse(serialized));
+  assert.deepEqual(roundtrip, internal);
+  assert.equal(serializeEdit(JSON.parse(serialized)), serialized);
+  assert.deepEqual(JSON.parse(serialized).tracks[0].items[0].source, edit.tracks[0].items[0].source);
 });
 test('readInternalEdit accepts v2 and keeps integer frames authoritative', () => {
   const internal = readInternalEdit(base());

@@ -1,6 +1,8 @@
 import URI from '@theia/core/lib/common/uri';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
+import { FileUri } from '@theia/core/lib/common/file-uri';
+import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -414,6 +416,9 @@ interface PreviewAudioService {
 
 interface PreviewAudioPendingRequest {
     at?: number;
+    durationSec?: number;
+    key?: string;
+    state?: PreviewAudioSidecarRequestResult['state'];
     kind: 'speech' | 'bgm' | 'sfx' | 'narration';
     id: string;
     label: string;
@@ -2293,6 +2298,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 lastAudioMeterFrame = message;
                 this.forwardAudioMeterFrame(widget, message);
             }
+            if (message && message.type === 'akari-preview-audio-priority') {
+                void this.handlePreviewAudioPriority(widget, message.time);
+            }
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
@@ -3328,10 +3336,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
     }
 
+    protected async handlePreviewAudioPriority(widget: PreviewWidgetMarker, time: unknown): Promise<void> {
+        const projectRootUri = widget.akariPreviewAudioProjectRootUri;
+        if (!projectRootUri || typeof time !== 'number' || !Number.isFinite(time)) return;
+        try {
+            const items = selectPreviewAudioItemsAt((widget.akariPreviewAudioPendingRequests ?? [])
+                .map(item => ({ ...item, state: item.state ?? 'queued' })), time);
+            // A single call processes keys before sources; separate calls retain mixed first-use order.
+            for (const item of items.reverse()) {
+                await this.previewService.promotePreviewAudioSidecars({
+                    projectRootUri, keys: item.key ? [item.key] : [],
+                    sourcePaths: item.key ? [] : [FileUri.fsPath(item.request.sourceUri)]
+                });
+            }
+        } catch (error) {
+            console.warn('[akari-preview] preview audio priority failed', error);
+        }
+    }
+
     protected previewAudioSidecarFields(
         item: PreviewAudioPendingRequest,
         result: PreviewAudioSidecarRequestResult
     ): PreviewAudioSidecarFields {
+        item.key = result.key ?? item.key;
+        item.state = result.state;
         if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
         if (result.state === 'ready' && result.stream) {
             return {
@@ -3445,6 +3473,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return;
                 }
                 if (result.key) widget.akariPreviewAudioKeepKeys!.add(result.key);
+                item.key = result.key ?? item.key;
+                item.state = result.state;
                 if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes!.add(result.probe.fingerprint);
                 if (result.state === 'queued' || result.state === 'generating') return;
                 pending.splice(pending.indexOf(item), 1);
@@ -3852,6 +3882,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
                 const item: PreviewAudioPendingRequest = {
                     at: declaration.atSec,
+                    durationSec: declaration.durationSec ?? (declaration.outSec - declaration.inSec) / declaration.speed,
                     kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
                 };
                 sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
@@ -4362,6 +4393,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
                 const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
                 item.at = at;
+                item.durationSec = kind === 'bgm' || trim.outSec === undefined ? undefined : trim.outSec - trim.inSec;
                 entry.item = item;
                 // The shared first-use loop invokes this only after both kinds are collected.
                 entry.resolve = async () => {
@@ -6706,6 +6738,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
             window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
+            window.akari.requestAudioPriority = time => vscode.postMessage({ type: 'akari-preview-audio-priority', time });
             window.akari.stageScale = () => frameScale;
             const measureAudioMeterBlock = (${measureBlock.toString()});
             const audioMeterDb = (${linearToDbfs.toString()});
@@ -7484,79 +7517,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 const fps = Number(engineSummary.output && engineSummary.output.fps) > 0
                     ? Number(engineSummary.output.fps) : 30;
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
+                const declaredSourceUrls = new Map(sourceUrls);
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
                 const sourceSupports = new Map();
                 const sourceSelections = [];
-                const cutSourceIds = new Set(normalizedCuts.map(cut => String(cut.src || 'default')));
+                let disposed = false;
+                let sourceGeneration = 0;
+                let backgroundSources = null;
+                // Invalidate probes even if the webview unloads during the first-stage await.
+                window.addEventListener('beforeunload', () => {
+                    disposed = true;
+                    sourceGeneration += 1;
+                }, { once: true });
                 const mode = engine.parseSourceSelectionMode(initial.frameEngineSourceMode);
                 if (initial.frameEngineForceSoftware === true) {
                     engine.setForceSoftwareDecode(true);
                 }
-                // コーデックプローブ（isConfigSupported + ヘッダ読み）はソースごとに独立なので並列に
-                // 走らせ、判定と通知は宣言順に適用する（task/2026-09-02-preview-perf）。
-                const probeTargets = [];
-                for (const [id, selectedUrl] of sourceUrls) {
-                    const originalUrl = sourceOriginals.get(id) || selectedUrl;
-                    if (!cutSourceIds.has(String(id))) {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: 'original', reason: 'not-a-cut-source' });
-                        continue;
-                    }
-                    const hasProxy = sourceOriginals.has(id);
-                    if (!engine.needsCodecProbe(mode, hasProxy)) {
-                        const decision = engine.chooseSource({ mode, hasProxy, support: null });
-                        if (decision.chosen === 'original') sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
-                        continue;
-                    }
-                    probeTargets.push({ id, originalUrl, hasProxy });
-                }
-                const probes = await Promise.all(probeTargets.map(target => engine.probeSourceCodec(target.originalUrl)));
-                for (let index = 0; index < probeTargets.length; index += 1) {
-                    const { id, originalUrl, hasProxy } = probeTargets[index];
-                    const probe = probes[index];
-                    const support = probe && probe.support;
-                    const codec = probe && probe.info && probe.info.codec;
-                    const decision = engine.chooseSource({ mode, hasProxy, support });
-                    if (decision.chosen === 'original') {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSupports.set(id, support || null);
-                        sourceSelections.push({
-                            id,
-                            chosen: 'original',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    if (decision.chosen === 'proxy') {
-                        sourceSelections.push({
-                            id,
-                            chosen: 'proxy',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    showNotice('プロキシ生成中…（' + id + '）');
-                    console.warn('[frame-engine] codec unsupported; requesting proxy', id, codec);
-                    sourceSelections.push({
-                        id,
-                        chosen: 'auto-proxy',
-                        reason: decision.reason,
-                        ...(codec ? { codec } : {})
-                    });
-                    const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
-                    if (window.akari && window.akari.engine && videoUri) {
-                        void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
-                            console.warn('[frame-engine] proxy request failed', reason);
-                            showNotice('プロキシを生成できませんでした（' + id + '）');
-                        });
-                    }
-                
-                }
                 window.akariFrameEngineSources = sourceSelections;
-                if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
                 const pools = new Map();
                 const lookahead = new Map();
                 const images = new Map();
@@ -7585,14 +7562,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
                     return layer;
                 });
-                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
-                for (const layer of engineLayers) {
-                    const maskUrl = layer && layer.mask;
-                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
-                        sourceUrls.set(maskUrl, maskUrl);
-                    }
-                }
-                for (const [id, url] of sourceUrls) {
+                const createVideoSource = (id, url) => {
                     const pool = new engine.ClipSessionPool(id, url, {
                         codecSupport: sourceSupports.get(id) || null,
                         onWarning: message => showError(message, false),
@@ -7616,14 +7586,163 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     pools.set(id, pool);
                     lookahead.set(id, source);
-                }
+                    return source;
+                };
                 const sources = new Map([...lookahead, ...images]);
 
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
+                for (const layer of engineLayers) {
+                    const maskUrl = layer && layer.mask;
+                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                        sourceUrls.set(maskUrl, maskUrl);
+                    }
+                }
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
                 }))({ layers: engineLayers });
                 let totalDuration = timeline.totalDuration;
+                const sourceRequirements = (value, atSeconds) => {
+                    const initialIds = new Set();
+                    const firstUses = new Map();
+                    const note = (id, start, active) => {
+                        if (typeof id !== 'string' || !id) return;
+                        firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, start));
+                        if (active) initialIds.add(id);
+                    };
+                    for (const placement of value.cuts) {
+                        note(placement.cut.src || 'default', placement.at,
+                            atSeconds >= placement.at && atSeconds < placement.end);
+                    }
+                    const frame = Math.floor(atSeconds * value.fps + 1e-9);
+                    for (const layer of value.layers) {
+                        if (!layer || layer.kind === 'filter') continue;
+                        const start = Number(layer.t) || 0;
+                        const end = start + Math.max(0, Number(layer.duration) || 0);
+                        const active = frame >= Math.max(0, Math.ceil(start * value.fps - 1e-6))
+                            && frame < Math.max(0, Math.ceil(end * value.fps - 1e-6));
+                        note(layer.src, start, active);
+                        note(layer.mask, start, active);
+                    }
+                    return { initialIds, firstUses };
+                };
+                const recordSourceSelection = selection => {
+                    const index = sourceSelections.findIndex(value => value.id === selection.id);
+                    if (index < 0) sourceSelections.push(selection);
+                    else sourceSelections[index] = selection;
+                    // Keep the array used by evidence readers alive as well as the scheduler's Maps.
+                    window.akariFrameEngineSources = sourceSelections;
+                };
+                const sameCodecSupport = (left, right) => left === right || (left && right
+                    && left.codec === right.codec && left.hw === right.hw
+                    && left.sw === right.sw && left.any === right.any);
+                const applySourceChoice = async (id, choice, generation) => {
+                    if (disposed || generation !== sourceGeneration) return;
+                    const pool = pools.get(id);
+                    const support = choice.support || null;
+                    const isUnchanged = () => sourceUrls.get(id) === choice.url && sameCodecSupport(
+                        pool ? pool.codecSupport() : sourceSupports.get(id) || null, support);
+                    let unchanged = isUnchanged();
+                    if (pool && !unchanged) {
+                        while (rendering && !disposed && generation === sourceGeneration) await waitForRender();
+                        if (disposed || generation !== sourceGeneration) return;
+                        // Header warmup or the completed render may already have learned this support.
+                        unchanged = isUnchanged();
+                    }
+                    if (pool && !unchanged) {
+                        lookahead.get(id).clear();
+                        pools.get(id).destroy();
+                    }
+                    sourceUrls.set(id, choice.url);
+                    if (support) sourceSupports.set(id, support);
+                    else sourceSupports.delete(id);
+                    recordSourceSelection(choice.selection);
+                    if (pool && !unchanged) sources.set(id, createVideoSource(id, choice.url));
+                };
+                const resolveSource = async (target, generation) => {
+                    const { id, originalUrl, selectedUrl, hasProxy, cutSource } = target;
+                    const probe = engine.needsCodecProbe(mode, hasProxy)
+                        ? await engine.probeSourceCodec(originalUrl) : null;
+                    if (disposed || generation !== sourceGeneration) return;
+                    const support = probe && probe.support;
+                    const codec = probe && probe.info && probe.info.codec;
+                    // Layers and masks keep their original URLs; declared proxies belong to cuts.
+                    const decision = cutSource ? engine.chooseSource({ mode, hasProxy, support })
+                        : { chosen: 'original', reason: 'not-a-cut-source' };
+                    await applySourceChoice(id, {
+                        url: decision.chosen === 'proxy' ? selectedUrl : originalUrl,
+                        support: decision.chosen === 'proxy' ? null : support,
+                        selection: { id, chosen: decision.chosen, reason: decision.reason,
+                            ...(codec ? { codec } : {}) }
+                    }, generation);
+                    if (disposed || generation !== sourceGeneration) return;
+                    if (decision.chosen === 'auto-proxy') {
+                        showNotice('プロキシ生成中…（' + id + '）');
+                        const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
+                        if (window.akari && window.akari.engine && videoUri) {
+                            void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
+                                if (disposed || generation !== sourceGeneration) return;
+                                console.warn('[frame-engine] proxy request failed', reason);
+                                showNotice('プロキシを生成できませんでした（' + id + '）');
+                            });
+                        }
+                    } else if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
+                };
+                const prepareSources = async (value, atSeconds, generation) => {
+                    const { initialIds, firstUses } = sourceRequirements(value, atSeconds);
+                    const cutSourceIds = new Set(value.cuts.map(placement => String(placement.cut.src || 'default')));
+                    for (const id of firstUses.keys()) {
+                        if (!images.has(id) && !sourceUrls.has(id)) sourceUrls.set(id, id);
+                    }
+                    const targets = [];
+                    for (const [id, url] of sourceUrls) {
+                        if (images.has(id)) continue;
+                        const selectedUrl = declaredSourceUrls.get(id) || url;
+                        const originalUrl = sourceOriginals.get(id) || selectedUrl;
+                        const selection = sourceSelections.find(entry => entry.id === id);
+                        // Retain completed decisions across a model rebuild; retry unfinished probes.
+                        if (selection && selection.reason !== 'pending-probe') continue;
+                        sourceUrls.set(id, originalUrl);
+                        sourceSupports.delete(id);
+                        recordSourceSelection({ id, chosen: 'original', reason: 'pending-probe' });
+                        targets.push({ id, originalUrl, selectedUrl, hasProxy: sourceOriginals.has(id),
+                            cutSource: cutSourceIds.has(String(id)) });
+                    }
+                    const initialTargets = targets.filter(target => initialIds.has(target.id));
+                    await Promise.all(initialTargets.map(target => resolveSource(target, generation)));
+                    if (disposed || generation !== sourceGeneration) return;
+                    for (const [id, url] of sourceUrls) {
+                        if (!pools.has(id) && !images.has(id)) sources.set(id, createVideoSource(id, url));
+                    }
+                    for (const [id, image] of images) sources.set(id, image);
+                    backgroundSources = { generation, started: false, remaining: targets
+                        .filter(target => !initialIds.has(target.id))
+                        .sort((left, right) => (firstUses.get(left.id) ?? Infinity)
+                            - (firstUses.get(right.id) ?? Infinity)) };
+                };
+                const startBackgroundSources = () => {
+                    const batch = backgroundSources;
+                    if (!batch || batch.started || disposed || batch.generation !== sourceGeneration) return;
+                    batch.started = true;
+                    let cursor = 0;
+                    const worker = async () => {
+                        while (!disposed && batch.generation === sourceGeneration) {
+                            const target = batch.remaining[cursor++];
+                            if (!target) return;
+                            try {
+                                await resolveSource(target, batch.generation);
+                            } catch (reason) {
+                                if (!disposed && batch.generation === sourceGeneration) showError(reason, false);
+                            }
+                        }
+                    };
+                    // Two workers share the first-use ordered queue.
+                    void worker();
+                    void worker();
+                };
+                await prepareSources(timeline,
+                    Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, sourceGeneration);
+                if (disposed) return;
                 const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
                     const appendAudio = (kind, raw, fallbackId) => {
@@ -7674,18 +7793,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     supply.setRate(rate);
                     return supply;
                 };
-                let disposed = false;
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 const audioStatus = document.getElementById('audio-status');
                 const updateAudioStatus = () => {
                     if (!audioStatus || disposed) return;
                     const supply = audioSupply.debug().supply;
                     let message = '';
-                    if (supply?.phase === 'preparing') {
+                    if (supply?.phase === 'degraded') {
+                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                    } else if (supply && supply.gate && supply.gate.holding) {
+                        message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
+                    } else if (supply?.phase === 'preparing') {
                         const ready = supply.ready.filter(key => supply.required.includes(key)).length;
                         message = '音声を準備中 ' + ready + '/' + supply.required.length;
-                    } else if (supply?.phase === 'degraded') {
-                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
                     }
                     if (audioStatus.textContent !== message) audioStatus.textContent = message;
                     audioStatus.hidden = !message;
@@ -7703,6 +7823,20 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateAudio(pendingAudio);
                 }
                 const audioStatusTimer = setInterval(updateAudioStatus, 250);
+                const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
+                const AUDIO_PRIORITY_INTERVAL_MS = 10_000;
+                let audioPriorityTimer;
+                const requestAudioPriority = time => {
+                    clearTimeout(audioPriorityTimer);
+                    if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                    audioPriorityTimer = setTimeout(() => {
+                        if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                        window.akari.requestAudioPriority(time);
+                    }, AUDIO_PRIORITY_DEBOUNCE_MS);
+                };
+                const audioPriorityInterval = setInterval(() => {
+                    if (playing) requestAudioPriority(position);
+                }, AUDIO_PRIORITY_INTERVAL_MS);
                 updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
@@ -7875,6 +8009,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
                         updateAudioStatus();
+                        requestAudioPriority(position);
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
@@ -7899,6 +8034,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         // 読むだけの position() だったため、startFrom が黙って降りた後は映像だけ
                         // 進み、タブを作り直すまで無音だった。watchdog は pauseWatchdogMs:false で無効のまま。
                         position = audioSupply.playbackTime(fallbackPosition);
+                        // ゲートで据え置かれている間は壁時計のアンカーを今の位置に張り直し、
+                        // hold が解けた瞬間から開始位置基準で進むようにする。
+                        if (audioSupply.debug().supply.gate.holding) {
+                            playAnchorPosition = position;
+                            playAnchorMs = performance.now();
+                        }
                         position = renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false, totalDuration);
                         return position;
@@ -7948,6 +8089,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const applyEngineSummary = async (nextSummary, rebuildServices) => {
                     if (!nextSummary || typeof nextSummary !== 'object' || disposed) return;
+                    if (rebuildServices) {
+                        sourceGeneration += 1;
+                        backgroundSources = null;
+                    }
                     runtimeUpdating = true;
                     try {
                         await waitForRender();
@@ -7965,6 +8110,10 @@ body { display: grid; place-items: center; padding: 32px; }
                             if (resume) position = audioSupply.position(position);
                             playing = false;
                             audioSupply.pause();
+                            await prepareSources(nextTimeline,
+                                Math.round(Math.max(0, Math.min(position, nextDuration)) * fps) / fps,
+                                sourceGeneration);
+                            if (disposed) return;
                             const previousScheduler = scheduler;
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
@@ -7986,6 +8135,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             audioSupply.seek(position, false);
                             scheduler.primeHeaders();
                             audioSupply.prime();
+                            scheduler.warmupNextBoundary(position);
                         }
                         const operation = renderFrame(position, 'seek', performance.now())
                             .catch(reason => showError(reason, true));
@@ -7995,7 +8145,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         } finally {
                             if (rendering === operation) rendering = null;
                         }
-                        if (rebuildServices) setPlaying(resume, position);
+                        if (rebuildServices) {
+                            setPlaying(resume, position);
+                            if (root.dataset.frameEngineReady === 'true') startBackgroundSources();
+                        }
                         root.dataset.frameEngineModelUpdates = String(
                             Number(root.dataset.frameEngineModelUpdates || 0) + 1
                         );
@@ -8017,9 +8170,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
                 if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();
                 updateMetrics();
-                await renderFrame(0, 'seek', performance.now());
-                await renderFrame(0, 'seek', performance.now());
-                scheduler.primeHeaders();
                 audioSupply.prime();
                 const restoredPosition = clock.seek(
                     Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0,
@@ -8037,6 +8187,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 root.dataset.frameEngineReady = 'true';
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
+                scheduler.primeHeaders();
+                scheduler.warmupNextBoundary(restoredPosition);
+                startBackgroundSources();
 
                 window.addEventListener('beforeunload', () => {
                     if (window.akari && window.akari.frameEngineClock === clock) {
@@ -8046,7 +8199,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
                     clearInterval(audioStatusTimer);
                     window.akari.attachAudioMeter(null, 'frame-engine');
+                    clearInterval(audioPriorityInterval);
+                    clearTimeout(audioPriorityTimer);
                     disposed = true;
+                    sourceGeneration += 1;
                     scrub.dispose();
                     scheduler.dispose();
                     for (const source of lookahead.values()) source.clear();

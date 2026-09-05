@@ -110,6 +110,14 @@ test('パース左上Xの25%入力は数値部品を通り corners[0][0] = 0.25 
     value: { corners: [[0.25, 0], [1, 0], [0, 1], [1, 1]] } }]);
 });
 
+test('cut 選択の節は timing → audio → info の順に並ぶ', () => {
+  const factory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
+  const sections = [...factory.matchAll(/id: '([^']+)'/gu)].map(match => ({ id: match[1] }));
+  assert.deepEqual(composeInspectorSections(sections).map(section => section.id), [
+    'time', 'transform', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'info'
+  ]);
+});
+
 class FakeElement {
   constructor(tagName) {
     this.tagName = tagName.toUpperCase();

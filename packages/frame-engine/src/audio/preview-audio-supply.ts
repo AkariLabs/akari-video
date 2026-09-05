@@ -165,6 +165,8 @@ export interface PreviewAudioSupplyDebug {
     failed: string[];
     noAudio: string[];
     bufferedUntil: Record<string, number>;
+    /** 再生開始で音の最初の窓を待って共通時計を止めている間の状態。 */
+    gate: { holding: boolean; startSec: number; heldMs: number; reason: 'first-window' | 'sidecar' | null };
   };
   contextState: AudioContextState | 'unavailable';
   renderedTimelineSec: number | null;
@@ -273,6 +275,8 @@ const FAILED_DECODE_RETRY_MS = 5000;
 const RESTART_BACKOFF_MS = 500;
 const WINDOW_LOOKAHEAD_SEC = 12;
 const WINDOW_REFILL_MS = 500;
+/** 再生開始で「開始位置の音の最初の窓」を待つ上限。越えたら壁時計で進め、音は後から合流する。 */
+const PLAY_GATE_MAX_HOLD_SEC = 3;
 const MIB = 1024 * 1024;
 
 export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): PreviewAudioSupply {
@@ -338,6 +342,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let bufferedUntil: Record<string, number> = {};
   let generation = 0;
   let starting = false;
+  let replanPending = false;
+  let gate: { holding: boolean; startSec: number; sinceMs: number; reason: 'first-window' | 'sidecar' | null } = {
+    holding: false, startSec: 0, sinceMs: 0, reason: null,
+  };
+  /** gate を張った startFrom の世代。seek / pause / setRate / 新しい startFrom で無効になる。 */
+  let gateGeneration = -1;
+  /** 1 回の再生意図（play / シーク後の再開 / レート変更後の再開）の起点。内部の再試行では更新しない。 */
+  let gateIntent: { startSec: number; sinceMs: number } | null = null;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -355,11 +367,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let workletWarningEmitted = false;
   let stretcher: 'worklet' | 'none' = 'none';
 
-  const sidecarValues = [
-    ...declarations.map(item => validSidecar(item.spec.sidecar) ? item.spec.sidecar : undefined),
-    ...speech.map(item => item.sidecar),
-  ].filter((item): item is PreviewAudioSidecar => Boolean(item));
-  const uniqueSidecars = [...new Map(sidecarValues.map(item => [item.path, item])).values()];
+  const uniqueSidecars = (): PreviewAudioSidecar[] => {
+    const sidecarValues = [
+      ...declarations.map(item => validSidecar(item.spec.sidecar) ? item.spec.sidecar : undefined),
+      ...speech.map(item => item.sidecar),
+    ].filter((item): item is PreviewAudioSidecar => Boolean(item));
+    return [...new Map(sidecarValues.map(item => [item.path, item])).values()];
+  };
   const crossfades = speech.filter(item => finitePositive(item.crossfadeOutSec)).map(item => ({
     id: item.id,
     startSec: item.atSec + item.durationSec - (item.crossfadeOutSec as number),
@@ -726,8 +740,35 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     });
   };
 
+  // cold（sidecar 未生成）では待つものが無いまま予定表が組まれ、後から届いた音が冒頭を失っていた。
+  // ゲートを張っている間は、開始位置の required が解決するまで（上限 3 秒）予定表を組まずに待つ。
+  const waitForGateStart = (positionSec: number, thisGeneration: number): Promise<void> => {
+    if (gateMissingKeys(positionSec, false).length === 0) return Promise.resolve();
+    const remaining = gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1000 - now();
+    if (!(remaining > 0)) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (): void => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        clearTimeout(timer);
+        resolve();
+      };
+      const check = (): void => {
+        if (thisGeneration !== generation || gateMissingKeys(positionSec, false).length === 0) finish();
+      };
+      const timer = setTimeout(finish, remaining);
+      taskWaiters.add(check);
+      check();
+    });
+  };
+
   const replanIfNeeded = (): void => {
-    if (starting) return;
+    if (starting) {
+      replanPending = true;
+      return;
+    }
     const decodedCount = decodedRevision;
     if (!playing) {
       // 失敗 task を開始待ちから外したぶん、「その位置に鳴らせる音源がまだ無い」（outcome=empty）で
@@ -1022,6 +1063,100 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     };
   };
 
+  const supplyKeysAt = (positionSec: number, asPlaying: boolean): {
+    required: string[]; ready: string[]; pendingSidecar: string[]; failed: string[]; noAudio: string[];
+  } => {
+    const requiredTasks = tasks.filter(task => {
+      if (task.at > positionSec || task.state === 'no-audio') return false;
+      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
+        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
+          .find(finitePositive) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find(item => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
+        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map(task => task.key);
+    const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
+      && (task.state === 'decode' || (task.state === 'windowed'
+        && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))))
+      .map(task => task.key);
+    const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
+    const failed = tasks.filter(task => windowFailures.has(task.key)
+      || (task.failedAtMs !== null && !task.resolved())).map(task => task.key);
+    const noAudio = tasks.filter(task => task.state === 'no-audio').map(task => task.key);
+    return { required, ready, pendingSidecar, failed, noAudio };
+  };
+
+  /** 開始位置で鳴っているはずなのに、まだ揃っていない required。失敗と no-audio は待たない。 */
+  const gateMissingKeys = (positionSec: number, asPlaying: boolean): string[] => {
+    const keys = supplyKeysAt(positionSec, asPlaying);
+    return keys.required.filter(key => !keys.ready.includes(key)
+      && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+  };
+
+  /** 開始位置の required がまだ揃っていないときの hold の理由。揃っていれば null。 */
+  const gateReasonAt = (positionSec: number): 'first-window' | 'sidecar' | null => {
+    const keys = supplyKeysAt(positionSec, true);
+    const missing = keys.required.filter(key => !keys.ready.includes(key)
+      && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+    if (missing.length === 0) return null;
+    return missing.some(key => keys.pendingSidecar.includes(key)) ? 'sidecar' : 'first-window';
+  };
+
+  const releaseGate = (): void => {
+    if (!gate.holding) return;
+    gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
+    gateGeneration = -1;
+  };
+  /** 読むたびに世代・上限・readiness を見て、解けていれば解く。 */
+  const gateHolding = (): boolean => {
+    if (!gate.holding) return false;
+    if (gateGeneration !== generation
+      || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000
+      || gateMissingKeys(gate.startSec, true).length === 0) {
+      releaseGate();
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * 空の予定表で gate が降りた後の backoff（500 ms）の隙間。意図の予算内は開始位置に据え置く。
+   * 再試行が hold の起点を作り直さないので、絵は 0 へ戻らず先へも進まない。
+   */
+  const gateIntentHolding = (): boolean => {
+    if (!gateIntent || playing) return false;
+    if (lastStartOutcome !== 'empty') return false;
+    if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) return false;
+    return gateMissingKeys(gateIntent.startSec, true).length > 0;
+  };
+
+  /**
+   * 表示上の gate は「張られている gate 本体」か「backoff の隙間を埋める再生意図」のどちらか。
+   * 呼び手（Web UI / webview）は 1 つの gate として読むので、ここで 1 つに畳んでから返す。
+   */
+  const gateView = (): {
+    holding: boolean;
+    gate: { startSec: number; sinceMs: number; reason: 'first-window' | 'sidecar' | null };
+  } => {
+    if (gateHolding()) return { holding: true, gate };
+    const intent = gateIntent;
+    if (intent && gateIntentHolding()) {
+      return { holding: true, gate: { startSec: intent.startSec, sinceMs: intent.sinceMs, reason: gateReasonAt(intent.startSec) } };
+    }
+    return { holding: false, gate };
+  };
+
   // 途中で seek / pause が世代を進めたら黙って降りる（新しい startFrom が starting を持っている）。
   // 自分が最新世代のときだけ starting を戻す。以前は superseded な呼び出しも starting=false を
   // 書いていたため、進行中の新しい startFrom と並んで 3 本目が走れた。
@@ -1033,6 +1168,27 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
+    const gateStartSec = clamp(options.pinStart ? seconds : latestRequestedSec);
+    // 再生中の組み直し（replanIfNeeded の pinStart 起動）は音声時計が既に走っているので hold しない。
+    if (playing) {
+      releaseGate();
+    } else {
+      // 「その窓が実際に取れているか」で見るため readiness は再生中と同じ規則（bufferedUntil）で評価する。
+      const reason = gateReasonAt(gateStartSec);
+      if (reason === null) {
+        releaseGate();
+      } else {
+        gateIntent ??= { startSec: gateStartSec, sinceMs: now() };
+        if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) {
+          releaseGate();
+        } else {
+          gate = {
+            holding: true, startSec: gateIntent.startSec, sinceMs: gateIntent.sinceMs, reason,
+          };
+          gateGeneration = thisGeneration;
+        }
+      }
+    }
     let outcome: 'started' | 'empty' | 'failed' = 'failed';
     try {
       await ensureDecodedUpTo(clamp(options.pinStart ? seconds : latestRequestedSec));
@@ -1044,6 +1200,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         return;
       }
       if (thisGeneration !== generation) return;
+      // 開始位置の音（sidecar 生成待ちを含む）が揃うまで、上限 3 秒だけ予定表を先送りする。
+      if (gateHolding()) {
+        await waitForGateStart(gateStartSec, thisGeneration);
+        if (thisGeneration !== generation) return;
+      }
       const speechForSchedule = speech.flatMap(item => {
         const resolved = speechDecoded.get(item.id);
         if (!resolved) return [];
@@ -1058,6 +1219,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       // rAF ごとに壁時計の fallback を latestRequestedSec に書き戻すので、ここで
       // latestRequestedSec を優先すると音声時計から壁時計へ黙って乗り換えてしまう
       // （gpt-6-astra の指摘 P0）。`||` は 0 秒を落とすので使わない。
+      // 窓待ち中に届く更新は、この予定表にはまだ含まれない。
+      const planDecodedCount = decodedRevision;
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp(options.pinStart ? seconds : latestRequestedSec),
@@ -1087,7 +1250,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = decodedRevision;
+      scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule
         .filter(item => item.sidecar || item.atempo).map(item => item.id));
       const skipped: string[] = [];
@@ -1108,8 +1271,16 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
+        // 開始できなかったときは gate を解く。空の予定表なら再生意図の予算は再試行へ引き継ぐ。
+        // 開始できたときは readiness（最初の窓）と上限だけが hold を解く。
+        if (outcome !== 'started') releaseGate();
+        if (outcome === 'failed') gateIntent = null;
         starting = false;
         lastStartOutcome = outcome;
+        if (replanPending) {
+          replanPending = false;
+          replanIfNeeded();
+        }
       }
     }
   };
@@ -1131,8 +1302,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const pause = (): void => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
+    releaseGate();
+    gateIntent = null;
     playing = false;
     starting = false;
+    replanPending = false;
     lastStartOutcome = null;
     stopSources();
   };
@@ -1144,46 +1318,23 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   const debug = (): PreviewAudioSupplyDebug => {
+    const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap(src => {
       const metric = speechMetrics.get(src);
       return metric ? [metric] : [];
     });
     const positionSec = playing ? audioPosition() : latestRequestedSec;
-    const requiredTasks = tasks.filter(task => {
-      if (task.at > positionSec || task.state === 'no-audio') return false;
-      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
-      if (regular) {
-        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
-        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
-          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
-          .find(finitePositive) ?? Infinity;
-        return positionSec < firstUseRegular(regular) + durationSec;
-      }
-      const spoken = speech.find(item => `speech:${item.id}` === task.key);
-      if (spoken) {
-        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
-          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
-        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
-        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
-      }
-      return true;
-    });
-    const required = requiredTasks.map(task => task.key);
-    const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
-      && (task.state === 'decode' || (task.state === 'windowed'
-        && (bufferedUntil[task.key] ?? -Infinity) > positionSec)))
-      .map(task => task.key);
-    const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
-    const failed = tasks.filter(task => windowFailures.has(task.key)
-      || (task.failedAtMs !== null && !task.resolved())).map(task => task.key);
-    const noAudio = tasks.filter(task => task.state === 'no-audio').map(task => task.key);
+    const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
     const phase = required.length === 0 ? 'idle'
       : required.some(key => pendingSidecar.includes(key)) ? 'preparing'
         : required.some(key => failed.includes(key)) ? 'degraded'
           : required.every(key => ready.includes(key)) ? 'ready' : 'preparing';
+    // gate 本体と再生意図を畳んだ 1 つの gate として読む（`gate` はこのスコープの実効値）。
+    const { holding, gate } = gateView();
     return {
-      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil } },
+      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil },
+        gate: { holding, startSec: holding ? gate.startSec : 0, heldMs: holding ? now() - gate.sinceMs : 0, reason: holding ? gate.reason : null } },
       contextState: context?.state ?? 'unavailable',
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -1217,9 +1368,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 }),
       },
       sidecars: {
-        generated: uniqueSidecars.filter(item => item.skipped === false).length,
-        skipped: uniqueSidecars.filter(item => item.skipped === true).length,
-        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes! : 0), 0),
+        generated: sidecars.filter(item => item.skipped === false).length,
+        skipped: sidecars.filter(item => item.skipped === true).length,
+        bytes: sidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes! : 0), 0),
       },
       crossfades,
       speechDecode: {
@@ -1311,14 +1462,26 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     },
     playFrom(seconds) {
       latestRequestedSec = clamp(seconds);
-      if (context && !playing && !starting) launch(latestRequestedSec);
+      if (context && !playing && !starting) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     position(fallbackSeconds) {
+      if (gateHolding()) { latestRequestedSec = gate.startSec; return gate.startSec; }
+      if (gateIntentHolding()) { latestRequestedSec = gateIntent!.startSec; return gateIntent!.startSec; }
       latestRequestedSec = clamp(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
-      latestRequestedSec = clamp(fallbackSeconds);
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        armPauseWatchdog();
+        return gate.startSec;
+      }
+      // 隙間でも開始位置を据え置いたまま、backoff 明けの再 launch は従来どおり行う。
+      if (gateIntentHolding()) latestRequestedSec = gateIntent!.startSec;
+      else latestRequestedSec = clamp(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
       if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
@@ -1327,11 +1490,18 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp(seconds);
       generation += 1;
+      releaseGate();
       playing = false;
       starting = false;
+      replanPending = false;
       lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) launch(latestRequestedSec);
+      // 実際に再開するときだけ新しい再生意図を作る（止めるだけのシークは意図を捨てる）。
+      gateIntent = null;
+      if (continuePlaying && context) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     pause,
     setRate(value) {
@@ -1345,10 +1515,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       routeMasterBus();
       if (wasPlaying || wasStarting) {
         generation += 1;
+        releaseGate();
         playing = false;
         starting = false;
+        replanPending = false;
         lastStartOutcome = null;
         stopSources();
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
         launch(latestRequestedSec);
       }
     },

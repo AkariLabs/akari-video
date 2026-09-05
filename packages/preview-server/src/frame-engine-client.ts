@@ -29,7 +29,6 @@ import type {
   PreviewAudioSupply,
   PreviewAudioSupplyDebug,
   ResolvedTimelinePlan,
-  TimelineSourceRegistry,
 } from '../../frame-engine/src/index.ts';
 import type { PreviewAudioDeclaration, PreviewSpeechDeclaration } from '../../frame-engine/src/audio/preview-audio-supply.ts';
 
@@ -282,7 +281,9 @@ function autoProxyPath(url: string): string {
 async function requestAutoProxy(
   candidate: SourceCandidate,
   ui: ReturnType<typeof createUi>,
+  isCurrent: () => boolean,
 ): Promise<string | null> {
+  if (!isCurrent()) return null;
   const path = autoProxyPath(candidate.originalUrl);
   ui.showNotice(`プロキシ生成中…（${candidate.id}）`);
   try {
@@ -293,7 +294,7 @@ async function requestAutoProxy(
     });
     if (!start.ok) return null;
     const deadline = Date.now() + 300_000;
-    while (Date.now() < deadline) {
+    while (isCurrent() && Date.now() < deadline) {
       const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
       if (!response.ok) return null;
       const result = await response.json();
@@ -307,83 +308,203 @@ async function requestAutoProxy(
   }
 }
 
+// Keep this selector self-contained so startup requirements can be checked without a browser.
+function initialSourceIds(
+  edit: any,
+  timelineData: any,
+  cuts: readonly FrameEngineCut[],
+  layers: readonly FrameEngineLayer[],
+  atSeconds: number,
+): Set<string> {
+  const ids = new Set<string>();
+  if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
+  const finite = (value: unknown, fallback: number): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  const cursors = new Map<number, number>();
+  const overlaps = new Map<number, number>();
+  // Same virtual duration and per-track cursor as buildResolvedTimelinePlan/computeCutTrackSegments.
+  for (const cut of cuts) {
+    const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
+    const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite(cut.freeze?.duration_sec, 0));
+    const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
+    const at = Number.isFinite(cut.at) && Number(cut.at) >= 0
+      ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
+    const end = at + duration;
+    cursors.set(track, end);
+    overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
+    if (atSeconds >= at && atSeconds < end) {
+      const id = cut.src ?? edit?.sources?.[0]?.id ?? 'default';
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  const fps = finite(timelineData?.fps, 30) > 0 ? finite(timelineData?.fps, 30) : 30;
+  const frame = Math.floor(atSeconds * fps + 1e-9);
+  for (const layer of layers) {
+    const start = Math.max(0, Math.ceil(finite(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite(layer.t, 0)
+      + Math.max(0, finite(layer.duration, 0))) * fps - 1e-6));
+    if (frame < start || frame >= end || layer.kind === 'filter') continue;
+    for (const id of [layer.src, layer.mask]) {
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
 async function resolveSourceChoices(
   candidates: Map<string, SourceCandidate>,
   context: {
     mode: 'auto' | 'proxy' | 'original';
     ui: ReturnType<typeof createUi>;
     cutSourceIds: ReadonlySet<string>;
+    initialIds: ReadonlySet<string>;
+    firstUses: ReadonlyMap<string, number>;
+    isCurrent(): boolean;
   },
-): Promise<Map<string, SourceChoice>> {
+): Promise<{ choices: Map<string, SourceChoice>; startBackground(runtime: FrameEngineRuntime): void }> {
   const choices = new Map<string, SourceChoice>();
-  for (const candidate of candidates.values()) {
+  const completedProxies = new Map<string, SourceChoice>();
+  const pendingProxies = new Set<string>();
+  const failedProxies = new Set<string>();
+  let target: FrameEngineRuntime | null = null;
+  const apply = async (choice: SourceChoice) => {
+    if (!context.isCurrent() || !target) return;
+    await target.applySourceChoice(choice.id, choice);
+    // Metadata can finish resolving even when the decoder URL/support are unchanged.
+    if (context.isCurrent()) choices.set(choice.id, choice);
+  };
+  const updateNotice = () => {
+    if (!context.isCurrent()) return;
+    const failed = failedProxies.values().next().value;
+    const pending = pendingProxies.values().next().value;
+    if (failed) context.ui.showNotice(`プロキシを生成できませんでした（${failed}）`);
+    else if (pending) context.ui.showNotice(`プロキシ生成中…（${pending}）`);
+    else context.ui.clearNotice();
+  };
+  const resolveCandidate = async (candidate: SourceCandidate): Promise<SourceChoice> => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
         reason: 'not-a-cut-source',
         support: null,
-      });
-      continue;
+      };
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id, url: candidate.originalUrl, chosen: 'image', reason: 'still-image',
-      });
-      continue;
+      };
     }
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision = chooseSource({ mode: context.mode, hasProxy, support: null });
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: decision.chosen === 'proxy' ? candidate.proxyUrl! : candidate.originalUrl,
         chosen: decision.chosen,
         reason: decision.reason,
         support: null,
-      });
-      continue;
+      };
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: '1' } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === 'original') {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
         reason: decision.reason,
         ...(codec ? { codec } : {}),
         support: probe.support,
-      });
+      };
     } else if (decision.chosen === 'proxy') {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.proxyUrl!,
         chosen: 'proxy',
         reason: decision.reason,
         ...(codec ? { codec } : {}),
         support: null,
-      });
+      };
     } else {
-      const proxyUrl = await requestAutoProxy(candidate, context.ui);
-      choices.set(candidate.id, {
+      const provisional: SourceChoice = {
         id: candidate.id,
-        url: proxyUrl ?? candidate.originalUrl,
-        chosen: proxyUrl ? 'auto-proxy' : 'original',
-        reason: proxyUrl ? 'auto-proxy' : 'auto-proxy-failed',
-        codec: probe.support.codec,
-        support: proxyUrl ? null : probe.support,
+        url: candidate.originalUrl,
+        chosen: 'original',
+        reason: 'auto-proxy-pending',
+        ...(codec ? { codec } : {}),
+        support: probe.support,
+      };
+      if (context.isCurrent()) {
+        pendingProxies.add(candidate.id);
+        void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async proxyUrl => {
+          if (!context.isCurrent()) return;
+          pendingProxies.delete(candidate.id);
+          if (!proxyUrl) failedProxies.add(candidate.id);
+          const choice: SourceChoice = {
+            ...provisional,
+            url: proxyUrl ?? candidate.originalUrl,
+            chosen: proxyUrl ? 'auto-proxy' : 'original',
+            reason: proxyUrl ? 'auto-proxy' : 'auto-proxy-failed',
+            support: proxyUrl ? null : probe.support,
+          };
+          completedProxies.set(candidate.id, choice);
+          updateNotice();
+          await apply(choice);
+        }).catch(error => {
+          if (context.isCurrent()) console.warn('[frame-engine] source replacement failed', error);
+        });
+      }
+      return provisional;
+    }
+  };
+  const remaining: SourceCandidate[] = [];
+  for (const candidate of candidates.values()) {
+    const immediate = !context.cutSourceIds.has(candidate.id)
+      || /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (immediate || context.initialIds.has(candidate.id)) {
+      choices.set(candidate.id, await resolveCandidate(candidate));
+      if (!context.isCurrent()) break;
+    } else {
+      choices.set(candidate.id, {
+        id: candidate.id, url: candidate.originalUrl, chosen: 'original',
+        reason: 'pending-probe', support: null,
       });
-      if (!proxyUrl) context.ui.showNotice(`プロキシを生成できませんでした（${candidate.id}）`);
+      remaining.push(candidate);
     }
   }
-  if (![...choices.values()].some(choice => choice.reason === 'auto-proxy-failed')) {
-    context.ui.clearNotice();
-  }
-  return choices;
+  remaining.sort((left, right) => (context.firstUses.get(left.id) ?? Infinity)
+    - (context.firstUses.get(right.id) ?? Infinity));
+  return {
+    choices,
+    startBackground(runtime) {
+      if (!context.isCurrent() || target) return;
+      target = runtime;
+      for (const choice of completedProxies.values()) {
+        void apply(choice).catch(error => console.warn('[frame-engine] source replacement failed', error));
+      }
+      let cursor = 0;
+      const worker = async () => {
+        while (context.isCurrent()) {
+          const candidate = remaining[cursor++];
+          if (!candidate) return;
+          try {
+            const choice = await resolveCandidate(candidate);
+            // A fast proxy completion takes precedence over its provisional choice.
+            await apply(completedProxies.get(candidate.id) ?? choice);
+          } catch (error) {
+            if (context.isCurrent()) console.warn(`[frame-engine] source ${candidate.id}:`, error);
+          }
+        }
+      };
+      void worker();
+      void worker();
+    },
+  };
 }
 
 function createUi(stage: HTMLElement): {
@@ -458,7 +579,7 @@ class FrameEngineRuntime {
   private readonly pools = new Map<string, ClipSessionPool>();
   private readonly lookahead = new Map<string, LookaheadFrameSource>();
   private readonly images = new Map<string, CachedStillImageSource>();
-  private readonly sources: TimelineSourceRegistry;
+  private readonly sources = new Map<string, NativeFrameSource | CachedStillImageSource>();
   private readonly timeline: ResolvedTimelinePlan;
   private readonly compositor: WebGL2Compositor;
   private readonly frameMetrics = new FrameMetrics();
@@ -494,7 +615,6 @@ class FrameEngineRuntime {
     });
     const cuts = normalizedCuts(edit);
     const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
-    const videoSources = new Map<string, NativeFrameSource>();
     const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
@@ -510,49 +630,13 @@ class FrameEngineRuntime {
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
-        this.images.set(id, new CachedStillImageSource(url));
+        const image = new CachedStillImageSource(url);
+        this.images.set(id, image);
+        this.sources.set(id, image);
         continue;
       }
-      const choice = sourceChoices.get(id);
-      const pool = new ClipSessionPool(id, url, {
-        codecSupport: choice?.support,
-        onWarning: message => this.showError(message, false),
-        onSoftwareFallbackDenied: support => {
-          if (!(choice?.support?.hw || choice?.support?.any)) {
-            this.ui.showNotice(`ソフトウェアデコード非対応: ${support.codec}`);
-          }
-        },
-      });
-      // 先読みキャッシュの枚数 = デコーダの出力 surface を握り続ける枚数。12 枚だと Windows の
-      // D3D11 HW デコーダ（4K HEVC）が surface 切れで黙り、入力を飲み込んだまま 1 枚も出さなくなる
-      // （LookaheadCache.makeRoom の注記 = issue #28 と同じ機構）。実機 2026-09-05・90 秒再生:
-      //   12 枚: 凍結 11 回（最長 9 s）・デコーダ作り直し 49 回・17 fps
-      //    6 枚: 凍結 0 回・作り直し 0 回・30 fps・カット境界の late 0/1
-      //    3 枚: 凍結 0 回・作り直し 3 回・23 fps
-      // 6 が滑らかさと境界先読みの両立点。恒久策（内外で surface 予算を共有し、GOP をまたいで
-      // 供給を続ける）は別票。
-      const source = new LookaheadFrameSource(pool, {
-        fps,
-        capacity: 6,
-        onAccess: access => this.currentAccesses?.push(access),
-      });
-      const observedSource: NativeFrameSource = {
-        decode: async (timeUs, metrics, request) => {
-          const frame = await source.decode(timeUs, metrics, request);
-          this.currentDecodedFrames?.push({
-            streamId: request?.streamId ?? 'default',
-            requestedUs: timeUs,
-            timestampUs: frame.timestamp,
-            durationUs: frame.duration ?? null,
-          });
-          return frame;
-        },
-      };
-      this.pools.set(id, pool);
-      this.lookahead.set(id, source);
-      videoSources.set(id, observedSource);
+      this.sources.set(id, this.createVideoSource(id, url));
     }
-    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: engineLayers as FrameEngineLayer[],
@@ -628,18 +712,97 @@ class FrameEngineRuntime {
     this.updateMetrics();
   }
 
-  async prime(): Promise<void> {
+  private createVideoSource(id: string, url: string): NativeFrameSource {
+    const choice = this.sourceChoices.get(id);
+    const pool = new ClipSessionPool(id, url, {
+      codecSupport: choice?.support,
+      onWarning: message => this.showError(message, false),
+      onSoftwareFallbackDenied: support => {
+        if (!(choice?.support?.hw || choice?.support?.any)) {
+          this.ui.showNotice(`ソフトウェアデコード非対応: ${support.codec}`);
+        }
+      },
+    });
+    // 先読みキャッシュの枚数 = デコーダの出力 surface を握り続ける枚数。12 枚だと Windows の
+    // D3D11 HW デコーダ（4K HEVC）が surface 切れで黙り、入力を飲み込んだまま 1 枚も出さなくなる
+    // （LookaheadCache.makeRoom の注記 = issue #28 と同じ機構）。実機 2026-09-05・90 秒再生:
+    //   12 枚: 凍結 11 回（最長 9 s）・デコーダ作り直し 49 回・17 fps
+    //    6 枚: 凍結 0 回・作り直し 0 回・30 fps・カット境界の late 0/1
+    //    3 枚: 凍結 0 回・作り直し 3 回・23 fps
+    // 6 が滑らかさと境界先読みの両立点。恒久策（内外で surface 予算を共有し、GOP をまたいで
+    // 供給を続ける）は別票。
+    const source = new LookaheadFrameSource(pool, {
+      fps: this.fps,
+      capacity: 6,
+      onAccess: access => this.currentAccesses?.push(access),
+    });
+    const observedSource: NativeFrameSource = {
+      decode: async (timeUs, metrics, request) => {
+        const frame = await source.decode(timeUs, metrics, request);
+        this.currentDecodedFrames?.push({
+          streamId: request?.streamId ?? 'default',
+          requestedUs: timeUs,
+          timestampUs: frame.timestamp,
+          durationUs: frame.duration ?? null,
+        });
+        return frame;
+      },
+    };
+    this.pools.set(id, pool);
+    this.lookahead.set(id, source);
+    return observedSource;
+  }
+
+  async prime(start = 0): Promise<void> {
     // 音声の先読みは映像の初回描画より前に投げる。後ろに置くと、最初の 2 フレームが
     // 描けない案件（実機 2026-09-05: 9〜10GB の HEVC 4 本 + proxy 生成待ち）で
     // ここへ到達できず、音声を 1 バイトも取りに行かないまま無音になる。
     // prime() は fire-and-forget なので、以降の描画とは並行して進む。
     this.audio.prime();
     const first = performance.now();
-    await this.renderFrame(0, 'seek', first);
-    const second = performance.now();
-    await this.renderFrame(0, 'seek', second);
+    // renderFrame rebuilds the same evaluation plan at the same time; a second draw only hits
+    // warmed lookahead/pools, with no change in output quality. One presentation is sufficient.
+    await this.renderFrame(start, 'seek', first);
+    if (this.disposed) return;
     this.ui.root.dataset.frameEngineReady = 'true';
     this.scheduler.primeHeaders();
+    this.scheduler.warmupNextBoundary(start);
+  }
+
+  currentTime(): number {
+    return this.lastPresentedSec;
+  }
+
+  async applySourceChoice(id: string, choice: SourceChoice): Promise<void> {
+    if (this.disposed) return;
+    const current = this.sourceChoices.get(id);
+    const sameSupport = (current?.support ?? null) === (choice.support ?? null)
+      || (current?.support != null && choice.support != null
+        && current.support.codec === choice.support.codec
+        && current.support.hw === choice.support.hw
+        && current.support.sw === choice.support.sw
+        && current.support.any === choice.support.any);
+    if (current?.url === choice.url && sameSupport) return;
+    // Wait for every active render, including a newly requested seek. This also protects sources
+    // entering the next frame, beyond those used by the last presented base/layer/mask.
+    while (this.rendering && !this.disposed) await this.waitForRender();
+    if (this.disposed) return;
+    this.lookahead.get(id)?.clear();
+    this.pools.get(id)?.destroy();
+    this.images.get(id)?.destroy();
+    this.sourceChoices.set(id, choice);
+    if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(choice.url)) {
+      this.pools.delete(id);
+      this.lookahead.delete(id);
+      const image = new CachedStillImageSource(choice.url);
+      this.images.set(id, image);
+      this.sources.set(id, image);
+    } else {
+      this.images.delete(id);
+      this.sources.set(id, this.createVideoSource(id, choice.url));
+    }
+    // Keep the maps captured by the scheduler alive; snapshot() reads the current choices.
+    this.updateMetrics();
   }
 
   seek(seconds: number): number {
@@ -689,7 +852,14 @@ class FrameEngineRuntime {
     return this.audio.debug();
   }
 
+  /** ゲートで共通時計を据え置いている間の開始位置。据え置いていなければ null。 */
+  heldStartSec(): number | null {
+    const gate = this.audio.debug().supply.gate;
+    return gate.holding ? gate.startSec : null;
+  }
+
   dispose(): void {
+    if (this.disposed) return;
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
@@ -723,6 +893,7 @@ class FrameEngineRuntime {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
     this.lastBaseFrame = this.currentDecodedFrames.find(observation =>
@@ -820,9 +991,17 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   updateAudio(edit: any): void;
   dispose(): void;
   audioDebug(): PreviewAudioSupplyDebug;
+  heldStartSec(): number | null;
 }> {
   const ui = createUi(options.stage);
-  const prepareRuntime = async (edit: any, timelineData: any, fps: number): Promise<FrameEngineRuntime> => {
+  let generation = 0;
+  let disposed = false;
+  let preparingRuntime: FrameEngineRuntime | null = null;
+  const prepareRuntime = async (
+    edit: any, timelineData: any, fps: number, start: number,
+  ): Promise<FrameEngineRuntime | null> => {
+    const token = ++generation;
+    const isCurrent = () => !disposed && token === generation;
     ui.clearNotice();
     const params = new URLSearchParams(window.location.search);
     let forceSoftware = params.get('frameEngineForceSw') === '1';
@@ -832,37 +1011,77 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     } catch {
       // Codec capability probing remains optional when the server endpoint is unavailable.
     }
+    if (!isCurrent()) return null;
     setForceSoftwareDecode(forceSoftware);
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const choices = await resolveSourceChoices(candidates, {
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    const firstUses = new Map<string, number>();
+    const noteUse = (id: string | undefined, seconds: number) => {
+      if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
+    };
+    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    for (const layer of layers) {
+      noteUse(layer.src, layer.t);
+      noteUse(layer.mask, layer.t);
+    }
+    const resolution = await resolveSourceChoices(candidates, {
       mode: parseSourceSelectionMode(params.get('frameEngineSource')),
       ui,
       cutSourceIds: new Set(cuts.map(cut => String(cut.src))),
+      initialIds: initialSourceIds(edit, { ...timelineData, fps }, cuts, layers, start),
+      firstUses,
+      isCurrent,
     });
-    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+    if (!isCurrent()) return null;
+    const prepared = new FrameEngineRuntime(ui, edit, timelineData, fps, resolution.choices);
+    preparingRuntime = prepared;
+    try {
+      await prepared.prime(start);
+      if (!isCurrent()) {
+        prepared.dispose();
+        return null;
+      }
+      // No remaining probes or completed proxy replacements can block the first presentation.
+      resolution.startBackground(prepared);
+      return prepared;
+    } catch (error) {
+      prepared.dispose();
+      if (!isCurrent()) return null;
+      throw error;
+    } finally {
+      if (preparingRuntime === prepared) preparingRuntime = null;
+    }
   };
-  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
-  await runtime.prime();
+  let runtime = (await prepareRuntime(options.edit, options.timelineData, options.fps, 0))!;
   const preview = {
     snapshot: () => runtime.snapshot(),
     seek: seconds => runtime.seek(seconds),
     renderPlayback: seconds => runtime.renderPlayback(seconds),
     async rebuild(edit, timelineData, fps) {
+      if (disposed) return;
+      const start = runtime.currentTime();
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = 'false';
-      runtime = await prepareRuntime(edit, timelineData, fps);
-      await runtime.prime();
+      const prepared = await prepareRuntime(edit, timelineData, fps, start);
+      if (prepared) runtime = prepared;
     },
     dispose() {
+      disposed = true;
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       ui.root.remove();
     },
     updateAudio: edit => runtime.updateAudio(edit),
     audioDebug: () => runtime.audioDebug(),
+    heldStartSec: () => runtime.heldStartSec(),
   };
   (window as any).akariFrameEngineAudioDebug = () => runtime.audioDebug();
   return preview;

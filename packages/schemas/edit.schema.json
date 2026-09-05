@@ -1151,9 +1151,11 @@
         "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
         "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } },
         "speed": { "$ref": "#/$defs/positiveNumber" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "mute": { "type": "boolean" },
         "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。gain_db / mute は埋め込み音声（speech）の減衰 / ミュートで、書き出しとプレビューで同値。省略時は gain 0・鳴る。"
     },
     "itemSourceAudioMediaV2": {
       "type": "object",

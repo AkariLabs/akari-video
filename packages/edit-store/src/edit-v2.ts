@@ -83,6 +83,10 @@ export interface MediaSourceV2 {
     freeze?: Record<string, unknown> | null;
     fx?: unknown[];
     speed?: number;
+    /** 埋め込み音声（speech）の音量 dB。-60〜12・省略時 0。 */
+    gain_db?: number;
+    /** 埋め込み音声（speech）のミュート。省略時 false。 */
+    mute?: boolean;
     chroma_key?: Record<string, unknown> | null;
 }
 
@@ -619,7 +623,7 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
     switch (value.kind) {
         case 'media':
             requireExactKeys(value, new Set([
-                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key', 'gain_db', 'mute'
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
@@ -631,6 +635,8 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             }
             if (hasOwn(value, 'fx') && !Array.isArray(value.fx)) throw invalid(`${path}.fx`, '配列である必要があります');
             if (hasOwn(value, 'speed')) requirePositiveNumber(value.speed, `${path}.speed`);
+            if (hasOwn(value, 'gain_db')) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+            if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean') throw invalid(`${path}.mute`, 'boolean である必要があります');
             return;
         case 'html':
             requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'exclude', 'derivedFrom', 'vars', 'params']), path);
