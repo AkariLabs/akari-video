@@ -97,6 +97,7 @@ function createOverlayRuntime(options = {}) {
 
   function unmount() {
     for (const overlay of mountedOverlays) {
+      if (overlay.isGlass) window.akari.glassRuntime?.dispose(overlay.container);
       if (overlay.isThreeDimensional) {
         window.akari.threeRuntime?.dispose(overlay.container);
       }
@@ -177,6 +178,9 @@ function createOverlayRuntime(options = {}) {
         overlay.params
       );
       container.replaceChildren(rendered ?? template.content.cloneNode(true));
+      if (container.querySelector('[data-akari-glass-scene]') && overlay.htmlPath) {
+        container.setAttribute("data-akari-glass-base", new URL(overlay.htmlPath, document.baseURI).href);
+      }
 
       // ビューポート単位（vw / vh / vmin / vmax 系）をステージ基準へ書き換える
       // （viewport-units.js）。プレビューはステージを scale() で縮めるため、素の vw は
@@ -222,6 +226,7 @@ function createOverlayRuntime(options = {}) {
           },
           isBackground,
         } : {}),
+        isGlass: Boolean(container.querySelector('script[type="application/json"][data-akari-glass-scene]')),
         isThreeDimensional: Boolean(
           container.querySelector(
             'script[type="application/json"][data-akari-3d-scene]'
@@ -263,6 +268,7 @@ function createOverlayRuntime(options = {}) {
         // 非可視の間 Animation 参照を持ち越さない。
         overlay.animations = undefined;
         overlay.animationsAt = 0;
+        if (!visible && overlay.isGlass) window.akari.glassRuntime?.dispose(overlay.container);
         if (!visible && overlay.isThreeDimensional && !premount) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
@@ -319,6 +325,7 @@ function createOverlayRuntime(options = {}) {
         animation.pause();
         animation.currentTime = localTimeMs;
       }
+      if (overlay.isGlass) window.akari.glassRuntime?.render(overlay.container, localTimeMs / 1000, {});
       if (overlay.isThreeDimensional) {
         // syncVideos: ライブプレビューでは動画テクスチャの時刻を誰も進めないので、
         // ここで overlay のローカル時刻へ合わせる（書き出しは rasterize が自前で

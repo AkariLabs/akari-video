@@ -53,6 +53,9 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）。ランタイム読込後、
    `font` 省略を許すホストは mount より前に
    `window.akari.threeRuntime.configure({ defaultFontUrl })` を 1 回呼ぶ
+   ガラス宣言を扱うホストは `src/glass-runtime.js` を `src/overlay-runtime.js` より前に読み込む。
+   `backdrop` は断片相対。ホストは `htmlPath` を配信 URL で渡すか、宣言の `backdrop` を配信 URL に解決する。
+   preview-server は素材同梱の `runtime/glass-runtime.js` を読み込む。
 4. テキスト分割断片（`data-akari-split`）を扱うホストは、`src/interaction.js` より前に
    `src/vendor/budoux-ja-bundle.js` → `src/text-split.js` の順で読み込む。
    未読込でも他機能は動くが、日本語の文節分割が精度の落ちる近似になり
