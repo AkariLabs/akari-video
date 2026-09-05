@@ -361,9 +361,15 @@ jobs:
             } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+          shopt -s nullglob
+          dmgs=(electron-builder-out/*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
           submission_json="$RUNNER_TEMP/mac-dmg-notarization.json"
           submit_result=0
-          xcrun notarytool submit electron-builder-out/shell-mac.dmg \
+          xcrun notarytool submit "$dmg" \
             --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID_SECRET" \
             --issuer "$APPLE_API_ISSUER_SECRET" --wait --timeout 30m --output-format json \
             > "$submission_json" || submit_result=$?
@@ -378,10 +384,11 @@ jobs:
             echo "DMG 公証失敗: status=$status, submission id=$submission_id" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          xcrun stapler staple electron-builder-out/shell-mac.dmg
+          xcrun stapler staple "$dmg"
           {
             echo '### ✅ mac DMG 公証 + staple 完了'
             echo ""
+            echo "DMG: $dmg"
             echo "submission id: $submission_id"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -411,9 +418,15 @@ jobs:
             echo '未署名ビルドのため署名検証ゲートをスキップ' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          shopt -s nullglob
+          dmgs=(*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
           result=0
-          bash "$GITHUB_WORKSPACE/scripts/release/verify-mac-artifacts.sh" shell-mac.dmg shell-mac.zip \
+          bash "$GITHUB_WORKSPACE/scripts/release/verify-mac-artifacts.sh" "$dmg" shell-mac.zip \
             | tee -a "$GITHUB_STEP_SUMMARY" || result=$?
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$result"

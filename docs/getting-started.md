@@ -345,16 +345,17 @@ or a session is the current recommendation for your first step.
 
 #### Verifying the macOS download
 
-Mount the DMG and verify the `.app` inside. This volume name was measured with v0.1.42; adjust it for other versions.
+Mount the downloaded DMG (file name varies by version) and verify the `.app` inside. Run these commands in the folder where you saved the DMG.
 ```sh
-hdiutil attach shell-mac.dmg
-app='/Volumes/AKARI Video 0.1.42-arm64/AKARI Video.app'
+dmg=$(ls *.dmg | head -1)
+hdiutil attach "$dmg"
+app=$(ls -d "/Volumes/AKARI Video"*/"AKARI Video.app" | head -1)
 codesign --verify --deep --strict -vv "$app"
 spctl -a -t exec -vv "$app"
 xcrun stapler validate "$app"
 ```
 Expected output includes `valid on disk`, `accepted`, `source=Notarized Developer ID`, `origin=Developer ID Application: nakajima ryoma (WH2ZAX783Q)`, and `The validate action worked!`.
-For releases with DMG signing and notarization, also check the DMG itself with `xcrun stapler validate shell-mac.dmg` and `spctl -a -t open --context context:primary-signature -vv shell-mac.dmg` (not available in v0.1.42).
+For releases that include DMG notarization, also check the DMG itself with `xcrun stapler validate "$dmg"` and `spctl -a -t open --context context:primary-signature -vv "$dmg"`.
 Extract the zip using Finder or `ditto -x -k shell-mac.zip extracted`. Extraction tools that do not preserve symlinks can cause `invalid signature` errors.
 
 ---

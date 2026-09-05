@@ -347,16 +347,17 @@ Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の
 
 #### ダウンロードした macOS 版の署名を確認する
 
-DMG をマウントし、中の `.app` を検証します。以下は v0.1.42 で実測したボリューム名です（別の版では読み替えてください）。
+ダウンロードした DMG（ファイル名は版によって異なる）をマウントし、中の `.app` を検証します。DMG を保存したフォルダで実行してください。
 ```sh
-hdiutil attach shell-mac.dmg
-app='/Volumes/AKARI Video 0.1.42-arm64/AKARI Video.app'
+dmg=$(ls *.dmg | head -1)
+hdiutil attach "$dmg"
+app=$(ls -d "/Volumes/AKARI Video"*/"AKARI Video.app" | head -1)
 codesign --verify --deep --strict -vv "$app"
 spctl -a -t exec -vv "$app"
 xcrun stapler validate "$app"
 ```
 期待出力は `valid on disk`、`accepted`、`source=Notarized Developer ID`、`origin=Developer ID Application: nakajima ryoma (WH2ZAX783Q)`、`The validate action worked!` です。
-DMG の署名・公証対応後の版では、DMG 単体も `xcrun stapler validate shell-mac.dmg` と `spctl -a -t open --context context:primary-signature -vv shell-mac.dmg` で確認できます（v0.1.42 は対象外）。
+DMG の署名・公証の本対応を含む版以降は、DMG 単体も `xcrun stapler validate "$dmg"` と `spctl -a -t open --context context:primary-signature -vv "$dmg"` で確認できます。
 zip は Finder または `ditto -x -k shell-mac.zip extracted` で展開してください。symlink を保存しない展開ツールでは `invalid signature` になることがあります。
 
 ---
