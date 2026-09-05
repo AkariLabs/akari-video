@@ -1,4 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
+import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
+import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -1837,6 +1839,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 新規作成時（プレビューがまだ無い状態からの open）だけ activate し、既存 widget への
     // 再 open は revealWidget に留める。options.mode（Theia の WidgetOpenMode 相当）の明示指定が
     // あれば常にそれを優先する（resolveOutputOpenFocusMode 参照）。
+    protected audioMeterDismissedThisSession = false;
+    protected readonly observedAudioMeters = new WeakSet<AkariAudioMeterWidget>();
+
+    protected async attachAudioMeterPassively(): Promise<void> {
+        if (this.audioMeterDismissedThisSession) return;
+        const meter = await this.widgetManager.getOrCreateWidget<AkariAudioMeterWidget>(
+            AkariAudioMeterWidget.FACTORY_ID
+        );
+        if (this.audioMeterDismissedThisSession || meter.isDisposed) return;
+        if (!this.observedAudioMeters.has(meter)) {
+            this.observedAudioMeters.add(meter);
+            meter.onDidDispose(() => { this.audioMeterDismissedThisSession = true; });
+        }
+        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
+    }
+
     async openOutput(uri: URI, options?: any): Promise<WebviewWidget> {
         const editUri = uri.normalizePath();
         try {
@@ -1854,6 +1872,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } else if (mode === 'reveal') {
                 this.shell.revealWidget(widget.id);
             }
+            await this.attachAudioMeterPassively().catch(error =>
+                console.warn('[akari-preview] failed to auto-attach audio meter', error));
             return widget;
         } catch (error) {
             this.reportOpenFailure(editUri, error);
@@ -2186,7 +2206,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
+        let lastAudioMeterFrame: AudioMeterFrame | undefined;
+        widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
+            type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
+            playing: false, channels: lastAudioMeterFrame?.channels ?? 2,
+            engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
+        }));
         disposables.push(widget.onMessage(message => {
+            if (isAudioMeterFrame(message)) {
+                lastAudioMeterFrame = message;
+                this.forwardAudioMeterFrame(widget, message);
+            }
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
@@ -2388,6 +2418,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && Number.isFinite(message.rate)
             && message.rate >= 0.5
             && message.rate <= 3;
+    }
+
+    protected forwardAudioMeterFrame(widget: PreviewWidgetMarker, frame: AudioMeterFrame): void {
+        const editUri = widget.akariPreviewEditUri;
+        const videoUri = (editUri ?? widget.akariPreviewVideoUri)?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent('akari.preview.audioMeter', {
+            detail: {
+                videoUri, kind: editUri ? 'output' : 'raw',
+                type: frame.type, peak: [...frame.peak], rms: [...frame.rms], clip: frame.clip,
+                playing: frame.playing, channels: frame.channels, engine: frame.engine, t: frame.t
+            }
+        }));
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
@@ -5944,6 +5986,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     pitchShiftWarningEmitted = true;
                     console.warn('[akari-preview] pitch-preserving playback unavailable; using native playback rate', error);
                 };
+                const meterAnalyser = context.createAnalyser();
+                meterAnalyser.connect(context.destination);
+                window.akari.legacyAudioMeterAnalyser = meterAnalyser;
                 const routeMasterBus = () => {
                     try { masterGain.disconnect(); } catch (_error) { /* already detached */ }
                     if (pitchShiftNode) {
@@ -5958,14 +6003,14 @@ body { display: grid; place-items: center; padding: 32px; }
                             const ratio = pitchShiftNode.parameters.get('ratio');
                             if (ratio) ratio.value = 1 / playbackRate;
                             masterGain.connect(pitchShiftNode);
-                            pitchShiftNode.connect(context.destination);
+                            pitchShiftNode.connect(meterAnalyser);
                             stretcher = 'worklet';
                             return;
                         } catch (error) {
                             warnPitchShiftUnavailable(error);
                         }
                     }
-                    masterGain.connect(context.destination);
+                    masterGain.connect(meterAnalyser);
                 };
                 routeMasterBus();
                 if (initial.previewAudioWorkletUrl) {
@@ -6411,6 +6456,87 @@ body { display: grid; place-items: center; padding: 32px; }
                 : { disabled: true };
             window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
             window.akari.stageScale = () => frameScale;
+            const measureAudioMeterBlock = (${measureBlock.toString()});
+            const audioMeterDb = (${linearToDbfs.toString()});
+            const audioMeterClip = (${latchClip.toString()});
+            let audioMeterTap = null;
+            let lastAudioMeterAt = -Infinity;
+            let audioMeterWasPlaying = false;
+            let lastAudioMeterZeroTime = null;
+            window.akari.attachAudioMeter = (analyser, engine) => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+                if (!analyser) return;
+                const context = analyser.context;
+                const splitter = context.createChannelSplitter(2);
+                const left = context.createAnalyser();
+                const right = context.createAnalyser();
+                left.fftSize = right.fftSize = 2048;
+                // Only the extra analysis branch is detached. The analyser's existing
+                // destination connection belongs to the audio supply and stays intact.
+                const dispose = () => {
+                    try { analyser.disconnect(splitter); } catch (_error) { /* detached */ }
+                    splitter.disconnect();
+                    left.disconnect();
+                    right.disconnect();
+                };
+                try {
+                    analyser.connect(splitter);
+                    splitter.connect(left, 0);
+                    splitter.connect(right, 1);
+                    // L/R outputs intentionally remain unconnected (no audible second path).
+                    audioMeterTap = {
+                        analyser, left, right, engine, dispose,
+                        leftSamples: new Float32Array(2048), rightSamples: new Float32Array(2048)
+                    };
+                } catch (_error) {
+                    dispose();
+                }
+            };
+            window.akari.audioMeterTick = (time, playing, immediate = false) => {
+                const now = performance.now();
+                const tap = audioMeterTap;
+                const channels = tap && tap.analyser.channelCount === 1 ? 1 : 2;
+                const engine = tap ? tap.engine : initial.frameEngineEnabled === true ? 'frame-engine' : 'legacy';
+                const t = Number.isFinite(time) ? Math.max(0, time) : 0;
+                const clock = engine === 'frame-engine' && window.akari.frameEngineClock;
+                const ended = clock && t >= clock.totalDuration;
+                if (!playing || ended || immediate) {
+                    if (!audioMeterWasPlaying && lastAudioMeterZeroTime === t) return;
+                    audioMeterWasPlaying = false;
+                    lastAudioMeterZeroTime = t;
+                    lastAudioMeterAt = now;
+                    vscode.postMessage({ type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0],
+                        clip: false, playing: false, channels, engine, t });
+                    return;
+                }
+                audioMeterWasPlaying = true;
+                lastAudioMeterZeroTime = null;
+                let left = { peak: 0, rms: 0 };
+                let right = left;
+                if (tap && tap.analyser.context.state === 'running') {
+                    tap.left.getFloatTimeDomainData(tap.leftSamples);
+                    left = measureAudioMeterBlock(tap.leftSamples);
+                    if (channels === 1) right = left;
+                    else {
+                        tap.right.getFloatTimeDomainData(tap.rightSamples);
+                        right = measureAudioMeterBlock(tap.rightSamples);
+                    }
+                }
+                if (now - lastAudioMeterAt < 33) return;
+                lastAudioMeterAt = now;
+                vscode.postMessage({ type: 'akari-preview-audio-meter',
+                    peak: [left.peak, right.peak], rms: [left.rms, right.rms],
+                    clip: audioMeterClip(false, audioMeterDb(Math.max(left.peak, right.peak))),
+                    playing: true, channels, engine, t });
+            };
+            if (window.akari.legacyAudioMeterAnalyser) {
+                window.akari.attachAudioMeter(window.akari.legacyAudioMeterAnalyser, 'legacy');
+            }
+            window.addEventListener('pagehide', () => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+            }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
@@ -7292,6 +7418,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
+                window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                 const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
                 let look = null;
                 if (projectedLook && typeof projectedLook.cubeText === 'string') {
@@ -7553,6 +7680,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
                             audioSupply = createAudioSupplyForSummary(nextSummary, nextCuts, nextDuration);
+                            window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                             previousScheduler.dispose();
                             previousAudioSupply.dispose();
                         }
@@ -7626,6 +7754,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         delete window.akari.frameEngineClock;
                     }
                     delete window.akariFrameEngineAudioAnalyser;
+                    window.akari.attachAudioMeter(null, 'frame-engine');
                     disposed = true;
                     scrub.dispose();
                     scheduler.dispose();
@@ -12692,6 +12821,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateLayerSelectBox();
                     window.akari.runtime.tick(outputTime, isPlaying);
                     window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                    window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
                     updateTransport();
                     updateWaveformPlayhead();
@@ -12793,6 +12923,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 // タイムライン横軸と同じ出力秒（cuts ギャップレス連結後の秒）を送る（音声側も timelineTime で駆動済み）。
                 window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -13483,6 +13614,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
                     window.akari.playbackTick(outputTime, isPlaying, true);
+                    window.akari.audioMeterTick(outputTime, isPlaying, true);
                     return;
                 }
                 // Every intentional pause call site (togglePlayback's stop branch,
@@ -13500,11 +13632,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[activeSegmentIndex];
                 if (isPlaying && segment && segment.kind === 'src' && !isStillSegment(segment) && !video.ended) {
                     window.akari.playbackTick(outputTime, true, true);
+                    window.akari.audioMeterTick(outputTime, true, true);
                     void video.play().catch(error => {
                         console.error('[akari-preview] unexpected pause auto-resume failed', error);
                         window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
                         window.akari.playbackTick(outputTime, false, true);
+                        window.akari.audioMeterTick(outputTime, false, true);
                         if (window.akari.previewAudio) window.akari.previewAudio.pause();
                         stopAnimation();
                     });
@@ -13515,6 +13649,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 isPlaying = false;
                 window.akari.playbackTick(outputTime, false, true);
+                window.akari.audioMeterTick(outputTime, false, true);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
             };
