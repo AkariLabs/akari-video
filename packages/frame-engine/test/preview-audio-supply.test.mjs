@@ -149,6 +149,43 @@ test('seek to 3000 seconds aborts old requests and starts from just one new firs
   await flush();
 });
 
+test('seek to 3000 seconds excludes ended PCM speech from required and reports ready', async t => {
+  const { supply } = pcmSupply(t, {
+    durationSec: 3120,
+    speech: [speech('v-885-speech', 'v-885', '/v-885.mp4', {
+      atSec: 10.4, durationSec: 1447.6, outSec: 1447.6, materialDurationSec: 1447.6,
+      sidecar: pcmDeclaration('v-885-speech', 1447.6).spec.sidecar, sidecarState: 'ready',
+    })],
+  });
+  supply.playFrom(10.4);
+  await flush();
+  assert.ok(supply.debug().supply.required.includes('speech:v-885-speech'));
+  supply.seek(3000, true);
+  await flush();
+  const { required, ready, phase } = supply.debug().supply;
+  assert.deepEqual(required, ['bgm:bed']);
+  assert.ok(!ready.includes('speech:v-885-speech'));
+  assert.equal(phase, 'ready');
+});
+
+test('PCM speech remains required while the current position is inside its interval', async t => {
+  const { supply, context } = pcmSupply(t, {
+    durationSec: 3120,
+    speech: [speech('v-885-speech', 'v-885', '/v-885.mp4', {
+      atSec: 10.4, durationSec: 1447.6, outSec: 1447.6, materialDurationSec: 1447.6,
+      sidecar: pcmDeclaration('v-885-speech', 1447.6).spec.sidecar, sidecarState: 'ready',
+    })],
+  });
+  supply.seek(1000);
+  assert.ok(supply.debug().supply.required.includes('speech:v-885-speech'));
+  supply.playFrom(0);
+  await flush();
+  assert.ok(!supply.debug().supply.required.includes('speech:v-885-speech'));
+  context.currentTime = 10.42;
+  assert.ok(supply.debug().supply.required.includes('speech:v-885-speech'),
+    'playing uses the audio clock even when the last requested position is before speech');
+});
+
 test('future PCM window 500 retries after exactly five seconds without stopping scheduled audio', async t => {
   let attempts = 0;
   const server = rangeServer({ requireRange: true, beforeResponse: request => {

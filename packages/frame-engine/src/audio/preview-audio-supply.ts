@@ -1149,11 +1149,30 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       const metric = speechMetrics.get(src);
       return metric ? [metric] : [];
     });
-    const requiredTasks = tasks.filter(task => task.at <= latestRequestedSec && task.state !== 'no-audio');
+    const positionSec = playing ? audioPosition() : latestRequestedSec;
+    const requiredTasks = tasks.filter(task => {
+      if (task.at > positionSec || task.state === 'no-audio') return false;
+      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
+        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
+          .find(finitePositive) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find(item => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
+        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
     const required = requiredTasks.map(task => task.key);
     const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
       && (task.state === 'decode' || (task.state === 'windowed'
-        && (bufferedUntil[task.key] ?? -Infinity) > (playing ? audioPosition() : latestRequestedSec))))
+        && (bufferedUntil[task.key] ?? -Infinity) > positionSec)))
       .map(task => task.key);
     const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
     const failed = tasks.filter(task => windowFailures.has(task.key)
