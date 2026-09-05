@@ -8,9 +8,6 @@ const extensionRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const shellRoot = path.resolve(extensionRoot, '../..');
 const repoRoot = path.resolve(shellRoot, '../..');
 const outputDirectory = path.join(extensionRoot, 'generated');
-const output = path.join(outputDirectory, 'frame-engine.js');
-const temporaryOutput = path.join(outputDirectory, 'frame-engine.js.tmp');
-const entry = path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts');
 const check = process.argv.includes('--check');
 const require = createRequire(import.meta.url);
 
@@ -45,43 +42,63 @@ if (!buildSync) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
-await rm(temporaryOutput, { force: true });
 const banner = '// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。';
-try {
-  buildSync({
-    entryPoints: [entry],
-    bundle: true,
-    format: 'iife',
+// 2 本とも同じ手順（tmp へ build → --check なら byte 比較・通常は rename）。
+// preview-audio-worklet.js は AudioWorklet 専用エントリなので global-name を持たない。
+const bundles = [
+  {
+    entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'index.ts'),
+    output: path.join(outputDirectory, 'frame-engine.js'),
     globalName: 'AkariFrameEngine',
-    platform: 'browser',
-    target: ['chrome122'],
-    banner: { js: banner },
-    absWorkingDir: repoRoot,
-    outfile: temporaryOutput,
-    logLevel: 'silent'
-  });
-} catch (error) {
-  await rm(temporaryOutput, { force: true });
-  if (check) throw error;
-  skip(error?.message);
-  process.exit(0);
-}
-if (!existsSync(temporaryOutput)) {
-  if (check) throw new Error('esbuild が出力を生成しませんでした');
-  skip('esbuild が出力を生成しませんでした');
-  process.exit(0);
-}
-
-if (check) {
-  if (!existsSync(output) || !Buffer.from(await readFile(output)).equals(Buffer.from(await readFile(temporaryOutput)))) {
-    await rm(temporaryOutput, { force: true });
-    process.stderr.write('frame-engine bundle drift detected\n');
-    process.exitCode = 1;
-  } else {
-    await rm(temporaryOutput, { force: true });
-    process.stdout.write('frame-engine bundle is current\n');
+    label: 'frame-engine bundle'
+  },
+  {
+    entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'audio', 'pitch-shift-worklet.ts'),
+    output: path.join(outputDirectory, 'preview-audio-worklet.js'),
+    label: 'preview-audio-worklet bundle'
   }
-} else {
-  await rename(temporaryOutput, output);
-  console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, output)}`);
+];
+
+for (const bundle of bundles) {
+  const temporaryOutput = `${bundle.output}.tmp`;
+  await rm(temporaryOutput, { force: true });
+  try {
+    buildSync({
+      entryPoints: [bundle.entry],
+      bundle: true,
+      format: 'iife',
+      ...(bundle.globalName ? { globalName: bundle.globalName } : {}),
+      platform: 'browser',
+      target: ['chrome122'],
+      banner: { js: banner },
+      absWorkingDir: repoRoot,
+      outfile: temporaryOutput,
+      logLevel: 'silent'
+    });
+  } catch (error) {
+    await rm(temporaryOutput, { force: true });
+    if (check) throw error;
+    skip(error?.message);
+    process.exit(0);
+  }
+  if (!existsSync(temporaryOutput)) {
+    if (check) throw new Error('esbuild が出力を生成しませんでした');
+    skip('esbuild が出力を生成しませんでした');
+    process.exit(0);
+  }
+
+  if (check) {
+    if (!existsSync(bundle.output)
+      || !Buffer.from(await readFile(bundle.output)).equals(Buffer.from(await readFile(temporaryOutput)))) {
+      await rm(temporaryOutput, { force: true });
+      process.stderr.write(`${bundle.label} drift detected\n`);
+      process.exitCode = 1;
+    } else {
+      await rm(temporaryOutput, { force: true });
+      process.stdout.write(`${bundle.label} is current\n`);
+    }
+  } else {
+    await rename(temporaryOutput, bundle.output);
+    console.log(`[bundle-frame-engine] generated ${path.relative(repoRoot, bundle.output)}`);
+  }
 }
