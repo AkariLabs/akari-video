@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <defs>
+    <linearGradient id="paper" x2="0" y2="1">
+      <stop stop-color="#eeeeee"/>
+      <stop offset="1" stop-color="#d4d4d4"/>
+    </linearGradient>
+    <linearGradient id="orange">
+      <stop stop-color="#fb923c"/>
+      <stop offset="0.65" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#ea580c"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-80%" width="180%" height="260%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+  <rect width="660" height="400" fill="url(#paper)"/>
+  <path d="M0 0H660V86H0Z" fill="#202020"/>
+  <rect x="32" y="25" width="4" height="32" rx="2" fill="#f97316"/>
+  <g font-family="-apple-system, Helvetica Neue, Arial, sans-serif">
+    <text x="48" y="47" font-size="24" font-weight="700" fill="#e5e5e5">AKARI Video</text>
+    <text x="628" y="46" text-anchor="end" font-size="13" fill="#d4d4d4">Drag to Applications</text>
+  </g>
+  <!-- Icon centers: (180,170) and (480,170); leave labels at y=240–300 neutral. -->
+  <path d="M273 174C305 163 337 163 366 171L356 157L387 174L357 190L366 177C335 170 305 170 273 178Z"
+        fill="#f97316" opacity="0.22" filter="url(#glow)"/>
+  <path d="M273 171C305 160 337 160 366 168L356 154L387 171L357 187L366 174C335 167 305 167 273 175Z"
+        fill="url(#orange)"/>
+  <path d="M32 312H628" stroke="#bdbdbd"/>
+  <g font-family="-apple-system, Helvetica Neue, Arial, sans-serif" fill="#525252" text-anchor="middle">
+    <text x="330" y="340" font-size="13">To install, drag AKARI Video into Applications.</text>
+  </g>
+</svg>

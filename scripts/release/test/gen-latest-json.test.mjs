@@ -204,3 +204,37 @@ test('CLI: --out を指定するとファイルにも書き出す', async () => 
     assert.equal(fromStdout.schema, 1);
   });
 });
+
+// DMG は任意の配布物。ZIP の既存フィードと独立して追加する。
+test('generateLatestJson: DMG が 1 個なら実ファイル名の URL と sha256 を追加する', async () => {
+  await withFixture(async ({ repoRoot, artifactsDir, macBytes }) => {
+    const name = 'AKARI-Video-0.1.0-mac-arm64.dmg';
+    const bytes = Buffer.from('dummy-dmg-bytes');
+    await writeFile(join(artifactsDir, name), bytes);
+    const latest = await generateLatestJson({ artifactsDir, repoRoot, tag: 'v0.1.0', channel: 'stable', released: '2026-09-05T00:00:00Z' });
+    assert.deepEqual(latest.components.shell.mac_dmg, {
+      url: `https://github.com/AkariLabs/akari-video/releases/download/v0.1.0/${name}`,
+      sha256: sha256(bytes)
+    });
+    assert.equal(latest.components.shell.mac.sha256, sha256(macBytes));
+    assert.ok(latest.components.shell.mac.url.endsWith('/shell-mac.zip'));
+  });
+});
+
+test('generateLatestJson: DMG がなければ mac_dmg を省略する', async () => {
+  await withFixture(async ({ repoRoot, artifactsDir }) => {
+    const latest = await generateLatestJson({ artifactsDir, repoRoot, tag: 'v0.1.0', channel: 'stable', released: '2026-09-05T00:00:00Z' });
+    assert.equal(Object.hasOwn(latest.components.shell, 'mac_dmg'), false);
+  });
+});
+
+test('generateLatestJson: DMG が 2 個なら曖昧なフィードを生成せず拒否する', async () => {
+  await withFixture(async ({ repoRoot, artifactsDir }) => {
+    await writeFile(join(artifactsDir, 'AKARI-Video-0.1.0-mac-arm64.dmg'), 'arm64');
+    await writeFile(join(artifactsDir, 'AKARI-Video-0.1.0-mac-x64.dmg'), 'x64');
+    await assert.rejects(
+      generateLatestJson({ artifactsDir, repoRoot, tag: 'v0.1.0', channel: 'stable', released: '2026-09-05T00:00:00Z' }),
+      /DMG.*最大 1 個.*2/
+    );
+  });
+});
