@@ -3132,7 +3132,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
-            'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
+            'cut-speed', 'cut-audio-gain', 'cut-audio-mute', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
             'cut-opacity', 'cut-source-in', 'cut-source-out',
             'cut-framing-crop-x', 'cut-framing-crop-y',
             'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes',
@@ -3272,6 +3272,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         source: { speed: request.value }
                     };
                     label = 'クリップの速度を変更';
+                } else if (request.kind === 'cut-audio-gain') {
+                    if (request.value !== null && (!Number.isFinite(request.value) || request.value < -60 || request.value > 12)) {
+                        return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                    }
+                    patch = { source: { gain_db: request.value } };
+                    label = '埋め込み音声の音量を変更';
+                } else if (request.kind === 'cut-audio-mute') {
+                    patch = { source: { mute: request.value ? true : null } };
+                    label = request.value ? '埋め込み音声をミュート' : '埋め込み音声のミュートを解除';
                 } else if (request.kind === 'cut-opacity') {
                     patch = { opacity: request.value };
                     label = 'クリップの不透明度を変更';
@@ -3604,6 +3613,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const itemId = this.cutItemId(selection.index);
             const rawItem = this.rawKeyframeItem(itemId);
             const rawKeyframes = rawItem?.keyframes;
+            const mediaSource = this.rawV2Item(itemId)?.source;
             return {
                 kind: 'cut', index: selection.index, itemId, label: `C${selection.index + 1}`,
                 trackName: this.trackDisplayNameForItem(itemId),
@@ -3623,6 +3633,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 adjust: readInspectorAdjustSnapshot(rawItem?.adjust),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
+                ...(typeof mediaSource?.gain_db === 'number' ? { audioGainDb: mediaSource.gain_db } : {}),
+                ...(typeof mediaSource?.mute === 'boolean' ? { audioMute: mediaSource.mute } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
             };

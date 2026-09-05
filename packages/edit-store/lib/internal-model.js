@@ -962,6 +962,8 @@ function copyMediaSourceFields(source) {
         ...(source.freeze !== undefined ? { freeze: source.freeze } : {}),
         ...(source.fx !== undefined ? { fx: source.fx } : {}),
         ...(source.speed !== undefined ? { speed: source.speed } : {}),
+        ...(source.gain_db !== undefined ? { gain_db: source.gain_db } : {}),
+        ...(source.mute !== undefined ? { mute: source.mute } : {}),
         ...(source.chroma_key !== undefined ? { chroma_key: source.chroma_key } : {})
     };
 }

@@ -4639,7 +4639,9 @@ ${indent}`);
               "freeze",
               "fx",
               "speed",
-              "chroma_key"
+              "chroma_key",
+              "gain_db",
+              "mute"
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src))
@@ -4656,6 +4658,10 @@ ${indent}`);
               throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
             if (hasOwn(value, "speed"))
               requirePositiveNumber(value.speed, `${path}.speed`);
+            if (hasOwn(value, "gain_db"))
+              requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+            if (hasOwn(value, "mute") && typeof value.mute !== "boolean")
+              throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
             return;
           case "html":
             requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
@@ -6343,6 +6349,8 @@ ${indent}`);
           ...source.freeze !== void 0 ? { freeze: source.freeze } : {},
           ...source.fx !== void 0 ? { fx: source.fx } : {},
           ...source.speed !== void 0 ? { speed: source.speed } : {},
+          ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
+          ...source.mute !== void 0 ? { mute: source.mute } : {},
           ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
         };
       }
@@ -7608,6 +7616,8 @@ ${indent}`);
           const cut = normalizedCuts[segment.cutIndex];
           if (!cut || typeof cut.src !== "string" || !cut.src)
             continue;
+          if (cut.mute === true)
+            continue;
           const speed = finitePositive4(cut.speed) ? cut.speed : 1;
           const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
           const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
@@ -7903,7 +7913,7 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
       exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
       exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -8103,6 +8113,8 @@ ${indent}`);
           "freeze",
           "fx",
           "speed",
+          "gain_db",
+          "mute",
           "chroma_key"
         ],
         "itemSourceAudioMediaV2": [

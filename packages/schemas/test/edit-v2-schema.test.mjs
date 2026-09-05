@@ -15,6 +15,18 @@ function fixture(name) {
   return JSON.parse(readFileSync(join(examplesRoot, name, "edit.json"), "utf8"));
 }
 
+test("visual media source validates embedded speech gain and mute", () => {
+  const value = fixture("edit-v2-valid");
+  Object.assign(value.tracks[3].items[0].source, { gain_db: -12, mute: true });
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  for (const [key, invalid] of [['gain_db', -61], ['gain_db', 13], ['gain_db', '0'], ['mute', 'true']]) {
+    const rejected = structuredClone(value);
+    rejected.tracks[3].items[0].source[key] = invalid;
+    assert.equal(validate(rejected), false);
+    assert.ok(validate.errors.some(error => error.instancePath === `/tracks/3/items/0/source/${key}`));
+  }
+});
+
 test("editV2 is the third root branch and keeps v2 timing/output definitions separate", () => {
   assert.equal(schema.$id, "urn:akari-video:schema:edit:v1");
   assert.match(schema.title, /v0\/v1\/v2/);

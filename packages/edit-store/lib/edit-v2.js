@@ -302,7 +302,7 @@ function validateItemSource(value, path, sourceIds) {
     switch (value.kind) {
         case 'media':
             requireExactKeys(value, new Set([
-                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key', 'gain_db', 'mute'
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src))
@@ -319,6 +319,10 @@ function validateItemSource(value, path, sourceIds) {
                 throw invalid(`${path}.fx`, '配列である必要があります');
             if (hasOwn(value, 'speed'))
                 requirePositiveNumber(value.speed, `${path}.speed`);
+            if (hasOwn(value, 'gain_db'))
+                requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+            if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean')
+                throw invalid(`${path}.mute`, 'boolean である必要があります');
             return;
         case 'html':
             requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'exclude', 'derivedFrom', 'vars', 'params']), path);

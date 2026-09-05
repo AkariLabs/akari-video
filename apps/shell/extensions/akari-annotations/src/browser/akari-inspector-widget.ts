@@ -581,6 +581,33 @@ function CUT_SECTIONS(
             ]
         },
         {
+            id: 'audio', label: '埋め込み音声', fields: [
+                {
+                    name: 'gain-db', label: '音量', unit: 'dB', removable: true,
+                    getValue: () => String(snapshot.audioGainDb ?? 0) + (snapshot.audioMute === true ? '（ミュート中）' : ''),
+                    getEditValue: () => String(snapshot.audioGainDb ?? 0),
+                    inputKind: 'scrub-number', scrubStep: 0.5, min: -60, max: 12,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
+                            return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: parsed });
+                    },
+                    reset: () => requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: null })
+                },
+                {
+                    name: 'mute', label: 'ミュート',
+                    getValue: () => String(snapshot.audioMute === true),
+                    getEditValue: () => String(snapshot.audioMute === true),
+                    inputKind: 'boolean-select',
+                    write: async (_snapshot, nextValue) => requestWrite({
+                        kind: 'cut-audio-mute', index: snapshot.index, value: nextValue === 'true'
+                    })
+                }
+            ]
+        },
+        {
             id: 'info', label: '情報', collapsedByDefault: true,
             fields: [
                 { name: 'track', label: 'トラック', getValue: () => snapshot.trackName },
