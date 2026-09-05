@@ -212,6 +212,32 @@ test("sampled candidates report unsupported conditions instead of curve-parser r
   }
 });
 
+test("static 3D routes CSS through composite while preserving direct and fail-closed paths", async (t) => {
+  const staticScene = `<div class="static-scene">
+    <style>.static-scene { position:absolute; inset:0; }</style>
+    <canvas class="static-scene__canvas"></canvas>
+    <div data-akari-3d-fallback></div>
+    <script type="application/json" data-akari-3d-scene>{}</script>
+  </div>`;
+  const cases = [
+    ["advanced CSS", '<style>.static-scene__canvas { filter:drop-shadow(0 0 14px orange); }</style>', "three", "three-scene-sampled-composite", ["three-or-canvas-runtime", "advanced-css"]],
+    ["hidden backface", '<style>.static-scene { perspective:800px; } .decor { transform:rotateY(20deg); backface-visibility:hidden; }</style><div class="decor"></div>', "degraded", "css-3d-backface-hidden", ["css-3d-transform", "css-3d-backface-hidden", "three-or-canvas-runtime"]],
+    ["script runtime", '<script>console.log(1)</script>', "degraded", "three-sampled-condition:script-runtime", ["three-or-canvas-runtime", "script-runtime"]],
+    ["scene only", "", "three", "three-scene-canvas-direct", ["three-or-canvas-runtime"]],
+    ["media element", '<video></video>', "degraded", "three-sampled-condition:media-element", ["media-element", "three-or-canvas-runtime"]],
+  ];
+  for (const [label, addition, classification, reason, conditions] of cases) {
+    await t.test(label, () => {
+      const html = staticScene.replace('<script type="application/json"', `${addition}<script type="application/json"`);
+      const result = eligibility(html);
+      assert.equal(result.eligible, classification === "three");
+      assert.equal(result.entries[0].classification, classification);
+      assert.equal(result.entries[0].reason, reason);
+      assert.deepEqual(result.entries[0].conditions, conditions);
+    });
+  }
+});
+
 test("sampled chain CSS detects inline declarations in document order", () => {
   const html = fragment().replace(
     '<div class="laptop-live">',

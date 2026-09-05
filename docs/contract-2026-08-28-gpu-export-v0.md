@@ -423,7 +423,7 @@ v3 は、宣言型 Three.js scene の HTML 部分にある CSS animation / trans
 `threeRuntime.render(container, t)` へ直接渡し、scene 内部の animation、動画 texture、ready 判定は
 変更しない。登場表現を従来の文法へ解析できる場合は理由 `three-scene-entrance-curve`、解析できない場合は
 計算済みスタイルを実測する理由 `three-scene-entrance-sampled` とする。解析不能だけを理由に fail-closed
-にはしない。CSS animation のない宣言型 3D は理由 `three-scene-canvas-direct` のままである。
+にはしない。CSS animation のない宣言型 3D は他の条件を持たない場合は理由 `three-scene-canvas-direct` のままとし、`advanced-css` や CSS 3D 幾何を伴う場合は composite 経路（`three-scene-sampled-composite`）で断片全体を転写する。
 
 curve モードは従来どおり、対になった `[data-akari-active] .root, [data-no-timeline] .root` selector、
 1 本・2 endpoint の keyframe、既知の timing、非負 delay、iteration 1、normal direction、`both` または

@@ -63,22 +63,24 @@ export function evaluateGpuEligibility({
       conditions.unshift({ condition: "item-keyframes", kind: "dynamic" });
     }
     const names = conditions.map((entry) => entry.condition);
-    const entranceCandidate = names.includes("three-or-canvas-runtime")
-      && names.includes("animation-timing");
-    const entrance = entranceCandidate
+    const animated = names.includes("animation-timing");
+    const entrance = names.includes("three-or-canvas-runtime") && animated
       ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
       : null;
     if (names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
     } else if (isThreeOnlyOverlay(source, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
-    } else if (entranceCandidate) {
+    } else if (names.includes("three-or-canvas-runtime")) {
+      // entranceCandidate が animation を要求していたため、静止 3D + CSS が分岐から漏れていた。
+      // 方式 B は断片全体を転写するため animation の有無に依存せず、U3 実測済みの
+      // composite 経路へ静止 3D も通せる（条件外の断片は引き続き fail-closed）。
       const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
       if (names.includes("css-3d-backface-hidden")) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
-      } else if (entrance.ok && withinSampledConditions) {
+      } else if (animated && entrance.ok && withinSampledConditions) {
         entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
-      } else if (withinSampledConditions) {
+      } else if (animated && withinSampledConditions) {
         const sampled = scanThreeSampled(html);
         if (sampled.ok) {
           entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names));

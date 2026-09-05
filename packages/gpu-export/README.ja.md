@@ -79,7 +79,7 @@ sheet / DOM 間のカスタムプロパティ補間パリティを実測する�
 composite の入口外条件は `three-sampled-condition:<条件名>` を報告します。方式 A の
 `three-sampled-chain-css:<プロパティ>` ガードは残します。manifest は `entranceMode`、receipt は
 `curve` / `sampled` / `composite` mode、sampling 費用、composite の DOM 要素数と canvas 中継・DOM 層費用の
-p50/p95 を記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
+p50/p95 を記録します。CSS animation のない scene は他の条件を持たない場合は従来どおり `three-scene-canvas-direct` とし、`advanced-css` や CSS 3D 幾何を伴う場合は composite 経路（`three-scene-sampled-composite`）で断片全体を転写します。
 
 `render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
 不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ
