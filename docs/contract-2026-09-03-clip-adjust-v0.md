@@ -1,3 +1,4 @@
+> v1（curves / wheels / hue）で拡張。正本は [contract-2026-09-05-clip-adjust-v1.md](contract-2026-09-05-clip-adjust-v1.md)。
 # edit.json v2 clip adjust v0 契約
 
 - 日付: 2026-09-03

@@ -1,3 +1,4 @@
+import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1 } from './edit-v2';
 export interface AdjustCssBasic {
     exposure?: number;
     contrast?: number;
@@ -12,13 +13,20 @@ export interface AdjustCssBasic {
 }
 export interface AdjustCssInput {
     basic?: AdjustCssBasic | null;
+    curves?: AdjustCurvesV1;
+    wheels?: AdjustWheelsV1;
+    hue?: AdjustHueCurvesV1;
     sections?: {
         basic?: boolean;
+        lut?: boolean;
+        curves?: boolean;
+        wheels?: boolean;
+        hue?: boolean;
     } | null;
 }
 export interface AdjustCssVisual {
     filter: string;
-    /** True when active basic controls contain values that CSS filters cannot reproduce. */
+    /** True when active controls contain values that CSS filters cannot reproduce. */
     hasApproximation: boolean;
 }
 /**

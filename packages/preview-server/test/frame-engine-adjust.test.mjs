@@ -24,6 +24,27 @@ function editWithAdjust(sections) {
   };
 }
 
+for (const [section, value] of Object.entries({
+  curves: { master: [{ in: 0, out: 0 }, { in: 0.25, out: 0.15 }, { in: 1, out: 1 }] },
+  hue: { sat: [{ hue: 0, value: 0 }, { hue: 1, value: 0 }] },
+})) {
+  test('preview projection preserves ' + section + '-only and sections', async () => {
+    const projectRoot = await mkdtemp(path.join(tmpdir(), 'preview-adjust-v1-'));
+    try {
+      for (const enabled of [true, false]) {
+        const document = editWithAdjust();
+        const adjust = { [section]: value, sections: { [section]: enabled, basic: false, lut: false } };
+        document.tracks[0].items[0].adjust = adjust;
+        const projected = projectPreviewEdit(JSON.stringify(document), path.join(projectRoot, '.akari', 'preview-projection'), projectRoot);
+        assert.deepEqual(projected.cuts[0].adjust, adjust);
+        assert.equal(projected.adjustLutCubeTexts, undefined);
+      }
+      const client = await readFile(path.resolve(import.meta.dirname, '../src/frame-engine-client.ts'), 'utf8');
+      assert.match(client, /adjust: \{\s+\.\.\.adjust,/u);
+    } finally { await rm(projectRoot, { recursive: true, force: true }); }
+  });
+}
+
 test('preview projection resolves per-item LUT text and keeps the adjust declaration', async () => {
   const projectRoot = await mkdtemp(path.join(tmpdir(), 'preview-item-adjust-'));
   try {

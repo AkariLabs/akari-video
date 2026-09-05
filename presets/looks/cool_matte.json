@@ -1,0 +1,30 @@
+{
+  "id": "cool_matte",
+  "adjust": {
+    "basic": {
+      "exposure": -0.15,
+      "contrast": 0.05,
+      "saturation": -0.1,
+      "temperature": -0.15
+    },
+    "wheels": {
+      "lift": {
+        "r": 0.03,
+        "g": 0.03,
+        "b": 0.05
+      },
+      "gamma": {
+        "b": 0.02
+      },
+      "gain": {
+        "r": -0.05,
+        "g": -0.03
+      },
+      "offset": {
+        "r": 0.01,
+        "g": 0.01,
+        "b": 0.02
+      }
+    }
+  }
+}

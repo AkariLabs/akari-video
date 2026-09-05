@@ -14,6 +14,7 @@
 
 ## エントリ
 
+- [looks](./looks/INDEX.md) — ルック 8 種。id から basic / wheels の初期値セットを解決する
 - ATF テロップの参照表は退役。HTML 素材版は Lab で配布します。
 - [textstyle](./textstyle/INDEX.md) — 字幕スタイル（引き続き利用可能）
 - [luts](./luts/INDEX.md) — 3D LUT 2 件（自前生成）。`edit.json` の `output.look.lut` に id を書くと

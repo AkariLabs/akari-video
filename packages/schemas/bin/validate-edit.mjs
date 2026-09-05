@@ -138,11 +138,12 @@ function validateV2Item(item, label) {
 }
 
 function validateAdjust(value, label) {
+  validateAdjustV1Sections(value, label);
   if (!isPlainObject(value)) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  const allowedKeys = new Set(["basic", "lut", "sections"]);
+  const allowedKeys = new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
   }
@@ -189,7 +190,7 @@ function validateAdjust(value, label) {
     if (!isPlainObject(sections)) {
       fail(`${label}.sections は object である必要があります`);
     } else {
-      const sectionKeys = new Set(["basic", "lut"]);
+      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue"]);
       for (const key of Object.keys(sections)) {
         if (!sectionKeys.has(key)) fail(`${label}.sections に未知のキーがあります: ${key}`);
       }
@@ -198,6 +199,57 @@ function validateAdjust(value, label) {
           fail(`${label}.sections.${key} は boolean である必要があります`);
         }
       }
+    }
+  }
+}
+
+// Intentional dependency-free duplicate of the closed adjustV1 structure.
+function validateAdjustV1Sections(value, path) {
+  if (!isPlainObject(value)) return;
+  const report = (section, check, at, message) => fail(at + ' ' + message);
+  const object = (v, keys, section, at) => {
+    if (!isPlainObject(v)) { report(section, 'structure', at, 'は object である必要があります'); return false; }
+    for (const key of Object.keys(v)) if (!keys.includes(key)) report(section, 'unknown-key', at + '.' + key, 'は未知のキーです');
+    return true;
+  };
+  const number = (v, min, max, section, at) => {
+    if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
+  };
+  for (const section of ['curves', 'hue']) {
+    if (!Object.hasOwn(value, section)) continue;
+    const channels = value[section], at = path + '.' + section;
+    const axis = section === 'curves' ? 'in' : 'hue';
+    const output = section === 'curves' ? 'out' : 'value';
+    const minimum = section === 'curves' ? 2 : 1;
+    const keys = section === 'curves' ? ['master', 'r', 'g', 'b'] : ['hue', 'sat', 'luma'];
+    if (!object(channels, keys, section, at)) continue;
+    for (const channel of keys) {
+      if (!Object.hasOwn(channels, channel)) continue;
+      const points = channels[channel], channelPath = at + '.' + channel;
+      if (!Array.isArray(points) || points.length < minimum || points.length > 16) {
+        report(section, 'points', channelPath, 'は ' + minimum + ' から 16 点の配列である必要があります'); continue;
+      }
+      let previous = -Infinity;
+      for (const [index, point] of points.entries()) {
+        const pointPath = channelPath + '[' + index + ']';
+        if (!object(point, [axis, output], section, pointPath)) continue;
+        number(point[axis], 0, 1, section, pointPath + '.' + axis);
+        number(point[output], 0, 1, section, pointPath + '.' + output);
+        if (isFiniteNumber(point[axis])) {
+          if (point[axis] <= previous) report(section, 'order', pointPath + '.' + axis, 'は狭義単調増加である必要があります');
+          previous = point[axis];
+        }
+      }
+    }
+  }
+  if (Object.hasOwn(value, 'wheels')) {
+    const ranges = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
+    if (!object(value.wheels, Object.keys(ranges), 'wheels', path + '.wheels')) return;
+    for (const [wheel, range] of Object.entries(ranges)) {
+      if (!Object.hasOwn(value.wheels, wheel)) continue;
+      const channels = value.wheels[wheel], at = path + '.wheels.' + wheel;
+      if (!object(channels, ['r', 'g', 'b'], 'wheels', at)) continue;
+      for (const channel of ['r', 'g', 'b']) if (Object.hasOwn(channels, channel)) number(channels[channel], -range, range, 'wheels', at + '.' + channel);
     }
   }
 }

@@ -55,8 +55,8 @@ function buildSection(id) {
   return section.build();
 }
 
-test('調整プレビューは近日扱いの 4 セクションだけを定義する', () => {
-  assert.equal(ADJUST_PREVIEW_SECTIONS.length, 4);
+test('調整プレビューは近日扱いのエフェクトだけを定義する', () => {
+  assert.equal(ADJUST_PREVIEW_SECTIONS.length, 1);
   assert.deepEqual(
     ADJUST_PREVIEW_SECTIONS.map(section => section.label),
     [...COMING_SOON_ADJUST_SECTIONS]
@@ -69,12 +69,6 @@ test('基本補正と LUT のダミーを除き、エフェクトは 6 行を表
   const effectRows = descendants(buildSection('effects'))
     .filter(element => hasClass(element, 'akari-adjust-preview-row'));
   assert.equal(effectRows.length, 6);
-}));
-
-test('カラーホイールは Lift / Gamma / Gain / Offset の 4 要素を表示する', () => withFakeDocument(() => {
-  const wheels = descendants(buildSection('color-wheels'))
-    .filter(element => hasClass(element, 'akari-adjust-preview-wheel'));
-  assert.equal(wheels.length, 4);
 }));
 
 test('各プレビューは pointer event を受けず、活性 button / input を含まない', () => withFakeDocument(() => {

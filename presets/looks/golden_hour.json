@@ -1,0 +1,28 @@
+{
+  "id": "golden_hour",
+  "adjust": {
+    "basic": {
+      "exposure": 0.15,
+      "contrast": 0.1,
+      "saturation": 0.15,
+      "temperature": 0.2,
+      "tint": 0.05
+    },
+    "wheels": {
+      "gamma": {
+        "r": 0.05,
+        "g": 0.02,
+        "b": -0.05
+      },
+      "gain": {
+        "r": 0.1,
+        "g": 0.05,
+        "b": -0.1
+      },
+      "offset": {
+        "r": 0.02,
+        "b": -0.02
+      }
+    }
+  }
+}

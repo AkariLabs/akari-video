@@ -68,11 +68,6 @@ export class InspectorTabState {
     }
 }
 
-export const COMING_SOON_ADJUST_SECTIONS = [
-    'RGB カーブ',
-    'カラーホイール',
-    'Hue カーブ',
-    'エフェクト'
-] as const;
+export const COMING_SOON_ADJUST_SECTIONS = ['エフェクト'] as const;
 
-export const ACTIVE_ADJUST_SECTIONS = ['基本補正', 'LUT'] as const;
+export const ACTIVE_ADJUST_SECTIONS = ['基本補正', 'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'LUT'] as const;

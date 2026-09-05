@@ -65,9 +65,9 @@ test('アクティブタブは kind ごとに永続し disabled 保存値をフ�
   assert.equal(state.activeTab('layer', layerTabs), 'video');
 });
 
-test('調整タブは実働 2 件と Coming soon 4 件を裁定どおり分ける', () => {
-  assert.deepEqual([...ACTIVE_ADJUST_SECTIONS], ['基本補正', 'LUT']);
+test('調整タブは実働 5 件と Coming soon 1 件を裁定どおり分ける', () => {
+  assert.deepEqual([...ACTIVE_ADJUST_SECTIONS], ['基本補正', 'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'LUT']);
   assert.deepEqual([...COMING_SOON_ADJUST_SECTIONS], [
-    'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'エフェクト'
+    'エフェクト'
   ]);
 });

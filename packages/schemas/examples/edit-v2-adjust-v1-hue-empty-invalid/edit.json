@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "main.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "visual",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 30,
+          "crop": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1
+          },
+          "adjust": {
+            "curves": {
+              "master": [
+                {
+                  "in": 0,
+                  "out": 0
+                },
+                {
+                  "in": 0.4,
+                  "out": 0.3
+                },
+                {
+                  "in": 1,
+                  "out": 1
+                }
+              ]
+            },
+            "wheels": {
+              "lift": {
+                "r": 0.05
+              },
+              "gamma": {
+                "b": 0.1
+              },
+              "gain": {
+                "g": -0.1
+              },
+              "offset": {
+                "r": 0.02
+              }
+            },
+            "hue": {
+              "hue": [
+                {
+                  "hue": 0,
+                  "value": 0.6
+                },
+                {
+                  "hue": 1,
+                  "value": 0.4
+                }
+              ],
+              "sat": [],
+              "luma": [
+                {
+                  "hue": 0,
+                  "value": 0.5
+                }
+              ]
+            },
+            "sections": {
+              "curves": true,
+              "wheels": true,
+              "hue": true
+            }
+          },
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 1
+          }
+        }
+      ]
+    }
+  ]
+}

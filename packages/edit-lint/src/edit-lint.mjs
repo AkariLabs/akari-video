@@ -1565,6 +1565,7 @@ function validateLook(value, findings, path) {
 // docs/contract-2026-09-03-clip-adjust-v0.md。edit-lint は依存ゼロを保つため、schema と
 // validate-edit.mjs の閉じた adjust 語彙をここでも独立に検証する。
 function validateAdjust(value, findings, path) {
+  validateAdjustV1Sections(value, findings, path);
   if (!isRecord(value)) {
     addFinding(findings, {
       severity: "error", check: "adjust.structure", message: "adjust must be an object", path,
@@ -1577,12 +1578,12 @@ function validateAdjust(value, findings, path) {
       addFinding(findings, {
         severity: "error",
         check: "adjust.unknown-key",
-        message: `${key} is not defined by clip adjust v0`,
+        message: `${key} is not defined by clip adjust v1`,
         path: `${ownerPath}.${key}`,
       });
     }
   };
-  reportUnknownKeys(value, new Set(["basic", "lut", "sections"]), path);
+  reportUnknownKeys(value, new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
 
   if (Object.hasOwn(value, "basic")) {
     const basicPath = `${path}.basic`;
@@ -1644,7 +1645,7 @@ function validateAdjust(value, findings, path) {
         severity: "error", check: "adjust.sections.structure", message: "sections must be an object", path: sectionsPath,
       });
     } else {
-      const sectionKeys = new Set(["basic", "lut"]);
+      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue"]);
       reportUnknownKeys(value.sections, sectionKeys, sectionsPath);
       for (const key of sectionKeys) {
         if (Object.hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
@@ -6376,3 +6377,55 @@ function formatDb(value) {
 function messageOf(error) {
   return error instanceof Error ? error.message : String(error);
 }
+
+// Intentional dependency-free duplicate of the closed adjustV1 structure.
+function validateAdjustV1Sections(value, findings, path) {
+  if (!isRecord(value)) return;
+  const report = (section, check, at, message) => addFinding(findings, { severity: "error", check: "adjust." + section + "." + check, path: at, message });
+  const object = (v, keys, section, at) => {
+    if (!isRecord(v)) { report(section, 'structure', at, 'は object である必要があります'); return false; }
+    for (const key of Object.keys(v)) if (!keys.includes(key)) report(section, 'unknown-key', at + '.' + key, 'は未知のキーです');
+    return true;
+  };
+  const number = (v, min, max, section, at) => {
+    if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
+  };
+  for (const section of ['curves', 'hue']) {
+    if (!Object.hasOwn(value, section)) continue;
+    const channels = value[section], at = path + '.' + section;
+    const axis = section === 'curves' ? 'in' : 'hue';
+    const output = section === 'curves' ? 'out' : 'value';
+    const minimum = section === 'curves' ? 2 : 1;
+    const keys = section === 'curves' ? ['master', 'r', 'g', 'b'] : ['hue', 'sat', 'luma'];
+    if (!object(channels, keys, section, at)) continue;
+    for (const channel of keys) {
+      if (!Object.hasOwn(channels, channel)) continue;
+      const points = channels[channel], channelPath = at + '.' + channel;
+      if (!Array.isArray(points) || points.length < minimum || points.length > 16) {
+        report(section, 'points', channelPath, 'は ' + minimum + ' から 16 点の配列である必要があります'); continue;
+      }
+      let previous = -Infinity;
+      for (const [index, point] of points.entries()) {
+        const pointPath = channelPath + '[' + index + ']';
+        if (!object(point, [axis, output], section, pointPath)) continue;
+        number(point[axis], 0, 1, section, pointPath + '.' + axis);
+        number(point[output], 0, 1, section, pointPath + '.' + output);
+        if (isFiniteNumber(point[axis])) {
+          if (point[axis] <= previous) report(section, 'order', pointPath + '.' + axis, 'は狭義単調増加である必要があります');
+          previous = point[axis];
+        }
+      }
+    }
+  }
+  if (Object.hasOwn(value, 'wheels')) {
+    const ranges = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
+    if (!object(value.wheels, Object.keys(ranges), 'wheels', path + '.wheels')) return;
+    for (const [wheel, range] of Object.entries(ranges)) {
+      if (!Object.hasOwn(value.wheels, wheel)) continue;
+      const channels = value.wheels[wheel], at = path + '.wheels.' + wheel;
+      if (!object(channels, ['r', 'g', 'b'], 'wheels', at)) continue;
+      for (const channel of ['r', 'g', 'b']) if (Object.hasOwn(channels, channel)) number(channels[channel], -range, range, 'wheels', at + '.' + channel);
+    }
+  }
+}
+

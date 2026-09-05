@@ -1,0 +1,18 @@
+{
+  "id": "clean_punch",
+  "adjust": {
+    "basic": {
+      "exposure": 0.15,
+      "contrast": 0.3,
+      "saturation": 0.1,
+      "temperature": -0.05
+    },
+    "wheels": {
+      "gain": {
+        "r": 0.05,
+        "g": 0.05,
+        "b": 0.05
+      }
+    }
+  }
+}

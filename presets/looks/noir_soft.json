@@ -1,0 +1,21 @@
+{
+  "id": "noir_soft",
+  "adjust": {
+    "basic": {
+      "contrast": 0.2,
+      "saturation": -0.8
+    },
+    "wheels": {
+      "lift": {
+        "r": 0.03,
+        "g": 0.03,
+        "b": 0.03
+      },
+      "gamma": {
+        "r": -0.03,
+        "g": -0.03,
+        "b": -0.03
+      }
+    }
+  }
+}

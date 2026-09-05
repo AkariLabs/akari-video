@@ -55,6 +55,51 @@ function regionFilterEdit(lutId) {
   };
 }
 
+
+for (const [section, value] of Object.entries({
+  curves: { master: [{ in: 0, out: 0 }, { in: 0.25, out: 0.15 }, { in: 1, out: 1 }] },
+  wheels: { offset: { b: 0.01 } },
+  hue: { sat: [{ hue: 0, value: 0 }] },
+})) {
+  test('Osr receipt detects ' + section + '-only and respects section bypass', async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), 'item-adjust-v1-'));
+    try {
+      for (const enabled of [true, false]) {
+        const document = itemAdjustEdit();
+        const adjust = { [section]: value, sections: { [section]: enabled } };
+        document.tracks[0].items[0].adjust = adjust;
+        await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(document));
+        const built = await loadAndBuildOsrPage({ projectRoot, duration: 1 });
+        assert.deepEqual(built.edit.cuts[0].adjust, adjust);
+        assert.equal(built.manifest.adjustApplication, enabled ? 'engine-item-source' : 'none');
+      }
+    } finally { await rm(projectRoot, { recursive: true, force: true }); }
+  });
+}
+
+test('Osr receipt excludes identity curves, wheels, and hue on cuts and layers', () => {
+  const identity = {
+    curves: { master: [{ in: 0, out: 0 }, { in: 1, out: 1 }] },
+    wheels: { lift: { r: 0 }, offset: { b: 0 } },
+    hue: { sat: [{ hue: 0, value: 0.5 }] },
+  };
+  for (const seat of ['cuts', 'layers']) {
+    for (const [adjust, active] of [
+      [identity, false],
+      [{ wheels: { offset: { b: 1e-9 } } }, true],
+      [{ curves: { r: [{ in: 0, out: 1e-5 }, { in: 1, out: 1 }] } }, true],
+      [{ curves: { r: [{ in: 0, out: 0.000009 }, { in: 1, out: 1 }] } }, false],
+      [{ hue: { luma: [{ hue: 0, value: 0.50009 }] } }, false],
+      [{ hue: { luma: [{ hue: 0, value: 0.50011 }] } }, true],
+    ]) {
+      const built = buildOsrPage({
+        edit: { ...edit, cuts: [], layers: [], [seat]: [{ id: 'item', src: 'main', in: 0, out: 1, t: 0, duration: 1, adjust }] },
+        projectRoot: process.cwd(), duration: 1,
+      });
+      assert.equal(built.manifest.adjustApplication, active ? 'engine-item-source' : 'none');
+    }
+  }
+});
 function itemAdjustEdit(lutId = 'mono') {
   return {
     version: 2, output: { width: 64, height: 36, fps: 30 },

@@ -4,7 +4,7 @@ import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edi
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
-import type { InspectorAdjustPath, InspectorAdjustSnapshot } from './inspector/adjust-fields';
+import type { InspectorAdjustPath, InspectorAdjustSnapshot, InspectorAdjustValue } from './inspector/adjust-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -222,7 +222,7 @@ type InspectorWriteOperation =
             | InspectorAdjustPath
             | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
-        value: number | string | boolean | null;
+        value: InspectorAdjustValue;
     }
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
@@ -335,6 +335,8 @@ export type LivePreviewTarget =
     | { kind: 'layer'; id: string }
     | { kind: 'item'; id: string };
 
+export interface AdjustBypassRequest { target: LivePreviewTarget; enabled: boolean; }
+
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
     field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity'
@@ -371,6 +373,12 @@ export class TimelineSelectionModel {
      * 書き込みは行わない・pointerup の requestWrite とは独立。
      */
     requestLivePreview?: (request: LivePreviewRequest) => void;
+    /** LUT 一覧取得。実体はタイムラインウィジェットが代入する。 */
+    requestAdjustLutList?: () => Promise<string[]>;
+    /** LUT 取り込み。実体はタイムラインウィジェットが代入する。 */
+    requestAdjustLutImport?: (sourcePath: string) => Promise<string>;
+    /** A/B バイパス通知。実体はタイムラインウィジェットが代入する。 */
+    requestAdjustBypass?: (request: AdjustBypassRequest) => void;
     requestKeyframe?: (request: KeyframeControlRequest) => Promise<InspectorWriteResult>;
 
     get snapshot(): TimelineSelectionSnapshot {

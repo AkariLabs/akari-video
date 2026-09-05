@@ -736,3 +736,12 @@ export type MeasureAudioForLevelResult = {
 export interface AkariAnnotationsService {
     measureAudioForLevel(request: MeasureAudioForLevelRequest): Promise<MeasureAudioForLevelResult>;
 }
+
+export interface ListAdjustLutsRequest { projectRootUri: string; }
+export interface ListAdjustLutsResult { refs: string[]; }
+export interface ImportAdjustLutRequest { projectRootUri: string; sourcePath: string; }
+export interface ImportAdjustLutResult { ref: string; }
+export interface AkariAnnotationsService {
+    listAdjustLuts(request: ListAdjustLutsRequest): Promise<ListAdjustLutsResult>;
+    importAdjustLut(request: ImportAdjustLutRequest): Promise<ImportAdjustLutResult>;
+}

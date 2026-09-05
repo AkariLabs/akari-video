@@ -6,8 +6,6 @@ export interface AdjustPreviewSection {
     build: () => HTMLElement;
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
 function createPreviewRoot(id: string): HTMLDivElement {
     const root = document.createElement('div');
     root.className = `akari-adjust-preview akari-adjust-preview-${id}`;
@@ -30,70 +28,6 @@ function createValueRow(label: string, value = '0'): HTMLDivElement {
     return row;
 }
 
-function buildRgbCurve(): HTMLElement {
-    const root = createPreviewRoot('rgb-curve');
-    const channels = document.createElement('div');
-    channels.className = 'akari-adjust-preview-channels';
-    for (const channel of ['M', 'R', 'G', 'B']) {
-        const chip = document.createElement('span');
-        chip.className = `akari-adjust-preview-channel akari-adjust-preview-channel-${channel.toLowerCase()}`;
-        if (channel === 'M') chip.className += ' is-active';
-        chip.textContent = channel;
-        channels.appendChild(chip);
-    }
-
-    const curve = document.createElementNS(SVG_NS, 'svg');
-    curve.setAttribute('class', 'akari-adjust-preview-curve');
-    curve.setAttribute('viewBox', '0 0 180 140');
-    curve.setAttribute('aria-label', 'RGB カーブ（初期値）');
-    const grid = document.createElementNS(SVG_NS, 'path');
-    grid.setAttribute('class', 'akari-adjust-preview-curve-grid');
-    grid.setAttribute('d', 'M45 0V140 M90 0V140 M135 0V140 M0 35H180 M0 70H180 M0 105H180');
-    const identity = document.createElementNS(SVG_NS, 'path');
-    identity.setAttribute('class', 'akari-adjust-preview-curve-identity');
-    identity.setAttribute('d', 'M0 140L180 0');
-    curve.append(grid, identity);
-    root.append(channels, curve);
-    return root;
-}
-
-function buildColorWheels(): HTMLElement {
-    const root = createPreviewRoot('color-wheels');
-    const grid = document.createElement('div');
-    grid.className = 'akari-adjust-preview-wheel-grid';
-    for (const label of ['Lift', 'Gamma', 'Gain', 'Offset']) {
-        const item = document.createElement('div');
-        item.className = 'akari-adjust-preview-wheel-item';
-        const itemLabel = document.createElement('span');
-        itemLabel.className = 'akari-adjust-preview-wheel-label';
-        itemLabel.textContent = label;
-        const wheel = document.createElement('div');
-        wheel.className = 'akari-adjust-preview-wheel';
-        const center = document.createElement('span');
-        center.className = 'akari-adjust-preview-wheel-center';
-        wheel.appendChild(center);
-        const luminance = document.createElement('div');
-        luminance.className = 'akari-adjust-preview-luminance';
-        item.append(itemLabel, wheel, luminance);
-        grid.appendChild(item);
-    }
-    root.appendChild(grid);
-    return root;
-}
-
-function buildHueCurve(): HTMLElement {
-    const root = createPreviewRoot('hue-curve');
-    const curve = document.createElement('div');
-    curve.className = 'akari-adjust-preview-hue-curve';
-    const band = document.createElement('div');
-    band.className = 'akari-adjust-preview-hue-band';
-    const line = document.createElement('div');
-    line.className = 'akari-adjust-preview-hue-line';
-    curve.append(band, line);
-    root.appendChild(curve);
-    return root;
-}
-
 function buildEffects(): HTMLElement {
     const root = createPreviewRoot('effects');
     for (const label of ['シャープ', 'ぼかし', 'ビネット', 'フィルムグレイン', 'グロー', 'クロマキー']) {
@@ -103,8 +37,5 @@ function buildEffects(): HTMLElement {
 }
 
 export const ADJUST_PREVIEW_SECTIONS: readonly AdjustPreviewSection[] = [
-    { id: 'rgb-curve', label: COMING_SOON_ADJUST_SECTIONS[0], build: buildRgbCurve },
-    { id: 'color-wheels', label: COMING_SOON_ADJUST_SECTIONS[1], build: buildColorWheels },
-    { id: 'hue-curve', label: COMING_SOON_ADJUST_SECTIONS[2], build: buildHueCurve },
-    { id: 'effects', label: COMING_SOON_ADJUST_SECTIONS[3], build: buildEffects }
+    { id: 'effects', label: COMING_SOON_ADJUST_SECTIONS[0], build: buildEffects }
 ];

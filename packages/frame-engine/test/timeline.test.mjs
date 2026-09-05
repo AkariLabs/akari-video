@@ -464,10 +464,17 @@ for (const [name, url] of [
     const cuts = normalizedCuts({
       sources: [{ id: 'main', path: 'assets/main.mp4' }],
       cuts: [{ id: 'adjusted', src: 'main', in: 0, out: 1,
-        adjust: { basic: { exposure: 1 }, lut: { lut: 'mono', intensity: 0.5 } } }],
+        adjust: { basic: { exposure: 1 }, lut: { lut: 'mono', intensity: 0.5 },
+          curves: { r: [{ in: 0, out: 0.1 }, { in: 1, out: 1 }] },
+          wheels: { gain: { b: -0.2 } }, hue: { sat: [{ hue: 0, value: 0 }] },
+          sections: { curves: true, wheels: false, hue: true } } }],
     }, { adjusted: 'LUT_3D_SIZE 2' });
     assert.deepEqual(cuts[0].adjust.basic, { exposure: 1 });
     assert.equal(cuts[0].adjust.lut.intensity, 0.5);
+    assert.deepEqual(cuts[0].adjust.curves, { r: [{ in: 0, out: 0.1 }, { in: 1, out: 1 }] });
+    assert.deepEqual(cuts[0].adjust.wheels, { gain: { b: -0.2 } });
+    assert.deepEqual(cuts[0].adjust.hue, { sat: [{ hue: 0, value: 0 }] });
+    assert.deepEqual(cuts[0].adjust.sections, { curves: true, wheels: false, hue: true });
     assert.equal(cuts[0].adjust.lut.lut.parsed, 'LUT_3D_SIZE 2');
   });
 }

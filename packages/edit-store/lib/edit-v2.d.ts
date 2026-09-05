@@ -180,14 +180,52 @@ export interface AdjustLutV0 {
     lut: string;
     intensity?: number;
 }
-export interface AdjustV0 {
+export interface AdjustCurvePointV1 {
+    in: number;
+    out: number;
+}
+export interface AdjustCurvesV1 {
+    master?: AdjustCurvePointV1[];
+    r?: AdjustCurvePointV1[];
+    g?: AdjustCurvePointV1[];
+    b?: AdjustCurvePointV1[];
+}
+export interface AdjustWheelV1 {
+    r?: number;
+    g?: number;
+    b?: number;
+}
+export interface AdjustWheelsV1 {
+    lift?: AdjustWheelV1;
+    gamma?: AdjustWheelV1;
+    gain?: AdjustWheelV1;
+    offset?: AdjustWheelV1;
+}
+export interface AdjustHuePointV1 {
+    hue: number;
+    value: number;
+}
+export interface AdjustHueCurvesV1 {
+    hue?: AdjustHuePointV1[];
+    sat?: AdjustHuePointV1[];
+    luma?: AdjustHuePointV1[];
+}
+export interface AdjustV1 {
     basic?: AdjustBasicV0;
     lut?: AdjustLutV0 | null;
+    curves?: AdjustCurvesV1;
+    wheels?: AdjustWheelsV1;
+    hue?: AdjustHueCurvesV1;
     sections?: {
         basic?: boolean;
         lut?: boolean;
+        curves?: boolean;
+        wheels?: boolean;
+        hue?: boolean;
     };
 }
+/** @deprecated Use AdjustV1. */
+export type AdjustV0 = AdjustV1;
 export interface ItemV2Base {
     id: string;
     name?: string;
@@ -210,7 +248,7 @@ export interface ItemV2Base {
     opacity?: number;
     blend?: BlendModeV2;
     crop?: CropV2;
-    adjust?: AdjustV0;
+    adjust?: AdjustV1;
     perspective?: Record<string, unknown>;
     motion?: MotionV0;
     animator?: AnimatorV0[];

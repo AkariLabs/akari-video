@@ -1,0 +1,22 @@
+{
+  "id": "teal_orange",
+  "adjust": {
+    "basic": {
+      "contrast": 0.15,
+      "saturation": 0.2,
+      "temperature": 0.05
+    },
+    "wheels": {
+      "gamma": {
+        "r": -0.05,
+        "g": -0.02,
+        "b": 0.05
+      },
+      "gain": {
+        "r": 0.08,
+        "g": -0.02,
+        "b": -0.08
+      }
+    }
+  }
+}

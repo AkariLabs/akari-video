@@ -190,10 +190,33 @@ function effectiveAdjustLutRef(item) {
 
 function hasEffectiveItemAdjust(edit) {
   return [...(edit?.cuts ?? []), ...(edit?.layers ?? [])].some((item) => {
+    const adjust = item?.adjust;
     const basic = item?.adjust?.sections?.basic === false ? null : item?.adjust?.basic;
     const hasBasic = basic && Object.values(basic).some((value) => Number.isFinite(value) && Math.abs(value) > 1e-6);
     const intensity = Number(item?.adjust?.lut?.intensity ?? 1);
-    return Boolean(hasBasic || (effectiveAdjustLutRef(item) && (!Number.isFinite(intensity) || intensity > 0)));
+    // Match kernel normalization and identity tolerances without a runtime dependency.
+    const clamp01 = value => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+    const hasWheels = adjust?.sections?.wheels !== false
+      && ['lift', 'gamma', 'gain', 'offset'].some(wheel =>
+        ['r', 'g', 'b'].some(channel => {
+          const value = adjust?.wheels?.[wheel]?.[channel];
+          return Number.isFinite(value) && value !== 0;
+        }));
+    const hasCurves = adjust?.sections?.curves !== false
+      && ['master', 'r', 'g', 'b'].some(channel => {
+        const raw = adjust?.curves?.[channel];
+        if (raw == null) return false;
+        const points = raw.map(point => ({ in: clamp01(point.in), out: clamp01(point.out) }))
+          .sort((a, b) => a.in - b.in);
+        return !(points.length === 2
+          && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5
+          && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
+      });
+    const hasHue = adjust?.sections?.hue !== false
+      && ['hue', 'sat', 'luma'].some(channel =>
+        (adjust?.hue?.[channel] ?? []).some(point =>
+          Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
+    return Boolean(hasBasic || hasWheels || hasCurves || hasHue || (effectiveAdjustLutRef(item) && (!Number.isFinite(intensity) || intensity > 0)));
   });
 }
 
