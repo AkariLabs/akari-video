@@ -104,6 +104,38 @@ interface PrepareSpeechAtempoResult {
     stream?: VideoStreamReference;
 }
 
+interface PreviewAudioSidecarModuleResult {
+    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'invalid' | 'legacy' | 'missing';
+    key?: string | null;
+    path?: string;
+    probe?: { fingerprint?: string; pending?: boolean };
+    durationSec?: number;
+    bytes?: number;
+    sampleRate?: number;
+    channels?: number;
+    reason?: string;
+    retryAfterMs?: number;
+}
+
+interface PreviewAudioSidecarRequestResult extends Omit<PreviewAudioSidecarModuleResult, 'state' | 'key' | 'path' | 'probe'> {
+    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'not-eligible';
+    key?: string;
+    probe?: { fingerprint: string };
+    stream?: VideoStreamReference;
+}
+
+type PreviewAudioSidecarOptions = {
+    sourcePath: string;
+    inSec: number;
+    outSec?: number;
+    speed: number;
+    padBeforeSec: number;
+    padAfterSec: number;
+    clipFx?: PrepareSpeechAtempoRequest['clipFx'];
+    ffmpeg?: string;
+    cacheDir: string;
+};
+
 // model-update は既存 webview bootstrap が window.akari.state.summary を差し替えてから tick する。
 // runtimeJavaScript 内で overlays の署名を監視すれば、webview HTML 本体を変えずに overlay だけを
 // soft remount できる。これにより keyframes の追加・変更・除去と html/transform 更新を、
@@ -160,6 +192,8 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
 })();`;
 
 type SpeechAtempoModule = {
+    requestPreviewAudioSidecar(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
+    previewAudioSidecarStatus(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
     ensurePreviewAudioSidecar(options: {
         sourcePath: string;
         inSec: number;
@@ -189,7 +223,7 @@ type SpeechAtempoModule = {
         durationSec: number;
         reason?: string;
     }>;
-    sweepPreviewAudioSidecars(options: { cacheDir: string; keepKeys: string[] }): {
+    sweepPreviewAudioSidecars(options: { cacheDir: string; keepKeys: string[]; keepProbes?: string[]; minAgeMs?: number }): {
         removed: number;
         bytes: number;
     };
@@ -593,38 +627,46 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         };
     }
 
+    private async validatePreviewAudioSidecarRequest(request: PrepareSpeechAtempoRequest): Promise<{
+        projectRoot: string; sourcePath: string; eligible: boolean;
+    }> {
+        if (!request || typeof request.sourceUri !== 'string'
+            || typeof request.projectRootUri !== 'string'
+            || !Number.isFinite(request.inSec) || request.inSec < 0
+            || (request.outSec !== undefined
+                && (!Number.isFinite(request.outSec) || request.outSec <= request.inSec))
+            || !Number.isFinite(request.speed) || request.speed <= 0
+            || (request.padBeforeSec !== undefined
+                && (!Number.isFinite(request.padBeforeSec) || request.padBeforeSec < 0))
+            || (request.padAfterSec !== undefined
+                && (!Number.isFinite(request.padAfterSec) || request.padAfterSec < 0))) {
+            throw new Error('Invalid preview audio sidecar request');
+        }
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        const projectRoot = await realpath(this.filePath(request.projectRootUri));
+        const sourcePath = await realpath(this.filePath(request.sourceUri));
+        if (!roots.some(root => this.contains(root, projectRoot))
+            || !roots.some(root => this.contains(root, sourcePath))) {
+            throw new Error('Preview audio sidecar paths must stay inside an open workspace');
+        }
+        const sourceStat = await stat(sourcePath);
+        const eligible = !(request.heavyWavOnly === true && request.clipFx === undefined
+            && (extname(sourcePath).toLowerCase() !== '.wav' || sourceStat.size <= 8 * 1024 * 1024));
+        return { projectRoot, sourcePath, eligible };
+    }
+
     async preparePreviewAudioSidecar(request: PrepareSpeechAtempoRequest): Promise<PrepareSpeechAtempoResult> {
         const startedAt = Date.now();
         try {
-            if (!request || typeof request.sourceUri !== 'string'
-                || typeof request.projectRootUri !== 'string'
-                || !Number.isFinite(request.inSec) || request.inSec < 0
-                || (request.outSec !== undefined
-                    && (!Number.isFinite(request.outSec) || request.outSec <= request.inSec))
-                || !Number.isFinite(request.speed) || request.speed <= 0
-                || (request.padBeforeSec !== undefined
-                    && (!Number.isFinite(request.padBeforeSec) || request.padBeforeSec < 0))
-                || (request.padAfterSec !== undefined
-                    && (!Number.isFinite(request.padAfterSec) || request.padAfterSec < 0))) {
-                throw new Error('Invalid preview audio sidecar request');
-            }
-            const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
-            const projectRoot = await realpath(this.filePath(request.projectRootUri));
-            const sourcePath = await realpath(this.filePath(request.sourceUri));
-            if (!roots.some(root => this.contains(root, projectRoot))
-                || !roots.some(root => this.contains(root, sourcePath))) {
-                throw new Error('Preview audio sidecar paths must stay inside an open workspace');
-            }
-            const module = await this.loadSpeechAtempoModule();
-            const sourceStat = await stat(sourcePath);
-            if (request.heavyWavOnly === true && request.clipFx === undefined
-                && (extname(sourcePath).toLowerCase() !== '.wav' || sourceStat.size <= 8 * 1024 * 1024)) {
+            const { projectRoot, sourcePath, eligible } = await this.validatePreviewAudioSidecarRequest(request);
+            if (!eligible) {
                 return {
                     ok: false, skipped: false, eligible: false,
                     durationSec: 0, generatedMs: Date.now() - startedAt,
                     reason: 'source is not a WAV over 8 MB'
                 };
             }
+            const module = await this.loadSpeechAtempoModule();
             // This process also serves media bytes to the preview (HTTP Range server), so the probe
             // and the transcode below are awaited (spawn), never run through spawnSync.
             const probe = request.outSec === undefined
@@ -688,9 +730,56 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return this.preparePreviewAudioSidecar({ ...request, padBeforeSec: 0, padAfterSec: 0 });
     }
 
+    async requestPreviewAudioSidecar(request: PrepareSpeechAtempoRequest): Promise<PreviewAudioSidecarRequestResult> {
+        try {
+            const { projectRoot, sourcePath, eligible } = await this.validatePreviewAudioSidecarRequest(request);
+            if (!eligible) return { state: 'not-eligible' };
+            const ffmpeg = await resolveFfmpegPath();
+            if (!ffmpeg) return { state: 'unavailable', reason: 'ffmpeg-missing' };
+            const module = await this.loadSpeechAtempoModule();
+            const result = module.requestPreviewAudioSidecar({
+                sourcePath,
+                inSec: request.inSec,
+                ...(request.outSec !== undefined ? { outSec: request.outSec } : {}),
+                speed: request.speed,
+                padBeforeSec: request.padBeforeSec ?? 0,
+                padAfterSec: request.padAfterSec ?? 0,
+                ...(request.clipFx !== undefined ? { clipFx: request.clipFx } : {}),
+                ffmpeg,
+                cacheDir: join(projectRoot, '.akari', 'cache')
+            });
+            const { path: sidecarPath, key, probe, state, ...metadata } = result;
+            const mapped: PreviewAudioSidecarRequestResult = {
+                ...metadata,
+                state: state === 'ready' || state === 'queued' || state === 'generating'
+                    || state === 'no-audio' || state === 'failed' ? state : 'unavailable',
+                ...(key ? { key } : {}),
+                ...(probe?.fingerprint ? { probe: { fingerprint: probe.fingerprint } } : {})
+            };
+            if (state === 'ready') {
+                if (!sidecarPath) throw new Error('ready preview audio sidecar has no path');
+                mapped.bytes ??= (await stat(sidecarPath)).size;
+                mapped.stream = await this.createAssetStream({
+                    assetUri: pathToFileURL(sidecarPath).toString(),
+                    workspaceRoots: request.workspaceRoots
+                });
+            }
+            return mapped;
+        } catch (error) {
+            return {
+                state: 'unavailable',
+                reason: `${request?.clipFx !== undefined
+                    ? 'preview approximation will differ from export: ' : ''}${
+                    error instanceof Error ? error.message : String(error)}`
+            };
+        }
+    }
+
     async sweepPreviewAudioSidecars(request: {
         projectRootUri: string;
         keepKeys: string[];
+        keepProbes?: string[];
+        minAgeMs?: number;
         workspaceRoots?: string[];
     }): Promise<{ removed: number; bytes: number }> {
         if (!request || typeof request.projectRootUri !== 'string' || !Array.isArray(request.keepKeys)) {
@@ -704,7 +793,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const module = await this.loadSpeechAtempoModule();
         return module.sweepPreviewAudioSidecars({
             cacheDir: join(projectRoot, '.akari', 'cache'),
-            keepKeys: request.keepKeys
+            keepKeys: request.keepKeys,
+            ...(request.keepProbes !== undefined ? { keepProbes: request.keepProbes } : {}),
+            ...(request.minAgeMs !== undefined ? { minAgeMs: request.minAgeMs } : {})
         });
     }
 
