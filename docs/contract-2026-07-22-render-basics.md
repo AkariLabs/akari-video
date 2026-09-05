@@ -27,6 +27,8 @@
 
 - 除外（次段送り）: ブレンドモード・PinP・プリレンダ合成レール（レイヤー機構が前提のため）
 
+現況（2026-09-05）: ffmpeg `lut3d` 経路は撤去済み。`output.look` は frame-engine の最終パス（WebGL2 LUT）で gpu / osr の 2 出口が適用し、per-clip の色補正は `docs/contract-2026-09-03-clip-adjust-v0.md` §4 の順（item adjust → 合成 → look）で同じエンジンが適用する。
+
 ## 2. 横断要件
 
 1. schema は**追記のみ**（既存 edit.json が全て無変更で valid のまま）。validate-edit /

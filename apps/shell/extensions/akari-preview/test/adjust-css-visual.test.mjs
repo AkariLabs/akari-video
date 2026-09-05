@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import test from 'node:test';
 
-import { adjustBasicToCssApprox } from '@akari-video/edit-store';
+import { computeAdjustCssVisual as sharedComputeAdjustCssVisual } from '@akari-video/edit-store';
 import { computeAdjustCssVisual } from '../lib/common/adjust-css-visual.js';
 
 test('adjust なしと basic 無効は DOM filter 席に触れない', () => {
@@ -12,17 +12,8 @@ test('adjust なしと basic 無効は DOM filter 席に触れない', () => {
   assert.equal(computeAdjustCssVisual({ basic: { exposure: 1 }, sections: { basic: false } }), null);
 });
 
-test('basic は edit-store と同じ CSS filter 近似になる', () => {
-  const samples = [
-    { exposure: 1 },
-    { contrast: 0.25, saturation: -0.5 },
-    { temperature: 0.5 },
-    { exposure: -1, contrast: 0.2, saturation: 0.3, temperature: -0.25 },
-    { exposure: 0, contrast: 0, saturation: 0, temperature: 0 },
-  ];
-  for (const basic of samples) {
-    assert.equal(computeAdjustCssVisual({ basic })?.filter, adjustBasicToCssApprox(basic));
-  }
+test('akari-preview re-exports the edit-store function by reference', () => {
+  assert.equal(computeAdjustCssVisual, sharedComputeAdjustCssVisual);
 });
 
 test('adjust を基底に transition filter を空要素なしで連結する', () => {

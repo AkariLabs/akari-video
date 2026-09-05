@@ -37,3 +37,4 @@ export * from './adjust-css-approx';
 // to edit-store.ts.
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
+export * from './adjust-css-visual';

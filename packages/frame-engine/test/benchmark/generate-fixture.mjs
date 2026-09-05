@@ -1,5 +1,6 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import migrate from '../../../edit-store/lib/migrate/index.js';
@@ -10,14 +11,8 @@ const fixture = resolve(generated, 'source-1080p.mp4');
 const renderProject = resolve(generated, 'render-cut-project');
 mkdirSync(renderProject, { recursive: true });
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 let valid = false;
 try {
   const probe = execFileSync(ffprobe, [

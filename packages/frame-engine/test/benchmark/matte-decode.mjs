@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -11,13 +12,7 @@ const repository = resolve(packageDirectory, '../..');
 const generated = resolve(directory, '.generated');
 mkdirSync(generated, { recursive: true });
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
-const ffmpeg = tool('ffmpeg');
+const ffmpeg = resolveTool('ffmpeg');
 const color = resolve(generated, 'matte-benchmark-color.mp4');
 const alpha = resolve(generated, 'matte-benchmark-alpha.webm');
 const mask = resolve(generated, 'matte-benchmark-mask.mp4');

@@ -56,3 +56,4 @@ var legacy_parse_1 = require("./migrate/legacy-parse");
 Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function () { return legacy_parse_1.parseEdit; } });
 var error_1 = require("./migrate/error");
 Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });
+__exportStar(require("./adjust-css-visual"), exports);

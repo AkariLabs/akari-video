@@ -1,9 +1,11 @@
 'use strict';
 
+const { resolveTool } = require('../helpers/resolve-tool.mjs');
+
 const { app, BrowserWindow, ipcMain, MessageChannelMain, net, protocol } = require('electron');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
-const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { dirname, resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -18,14 +20,9 @@ const WEBCODECS_OUTPUT = resolve(GENERATED, 'v2-webcodecs.mp4');
 const RENDER_OUTPUT = resolve(GENERATED, 'render-cut-project/output.mp4');
 mkdirSync(GENERATED, { recursive: true });
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
-const node = tool('node');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
+const node = resolveTool('node');
 let encoder = null;
 let finished = false;
 
