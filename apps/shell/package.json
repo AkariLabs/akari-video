@@ -312,7 +312,28 @@
     },
     "dmg": {
       "sign": true,
-      "writeUpdateInfo": false
+      "writeUpdateInfo": false,
+      "artifactName": "AKARI-Video-${version}-mac-${arch}.${ext}",
+      "title": "AKARI Video ${version}",
+      "background": "resources/dmg/background.tiff",
+      "window": {
+        "width": 660,
+        "height": 400
+      },
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 180,
+          "y": 170,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "win": {
       "icon": "resources/icons/icon.ico",

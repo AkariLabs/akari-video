@@ -51,10 +51,10 @@ permissions:
   contents: write
 
 env:
-  # release-artifacts/ に置く成果物の固定名。scripts/release/gen-latest-json.mjs の
+  # release-artifacts/ に置く固定名は scripts/release/gen-latest-json.mjs の
   # ARTIFACT_FILES と一致させること（url 組み立て・sha256 計算がこの名前に依存する）。
+  # DMG は版付き名を build-mac の dmg_name output で渡す。
   ARTIFACT_MAC: shell-mac.zip
-  ARTIFACT_MAC_DMG: shell-mac.dmg
   ARTIFACT_WIN: shell-win.zip
   ARTIFACT_WIN_SETUP: shell-win-setup.exe
   ARTIFACT_CLI: cli.tgz
@@ -125,6 +125,8 @@ jobs:
     if: ${{ !inputs.feed_only }}
     runs-on: macos-14
     timeout-minutes: 90
+    outputs:
+      dmg_name: ${{ steps.mac-artifacts.outputs.dmg_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -396,17 +398,22 @@ jobs:
         working-directory: apps/shell
         run: npm run postpackage
 
-      # mac.artifactName（apps/shell/package.json = "shell-mac.${ext}"）により
-      # electron-builder は既にこの固定名で zip/dmg を出力している（U3 以前は
-      # デフォルトテンプレート "${productName}-${version}-${os}-${arch}.${ext}" だった
-      # ため、ここで find + cp するリネームが必要だった。同じ find で拾い直すと今は
-      # 送り元 = 送り先になり `cp` が「同一ファイル」エラーで失敗するため、確認のみに変更）
-      - name: 成果物の確認（固定名で出力済みか）
+      # ZIP は mac.artifactName の固定名、DMG は dmg.artifactName の版付き名。
+      # DMG が一意であることを確認し、実ファイル名を後続ジョブへ渡す。
+      - name: 成果物の確認（固定名 ZIP + 版付き DMG が 1 個）
+        id: mac-artifacts
         working-directory: apps/shell/electron-builder-out
         run: |
           test -f "${{ env.ARTIFACT_MAC }}" || { echo "mac zip 成果物（${{ env.ARTIFACT_MAC }}）が見つかりません"; exit 1; }
-          test -f "${{ env.ARTIFACT_MAC_DMG }}" || { echo "mac dmg 成果物（${{ env.ARTIFACT_MAC_DMG }}）が見つかりません"; exit 1; }
-          ls -la "${{ env.ARTIFACT_MAC }}" "${{ env.ARTIFACT_MAC_DMG }}"
+          shopt -s nullglob
+          dmgs=(*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"
+            exit 1
+          fi
+          test -f "${dmgs[0]}"
+          echo "dmg_name=${dmgs[0]}" >> "$GITHUB_OUTPUT"
+          ls -la "${{ env.ARTIFACT_MAC }}" "${dmgs[0]}"
 
       - name: mac 配布物の署名検証ゲート
         working-directory: apps/shell/electron-builder-out
@@ -436,7 +443,7 @@ jobs:
           name: shell-mac
           path: |
             apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC }}
-            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_DMG }}
+            apps/shell/electron-builder-out/${{ steps.mac-artifacts.outputs.dmg_name }}
           retention-days: 14
           if-no-files-found: error
 
@@ -760,7 +767,7 @@ jobs:
         run: |
           assets=(
             "release-artifacts/${{ env.ARTIFACT_MAC }}"
-            "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}"
+            "release-artifacts/${{ needs.build-mac.outputs.dmg_name }}"
             "release-artifacts/${{ env.ARTIFACT_WIN }}"
             "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}"
             "release-artifacts/${{ env.ARTIFACT_CLI }}"
@@ -835,6 +842,8 @@ jobs:
         with:
           node-version: '26.3.0'
 
+      # DMG も取得して任意の mac_dmg を再生成する。旧 Release に DMG がなくても
+      # 他の固定名パターンが一致するため download は成立する。
       - name: 対象タグの既存 Release から成果物を取得
         env:
           GH_TOKEN: ${{ github.token }}
@@ -842,6 +851,7 @@ jobs:
           mkdir -p release-artifacts
           gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir release-artifacts --clobber \
             --pattern "${{ env.ARTIFACT_MAC }}" \
+            --pattern "*.dmg" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
             --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
             --pattern "${{ env.ARTIFACT_CLI }}" \
