@@ -27,8 +27,8 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("all 66 generated item, source, and keyframe keys have a capability row", () => {
-  assert.equal(canonicalPaths.size, 66);
+test("all 68 generated item, source, and keyframe keys have a capability row", () => {
+  assert.equal(canonicalPaths.size, 68);
   const covered = new Set(table.fields.map((field) => field.path));
   assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)), []);
 });
