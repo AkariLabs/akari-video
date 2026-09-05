@@ -4,7 +4,7 @@ import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edi
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
-import type { InspectorAdjustPath, InspectorAdjustSnapshot } from './inspector/adjust-fields';
+import type { InspectorAdjustPath, InspectorAdjustSnapshot, InspectorAdjustValue } from './inspector/adjust-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -222,7 +222,7 @@ type InspectorWriteOperation =
             | InspectorAdjustPath
             | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
-        value: number | string | boolean | null;
+        value: InspectorAdjustValue;
     }
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-transform-x'; index: number; value: number | null }

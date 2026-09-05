@@ -49,6 +49,7 @@ import {
     cutPlaybackDuration,
     resolveCutFreezeDisplayAt
 } from './inspector/freeze-fields';
+import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from './inspector/adjust-editors';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
@@ -163,6 +164,7 @@ interface InspectorSectionEnable {
 
 type InspectorSection<TSnapshot = InspectorSnapshot> = InspectorSectionDef<InspectorFieldDef<TSnapshot>> & {
     enable?: InspectorSectionEnable;
+    body?: (snapshot: TSnapshot) => HTMLElement;
 };
 
 function formatTimestamp(value: number): string {
@@ -1612,6 +1614,10 @@ function ADJUST_SECTIONS(
     const basicEnabled = adjust.sections.basic;
     const lutEnabled = adjust.sections.lut;
     const disabledTitle = 'セクションがオフのため変更できません。';
+    const editorWrite = (section: 'curves' | 'wheels' | 'hue'): AdjustEditorWrite => async (path, value) =>
+        adjust.sections[section]
+            ? requestWrite(createInspectorAdjustWriteRequest(itemId, path, value))
+            : { ok: false, message: disabledTitle };
     const basicFields: InspectorFieldDef[] = INSPECTOR_ADJUST_BASIC_FIELDS.map(field => ({
         name: `adjust-basic-${field.key}`,
         label: field.label,
@@ -1712,8 +1718,47 @@ function ADJUST_SECTIONS(
             ))
         }
     }, {
-        id: 'adjust:lut',
+        id: 'adjust:curves',
         label: ACTIVE_ADJUST_SECTIONS[1],
+        fields: [],
+        body: () => buildRgbCurveEditor(adjust, editorWrite('curves')),
+        enable: {
+            name: 'adjust-curves-enabled',
+            label: 'RGB カーブを有効化',
+            checked: adjust.sections.curves,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId, 'adjust.sections.curves', enabled ? null : false
+            ))
+        }
+    }, {
+        id: 'adjust:wheels',
+        label: ACTIVE_ADJUST_SECTIONS[2],
+        fields: [],
+        body: () => buildColorWheelEditor(adjust, editorWrite('wheels')),
+        enable: {
+            name: 'adjust-wheels-enabled',
+            label: 'カラーホイールを有効化',
+            checked: adjust.sections.wheels,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId, 'adjust.sections.wheels', enabled ? null : false
+            ))
+        }
+    }, {
+        id: 'adjust:hue',
+        label: ACTIVE_ADJUST_SECTIONS[3],
+        fields: [],
+        body: () => buildHueCurveEditor(adjust, editorWrite('hue')),
+        enable: {
+            name: 'adjust-hue-enabled',
+            label: 'Hue カーブを有効化',
+            checked: adjust.sections.hue,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId, 'adjust.sections.hue', enabled ? null : false
+            ))
+        }
+    }, {
+        id: 'adjust:lut',
+        label: ACTIVE_ADJUST_SECTIONS[4],
         fields: lutFields,
         enable: {
             name: 'adjust-lut-enabled',
@@ -2027,6 +2072,24 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-adjust-preview-channel-r { color: #e78585; }
     .akari-inspector-widget .akari-adjust-preview-channel-g { color: #7fcb8b; }
     .akari-inspector-widget .akari-adjust-preview-channel-b { color: #80a9e8; }
+    .akari-inspector-widget .akari-adjust-editor { display: grid; gap: 8px; padding: 8px; }
+    .akari-inspector-widget .akari-adjust-editor .akari-adjust-editor-curve { touch-action: none; overflow: visible; opacity: 1; }
+    .akari-inspector-widget .akari-adjust-editor-line { fill: none; stroke: var(--theia-foreground); stroke-width: 1.5; }
+    .akari-inspector-widget .akari-adjust-editor-point { fill: var(--theia-focusBorder, #68aaff); stroke: #202020; cursor: grab; }
+    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-channel { cursor: pointer; }
+    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel {
+        touch-action: none; cursor: crosshair; opacity: 1;
+        background: conic-gradient(from 90deg, #ef6d6d, #c87bd5, #739be7, #6fd3d5, #72cf81, #e8d86b, #ef6d6d);
+    }
+    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel-center { pointer-events: none; }
+    .akari-inspector-widget .akari-adjust-editor-luminance { display: flex; min-width: 0; width: 100%; }
+    .akari-inspector-widget .akari-adjust-editor-luminance .akari-inspector-number-field {
+        min-width: 0; flex: 1; grid-template-columns: 18px minmax(28px, 1fr) auto 14px;
+    }
+    .akari-inspector-widget .akari-adjust-editor-notice { color: var(--theia-errorForeground); font-size: 11px; }
+    .akari-inspector-widget .akari-adjust-preview-curve.akari-adjust-editor-hue {
+        background: linear-gradient(to right, hsl(0,80%,50%), hsl(60,80%,45%), hsl(120,80%,45%), hsl(180,80%,45%), hsl(240,80%,55%), hsl(300,80%,50%), hsl(360,80%,50%)) bottom / 100% 10px no-repeat;
+    }
     .akari-inspector-widget .akari-adjust-preview-curve {
         width: min(100%, 180px);
         height: 140px;
@@ -2547,6 +2610,15 @@ export class AkariInspectorWidget extends BaseWidget {
             header.appendChild(add);
         }
         fields.forEach(field => this.appendRow(body, field, snapshot, kind));
+        if (section.body) {
+            const customBody = section.body(snapshot);
+            if (section.enable?.checked === false) {
+                customBody.setAttribute('aria-disabled', 'true');
+                customBody.style.pointerEvents = 'none';
+                customBody.style.opacity = '0.5';
+            }
+            body.appendChild(customBody);
+        }
         container.append(header, body);
         this.body.appendChild(container);
     }

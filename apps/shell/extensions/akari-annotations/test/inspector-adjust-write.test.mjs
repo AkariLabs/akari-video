@@ -15,6 +15,8 @@ import {
 } from '../lib/browser/inspector/adjust-fields.js';
 import { createNumberField } from '../lib/browser/inspector/number-field.js';
 import { updateTreeV2Item } from '../lib/common/edit-v2-mutations.js';
+import { IDENTITY_CURVE_POINTS, DEFAULT_HUE_POINTS } from '../lib/browser/inspector/adjust-editor-model.js';
+import { readEditV2 } from '@akari-video/edit-store';
 
 const inspectorSource = readFileSync(
   new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
@@ -206,7 +208,10 @@ test('sections OFF は値を保持して snapshot の行を無効化し、ON は
       whites: 0, temperature: 0, tint: 0, vibrance: 0, saturation: 0
     },
     lut: { lut: 'natural', intensity: 0.8 },
-    sections: { basic: false, lut: true }
+    curves: Object.fromEntries(['master', 'r', 'g', 'b'].map(ch => [ch, IDENTITY_CURVE_POINTS])),
+    wheels: Object.fromEntries(['lift', 'gamma', 'gain', 'offset'].map(w => [w, { r: 0, g: 0, b: 0 }])),
+    hue: Object.fromEntries(['hue', 'sat', 'luma'].map(ch => [ch, DEFAULT_HUE_POINTS])),
+    sections: { basic: false, lut: true, curves: true, wheels: true, hue: true }
   });
   assert.deepEqual(
     updateInspectorAdjust(disabled, 'adjust.sections.basic', null),
@@ -239,7 +244,7 @@ test('v2 tree item へ露出を書き、既定へ戻すと adjust field が消�
   assert.equal(Object.hasOwn(item(), 'adjust'), false);
 });
 
-test('実働 2 セクションは近日 4 セクションより先に描かれ、OFF 行と KF 席を無効化する', () => {
+test('実働 5 セクションは近日 1 セクションより先に描かれ、OFF 行と KF 席を無効化する', () => {
   const adjustFactory = sourceBetween(inspectorSource, 'function ADJUST_SECTIONS(', '/**\n * タイムラインの選択内容');
   assert.match(adjustFactory, /id: 'adjust:basic'/u);
   assert.match(adjustFactory, /id: 'adjust:lut'/u);
@@ -271,4 +276,95 @@ test('adjust item-field は crop と同じネスト分岐で更新し、v1 は�
     timelineSource,
     /return \{ ok: false, message: 'この項目の編集は edit\.json v2 のみ対応です。' \}/u
   );
+});
+
+test('RGB・Hue の書き込みは昇順と clamp を保証し、リセットでキーを除去する', () => {
+  const points = [{ in: 1, out: 1 }, { in: 0.5, out: 0.8 }, { in: -1, out: -1 }];
+  const request = createInspectorAdjustWriteRequest('clip', 'adjust.curves.master', points);
+  assert.equal(request.value, points);
+  const adjust = updateInspectorAdjust(undefined, request.path, request.value);
+  assert.deepEqual(adjust, { curves: { master: [{ in: 0, out: 0 }, { in: 0.5, out: 0.8 }, { in: 1, out: 1 }] } });
+  assert.equal(updateInspectorAdjust(adjust, 'adjust.curves.master', null), null);
+  assert.equal(updateInspectorAdjust(adjust, 'adjust.curves.master', [...IDENTITY_CURVE_POINTS]), null);
+  assert.deepEqual(updateInspectorAdjust({ ...adjust, basic: { exposure: 1 } }, 'adjust.curves.master', null), { basic: { exposure: 1 } });
+  const desaturated = DEFAULT_HUE_POINTS.map(p => ({ ...p, value: 0 }));
+  const hue = updateInspectorAdjust(undefined, 'adjust.hue.sat', desaturated);
+  assert.deepEqual(hue, { hue: { sat: desaturated } });
+  assert.equal(updateInspectorAdjust(hue, 'adjust.hue.sat', [...DEFAULT_HUE_POINTS]), null);
+  assert.equal(updateInspectorAdjust(hue, 'adjust.hue.sat', null), null);
+  assert.deepEqual(updateInspectorAdjust(undefined, 'adjust.hue.hue', [{ hue: 0, value: 0 }]), { hue: { hue: [{ hue: 0, value: 0 }] } });
+});
+
+test('ホイールの部分更新はゼロを疎辞書に正規化し、範囲外や未知チャンネルを拒否する', () => {
+  let adjust = updateInspectorAdjust(undefined, 'adjust.wheels.lift', { r: 0.1, g: 0, b: 0 });
+  assert.deepEqual(adjust, { wheels: { lift: { r: 0.1 } } });
+  adjust = updateInspectorAdjust(adjust, 'adjust.wheels.lift', { g: 0.2 });
+  assert.deepEqual(adjust, { wheels: { lift: { r: 0.1, g: 0.2 } } });
+  adjust = updateInspectorAdjust(adjust, 'adjust.wheels.lift.g', null);
+  assert.deepEqual(adjust, { wheels: { lift: { r: 0.1 } } });
+  assert.equal(updateInspectorAdjust(adjust, 'adjust.wheels.lift', { r: 0, g: 0, b: 0 }), null);
+  assert.equal(updateInspectorAdjust(adjust, 'adjust.wheels.lift', null), null);
+  assert.equal(updateInspectorAdjust(adjust, 'adjust.wheels.lift.r', 0), null);
+  for (const [wheel, range] of [['lift', 0.25], ['gamma', 0.5], ['gain', 0.5], ['offset', 0.1]]) {
+    assert.deepEqual(updateInspectorAdjust(undefined, `adjust.wheels.${wheel}`, { r: range, b: -range }), { wheels: { [wheel]: { r: range, b: -range } } });
+    for (const value of [range + 0.00001, -range - 0.00001, NaN, Infinity, '1']) {
+      assert.throws(() => updateInspectorAdjust(undefined, `adjust.wheels.${wheel}`, { r: value }), /範囲/u);
+    }
+  }
+  assert.throws(() => updateInspectorAdjust(adjust, 'adjust.wheels.lift', { x: 0 }), /未対応/u);
+  assert.throws(() => updateInspectorAdjust(adjust, 'adjust.wheels.lift', []), /オブジェクト/u);
+});
+
+test('不正なカーブを保存せず未知キーは identity 判定で保持する', () => {
+  for (const [section, channel, x, y, min] of [['curves', 'master', 'in', 'out', 2], ['hue', 'sat', 'hue', 'value', 1]]) {
+    const path = `adjust.${section}.${channel}`;
+    const point = (a, b) => ({ [x]: a, [y]: b });
+    for (const invalid of [[], Array.from({ length: 17 }, (_, i) => point(i / 16, 0.2)),
+      [point(0, 0), point(0, 1)], [point(0, NaN)], [point(0, Infinity)],
+      [{ ...point(0, 0), extra: 1 }], [point('0', 1)], [null]]) {
+      assert.throws(() => updateInspectorAdjust(undefined, path, invalid), /カーブ/u);
+    }
+    if (min === 2) assert.throws(() => updateInspectorAdjust(undefined, path, [point(0, 0)]), /点数/u);
+    assert.equal(isInspectorAdjustIdentity({ [section]: { future: [point(0, 0.5)] } }), false);
+  }
+  assert.equal(isInspectorAdjustIdentity({ wheels: { lift: { future: 0 } } }), false);
+  assert.equal(isInspectorAdjustIdentity({ wheels: { future: { r: 0 } } }), false);
+});
+
+test('新セクションの OFF は値を保持し ON で sections キーだけを消す', () => {
+  const current = { curves: { master: [{ in: 0, out: 0.2 }, { in: 1, out: 1 }] },
+    wheels: { lift: { r: 0.1 } }, hue: { sat: [{ hue: 0, value: 0 }] } };
+  for (const section of ['curves', 'wheels', 'hue']) {
+    const disabled = updateInspectorAdjust(current, `adjust.sections.${section}`, false);
+    assert.deepEqual(disabled[section], current[section]);
+    assert.equal(readInspectorAdjustSnapshot(disabled).sections[section], false);
+    assert.deepEqual(updateInspectorAdjust(disabled, `adjust.sections.${section}`, null), current);
+    assert.deepEqual(updateInspectorAdjust(disabled, `adjust.sections.${section}`, true), current);
+  }
+  assert.match(inspectorSource, /adjust\.sections\[section\][\s\S]{0,200}ok: false, message: disabledTitle/u);
+  assert.match(inspectorSource, /section\.enable\?\.checked === false[\s\S]{0,200}aria-disabled[\s\S]{0,100}pointerEvents = 'none'/u);
+});
+
+test('3 セクションは v2 tree item へ書き込み、edit-store の検証器を通る', () => {
+  let document = {
+    version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
+    tracks: [{ id: 'visual-1', lane: 'visual', items: [{
+      id: 'clip', at: 0, duration: 30, source: { kind: 'media', src: 'main', in: 0, out: 1 }
+    }] }]
+  };
+  for (const [path, value] of [
+    ['adjust.curves.master', [{ in: 0, out: 0 }, { in: 0.5, out: 0.8 }, { in: 1, out: 1 }]],
+    ['adjust.wheels.lift', { r: 0.1, g: 0, b: 0 }],
+    ['adjust.hue.sat', DEFAULT_HUE_POINTS.map(p => ({ ...p, value: 0 }))],
+    ['adjust.sections.curves', false], ['adjust.sections.wheels', false], ['adjust.sections.hue', false],
+    ['adjust.curves.master', null], ['adjust.wheels.lift', null], ['adjust.hue.sat', null]
+  ]) {
+    const request = createInspectorAdjustWriteRequest('clip', path, value);
+    document = updateTreeV2Item(document, request.id, {
+      adjust: updateInspectorAdjust(document.tracks[0].items[0].adjust, request.path, request.value)
+    });
+    assert.doesNotThrow(() => readEditV2(document));
+  }
+  assert.equal(Object.hasOwn(document.tracks[0].items[0], 'adjust'), false);
 });
