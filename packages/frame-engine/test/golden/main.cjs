@@ -1,8 +1,10 @@
 'use strict';
 
+const { resolveTool } = require('../helpers/resolve-tool.mjs');
+
 const { app, BrowserWindow, ipcMain, protocol } = require('electron');
 const { createHash } = require('node:crypto');
-const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { dirname, extname, resolve } = require('node:path');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
 
@@ -39,14 +41,8 @@ mkdirSync(GENERATED, { recursive: true });
 let encoder = null;
 let finished = false;
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 const writeJson = (file, value) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 const codecName = file => JSON.parse(execFileSync(ffprobe, [

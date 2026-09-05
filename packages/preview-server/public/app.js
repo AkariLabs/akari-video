@@ -46,7 +46,7 @@ import {
 import { editForPut } from '/transition-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
-import { computeAdjustCssVisual } from '/adjust-css-visual.js';
+import { computeAdjustCssVisual } from '/edit-kernel.bundle.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {

@@ -23,3 +23,4 @@ export declare function findActiveResolvedCaption<T extends {
     start: number;
     end: number;
 }>(cues: readonly T[], outputTime: number): T | undefined;
+export * from './adjust-css-visual';

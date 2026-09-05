@@ -1,3 +1,4 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
@@ -18,15 +19,8 @@ const project = resolve(generated, 'layers-project');
 const output = resolve(project, 'exports/layers-render-cut.mp4');
 const resultsPath = resolve(generated, 'results.json');
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], {
-    encoding: 'utf8',
-  }).trim();
-}
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 
 const addProbe = spawnSync(
   ffmpeg,

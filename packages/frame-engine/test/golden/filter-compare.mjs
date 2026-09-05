@@ -1,6 +1,7 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import migrate from '../../../edit-store/lib/migrate/index.js';
@@ -19,12 +20,8 @@ const comparisonPath = resolve(generated, 'filter-compare.json');
 const WIDTH = 320;
 const HEIGHT = 180;
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  return existsSync(homebrew) ? homebrew : execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 const fixture = JSON.parse(readFileSync(resolve(directory, 'filter.edit.json'), 'utf8'));
 const legacy = {
   ...fixture,

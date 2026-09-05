@@ -3566,6 +3566,42 @@ function isRecord4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+// ../edit-store/src/adjust-css-visual.ts
+function computeAdjustCssVisual(adjust, transitionFilter) {
+  const source = adjust && typeof adjust === "object" && !Array.isArray(adjust) ? adjust : null;
+  const rawBasic = source && source.sections?.basic !== false ? source.basic : null;
+  const basic = rawBasic && typeof rawBasic === "object" && !Array.isArray(rawBasic) ? rawBasic : null;
+  const rawTransition = typeof transitionFilter === "string" ? transitionFilter.trim() : "";
+  const transition = rawTransition === "none" ? "" : rawTransition;
+  if (!basic && !transition) return null;
+  const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
+  const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
+  const saturation = basic && Number.isFinite(basic.saturation) ? basic.saturation : 0;
+  const temperature = basic && Number.isFinite(basic.temperature) ? basic.temperature : 0;
+  const parts = [];
+  if (Math.abs(exposure) > 5e-3) {
+    parts.push("brightness(" + Math.pow(2, exposure).toFixed(2) + ")");
+  }
+  if (Math.abs(contrast) > 5e-3) {
+    parts.push("contrast(" + (1 + contrast).toFixed(2) + ")");
+  }
+  if (Math.abs(saturation) > 5e-3) {
+    parts.push("saturate(" + (1 + saturation).toFixed(2) + ")");
+  }
+  if (temperature > 5e-3) {
+    parts.push("sepia(" + (temperature * 0.3).toFixed(2) + ")");
+  } else if (temperature < -5e-3) {
+    parts.push("hue-rotate(" + (-temperature * 20).toFixed(0) + "deg)");
+  }
+  if (transition) parts.push(transition);
+  const unsupportedKeys = ["tint", "highlights", "shadows", "blacks", "whites", "vibrance"];
+  const hasApproximation = Boolean(basic) && unsupportedKeys.some((key) => {
+    const value = basic?.[key];
+    return Number.isFinite(value) && value !== 0;
+  });
+  return { filter: parts.join(" "), hasApproximation };
+}
+
 // ../edit-store/src/webview-kernel.ts
 function findActiveResolvedCaption(cues, outputTime) {
   return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
@@ -3588,6 +3624,7 @@ export {
   captionClockDomainOf,
   captionWindowSeconds,
   composeEnvelopesDb,
+  computeAdjustCssVisual,
   computeDuckEnvelope,
   computeDuckIntervals,
   computeTransitionVisual,

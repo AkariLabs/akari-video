@@ -34,3 +34,4 @@ export * from './cut-ranges';
 export * from './adjust-css-approx';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
+export * from './adjust-css-visual';

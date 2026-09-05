@@ -26,3 +26,4 @@ export function findActiveResolvedCaption<T extends { start: number; end: number
 ): T | undefined {
     return cues.find(cue => cue.start <= outputTime && outputTime < cue.end);
 }
+export * from './adjust-css-visual';

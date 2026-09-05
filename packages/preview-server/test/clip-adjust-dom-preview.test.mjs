@@ -41,7 +41,7 @@ test('sourceEffectsForCut returns the resolved clip LUT ahead of global look', (
 });
 
 test('Web UI applies basic adjust only on the DOM rail and composes transition filters', () => {
-  assert.match(app, /import \{ computeAdjustCssVisual \} from '\/adjust-css-visual\.js'/u);
+  assert.match(app, /import \{ computeAdjustCssVisual \} from '\/edit-kernel\.bundle\.js'/u);
   assert.match(app, /if \(!frameEngineEnabled\)[\s\S]+computeAdjustCssVisual\(layer\.adjust\)/u);
   assert.match(app, /el\.style\.backdropFilter[\s\S]+setAdjustBaseFilter\(el, layer\.adjust\)/u);
   assert.match(app, /function setAdjustBaseFilter\(element, adjust\) \{\s+if \(frameEngineEnabled/u);

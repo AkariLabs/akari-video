@@ -1,3 +1,4 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -40,14 +41,8 @@ const endpointFixtures = [
 const MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
 mkdirSync(dirname(output), { recursive: true });
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 let valid = false;
 try {
   execFileSync(ffprobe, [

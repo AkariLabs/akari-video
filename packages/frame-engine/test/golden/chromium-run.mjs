@@ -1,6 +1,7 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
@@ -20,14 +21,8 @@ const resultsFile = resolve(generated, 'results.json');
 const lutsRoot = resolve(directory, '../../../../presets/luts');
 let encoder = null;
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 const writeJson = (file, value) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 

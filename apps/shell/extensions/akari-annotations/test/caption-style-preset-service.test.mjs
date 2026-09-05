@@ -32,9 +32,9 @@ async function fixture({ git = false } = {}) {
         version: 1, fps: 30, source: 'base.mp4', cuts: [], overlays: [], audio: { sfx: [], narration: [] }
     }, null, 2)}\n`);
     if (git) {
-        await run('/usr/bin/git', ['init'], { cwd: root });
-        await run('/usr/bin/git', ['add', 'captions.json', 'edit.json'], { cwd: root });
-        await run('/usr/bin/git', [
+        await run('git', ['init'], { cwd: root });
+        await run('git', ['add', 'captions.json', 'edit.json'], { cwd: root });
+        await run('git', [
             '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost',
             'commit', '-m', 'initial fixture'
         ], { cwd: root });
@@ -46,7 +46,7 @@ async function fixture({ git = false } = {}) {
     };
 }
 
-const commitCount = async root => Number((await run('/usr/bin/git', [
+const commitCount = async root => Number((await run('git', [
     'rev-list', '--count', 'HEAD'
 ], { cwd: root })).stdout.trim());
 

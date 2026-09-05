@@ -1,3 +1,4 @@
+import { resolveTool } from '../helpers/resolve-tool.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -19,12 +20,8 @@ const WIDTH = 320;
 const HEIGHT = 180;
 const PIXELS = WIDTH * HEIGHT;
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  return existsSync(homebrew) ? homebrew : execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-const ffmpeg = tool('ffmpeg');
-const ffprobe = tool('ffprobe');
+const ffmpeg = resolveTool('ffmpeg');
+const ffprobe = resolveTool('ffprobe');
 
 if (!existsSync(resultsPath) || JSON.parse(readFileSync(resultsPath, 'utf8')).transitionParity?.length !== 90) {
   execFileSync(process.execPath, [resolve(directory, 'run.mjs')], { cwd: packageDirectory, stdio: 'inherit' });

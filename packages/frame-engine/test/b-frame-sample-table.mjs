@@ -1,6 +1,7 @@
+import { resolveTool } from './helpers/resolve-tool.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as MP4BoxNamespace from '@webav/mp4box.js';
@@ -21,12 +22,6 @@ const variants = [
   { id: 'bf2-60', fps: 60, reorderFrames: 2 },
 ];
 
-function tool(name) {
-  const homebrew = `/opt/homebrew/bin/${name}`;
-  if (existsSync(homebrew)) return homebrew;
-  return execFileSync('/usr/bin/env', ['which', name], { encoding: 'utf8' }).trim();
-}
-
 function parse(file) {
   return new Promise((resolveParse, rejectParse) => {
     const bytes = readFileSync(file);
@@ -44,7 +39,7 @@ function parse(file) {
   });
 }
 
-const ffprobe = tool('ffprobe');
+const ffprobe = resolveTool('ffprobe');
 const rows = [];
 for (const variant of variants) {
   const file = resolve(generated, `bframe-${variant.id}.mp4`);
