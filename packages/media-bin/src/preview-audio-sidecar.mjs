@@ -91,23 +91,58 @@ class Semaphore {
   #waiters = [];
 
   acquire(limit) {
-    if (this.#active < limit) {
+    return this.reserve(limit).acquire();
+  }
+
+  reserve(limit) {
+    const waiter = { limit, state: 'waiting', resolve: null, reject: null };
+    let pending;
+    this.#waiters.push(waiter);
+    return {
+      acquire: () => {
+        if (!pending) {
+          pending = new Promise((resolve, reject) => {
+            if (waiter.state === 'cancelled') {
+              reject(new Error('semaphore reservation cancelled'));
+              return;
+            }
+            waiter.resolve = resolve;
+            waiter.reject = reject;
+          });
+          this.#drain();
+        }
+        return pending;
+      },
+      cancel: () => {
+        // Once acquired, the caller owns the slot and must release it normally.
+        if (waiter.state !== 'waiting') return;
+        waiter.state = 'cancelled';
+        this.#waiters.splice(this.#waiters.indexOf(waiter), 1);
+        waiter.reject?.(new Error('semaphore reservation cancelled'));
+        this.#drain();
+      },
+    };
+  }
+
+  #drain() {
+    if (this.#waiters.length) {
+      const waiter = this.#waiters[0];
+      // A probe reserves only its FIFO position, not an active ffmpeg slot.
+      // Later requests cannot pass it while it is still preparing to acquire.
+      if (!waiter.resolve || this.#active >= waiter.limit) return;
+      this.#waiters.shift();
       this.#active += 1;
-      return Promise.resolve();
+      waiter.state = 'acquired';
+      waiter.resolve();
+      // Let a newly activated ticket attach its await continuation before waking
+      // followers whose acquire() promises already have continuations attached.
+      queueMicrotask(() => this.#drain());
     }
-    return new Promise(resolve => this.#waiters.push({ limit, resolve }));
   }
 
   release() {
     this.#active -= 1;
-    for (let index = 0; index < this.#waiters.length;) {
-      if (this.#active < this.#waiters[index].limit) {
-        this.#active += 1;
-        this.#waiters.splice(index, 1)[0].resolve();
-      } else {
-        index += 1;
-      }
-    }
+    this.#drain();
   }
 
   async run(limit, task) {
@@ -119,6 +154,8 @@ class Semaphore {
     }
   }
 }
+
+export const __testing = { Semaphore };
 
 const ffmpegSlots = new Semaphore();
 const ffprobeSlots = new Semaphore();
@@ -507,6 +544,7 @@ async function generate(prepared, options) {
     ? options.probeAudio(p, ffprobeOf())
     : probeAudioAsync(p, ffprobeOf(), settings));
   const fromExisting = async () => {
+    options.slot?.cancel();
     let metadata = readMetadata(prepared);
     if (!metadata) {
       metadata = await inspectAudio(outputPath);
@@ -536,7 +574,7 @@ async function generate(prepared, options) {
         ...buildAtempoChain(prepared.speed).map(factor => `atempo=${formatNumber(factor)}`),
       ];
       const ffmpeg = options.ffmpeg ?? resolveFfmpeg();
-      const result = await ffmpegSlots.run(settings.concurrency.ffmpeg, () => runProcess(ffmpeg, [
+      const args = [
         '-hide_banner', '-nostdin', '-loglevel', 'error',
         ...(!prepared.clipFx ? ['-ss', formatNumber(prepared.startSec), '-to', formatNumber(prepared.endSec)] : []),
         '-i', sourcePath,
@@ -546,7 +584,19 @@ async function generate(prepared, options) {
           ? ['-ar', '24000', '-ac', '1', '-f', 's16le', '-c:a', 'pcm_s16le']
           : ['-ar', '48000', '-c:a', 'flac', '-compression_level', '5']),
         '-y', temporary,
-      ], { timeoutMs: settings.timeoutMs.ffmpeg, maxBuffer: 16 * 1024 * 1024 }));
+      ];
+      const processOptions = { timeoutMs: settings.timeoutMs.ffmpeg, maxBuffer: 16 * 1024 * 1024 };
+      let result;
+      if (options.slot) {
+        await options.slot.acquire();
+        try {
+          result = await runProcess(ffmpeg, args, processOptions);
+        } finally {
+          ffmpegSlots.release();
+        }
+      } else {
+        result = await ffmpegSlots.run(settings.concurrency.ffmpeg, () => runProcess(ffmpeg, args, processOptions));
+      }
       if (result.error || result.status !== 0) {
         throw processFailure(result, 'ffmpeg failed to create the preview audio sidecar');
       }
@@ -725,6 +775,19 @@ function emitSidecarEvent(event) {
 }
 
 export function requestPreviewAudioSidecar(options) {
+  // Internal slot ownership transfers only when a background job was queued.
+  // All synchronous terminal states (including in-flight joins) discard the ticket.
+  let queued = false;
+  try {
+    const result = requestSidecar(options);
+    queued = result.state === 'queued';
+    return result;
+  } finally {
+    if (!queued) options?.slot?.cancel();
+  }
+}
+
+function requestSidecar(options) {
   const status = previewAudioSidecarStatus(options);
   if (status.state === 'invalid') return status;
   const resolved = requestOptions(options);
@@ -732,23 +795,30 @@ export function requestPreviewAudioSidecar(options) {
     if (!status.probe?.pending || probing.has(resolved.probePath)) return status;
     // Start after returning the declaration. The map is populated before any work runs.
     const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
-      const probe = await probePreviewAudioSourceAsync(options.sourcePath, options);
-      if (probe.ok) {
-        writeCacheJson(resolved.probePath, probe);
-        const result = requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec });
-        if (['ready', 'no-audio', 'failed', 'not-needed'].includes(result.state)) {
-          emitSidecarEvent({ key: result.key, state: result.state, sourcePath: path.resolve(options.sourcePath),
-            ...(result.state === 'ready'
-              ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) });
+      const slot = ffmpegSlots.reserve(settingsFrom(options).concurrency.ffmpeg);
+      let handedOff = false;
+      try {
+        const probe = await probePreviewAudioSourceAsync(options.sourcePath, options);
+        if (probe.ok) {
+          writeCacheJson(resolved.probePath, probe);
+          const result = requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec, slot });
+          handedOff = true;
+          if (['ready', 'no-audio', 'failed', 'not-needed'].includes(result.state)) {
+            emitSidecarEvent({ key: result.key, state: result.state, sourcePath: path.resolve(options.sourcePath),
+              ...(result.state === 'ready'
+                ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) });
+          }
+        } else {
+          const failureClass = classifyPreviewAudioFailure(probe.reason);
+          writeCacheJson(resolved.probePath, {
+            error: { class: failureClass, reason: probe.reason, createdAt: Date.now() },
+          });
+          // A failed probe settles the overall request; successful probes have no event.
+          emitSidecarEvent({ key: null, state: failureClass === 'no-audio' ? 'no-audio' : 'failed',
+            reason: probe.reason, sourcePath: path.resolve(options.sourcePath) });
         }
-      } else {
-        const failureClass = classifyPreviewAudioFailure(probe.reason);
-        writeCacheJson(resolved.probePath, {
-          error: { class: failureClass, reason: probe.reason, createdAt: Date.now() },
-        });
-        // A failed probe settles the overall request; successful probes have no event.
-        emitSidecarEvent({ key: null, state: failureClass === 'no-audio' ? 'no-audio' : 'failed',
-          reason: probe.reason, sourcePath: path.resolve(options.sourcePath) });
+      } finally {
+        if (!handedOff) slot.cancel();
       }
     }).catch(error => console.warn('[preview-audio] probe cache failed', error))
       .finally(() => probing.delete(resolved.probePath));
@@ -772,6 +842,7 @@ export function requestPreviewAudioSidecar(options) {
       ...(result.ok ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) };
   }).catch(error => ({ key: prepared.key, state: 'failed', sourcePath: prepared.sourcePath,
     reason: summarize(error?.message, 'preview audio cache failed') }))
+    .finally(() => options.slot?.cancel())
     .then(event => {
       requested.delete(prepared.outputPath);
       emitSidecarEvent(event);
@@ -786,11 +857,16 @@ export function ensurePreviewAudioSidecar(options) {
   try {
     prepared = prepare(options, state);
   } catch (error) {
+    options?.slot?.cancel();
     return Promise.resolve(failure(state.outputPath, state.key, error));
   }
   const joined = generating.get(prepared.outputPath);
-  if (joined) return joined;
+  if (joined) {
+    options.slot?.cancel();
+    return joined;
+  }
   const pending = generate(prepared, options)
+    .finally(() => options.slot?.cancel())
     .catch(error => failure(prepared.outputPath, prepared.key, error));
   generating.set(prepared.outputPath, pending);
   void pending.finally(() => generating.delete(prepared.outputPath));
