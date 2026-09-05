@@ -1,3 +1,7 @@
+import { CommandContribution } from '@theia/core/lib/common';
+import { WidgetFactory } from '@theia/core/lib/browser';
+import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
+import { AkariAudioMeterContribution } from './akari-audio-meter-contribution';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, OpenHandler, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
@@ -9,6 +13,14 @@ import { AkariImageOpenHandler } from './akari-image-open-handler';
 import { AkariOutputPreviewOpenHandler, AkariPreviewOpenHandler } from './akari-preview-open-handler';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+    bind(AkariAudioMeterWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariAudioMeterWidget.FACTORY_ID,
+        createWidget: async () => context.container.get(AkariAudioMeterWidget)
+    })).inSingletonScope();
+    bind(AkariAudioMeterContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariAudioMeterContribution);
+
     rebind(FileResourceResolver).to(AkariFileResourceResolver).inSingletonScope();
 
     bind(AkariPreviewService).toDynamicValue(context =>
