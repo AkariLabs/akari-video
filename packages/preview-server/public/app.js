@@ -217,6 +217,7 @@ function applyCaptionApiPayload(body) {
 
 // All geometry/capture paths await the exact repository-owned variable font.
 // The unique family name makes a system-installed Noto unable to satisfy check().
+let captionFontsReady = false;
 window.__akariCaptionFontReady = (async () => {
   await document.fonts.load('600 82px "AKARI Noto Sans JP"');
   await document.fonts.ready;
@@ -249,7 +250,11 @@ let wsTickInterval = null;
 
 async function init() {
   try {
-    await window.__akariCaptionFontReady;
+    const frameEngineModule = frameEngineEnabled
+      ? (async () => await import('/frame-engine.bundle.js'))() : null;
+    // Observe early failures while fetches run; awaiting the original promise still reports them.
+    frameEngineModule?.catch(() => {});
+    window.__akariCaptionFontReady?.catch(() => {});
     const [timelineRes, editRes, captionsRes] = await Promise.all([
       fetch(api.timeline),
       fetch(api.summary),
@@ -309,7 +314,7 @@ async function init() {
     if (!frameEngineEnabled) setupVideoFx();
 
     if (frameEngineEnabled) {
-      const { createFrameEnginePreview } = await import('/frame-engine.bundle.js');
+      const { createFrameEnginePreview } = await frameEngineModule;
       frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
       applyFrameEngineSnapshot();
       window.akariFrameEngine = frameEnginePreview;
@@ -319,6 +324,10 @@ async function init() {
         requestAudioRefresh();
       }
       outputTime = frameEnginePreview.seek(outputTime);
+    }
+    await window.__akariCaptionFontReady;
+    captionFontsReady = true;
+    if (frameEngineEnabled) {
       updateCaption();
       syncCaptionAnimations();
       updateOverlays();
@@ -4500,6 +4509,7 @@ let _lastCaptionId = null;
 // 字幕ウィンドウ判定（start/end はソース秒・duration は end 不在時のみ）は
 // 共有カーネル findActiveCaption（edit-kernel.bundle.js — packages/edit-store/src/caption-window.ts）
 function updateCaption() {
+  if (!captionFontsReady) return;
   const caps = captionsOutputClock;
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   // 判定は出力秒だけ（refreshCaptionClock 参照）。source 秒への写像はここでは行わない。

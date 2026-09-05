@@ -25484,6 +25484,19 @@ void main() {
       }
       metrics.onChanged?.();
     };
+    const warmupNextBoundary = (fromSeconds = latestTimeSeconds) => {
+      if (disposed) return;
+      const boundary = boundaries.find((value) => value > fromSeconds);
+      if (boundary === void 0) return;
+      const currentKeys = new Set(requirementsAtTime(
+        Math.round(fromSeconds * 1e6),
+        `preview current plan failed at ${fromSeconds}s`
+      ).map((requirement) => requirement.key));
+      for (const requirement of requirementsAtBoundary(boundary)) {
+        startWarmup(requirement, boundary, currentKeys);
+      }
+      metrics.onChanged?.();
+    };
     const state = () => {
       const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
       const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -25544,6 +25557,7 @@ void main() {
     return {
       notePresented,
       primeHeaders,
+      warmupNextBoundary,
       isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
       state,
       reset,

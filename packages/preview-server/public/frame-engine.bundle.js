@@ -25161,6 +25161,19 @@ function createPreviewScheduler({
     }
     metrics.onChanged?.();
   };
+  const warmupNextBoundary = (fromSeconds = latestTimeSeconds) => {
+    if (disposed) return;
+    const boundary = boundaries.find((value) => value > fromSeconds);
+    if (boundary === void 0) return;
+    const currentKeys = new Set(requirementsAtTime(
+      Math.round(fromSeconds * 1e6),
+      `preview current plan failed at ${fromSeconds}s`
+    ).map((requirement) => requirement.key));
+    for (const requirement of requirementsAtBoundary(boundary)) {
+      startWarmup(requirement, boundary, currentKeys);
+    }
+    metrics.onChanged?.();
+  };
   const state = () => {
     const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -25221,6 +25234,7 @@ function createPreviewScheduler({
   return {
     notePresented,
     primeHeaders,
+    warmupNextBoundary,
     isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
     state,
     reset,
@@ -26980,7 +26994,8 @@ function autoProxyPath(url) {
   const parsed = new URL(url, window.location.href);
   return decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
 }
-async function requestAutoProxy(candidate, ui) {
+async function requestAutoProxy(candidate, ui, isCurrent) {
+  if (!isCurrent()) return null;
   const path = autoProxyPath(candidate.originalUrl);
   ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${candidate.id}\uFF09`);
   try {
@@ -26991,7 +27006,7 @@ async function requestAutoProxy(candidate, ui) {
     });
     if (!start.ok) return null;
     const deadline = Date.now() + 3e5;
-    while (Date.now() < deadline) {
+    while (isCurrent() && Date.now() < deadline) {
       const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
       if (!response.ok) return null;
       const result = await response.json();
@@ -27004,79 +27019,183 @@ async function requestAutoProxy(candidate, ui) {
     return null;
   }
 }
+function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
+  const ids = /* @__PURE__ */ new Set();
+  if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
+  const finite4 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const cursors = /* @__PURE__ */ new Map();
+  const overlaps = /* @__PURE__ */ new Map();
+  for (const cut of cuts) {
+    const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
+    const at2 = Number.isFinite(cut.at) && Number(cut.at) >= 0 ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
+    const end = at2 + duration;
+    cursors.set(track, end);
+    overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
+    if (atSeconds >= at2 && atSeconds < end) {
+      const id = cut.src ?? edit?.sources?.[0]?.id ?? "default";
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  const fps = finite4(timelineData?.fps, 30) > 0 ? finite4(timelineData?.fps, 30) : 30;
+  const frame = Math.floor(atSeconds * fps + 1e-9);
+  for (const layer of layers) {
+    const start = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
+    if (frame < start || frame >= end || layer.kind === "filter") continue;
+    for (const id of [layer.src, layer.mask]) {
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  return ids;
+}
 async function resolveSourceChoices(candidates, context) {
   const choices = /* @__PURE__ */ new Map();
-  for (const candidate of candidates.values()) {
+  const completedProxies = /* @__PURE__ */ new Map();
+  const pendingProxies = /* @__PURE__ */ new Set();
+  const failedProxies = /* @__PURE__ */ new Set();
+  let target = null;
+  const apply = async (choice) => {
+    if (!context.isCurrent() || !target) return;
+    await target.applySourceChoice(choice.id, choice);
+    if (context.isCurrent()) choices.set(choice.id, choice);
+  };
+  const updateNotice = () => {
+    if (!context.isCurrent()) return;
+    const failed = failedProxies.values().next().value;
+    const pending = pendingProxies.values().next().value;
+    if (failed) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${failed}\uFF09`);
+    else if (pending) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${pending}\uFF09`);
+    else context.ui.clearNotice();
+  };
+  const resolveCandidate = async (candidate) => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "not-a-cut-source",
         support: null
-      });
-      continue;
+      };
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "image",
         reason: "still-image"
-      });
-      continue;
+      };
     }
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision2 = chooseSource({ mode: context.mode, hasProxy, support: null });
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: decision2.chosen === "proxy" ? candidate.proxyUrl : candidate.originalUrl,
         chosen: decision2.chosen,
         reason: decision2.reason,
         support: null
-      });
-      continue;
+      };
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === "original") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: probe.support
-      });
+      };
     } else if (decision.chosen === "proxy") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.proxyUrl,
         chosen: "proxy",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: null
-      });
+      };
     } else {
-      const proxyUrl = await requestAutoProxy(candidate, context.ui);
+      const provisional = {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "auto-proxy-pending",
+        ...codec ? { codec } : {},
+        support: probe.support
+      };
+      if (context.isCurrent()) {
+        pendingProxies.add(candidate.id);
+        void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async (proxyUrl) => {
+          if (!context.isCurrent()) return;
+          pendingProxies.delete(candidate.id);
+          if (!proxyUrl) failedProxies.add(candidate.id);
+          const choice = {
+            ...provisional,
+            url: proxyUrl ?? candidate.originalUrl,
+            chosen: proxyUrl ? "auto-proxy" : "original",
+            reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
+            support: proxyUrl ? null : probe.support
+          };
+          completedProxies.set(candidate.id, choice);
+          updateNotice();
+          await apply(choice);
+        }).catch((error) => {
+          if (context.isCurrent()) console.warn("[frame-engine] source replacement failed", error);
+        });
+      }
+      return provisional;
+    }
+  };
+  const remaining = [];
+  for (const candidate of candidates.values()) {
+    const immediate = !context.cutSourceIds.has(candidate.id) || /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (immediate || context.initialIds.has(candidate.id)) {
+      choices.set(candidate.id, await resolveCandidate(candidate));
+      if (!context.isCurrent()) break;
+    } else {
       choices.set(candidate.id, {
         id: candidate.id,
-        url: proxyUrl ?? candidate.originalUrl,
-        chosen: proxyUrl ? "auto-proxy" : "original",
-        reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
-        codec: probe.support.codec,
-        support: proxyUrl ? null : probe.support
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "pending-probe",
+        support: null
       });
-      if (!proxyUrl) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${candidate.id}\uFF09`);
+      remaining.push(candidate);
     }
   }
-  if (![...choices.values()].some((choice) => choice.reason === "auto-proxy-failed")) {
-    context.ui.clearNotice();
-  }
-  return choices;
+  remaining.sort((left, right) => (context.firstUses.get(left.id) ?? Infinity) - (context.firstUses.get(right.id) ?? Infinity));
+  return {
+    choices,
+    startBackground(runtime) {
+      if (!context.isCurrent() || target) return;
+      target = runtime;
+      for (const choice of completedProxies.values()) {
+        void apply(choice).catch((error) => console.warn("[frame-engine] source replacement failed", error));
+      }
+      let cursor = 0;
+      const worker = async () => {
+        while (context.isCurrent()) {
+          const candidate = remaining[cursor++];
+          if (!candidate) return;
+          try {
+            const choice = await resolveCandidate(candidate);
+            await apply(completedProxies.get(candidate.id) ?? choice);
+          } catch (error) {
+            if (context.isCurrent()) console.warn(`[frame-engine] source ${candidate.id}:`, error);
+          }
+        }
+      };
+      void worker();
+      void worker();
+    }
+  };
 }
 function createUi(stage) {
   const root = document.createElement("div");
@@ -27163,7 +27282,6 @@ var FrameEngineRuntime = class {
     });
     const cuts = normalizedCuts(edit);
     const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
-    const videoSources = /* @__PURE__ */ new Map();
     const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
@@ -27179,41 +27297,13 @@ var FrameEngineRuntime = class {
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
-        this.images.set(id, new CachedStillImageSource(url));
+        const image = new CachedStillImageSource(url);
+        this.images.set(id, image);
+        this.sources.set(id, image);
         continue;
       }
-      const choice = sourceChoices.get(id);
-      const pool = new ClipSessionPool(id, url, {
-        codecSupport: choice?.support,
-        onWarning: (message) => this.showError(message, false),
-        onSoftwareFallbackDenied: (support) => {
-          if (!(choice?.support?.hw || choice?.support?.any)) {
-            this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
-          }
-        }
-      });
-      const source = new LookaheadFrameSource(pool, {
-        fps,
-        capacity: 6,
-        onAccess: (access) => this.currentAccesses?.push(access)
-      });
-      const observedSource = {
-        decode: async (timeUs, metrics, request) => {
-          const frame = await source.decode(timeUs, metrics, request);
-          this.currentDecodedFrames?.push({
-            streamId: request?.streamId ?? "default",
-            requestedUs: timeUs,
-            timestampUs: frame.timestamp,
-            durationUs: frame.duration ?? null
-          });
-          return frame;
-        }
-      };
-      this.pools.set(id, pool);
-      this.lookahead.set(id, source);
-      videoSources.set(id, observedSource);
+      this.sources.set(id, this.createVideoSource(id, url));
     }
-    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: engineLayers
@@ -27290,7 +27380,7 @@ var FrameEngineRuntime = class {
   pools = /* @__PURE__ */ new Map();
   lookahead = /* @__PURE__ */ new Map();
   images = /* @__PURE__ */ new Map();
-  sources;
+  sources = /* @__PURE__ */ new Map();
   timeline;
   compositor;
   frameMetrics = new FrameMetrics();
@@ -27317,14 +27407,72 @@ var FrameEngineRuntime = class {
   lastRequestedTimeUs = null;
   lastBaseFrame = null;
   disposed = false;
-  async prime() {
+  createVideoSource(id, url) {
+    const choice = this.sourceChoices.get(id);
+    const pool = new ClipSessionPool(id, url, {
+      codecSupport: choice?.support,
+      onWarning: (message) => this.showError(message, false),
+      onSoftwareFallbackDenied: (support) => {
+        if (!(choice?.support?.hw || choice?.support?.any)) {
+          this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
+        }
+      }
+    });
+    const source = new LookaheadFrameSource(pool, {
+      fps: this.fps,
+      capacity: 6,
+      onAccess: (access) => this.currentAccesses?.push(access)
+    });
+    const observedSource = {
+      decode: async (timeUs, metrics, request) => {
+        const frame = await source.decode(timeUs, metrics, request);
+        this.currentDecodedFrames?.push({
+          streamId: request?.streamId ?? "default",
+          requestedUs: timeUs,
+          timestampUs: frame.timestamp,
+          durationUs: frame.duration ?? null
+        });
+        return frame;
+      }
+    };
+    this.pools.set(id, pool);
+    this.lookahead.set(id, source);
+    return observedSource;
+  }
+  async prime(start = 0) {
     this.audio.prime();
     const first = performance.now();
-    await this.renderFrame(0, "seek", first);
-    const second = performance.now();
-    await this.renderFrame(0, "seek", second);
+    await this.renderFrame(start, "seek", first);
+    if (this.disposed) return;
     this.ui.root.dataset.frameEngineReady = "true";
     this.scheduler.primeHeaders();
+    this.scheduler.warmupNextBoundary(start);
+  }
+  currentTime() {
+    return this.lastPresentedSec;
+  }
+  async applySourceChoice(id, choice) {
+    if (this.disposed) return;
+    const current = this.sourceChoices.get(id);
+    const sameSupport = (current?.support ?? null) === (choice.support ?? null) || current?.support != null && choice.support != null && current.support.codec === choice.support.codec && current.support.hw === choice.support.hw && current.support.sw === choice.support.sw && current.support.any === choice.support.any;
+    if (current?.url === choice.url && sameSupport) return;
+    while (this.rendering && !this.disposed) await this.waitForRender();
+    if (this.disposed) return;
+    this.lookahead.get(id)?.clear();
+    this.pools.get(id)?.destroy();
+    this.images.get(id)?.destroy();
+    this.sourceChoices.set(id, choice);
+    if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(choice.url)) {
+      this.pools.delete(id);
+      this.lookahead.delete(id);
+      const image = new CachedStillImageSource(choice.url);
+      this.images.set(id, image);
+      this.sources.set(id, image);
+    } else {
+      this.images.delete(id);
+      this.sources.set(id, this.createVideoSource(id, choice.url));
+    }
+    this.updateMetrics();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
@@ -27368,6 +27516,7 @@ var FrameEngineRuntime = class {
     return this.audio.debug();
   }
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
@@ -27399,6 +27548,7 @@ var FrameEngineRuntime = class {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
     this.lastBaseFrame = this.currentDecodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
@@ -27481,7 +27631,12 @@ var FrameEngineRuntime = class {
 };
 async function createFrameEnginePreview(options) {
   const ui = createUi(options.stage);
-  const prepareRuntime = async (edit, timelineData, fps) => {
+  let generation = 0;
+  let disposed = false;
+  let preparingRuntime = null;
+  const prepareRuntime = async (edit, timelineData, fps, start) => {
+    const token = ++generation;
+    const isCurrent = () => !disposed && token === generation;
     ui.clearNotice();
     const params = new URLSearchParams(window.location.search);
     let forceSoftware = params.get("frameEngineForceSw") === "1";
@@ -27490,32 +27645,70 @@ async function createFrameEnginePreview(options) {
       if (response.ok) forceSoftware ||= (await response.json()).forceSoftwareDecode === true;
     } catch {
     }
+    if (!isCurrent()) return null;
     setForceSoftwareDecode(forceSoftware);
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const choices = await resolveSourceChoices(candidates, {
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    const firstUses = /* @__PURE__ */ new Map();
+    const noteUse = (id, seconds) => {
+      if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
+    };
+    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    for (const layer of layers) {
+      noteUse(layer.src, layer.t);
+      noteUse(layer.mask, layer.t);
+    }
+    const resolution = await resolveSourceChoices(candidates, {
       mode: parseSourceSelectionMode(params.get("frameEngineSource")),
       ui,
-      cutSourceIds: new Set(cuts.map((cut) => String(cut.src)))
+      cutSourceIds: new Set(cuts.map((cut) => String(cut.src))),
+      initialIds: initialSourceIds(edit, { ...timelineData, fps }, cuts, layers, start),
+      firstUses,
+      isCurrent
     });
-    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+    if (!isCurrent()) return null;
+    const prepared = new FrameEngineRuntime(ui, edit, timelineData, fps, resolution.choices);
+    preparingRuntime = prepared;
+    try {
+      await prepared.prime(start);
+      if (!isCurrent()) {
+        prepared.dispose();
+        return null;
+      }
+      resolution.startBackground(prepared);
+      return prepared;
+    } catch (error) {
+      prepared.dispose();
+      if (!isCurrent()) return null;
+      throw error;
+    } finally {
+      if (preparingRuntime === prepared) preparingRuntime = null;
+    }
   };
-  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
-  await runtime.prime();
+  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps, 0);
   const preview = {
     snapshot: () => runtime.snapshot(),
     seek: (seconds) => runtime.seek(seconds),
     renderPlayback: (seconds) => runtime.renderPlayback(seconds),
     async rebuild(edit, timelineData, fps) {
+      if (disposed) return;
+      const start = runtime.currentTime();
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = "false";
-      runtime = await prepareRuntime(edit, timelineData, fps);
-      await runtime.prime();
+      const prepared = await prepareRuntime(edit, timelineData, fps, start);
+      if (prepared) runtime = prepared;
     },
     dispose() {
+      disposed = true;
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       ui.root.remove();
     },

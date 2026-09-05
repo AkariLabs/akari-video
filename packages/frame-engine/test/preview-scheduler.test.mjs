@@ -287,3 +287,48 @@ test('primeHeaders defers until first presentation and prepares only referenced 
   assert.equal(runtime.headerCalls.includes('unused'), false);
   assert.equal(runtime.getSessionCalls(), 0);
 });
+
+test('warmupNextBoundary warms only the next distant boundary once, in flight and after completion', async () => {
+  const ids = ['a', 'b', 'c'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 10 },
+    { src: 'b', in: 0, out: 10 },
+    { src: 'c', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids, { pendingWarmups: true });
+  const scheduler = createScheduler(timeline, ids, runtime);
+  scheduler.notePresented(2_000_000, { reason: 'seek' });
+  assert.ok(10 - 2 > scheduler.state().leadInSeconds);
+  scheduler.warmupNextBoundary();
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.deepEqual(runtime.started.map(item => item.sourceId), ['b']);
+  for (const resolve of runtime.warmupResolvers) resolve();
+  await flushMicrotasks();
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.equal(runtime.started.length, 1);
+  assert.equal(scheduler.state().coverage.warmed, 1);
+  scheduler.warmupNextBoundary(30);
+  scheduler.dispose();
+  scheduler.warmupNextBoundary(10);
+  await flushMicrotasks();
+  assert.equal(runtime.started.length, 1);
+});
+
+test('warmupNextBoundary respects the live decoder limit and protects the current stream', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 10 },
+    { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids, { pendingWarmups: true });
+  const scheduler = createScheduler(timeline, ids, runtime, { warmupMs: [] }, { maxLiveDecoders: 1 });
+  scheduler.notePresented(0, { reason: 'seek' });
+  scheduler.warmupNextBoundary(0);
+  await flushMicrotasks();
+  assert.equal(scheduler.state().liveDecoders, 1);
+  assert.equal(scheduler.state().decoderLimitHits, 1);
+  assert.deepEqual(runtime.started, []);
+  assert.deepEqual(runtime.released, []);
+});

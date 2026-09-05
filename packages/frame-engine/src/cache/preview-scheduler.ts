@@ -42,6 +42,7 @@ export interface PreviewSchedulerState {
 export interface PreviewScheduler {
   notePresented(timeUs: number, options?: { reason?: 'playback' | 'seek' }): void;
   primeHeaders(): void;
+  warmupNextBoundary(fromSeconds?: number): void;
   isWarmed(streamId: string): boolean;
   state(): PreviewSchedulerState;
   reset(): void;
@@ -409,6 +410,19 @@ export function createPreviewScheduler({
     metrics.onChanged?.();
   };
 
+  const warmupNextBoundary = (fromSeconds = latestTimeSeconds): void => {
+    if (disposed) return;
+    const boundary = boundaries.find(value => value > fromSeconds);
+    if (boundary === undefined) return;
+    const currentKeys = new Set(requirementsAtTime(
+      Math.round(fromSeconds * 1e6), `preview current plan failed at ${fromSeconds}s`,
+    ).map(requirement => requirement.key));
+    for (const requirement of requirementsAtBoundary(boundary)) {
+      startWarmup(requirement, boundary, currentKeys);
+    }
+    metrics.onChanged?.();
+  };
+
   const state = (): PreviewSchedulerState => {
     const nextBoundary = boundaries.find(boundary => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -473,6 +487,7 @@ export function createPreviewScheduler({
   return {
     notePresented,
     primeHeaders,
+    warmupNextBoundary,
     isWarmed: streamId => [...warmed].some(key => key.endsWith(`::${streamId}`)),
     state,
     reset,

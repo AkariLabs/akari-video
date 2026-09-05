@@ -7320,79 +7320,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 const fps = Number(engineSummary.output && engineSummary.output.fps) > 0
                     ? Number(engineSummary.output.fps) : 30;
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
+                const declaredSourceUrls = new Map(sourceUrls);
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
                 const sourceSupports = new Map();
                 const sourceSelections = [];
-                const cutSourceIds = new Set(normalizedCuts.map(cut => String(cut.src || 'default')));
+                let disposed = false;
+                let sourceGeneration = 0;
+                let backgroundSources = null;
+                // Invalidate probes even if the webview unloads during the first-stage await.
+                window.addEventListener('beforeunload', () => {
+                    disposed = true;
+                    sourceGeneration += 1;
+                }, { once: true });
                 const mode = engine.parseSourceSelectionMode(initial.frameEngineSourceMode);
                 if (initial.frameEngineForceSoftware === true) {
                     engine.setForceSoftwareDecode(true);
                 }
-                // コーデックプローブ（isConfigSupported + ヘッダ読み）はソースごとに独立なので並列に
-                // 走らせ、判定と通知は宣言順に適用する（task/2026-09-02-preview-perf）。
-                const probeTargets = [];
-                for (const [id, selectedUrl] of sourceUrls) {
-                    const originalUrl = sourceOriginals.get(id) || selectedUrl;
-                    if (!cutSourceIds.has(String(id))) {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: 'original', reason: 'not-a-cut-source' });
-                        continue;
-                    }
-                    const hasProxy = sourceOriginals.has(id);
-                    if (!engine.needsCodecProbe(mode, hasProxy)) {
-                        const decision = engine.chooseSource({ mode, hasProxy, support: null });
-                        if (decision.chosen === 'original') sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
-                        continue;
-                    }
-                    probeTargets.push({ id, originalUrl, hasProxy });
-                }
-                const probes = await Promise.all(probeTargets.map(target => engine.probeSourceCodec(target.originalUrl)));
-                for (let index = 0; index < probeTargets.length; index += 1) {
-                    const { id, originalUrl, hasProxy } = probeTargets[index];
-                    const probe = probes[index];
-                    const support = probe && probe.support;
-                    const codec = probe && probe.info && probe.info.codec;
-                    const decision = engine.chooseSource({ mode, hasProxy, support });
-                    if (decision.chosen === 'original') {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSupports.set(id, support || null);
-                        sourceSelections.push({
-                            id,
-                            chosen: 'original',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    if (decision.chosen === 'proxy') {
-                        sourceSelections.push({
-                            id,
-                            chosen: 'proxy',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    showNotice('プロキシ生成中…（' + id + '）');
-                    console.warn('[frame-engine] codec unsupported; requesting proxy', id, codec);
-                    sourceSelections.push({
-                        id,
-                        chosen: 'auto-proxy',
-                        reason: decision.reason,
-                        ...(codec ? { codec } : {})
-                    });
-                    const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
-                    if (window.akari && window.akari.engine && videoUri) {
-                        void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
-                            console.warn('[frame-engine] proxy request failed', reason);
-                            showNotice('プロキシを生成できませんでした（' + id + '）');
-                        });
-                    }
-                
-                }
                 window.akariFrameEngineSources = sourceSelections;
-                if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
                 const pools = new Map();
                 const lookahead = new Map();
                 const images = new Map();
@@ -7421,14 +7365,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
                     return layer;
                 });
-                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
-                for (const layer of engineLayers) {
-                    const maskUrl = layer && layer.mask;
-                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
-                        sourceUrls.set(maskUrl, maskUrl);
-                    }
-                }
-                for (const [id, url] of sourceUrls) {
+                const createVideoSource = (id, url) => {
                     const pool = new engine.ClipSessionPool(id, url, {
                         codecSupport: sourceSupports.get(id) || null,
                         onWarning: message => showError(message, false),
@@ -7452,14 +7389,163 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     pools.set(id, pool);
                     lookahead.set(id, source);
-                }
+                    return source;
+                };
                 const sources = new Map([...lookahead, ...images]);
 
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
+                for (const layer of engineLayers) {
+                    const maskUrl = layer && layer.mask;
+                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                        sourceUrls.set(maskUrl, maskUrl);
+                    }
+                }
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
                 }))({ layers: engineLayers });
                 let totalDuration = timeline.totalDuration;
+                const sourceRequirements = (value, atSeconds) => {
+                    const initialIds = new Set();
+                    const firstUses = new Map();
+                    const note = (id, start, active) => {
+                        if (typeof id !== 'string' || !id) return;
+                        firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, start));
+                        if (active) initialIds.add(id);
+                    };
+                    for (const placement of value.cuts) {
+                        note(placement.cut.src || 'default', placement.at,
+                            atSeconds >= placement.at && atSeconds < placement.end);
+                    }
+                    const frame = Math.floor(atSeconds * value.fps + 1e-9);
+                    for (const layer of value.layers) {
+                        if (!layer || layer.kind === 'filter') continue;
+                        const start = Number(layer.t) || 0;
+                        const end = start + Math.max(0, Number(layer.duration) || 0);
+                        const active = frame >= Math.max(0, Math.ceil(start * value.fps - 1e-6))
+                            && frame < Math.max(0, Math.ceil(end * value.fps - 1e-6));
+                        note(layer.src, start, active);
+                        note(layer.mask, start, active);
+                    }
+                    return { initialIds, firstUses };
+                };
+                const recordSourceSelection = selection => {
+                    const index = sourceSelections.findIndex(value => value.id === selection.id);
+                    if (index < 0) sourceSelections.push(selection);
+                    else sourceSelections[index] = selection;
+                    // Keep the array used by evidence readers alive as well as the scheduler's Maps.
+                    window.akariFrameEngineSources = sourceSelections;
+                };
+                const sameCodecSupport = (left, right) => left === right || (left && right
+                    && left.codec === right.codec && left.hw === right.hw
+                    && left.sw === right.sw && left.any === right.any);
+                const applySourceChoice = async (id, choice, generation) => {
+                    if (disposed || generation !== sourceGeneration) return;
+                    const pool = pools.get(id);
+                    const support = choice.support || null;
+                    const isUnchanged = () => sourceUrls.get(id) === choice.url && sameCodecSupport(
+                        pool ? pool.codecSupport() : sourceSupports.get(id) || null, support);
+                    let unchanged = isUnchanged();
+                    if (pool && !unchanged) {
+                        while (rendering && !disposed && generation === sourceGeneration) await waitForRender();
+                        if (disposed || generation !== sourceGeneration) return;
+                        // Header warmup or the completed render may already have learned this support.
+                        unchanged = isUnchanged();
+                    }
+                    if (pool && !unchanged) {
+                        lookahead.get(id).clear();
+                        pools.get(id).destroy();
+                    }
+                    sourceUrls.set(id, choice.url);
+                    if (support) sourceSupports.set(id, support);
+                    else sourceSupports.delete(id);
+                    recordSourceSelection(choice.selection);
+                    if (pool && !unchanged) sources.set(id, createVideoSource(id, choice.url));
+                };
+                const resolveSource = async (target, generation) => {
+                    const { id, originalUrl, selectedUrl, hasProxy, cutSource } = target;
+                    const probe = engine.needsCodecProbe(mode, hasProxy)
+                        ? await engine.probeSourceCodec(originalUrl) : null;
+                    if (disposed || generation !== sourceGeneration) return;
+                    const support = probe && probe.support;
+                    const codec = probe && probe.info && probe.info.codec;
+                    // Layers and masks keep their original URLs; declared proxies belong to cuts.
+                    const decision = cutSource ? engine.chooseSource({ mode, hasProxy, support })
+                        : { chosen: 'original', reason: 'not-a-cut-source' };
+                    await applySourceChoice(id, {
+                        url: decision.chosen === 'proxy' ? selectedUrl : originalUrl,
+                        support: decision.chosen === 'proxy' ? null : support,
+                        selection: { id, chosen: decision.chosen, reason: decision.reason,
+                            ...(codec ? { codec } : {}) }
+                    }, generation);
+                    if (disposed || generation !== sourceGeneration) return;
+                    if (decision.chosen === 'auto-proxy') {
+                        showNotice('プロキシ生成中…（' + id + '）');
+                        const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
+                        if (window.akari && window.akari.engine && videoUri) {
+                            void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
+                                if (disposed || generation !== sourceGeneration) return;
+                                console.warn('[frame-engine] proxy request failed', reason);
+                                showNotice('プロキシを生成できませんでした（' + id + '）');
+                            });
+                        }
+                    } else if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
+                };
+                const prepareSources = async (value, atSeconds, generation) => {
+                    const { initialIds, firstUses } = sourceRequirements(value, atSeconds);
+                    const cutSourceIds = new Set(value.cuts.map(placement => String(placement.cut.src || 'default')));
+                    for (const id of firstUses.keys()) {
+                        if (!images.has(id) && !sourceUrls.has(id)) sourceUrls.set(id, id);
+                    }
+                    const targets = [];
+                    for (const [id, url] of sourceUrls) {
+                        if (images.has(id)) continue;
+                        const selectedUrl = declaredSourceUrls.get(id) || url;
+                        const originalUrl = sourceOriginals.get(id) || selectedUrl;
+                        const selection = sourceSelections.find(entry => entry.id === id);
+                        // Retain completed decisions across a model rebuild; retry unfinished probes.
+                        if (selection && selection.reason !== 'pending-probe') continue;
+                        sourceUrls.set(id, originalUrl);
+                        sourceSupports.delete(id);
+                        recordSourceSelection({ id, chosen: 'original', reason: 'pending-probe' });
+                        targets.push({ id, originalUrl, selectedUrl, hasProxy: sourceOriginals.has(id),
+                            cutSource: cutSourceIds.has(String(id)) });
+                    }
+                    const initialTargets = targets.filter(target => initialIds.has(target.id));
+                    await Promise.all(initialTargets.map(target => resolveSource(target, generation)));
+                    if (disposed || generation !== sourceGeneration) return;
+                    for (const [id, url] of sourceUrls) {
+                        if (!pools.has(id) && !images.has(id)) sources.set(id, createVideoSource(id, url));
+                    }
+                    for (const [id, image] of images) sources.set(id, image);
+                    backgroundSources = { generation, started: false, remaining: targets
+                        .filter(target => !initialIds.has(target.id))
+                        .sort((left, right) => (firstUses.get(left.id) ?? Infinity)
+                            - (firstUses.get(right.id) ?? Infinity)) };
+                };
+                const startBackgroundSources = () => {
+                    const batch = backgroundSources;
+                    if (!batch || batch.started || disposed || batch.generation !== sourceGeneration) return;
+                    batch.started = true;
+                    let cursor = 0;
+                    const worker = async () => {
+                        while (!disposed && batch.generation === sourceGeneration) {
+                            const target = batch.remaining[cursor++];
+                            if (!target) return;
+                            try {
+                                await resolveSource(target, batch.generation);
+                            } catch (reason) {
+                                if (!disposed && batch.generation === sourceGeneration) showError(reason, false);
+                            }
+                        }
+                    };
+                    // Two workers share the first-use ordered queue.
+                    void worker();
+                    void worker();
+                };
+                await prepareSources(timeline,
+                    Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, sourceGeneration);
+                if (disposed) return;
                 const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
                     const appendAudio = (kind, raw, fallbackId) => {
@@ -7510,7 +7596,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     supply.setRate(rate);
                     return supply;
                 };
-                let disposed = false;
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
                 const audioStatus = document.getElementById('audio-status');
                 const updateAudioStatus = () => {
@@ -7783,6 +7868,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const applyEngineSummary = async (nextSummary, rebuildServices) => {
                     if (!nextSummary || typeof nextSummary !== 'object' || disposed) return;
+                    if (rebuildServices) {
+                        sourceGeneration += 1;
+                        backgroundSources = null;
+                    }
                     runtimeUpdating = true;
                     try {
                         await waitForRender();
@@ -7800,6 +7889,10 @@ body { display: grid; place-items: center; padding: 32px; }
                             if (resume) position = audioSupply.position(position);
                             playing = false;
                             audioSupply.pause();
+                            await prepareSources(nextTimeline,
+                                Math.round(Math.max(0, Math.min(position, nextDuration)) * fps) / fps,
+                                sourceGeneration);
+                            if (disposed) return;
                             const previousScheduler = scheduler;
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
@@ -7820,6 +7913,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             audioSupply.seek(position, false);
                             scheduler.primeHeaders();
                             audioSupply.prime();
+                            scheduler.warmupNextBoundary(position);
                         }
                         const operation = renderFrame(position, 'seek', performance.now())
                             .catch(reason => showError(reason, true));
@@ -7829,7 +7923,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         } finally {
                             if (rendering === operation) rendering = null;
                         }
-                        if (rebuildServices) setPlaying(resume, position);
+                        if (rebuildServices) {
+                            setPlaying(resume, position);
+                            if (root.dataset.frameEngineReady === 'true') startBackgroundSources();
+                        }
                         root.dataset.frameEngineModelUpdates = String(
                             Number(root.dataset.frameEngineModelUpdates || 0) + 1
                         );
@@ -7851,9 +7948,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
                 if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();
                 updateMetrics();
-                await renderFrame(0, 'seek', performance.now());
-                await renderFrame(0, 'seek', performance.now());
-                scheduler.primeHeaders();
                 audioSupply.prime();
                 const restoredPosition = clock.seek(
                     Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0,
@@ -7871,6 +7965,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 root.dataset.frameEngineReady = 'true';
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
+                scheduler.primeHeaders();
+                scheduler.warmupNextBoundary(restoredPosition);
+                startBackgroundSources();
 
                 window.addEventListener('beforeunload', () => {
                     if (window.akari && window.akari.frameEngineClock === clock) {
@@ -7880,6 +7977,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
                     clearInterval(audioStatusTimer);
                     disposed = true;
+                    sourceGeneration += 1;
                     scrub.dispose();
                     scheduler.dispose();
                     for (const source of lookahead.values()) source.clear();
