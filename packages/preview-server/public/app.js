@@ -217,6 +217,7 @@ function applyCaptionApiPayload(body) {
 
 // All geometry/capture paths await the exact repository-owned variable font.
 // The unique family name makes a system-installed Noto unable to satisfy check().
+let captionFontsReady = false;
 window.__akariCaptionFontReady = (async () => {
   await document.fonts.load('600 82px "AKARI Noto Sans JP"');
   await document.fonts.ready;
@@ -249,7 +250,11 @@ let wsTickInterval = null;
 
 async function init() {
   try {
-    await window.__akariCaptionFontReady;
+    const frameEngineModule = frameEngineEnabled
+      ? (async () => await import('/frame-engine.bundle.js'))() : null;
+    // Observe early failures while fetches run; awaiting the original promise still reports them.
+    frameEngineModule?.catch(() => {});
+    window.__akariCaptionFontReady?.catch(() => {});
     const [timelineRes, editRes, captionsRes] = await Promise.all([
       fetch(api.timeline),
       fetch(api.summary),
@@ -309,7 +314,7 @@ async function init() {
     if (!frameEngineEnabled) setupVideoFx();
 
     if (frameEngineEnabled) {
-      const { createFrameEnginePreview } = await import('/frame-engine.bundle.js');
+      const { createFrameEnginePreview } = await frameEngineModule;
       frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
       applyFrameEngineSnapshot();
       window.akariFrameEngine = frameEnginePreview;
@@ -319,6 +324,10 @@ async function init() {
         requestAudioRefresh();
       }
       outputTime = frameEnginePreview.seek(outputTime);
+    }
+    await window.__akariCaptionFontReady;
+    captionFontsReady = true;
+    if (frameEngineEnabled) {
       updateCaption();
       syncCaptionAnimations();
       updateOverlays();
@@ -364,11 +373,13 @@ function updateAudioStatus() {
   if (!audioStatus) return;
   const supply = frameEngineEnabled ? frameEnginePreview?.audioDebug().supply : null;
   let message = '';
-  if (supply?.phase === 'preparing') {
+  if (supply?.phase === 'degraded') {
+    message = `一部の音声を再生できません: ${supply.failed.join(', ')}`;
+  } else if (supply?.gate?.holding) {
+    message = `音声を待っています（${(supply.gate.heldMs / 1000).toFixed(1)} 秒）`;
+  } else if (supply?.phase === 'preparing') {
     const ready = supply.ready.filter(key => supply.required.includes(key)).length;
     message = `音声を準備中 ${ready}/${supply.required.length}`;
-  } else if (supply?.phase === 'degraded') {
-    message = `一部の音声を再生できません: ${supply.failed.join(', ')}`;
   }
   if (audioStatus.textContent !== message) audioStatus.textContent = message;
   audioStatus.hidden = !message;
@@ -2722,6 +2733,12 @@ function playbackLoop() {
     frameEngineRequestedTime += dt;
     if (frameEngineRequestedTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
     outputTime = frameEnginePreview?.renderPlayback(frameEngineRequestedTime) ?? frameEngineRequestedTime;
+    // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
+    const held = frameEnginePreview?.heldStartSec() ?? null;
+    if (held !== null) {
+      frameEngineRequestedTime = held;
+      outputTime = held;
+    }
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();
@@ -4500,6 +4517,7 @@ let _lastCaptionId = null;
 // 字幕ウィンドウ判定（start/end はソース秒・duration は end 不在時のみ）は
 // 共有カーネル findActiveCaption（edit-kernel.bundle.js — packages/edit-store/src/caption-window.ts）
 function updateCaption() {
+  if (!captionFontsReady) return;
   const caps = captionsOutputClock;
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   // 判定は出力秒だけ（refreshCaptionClock 参照）。source 秒への写像はここでは行わない。

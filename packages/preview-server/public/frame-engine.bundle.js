@@ -25161,6 +25161,19 @@ function createPreviewScheduler({
     }
     metrics.onChanged?.();
   };
+  const warmupNextBoundary = (fromSeconds = latestTimeSeconds) => {
+    if (disposed) return;
+    const boundary = boundaries.find((value) => value > fromSeconds);
+    if (boundary === void 0) return;
+    const currentKeys = new Set(requirementsAtTime(
+      Math.round(fromSeconds * 1e6),
+      `preview current plan failed at ${fromSeconds}s`
+    ).map((requirement) => requirement.key));
+    for (const requirement of requirementsAtBoundary(boundary)) {
+      startWarmup(requirement, boundary, currentKeys);
+    }
+    metrics.onChanged?.();
+  };
   const state = () => {
     const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -25221,6 +25234,7 @@ function createPreviewScheduler({
   return {
     notePresented,
     primeHeaders,
+    warmupNextBoundary,
     isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
     state,
     reset,
@@ -25455,6 +25469,7 @@ var FAILED_DECODE_RETRY_MS = 5e3;
 var RESTART_BACKOFF_MS = 500;
 var WINDOW_LOOKAHEAD_SEC = 12;
 var WINDOW_REFILL_MS = 500;
+var PLAY_GATE_MAX_HOLD_SEC = 3;
 var MIB = 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
@@ -25507,6 +25522,15 @@ function createPreviewAudioSupply(options) {
   let bufferedUntil = {};
   let generation = 0;
   let starting = false;
+  let replanPending = false;
+  let gate = {
+    holding: false,
+    startSec: 0,
+    sinceMs: 0,
+    reason: null
+  };
+  let gateGeneration = -1;
+  let gateIntent = null;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -25523,11 +25547,13 @@ function createPreviewAudioSupply(options) {
   let workletReady = false;
   let workletWarningEmitted = false;
   let stretcher = "none";
-  const sidecarValues = [
-    ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
-    ...speech.map((item) => item.sidecar)
-  ].filter((item) => Boolean(item));
-  const uniqueSidecars = [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  const uniqueSidecars = () => {
+    const sidecarValues = [
+      ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
+      ...speech.map((item) => item.sidecar)
+    ].filter((item) => Boolean(item));
+    return [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  };
   const crossfades = speech.filter((item) => finitePositive2(item.crossfadeOutSec)).map((item) => ({
     id: item.id,
     startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
@@ -25870,8 +25896,32 @@ function createPreviewAudioSupply(options) {
       check();
     });
   };
+  const waitForGateStart = (positionSec, thisGeneration) => {
+    if (gateMissingKeys(positionSec, false).length === 0) return Promise.resolve();
+    const remaining = gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now();
+    if (!(remaining > 0)) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        clearTimeout(timer);
+        resolve();
+      };
+      const check = () => {
+        if (thisGeneration !== generation || gateMissingKeys(positionSec, false).length === 0) finish();
+      };
+      const timer = setTimeout(finish, remaining);
+      taskWaiters.add(check);
+      check();
+    });
+  };
   const replanIfNeeded = () => {
-    if (starting) return;
+    if (starting) {
+      replanPending = true;
+      return;
+    }
     const decodedCount = decodedRevision;
     if (!playing) {
       if (lastStartOutcome === "empty" && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
@@ -26161,6 +26211,75 @@ function createPreviewAudioSupply(options) {
       narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
+  const supplyKeysAt = (positionSec, asPlaying) => {
+    const requiredTasks = tasks.filter((task) => {
+      if (task.at > positionSec || task.state === "no-audio") return false;
+      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === "bgm") return positionSec < timelineDurationSec;
+        const durationSec = [
+          regular.spec.durationSec,
+          validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [
+          spoken.durationSec,
+          spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map((task) => task.key);
+    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
+    const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
+    const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
+    const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
+    return { required, ready, pendingSidecar, failed, noAudio };
+  };
+  const gateMissingKeys = (positionSec, asPlaying) => {
+    const keys = supplyKeysAt(positionSec, asPlaying);
+    return keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+  };
+  const gateReasonAt = (positionSec) => {
+    const keys = supplyKeysAt(positionSec, true);
+    const missing = keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+    if (missing.length === 0) return null;
+    return missing.some((key) => keys.pendingSidecar.includes(key)) ? "sidecar" : "first-window";
+  };
+  const releaseGate = () => {
+    if (!gate.holding) return;
+    gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
+    gateGeneration = -1;
+  };
+  const gateHolding = () => {
+    if (!gate.holding) return false;
+    if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3 || gateMissingKeys(gate.startSec, true).length === 0) {
+      releaseGate();
+      return false;
+    }
+    return true;
+  };
+  const gateIntentHolding = () => {
+    if (!gateIntent || playing) return false;
+    if (lastStartOutcome !== "empty") return false;
+    if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) return false;
+    return gateMissingKeys(gateIntent.startSec, true).length > 0;
+  };
+  const gateView = () => {
+    if (gateHolding()) return { holding: true, gate };
+    const intent = gateIntent;
+    if (intent && gateIntentHolding()) {
+      return { holding: true, gate: { startSec: intent.startSec, sinceMs: intent.sinceMs, reason: gateReasonAt(intent.startSec) } };
+    }
+    return { holding: false, gate };
+  };
   const startFrom = async (seconds, options2 = {}) => {
     if (!context) return;
     const thisGeneration = ++generation;
@@ -26169,6 +26288,28 @@ function createPreviewAudioSupply(options) {
     startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
+    const gateStartSec = clamp5(options2.pinStart ? seconds : latestRequestedSec);
+    if (playing) {
+      releaseGate();
+    } else {
+      const reason = gateReasonAt(gateStartSec);
+      if (reason === null) {
+        releaseGate();
+      } else {
+        gateIntent ??= { startSec: gateStartSec, sinceMs: now() };
+        if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) {
+          releaseGate();
+        } else {
+          gate = {
+            holding: true,
+            startSec: gateIntent.startSec,
+            sinceMs: gateIntent.sinceMs,
+            reason
+          };
+          gateGeneration = thisGeneration;
+        }
+      }
+    }
     let outcome = "failed";
     try {
       await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
@@ -26180,6 +26321,10 @@ function createPreviewAudioSupply(options) {
         return;
       }
       if (thisGeneration !== generation) return;
+      if (gateHolding()) {
+        await waitForGateStart(gateStartSec, thisGeneration);
+        if (thisGeneration !== generation) return;
+      }
       const speechForSchedule = speech.flatMap((item) => {
         const resolved = speechDecoded.get(item.id);
         if (!resolved) return [];
@@ -26189,6 +26334,7 @@ function createPreviewAudioSupply(options) {
           materialDurationSec: resolved.durationSec
         }];
       });
+      const planDecodedCount = decodedRevision;
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
@@ -26216,7 +26362,7 @@ function createPreviewAudioSupply(options) {
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = decodedRevision;
+      scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
       const skipped = [];
       for (const item of lastSchedule) {
@@ -26233,8 +26379,14 @@ function createPreviewAudioSupply(options) {
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
+        if (outcome !== "started") releaseGate();
+        if (outcome === "failed") gateIntent = null;
         starting = false;
         lastStartOutcome = outcome;
+        if (replanPending) {
+          replanPending = false;
+          replanIfNeeded();
+        }
       }
     }
   };
@@ -26248,8 +26400,11 @@ function createPreviewAudioSupply(options) {
   const pause = () => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
+    releaseGate();
+    gateIntent = null;
     playing = false;
     starting = false;
+    replanPending = false;
     lastStartOutcome = null;
     stopSources();
   };
@@ -26259,44 +26414,27 @@ function createPreviewAudioSupply(options) {
     pauseTimer = setTimeout(pause, watchdogMs);
   };
   const debug = () => {
+    const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap((src) => {
       const metric = speechMetrics.get(src);
       return metric ? [metric] : [];
     });
     const positionSec = playing ? audioPosition() : latestRequestedSec;
-    const requiredTasks = tasks.filter((task) => {
-      if (task.at > positionSec || task.state === "no-audio") return false;
-      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
-      if (regular) {
-        if (regular.kind === "bgm") return positionSec < timelineDurationSec;
-        const durationSec = [
-          regular.spec.durationSec,
-          validSidecar(regular.spec.sidecar)?.durationSec,
-          regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
-        ].find(finitePositive2) ?? Infinity;
-        return positionSec < firstUseRegular(regular) + durationSec;
-      }
-      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
-      if (spoken) {
-        const durationSec = [
-          spoken.durationSec,
-          spoken.sidecar?.durationSec,
-          speechDecoded.get(spoken.id)?.durationSec
-        ].find(finitePositive2) ?? Infinity;
-        const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
-        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
-      }
-      return true;
-    });
-    const required = requiredTasks.map((task) => task.key);
-    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (bufferedUntil[task.key] ?? -Infinity) > positionSec)).map((task) => task.key);
-    const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
-    const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
-    const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
+    const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
     const phase = required.length === 0 ? "idle" : required.some((key) => pendingSidecar.includes(key)) ? "preparing" : required.some((key) => failed.includes(key)) ? "degraded" : required.every((key) => ready.includes(key)) ? "ready" : "preparing";
+    const { holding, gate: gate2 } = gateView();
     return {
-      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil } },
+      supply: {
+        phase,
+        required,
+        ready,
+        pendingSidecar,
+        failed,
+        noAudio,
+        bufferedUntil: { ...bufferedUntil },
+        gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
+      },
       contextState: context?.state ?? "unavailable",
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -26329,9 +26467,9 @@ function createPreviewAudioSupply(options) {
         }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 })
       },
       sidecars: {
-        generated: uniqueSidecars.filter((item) => item.skipped === false).length,
-        skipped: uniqueSidecars.filter((item) => item.skipped === true).length,
-        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
+        generated: sidecars.filter((item) => item.skipped === false).length,
+        skipped: sidecars.filter((item) => item.skipped === true).length,
+        bytes: sidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
       },
       crossfades,
       speechDecode: {
@@ -26421,14 +26559,31 @@ function createPreviewAudioSupply(options) {
     },
     playFrom(seconds) {
       latestRequestedSec = clamp5(seconds);
-      if (context && !playing && !starting) launch(latestRequestedSec);
+      if (context && !playing && !starting) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     position(fallbackSeconds) {
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        return gate.startSec;
+      }
+      if (gateIntentHolding()) {
+        latestRequestedSec = gateIntent.startSec;
+        return gateIntent.startSec;
+      }
       latestRequestedSec = clamp5(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
-      latestRequestedSec = clamp5(fallbackSeconds);
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        armPauseWatchdog();
+        return gate.startSec;
+      }
+      if (gateIntentHolding()) latestRequestedSec = gateIntent.startSec;
+      else latestRequestedSec = clamp5(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
       if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
@@ -26437,11 +26592,17 @@ function createPreviewAudioSupply(options) {
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp5(seconds);
       generation += 1;
+      releaseGate();
       playing = false;
       starting = false;
+      replanPending = false;
       lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) launch(latestRequestedSec);
+      gateIntent = null;
+      if (continuePlaying && context) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     pause,
     setRate(value) {
@@ -26455,10 +26616,13 @@ function createPreviewAudioSupply(options) {
       routeMasterBus();
       if (wasPlaying || wasStarting) {
         generation += 1;
+        releaseGate();
         playing = false;
         starting = false;
+        replanPending = false;
         lastStartOutcome = null;
         stopSources();
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
         launch(latestRequestedSec);
       }
     },
@@ -26965,7 +27129,8 @@ function autoProxyPath(url) {
   const parsed = new URL(url, window.location.href);
   return decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
 }
-async function requestAutoProxy(candidate, ui) {
+async function requestAutoProxy(candidate, ui, isCurrent) {
+  if (!isCurrent()) return null;
   const path = autoProxyPath(candidate.originalUrl);
   ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${candidate.id}\uFF09`);
   try {
@@ -26976,7 +27141,7 @@ async function requestAutoProxy(candidate, ui) {
     });
     if (!start.ok) return null;
     const deadline = Date.now() + 3e5;
-    while (Date.now() < deadline) {
+    while (isCurrent() && Date.now() < deadline) {
       const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
       if (!response.ok) return null;
       const result = await response.json();
@@ -26989,79 +27154,183 @@ async function requestAutoProxy(candidate, ui) {
     return null;
   }
 }
+function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
+  const ids = /* @__PURE__ */ new Set();
+  if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
+  const finite4 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const cursors = /* @__PURE__ */ new Map();
+  const overlaps = /* @__PURE__ */ new Map();
+  for (const cut of cuts) {
+    const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
+    const at2 = Number.isFinite(cut.at) && Number(cut.at) >= 0 ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
+    const end = at2 + duration;
+    cursors.set(track, end);
+    overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
+    if (atSeconds >= at2 && atSeconds < end) {
+      const id = cut.src ?? edit?.sources?.[0]?.id ?? "default";
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  const fps = finite4(timelineData?.fps, 30) > 0 ? finite4(timelineData?.fps, 30) : 30;
+  const frame = Math.floor(atSeconds * fps + 1e-9);
+  for (const layer of layers) {
+    const start = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
+    if (frame < start || frame >= end || layer.kind === "filter") continue;
+    for (const id of [layer.src, layer.mask]) {
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  return ids;
+}
 async function resolveSourceChoices(candidates, context) {
   const choices = /* @__PURE__ */ new Map();
-  for (const candidate of candidates.values()) {
+  const completedProxies = /* @__PURE__ */ new Map();
+  const pendingProxies = /* @__PURE__ */ new Set();
+  const failedProxies = /* @__PURE__ */ new Set();
+  let target = null;
+  const apply = async (choice) => {
+    if (!context.isCurrent() || !target) return;
+    await target.applySourceChoice(choice.id, choice);
+    if (context.isCurrent()) choices.set(choice.id, choice);
+  };
+  const updateNotice = () => {
+    if (!context.isCurrent()) return;
+    const failed = failedProxies.values().next().value;
+    const pending = pendingProxies.values().next().value;
+    if (failed) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${failed}\uFF09`);
+    else if (pending) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${pending}\uFF09`);
+    else context.ui.clearNotice();
+  };
+  const resolveCandidate = async (candidate) => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "not-a-cut-source",
         support: null
-      });
-      continue;
+      };
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "image",
         reason: "still-image"
-      });
-      continue;
+      };
     }
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision2 = chooseSource({ mode: context.mode, hasProxy, support: null });
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: decision2.chosen === "proxy" ? candidate.proxyUrl : candidate.originalUrl,
         chosen: decision2.chosen,
         reason: decision2.reason,
         support: null
-      });
-      continue;
+      };
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === "original") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: probe.support
-      });
+      };
     } else if (decision.chosen === "proxy") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.proxyUrl,
         chosen: "proxy",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: null
-      });
+      };
     } else {
-      const proxyUrl = await requestAutoProxy(candidate, context.ui);
+      const provisional = {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "auto-proxy-pending",
+        ...codec ? { codec } : {},
+        support: probe.support
+      };
+      if (context.isCurrent()) {
+        pendingProxies.add(candidate.id);
+        void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async (proxyUrl) => {
+          if (!context.isCurrent()) return;
+          pendingProxies.delete(candidate.id);
+          if (!proxyUrl) failedProxies.add(candidate.id);
+          const choice = {
+            ...provisional,
+            url: proxyUrl ?? candidate.originalUrl,
+            chosen: proxyUrl ? "auto-proxy" : "original",
+            reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
+            support: proxyUrl ? null : probe.support
+          };
+          completedProxies.set(candidate.id, choice);
+          updateNotice();
+          await apply(choice);
+        }).catch((error) => {
+          if (context.isCurrent()) console.warn("[frame-engine] source replacement failed", error);
+        });
+      }
+      return provisional;
+    }
+  };
+  const remaining = [];
+  for (const candidate of candidates.values()) {
+    const immediate = !context.cutSourceIds.has(candidate.id) || /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (immediate || context.initialIds.has(candidate.id)) {
+      choices.set(candidate.id, await resolveCandidate(candidate));
+      if (!context.isCurrent()) break;
+    } else {
       choices.set(candidate.id, {
         id: candidate.id,
-        url: proxyUrl ?? candidate.originalUrl,
-        chosen: proxyUrl ? "auto-proxy" : "original",
-        reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
-        codec: probe.support.codec,
-        support: proxyUrl ? null : probe.support
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "pending-probe",
+        support: null
       });
-      if (!proxyUrl) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${candidate.id}\uFF09`);
+      remaining.push(candidate);
     }
   }
-  if (![...choices.values()].some((choice) => choice.reason === "auto-proxy-failed")) {
-    context.ui.clearNotice();
-  }
-  return choices;
+  remaining.sort((left, right) => (context.firstUses.get(left.id) ?? Infinity) - (context.firstUses.get(right.id) ?? Infinity));
+  return {
+    choices,
+    startBackground(runtime) {
+      if (!context.isCurrent() || target) return;
+      target = runtime;
+      for (const choice of completedProxies.values()) {
+        void apply(choice).catch((error) => console.warn("[frame-engine] source replacement failed", error));
+      }
+      let cursor = 0;
+      const worker = async () => {
+        while (context.isCurrent()) {
+          const candidate = remaining[cursor++];
+          if (!candidate) return;
+          try {
+            const choice = await resolveCandidate(candidate);
+            await apply(completedProxies.get(candidate.id) ?? choice);
+          } catch (error) {
+            if (context.isCurrent()) console.warn(`[frame-engine] source ${candidate.id}:`, error);
+          }
+        }
+      };
+      void worker();
+      void worker();
+    }
+  };
 }
 function createUi(stage) {
   const root = document.createElement("div");
@@ -27148,7 +27417,6 @@ var FrameEngineRuntime = class {
     });
     const cuts = normalizedCuts(edit);
     const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
-    const videoSources = /* @__PURE__ */ new Map();
     const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
@@ -27164,41 +27432,13 @@ var FrameEngineRuntime = class {
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
-        this.images.set(id, new CachedStillImageSource(url));
+        const image = new CachedStillImageSource(url);
+        this.images.set(id, image);
+        this.sources.set(id, image);
         continue;
       }
-      const choice = sourceChoices.get(id);
-      const pool = new ClipSessionPool(id, url, {
-        codecSupport: choice?.support,
-        onWarning: (message) => this.showError(message, false),
-        onSoftwareFallbackDenied: (support) => {
-          if (!(choice?.support?.hw || choice?.support?.any)) {
-            this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
-          }
-        }
-      });
-      const source = new LookaheadFrameSource(pool, {
-        fps,
-        capacity: 6,
-        onAccess: (access) => this.currentAccesses?.push(access)
-      });
-      const observedSource = {
-        decode: async (timeUs, metrics, request) => {
-          const frame = await source.decode(timeUs, metrics, request);
-          this.currentDecodedFrames?.push({
-            streamId: request?.streamId ?? "default",
-            requestedUs: timeUs,
-            timestampUs: frame.timestamp,
-            durationUs: frame.duration ?? null
-          });
-          return frame;
-        }
-      };
-      this.pools.set(id, pool);
-      this.lookahead.set(id, source);
-      videoSources.set(id, observedSource);
+      this.sources.set(id, this.createVideoSource(id, url));
     }
-    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: engineLayers
@@ -27275,7 +27515,7 @@ var FrameEngineRuntime = class {
   pools = /* @__PURE__ */ new Map();
   lookahead = /* @__PURE__ */ new Map();
   images = /* @__PURE__ */ new Map();
-  sources;
+  sources = /* @__PURE__ */ new Map();
   timeline;
   compositor;
   frameMetrics = new FrameMetrics();
@@ -27302,14 +27542,72 @@ var FrameEngineRuntime = class {
   lastRequestedTimeUs = null;
   lastBaseFrame = null;
   disposed = false;
-  async prime() {
+  createVideoSource(id, url) {
+    const choice = this.sourceChoices.get(id);
+    const pool = new ClipSessionPool(id, url, {
+      codecSupport: choice?.support,
+      onWarning: (message) => this.showError(message, false),
+      onSoftwareFallbackDenied: (support) => {
+        if (!(choice?.support?.hw || choice?.support?.any)) {
+          this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
+        }
+      }
+    });
+    const source = new LookaheadFrameSource(pool, {
+      fps: this.fps,
+      capacity: 6,
+      onAccess: (access) => this.currentAccesses?.push(access)
+    });
+    const observedSource = {
+      decode: async (timeUs, metrics, request) => {
+        const frame = await source.decode(timeUs, metrics, request);
+        this.currentDecodedFrames?.push({
+          streamId: request?.streamId ?? "default",
+          requestedUs: timeUs,
+          timestampUs: frame.timestamp,
+          durationUs: frame.duration ?? null
+        });
+        return frame;
+      }
+    };
+    this.pools.set(id, pool);
+    this.lookahead.set(id, source);
+    return observedSource;
+  }
+  async prime(start = 0) {
     this.audio.prime();
     const first = performance.now();
-    await this.renderFrame(0, "seek", first);
-    const second = performance.now();
-    await this.renderFrame(0, "seek", second);
+    await this.renderFrame(start, "seek", first);
+    if (this.disposed) return;
     this.ui.root.dataset.frameEngineReady = "true";
     this.scheduler.primeHeaders();
+    this.scheduler.warmupNextBoundary(start);
+  }
+  currentTime() {
+    return this.lastPresentedSec;
+  }
+  async applySourceChoice(id, choice) {
+    if (this.disposed) return;
+    const current = this.sourceChoices.get(id);
+    const sameSupport = (current?.support ?? null) === (choice.support ?? null) || current?.support != null && choice.support != null && current.support.codec === choice.support.codec && current.support.hw === choice.support.hw && current.support.sw === choice.support.sw && current.support.any === choice.support.any;
+    if (current?.url === choice.url && sameSupport) return;
+    while (this.rendering && !this.disposed) await this.waitForRender();
+    if (this.disposed) return;
+    this.lookahead.get(id)?.clear();
+    this.pools.get(id)?.destroy();
+    this.images.get(id)?.destroy();
+    this.sourceChoices.set(id, choice);
+    if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(choice.url)) {
+      this.pools.delete(id);
+      this.lookahead.delete(id);
+      const image = new CachedStillImageSource(choice.url);
+      this.images.set(id, image);
+      this.sources.set(id, image);
+    } else {
+      this.images.delete(id);
+      this.sources.set(id, this.createVideoSource(id, choice.url));
+    }
+    this.updateMetrics();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
@@ -27352,7 +27650,13 @@ var FrameEngineRuntime = class {
   audioDebug() {
     return this.audio.debug();
   }
+  /** ゲートで共通時計を据え置いている間の開始位置。据え置いていなければ null。 */
+  heldStartSec() {
+    const gate = this.audio.debug().supply.gate;
+    return gate.holding ? gate.startSec : null;
+  }
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
@@ -27384,6 +27688,7 @@ var FrameEngineRuntime = class {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
     this.lastBaseFrame = this.currentDecodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
@@ -27466,7 +27771,12 @@ var FrameEngineRuntime = class {
 };
 async function createFrameEnginePreview(options) {
   const ui = createUi(options.stage);
-  const prepareRuntime = async (edit, timelineData, fps) => {
+  let generation = 0;
+  let disposed = false;
+  let preparingRuntime = null;
+  const prepareRuntime = async (edit, timelineData, fps, start) => {
+    const token = ++generation;
+    const isCurrent = () => !disposed && token === generation;
     ui.clearNotice();
     const params = new URLSearchParams(window.location.search);
     let forceSoftware = params.get("frameEngineForceSw") === "1";
@@ -27475,37 +27785,76 @@ async function createFrameEnginePreview(options) {
       if (response.ok) forceSoftware ||= (await response.json()).forceSoftwareDecode === true;
     } catch {
     }
+    if (!isCurrent()) return null;
     setForceSoftwareDecode(forceSoftware);
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const choices = await resolveSourceChoices(candidates, {
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    const firstUses = /* @__PURE__ */ new Map();
+    const noteUse = (id, seconds) => {
+      if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
+    };
+    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    for (const layer of layers) {
+      noteUse(layer.src, layer.t);
+      noteUse(layer.mask, layer.t);
+    }
+    const resolution = await resolveSourceChoices(candidates, {
       mode: parseSourceSelectionMode(params.get("frameEngineSource")),
       ui,
-      cutSourceIds: new Set(cuts.map((cut) => String(cut.src)))
+      cutSourceIds: new Set(cuts.map((cut) => String(cut.src))),
+      initialIds: initialSourceIds(edit, { ...timelineData, fps }, cuts, layers, start),
+      firstUses,
+      isCurrent
     });
-    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+    if (!isCurrent()) return null;
+    const prepared = new FrameEngineRuntime(ui, edit, timelineData, fps, resolution.choices);
+    preparingRuntime = prepared;
+    try {
+      await prepared.prime(start);
+      if (!isCurrent()) {
+        prepared.dispose();
+        return null;
+      }
+      resolution.startBackground(prepared);
+      return prepared;
+    } catch (error) {
+      prepared.dispose();
+      if (!isCurrent()) return null;
+      throw error;
+    } finally {
+      if (preparingRuntime === prepared) preparingRuntime = null;
+    }
   };
-  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
-  await runtime.prime();
+  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps, 0);
   const preview = {
     snapshot: () => runtime.snapshot(),
     seek: (seconds) => runtime.seek(seconds),
     renderPlayback: (seconds) => runtime.renderPlayback(seconds),
     async rebuild(edit, timelineData, fps) {
+      if (disposed) return;
+      const start = runtime.currentTime();
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = "false";
-      runtime = await prepareRuntime(edit, timelineData, fps);
-      await runtime.prime();
+      const prepared = await prepareRuntime(edit, timelineData, fps, start);
+      if (prepared) runtime = prepared;
     },
     dispose() {
+      disposed = true;
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       ui.root.remove();
     },
     updateAudio: (edit) => runtime.updateAudio(edit),
-    audioDebug: () => runtime.audioDebug()
+    audioDebug: () => runtime.audioDebug(),
+    heldStartSec: () => runtime.heldStartSec()
   };
   window.akariFrameEngineAudioDebug = () => runtime.audioDebug();
   return preview;
