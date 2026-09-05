@@ -343,6 +343,21 @@ Connect from the Start screen of the Theia-based desktop shell (`apps/shell/`, m
 The app is a place to review and fix what the agent built, so starting from the terminal
 or a session is the current recommendation for your first step.
 
+#### Verifying the macOS download
+
+Mount the downloaded DMG (file name varies by version) and verify the `.app` inside. Run these commands in the folder where you saved the DMG.
+```sh
+dmg=$(ls *.dmg | head -1)
+hdiutil attach "$dmg"
+app=$(ls -d "/Volumes/AKARI Video"*/"AKARI Video.app" | head -1)
+codesign --verify --deep --strict -vv "$app"
+spctl -a -t exec -vv "$app"
+xcrun stapler validate "$app"
+```
+Expected output includes `valid on disk`, `accepted`, `source=Notarized Developer ID`, `origin=Developer ID Application: nakajima ryoma (WH2ZAX783Q)`, and `The validate action worked!`.
+For releases that include DMG notarization, also check the DMG itself with `xcrun stapler validate "$dmg"` and `spctl -a -t open --context context:primary-signature -vv "$dmg"`.
+Extract the zip using Finder or `ditto -x -k shell-mac.zip extracted`. Extraction tools that do not preserve symlinks can cause `invalid signature` errors.
+
 ---
 
 ## Create a project

@@ -310,6 +310,10 @@
       "category": "public.app-category.video",
       "artifactName": "shell-mac.${ext}"
     },
+    "dmg": {
+      "sign": true,
+      "writeUpdateInfo": false
+    },
     "win": {
       "icon": "resources/icons/icon.ico",
       "target": "dir"

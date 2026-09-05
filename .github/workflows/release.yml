@@ -8,7 +8,7 @@ name: Release
 # npm publish を実行する操作そのものは、このワークフローを追加した実装作業の範囲外
 # （検収後に司令塔が行う）。ここに書くのは「発火されたら何が起きるか」のロジックのみ。
 #
-# 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball ∥
+# 流れ: 版整合ゲート →（mac シェルビルド → DMG 公証 + staple → 署名検証ゲート）∥ win シェルビルド ∥ CLI tarball ∥
 #       app tarball（CLI self-update 用フル構成ソース、並列）
 #       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
 #       （updates フィードはここでは触らない — 2026-08-29 改訂・下記 feed_only）
@@ -336,6 +336,62 @@ jobs:
           # 後段の release ジョブの `gh release create` が担う。二重の公開経路を作らない）。
           npx electron-builder --mac zip dmg --publish never
 
+      - name: mac DMG の公証 + staple
+        working-directory: apps/shell
+        env:
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key-file.outputs.path }}
+          APPLE_API_KEY_ID_SECRET: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CSC_LINK_SECRET" ]; then
+            {
+              echo '### ⚠️ mac DMG 公証スキップ'
+              echo ""
+              echo '未署名ビルドのため、DMG 公証をスキップしました。'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$APPLE_API_KEY_PATH" ] || [ -z "$APPLE_API_KEY_ID_SECRET" ] || [ -z "$APPLE_API_ISSUER_SECRET" ]; then
+            {
+              echo '### ❌ mac DMG 公証設定不足'
+              echo ""
+              echo 'APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER が不足しています。署名済みだが未公証の DMG は Gatekeeper が開かせないため、中途半端な secrets 構成では配布物を作らない。'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          shopt -s nullglob
+          dmgs=(electron-builder-out/*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
+          submission_json="$RUNNER_TEMP/mac-dmg-notarization.json"
+          submit_result=0
+          xcrun notarytool submit "$dmg" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID_SECRET" \
+            --issuer "$APPLE_API_ISSUER_SECRET" --wait --timeout 30m --output-format json \
+            > "$submission_json" || submit_result=$?
+          cat "$submission_json"
+          status=$(node -e 'const r = require(process.argv[1]); console.log(r.status || "");' "$submission_json")
+          submission_id=$(node -e 'const r = require(process.argv[1]); console.log(r.id || "");' "$submission_json")
+          if [ "$status" != 'Accepted' ] || [ "$submit_result" -ne 0 ]; then
+            if [ -n "$submission_id" ]; then
+              xcrun notarytool log "$submission_id" --key "$APPLE_API_KEY_PATH" \
+                --key-id "$APPLE_API_KEY_ID_SECRET" --issuer "$APPLE_API_ISSUER_SECRET" || true
+            fi
+            echo "DMG 公証失敗: status=$status, submission id=$submission_id" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+          {
+            echo '### ✅ mac DMG 公証 + staple 完了'
+            echo ""
+            echo "DMG: $dmg"
+            echo "submission id: $submission_id"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: postpackage (verify asar contents)
         working-directory: apps/shell
         run: npm run postpackage
@@ -351,6 +407,29 @@ jobs:
           test -f "${{ env.ARTIFACT_MAC }}" || { echo "mac zip 成果物（${{ env.ARTIFACT_MAC }}）が見つかりません"; exit 1; }
           test -f "${{ env.ARTIFACT_MAC_DMG }}" || { echo "mac dmg 成果物（${{ env.ARTIFACT_MAC_DMG }}）が見つかりません"; exit 1; }
           ls -la "${{ env.ARTIFACT_MAC }}" "${{ env.ARTIFACT_MAC_DMG }}"
+
+      - name: mac 配布物の署名検証ゲート
+        working-directory: apps/shell/electron-builder-out
+        env:
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CSC_LINK_SECRET" ]; then
+            echo '未署名ビルドのため署名検証ゲートをスキップ' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          shopt -s nullglob
+          dmgs=(*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          result=0
+          bash "$GITHUB_WORKSPACE/scripts/release/verify-mac-artifacts.sh" "$dmg" shell-mac.zip \
+            | tee -a "$GITHUB_STEP_SUMMARY" || result=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
 
       - uses: actions/upload-artifact@v4
         with:
