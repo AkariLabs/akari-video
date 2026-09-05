@@ -7,6 +7,61 @@ import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot }
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
+test('media layer / item の動画タブはパース直後に「動き」12行を畳んで表示する', () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind);
+    const sections = factory(snapshot, async () => ({ ok: true }))
+      .filter(section => assignSectionToTab(kind, section.id) === 'video');
+    const index = sections.findIndex(section => section.id === 'motion');
+    assert.ok(index > 0);
+    assert.equal(sections[index - 1].id, 'perspective');
+    assert.equal(sections[index].label, '動き');
+    assert.equal(sections[index].collapsedByDefault, true);
+    assert.deepEqual(sections[index].fields.map(field => field.label), [
+      '入り', '入りの尺', '入りのイージング', '入りの量',
+      '抜き', '抜きの尺', '抜きのイージング', '抜きの量',
+      'ループ', '周期', 'ループのイージング', 'ループの量'
+    ]);
+    assert.deepEqual(sections[index].fields.map(field => field.inputKind),
+      Array(3).fill(['select', 'scrub-number', 'select', 'scrub-number']).flat());
+  }
+});
+
+test('HTML item / layer には動きセクションを出さない', () => {
+  for (const factory of [itemSections, layerSections]) {
+    const snapshot = visualSnapshot('item', { sourceKind: 'html', itemKind: 'part' });
+    assert.equal(factory(snapshot, () => {}).some(section => section.id === 'motion'), false);
+  }
+});
+
+test('motion 未選択席の尺・ease・量は disabled、fade / wipe の量には理由を表示する', async () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind);
+    const fields = factory(snapshot, async () => assert.fail('未選択席には書かない'))
+      .find(section => section.id === 'motion').fields;
+    for (const offset of [0, 4, 8]) {
+      assert.equal(fields[offset].disabled, false);
+      assert.equal(fields[offset].options[0], 'なし');
+      for (const index of [1, 2, 3]) {
+        assert.equal(fields[offset + index].disabled, true);
+        assert.equal((await fields[offset + index].write(snapshot, '1')).ok, false);
+      }
+      assert.equal(fields[offset + 1].unit, 'f');
+      assert.equal(fields[offset + 1].min, 1);
+      assert.equal(fields[offset + 1].scrubStep, 1);
+      assert.equal(fields[offset + 1].max, offset === 8 ? undefined : 150);
+      assert.equal(fields[offset + 2].getValue(), 'linear');
+    }
+    for (const preset of ['fade', 'wipe']) {
+      const current = { ...snapshot, motion: { in: { preset, duration: 12 } } };
+      const row = factory(current, async () => assert.fail('量を書かない')).find(section => section.id === 'motion').fields[3];
+      assert.equal(row.disabled, true);
+      assert.equal(row.title, 'このプリセットに量はありません');
+      assert.equal((await row.write(current, '20')).ok, false);
+    }
+  }
+});
+
 test('media layer / item の外観末尾に「なし」+ 動画候補のマスク select が出る', () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
     const snapshot = visualSnapshot(kind, { maskSourceOptions: [{ id: 'maskgrad', label: 'mask.mp4' }] });

@@ -250,6 +250,7 @@ import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/key
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { validateInspectorPerspective } from './inspector/perspective-fields';
+import { validateInspectorMotion } from './inspector/motion-fields';
 import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
     audioClipFxFieldsForSnapshot,
@@ -3247,6 +3248,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                     patch = { mask: value };
                     label = 'クリップのマスクを変更';
+                } else if (request.path === 'motion') {
+                    const value = request.value;
+                    if (raw.source?.kind === 'html') throw new Error('HTML 部品の動きはパラメータから変更してください。');
+                    validateInspectorMotion(value, raw.duration);
+                    patch = { motion: value };
+                    label = 'クリップの動きを変更';
                 } else if (request.path === 'perspective') {
                     const value = request.value;
                     if (value !== null) {
@@ -3610,6 +3617,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
+            ...(raw.source?.kind !== 'html' && raw.motion && typeof raw.motion === 'object' && !Array.isArray(raw.motion)
+                ? { motion: raw.motion } : {}),
             ...(transform ? { transform } : {}),
             ...(typeof raw.opacity === 'number' ? { opacity: raw.opacity } : {}),
             ...(raw.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop) ? { crop: raw.crop } : {}),
@@ -3719,6 +3728,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? raw.crop as TimelineCropSnapshot : undefined;
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
+                sourceKind: rawItem?.source?.kind,
+                durationFrames: Number.isInteger(rawItem?.duration) ? rawItem!.duration : Math.max(1, Math.round(layer.duration * this.fps)),
+                ...(rawItem?.source?.kind !== 'html' && rawItem?.motion && typeof rawItem.motion === 'object' && !Array.isArray(rawItem.motion)
+                    ? { motion: rawItem.motion } : {}),
                 ...(raw?.source?.kind === 'media' ? {
                     ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
                     maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)

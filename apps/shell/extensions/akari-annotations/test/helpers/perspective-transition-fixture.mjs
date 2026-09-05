@@ -5,6 +5,7 @@ import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import * as perspective from '../../lib/browser/inspector/perspective-fields.js';
 import * as transition from '../../lib/browser/inspector/transition-fields.js';
 import * as mask from '../../lib/browser/inspector/mask-fields.js';
+import * as motion from '../../lib/browser/inspector/motion-fields.js';
 import * as crop from '../../lib/browser/inspector/crop-fields.js';
 import * as framing from '../../lib/browser/inspector/framing-fields.js';
 import * as freeze from '../../lib/browser/inspector/freeze-fields.js';
@@ -16,7 +17,7 @@ export const timelineSource = readFileSync(new URL('../../src/browser/akari-anno
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
-    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS',
+    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'MOTION_FIELDS',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
 ];
 const declarations = names.map(name => {
@@ -30,7 +31,7 @@ for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE']) {
     assert.ok(node, name);
     declarations.push(node.getText(ast));
 }
-const dependencies = { ...perspective, ...transition, ...mask, ...crop, ...framing, ...freeze, ...mappings,
+const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...crop, ...framing, ...freeze, ...mappings,
     TRANSITION_VOCABULARY, composeInspectorSections };
 delete dependencies.default;
 delete dependencies['module.exports'];
@@ -58,7 +59,7 @@ export function timelineMethod(name, dependencies = {}) {
 
 export function visualSnapshot(kind = 'layer', fields = {}) {
     return { kind, id: 'visual-1', layerKind: 'video', itemKind: 'media', sourceKind: 'media',
-        outputStart: 0, duration: 5, trackName: 'Video', clipName: 'Clip', ...fields };
+        outputStart: 0, duration: 5, durationFrames: 150, trackName: 'Video', clipName: 'Clip', ...fields };
 }
 
 export function cutSnapshot(fields = {}) {
