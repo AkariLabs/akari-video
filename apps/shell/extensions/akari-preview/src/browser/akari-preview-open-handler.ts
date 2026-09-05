@@ -41,7 +41,7 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
-import { AudioClipFx, audioClipFxOf, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
+import { AudioClipFx, audioClipFxOf, hasAudioClipFx, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
 import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
@@ -107,6 +107,7 @@ import {
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
+import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
     clampPreviewPlaybackRate,
     effectiveMediaRate,
@@ -370,6 +371,61 @@ interface EditSummaryCut {
     adjust?: EditSummaryAdjust;
 }
 
+type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable';
+
+interface PreviewAudioSidecarRequest {
+    sourceUri: string;
+    projectRootUri: string;
+    inSec: number;
+    outSec?: number;
+    speed: number;
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    heavyWavOnly?: boolean;
+    clipFx?: AudioClipFx;
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
+}
+
+interface PreviewAudioSidecarRequestResult {
+    state: PreviewAudioSidecarState | 'not-eligible' | 'not-needed';
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
+    key?: string;
+    probe?: { fingerprint: string };
+    bytes?: number;
+    durationSec?: number;
+    reason?: string;
+    stream?: VideoStreamReference;
+}
+
+interface PreviewAudioService {
+    requestPreviewAudioSidecar(request: PreviewAudioSidecarRequest): Promise<PreviewAudioSidecarRequestResult>;
+    sweepPreviewAudioSidecars(request: {
+        projectRootUri: string; keepKeys: string[]; keepProbes?: string[]; minAgeMs?: number;
+    }): Promise<{ removed: number; bytes: number }>;
+}
+
+interface PreviewAudioPendingRequest {
+    at?: number;
+    kind: 'speech' | 'bgm' | 'sfx' | 'narration';
+    id: string;
+    label: string;
+    request: PreviewAudioSidecarRequest;
+}
+
+interface PreviewAudioSidecarEntry {
+    at: number;
+    kind: PreviewAudioPendingRequest['kind'];
+    item?: PreviewAudioPendingRequest;
+    resolve?: () => Promise<PreviewAudioSidecarFields | undefined>;
+}
+
+type PreviewAudioSidecarFields = Pick<EditSummarySpeech, 'sidecar' | 'sidecarState' | 'sidecarWarningEmitted'>;
+
 interface EditSummarySpeech {
     id: string;
     src: string;
@@ -382,6 +438,7 @@ interface EditSummarySpeech {
     track?: number;
     materialDurationSec: number;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarState?: PreviewAudioSidecarState;
     atempo?: { path: string; durationSec: number; generatedMs?: number };
     padBeforeSec?: number;
     padAfterSec?: number;
@@ -391,6 +448,11 @@ interface EditSummarySpeech {
 }
 
 interface PreviewAudioSidecarSummary {
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
     path: string;
     durationSec: number;
     padBeforeSec: number;
@@ -424,6 +486,7 @@ interface EditSummaryAudioSource {
     gainDb: number;
     keyframes?: Array<{ t: number; gainDb: number; easing?: string }>;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarState?: PreviewAudioSidecarState;
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
@@ -514,6 +577,10 @@ interface EditSummary {
 }
 
 interface PreviewModel {
+    previewAudioKeepKeys?: Set<string>;
+    previewAudioKeepProbes?: Set<string>;
+    previewAudioPendingRequests?: PreviewAudioPendingRequest[];
+    previewAudioStreams?: Map<string, VideoStreamReference>;
     summary: EditSummary;
     editUri?: URI;
     relatedEditUri?: URI;
@@ -686,6 +753,14 @@ interface ReviewAnnotationStrokeRequest {
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
+    akariPreviewAudioKeepKeys?: Set<string>;
+    akariPreviewAudioKeepProbes?: Set<string>;
+    akariPreviewAudioProjectRootUri?: string;
+    akariPreviewAudioPendingRequests?: PreviewAudioPendingRequest[];
+    akariPreviewAudioPollTimer?: ReturnType<typeof setTimeout>;
+    akariPreviewAudioPollGeneration?: object;
+    akariPreviewAudioSweepTimer?: ReturnType<typeof setTimeout>;
+    akariPreviewAudioDisposeConnected?: boolean;
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
@@ -2859,6 +2934,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (widget.isDisposed) {
             return;
         }
+        this.stopPreviewAudioPolling(widget);
         // raw は edit タイムラインを持たない素材単体プレビューなので、cuts 評価台の対象にしない。
         const frameEngineEnabled = kind === 'output'
             && widget.akariPreviewFrameEngineOptOut !== true
@@ -2870,10 +2946,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
+        if (widget.isDisposed) {
+            await this.disposeAssetStreams(model.assetStreamIds);
+            return;
+        }
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
             if (updateAction === 'none') {
+                if (frameEngineEnabled) {
+                    const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                    widget.akariPreviewSummary = summary;
+                    widget.akariPreviewModelSnapshot = nextSnapshot;
+                    this.retainPreviewAudioStreams(widget, model, summary);
+                    widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+                }
+                this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.sendMessage({
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
@@ -2885,6 +2973,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
+                this.retainPreviewAudioStreams(widget, model, summary);
+                this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
                 // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
@@ -3192,6 +3282,152 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
         widget.akariPreviewSummary = model.summary;
+        this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
+    }
+
+    protected previewAudioSidecarFields(
+        item: PreviewAudioPendingRequest,
+        result: PreviewAudioSidecarRequestResult
+    ): PreviewAudioSidecarFields {
+        if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
+        if (result.state === 'ready' && result.stream) {
+            return {
+                sidecarState: 'ready',
+                sidecar: {
+                    path: result.stream.url,
+                    durationSec: result.durationSec ?? 0,
+                    padBeforeSec: item.request.padBeforeSec ?? 0,
+                    padAfterSec: item.request.padAfterSec ?? 0,
+                    skipped: true,
+                    bytes: result.bytes,
+                    ...(result.format !== undefined ? { format: result.format } : {}),
+                    ...(result.sampleRate !== undefined ? { sampleRate: result.sampleRate } : {}),
+                    ...(result.channels !== undefined ? { channels: result.channels } : {}),
+                    ...(result.frames !== undefined ? { frames: result.frames } : {}),
+                    ...(result.bytesPerSample !== undefined ? { bytesPerSample: result.bytesPerSample } : {})
+                }
+            };
+        }
+        if (result.state === 'queued' || result.state === 'generating') return { sidecarState: result.state };
+        if (result.state === 'no-audio') {
+            console.warn(`[akari-preview] ${item.label}: no audio stream: ${result.reason ?? 'no-audio'}`);
+            return { sidecarState: 'no-audio' };
+        }
+        console.warn(`[akari-preview] ${item.label} unavailable; using ${
+            item.kind === 'speech' ? 'source fallback' : 'source'}: ${result.reason ?? 'generation failed'}`);
+        return {
+            sidecarState: 'unavailable',
+            ...(item.kind === 'speech' ? { sidecarWarningEmitted: true } : {})
+        };
+    }
+
+    // Incremental refresh discards duplicate asset streams. Newly ready sidecars must survive it.
+    protected retainPreviewAudioStreams(widget: PreviewWidgetMarker, model: PreviewModel, summary: EditSummary): void {
+        const audio = summary.audio;
+        const urls = new Set([audio?.bgm, ...(audio?.sfx ?? []), ...(audio?.narration ?? []), ...(audio?.speech ?? [])]
+            .flatMap(item => item?.sidecar?.path ? [item.sidecar.path] : []));
+        const kept = new Set<string>();
+        for (const [key, stream] of model.previewAudioStreams ?? []) {
+            if (!urls.has(stream.url)) continue;
+            kept.add(stream.id);
+            (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key, stream.url);
+        }
+        (widget.akariPreviewAssetStreamIds ??= []).push(...kept);
+        model.assetStreamIds = model.assetStreamIds.filter(id => !kept.has(id));
+    }
+
+    protected stopPreviewAudioPolling(widget: PreviewWidgetMarker): void {
+        clearTimeout(widget.akariPreviewAudioPollTimer);
+        widget.akariPreviewAudioPollTimer = undefined;
+        widget.akariPreviewAudioPollGeneration = undefined;
+        widget.akariPreviewAudioPendingRequests = [];
+    }
+
+    protected startPreviewAudioTracking(widget: PreviewWidgetMarker, model: PreviewModel, frameEngineEnabled: boolean): void {
+        this.stopPreviewAudioPolling(widget);
+        if (widget.isDisposed) return;
+        widget.akariPreviewAudioKeepKeys = model.previewAudioKeepKeys ?? new Set();
+        widget.akariPreviewAudioKeepProbes = model.previewAudioKeepProbes ?? new Set();
+        widget.akariPreviewAudioProjectRootUri = model.editUri?.parent.toString();
+        const service = this.previewService as AkariPreviewService & PreviewAudioService;
+        if (!widget.akariPreviewAudioDisposeConnected) {
+            widget.akariPreviewAudioDisposeConnected = true;
+            widget.disposed.connect(() => {
+                this.stopPreviewAudioPolling(widget);
+                clearTimeout(widget.akariPreviewAudioSweepTimer);
+                widget.akariPreviewAudioSweepTimer = undefined;
+            });
+        }
+        if (widget.akariPreviewAudioSweepTimer === undefined && model.editUri) {
+            const sweep = async (): Promise<void> => {
+                if (widget.isDisposed) return;
+                try {
+                    const projectRootUri = widget.akariPreviewAudioProjectRootUri;
+                    if (projectRootUri) await service.sweepPreviewAudioSidecars({
+                        projectRootUri,
+                        keepKeys: [...(widget.akariPreviewAudioKeepKeys ?? [])],
+                        keepProbes: [...(widget.akariPreviewAudioKeepProbes ?? [])],
+                        minAgeMs: 60 * 60 * 1000
+                    });
+                } catch (error) {
+                    console.warn('[akari-preview] preview audio cache sweep failed', error);
+                } finally {
+                    if (!widget.isDisposed) widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 10 * 60 * 1000);
+                }
+            };
+            widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 60 * 1000);
+        }
+        if (!frameEngineEnabled) return;
+        const requests = model.previewAudioPendingRequests ?? [];
+        // loadPreviewModel は要求を first-use 昇順で積むので、この並べ替えは再確認。first-use を持たない
+        // 合成の列（common/ の import を持たない vm ハーネスから呼ぶ既存テストの fixture 等）はそのままの順で回す。
+        const pending = requests.length > 0 && requests.every((item): item is PreviewAudioPendingRequest & { at: number } => item.at !== undefined)
+            ? sortSidecarRequestsByFirstUse(requests) : [...requests];
+        widget.akariPreviewAudioPendingRequests = pending;
+        if (pending.length === 0) return;
+        const generation = {};
+        widget.akariPreviewAudioPollGeneration = generation;
+        const current = (): boolean => !widget.isDisposed && widget.akariPreviewAudioPollGeneration === generation;
+        const poll = async (): Promise<void> => {
+            if (!current()) return;
+            await Promise.all([...pending].map(async item => {
+                let result: PreviewAudioSidecarRequestResult;
+                try {
+                    result = await service.requestPreviewAudioSidecar(item.request);
+                } catch (error) {
+                    result = { state: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+                }
+                if (!current()) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                if (result.key) widget.akariPreviewAudioKeepKeys!.add(result.key);
+                if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes!.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') return;
+                pending.splice(pending.indexOf(item), 1);
+                const summary = widget.akariPreviewSummary;
+                const audio = summary?.audio;
+                const target = item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                if (!target || !summary) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                delete target.sidecar;
+                delete target.sidecarState;
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.state === 'ready' && result.stream) {
+                    (widget.akariPreviewAssetStreamIds ??= []).push(result.stream.id);
+                    const key = item.kind === 'speech' ? 'preview-audio:speech:' + item.id
+                        : 'preview-audio:' + item.label.replace(/ sidecar$/u, '');
+                    (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key + ':' + result.key, result.stream.url);
+                }
+                widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+            }));
+            if (!current()) return;
+            if (pending.length > 0) widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
+            else this.stopPreviewAudioPolling(widget);
+        };
+        widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -3288,6 +3524,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // ストリームが二重生成されない）。assetUris への登録は要求時に行う（task/2026-09-02-preview-perf）。
         const assetStreamTasks = new Map<string, Promise<{ id: string; url: string }>>();
         const previewAudioKeepKeys = new Set<string>();
+        const previewAudioKeepProbes = new Set<string>();
+        const previewAudioPendingRequests: PreviewAudioPendingRequest[] = [];
+        const sidecarRequests: PreviewAudioSidecarEntry[] = [];
         const assetUris: URI[] = [];
         const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
             const known = assetStreams.get(key);
@@ -3552,66 +3791,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (const cut of cutResults) {
                 if (cut) cuts.push(cut);
             }
-            const previewAudioService = this.previewService as AkariPreviewService & {
-                preparePreviewAudioSidecar(request: {
-                    sourceUri: string;
-                    projectRootUri: string;
-                    inSec: number;
-                    outSec?: number;
-                    speed: number;
-                    padBeforeSec?: number;
-                    padAfterSec?: number;
-                    heavyWavOnly?: boolean;
-                }): Promise<{
-                    ok: boolean;
-                    skipped: boolean;
-                    eligible?: boolean;
-                    key?: string;
-                    bytes?: number;
-                    durationSec: number;
-                    generatedMs: number;
-                    reason?: string;
-                    stream?: VideoStreamReference;
-                }>;
-                sweepPreviewAudioSidecars(request: {
-                    projectRootUri: string;
-                    keepKeys: string[];
-                }): Promise<{ removed: number; bytes: number }>;
-            };
+            const previewAudioService = this.previewService as AkariPreviewService & PreviewAudioService;
             const speech = await Promise.all(projectSpeechDeclarations(cuts, {
                 fps: this.positiveNumber(internal.output.fps, 30)
             }).map(async declaration => {
                 const source = sourcesById.get(declaration.src);
                 if (!source) return declaration;
-                const result = await previewAudioService.preparePreviewAudioSidecar({
+                const request: PreviewAudioSidecarRequest = {
                     sourceUri: source.uri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: declaration.inSec,
                     outSec: declaration.outSec,
                     speed: declaration.speed,
+                    format: resolveSpeechSidecarFormat(declaration),
                     padBeforeSec: declaration.padBeforeSec ?? 0,
                     padAfterSec: declaration.padAfterSec ?? 0
-                });
-                if (!result.ok || !result.stream) {
-                    console.warn(`[akari-preview] speech sidecar ${declaration.id} unavailable; using source fallback: ${
-                        result.reason ?? 'generation failed'
-                    }`);
-                    return { ...declaration, sidecarWarningEmitted: true };
-                }
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                assetStreams.set(`preview-audio:speech:${declaration.id}`, result.stream);
-                return {
-                    ...declaration,
-                    sidecar: {
-                        path: result.stream.url,
-                        durationSec: result.durationSec,
-                        padBeforeSec: declaration.padBeforeSec ?? 0,
-                        padAfterSec: declaration.padAfterSec ?? 0,
-                        generatedMs: result.generatedMs,
-                        skipped: result.skipped,
-                        bytes: result.bytes
-                    }
                 };
+                const item: PreviewAudioPendingRequest = {
+                    at: declaration.atSec,
+                    kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
+                };
+                sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
+                return declaration;
             }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
@@ -3935,12 +4136,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
+                previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
                 previewAudioService, previewAudioKeepKeys, ensureAssetStream
             );
-            await previewAudioService.sweepPreviewAudioSidecars({
-                projectRootUri: editUri.parent.toString(),
-                keepKeys: [...previewAudioKeepKeys]
-            });
+            for (const entry of sortSidecarRequestsByFirstUse(sidecarRequests)) {
+                const item = entry.item;
+                if (!item) continue;
+                const target = item.kind === 'speech' ? speech.find(value => value.id === item.id)
+                    : item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                if (!target) continue;
+                if (entry.resolve) {
+                    const fields = await entry.resolve();
+                    if (fields) Object.assign(target, fields);
+                    else if (audio && item.kind === 'bgm') delete audio.bgm;
+                    else if (audio && (item.kind === 'sfx' || item.kind === 'narration')) {
+                        audio[item.kind] = audio[item.kind].filter(value => value !== target);
+                    }
+                    continue;
+                }
+                const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.key) previewAudioKeepKeys.add(result.key);
+                if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                if (result.state === 'ready' && result.stream) {
+                    assetStreams.set('preview-audio:speech:' + item.id + ':' + result.key, result.stream);
+                }
+            }
             const indicators: string[] = [];
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
@@ -3971,6 +4193,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
+                previewAudioKeepKeys,
+                previewAudioKeepProbes,
+                previewAudioPendingRequests,
+                previewAudioStreams: new Map([...assetStreams].filter(([key]) => key.startsWith('preview-audio:'))),
                 captionsUri,
                 captions: outputCaptions,
                 excludedCaptionIds: [...excludedCaptionIds],
@@ -4032,35 +4258,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         editUri: URI,
         assetStreams: Map<string, { id: string; url: string }>,
         assetUris: URI[],
-        previewAudioService: AkariPreviewService & {
-            preparePreviewAudioSidecar(request: {
-                sourceUri: string;
-                projectRootUri: string;
-                inSec: number;
-                outSec?: number;
-                speed: number;
-                padBeforeSec?: number;
-                padAfterSec?: number;
-                heavyWavOnly?: boolean;
-                clipFx?: {
-                    speed?: number;
-                    pitch_semitones?: number;
-                    formant?: 'preserve' | 'shift';
-                    denoise?: { method: 'fft' | 'nlm'; strength: number };
-                    lowcut_hz?: number;
-                };
-            }): Promise<{
-                ok: boolean;
-                skipped: boolean;
-                eligible?: boolean;
-                key?: string;
-                bytes?: number;
-                durationSec: number;
-                generatedMs: number;
-                reason?: string;
-                stream?: VideoStreamReference;
-            }>;
-        },
+        previewAudioKeepProbes: Set<string>,
+        previewAudioPendingRequests: PreviewAudioPendingRequest[],
+        sidecarRequests: PreviewAudioSidecarEntry[],
+        previewAudioService: PreviewAudioService,
         previewAudioKeepKeys: Set<string>,
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
     ): Promise<EditSummaryAudio | undefined> {
@@ -4086,18 +4287,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             pathValue: unknown,
             label: string,
             trim: { inSec: number; outSec?: number },
-            clipFx: AudioClipFx
-        ): Promise<{ src: string; sidecar?: PreviewAudioSidecarSummary } | undefined> => {
+            kind: PreviewAudioPendingRequest['kind'],
+            id: string,
+            at = 0,
+            clipFx: AudioClipFx = {}
+        ): Promise<({ src: string } & PreviewAudioSidecarFields) | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
                 return undefined;
             }
             const assetUri = this.resolveEditAssetUri(pathValue, editUri);
             const key = assetUri.toString();
+            // Reserve declaration order before concurrent stream resolution completes.
+            const entry: PreviewAudioSidecarEntry = { at, kind };
+            sidecarRequests.push(entry);
             try {
                 const stream = await ensure(key, assetUri);
+                const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
                 const sidecarRequest = previewAudioSidecarRequestFor(clipFx);
-                const result = await previewAudioService.preparePreviewAudioSidecar({
+                if (!plan.request) return { src: stream.url };
+                const request: PreviewAudioSidecarRequest = {
                     sourceUri: assetUri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: trim.inSec,
@@ -4105,30 +4314,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...sidecarRequest,
                     padBeforeSec: 0,
                     padAfterSec: 0,
-                    heavyWavOnly: true
-                });
-                if (!result.ok || !result.stream) {
-                    if (sidecarRequest.clipFx !== undefined || result.eligible !== false) {
-                        console.warn(`[akari-preview] ${label} sidecar unavailable; using source: ${
-                            result.reason ?? 'generation failed'
-                        }`);
-                    }
-                    return { src: stream.url };
-                }
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                assetStreams.set(`preview-audio:${label}`, result.stream);
-                return {
-                    src: stream.url,
-                    sidecar: {
-                        path: result.stream.url,
-                        durationSec: result.durationSec,
-                        padBeforeSec: 0,
-                        padAfterSec: 0,
-                        generatedMs: result.generatedMs,
-                        skipped: result.skipped,
-                        bytes: result.bytes
+                    format: plan.format,
+                    ...(plan.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: plan.decodedBytesThreshold } : {})
+                };
+                const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
+                item.at = at;
+                entry.item = item;
+                // The shared first-use loop invokes this only after both kinds are collected.
+                entry.resolve = async () => {
+                    try {
+                        const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                        if (result.key) previewAudioKeepKeys.add(result.key);
+                        if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                        if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                        if (result.state === 'ready' && result.stream) {
+                            assetStreams.set('preview-audio:' + label + ':' + result.key, result.stream);
+                        }
+                        return this.previewAudioSidecarFields(item, result);
+                    } catch (error) {
+                        console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
+                        return undefined;
                     }
                 };
+                return { src: stream.url };
             } catch (error) {
                 console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
                 return undefined;
@@ -4279,7 +4487,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
-                }, audioClipFxOf(item, kind));
+                }, kind, kind === 'narration' ? String(item.id) : `sfx-${index + 1}`, item.t, audioClipFxOf(item, kind));
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
@@ -4308,6 +4516,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
                     src: source.src,
                     ...(source.sidecar ? { sidecar: source.sidecar } : {}),
+                    ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
                     t: item.t,
                     gainDb: normalizedGain,
                     ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
@@ -4375,12 +4584,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
                         }
                     }
-                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, audioClipFxOf(rawBgm, 'bgm'));
+                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, 'bgm', 'bgm', 0, audioClipFxOf(rawBgm, 'bgm'));
                     const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
                         bgm = {
                             src: source.src,
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
+                            ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
                             gainDb: normalizedGain,
                             ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                             track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
@@ -5605,6 +5815,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .reload-error-card strong { min-width: 0; }
 #reload-error-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #reload-error-retry { grid-column: 2; grid-row: 1 / span 2; border: 1px solid rgba(255,255,255,0.55); border-radius: 4px; padding: 6px 12px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; pointer-events: auto; }
+.audio-status { color: var(--theia-descriptionForeground); font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-status[hidden] { display: none; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
@@ -5727,6 +5939,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <button id="indicator-toggle" class="icon-button" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
       <div id="indicator-popup" class="zoom-popup" hidden></div>
       <span id="time-label">0:00 / 0:00</span>
+      <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
@@ -7247,18 +7460,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     layers: Array.isArray(summary.layers) ? summary.layers : []
                 }))({ layers: engineLayers });
                 let totalDuration = timeline.totalDuration;
-                const createAudioSupplyForSummary = (value, cuts, duration) => {
+                const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
                     const appendAudio = (kind, raw, fallbackId) => {
                         if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
                         const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-                        const sidecar = raw.sidecar && raw.sidecar.path ? raw.sidecar : null;
+                        const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined)
+                            && raw.sidecar && raw.sidecar.path ? raw.sidecar : undefined;
                         declarations.push({
                             kind,
                             id,
                             url: sidecar ? sidecar.path : raw.src,
                             ...(sidecar ? { sourceUrl: raw.src } : {}),
-                            spec: { ...raw, id, durationSec: 0 }
+                            spec: { ...raw, sidecar, sidecarState: raw.sidecarState, id, durationSec: 0 }
                         });
                     };
                     const audio = value && value.audio;
@@ -7277,19 +7491,55 @@ body { display: grid; place-items: center; padding: 32px; }
                         ? audio.speech : engine.projectSpeechDeclarations(cuts, { fps });
                     const speech = projectedSpeech.flatMap(declaration => {
                         const url = sourceUrls.get(declaration.src);
-                        return url ? [{ ...declaration, url }] : [];
+                        const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;
+                        return url ? [{
+                            ...declaration, url, sidecarState: declaration.sidecarState,
+                            sidecar: canUseSidecar && declaration.sidecar?.path ? declaration.sidecar : undefined,
+                            atempo: canUseSidecar && !declaration.sidecar?.path ? declaration.atempo : undefined
+                        }] : [];
                     });
+                    return { declarations, speech };
+                };
+                const createAudioSupplyForSummary = (value, cuts, duration) => {
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
-                        declarations,
-                        speech,
+                        ...audioDeclarationsForSummary(value, cuts),
                         pauseWatchdogMs: false,
                         pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
                     supply.setRate(rate);
                     return supply;
                 };
+                let disposed = false;
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
+                const audioStatus = document.getElementById('audio-status');
+                const updateAudioStatus = () => {
+                    if (!audioStatus || disposed) return;
+                    const supply = audioSupply.debug().supply;
+                    let message = '';
+                    if (supply?.phase === 'preparing') {
+                        const ready = supply.ready.filter(key => supply.required.includes(key)).length;
+                        message = '音声を準備中 ' + ready + '/' + supply.required.length;
+                    } else if (supply?.phase === 'degraded') {
+                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                    }
+                    if (audioStatus.textContent !== message) audioStatus.textContent = message;
+                    audioStatus.hidden = !message;
+                };
+                const updateAudio = message => {
+                    if (disposed) return;
+                    engineSummary.audio = message.audio;
+                    audioSupply.updateAudio(audioDeclarationsForSummary({ audio: message.audio }, normalizedCuts));
+                    updateAudioStatus();
+                };
+                window.akari.frameEngineUpdateAudio = updateAudio;
+                const pendingAudio = window.akari.frameEnginePendingAudio;
+                if (pendingAudio) {
+                    delete window.akari.frameEnginePendingAudio;
+                    updateAudio(pendingAudio);
+                }
+                const audioStatusTimer = setInterval(updateAudioStatus, 250);
+                updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
                 const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
@@ -7334,7 +7584,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 let lastPlaybackFrame = -1;
                 let lastPresentedSec = 0;
                 let lastCutIndex = null;
-                let disposed = false;
                 let scrub;
 
                 const waitForRender = async () => {
@@ -7438,6 +7687,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
                     if (playing) audioSupply.playFrom(position);
+                    updateAudioStatus();
                 };
                 const clock = {
                     get totalDuration() {
@@ -7459,6 +7709,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     seek(seconds, continuePlaying = playing) {
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
+                        updateAudioStatus();
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
@@ -7626,6 +7877,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         delete window.akari.frameEngineClock;
                     }
                     delete window.akariFrameEngineAudioAnalyser;
+                    if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
+                    clearInterval(audioStatusTimer);
                     disposed = true;
                     scrub.dispose();
                     scheduler.dispose();
@@ -13722,6 +13975,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionPlate.style.translate = '';
                     }
                     updateCaptionSelectBox();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-audio-update') {
+                    if (!initial.frameEngineEnabled) return;
+                    summary.audio = message.audio;
+                    window.akari.state.summary.audio = message.audio;
+                    if (window.akari.frameEnginePendingSummary) {
+                        window.akari.frameEnginePendingSummary.audio = message.audio;
+                    }
+                    if (window.akari.frameEngineUpdateAudio) window.akari.frameEngineUpdateAudio(message);
+                    else window.akari.frameEnginePendingAudio = { audio: message.audio };
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {

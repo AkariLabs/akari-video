@@ -3,6 +3,7 @@ import {
   type WebAudioDecodedItem,
 } from '@akari-video/edit-store';
 import * as EditStoreKernel from '@akari-video/edit-store';
+import { PcmWindowSource, type PcmWindowStats } from './pcm-window-source.js';
 
 export interface PreviewSpeechCut {
   in: number;
@@ -69,7 +70,14 @@ export type PreviewScheduleBuilder = (input: {
   audio?: PreviewScheduleDeclaration;
 }) => PreviewScheduleResult;
 
+export type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable';
+
 export interface PreviewAudioSidecar {
+  format?: 'flac' | 'pcm-s16le';
+  sampleRate?: number;
+  channels?: number;
+  frames?: number;
+  bytesPerSample?: number;
   path: string;
   durationSec: number;
   padBeforeSec: number;
@@ -82,11 +90,11 @@ export interface PreviewAudioSidecar {
 export interface PreviewAudioDeclaration {
   kind: 'bgm' | 'sfx' | 'narration';
   id: string;
-  /** 実際に先読みする URL。sidecar があれば FLAC、無ければ source。 */
+  /** 実際に先読みする URL。sidecar があれば PCM / FLAC、無ければ source。 */
   url: string;
   /** sidecar decode 失敗時だけ使う元ファイル URL。 */
   sourceUrl?: string;
-  spec: WebAudioDecodedItem;
+  spec: WebAudioDecodedItem & { sidecarState?: PreviewAudioSidecarState };
 }
 
 export interface PreviewSpeechDeclaration {
@@ -102,6 +110,7 @@ export interface PreviewSpeechDeclaration {
   materialDurationSec: number;
   url: string;
   sidecar?: PreviewAudioSidecar;
+  sidecarState?: PreviewAudioSidecarState;
   /** 旧 summary の読み取り互換。新規生成は sidecar。 */
   atempo?: { path: string; durationSec: number; generatedMs?: number };
   padBeforeSec?: number;
@@ -123,6 +132,10 @@ export interface PreviewAudioSupplyOptions {
    * 無音になるより、警告一行でメモリを使う方を取る）。超過は debug().prefetch と警告で見える。
    */
   decodeCacheBytes?: number;
+  /** PCM 窓の float32 LRU 上限。既定 64 MiB / 音源。 */
+  windowCacheBytes?: number;
+  /** 現在鳴る PCM item の最初の窓を待つ上限。既定 1500 ms。 */
+  windowStartupWaitMs?: number;
   /**
    * 展開後のサイズがこの値を超えると見積もられる音源は、OfflineAudioContext で
    * compactSampleRate に落として decode し、モノラルへ畳んで保持する（長尺 BGM / ナレーション向け。
@@ -144,6 +157,15 @@ export interface PreviewAudioSupplyOptions {
 }
 
 export interface PreviewAudioSupplyDebug {
+  supply: {
+    phase: 'idle' | 'preparing' | 'ready' | 'degraded';
+    required: string[];
+    ready: string[];
+    pendingSidecar: string[];
+    failed: string[];
+    noAudio: string[];
+    bufferedUntil: Record<string, number>;
+  };
   contextState: AudioContextState | 'unavailable';
   renderedTimelineSec: number | null;
   audioPositionSec: number | null;
@@ -173,6 +195,7 @@ export interface PreviewAudioSupplyDebug {
     compact: number;
     /** decodedBytes が予算を超えているか。超えても捨てない。 */
     overBudget: boolean;
+    windows: PcmWindowStats;
   };
   sidecars: { generated: number; skipped: number; bytes: number };
   crossfades: Array<{ id: string; startSec: number; durationSec: number }>;
@@ -190,6 +213,10 @@ export interface PreviewAudioSupplyDebug {
 export interface PreviewAudioSupply {
   /** ready 後に呼ぶ。呼び手を await させず、同時 2 本で予定表を先読みする。 */
   prime(): void;
+  updateAudio(next: {
+    declarations?: readonly PreviewAudioDeclaration[];
+    speech?: readonly PreviewSpeechDeclaration[];
+  }): void;
   playFrom(seconds: number): void;
   position(fallbackSeconds: number): number;
   playbackTime(fallbackSeconds: number): number;
@@ -203,14 +230,17 @@ export interface PreviewAudioSupply {
 }
 
 interface DecodedRegular extends PreviewAudioDeclaration {
-  buffer: AudioBuffer;
+  buffer?: AudioBuffer;
+  windowed?: PcmWindowSource;
   durationSec: number;
   sidecar: boolean;
   cacheKey: string;
 }
 
 interface ResolvedSpeechBuffer {
-  buffer: AudioBuffer;
+  buffer?: AudioBuffer;
+  windowed?: PcmWindowSource;
+  durationSec: number;
   sidecar: boolean;
   cacheKey: string;
 }
@@ -227,6 +257,8 @@ interface PrefetchTask {
   run: () => Promise<void>;
   resolved: () => boolean;
   failedAtMs: number | null;
+  state: 'decode' | 'windowed' | 'pending-sidecar' | 'no-audio';
+  updated?: boolean;
 }
 
 interface ActiveSource { source: AudioBufferSourceNode; gains: GainNode[] }
@@ -239,6 +271,8 @@ const DEFAULT_COMPACT_SAMPLE_RATE = 24000;
 const FAILED_DECODE_RETRY_MS = 5000;
 /** 空の予定表 / 失敗の直後に playbackTime() が startFrom を叩き直すまでの間隔。 */
 const RESTART_BACKOFF_MS = 500;
+const WINDOW_LOOKAHEAD_SEC = 12;
+const WINDOW_REFILL_MS = 500;
 const MIB = 1024 * 1024;
 
 export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): PreviewAudioSupply {
@@ -280,6 +314,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let decodedBytes = 0;
   let overBudgetWarned = false;
   let prefetchInFlight: Promise<void> | null = null;
+  let activePrefetchQueue: PrefetchTask[] | null = null;
+  let disposed = false;
+  let decodedRevision = 0;
   let prefetchEverRan = false;
   let prefetchStartedAt = 0;
   let prefetchElapsedMs = 0;
@@ -293,6 +330,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let regularDecoded: DecodedRegular[] = [];
   let speechDecoded = new Map<string, ResolvedSpeechBuffer>();
   let active: ActiveSource[] = [];
+  const windowSources = new Map<string, PcmWindowSource>();
+  const windowStops = new Set<() => void>();
+  const windowFailures = new Set<string>();
+  let windowController: AbortController | null = null;
+  let startingWindowController: AbortController | null = null;
+  let bufferedUntil: Record<string, number> = {};
   let generation = 0;
   let starting = false;
   let playing = false;
@@ -385,6 +428,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   }
 
   const stopSources = (): void => {
+    startingWindowController?.abort();
+    startingWindowController = null;
+    windowController?.abort();
+    windowController = null;
+    for (const stop of [...windowStops]) stop();
+    windowStops.clear();
+    bufferedUntil = {};
     const sources = active;
     active = [];
     for (const item of sources) {
@@ -476,8 +526,27 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     return entry.promise;
   };
 
+  const pcmSource = (url: string, sidecar: PreviewAudioSidecar): PcmWindowSource => {
+    if (!context || !fetchImpl) throw new Error('PCM window supply unavailable');
+    const metadata = { url, sampleRate: sidecar.sampleRate!, channels: sidecar.channels!,
+      bytesPerSample: sidecar.bytesPerSample!, frames: sidecar.frames!, durationSec: sidecar.durationSec };
+    const key = JSON.stringify(metadata);
+    let source = windowSources.get(key);
+    if (!source) {
+      source = new PcmWindowSource(metadata, fetchImpl, context, { cacheBytes: options.windowCacheBytes });
+      windowSources.set(key, source);
+    }
+    return source;
+  };
+
   const resolveRegular = async (declaration: PreviewAudioDeclaration): Promise<void> => {
     const sidecar = validSidecar(declaration.spec.sidecar);
+    if (sidecar?.format === 'pcm-s16le') {
+      regularDecoded.push({ ...declaration, windowed: pcmSource(declaration.url, sidecar),
+        durationSec: sidecar.durationSec, sidecar: true, cacheKey: declaration.url });
+      decodedRevision += 1;
+      return;
+    }
     let buffer = await decodeUrl(declaration.url,
       `${declaration.kind} ${declaration.id}${sidecar ? ' sidecar' : ''}`);
     let usedSidecar = Boolean(sidecar && buffer);
@@ -485,18 +554,25 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
-    if (!buffer) return;
+    if (!buffer || disposed || !declarations.includes(declaration)) return;
     const usedUrl = usedSidecar ? declaration.url : declaration.sourceUrl ?? declaration.url;
     regularDecoded.push({
       ...declaration, buffer, durationSec: buffer.duration, sidecar: usedSidecar,
       cacheKey: decodeCacheKey(usedUrl, false),
     });
+    decodedRevision += 1;
   };
 
   const resolveSpeech = async (declaration: PreviewSpeechDeclaration): Promise<void> => {
     const started = nowMs();
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
+    if (sidecar?.format === 'pcm-s16le') {
+      speechDecoded.set(declaration.id, { windowed: pcmSource(sidecar.path, sidecar),
+        durationSec: sidecar.durationSec, sidecar: true, cacheKey: sidecar.path });
+      decodedRevision += 1;
+      return;
+    }
     const bakedPath = sidecar?.path ?? legacy?.path;
     let buffer = bakedPath
       ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`)
@@ -507,11 +583,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         `speech ${declaration.src}`, true, Boolean(bakedPath || declaration.sidecarWarningEmitted));
       usedSidecar = false;
     }
+    if (disposed || !speech.includes(declaration)) return;
     if (buffer) speechDecoded.set(declaration.id, {
       buffer,
+      durationSec: buffer.duration,
       sidecar: usedSidecar,
       cacheKey: decodeCacheKey(usedSidecar ? bakedPath! : declaration.url, !usedSidecar),
     });
+    if (buffer) decodedRevision += 1;
     const bytes = buffer ? buffer.length * buffer.numberOfChannels * 4 : 0;
     const previous = speechMetrics.get(declaration.src);
     speechMetrics.set(declaration.src, {
@@ -525,24 +604,43 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
 
   const regularResolved = (item: PreviewAudioDeclaration): boolean =>
     regularDecoded.some(candidate => candidate.kind === item.kind && candidate.id === item.id);
-  const tasks: PrefetchTask[] = [
-    ...declarations.map((item): PrefetchTask => ({
+  const taskState = (state?: PreviewAudioSidecarState): PrefetchTask['state'] =>
+    state === 'queued' || state === 'generating' ? 'pending-sidecar'
+      : state === 'no-audio' ? 'no-audio' : 'decode';
+  const prepareWindowedTask = (task: PrefetchTask, pcm: boolean): PrefetchTask => {
+    if (pcm && task.state === 'decode') {
+      task.state = 'windowed';
+      // Metadata resolution runs synchronously before the decode queue is considered.
+      void task.run().catch(reason => {
+        task.failedAtMs = now();
+        warn(`[frame-engine] ${task.key} PCM metadata unavailable`, reason);
+      });
+    }
+    return task;
+  };
+  const regularTask = (item: PreviewAudioDeclaration): PrefetchTask => prepareWindowedTask({
       key: `${item.kind}:${item.id}`, at: firstUseRegular(item), failedAtMs: null,
+      state: taskState(item.spec.sidecarState),
       run: () => resolveRegular(item), resolved: () => regularResolved(item),
-    })),
-    ...speech.map((item): PrefetchTask => ({
+    }, validSidecar(item.spec.sidecar)?.format === 'pcm-s16le');
+  const speechTask = (item: PreviewSpeechDeclaration): PrefetchTask => prepareWindowedTask({
       key: `speech:${item.id}`, at: firstUseSpeech(item), failedAtMs: null,
+      state: taskState(item.sidecarState),
       run: () => resolveSpeech(item), resolved: () => speechDecoded.has(item.id),
-    })),
+    }, item.sidecar?.format === 'pcm-s16le');
+  const tasks: PrefetchTask[] = [
+    ...declarations.map(regularTask),
+    ...speech.map(speechTask),
   ].sort((left, right) => left.at - right.at);
 
   const pendingTasks = (): PrefetchTask[] => {
     const at = now();
-    return tasks.filter(task => !task.resolved()
+    return tasks.filter(task => task.state === 'decode' && !task.resolved()
       && (task.failedAtMs === null || at - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
   };
 
   const runPrefetch = async (queue: PrefetchTask[]): Promise<void> => {
+    activePrefetchQueue = queue;
     prefetchPending = queue.length;
     let cursor = 0;
     const worker = async (): Promise<void> => {
@@ -550,6 +648,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         const task = queue[cursor++];
         if (!task) break;
         try {
+          if (disposed || !tasks.includes(task)) continue;
           await task.run();
           task.failedAtMs = task.resolved() ? null : now();
         } catch (reason) {
@@ -558,6 +657,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         } finally {
           prefetchPending -= 1;
           notifyTaskSettled();
+          if (task.updated && !disposed) replanIfNeeded();
         }
       }
     };
@@ -575,6 +675,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   // 再入ガードも無かったので prefetch 中の seek が同じ配列を取り合っていた。
   // 解決済みは触らず、同時呼び出しは 1 本に合流する。失敗した task は 5 秒空けてから再試行する。
   const ensureDecoded = (): Promise<void> => {
+    if (disposed) return Promise.resolve();
     if (prefetchInFlight) return prefetchInFlight;
     const queue = pendingTasks();
     if (queue.length === 0) return Promise.resolve();
@@ -585,6 +686,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
       prefetchInFlight = null;
+      activePrefetchQueue = null;
       // 先に鳴り始めた予定表は、遅れて decode が揃った音源を知らない。全件揃ったこの 1 回だけ
       // 組み直して取りこぼしを拾う（毎件やると stopSources のたびにクリックが乗る）。
       replanIfNeeded();
@@ -626,7 +728,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
 
   const replanIfNeeded = (): void => {
     if (starting) return;
-    const decodedCount = regularDecoded.length + speechDecoded.size;
+    const decodedCount = decodedRevision;
     if (!playing) {
       // 失敗 task を開始待ちから外したぶん、「その位置に鳴らせる音源がまだ無い」（outcome=empty）で
       // 終わった開始意図は、decode が届いた時点でここで拾い直す。5 秒後の背景再試行が成功したら
@@ -707,6 +809,204 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   };
 
+  const windowedFor = (item: PreviewScheduledItem): PcmWindowSource | undefined =>
+    item.kind === 'speech' ? speechDecoded.get(item.id)?.windowed
+      : regularDecoded.find(candidate => candidate.id === item.id && candidate.kind === item.kind)?.windowed;
+
+  interface WindowSlice {
+    startSec: number;
+    endSec: number;
+    frames: number;
+    durationSec: number;
+    elapsedSec: number;
+  }
+  interface PreparedWindow {
+    result: Promise<{ buffer: AudioBuffer } | { reason: unknown; failedAtMs: number }>;
+    release: () => void;
+  }
+
+  // Use an integer frame cursor, including across loop wraps. Correct floating point
+  // division at the Range API boundary so floor/ceil cannot introduce an extra sample.
+  const frameSeconds = (frame: number, sampleRate: number, end: boolean): number => {
+    const seconds = frame / sampleRate;
+    const adjustment = Number.EPSILON * Math.max(1, Math.abs(seconds));
+    return end ? (Math.ceil(seconds * sampleRate) > frame ? seconds - adjustment : seconds)
+      : (Math.floor(seconds * sampleRate) < frame ? seconds + adjustment : seconds);
+  };
+  const windowSlice = (item: PreviewScheduledItem, source: PcmWindowSource, consumed: number): WindowSlice | null => {
+    const { sampleRate, frames, durationSec: materialDurationSec } = source.metadata;
+    const materialFrames = Math.min(frames, Math.round(materialDurationSec * sampleRate));
+    const remaining = item.sourceDurationSec - consumed / sampleRate;
+    if (!(remaining > 0) || materialFrames <= 0) return null;
+    let startFrame = Math.floor(item.sourceOffsetSec * sampleRate) + consumed;
+    if (item.loop) startFrame = ((startFrame % materialFrames) + materialFrames) % materialFrames;
+    if (startFrame >= materialFrames) return null;
+    const count = Math.min(Math.round((consumed === 0 ? 1 : 3) * sampleRate),
+      Math.ceil(remaining * sampleRate), materialFrames - startFrame);
+    if (count <= 0) return null;
+    return { startSec: frameSeconds(startFrame, sampleRate, false),
+      endSec: frameSeconds(startFrame + count, sampleRate, true), frames: count,
+      durationSec: Math.min(count / sampleRate, remaining), elapsedSec: consumed / sampleRate };
+  };
+
+  const prepareWindow = (source: PcmWindowSource, slice: WindowSlice, signal: AbortSignal): PreparedWindow => {
+    const unpin = source.pin(slice.startSec, slice.endSec);
+    const release = (): void => { signal.removeEventListener('abort', release); unpin(); };
+    signal.addEventListener('abort', release, { once: true });
+    if (signal.aborted) release();
+    return {
+      result: source.window(slice.startSec, slice.endSec, signal)
+        .then(buffer => ({ buffer }), reason => ({ reason, failedAtMs: now() })),
+      release,
+    };
+  };
+
+  const waitForFirstWindows = (windows: PreparedWindow[], signal: AbortSignal): Promise<void> => {
+    if (windows.length === 0 || signal.aborted) return Promise.resolve();
+    const waitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs! : 1500;
+    return new Promise(resolve => {
+      const finish = (): void => {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, waitMs);
+      signal.addEventListener('abort', finish, { once: true });
+      void Promise.all(windows.map(window => window.result)).then(finish);
+    });
+  };
+
+  /** Each item owns one gain envelope and a timer; only its finite buffer nodes change. */
+  const startWindowedItem = (
+    item: PreviewScheduledItem, contextStart: number, itemGeneration: number, prepared?: PreparedWindow,
+  ): boolean => {
+    const windowed = windowedFor(item);
+    if (!context || !windowed || !windowController) return false;
+    const audioContext = context;
+    const signal = windowController.signal;
+    const key = `${item.kind}:${item.id}`;
+    if (windowFailures.has(key)) { prepared?.release(); return false; }
+    const transportRate = rate;
+    const playbackRate = item.playbackRate * transportRate;
+    const itemStart = contextStart + item.delaySec / transportRate;
+    const baseGain = audioContext.createGain();
+    const gains = [baseGain];
+    let tail: AudioNode = baseGain;
+    if (item.envelopeEvents.length > 0) {
+      const envelopeGain = audioContext.createGain();
+      baseGain.connect(envelopeGain);
+      tail = envelopeGain;
+      gains.push(envelopeGain);
+      applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate);
+    }
+    tail.connect(masterGain ?? audioContext.destination);
+    applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate);
+    let consumed = 0;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+    let filling = false;
+    const nodes = new Map<AudioBufferSourceNode, () => void>();
+    const current = (): boolean => !stopped && !signal.aborted && generation === itemGeneration;
+    const disconnectGains = (): void => {
+      for (const gain of gains) try { gain.disconnect(); } catch {}
+    };
+    const stop = (): void => {
+      if (stopped) return;
+      stopped = true;
+      if (timer !== null) clearTimeout(timer);
+      prepared?.release();
+      for (const [source, release] of nodes) {
+        source.onended = null;
+        try { source.stop(); } catch {}
+        try { source.disconnect(); } catch {}
+        release();
+      }
+      nodes.clear();
+      disconnectGains();
+      windowStops.delete(stop);
+    };
+    windowStops.add(stop);
+    const arm = (delay: number): void => {
+      if (current()) timer = setTimeout(() => { timer = null; void fill(); }, delay);
+    };
+    const fill = async (): Promise<void> => {
+      if (!current() || filling) return;
+      filling = true;
+      let retryDelay: number | null = null;
+      try {
+        while (current()) {
+          const slice = windowSlice(item, windowed, consumed);
+          if (!slice) {
+            if (nodes.size === 0) stop();
+            break;
+          }
+          const when = itemStart + slice.elapsedSec / playbackRate;
+          if (when >= audioContext.currentTime + WINDOW_LOOKAHEAD_SEC) break;
+          const request = prepared ?? prepareWindow(windowed, slice, signal);
+          prepared = undefined;
+          const result = await request.result;
+          if (!current()) { request.release(); return; }
+          if ('reason' in result) {
+            request.release();
+            failures += 1;
+            if (failures >= 3) {
+              windowFailures.add(key);
+              warn(`[frame-engine] ${key} PCM windows failed after 3 consecutive attempts`);
+              break;
+            }
+            retryDelay = Math.max(0, result.failedAtMs + FAILED_DECODE_RETRY_MS - now());
+            break;
+          }
+          failures = 0;
+          const lateness = Math.max(0, audioContext.currentTime - when);
+          if (lateness > 0) windowed.noteLate();
+          const skipFrames = Math.min(slice.frames, Math.ceil(lateness * playbackRate * windowed.metadata.sampleRate));
+          const skippedSec = skipFrames / windowed.metadata.sampleRate;
+          const duration = slice.durationSec - skippedSec;
+          consumed += slice.frames;
+          if (!(duration > 0)) { request.release(); continue; }
+          let buffer = result.buffer;
+          if (skipFrames > 0) {
+            // Keep source.start's offset at zero even for late arrivals. Copy just the
+            // audible suffix; its absolute time still comes from the original cursor.
+            buffer = audioContext.createBuffer(buffer.numberOfChannels, slice.frames - skipFrames, buffer.sampleRate);
+            for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+              buffer.getChannelData(channel).set(result.buffer.getChannelData(channel).subarray(skipFrames));
+            }
+          }
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.loop = false;
+          source.playbackRate.value = item.playbackRate * transportRate;
+          source.connect(baseGain);
+          nodes.set(source, request.release);
+          source.onended = () => {
+            nodes.delete(source);
+            try { source.disconnect(); } catch {}
+            request.release();
+            if (!windowSlice(item, windowed, consumed) && nodes.size === 0) stop();
+          };
+          source.start(when + skippedSec / playbackRate, 0, duration);
+          bufferedUntil[key] = Math.min(item.timelineEndSec,
+            item.timelineStartSec + (slice.elapsedSec + slice.durationSec) / item.playbackRate);
+        }
+      } catch (reason) {
+        if (current()) {
+          windowFailures.add(key);
+          warn(`[frame-engine] ${key} PCM window could not be scheduled`, reason);
+        }
+      } finally {
+        filling = false;
+        if (current() && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
+          arm(retryDelay ?? WINDOW_REFILL_MS);
+        }
+      }
+    };
+    void fill();
+    return true;
+  };
+
   const regularScheduleDeclaration = (): PreviewScheduleDeclaration => {
     const normalized = regularDecoded.map(item => ({
       ...item.spec,
@@ -728,6 +1028,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const startFrom = async (seconds: number, options: { pinStart?: boolean } = {}): Promise<void> => {
     if (!context) return;
     const thisGeneration = ++generation;
+    startingWindowController?.abort();
+    const controller = new AbortController();
+    startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
     let outcome: 'started' | 'empty' | 'failed' = 'failed';
@@ -747,7 +1050,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         return [{
           ...item,
           ...(!resolved.sidecar ? { sidecar: undefined, atempo: undefined } : {}),
-          materialDurationSec: resolved.buffer.duration,
+          materialDurationSec: resolved.durationSec,
         }];
       });
       // 通常の開始は「最新の要求位置」（decode 待ちの間にシークされていれば追従する）。
@@ -763,20 +1066,36 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
       if (plan.items.length === 0) {
         outcome = 'empty';
-        emptyPlanDecodedCount = regularDecoded.length + speechDecoded.size;
+        emptyPlanDecodedCount = decodedRevision;
         return;
       }
+      const firstWindows = new Map<PreviewScheduledItem, PreparedWindow>();
+      for (const item of plan.items) {
+        const windowed = windowedFor(item);
+        if (!windowed || item.delaySec > 0 || windowFailures.has(`${item.kind}:${item.id}`)) continue;
+        const slice = windowSlice(item, windowed, 0);
+        if (slice) firstWindows.set(item, prepareWindow(windowed, slice, controller.signal));
+      }
+      await waitForFirstWindows([...firstWindows.values()], controller.signal);
+      if (thisGeneration !== generation) return;
+      // Keep the previous audio alive until its replacement is ready. Explicit
+      // transport stops also cancel the startup request while it is waiting.
+      startingWindowController = null;
       stopSources();
+      windowController = controller;
       const contextStart = context.currentTime + 0.02;
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = regularDecoded.length + speechDecoded.size;
+      scheduledDecodedCount = decodedRevision;
       lastSidecarSpeechIds = new Set(speechForSchedule
         .filter(item => item.sidecar || item.atempo).map(item => item.id));
       const skipped: string[] = [];
       for (const item of lastSchedule) {
-        if (!startItem(item, contextStart)) skipped.push(`${item.kind}:${item.id}`);
+        const started = windowedFor(item)
+          ? startWindowedItem(item, contextStart, thisGeneration, firstWindows.get(item))
+          : startItem(item, contextStart);
+        if (!started) skipped.push(`${item.kind}:${item.id}`);
       }
       skippedAtSchedule = skipped;
       if (skipped.length > 0) {
@@ -786,6 +1105,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       playing = true;
       outcome = 'started';
     } finally {
+      if (startingWindowController === controller) startingWindowController = null;
+      if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
         starting = false;
         lastStartOutcome = outcome;
@@ -828,7 +1149,41 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       const metric = speechMetrics.get(src);
       return metric ? [metric] : [];
     });
+    const positionSec = playing ? audioPosition() : latestRequestedSec;
+    const requiredTasks = tasks.filter(task => {
+      if (task.at > positionSec || task.state === 'no-audio') return false;
+      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
+        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
+          .find(finitePositive) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find(item => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
+        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map(task => task.key);
+    const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
+      && (task.state === 'decode' || (task.state === 'windowed'
+        && (bufferedUntil[task.key] ?? -Infinity) > positionSec)))
+      .map(task => task.key);
+    const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
+    const failed = tasks.filter(task => windowFailures.has(task.key)
+      || (task.failedAtMs !== null && !task.resolved())).map(task => task.key);
+    const noAudio = tasks.filter(task => task.state === 'no-audio').map(task => task.key);
+    const phase = required.length === 0 ? 'idle'
+      : required.some(key => pendingSidecar.includes(key)) ? 'preparing'
+        : required.some(key => failed.includes(key)) ? 'degraded'
+          : required.every(key => ready.includes(key)) ? 'ready' : 'preparing';
     return {
+      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil } },
       contextState: context?.state ?? 'unavailable',
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -852,9 +1207,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         decodedBytes,
         elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
         pending: prefetchPending,
-        failed: tasks.filter(task => task.failedAtMs !== null && !task.resolved()).map(task => task.key),
+        failed,
         compact: [...decoded.values()].filter(entry => entry.compact).length,
         overBudget: decodedBytes > cacheLimit,
+        windows: [...windowSources.values()].reduce<PcmWindowStats>((sum, source) => {
+          const stats = source.debug();
+          for (const name of Object.keys(sum) as Array<keyof PcmWindowStats>) sum[name] += stats[name];
+          return sum;
+        }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 }),
       },
       sidecars: {
         generated: uniqueSidecars.filter(item => item.skipped === false).length,
@@ -882,7 +1242,68 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     };
   };
 
+  const replaceTask = (key: string, replacement: PrefetchTask): void => {
+    const index = tasks.findIndex(task => task.key === key);
+    if (index < 0) return;
+    replacement.updated = true;
+    tasks[index] = replacement;
+    if (activePrefetchQueue && replacement.state === 'decode') {
+      activePrefetchQueue.push(replacement);
+      prefetchPending += 1;
+    }
+  };
+
+  const updateAudio: PreviewAudioSupply['updateAudio'] = next => {
+    if (disposed) return;
+    let changed = false;
+    if (next.declarations) {
+      const incoming = new Map(next.declarations.map(item => [`${item.kind}:${item.id}`, item]));
+      const existing = new Set(declarations.map(item => `${item.kind}:${item.id}`));
+      for (const key of incoming.keys()) {
+        if (!existing.has(key)) warn(`[frame-engine] audio ${key} added; rebuild required`);
+      }
+      declarations.forEach((item, index) => {
+        const key = `${item.kind}:${item.id}`;
+        const replacement = incoming.get(key);
+        if (!replacement) { warn(`[frame-engine] audio ${key} removed; rebuild required`); return; }
+        if (item.spec.sidecarState === replacement.spec.sidecarState && item.url === replacement.url
+          && item.sourceUrl === replacement.sourceUrl) return;
+        declarations[index] = replacement;
+        regularDecoded = regularDecoded.filter(value => `${value.kind}:${value.id}` !== key);
+        windowFailures.delete(key);
+        replaceTask(key, regularTask(replacement));
+        changed = true;
+      });
+    }
+    if (next.speech) {
+      const incoming = new Map(next.speech.map(item => [item.id, item]));
+      const existing = new Set(speech.map(item => item.id));
+      for (const id of incoming.keys()) {
+        if (!existing.has(id)) warn(`[frame-engine] audio speech:${id} added; rebuild required`);
+      }
+      speech.forEach((item, index) => {
+        const replacement = incoming.get(item.id);
+        if (!replacement) { warn(`[frame-engine] audio speech:${item.id} removed; rebuild required`); return; }
+        if (item.sidecarState === replacement.sidecarState && item.url === replacement.url
+          && item.sidecar?.path === replacement.sidecar?.path && item.atempo?.path === replacement.atempo?.path) return;
+        speech[index] = replacement;
+        speechDecoded.delete(item.id);
+        windowFailures.delete(`speech:${item.id}`);
+        replaceTask(`speech:${item.id}`, speechTask(replacement));
+        changed = true;
+      });
+    }
+    if (!changed) return;
+    decodedRevision += 1;
+    tasks.sort((left, right) => left.at - right.at);
+    notifyTaskSettled();
+    void ensureDecoded().then(() => replanIfNeeded()).catch(reason => {
+      warn('[frame-engine] audio update failed', reason);
+    });
+  };
+
   return {
+    updateAudio,
     prime() {
       ensureDecoded().catch(reason => {
         warn('[frame-engine] audio prefetch failed', reason);
@@ -917,11 +1338,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       const nextRate = clampPlaybackRate(value);
       if (nextRate === rate) return;
       const wasPlaying = playing;
+      const wasStarting = starting;
       const position = wasPlaying ? audioPosition() : latestRequestedSec;
       rate = nextRate;
       latestRequestedSec = position;
       routeMasterBus();
-      if (wasPlaying) {
+      if (wasPlaying || wasStarting) {
         generation += 1;
         playing = false;
         starting = false;
@@ -945,6 +1367,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     },
     debug,
     dispose() {
+      disposed = true;
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
@@ -952,6 +1375,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       disconnectPitchShiftNode();
       try { analyser?.disconnect(); } catch {}
       decoded.clear();
+      for (const source of windowSources.values()) source.dispose();
+      windowSources.clear();
       decodedBytes = 0;
       void context?.close().catch(() => undefined);
     },

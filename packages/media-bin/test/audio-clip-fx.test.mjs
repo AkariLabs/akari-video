@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -90,7 +90,9 @@ test('identical input reuses the cached sidecar without regenerating it', async 
     assert.equal(first.skipped, true);
     assert.equal(second.skipped, true);
     assert.equal(first.path, second.path);
-    assert.equal(probes, 2);
+    // The first probe persists metadata as JSON, so cache reuse needs only one probe.
+    assert.equal(probes, 1);
+    assert.equal(existsSync(join(outputDirectory, `${key}.json`)), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

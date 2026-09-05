@@ -81,6 +81,9 @@ async function applyTransition(page, type, duration) {
     page.click('#cut-apply-btn'),
   ]);
   assert.equal(response.status(), 200, `transition ${type} PUT failed`);
+  // PUT → WS reload → applySoftReload() が末尾でポップアップを閉じる。summary が同期になり
+  // リロードが select 操作より先に終わるようになったので、閉じ切るのを待ってから開き直す。
+  await page.waitForSelector('#cut-info-popup', { state: 'hidden' });
 }
 
 function readEdit(project) {

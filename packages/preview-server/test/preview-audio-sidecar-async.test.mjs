@@ -3,22 +3,24 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 
-// /api/summary は単一スレッドのサーバで await される。重い WAV の判定（ffprobe）と
-// サイドカー生成（ffmpeg）が spawnSync だと、その間は素材配信も止まる。
-// server.mjs が media-bin の非同期 probe を使い、media-bin 側が spawn + 同時実行制限で
-// 生成することをソースで固定する（生成挙動そのものは media-bin のテストが担う）。
+// Summary は既知の状態だけを返し、生成・probe・掃除の完了を待たない。
+// 背景の生成処理は引き続き spawn + 同時実行制限を使う。
 const root = path.resolve(import.meta.dirname, '..');
 const [serverSource, sidecarSource] = await Promise.all([
   readFile(path.join(root, 'src/server.mjs'), 'utf8'),
   readFile(path.join(root, '../media-bin/src/preview-audio-sidecar.mjs'), 'utf8'),
 ]);
 
-test('/api/summary の重い WAV 判定は非同期 probe を await し、同期 probe をホットパスに残さない', () => {
-  assert.match(serverSource,
-    /ensurePreviewAudioSidecar,\n\s*probePreviewAudioSourceAsync,\n\s*sweepPreviewAudioSidecars,\n\} from '\.\.\/\.\.\/media-bin\/src\/preview-audio-sidecar\.mjs'/u);
-  assert.match(serverSource, /const probe = await probePreviewAudioSourceAsync\(sourcePath\);/u);
-  assert.doesNotMatch(serverSource, /probePreviewAudioSource\(/u, '同期 probe は preview-server では使わない');
-  assert.match(serverSource, /const result = await ensurePreviewAudioSidecar\(\{/u);
+test('/api/summary は生成・probe・掃除を呼ばず、背景完了を WebSocket で通知する', () => {
+  const body = serverSource.split('async function readFrameEnginePreviewEdit(')[1]
+    .split('function respondPreviewReadError(')[0];
+  assert.match(body, /prepareFrameEngineAudioSummary\(/u);
+  assert.doesNotMatch(body, /ensurePreviewAudioSidecar\(|probePreviewAudioSourceAsync\(|sweepPreviewAudioSidecars\(/u);
+  assert.doesNotMatch(serverSource, /\bensurePreviewAudioSidecar\b|\bprobePreviewAudioSourceAsync\b|probePreviewAudioSource\(/u);
+  assert.match(serverSource, /subscribePreviewAudioSidecarEvents\(/u);
+  assert.match(serverSource, /type: 'preview-audio'/u);
+  assert.match(serverSource, /GET \/api\/preview-audio\/status/u);
+  assert.match(serverSource, /minAgeMs: 60 \* 60 \* 1000/u);
 });
 
 test('media-bin のサイドカー生成は非同期 spawn で、ffmpeg 2 本・ffprobe 4 本に制限される', () => {

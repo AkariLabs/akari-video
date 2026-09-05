@@ -82,6 +82,7 @@ const skipBack = document.getElementById('skip-back');
 const skipForward = document.getElementById('skip-forward');
 const seek = document.getElementById('seek');
 const timeLabel = document.getElementById('time-label');
+const audioStatus = document.getElementById('audio-status');
 const zoomToggle = document.getElementById('zoom-toggle');
 const zoomPopup = document.getElementById('zoom-popup');
 const zoomSlider = document.getElementById('zoom-slider');
@@ -176,6 +177,9 @@ let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
 let frameEnginePreview = null;
+let audioRefreshTimer = null;
+let audioRefreshInFlight = false;
+let audioRefreshNeeded = false;
 let frameEngineRequestedTime = 0;
 const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(outputTime), outputTime }));
 let captionsResolvedTimeline = false;
@@ -309,6 +313,11 @@ async function init() {
       frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
       applyFrameEngineSnapshot();
       window.akariFrameEngine = frameEnginePreview;
+      updateAudioStatus();
+      // Generation can finish while runtime creation is still waiting for video metadata.
+      if (audioRefreshNeeded || frameEnginePreview.audioDebug().supply.pendingSidecar.length > 0) {
+        requestAudioRefresh();
+      }
       outputTime = frameEnginePreview.seek(outputTime);
       updateCaption();
       syncCaptionAnimations();
@@ -350,6 +359,55 @@ function applyFrameEngineSnapshot() {
   updateTimeLabel();
   updateSeekVisual();
 }
+
+function updateAudioStatus() {
+  if (!audioStatus) return;
+  const supply = frameEngineEnabled ? frameEnginePreview?.audioDebug().supply : null;
+  let message = '';
+  if (supply?.phase === 'preparing') {
+    const ready = supply.ready.filter(key => supply.required.includes(key)).length;
+    message = `音声を準備中 ${ready}/${supply.required.length}`;
+  } else if (supply?.phase === 'degraded') {
+    message = `一部の音声を再生できません: ${supply.failed.join(', ')}`;
+  }
+  if (audioStatus.textContent !== message) audioStatus.textContent = message;
+  audioStatus.hidden = !message;
+}
+
+function requestAudioRefresh() {
+  if (!frameEngineEnabled) return;
+  audioRefreshNeeded = true;
+  clearTimeout(audioRefreshTimer);
+  audioRefreshTimer = setTimeout(refreshAudioSummary, 150);
+}
+
+async function refreshAudioSummary() {
+  audioRefreshTimer = null;
+  if (!frameEnginePreview || audioRefreshInFlight || !audioRefreshNeeded) return;
+  audioRefreshNeeded = false;
+  audioRefreshInFlight = true;
+  const previous = summary;
+  try {
+    const response = await fetch(api.summary);
+    if (!response.ok) throw new Error(await apiReadError(response, 'summary'));
+    const next = await response.json();
+    if (summary !== previous) {
+      audioRefreshNeeded = true;
+      return;
+    }
+    summary = next;
+    window.akari.state.summary = summary;
+    frameEnginePreview?.updateAudio(summary);
+  } catch (error) {
+    console.warn('[preview] audio summary refresh failed', error);
+  } finally {
+    audioRefreshInFlight = false;
+    updateAudioStatus();
+    if (audioRefreshNeeded) requestAudioRefresh();
+  }
+}
+
+if (frameEngineEnabled) setInterval(updateAudioStatus, 250);
 
 async function apiReadError(response, label) {
   try {
@@ -2542,6 +2600,7 @@ function seekTo(t) {
   if (frameEngineEnabled) {
     frameEngineRequestedTime = outputTime;
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
+    updateAudioStatus();
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();
@@ -2593,6 +2652,7 @@ function play() {
   lastWallMs = 0;
   if (frameEngineEnabled) {
     playToggle.innerHTML = pauseIcon;
+    updateAudioStatus();
     playToggle.setAttribute('aria-label', '一時停止');
     playToggle.title = '一時停止';
     requestAnimationFrame(playbackLoop);
@@ -4540,6 +4600,12 @@ function connectWs() {
   ws.onmessage = (e) => {
     try {
       const m = JSON.parse(e.data);
+      if (m.type === 'preview-audio') {
+        if (!frameEngineEnabled) return;
+        updateAudioStatus();
+        requestAudioRefresh();
+        return;
+      }
       if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
         Promise.all([fetch(api.summary), fetch(api.captions)]).then(async ([summaryResponse, captionsResponse]) => {

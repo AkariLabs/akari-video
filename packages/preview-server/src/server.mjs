@@ -20,17 +20,14 @@ import { serializeCaptions, serializeEdit } from '../../edit-store/lib/canonical
 import { openProject } from '../../edit-store/lib/project.js';
 import {
   applyCaptionStylePresets,
-  projectSpeechDeclarations,
   TEXTSTYLE_CATALOG,
   toAnchorCaptions,
 } from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
-  ensurePreviewAudioSidecar,
-  hasAudioClipFx,
-  probePreviewAudioSource,
-  probePreviewAudioSourceAsync,
+  requestPreviewAudioSidecar,
+  subscribePreviewAudioSidecarEvents,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
 import {
@@ -39,6 +36,7 @@ import {
   PROXY_RECIPE_VERSION,
 } from '../../media-bin/src/proxy-recipe.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
+import { prepareFrameEngineAudioSummary } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 
 const args = process.argv.slice(2);
@@ -60,6 +58,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const MIME = {
+  '.pcm': 'application/octet-stream',
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.mjs': 'application/javascript; charset=utf-8',
@@ -361,6 +360,7 @@ function serveRange(res, filePath, contentType, rangeHeader) {
     res.writeHead(206, {
       'content-type': contentType,
       'content-range': `bytes ${start}-${end}/${total}`,
+      'access-control-expose-headers': 'Content-Range, Accept-Ranges, Content-Length',
       'accept-ranges': 'bytes',
       'content-length': chunkSize,
       'access-control-allow-origin': '*',
@@ -448,122 +448,20 @@ function readPreviewEdit(filePath) {
   }
 }
 
+const previewAudioCacheDir = path.join(projectRoot, '.akari', 'cache');
+let latestPreviewAudioSummary = null;
+
 async function readFrameEnginePreviewEdit(filePath) {
   const read = readPreviewEdit(filePath);
   if (read.error) return read;
   const prepared = await prepareAlphaLayers(read.data, { projectRoot });
-  const fps = Number(read.data?.output?.fps) > 0 ? Number(read.data.output.fps) : 30;
-  const sources = new Map((read.data?.sources ?? []).map(source => [String(source?.id ?? ''), source]));
-  const projectedSpeech = projectSpeechDeclarations(read.data?.cuts ?? [], { fps });
-  const speechWarnings = [];
-  const keepKeys = new Set();
-  const cacheDir = path.join(projectRoot, '.akari', 'cache');
-  const sourcePathOf = declaredPath => path.isAbsolute(declaredPath)
-    ? declaredPath : path.resolve(projectRoot, declaredPath);
-  const sidecarDeclaration = (result, padBeforeSec, padAfterSec, generatedMs) => {
-    keepKeys.add(result.key);
-    return {
-      path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
-      durationSec: result.durationSec,
-      padBeforeSec,
-      padAfterSec,
-      generatedMs,
-      skipped: result.skipped,
-      bytes: fs.statSync(result.path).size,
-    };
-  };
-  const speech = await Promise.all(projectedSpeech.map(async declaration => {
-    const source = sources.get(declaration.src);
-    const declaredPath = source?.path;
-    if (typeof declaredPath !== 'string' || !declaredPath) return declaration;
-    const startedAt = performance.now();
-    const padBeforeSec = declaration.padBeforeSec ?? 0;
-    const padAfterSec = declaration.padAfterSec ?? 0;
-    const result = await ensurePreviewAudioSidecar({
-      sourcePath: sourcePathOf(declaredPath),
-      inSec: declaration.inSec,
-      outSec: declaration.outSec,
-      speed: declaration.speed,
-      padBeforeSec,
-      padAfterSec,
-      ffmpeg: tryResolve(resolveFfmpeg),
-      cacheDir,
-    });
-    const generatedMs = performance.now() - startedAt;
-    if (!result.ok) {
-      const warning = `speech sidecar ${declaration.id} unavailable; using source fallback: ${result.reason}`;
-      speechWarnings.push(warning);
-      console.warn(`[preview] ${warning}`);
-      return { ...declaration, sidecarWarningEmitted: true };
-    }
-    return {
-      ...declaration,
-      sidecar: sidecarDeclaration(result, padBeforeSec, padAfterSec, generatedMs),
-    };
-  }));
-
-  const prepareHeavyWav = async (raw, label, kind) => {
-    if (!raw || typeof raw !== 'object' || typeof raw.path !== 'string' || !raw.path) return raw;
-    const sourcePath = sourcePathOf(raw.path);
-    let stat;
-    try { stat = fs.statSync(sourcePath); } catch { return raw; }
-    const clipFx = {
-      ...(kind !== 'narration' && Number.isFinite(raw.speed) ? { speed: raw.speed } : {}),
-      ...(kind !== 'narration' && Number.isFinite(raw.pitch_semitones)
-        ? { pitch_semitones: raw.pitch_semitones } : {}),
-      ...(kind !== 'narration' && (raw.formant === 'preserve' || raw.formant === 'shift')
-        ? { formant: raw.formant } : {}),
-      ...(raw.denoise && typeof raw.denoise === 'object' ? { denoise: raw.denoise } : {}),
-      ...(Number.isFinite(raw.lowcut_hz) ? { lowcut_hz: raw.lowcut_hz } : {}),
-    };
-    const needsClipFx = hasAudioClipFx(clipFx);
-    const isHeavyWav = path.extname(sourcePath).toLowerCase() === '.wav' && stat.size > 8 * 1024 * 1024;
-    if (!needsClipFx && !isHeavyWav) return raw;
-    // Awaited (spawn) so this single-threaded server keeps serving media while ffprobe runs.
-    const probe = await probePreviewAudioSourceAsync(sourcePath);
-    if (!probe.ok) {
-      const warning = needsClipFx
-        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${probe.reason}`
-        : `${label} sidecar unavailable; using source: ${probe.reason}`;
-      speechWarnings.push(warning);
-      console.warn(`[preview] ${warning}`);
-      return raw;
-    }
-    const inSec = Number.isFinite(raw.in) && raw.in >= 0
-      ? raw.in : 0;
-    const outSec = (kind === 'sfx' || kind === 'narration') && Number.isFinite(raw.out) && raw.out > inSec
-      ? Math.min(raw.out, probe.durationSec) : probe.durationSec;
-    if (!(outSec > inSec)) return raw;
-    const startedAt = performance.now();
-    const result = await ensurePreviewAudioSidecar({
-      sourcePath, inSec, outSec, speed: clipFx.speed ?? 1, padBeforeSec: 0, padAfterSec: 0,
-      ...(needsClipFx ? { clipFx } : {}),
-      ffmpeg: tryResolve(resolveFfmpeg), cacheDir,
-    });
-    const generatedMs = performance.now() - startedAt;
-    if (!result.ok) {
-      const warning = needsClipFx
-        ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export): ${result.reason}`
-        : `${label} sidecar unavailable; using source: ${result.reason}`;
-      speechWarnings.push(warning);
-      console.warn(`[preview] ${warning}`);
-      return raw;
-    }
-    return { ...raw, sidecar: sidecarDeclaration(result, 0, 0, generatedMs) };
-  };
-  const declaredAudio = read.data.audio ?? {};
-  const preparedAudio = {
-    ...declaredAudio,
-    ...(declaredAudio.bgm !== undefined
-      ? { bgm: await prepareHeavyWav(declaredAudio.bgm, 'bgm', 'bgm') } : {}),
-    sfx: Array.isArray(declaredAudio.sfx)
-      ? await Promise.all(declaredAudio.sfx.map((item, index) =>
-        prepareHeavyWav(item, `sfx ${item?.id ?? index + 1}`, 'sfx'))) : declaredAudio.sfx,
-    narration: Array.isArray(declaredAudio.narration)
-      ? await Promise.all(declaredAudio.narration.map((item, index) =>
-        prepareHeavyWav(item, `narration ${item?.id ?? index + 1}`, 'narration'))) : declaredAudio.narration,
-  };
-  sweepPreviewAudioSidecars({ cacheDir, keepKeys });
+  const audioSummary = prepareFrameEngineAudioSummary(read.data, {
+    projectRoot, cacheDir: previewAudioCacheDir, ffmpeg: ffmpegPath,
+    requestSidecar: requestPreviewAudioSidecar,
+    warn: warning => console.warn('[preview] ' + warning),
+  });
+  latestPreviewAudioSummary = audioSummary;
+  const speechWarnings = audioSummary.warnings;
   prepared.warnings.push(...speechWarnings);
   const intake = {};
   const skipped = [];
@@ -582,7 +480,7 @@ async function readFrameEnginePreviewEdit(filePath) {
   return {
     data: {
       ...read.data,
-      audio: { ...preparedAudio, speech },
+      audio: audioSummary.audio,
       ...(hasFrameEngineIntake ? {
         frameEngine: { intake, skipped, warnings: prepared.warnings },
       } : speechWarnings.length > 0 ? {
@@ -668,6 +566,9 @@ const router = {
     } catch (e) {
       respond(res, 500, { error: e.message });
     }
+  },
+  'GET /api/preview-audio/status': (req, res) => {
+    respond(res, 200, { items: latestPreviewAudioSummary?.items ?? [], ts: Date.now() });
   },
   'GET /api/summary': async (req, res) => {
     // 準備段（sidecar 生成・掃除・probe）の例外は 1 リクエストの 500 で済ませる。
@@ -949,10 +850,10 @@ function serveProjectFile(res, pathname, reqHeaders = null) {
     // chosen=original と判定されているのに proxy だけが作られ続けていた）。
     // proxy が要る器は /api/auto-proxy で明示的に要求し、返った .proxy/… の URL を直接読む。
     serveRange(res, safe, mime, rangeHeader);
-  } else if (rangeHeader && mime.startsWith('audio/')) {
+  } else if (rangeHeader && (mime.startsWith('audio/') || ext === '.pcm')) {
     serveRange(res, safe, mime, rangeHeader);
   } else {
-    const extra = (mime.startsWith('video/') || mime.startsWith('audio/'))
+    const extra = (mime.startsWith('video/') || mime.startsWith('audio/') || ext === '.pcm')
       ? { 'accept-ranges': 'bytes' } : {};
     serveFile(res, safe, mime, extra, reqHeaders);
   }
@@ -1046,6 +947,27 @@ const server = http.createServer(async (req, res) => {
 });
 
 const wss = new MiniWSServer(server);
+const unsubscribePreviewAudio = subscribePreviewAudioSidecarEvents(({ key, state }) => {
+  wss.broadcast(JSON.stringify({ type: 'preview-audio', key, state, ts: Date.now() }));
+});
+const sweepAudio = () => {
+  if (!latestPreviewAudioSummary) return;
+  try {
+    sweepPreviewAudioSidecars({ cacheDir: previewAudioCacheDir,
+      keepKeys: latestPreviewAudioSummary.keepKeys,
+      keepProbes: latestPreviewAudioSummary.keepProbes ?? [], minAgeMs: 60 * 60 * 1000 });
+  } catch (error) { console.warn('[preview] audio cache sweep failed', error); }
+};
+let audioSweepInterval;
+const audioSweepStartup = setTimeout(() => {
+  sweepAudio();
+  audioSweepInterval = setInterval(sweepAudio, 10 * 60 * 1000).unref();
+}, 60 * 1000).unref();
+server.on('close', () => {
+  unsubscribePreviewAudio();
+  clearTimeout(audioSweepStartup);
+  clearInterval(audioSweepInterval);
+});
 const playState = { time: 0, playing: false };
 
 // Bidirectional timeline sync

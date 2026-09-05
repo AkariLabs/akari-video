@@ -13,6 +13,7 @@
      断片の var(--ease-*) / var(--anim-duration-*) の解決先。書き出し側は
      render-cut/rasterize.mjs が同じ内容をシートへ埋め込む（サーフェス間パリティ） -->
 <link rel="stylesheet" href="/overlay-motion-vocab.css">
+<link rel="stylesheet" href="/style.css">
 <style>
 @font-face { font-family: "AKARI Noto Sans JP"; src: url("/assets/fonts/akari-noto-sans-jp.ttf") format("truetype-variations"); font-weight: 100 900; font-style: normal; font-display: block; }
 :root { color-scheme: dark; font-family: "AKARI Noto Sans JP", system-ui, sans-serif; }
@@ -194,6 +195,7 @@ input[type=range] { width: 100%; }
       <button id="edit-toggle" class="icon-button" type="button" aria-label="編集" title="編集" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a1.0 1.0 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
       <button id="indicator-toggle" class="icon-button" type="button" aria-label="指標" title="指標" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></button>
       <div id="indicator-popup" class="indicator-popup" hidden></div>
+      <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>

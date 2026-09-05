@@ -31,7 +31,7 @@ import type {
   ResolvedTimelinePlan,
   TimelineSourceRegistry,
 } from '../../frame-engine/src/index.ts';
-import type { WebAudioDecodedItem } from '../../edit-store/src/audio-schedule.ts';
+import type { PreviewAudioDeclaration, PreviewSpeechDeclaration } from '../../frame-engine/src/audio/preview-audio-supply.ts';
 
 interface PreviewOptions {
   edit: any;
@@ -110,32 +110,22 @@ function mediaUrl(value: unknown): string {
   return `/${source.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
 }
 
-function audioDeclarations(edit: any): Array<{
-  kind: 'bgm' | 'sfx' | 'narration';
-  id: string;
-  url: string;
-  spec: WebAudioDecodedItem;
-}> {
+function audioDeclarations(edit: any): PreviewAudioDeclaration[] {
   const audio = edit?.audio;
   if (!audio || typeof audio !== 'object') return [];
-  const declarations: Array<{
-    kind: 'bgm' | 'sfx' | 'narration';
-    id: string;
-    url: string;
-    spec: WebAudioDecodedItem;
-  }> = [];
+  const declarations: PreviewAudioDeclaration[] = [];
   const append = (kind: 'bgm' | 'sfx' | 'narration', raw: any, fallbackId: string) => {
     if (!raw || typeof raw !== 'object') return;
     const source = raw.src || raw.path;
     if (typeof source !== 'string' || !source) return;
     const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-    const sidecar = raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : undefined;
+    const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined) && raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : undefined;
     declarations.push({
       kind,
       id,
       url: sidecar?.path ?? mediaUrl(source),
       ...(sidecar ? { sourceUrl: mediaUrl(source) } : {}),
-      spec: { ...raw, ...(sidecar ? { sidecar } : {}), id, durationSec: 0 },
+      spec: { ...raw, sidecar, sidecarState: raw.sidecarState, id, durationSec: 0 },
     });
   };
   append('bgm', audio.bgm, 'bgm');
@@ -146,6 +136,24 @@ function audioDeclarations(edit: any): Array<{
     audio.narration.forEach((item: any, index: number) => append('narration', item, `narration-${index + 1}`));
   }
   return declarations;
+}
+
+function speechDeclarations(edit: any, fps: number, choices: Map<string, SourceChoice>): PreviewSpeechDeclaration[] {
+  const cuts = normalizedCuts(edit);
+  const projected = Array.isArray(edit?.audio?.speech)
+    ? edit.audio.speech : projectSpeechDeclarations(cuts, { fps });
+  return projected.flatMap((declaration: any) => {
+    const url = choices.get(declaration.src)?.url;
+    if (!url) return [];
+    const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;
+    return [{
+      ...declaration, url, sidecarState: declaration.sidecarState,
+      sidecar: canUseSidecar && declaration.sidecar?.path
+        ? { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) } : undefined,
+      atempo: canUseSidecar && !declaration.sidecar?.path && declaration.atempo?.path
+        ? { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) } : undefined,
+    }];
+  });
 }
 
 function resolvedItemAdjust(item: any, adjustLutCubeTexts: Record<string, string> | undefined): any {
@@ -550,21 +558,7 @@ class FrameEngineRuntime {
       layers: engineLayers as FrameEngineLayer[],
     });
     this.totalDuration = this.timeline.totalDuration;
-    const projectedSpeech = Array.isArray(edit?.audio?.speech)
-      ? edit.audio.speech : projectSpeechDeclarations(cuts, { fps });
-    const speech = projectedSpeech.flatMap((declaration: any) => {
-      const url = urls.get(declaration.src);
-      if (!url) return [];
-      return [{
-        ...declaration,
-        url,
-        ...(declaration.sidecar?.path ? {
-          sidecar: { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) },
-        } : declaration.atempo?.path ? {
-          atempo: { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) },
-        } : {}),
-      }];
-    });
+    const speech = speechDeclarations(edit, fps, sourceChoices);
     this.audio = createPreviewAudioSupply({
       timelineDurationSec: this.totalDuration,
       declarations: audioDeclarations(edit),
@@ -681,6 +675,14 @@ class FrameEngineRuntime {
       segments: this.segments,
       sources: [...this.sourceChoices.values()].map(({ support: _support, ...choice }) => choice),
     };
+  }
+
+  updateAudio(edit: any): void {
+    if (this.disposed) return;
+    this.audio.updateAudio({
+      declarations: audioDeclarations(edit),
+      speech: speechDeclarations(edit, this.fps, this.sourceChoices),
+    });
   }
 
   audioDebug(): PreviewAudioSupplyDebug {
@@ -815,6 +817,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   seek(seconds: number): number;
   renderPlayback(seconds: number): number;
   rebuild(edit: any, timelineData: any, fps: number): Promise<void>;
+  updateAudio(edit: any): void;
   dispose(): void;
   audioDebug(): PreviewAudioSupplyDebug;
 }> {
@@ -858,6 +861,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
       runtime.dispose();
       ui.root.remove();
     },
+    updateAudio: edit => runtime.updateAudio(edit),
     audioDebug: () => runtime.audioDebug(),
   };
   (window as any).akariFrameEngineAudioDebug = () => runtime.audioDebug();
