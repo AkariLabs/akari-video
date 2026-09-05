@@ -59,6 +59,7 @@ import { ReviewSessionWriter } from './review-session-writer';
 interface StreamTarget {
     path: string;
     mimeType: string;
+    extension: string;
     workspaceRoots: string[];
 }
 
@@ -67,7 +68,7 @@ interface ByteRange {
     end: number;
 }
 
-interface TranscodedAudioStreamTarget extends StreamTarget {
+interface TranscodedAudioStreamTarget extends Omit<StreamTarget, 'extension'> {
     temporaryDirectory: string;
 }
 
@@ -589,7 +590,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         this.assetStreams.set(id, target);
         return {
             id,
-            url: `http://127.0.0.1:${port}/asset/${id}`
+            url: `http://127.0.0.1:${port}/asset/${id}${target.extension}`
         };
     }
 
@@ -1147,7 +1148,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         kind: 'Video' | 'Asset',
         requestRoots?: string[]
     ): Promise<StreamTarget> {
-        const mimeType = mimeTypes.get(extname(this.filePath(uri)).toLowerCase());
+        const extension = extname(this.filePath(uri)).toLowerCase();
+        const mimeType = mimeTypes.get(extension);
         if (!mimeType) {
             throw new Error(`Unsupported ${kind.toLowerCase()} format`);
         }
@@ -1160,7 +1162,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!targetStat.isFile()) {
             throw new Error('The stream target is not a file');
         }
-        return { path: targetPath, mimeType, workspaceRoots: roots };
+        return { path: targetPath, mimeType, extension, workspaceRoots: roots };
     }
 
     protected async resolveWorkspaceRoots(requestRoots?: string[]): Promise<string[]> {
@@ -1310,7 +1312,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return;
         }
         const mediaMatch = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
-        const assetMatch = /^\/asset\/([a-f0-9]{64})$/.exec(request.url ?? '');
+        const assetMatch = /^\/asset\/([a-f0-9]{64})(\.[a-z0-9]+)?$/.exec(request.url ?? '');
         const transcodedAudioMatch = /^\/transcoded-audio\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const target = mediaMatch
             ? this.videoStreams.get(mediaMatch[1])
@@ -1320,6 +1322,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     ? this.transcodedAudioStreams.get(transcodedAudioMatch[1])
                     : undefined;
         if (!target) {
+            this.respond(response, 404);
+            return;
+        }
+        if (assetMatch?.[2] && assetMatch[2] !== this.assetStreams.get(assetMatch[1])?.extension) {
             this.respond(response, 404);
             return;
         }
