@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
+import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
@@ -61,6 +62,53 @@ const rowCode = ts.transpileModule(`class InspectorRows { ${rowMethods.join('\n'
 }).outputText;
 const InspectorRows = new Function('createNumberField', 'keyframeValueAt',
   `${rowCode}\nreturn InspectorRows;`)(createNumberField, keyframeValueAt);
+
+test('layer / item の動画タブにクロップ直後のパース（4 隅）8行 + 解除が出る', () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind);
+    const sections = factory(snapshot, async () => ({ ok: true }))
+      .filter(section => assignSectionToTab(kind, section.id) === 'video');
+    const index = sections.findIndex(section => section.id === 'perspective');
+    assert.ok(index > 0);
+    assert.equal(sections[index - 1].id, 'crop');
+    assert.equal(sections[index].label, 'パース（4 隅）');
+    assert.equal(sections[index].collapsedByDefault, true);
+    assert.deepEqual(sections[index].fields.map(field => field.label), [
+      '左上 X', '左上 Y', '右上 X', '右上 Y', '左下 X', '左下 Y', '右下 X', '右下 Y', '解除'
+    ]);
+  }
+});
+
+test('cut の時間セクションに実働のトランジション選択・尺が一度だけ出る', () => {
+  const sections = cutSections(cutSnapshot(), async () => ({ ok: true }));
+  const time = sections.find(section => section.id === 'time');
+  const rows = time.fields.filter(field => field.name.startsWith('transition-'));
+  assert.deepEqual(rows.map(field => [field.label, field.inputKind]), [
+    ['トランジション', 'select'], ['トランジション尺', 'scrub-number']
+  ]);
+  assert.ok(rows.every(field => typeof field.write === 'function'));
+  assert.equal(sections.flatMap(section => section.fields).filter(field => field.name?.startsWith('transition-')).length, 2);
+});
+
+test('パース左上Xの25%入力は数値部品を通り corners[0][0] = 0.25 を書く', async () => {
+  const snapshot = visualSnapshot();
+  const requests = [];
+  const row = layerSections(snapshot, async request => { requests.push(request); return { ok: true }; })
+    .find(section => section.id === 'perspective').fields[0];
+  const field = withFakeDocument(() => createNumberField({
+    name: row.name, label: row.label, value: Number(row.getEditValue(snapshot)),
+    min: row.min, max: row.max, step: row.scrubStep, unit: row.unit, displayScale: row.displayScale,
+    onCommit: async value => (await row.write(snapshot, String(value))).ok
+  }));
+  const input = field.children[1];
+  assert.equal(input.attributes.get('aria-valuemax'), '100');
+  input.value = '25';
+  input.emit('blur');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(input.value, '25');
+  assert.deepEqual(requests, [{ kind: 'item-field', id: snapshot.id, path: 'perspective',
+    value: { corners: [[0.25, 0], [1, 0], [0, 1], [1, 1]] } }]);
+});
 
 class FakeElement {
   constructor(tagName) {
