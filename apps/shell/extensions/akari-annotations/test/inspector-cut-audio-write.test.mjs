@@ -28,7 +28,9 @@ const cutFactory = inspector.statements.find(statement => ts.isFunctionDeclarati
 const cutSections = compile(cutFactory.getText(inspector), {
   composeInspectorSections,
   cutFramingFields: () => [],
-  cutFreezeFields: () => []
+  cutFreezeFields: () => [],
+  // S3 で timing 節に加わった transition_out 行。本テストは audio 節だけを見るので空にする。
+  cutTransitionFields: () => []
 }, 'CUT_SECTIONS');
 
 const timeline = sourceFile('akari-annotations-widget.ts');
@@ -58,6 +60,9 @@ function fixture(sourceFields = {}) {
   context.cutSourceName = () => 'main';
   context.hideNotice = () => {};
   context.showNotice = () => {};
+  // S3（transition_out の書き込みガード）で snapshotForSelection が呼ぶようになった 2 関数。本テストは cut の音声節だけを見る。
+  context.unsupportedTransitionTrack = () => undefined;
+  context.nonAdjacentTransitionTarget = () => undefined;
   context.errorMessage = error => error.message;
   context.footer = {};
   context.labels = [];
