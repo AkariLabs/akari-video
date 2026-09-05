@@ -106,7 +106,7 @@ import {
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
-import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat } from '../common/preview-audio-eligibility';
+import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
     clampPreviewPlaybackRate,
     effectiveMediaRate,
@@ -408,10 +408,18 @@ interface PreviewAudioService {
 }
 
 interface PreviewAudioPendingRequest {
+    at?: number;
     kind: 'speech' | 'bgm' | 'sfx' | 'narration';
     id: string;
     label: string;
     request: PreviewAudioSidecarRequest;
+}
+
+interface PreviewAudioSidecarEntry {
+    at: number;
+    kind: PreviewAudioPendingRequest['kind'];
+    item?: PreviewAudioPendingRequest;
+    resolve?: () => Promise<PreviewAudioSidecarFields | undefined>;
 }
 
 type PreviewAudioSidecarFields = Pick<EditSummarySpeech, 'sidecar' | 'sidecarState' | 'sidecarWarningEmitted'>;
@@ -3368,7 +3376,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 60 * 1000);
         }
         if (!frameEngineEnabled) return;
-        const pending = [...(model.previewAudioPendingRequests ?? [])];
+        const requests = model.previewAudioPendingRequests ?? [];
+        // loadPreviewModel は要求を first-use 昇順で積むので、この並べ替えは再確認。first-use を持たない
+        // 合成の列（common/ の import を持たない vm ハーネスから呼ぶ既存テストの fixture 等）はそのままの順で回す。
+        const pending = requests.length > 0 && requests.every((item): item is PreviewAudioPendingRequest & { at: number } => item.at !== undefined)
+            ? sortSidecarRequestsByFirstUse(requests) : [...requests];
         widget.akariPreviewAudioPendingRequests = pending;
         if (pending.length === 0) return;
         const generation = {};
@@ -3512,6 +3524,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previewAudioKeepKeys = new Set<string>();
         const previewAudioKeepProbes = new Set<string>();
         const previewAudioPendingRequests: PreviewAudioPendingRequest[] = [];
+        const sidecarRequests: PreviewAudioSidecarEntry[] = [];
         const assetUris: URI[] = [];
         const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
             const known = assetStreams.get(key);
@@ -3793,16 +3806,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     padAfterSec: declaration.padAfterSec ?? 0
                 };
                 const item: PreviewAudioPendingRequest = {
+                    at: declaration.atSec,
                     kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
                 };
-                const result = await previewAudioService.requestPreviewAudioSidecar(request);
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
-                if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
-                if (result.state === 'ready' && result.stream) {
-                    assetStreams.set('preview-audio:speech:' + declaration.id + ':' + result.key, result.stream);
-                }
-                return { ...declaration, ...this.previewAudioSidecarFields(item, result) };
+                sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
+                return declaration;
             }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
@@ -4126,9 +4134,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
-                previewAudioKeepProbes, previewAudioPendingRequests,
+                previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
                 previewAudioService, previewAudioKeepKeys, ensureAssetStream
             );
+            for (const entry of sortSidecarRequestsByFirstUse(sidecarRequests)) {
+                const item = entry.item;
+                if (!item) continue;
+                const target = item.kind === 'speech' ? speech.find(value => value.id === item.id)
+                    : item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                if (!target) continue;
+                if (entry.resolve) {
+                    const fields = await entry.resolve();
+                    if (fields) Object.assign(target, fields);
+                    else if (audio && item.kind === 'bgm') delete audio.bgm;
+                    else if (audio && (item.kind === 'sfx' || item.kind === 'narration')) {
+                        audio[item.kind] = audio[item.kind].filter(value => value !== target);
+                    }
+                    continue;
+                }
+                const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.key) previewAudioKeepKeys.add(result.key);
+                if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                if (result.state === 'ready' && result.stream) {
+                    assetStreams.set('preview-audio:speech:' + item.id + ':' + result.key, result.stream);
+                }
+            }
             const indicators: string[] = [];
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
@@ -4226,6 +4258,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assetUris: URI[],
         previewAudioKeepProbes: Set<string>,
         previewAudioPendingRequests: PreviewAudioPendingRequest[],
+        sidecarRequests: PreviewAudioSidecarEntry[],
         previewAudioService: PreviewAudioService,
         previewAudioKeepKeys: Set<string>,
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
@@ -4253,7 +4286,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             label: string,
             trim: { inSec: number; outSec?: number },
             kind: PreviewAudioPendingRequest['kind'],
-            id: string
+            id: string,
+            at = 0
         ): Promise<({ src: string } & PreviewAudioSidecarFields) | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
@@ -4261,6 +4295,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const assetUri = this.resolveEditAssetUri(pathValue, editUri);
             const key = assetUri.toString();
+            // Reserve declaration order before concurrent stream resolution completes.
+            const entry: PreviewAudioSidecarEntry = { at, kind };
+            sidecarRequests.push(entry);
             try {
                 const stream = await ensure(key, assetUri);
                 const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: false });
@@ -4277,14 +4314,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(plan.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: plan.decodedBytesThreshold } : {})
                 };
                 const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
-                const result = await previewAudioService.requestPreviewAudioSidecar(request);
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
-                if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
-                if (result.state === 'ready' && result.stream) {
-                    assetStreams.set('preview-audio:' + label + ':' + result.key, result.stream);
-                }
-                return { src: stream.url, ...this.previewAudioSidecarFields(item, result) };
+                item.at = at;
+                entry.item = item;
+                // The shared first-use loop invokes this only after both kinds are collected.
+                entry.resolve = async () => {
+                    try {
+                        const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                        if (result.key) previewAudioKeepKeys.add(result.key);
+                        if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                        if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                        if (result.state === 'ready' && result.stream) {
+                            assetStreams.set('preview-audio:' + label + ':' + result.key, result.stream);
+                        }
+                        return this.previewAudioSidecarFields(item, result);
+                    } catch (error) {
+                        console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
+                        return undefined;
+                    }
+                };
+                return { src: stream.url };
             } catch (error) {
                 console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
                 return undefined;
@@ -4435,7 +4483,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
-                }, kind, kind === 'narration' ? String(item.id) : `sfx-${index + 1}`);
+                }, kind, kind === 'narration' ? String(item.id) : `sfx-${index + 1}`, item.t);
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum

@@ -2,6 +2,13 @@
 // test/preview-audio-eligibility.test.mjs checks both implementations together.
 export const PREVIEW_AUDIO_DECODED_BYTES_THRESHOLD = 64 * 1024 * 1024;
 
+export function sortSidecarRequestsByFirstUse<T extends { at: number; kind: 'speech' | 'bgm' | 'sfx' | 'narration' }>(
+    requests: readonly T[]
+): T[] {
+    return [...requests].sort((left, right) => left.at - right.at
+        || Number(left.kind === 'speech') - Number(right.kind === 'speech'));
+}
+
 export function isPreviewAudioHeavy(durationSec: number): boolean {
     return durationSec * 48000 * 2 * 4 > PREVIEW_AUDIO_DECODED_BYTES_THRESHOLD;
 }
