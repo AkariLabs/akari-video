@@ -107,7 +107,7 @@ const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
 const CATALOG_FETCH_FAILED_MESSAGE = '素材カタログを取得できませんでした。接続を確認して再試行してください。';
 const CATALOG_EMPTY_MESSAGE = 'カタログに素材がまだありません。';
-const EMPTY_PRESET_SHOWCASE: PresetShowcase = { telop: [], lut: [], textanim: [], textstyle: [] };
+const EMPTY_PRESET_SHOWCASE: PresetShowcase = { lut: [], textanim: [], textstyle: [] };
 
 // 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
@@ -1452,7 +1452,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const kind = this.catalogCategory.startsWith('preset:')
             ? this.catalogCategory.slice('preset:'.length)
             : undefined;
-        return kind === 'telop' || kind === 'lut' || kind === 'textanim' || kind === 'textstyle'
+        return kind === 'lut' || kind === 'textanim' || kind === 'textstyle'
             ? kind
             : undefined;
     }
@@ -2407,8 +2407,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (key === 'pack') {
             return this.renderLibraryPackBody();
         }
-        if (key === 'telop') {
-            return this.renderPresetLibraryBody(['telop', 'textstyle']);
+        if (key === 'textstyle') {
+            return this.renderPresetLibraryBody(['textstyle']);
         }
         if (key === 'textanim' || key === 'lut') {
             return this.renderPresetLibraryBody([key]);
@@ -2463,7 +2463,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
         const labels: Readonly<Record<PresetShowcaseKind, string>> = {
-            telop: 'テロップ',
             lut: 'LUT',
             textanim: 'テキストアニメ',
             textstyle: 'テキストスタイル'
@@ -3059,7 +3058,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderPresetShowcaseListRow(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'telop' || item.kind === 'textstyle'
+        const detail = item.kind === 'textstyle'
             ? [item.category, ...item.tags.slice(0, 2)].filter(Boolean).join(' · ')
             : item.description;
         return (
@@ -3094,7 +3093,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderPresetShowcaseCard(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'telop' || item.kind === 'textstyle' ? item.category : item.description;
+        const detail = item.kind === 'textstyle' ? item.category : item.description;
         return (
             <div
                 key={`${item.kind}/${item.id}`}

@@ -6,7 +6,7 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
  *
  * 外殻（隙間 7px / 角丸 12px / 左右のはみ出し）はオーナー確定値なので
  * `akari-shell-card-layout.ts` は触らない。本ファイルはその中に残っていた
- * 旧来の Theia / VS Code の線と面を spec（tasks/2026-09-05-shell-card-polish/spec.md）
+ * 旧来の Theia / VS Code の線と面を spec（内部リポ akari-video-internal のカード意匠 spec・2026-09-05）
  * の階層へ寄せる。色は必ず `--akari-*` 変数を経由する（直値禁止）。
  *
  * ── ここで直している 3 つの症状 ──

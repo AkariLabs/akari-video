@@ -240,55 +240,34 @@ plugin/skills:       （同様）
 
 #### npm 依存をインストールする
 
-取得直後は `node_modules/` がありません。外部 npm パッケージに依存する CLI は、
-インストールするまで最初の実行で失敗します。例えば `template-render` は次を返します。
+取得直後は `node_modules/` がありません。CLI を使う前に依存をインストールしてください。
+ATF 描画は退役しました。HTML 素材版テロップは Lab で入手できます。既存の baked 項目は引き続き再生できます。
 
-```
-Error: puppeteer-core を読み込めませんでした。パッケージの依存が入っていない可能性があります。
-  npm install    をこのパッケージのディレクトリで実行してください。
-```
-
-外部依存を持つパッケージは以下です。`packages/` 配下のそれ以外のパッケージは Node 標準
-ライブラリだけで動きます（ビルド・テスト専用の devDependencies を持つものはあります）。
+実行時依存やツール準備が必要なパッケージは以下です。
 
 | パッケージ | 外部依存 | 何に必要か |
 |---|---|---|
-| `packages/template-render` | `puppeteer-core` | オーバーレイ HTML の連番フレーム焼き |
-| `packages/bake-layer` | `puppeteer`・`esbuild` | オーバーレイのベイク |
 | `packages/preview-server` | `esbuild` | ブラウザプレビューサーバー |
 | `packages/media-bin` | なし — ただし `postinstall` が ffmpeg/ffprobe を取得（sha256 検証付き） | すべてのメディア処理で使う ffmpeg |
 | `packages/akari-tools` | `puppeteer-core` + モノレポ内パッケージ `@akari-video/render-cut` | ルートからの一括インストールのみ（後述） |
 | `packages/export-nle` | モノレポ内パッケージ `@akari-video/media-bin` | ルートからの一括インストールのみ（後述） |
 | `apps/shell` | Theia / Electron | デスクトップアプリ — [Windows 実機ビルド手順書](./dev/windows-build.md) を参照 |
 
-**一括でインストールする（インストーラーと同じ手順）** — リポジトリのルートが
-`packages/*` と `apps/*` の npm workspaces を宣言しているので、ルートで 1 回インストール
-すれば全部そろいます。
+**CLI の依存を一括でインストールする（インストーラーと同じ手順）** — 展開済みの
+インストール先で npm workspaces を `packages/*` に絞ってから、ルートでインストールします。
 
 ```sh
 cd %USERPROFILE%\.akari\app
+node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
 npm install
 ```
 
-この方法ではデスクトップシェル（`apps/shell`、Theia + Electron）も入ります。Windows では
-ネイティブモジュールのビルドが走るため、[Windows 実機ビルド手順書](./dev/windows-build.md)
-の前提チェックが必要です。
-
-**CLI だけ使う場合** — シェルを飛ばすなら、上のパッケージを 1 つずつインストールします。
-
-```powershell
-# PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
-  Push-Location "packages\$p"; npm install; Pop-Location
-}
-```
-
-```sh
-# bash
-for p in template-render render-cut bake-layer preview-server media-bin; do
-  (cd "packages/$p" && npm install)
-done
-```
+インストーラーと `akari update` は既定で CLI 専用（ブラウザプレビューを含む）となり、
+デスクトップシェル（`apps/shell`、Theia + Electron）は入れません。
+`AKARI_INSTALL_SHELL=1` を設定すると workspaces の書き換えをスキップします。
+デスクトップアプリはリリースの DMG / EXE を使ってください。開発者がシェルをビルドする場合は
+`apps/shell` 内で `npm install --no-workspaces` を実行します。
+詳しくは [Windows 実機ビルド手順書](./dev/windows-build.md) を参照してください。
 
 `packages/akari-tools` と `packages/export-nle` はモノレポ内の他パッケージ
 （`@akari-video/render-cut` / `@akari-video/media-bin`）に依存しており、これらは npm に

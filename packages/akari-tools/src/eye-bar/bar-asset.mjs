@@ -8,10 +8,10 @@
 // 埋める（実測確認済み: 64x64 の color=black を yuva444p10le の prores_ks へ通すと
 // 中心ピクセルの RGBA は (0,0,0,255)。alpha-check スクリプトの実測ログは report.md 参照）。
 //
-// エンコード構成は packages/bake-layer/src/encode.mjs の「定番構成」
-// （prores_ks -profile:v 4 -pix_fmt yuva444p10le -alpha_bits 16 -vendor apl0）をそのまま踏襲する
-// （読み取り専用参照 — bake-layer 自体は編集していない。既に実績のあるアルファ ProRes 構成を
-// 再発明しない）。
+// エンコード構成（prores_ks -profile:v 4 -pix_fmt yuva444p10le -alpha_bits 16 -vendor apl0）は、
+// 実績のあるアルファ ProRes 構成を再発明しないため、退役した packages/bake-layer の
+// src/encode.mjs が持っていた「定番構成」をそのまま引き継いだもの（2026-09-05 の退役以降は
+// この 1 行が唯一の正本。経緯は docs/notes-2026-09-05-bake-layer-retired.md）。
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";

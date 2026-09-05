@@ -1424,6 +1424,14 @@ async function validateV2ObjectTreeFiles(edit, findings, paths) {
 
   const referencedMotion = new Set();
   for (const { item, path: itemPath } of entries) {
+    if (item.source?.kind === "telop" && item.source.baked === undefined) {
+      addFinding(findings, {
+        severity: "error",
+        check: "telop.retired",
+        message: "テロップ（ATF）の描画は退役しました。HTML 素材版のテロップに差し替えてください（Lab で配布）。すでに焼いた baked を持つ項目はそのまま再生できます。",
+        path: `${itemPath}.source`,
+      });
+    }
     if (isRecord(item.keyframes) && isNonEmptyString(item.keyframes.path)) {
       referencedMotion.add(item.keyframes.path);
       const filePath = resolve(paths.projectRoot, item.keyframes.path);

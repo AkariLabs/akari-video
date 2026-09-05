@@ -515,9 +515,17 @@ class FrameEngineRuntime {
           }
         },
       });
+      // 先読みキャッシュの枚数 = デコーダの出力 surface を握り続ける枚数。12 枚だと Windows の
+      // D3D11 HW デコーダ（4K HEVC）が surface 切れで黙り、入力を飲み込んだまま 1 枚も出さなくなる
+      // （LookaheadCache.makeRoom の注記 = issue #28 と同じ機構）。実機 2026-09-05・90 秒再生:
+      //   12 枚: 凍結 11 回（最長 9 s）・デコーダ作り直し 49 回・17 fps
+      //    6 枚: 凍結 0 回・作り直し 0 回・30 fps・カット境界の late 0/1
+      //    3 枚: 凍結 0 回・作り直し 3 回・23 fps
+      // 6 が滑らかさと境界先読みの両立点。恒久策（内外で surface 予算を共有し、GOP をまたいで
+      // 供給を続ける）は別票。
       const source = new LookaheadFrameSource(pool, {
         fps,
-        capacity: 12,
+        capacity: 6,
         onAccess: access => this.currentAccesses?.push(access),
       });
       const observedSource: NativeFrameSource = {
@@ -627,13 +635,17 @@ class FrameEngineRuntime {
   }
 
   async prime(): Promise<void> {
+    // 音声の先読みは映像の初回描画より前に投げる。後ろに置くと、最初の 2 フレームが
+    // 描けない案件（実機 2026-09-05: 9〜10GB の HEVC 4 本 + proxy 生成待ち）で
+    // ここへ到達できず、音声を 1 バイトも取りに行かないまま無音になる。
+    // prime() は fire-and-forget なので、以降の描画とは並行して進む。
+    this.audio.prime();
     const first = performance.now();
     await this.renderFrame(0, 'seek', first);
     const second = performance.now();
     await this.renderFrame(0, 'seek', second);
     this.ui.root.dataset.frameEngineReady = 'true';
     this.scheduler.primeHeaders();
-    this.audio.prime();
   }
 
   seek(seconds: number): number {

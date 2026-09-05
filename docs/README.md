@@ -164,6 +164,7 @@ managed in private internal records.
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | Direction for captions and cut editing (word-accurate cuts, captions as first-class, karaoke display) |
 | [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | Direction for the self-verification loop and transcript-editing UI (the prototype of edit-lint) |
 | [notes-2026-08-28-engine-v2-open-items.md](./notes-2026-08-28-engine-v2-open-items.md) | Remaining engine v2 work — platform validation, deterministic seeking, OSR isolation, exact verification, and legacy retirement gates (Japanese) |
+| [notes-2026-09-05-bake-layer-retired.md](./notes-2026-09-05-bake-layer-retired.md) | Retirement of bake-layer / ATF telop rasterization — what was removed, the `kind:"telop"` compatibility rules, and what stays out of scope (Japanese) |
 
 ## For developers
 

@@ -76,20 +76,7 @@ export async function enumerateDeclaredRenderInputs({
     const path = audioPath(narration);
     if (path) addOptionalInput(`audio:narration:${narration?.id ?? index}`, path);
   }
-  const generatedTelopIds = new Set();
-  for (const track of internalEdit?.tracks ?? []) {
-    for (const item of track.items ?? []) {
-      if (item.source?.kind !== "telop" || item.source.baked !== undefined) continue;
-      generatedTelopIds.add(String(item.id));
-      addAkariInput(
-        inputs,
-        `telop-preset:${item.id}`,
-        join(dirname(PRESETS_LUTS_ROOT), "telop", item.source.preset, "template.json"),
-      );
-    }
-  }
   for (const [index, layer] of (edit.layers ?? []).entries()) {
-    if (generatedTelopIds.has(String(layer?.id))) continue;
     if (typeof layer?.src !== "string" || layer.src === "") continue;
     addInput(`layer:${layer?.id ?? index}`, layer?.src);
   }

@@ -417,7 +417,7 @@ async function main() {
 
   // ── ベイクレイヤーとアニメ断片が edit.json どおりに描かれる ──
   // 回帰: baked を丸ごとスキップしていた（ProRes .mov が再生できないため）ので、
-  // bake-layer が併せて出す .preview.webm サイドカーを使う。アニメ断片は
+  // baked が併せて持つ .preview.webm サイドカーを使う。アニメ断片は
   // data-akari-active 前提で書く規約なのに Web UI が属性を立てず全部不可視だった。
   console.log('\n🎬 Baked layers + animated fragments');
   try {

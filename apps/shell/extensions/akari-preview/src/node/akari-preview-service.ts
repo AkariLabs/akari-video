@@ -741,41 +741,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
     }
 
-    async rasterizeTelopPreview(request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference> {
-        if (!request || typeof request.preset !== 'string' || !request.preset.trim()
-            || !Number.isFinite(request.duration) || request.duration <= 0
-            || !Number.isFinite(request.width) || request.width <= 0
-            || !Number.isFinite(request.height) || request.height <= 0
-            || !Number.isFinite(request.fps) || request.fps <= 0) {
-            throw new Error('Invalid telop rasterize request');
-        }
-        const temporaryDirectory = await mkdtemp(join(tmpdir(), 'akari-telop-preview-'));
-        const output = join(temporaryDirectory, 'telop.mov');
-        const proxy = join(temporaryDirectory, 'telop.preview.webm');
-        try {
-            await this.runProcess(this.nodeCliCommand(), [
-                this.findBakeLayerEntry(),
-                '--kind', 'telop',
-                '--preset', request.preset,
-                '--params', JSON.stringify(request.params ?? {}),
-                '--duration', String(request.duration),
-                '--size', `${request.width}x${request.height}`,
-                '--fps', String(request.fps),
-                '--out', output
-            ], 120_000);
-            const port = await this.ensureServer();
-            const id = randomBytes(32).toString('hex');
-            this.assetStreams.set(id, {
-                path: proxy,
-                mimeType: 'video/webm',
-                workspaceRoots: [await realpath(temporaryDirectory)]
-            });
-            this.temporaryAssetDirectories.set(id, temporaryDirectory);
-            return { id, url: `http://127.0.0.1:${port}/asset/${id}` };
-        } catch (error) {
-            await rm(temporaryDirectory, { recursive: true, force: true });
-            throw error;
-        }
+    async rasterizeTelopPreview(_request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference> {
+        // Keep the RPC boundary explicit for older clients; no rendering process is started.
+        throw new Error('telop.retired: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。');
     }
 
     async transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult> {
@@ -1132,53 +1100,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         });
     }
 
-    protected runProcess(command: string, args: string[], timeoutMs: number): Promise<void> {
-        return new Promise((resolveRun, rejectRun) => {
-            let settled = false;
-            let stderr = '';
-            // packaged では nodeCliCommand() が Electron 実体（process.execPath）を選ぶため、
-            // Node 互換モードとして動くよう ELECTRON_RUN_AS_NODE を常時付ける
-            // （dev の npm_node_execpath 経路では無害な未使用 env になるだけ）。
-            const child = spawn(command, args, {
-                stdio: ['ignore', 'ignore', 'pipe'],
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-            });
-            const finish = (error?: Error): void => {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timeout);
-                if (error) rejectRun(error);
-                else resolveRun();
-            };
-            child.stderr.on('data', chunk => {
-                stderr = `${stderr}${String(chunk)}`.slice(-8000);
-            });
-            const timeout = setTimeout(() => {
-                child.kill('SIGKILL');
-                finish(new Error('Telop rasterize timed out'));
-            }, timeoutMs);
-            child.once('error', error => finish(error));
-            child.once('close', code => finish(code === 0
-                ? undefined
-                : new Error(`Telop rasterize failed (${code}): ${stderr.trim()}`)));
-        });
-    }
-
-    protected nodeCliCommand(): string {
-        // npm start 経由の開発起動では、npm が実際に自分を動かした素の Node の execpath を
-        // env に設定する。これは明示 override として最優先で維持する。
-        if (process.env.npm_node_execpath) {
-            return process.env.npm_node_execpath;
-        }
-        // Finder / Dock から起動したパッケージ版には npm_node_execpath が無く、PATH も
-        // launchd 既定（/usr/bin:/bin:/usr/sbin:/sbin）— node を別途インストールしていない
-        // 配布先では 'node' 決め打ちが ENOENT になる。akari-quick-export-service.ts と同じ
-        // execPath 規約に合わせ、自プロセスの実行ファイルを Node CLI として使う
-        // （packaged では Electron 自身・プレーン node 実行ではその node 自身が入るので
-        // どちらでも動く）。ELECTRON_RUN_AS_NODE は runProcess が子プロセス env に常時付与する。
-        return process.execPath;
-    }
-
     protected async cleanupTemporaryAudio(filePath: string, temporaryDirectory: string): Promise<void> {
         let fileRemoved = false;
         try {
@@ -1428,6 +1349,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const end = range?.end ?? Math.max(0, targetStat.size - 1);
             response.statusCode = range ? 206 : 200;
             response.setHeader('Access-Control-Allow-Origin', '*');
+            // webview（<id>.webview.localhost）から 127.0.0.1 の配信サーバへは cross-origin。
+            // Content-Range / Accept-Ranges は CORS の safelist 外なので、明示的に expose しないと
+            // frame-engine の fetch から見えず「Range 非対応」と判定されて原本を丸ごと読みに行く
+            // （実機 2026-09-05: 4K HEVC 9.7GB で 'this host does not support byte ranges' →
+            //  Range header exceeded 10000ms → カットが 1 枚も出ず、再生も音も始まらない）。
+            response.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
             response.setHeader('Accept-Ranges', 'bytes');
             response.setHeader('Cache-Control', 'no-store');
             response.setHeader('Content-Type', target.mimeType);
@@ -1564,20 +1491,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
         }
         throw new Error(`LUT presets were not found (tried: ${candidates.join(', ')})`);
-    }
-
-    protected findBakeLayerEntry(): string {
-        const candidates: string[] = [];
-        let ancestor = resolve(__dirname);
-        for (let depth = 0; depth < 10; depth++) {
-            const candidate = resolve(ancestor, 'packages/bake-layer/bin/bake-layer.mjs');
-            candidates.push(candidate);
-            if (this.isFile(candidate)) return candidate;
-            const parent = dirname(ancestor);
-            if (parent === ancestor) break;
-            ancestor = parent;
-        }
-        throw new Error(`bake-layer entry was not found (tried: ${candidates.join(', ')})`);
     }
 
     // 共有カーネルの webview 用 IIFE バンドル（generated — 正本は packages/edit-store/src/

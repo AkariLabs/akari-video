@@ -1,22 +1,25 @@
 #!/usr/bin/env node
-// bundle-cli-node-modules.mjs — 同梱 CLI（packages/render-cut・packages/bake-layer）が
+// bundle-cli-node-modules.mjs — 同梱 CLI（packages/render-cut・packages/gpu-export）が
 // 実行時に必要とする npm 依存を、パッケージ版の Resources へ持ち込むための staging。
 //
 // なぜ必要か: extraResources で `packages/<cli>` を配っても、その CLI が import する
 // npm 依存はモノレポルートの node_modules にしか無い。パッケージ版の Resources 配下には
 // node_modules が一切無いため、Node の上方探索がどこにも当たらず
-//   - render-cut: #130d（legacy 合成経路の全撤去）以降は gpu / osr の 2 出口だけで
-//     puppeteer を使わない（かつては puppeteer-core 不在で静止画へ縮退していた）
 //   - gpu-export: @webav/mp4box.js 不在で --engine gpu が落ちる（v0.1.25 で実測）
-//   - bake-layer: `import puppeteer` / `import { build } from "esbuild"` が
-//     トップレベルで落ち、CLI が起動すらしない
 // になる。
+//
+// 2026-09-05 の bake-layer 退役（docs/notes-2026-09-05-bake-layer-retired.md）で
+// puppeteer / esbuild が入口から外れ、staging の対象は @webav/mp4box.js の 1 本だけになった。
+// render-cut 自体も #130d（legacy 合成経路の全撤去）以降は gpu / osr の 2 出口だけになり、
+// 実行時に npm を import しない（かつては puppeteer-core 不在で静止画へ縮退していた）。
+// それでも「同梱漏れ = パッケージ版でだけ落ちる」構図は入口が 1 本でも同じなので、
+// 機構ごと残す（入口リストを削るだけにして staging は撤去しない）。
 //
 // 置き場は Resources/packages/node_modules。Resources 配下は `packages/<name>` という
 // リポジトリと同じ相対配置になっているので（render-cut の caption-font.mjs が
 // Resources をリポジトリルートとみなして assets/font を引くのと同じ前提）、
 // packages/ の直下に node_modules を置けば Node の上方探索が render-cut からも
-// bake-layer からも同じ 1 本に当たる。app.asar 内のバックエンドからは（探索経路が
+// gpu-export からも同じ 1 本に当たる。app.asar 内のバックエンドからは（探索経路が
 // app.asar/… で閉じるため）見えない位置なので、シェル本体の依存解決には影響しない。
 //
 // hyperframes を同梱しない判断の根拠は bundled-cli-npm-entries.mjs のコメントにある。

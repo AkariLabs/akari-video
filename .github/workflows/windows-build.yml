@@ -62,7 +62,7 @@ jobs:
           # 警告文の案内どおり approve-scripts で承認し、rebuild で script を実行し直す。
           # approve-scripts は workspace 文脈非対応（ENOWORKSPACES・run 29997787049 実測）のため
           # install と同じく --no-workspaces で apps/shell 単体に対して実行する
-          npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
+          npm approve-scripts --no-workspaces electron esbuild node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
           npm rebuild --no-workspaces
           # electron 本体は公式リリース zip を直接取得して配置する。
           # 経緯: npm rebuild は electron の postinstall（本体 DL）を実行せず

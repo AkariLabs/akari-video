@@ -37,7 +37,6 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssetUrls,
-    RasterizeTelopPreviewRequest,
     ReviewStrokeFrame,
     VideoStreamReference,
     VideoStreamRequest
@@ -208,6 +207,7 @@ interface EditSummaryLayer {
     proxyMissing: boolean;
     /** 初回 open の臨界経路から外した telop ラスタだけに host が立てる。通常の baked は false/省略。 */
     deferredTelop?: boolean;
+    retiredTelop?: boolean;
     track: number;
     trackId: string;
     /** edit.schema.json #/$defs/layerCrop（0..1 正規化・ソースフレーム相対・静的）。
@@ -524,7 +524,6 @@ interface PreviewModel {
     assetUris: URI[];
     assetStreamIds: string[];
     compositeError?: string;
-    deferredTelops?: DeferredTelopPreview[];
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
     assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
@@ -547,12 +546,6 @@ interface PreviewModel {
         allTracksHiddenScopes: string[];
         allTracksMutedScopes: string[];
     };
-}
-
-interface DeferredTelopPreview {
-    key: string;
-    layerId: string;
-    request: RasterizeTelopPreviewRequest;
 }
 
 interface OverlayWriteRequest {
@@ -714,9 +707,6 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewExtraStreamIds?: string[];
     akariPreviewAssetStreamIds?: string[];
     akariPreviewSummary?: EditSummary;
-    akariPreviewDeferredTelopPending?: Set<string>;
-    akariPreviewDeferredTelopExpected?: Map<string, string>;
-    akariPreviewDeferredTelopReady?: Map<string, { key: string; stream: { id: string; url: string } }>;
     akariPreviewSeekable?: boolean;
     akariPreviewMuted?: boolean;
     akariPreviewCaptionsVisible?: boolean;
@@ -2755,73 +2745,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
-    /**
-     * 未焼成 telop をプレビューの open 臨界経路から外す。初期 DOM は proxyMissing の
-     * video 要素を持ち、完了時だけ既存 model-update チャンネルでその要素へ src を差す。
-     */
-    protected startDeferredTelopRasters(widget: PreviewWidgetMarker, model: PreviewModel): void {
-        const tasks = model.deferredTelops ?? [];
-        widget.akariPreviewDeferredTelopExpected = new Map(tasks.map(task => [task.layerId, task.key]));
-        if (tasks.length === 0) return;
-        const pending = widget.akariPreviewDeferredTelopPending ?? new Set<string>();
-        const ready = widget.akariPreviewDeferredTelopReady
-            ?? new Map<string, { key: string; stream: { id: string; url: string } }>();
-        widget.akariPreviewDeferredTelopPending = pending;
-        widget.akariPreviewDeferredTelopReady = ready;
-
-        for (const task of tasks) {
-            const cached = ready.get(task.layerId);
-            if (cached?.key === task.key) {
-                if (!this.applyDeferredTelopStream(widget, task, cached.stream)) {
-                    ready.delete(task.layerId);
-                    void this.disposeAssetStreams([cached.stream.id]);
-                }
-                continue;
-            }
-            if (pending.has(task.key)) continue;
-            pending.add(task.key);
-            void this.previewService.rasterizeTelopPreview(task.request).then(stream => {
-                pending.delete(task.key);
-                if (widget.isDisposed
-                    || widget.akariPreviewDeferredTelopExpected?.get(task.layerId) !== task.key) {
-                    return this.disposeAssetStreams([stream.id]);
-                }
-                if (!this.applyDeferredTelopStream(widget, task, stream)) {
-                    return this.disposeAssetStreams([stream.id]);
-                }
-                ready.set(task.layerId, { key: task.key, stream });
-                return undefined;
-            }).catch(error => {
-                pending.delete(task.key);
-                if (widget.akariPreviewDeferredTelopExpected?.get(task.layerId) === task.key) {
-                    console.warn(`[akari-preview] telop ${task.layerId} の非同期描画に失敗しました`, error);
-                }
-            });
-        }
-    }
-
-    protected applyDeferredTelopStream(
-        widget: PreviewWidgetMarker,
-        task: DeferredTelopPreview,
-        stream: { id: string; url: string }
-    ): boolean {
-        const summary = widget.akariPreviewSummary;
-        if (!summary || widget.isDisposed
-            || widget.akariPreviewDeferredTelopExpected?.get(task.layerId) !== task.key) return false;
-        const index = summary.layers.findIndex(layer => layer.id === task.layerId);
-        if (index < 0) return false;
-        const layers = [...summary.layers];
-        layers[index] = { ...layers[index], src: stream.url, proxyMissing: false };
-        const nextSummary = { ...summary, layers };
-        widget.akariPreviewSummary = nextSummary;
-        widget.akariPreviewAssetStreamIds ??= [];
-        if (!widget.akariPreviewAssetStreamIds.includes(stream.id)) {
-            widget.akariPreviewAssetStreamIds.push(stream.id);
-        }
-        widget.sendMessage({ type: 'akari-preview-model-update', summary: nextSummary });
-        return true;
-    }
-
     protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssetUrls): PreviewModelDiffInput {
         const assetUrlByUri = model.assetUrlByUri ?? new Map<string, string>();
         const replacements = [...assetUrlByUri.entries()].map(([uri, url]) => [url, `akari-asset:${uri}`] as const);
@@ -2954,7 +2877,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
                 });
-                this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
@@ -2972,7 +2894,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
                 });
-                this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
@@ -3270,7 +3191,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
         widget.akariPreviewSummary = model.summary;
-        this.startDeferredTelopRasters(widget, model);
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -3309,7 +3229,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = undefined;
         widget.akariPreviewAssetUrlByUri = undefined;
         widget.akariPreviewSummary = undefined;
-        widget.akariPreviewDeferredTelopExpected = new Map();
         widget.akariPreviewSeekable = false;
         void this.disposePreviewStreams(widget);
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
@@ -3788,28 +3707,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
             const layers: EditSummaryLayer[] = [];
             const filters: EditSummaryFilter[] = [];
-            const deferredTelops: DeferredTelopPreview[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers', itemWarningState);
-            const deferTelop = (item: typeof layerItems[number]): void => {
-                if (item.source.kind !== 'telop') return;
-                const request: RasterizeTelopPreviewRequest = {
-                    preset: item.source.preset ?? '',
-                    params: item.source.params,
-                    duration: item.duration,
-                    width,
-                    height,
-                    fps: internal.output.fps
-                };
-                deferredTelops.push({
-                    layerId: item.id,
-                    key: JSON.stringify({ layerId: item.id, request }),
-                    request
-                });
-            };
             type LayerResolution =
                 | { kind: 'filter'; filter: EditSummaryFilter }
-                | { kind: 'layer'; layer: EditSummaryLayer; deferTelop?: boolean; unsupportedBlend?: boolean }
+                | { kind: 'layer'; layer: EditSummaryLayer; unsupportedBlend?: boolean }
                 | { kind: 'skip'; unsupportedBlend?: boolean };
             const resolveLayerItem = async (item: typeof layerItems[number]): Promise<LayerResolution> => {
                 await resolveItemAdjustLut(item);
@@ -3861,8 +3763,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        deferTelop: true,
-                        layer: { ...base, proxyMissing: true, deferredTelop: true, isImage: false }
+
+                        layer: { ...base, proxyMissing: true, deferredTelop: true, retiredTelop: true, isImage: false }
                     };
                 }
                 let sourceUri: URI;
@@ -3893,7 +3795,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        deferTelop: !src && item.source.kind === 'telop',
                         layer: { ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false }
                     };
                 }
@@ -3964,7 +3865,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return { kind: 'skip', unsupportedBlend };
                 }
             };
-            // 解決は並列、反映は宣言順（filters / layers / deferredTelops の並びを従来どおりに保つ）。
+            // 解決は並列、反映は宣言順（filters / layers の並びを従来どおりに保つ）。
             const layerResolutions = await Promise.all(layerItems.map(item => resolveLayerItem(item)));
             layerItems.forEach((item, index) => {
                 const resolution = layerResolutions[index];
@@ -3977,9 +3878,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 if (resolution.kind === 'skip') {
                     return;
-                }
-                if (resolution.deferTelop) {
-                    deferTelop(item);
                 }
                 layers.push(resolution.layer);
             });
@@ -4071,7 +3969,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 motionBagUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
-                ...(deferredTelops.length > 0 ? { deferredTelops } : {}),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
                 captions: outputCaptions,
@@ -7321,7 +7218,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     const source = new engine.LookaheadFrameSource(pool, {
                         fps,
-                        capacity: 12,
+                        // 先読み枚数 = デコーダの出力 surface を握る枚数。12 だと Windows の D3D11 HW デコーダ
+                        // （4K HEVC）が surface 切れで黙り、入力を飲んだまま 1 枚も出さなくなる（issue #28 と同機構）。
+                        // Web UI 側で実測（2026-09-05・90 秒再生）: 12 枚 = 凍結 11 回・作り直し 49 回・17fps /
+                        // 6 枚 = 凍結 0・作り直し 0・30fps。preview-server/src/frame-engine-client.ts と同じ値に揃える。
+                        capacity: 6,
                         onAccess: access => {
                             if (currentAccesses) currentAccesses.push(access);
                         }
@@ -8647,10 +8548,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (deferredPlaceholder) {
                     deferredPlaceholder.dataset.akariDeferredTelopId = String(layer.id);
                     deferredPlaceholder.setAttribute('role', 'status');
-                    deferredPlaceholder.setAttribute('aria-label', 'テロップを準備中');
+                    deferredPlaceholder.setAttribute('aria-label', 'テロップ（ATF）は退役しました');
                     const label = document.createElement('span');
                     label.className = 'akari-deferred-telop-placeholder__label';
-                    label.textContent = 'テロップを準備中…';
+                    label.textContent = 'テロップ（ATF）は退役しました。Lab の HTML 素材版へ差し替えてください。';
                     deferredPlaceholder.appendChild(label);
                     deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
                     layersStage.appendChild(deferredPlaceholder);
@@ -12571,6 +12472,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         && Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
                         layerVideo.playbackRate = deferredPlaybackRate;
                     }
+                    if (layer.retiredTelop) {
+                        entry.deferredPlaceholder.style.display = activeWindow ? 'grid' : 'none';
+                        entry.deferredPlaceholder.dataset.akariDeferredState = activeWindow ? 'retired' : 'inactive';
+                        layerVideo.style.display = 'none';
+                        if (!layerVideo.paused) layerVideo.pause();
+                        continue;
+                    }
                     if (entry.deferredTelop && frameEngineMediaIdle) {
                         const bakePending = layer.proxyMissing
                             || !(typeof layer.src === 'string' && layer.src);
@@ -14058,7 +13966,6 @@ body { display: grid; place-items: center; padding: 32px; }
             ...extraIds.map(id => this.disposeVideoStreamId(id)),
             this.disposeAssetStreams(assetIds)
         ]);
-        widget.akariPreviewDeferredTelopReady = undefined;
     }
 
     protected readText(uri: URI): Promise<string> {

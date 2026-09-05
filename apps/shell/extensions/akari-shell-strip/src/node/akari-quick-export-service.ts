@@ -556,7 +556,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     }
 
     /**
-     * 子プロセス（edit-lint / render-cut。render-cut はさらに bake-layer を spawn する）へ渡す環境。
+     * 子プロセス（edit-lint / render-cut）へ渡す環境。
      * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せる理由と優先順位は
      * child-node-process.ts（preview-server バックエンドと共有）のコメント参照。
      */

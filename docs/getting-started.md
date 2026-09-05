@@ -242,57 +242,33 @@ To have the symlinks created for real, allow symlink creation and extract again:
 
 #### Install the npm dependencies
 
-A fresh checkout has no `node_modules/`, and nothing installs it for you. The CLI packages
-that need external npm packages fail at first use until you do — `template-render`, for
-example, reports (in Japanese) that it could not load `puppeteer-core` and that you should
-run `npm install` in that package's directory:
+A fresh checkout has no `node_modules/`. Install dependencies before running the CLI.
+ATF rendering has retired; get HTML telop assets through Lab. Existing baked items remain playable.
 
-```
-Error: puppeteer-core を読み込めませんでした。パッケージの依存が入っていない可能性があります。
-  npm install    をこのパッケージのディレクトリで実行してください。
-```
-
-These are the packages with external dependencies. Every other package under `packages/`
-runs on the Node standard library alone (a few declare devDependencies used only to build or
-test them):
+The following packages need runtime dependencies or tool setup:
 
 | Package | External dependencies | Needed for |
 |---|---|---|
-| `packages/template-render` | `puppeteer-core` | rendering overlay HTML into frames |
-| `packages/bake-layer` | `puppeteer`, `esbuild` | baking overlay layers |
 | `packages/preview-server` | `esbuild` | the browser preview server |
 | `packages/media-bin` | none — but its `postinstall` downloads ffmpeg/ffprobe (sha256-verified) | ffmpeg for every media step |
 | `packages/akari-tools` | `puppeteer-core` + the monorepo package `@akari-video/render-cut` | root install only — see below |
 | `packages/export-nle` | the monorepo package `@akari-video/media-bin` | root install only — see below |
 | `apps/shell` | Theia / Electron | the desktop app — see [Windows build guide](./dev/windows-build.md) (Japanese) |
 
-**Everything at once (what the installer runs)** — the repository root declares npm
-workspaces for `packages/*` and `apps/*`, so one install at the root covers them all:
+**Install CLI dependencies together (what the installer runs)** — in the extracted install
+directory, restrict npm workspaces to `packages/*`, then install from the root:
 
 ```sh
 cd %USERPROFILE%\.akari\app
+node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
 npm install
 ```
 
-This also installs the desktop shell (`apps/shell`, Theia + Electron), which builds native
-modules on Windows and needs the prerequisites listed in the
-[Windows build guide](./dev/windows-build.md) (Japanese).
-
-**CLI only** — to skip the desktop shell, install the packages above one by one:
-
-```powershell
-# PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
-  Push-Location "packages\$p"; npm install; Pop-Location
-}
-```
-
-```sh
-# bash
-for p in template-render render-cut bake-layer preview-server media-bin; do
-  (cd "packages/$p" && npm install)
-done
-```
+The installers and `akari update` install CLI dependencies, including browser preview, and
+exclude the desktop shell (`apps/shell`, Theia + Electron) by default. Set
+`AKARI_INSTALL_SHELL=1` to skip the workspace rewrite. For the desktop app, use the release
+DMG / EXE. Developers building the shell should run `npm install --no-workspaces` inside
+`apps/shell`; see the [Windows build guide](./dev/windows-build.md) (Japanese).
 
 `packages/akari-tools` and `packages/export-nle` depend on other packages of this monorepo
 (`@akari-video/render-cut` / `@akari-video/media-bin`), which are not published to npm — a

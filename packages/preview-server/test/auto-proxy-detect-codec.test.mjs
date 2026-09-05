@@ -87,10 +87,12 @@ async function runRangeScenario(codec) {
     const response = await fetch(`${server.base}/source.mp4`, { headers: { Range: 'bytes=0-1023' } });
     assert.equal(response.status, 206);
     const firstByte = new Uint8Array(await response.arrayBuffer())[0];
-    const isHevc = codec.startsWith('hevc');
-    assert.equal(firstByte, isHevc ? 'P'.charCodeAt(0) : 'O'.charCodeAt(0));
+    // Range 要求は codec に関わらず原本をそのまま返す。原本 / proxy の選択は frame-engine の
+    // chooseSource（WebCodecs の実力測定）が唯一の正で、サーバは横取りしない。
+    assert.equal(firstByte, 'O'.charCodeAt(0));
+    // 素材を読んだだけで変換が始まってはいけない（HW デコードできる器では丸ごと無駄になる）。
     const proxyRoot = path.join(project, '.proxy');
-    assert.equal(existsSync(proxyRoot), isHevc);
+    assert.equal(existsSync(proxyRoot), false);
 
     const original = await fetch(`${server.base}/source.mp4?akariNoProxy=1`, {
       headers: { Range: 'bytes=0-1023' },
@@ -129,7 +131,7 @@ async function runRangeScenario(codec) {
   }
 }
 
-test('normalizes ffprobe codec output and serves or bypasses HEVC proxies', async t => {
+test('range requests always serve the source; proxies are built only through /api/auto-proxy', async t => {
   try {
     await runRangeScenario('hevc,');
     await runRangeScenario('hevc');

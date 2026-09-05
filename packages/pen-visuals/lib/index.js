@@ -15,7 +15,12 @@
  * それ以外の値は shell 従来値が正本（契約 §2.8）。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.drawPenSegment = exports.createPlatinumGradient = exports.createSparkleSprite = exports.createGlowSprite = exports.PEN_TUNING = exports.normalizePersistentStrokeItems = void 0;
+exports.PEN_TUNING = void 0;
+exports.normalizePersistentStrokeItems = normalizePersistentStrokeItems;
+exports.createGlowSprite = createGlowSprite;
+exports.createSparkleSprite = createSparkleSprite;
+exports.createPlatinumGradient = createPlatinumGradient;
+exports.drawPenSegment = drawPenSegment;
 /**
  * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
  * valid pen/rect geometry is copied, and coordinates remain normalized to the preview frame.
@@ -52,7 +57,6 @@ function normalizePersistentStrokeItems(value) {
     }
     return normalized;
 }
-exports.normalizePersistentStrokeItems = normalizePersistentStrokeItems;
 exports.PEN_TUNING = {
     maxDevicePixelRatio: 2,
     coreWidthPx: 3.4,
@@ -84,7 +88,6 @@ function createGlowSprite(size) {
     ctx.fillRect(0, 0, size, size);
     return canvas;
 }
-exports.createGlowSprite = createGlowSprite;
 /** きらめき用スプライト（動画面 `createSparkleSprite` と同一実装 — 十字の光条つき）。 */
 function createSparkleSprite(size) {
     const canvas = document.createElement('canvas');
@@ -109,7 +112,6 @@ function createSparkleSprite(size) {
     ctx.stroke();
     return canvas;
 }
-exports.createSparkleSprite = createSparkleSprite;
 /** プラチナ調グラデーション（動画面 `rebuildPlatinumGradient` と同一実装）。 */
 function createPlatinumGradient(ctx, width, height) {
     const gradient = ctx.createLinearGradient(0, 0, width, height);
@@ -119,7 +121,6 @@ function createPlatinumGradient(ctx, width, height) {
     gradient.addColorStop(1, '#c8cfdd');
     return gradient;
 }
-exports.createPlatinumGradient = createPlatinumGradient;
 /**
  * ペン 1 セグメント分の描画（グロー + プラチナ調コア線）。動画面 `drawSegment` と同一の
  * 見た目ロジック（正規化座標 → キャンバス px 変換・lighter 合成のグロー・プラチナ調ストローク）。
@@ -144,4 +145,3 @@ function drawPenSegment(ctx, glowSprite, platinumGradient, from, to, canvasWidth
     ctx.stroke();
     ctx.restore();
 }
-exports.drawPenSegment = drawPenSegment;

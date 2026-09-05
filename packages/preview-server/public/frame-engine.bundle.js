@@ -23007,6 +23007,8 @@ var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
+var DECODER_FLUSH_TIMEOUT_MS = 1e3;
+var DECODER_DEQUEUE_TIMEOUT_MS = 2e3;
 function resolveOptimizeForLatencyDefault() {
   const runtime = globalThis;
   const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
@@ -23693,7 +23695,11 @@ var RangeMp4Source = class _RangeMp4Source {
           }
         })(), this.options.decodeTimeoutMs ?? 1e4, `Range decode ${this.id} at ${targetUs}us`);
         if (!waiter.isSettled() && outputGraceExpired) {
-          await decoder.flush();
+          await withTimeout(
+            decoder.flush(),
+            Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_FLUSH_TIMEOUT_MS),
+            `Range flush ${this.id} at ${targetUs}us`
+          );
           this.flushedSinceSeek = true;
         }
       } catch (error) {
@@ -23785,7 +23791,7 @@ var RangeMp4Source = class _RangeMp4Source {
           dequeued,
           this.decoderFailure ?? new Promise(() => void 0)
         ]),
-        this.options.decodeTimeoutMs ?? 1e4,
+        Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder progress ${this.id}`
       );
       return "target-or-dequeue";
@@ -23813,7 +23819,7 @@ var RangeMp4Source = class _RangeMp4Source {
           waiter?.promise ?? new Promise(() => void 0),
           this.decoderFailure ?? new Promise(() => void 0)
         ]),
-        this.options.decodeTimeoutMs ?? 1e4,
+        Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder queue ${this.id}`
       );
     } catch (error) {
@@ -25319,6 +25325,8 @@ function createPreviewAudioSupply(options) {
   let lastStartAttemptMs = 0;
   let lastStartOutcome = null;
   let skippedAtSchedule = [];
+  let scheduledDecodedCount = 0;
+  let emptyPlanDecodedCount = 0;
   let regularDecoded = [];
   let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
@@ -25462,7 +25470,7 @@ function createPreviewAudioSupply(options) {
         let buffer = null;
         if (estimateDecodedBytes(encoded, context.sampleRate) > compactThreshold) {
           try {
-            buffer = await decodeCompact(encoded);
+            buffer = await decodeCompact(encoded.slice(0));
             entry.compact = buffer !== null;
           } catch (reason) {
             warn(`[frame-engine] ${label}: compact decode failed; decoding at full rate`, reason);
@@ -25572,10 +25580,15 @@ function createPreviewAudioSupply(options) {
           warn(`[frame-engine] ${task.key} prefetch failed`, reason);
         } finally {
           prefetchPending -= 1;
+          notifyTaskSettled();
         }
       }
     };
     await Promise.all([worker(), worker()]);
+  };
+  const taskWaiters = /* @__PURE__ */ new Set();
+  const notifyTaskSettled = () => {
+    for (const waiter of [...taskWaiters]) waiter();
   };
   const ensureDecoded = () => {
     if (prefetchInFlight) return prefetchInFlight;
@@ -25588,8 +25601,39 @@ function createPreviewAudioSupply(options) {
       if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
       prefetchInFlight = null;
+      replanIfNeeded();
     });
     return prefetchInFlight;
+  };
+  const ensureDecodedUpTo = (seconds) => {
+    const full = ensureDecoded();
+    const due = () => pendingTasks().filter((task) => task.at <= seconds && task.failedAtMs === null);
+    if (due().length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        resolve();
+      };
+      const check = () => {
+        if (due().length === 0) finish();
+      };
+      taskWaiters.add(check);
+      void full.finally(finish);
+      check();
+    });
+  };
+  const replanIfNeeded = () => {
+    if (starting) return;
+    const decodedCount = regularDecoded.length + speechDecoded.size;
+    if (!playing) {
+      if (lastStartOutcome === "empty" && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
+      return;
+    }
+    if (decodedCount <= scheduledDecodedCount) return;
+    launch(audioPosition(), { pinStart: true });
   };
   const applyGainEvents = (param, events, startTime, playbackRate) => {
     if (events.length === 0) {
@@ -25666,14 +25710,14 @@ function createPreviewAudioSupply(options) {
       narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
-  const startFrom = async (seconds) => {
+  const startFrom = async (seconds, options2 = {}) => {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
     lastStartAttemptMs = now();
     let outcome = "failed";
     try {
-      await ensureDecoded();
+      await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
       if (thisGeneration !== generation) return;
       try {
         await context.resume();
@@ -25693,12 +25737,13 @@ function createPreviewAudioSupply(options) {
       });
       const plan = scheduleBuilder({
         timelineDurationSec,
-        startAtSec: clamp5(latestRequestedSec || seconds),
+        startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
         audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
       });
       for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
       if (plan.items.length === 0) {
         outcome = "empty";
+        emptyPlanDecodedCount = regularDecoded.length + speechDecoded.size;
         return;
       }
       stopSources();
@@ -25706,6 +25751,7 @@ function createPreviewAudioSupply(options) {
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
+      scheduledDecodedCount = regularDecoded.length + speechDecoded.size;
       lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
       const skipped = [];
       for (const item of lastSchedule) {
@@ -25724,9 +25770,9 @@ function createPreviewAudioSupply(options) {
       }
     }
   };
-  const launch = (seconds) => {
+  const launch = (seconds, options2 = {}) => {
     lastStartOutcome = null;
-    startFrom(seconds).catch((reason) => {
+    startFrom(seconds, options2).catch((reason) => {
       warn("[frame-engine] audio start failed", reason);
     });
   };
@@ -26545,7 +26591,7 @@ var FrameEngineRuntime = class {
       });
       const source = new LookaheadFrameSource(pool, {
         fps,
-        capacity: 12,
+        capacity: 6,
         onAccess: (access) => this.currentAccesses?.push(access)
       });
       const observedSource = {
@@ -26682,13 +26728,13 @@ var FrameEngineRuntime = class {
   lastBaseFrame = null;
   disposed = false;
   async prime() {
+    this.audio.prime();
     const first = performance.now();
     await this.renderFrame(0, "seek", first);
     const second = performance.now();
     await this.renderFrame(0, "seek", second);
     this.ui.root.dataset.frameEngineReady = "true";
     this.scheduler.primeHeaders();
-    this.audio.prime();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
