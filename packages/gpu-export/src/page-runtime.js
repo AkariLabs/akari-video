@@ -122,7 +122,24 @@
     return "/media/" + String(value).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function normalizedCuts(edit) {
+  function resolvedItemAdjust(item, adjustLutCubeTexts) {
+    const adjust = item?.adjust;
+    if (!adjust || typeof adjust !== "object" || adjust.lut == null || adjust.sections?.lut === false) return item;
+    const ref = adjust.lut?.lut;
+    if (typeof ref !== "string") return item;
+    const cubeText = adjustLutCubeTexts?.[String(item.id)];
+    return {
+      ...item,
+      adjust: {
+        ...adjust,
+        lut: typeof cubeText === "string"
+          ? { ...adjust.lut, lut: FE.parseCube(cubeText) }
+          : null,
+      },
+    };
+  }
+
+  function normalizedCuts(edit, adjustLutCubeTexts = {}) {
     return (Array.isArray(edit.cuts) ? edit.cuts : []).map((cut, index) => {
       const copy = Object.assign({}, cut);
       // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
@@ -142,7 +159,7 @@
       copy.out = Number(cut.out ?? cut.in ?? 0);
       copy.transition_out = cut.transition_out || cut.transitionOut;
       copy.id = cut.id || "cut-" + index;
-      return copy;
+      return resolvedItemAdjust(copy, adjustLutCubeTexts);
     });
   }
 
@@ -163,7 +180,9 @@
       } else if (config.edit.source && config.edit.source.path) {
         urls.set("default", mediaUrl(config.edit.source.path));
       }
-      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : []).map((layer) => {
+      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : [])
+        .map((layer) => resolvedItemAdjust(layer, config.adjustLutCubeTexts))
+        .map((layer) => {
         if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return layer;
         if (typeof layer.filter.cubeText !== "string") return layer;
         return {
@@ -204,7 +223,7 @@
       this.fps = Number(config.fps) > 0 ? Number(config.fps) : 30;
       this.reaper = new FE.StreamReaper(lookahead.values(), { graceFrames: Math.max(1, Math.round(this.fps)) });
       this.decoderSessions = { live: 0, released: 0 };
-      this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit), {
+      this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit, config.adjustLutCubeTexts), {
         fps: config.fps,
         layers: engineLayers,
         onWarning: warn,

@@ -245,7 +245,7 @@ export function createTransitionVisualApplicator({
       element.style.transform = transform;
       element.style.opacity = opacity;
       element.style.zIndex = zIndex;
-      element.style.filter = '';
+      element.style.filter = element.dataset.akariAdjustFilter || '';
       setTransitionMask(element, 'none');
       element.dataset.akariTransitionType = '';
       element.dataset.akariTransitionProgress = '';
@@ -256,7 +256,7 @@ export function createTransitionVisualApplicator({
     incomingElement.style.clipPath = 'none';
     incomingElement.style.transform = '';
     incomingElement.style.transformOrigin = '';
-    incomingElement.style.filter = '';
+    incomingElement.style.filter = incomingElement.dataset.akariAdjustFilter || '';
     incomingElement.style.zIndex = '';
     setTransitionMask(incomingElement, 'none');
     incomingElement.dataset.akariTransitionType = '';
@@ -281,6 +281,8 @@ export function createTransitionVisualApplicator({
     incomingBaseOpacity = 1,
     outgoingZ = 0,
     incomingZ = 1,
+    outgoingFilter,
+    incomingFilter,
     width,
     height,
   }) => {
@@ -309,9 +311,11 @@ export function createTransitionVisualApplicator({
 
     outgoingElement.style.opacity = String(outgoingBaseOpacity * visual.outgoingOpacity);
     outgoingElement.style.transform = joinedTransform(outgoingBaseTransform, visual.outgoingTransform);
-    outgoingElement.style.filter = visual.engine === 'directional-blur'
-      ? 'url(#akari-transition-hblur)'
-      : (visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter);
+    outgoingElement.style.filter = typeof outgoingFilter === 'string'
+      ? outgoingFilter
+      : visual.engine === 'directional-blur'
+        ? 'url(#akari-transition-hblur)'
+        : (visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter);
     setTransitionMask(outgoingElement, visual.outgoingMask);
     outgoingElement.style.zIndex = String(visual.zSwap ? engineZ : outgoingZ);
 
@@ -320,11 +324,13 @@ export function createTransitionVisualApplicator({
     incomingElement.style.clipPath = visual.incomingClipPath;
     incomingElement.style.transformOrigin = incomingTransformOrigin;
     incomingElement.style.transform = joinedTransform(incomingBaseTransform, visual.incomingTransform);
-    incomingElement.style.filter = visual.engine === 'directional-blur'
-      ? 'url(#akari-transition-hblur)'
-      : visual.engine === 'noise-dissolve'
-        ? 'url(#akari-transition-dissolve)'
-        : (visual.incomingFilter === 'none' ? '' : visual.incomingFilter);
+    incomingElement.style.filter = typeof incomingFilter === 'string'
+      ? incomingFilter
+      : visual.engine === 'directional-blur'
+        ? 'url(#akari-transition-hblur)'
+        : visual.engine === 'noise-dissolve'
+          ? 'url(#akari-transition-dissolve)'
+          : (visual.incomingFilter === 'none' ? '' : visual.incomingFilter);
     setTransitionMask(incomingElement, visual.incomingMask);
     incomingElement.style.zIndex = String(incomingZ);
 

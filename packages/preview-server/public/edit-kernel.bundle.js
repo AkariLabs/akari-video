@@ -1675,6 +1675,7 @@ var ITEM_KEYS = /* @__PURE__ */ new Set([
   "opacity",
   "blend",
   "crop",
+  "adjust",
   "perspective",
   "motion",
   "animator",
@@ -1916,6 +1917,7 @@ function validateItem(value, path, ids, sourceIds) {
     throw invalid(`${path}.blend`, "\u672A\u5BFE\u5FDC\u306E blend mode \u3067\u3059");
   }
   if (hasOwn(value, "crop")) validateCrop(value.crop, `${path}.crop`);
+  if (hasOwn(value, "adjust")) validateAdjust(value.adjust, `${path}.adjust`);
   if (hasOwn(value, "perspective")) requireRecord(value.perspective, `${path}.perspective`);
   if (hasOwn(value, "motion")) validateMotion(value.motion, `${path}.motion`);
   if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
@@ -2083,6 +2085,47 @@ function validateCrop(value, path) {
   for (const key of ["w", "h"]) {
     requireRange(value[key], 0, 1, `${path}.${key}`);
     if (value[key] === 0) throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+}
+function validateAdjust(value, path) {
+  requireRecord(value, path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections"]), path);
+  if (hasOwn(value, "basic")) {
+    requireRecord(value.basic, `${path}.basic`);
+    const basicKeys = /* @__PURE__ */ new Set([
+      "exposure",
+      "contrast",
+      "highlights",
+      "shadows",
+      "blacks",
+      "whites",
+      "temperature",
+      "tint",
+      "vibrance",
+      "saturation"
+    ]);
+    requireExactKeys(value.basic, basicKeys, `${path}.basic`);
+    for (const key of basicKeys) {
+      if (!hasOwn(value.basic, key)) continue;
+      const [minimum, maximum] = key === "exposure" ? [-3, 3] : [-1, 1];
+      requireRange(value.basic[key], minimum, maximum, `${path}.basic.${key}`);
+    }
+  }
+  if (hasOwn(value, "lut") && value.lut !== null) {
+    requireRecord(value.lut, `${path}.lut`);
+    requireExactKeys(value.lut, /* @__PURE__ */ new Set(["lut", "intensity"]), `${path}.lut`);
+    requireText(value.lut.lut, `${path}.lut.lut`);
+    if (hasOwn(value.lut, "intensity")) requireRange(value.lut.intensity, 0, 1, `${path}.lut.intensity`);
+  }
+  if (hasOwn(value, "sections")) {
+    requireRecord(value.sections, `${path}.sections`);
+    const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut"]);
+    requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
+    for (const key of sectionKeys) {
+      if (hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
+        throw invalid(`${path}.sections.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+    }
   }
 }
 var EASINGS = /* @__PURE__ */ new Set([
@@ -2642,6 +2685,7 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
     ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
     ...item.blend !== void 0 ? { blend: item.blend } : {},
     ...item.crop !== void 0 ? { crop: item.crop } : {},
+    ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
     ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
     ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
     ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},

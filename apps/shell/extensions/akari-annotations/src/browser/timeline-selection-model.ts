@@ -4,10 +4,12 @@ import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edi
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
+import type { InspectorAdjustPath, InspectorAdjustSnapshot } from './inspector/adjust-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
     index: number;
+    itemId?: string;
     label: string;
     sourceName: string;
     src?: string;
@@ -21,6 +23,7 @@ export interface TimelineCutSelection {
     framing?: CutFraming;
     freeze?: CutFreeze;
     opacity?: number;
+    adjust?: InspectorAdjustSnapshot;
     keyframes?: readonly Record<string, unknown>[];
     speed?: number;
     transitionOut?: {
@@ -47,6 +50,7 @@ export interface TimelineOverlaySelection {
     track?: number;
     payload: Record<string, unknown>;
     crop?: TimelineCropSnapshot;
+    adjust?: InspectorAdjustSnapshot;
     keyframes?: readonly Record<string, unknown>[];
     trackName: string;
     clipName: string;
@@ -79,6 +83,7 @@ export interface TimelineLayerSelection {
     params?: Record<string, unknown>;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     crop?: TimelineCropSnapshot;
+    adjust?: InspectorAdjustSnapshot;
     opacity?: number;
     keyframes?: readonly Record<string, unknown>[];
     blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
@@ -105,6 +110,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     opacity?: number;
     crop?: TimelineCropSnapshot;
+    adjust?: InspectorAdjustSnapshot;
     perspective?: Record<string, unknown>;
     keyframes?: readonly Record<string, unknown>[];
     src?: string;
@@ -213,6 +219,7 @@ type InspectorWriteOperation =
         id: string;
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
+            | InspectorAdjustPath
             | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: number | string | boolean | null;

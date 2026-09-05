@@ -83,6 +83,7 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
+import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { resolveDeferredTelopPlayback } from '../common/deferred-telop-playback';
@@ -215,6 +216,7 @@ interface EditSummaryLayer {
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    adjust?: EditSummaryAdjust;
 }
 
 interface EditSummaryFilter {
@@ -224,6 +226,13 @@ interface EditSummaryFilter {
     trackId: string;
     track: number;
     filter: { type?: string; value?: number; id?: string };
+    adjust?: EditSummaryAdjust;
+}
+
+interface EditSummaryAdjust {
+    basic?: Record<string, number>;
+    lut?: { lut: string; intensity?: number } | null;
+    sections?: { basic?: boolean; lut?: boolean };
 }
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
@@ -353,6 +362,7 @@ interface EditSummaryCut {
      * common/cut-freeze-visual.ts の checkCutFreezeCrossing 側。 */
     freeze?: CutFreeze;
     chromaKey?: VideoFxChromaKey;
+    adjust?: EditSummaryAdjust;
 }
 
 interface EditSummarySpeech {
@@ -494,6 +504,7 @@ interface EditSummary {
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
     videoFx?: EditSummaryVideoFx;
+    adjustLutCubeTexts?: Record<string, string>;
     indicators: string[];
 }
 
@@ -3458,6 +3469,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
             const videoFxFailures = new Set<string>();
+            const adjustLutCubeTexts: Record<string, string> = {};
+            const resolveItemAdjustLut = async (
+                item: typeof internal.tracks[number]['items'][number]
+            ): Promise<void> => {
+                const adjust = (item.declaration as { adjust?: EditSummaryAdjust }).adjust;
+                const lutRef = adjust?.sections?.lut === false ? undefined : adjust?.lut?.lut;
+                if (typeof lutRef !== 'string' || !lutRef) return;
+                try {
+                    adjustLutCubeTexts[item.id] = await this.previewService.readVideoFxLut({
+                        projectRootUri: editUri.parent.toString(),
+                        lutRef
+                    });
+                } catch (error) {
+                    videoFxFailures.add('LUT');
+                    console.warn(`[akari-preview] item adjust LUT could not be resolved for ${item.id}`, error);
+                }
+            };
             const resolveChromaKey = async (
                 raw: ChromaKeySummary | undefined,
                 mode: 'source' | 'layer'
@@ -3515,6 +3543,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const cuts: EditSummaryCut[] = [];
             const cutResults = await Promise.all(cutItems.map(async (item): Promise<EditSummaryCut | undefined> => {
                 const value = item.declaration as any;
+                await resolveItemAdjustLut(item);
                 const trackId = String(trackIdByItem.get(item) ?? '');
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
@@ -3540,6 +3569,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? { gainDb: value.gainDb } : {}),
                     ...(typeof value.volume_db === 'number' && Number.isFinite(value.volume_db)
                         ? { volume_db: value.volume_db } : {}),
+                    ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
                     trackId,
                     renderTrack: resolveInternalTrackZ(
@@ -3731,6 +3761,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 | { kind: 'layer'; layer: EditSummaryLayer; deferTelop?: boolean; unsupportedBlend?: boolean }
                 | { kind: 'skip'; unsupportedBlend?: boolean };
             const resolveLayerItem = async (item: typeof layerItems[number]): Promise<LayerResolution> => {
+                await resolveItemAdjustLut(item);
                 if (item.source.kind === 'filter') {
                     return {
                         kind: 'filter',
@@ -3741,7 +3772,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             trackId: String(trackIdByItem.get(item) ?? ''),
                             track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
                                 ? Number(item.declaration.track) : 0,
-                            filter: item.source.filter as EditSummaryFilter['filter']
+                            filter: item.source.filter as EditSummaryFilter['filter'],
+                            ...(isTruthyObject(item.declaration.adjust)
+                                ? { adjust: item.declaration.adjust as EditSummaryAdjust } : {})
                         }
                     };
                 }
@@ -3769,6 +3802,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const unsupportedBlend = result.unsupportedBlend === true;
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
+                    ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
@@ -4004,6 +4038,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     layers,
                     filters,
                     cuts,
+                    ...(Object.keys(adjustLutCubeTexts).length > 0 ? { adjustLutCubeTexts } : {}),
                     indicators,
                     ...((audio || speech.length > 0) ? {
                         audio: { ...(audio ?? { sfx: [], narration: [] }), speech }
@@ -6902,6 +6937,28 @@ body { display: grid; place-items: center; padding: 32px; }
             // 外すと最下段の後ろへ直列に連結され、出力尺の外へ押し出されて無言で消える（issue #31。
             // gpu / osr / preview-server の normalizedCuts と同じ規則。前後関係は frame-engine の既定 =
             // 番号が大きいトラックが前面で、buildTimelineMap 直呼びの trackZ: track => track と同じ向き）。
+            const resolveSummaryItemAdjust = (item, summary) => {
+                const adjust = item && item.adjust;
+                if (!adjust || typeof adjust !== 'object' || adjust.lut == null
+                    || adjust.sections && adjust.sections.lut === false) return item;
+                if (typeof adjust.lut.lut !== 'string') return item;
+                const cubeText = summary && summary.adjustLutCubeTexts
+                    && summary.adjustLutCubeTexts[String(item.id)];
+                try {
+                    return {
+                        ...item,
+                        adjust: {
+                            ...adjust,
+                            lut: typeof cubeText === 'string'
+                                ? { ...adjust.lut, lut: engine.parseCube(cubeText) }
+                                : null
+                        }
+                    };
+                } catch (reason) {
+                    console.warn('[frame-engine] item adjust LUT parse failed for ' + String(item.id), reason);
+                    return { ...item, adjust: { ...adjust, lut: null } };
+                }
+            };
             const normalizeSummaryCuts = value => {
                 const summaryCuts = Array.isArray(value && value.cuts) ? value.cuts : [];
                 const renderTracks = summaryCuts
@@ -6923,7 +6980,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
                         }
                         : {};
-                    return {
+                    return resolveSummaryItemAdjust({
                         ...sequential,
                         ...placement,
                         src: cut.src || 'default',
@@ -6931,7 +6988,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         out: Number(cut.out == null ? cut.in || 0 : cut.out),
                         transition_out: cut.transition_out || cut.transitionOut,
                         id: cut.id || 'cut-' + index
-                    };
+                    }, value);
                 });
             };
             let normalizedCuts = normalizeSummaryCuts(engineSummary);
@@ -7172,7 +7229,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const engineLayersForSummary = value => filterRenderableFrameEngineLayersFn(
                     Array.isArray(value && value.layers) ? value.layers : [],
                     message => console.warn('[frame-engine] ' + message)
-                ).map((layer, index) => {
+                ).map((rawLayer, index) => {
+                    const layer = resolveSummaryItemAdjust(rawLayer, value);
                     if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
                     if (layer.isImage === true) {
                         // frame-engine v0 recognizes a still layer from its registry key suffix.
@@ -7637,17 +7695,32 @@ body { display: grid; place-items: center; padding: 32px; }
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
             const videoFxFailedIndicators = new Set();
+            let adjustCssApproximationActive = false;
             const INDICATOR_GLOSSARY = {
                 'LUT': '色調フィルタ',
                 'クロマキー': '背景透過',
                 '音声マスター処理': 'ノイズ除去・音量正規化',
-                'ディゾルブ切り替え': 'カットの溶け込み切替'
+                'ディゾルブ切り替え': 'カットの溶け込み切替',
+                '色調整は近似表示': 'CSS で表現できない調整は最終結果と異なります',
+                'clip LUT はグローバル LUT を置換': '両方の合成は frame engine 側で確認'
             };
             const refreshIndicators = () => {
                 const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
                 const approximation = document.getElementById('preview-stage')?.dataset.frameEngineActive === 'true'
                     ? ['プレビューは近似・最終音声は書き出しで確認'] : [];
-                const indicators = [...new Set([...declared, ...videoFxFailedIndicators, ...approximation])];
+                const adjustApproximation = !frameEngineMediaIdle && adjustCssApproximationActive
+                    ? ['色調整は近似表示'] : [];
+                const clipLutReplacement = !frameEngineMediaIdle && summary.videoFx?.look
+                    && (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut =>
+                        typeof (summary.adjustLutCubeTexts || {})[String(cut && cut.id)] === 'string')
+                    ? ['clip LUT はグローバル LUT を置換'] : [];
+                const indicators = [...new Set([
+                    ...declared,
+                    ...videoFxFailedIndicators,
+                    ...approximation,
+                    ...adjustApproximation,
+                    ...clipLutReplacement
+                ])];
                 indicatorToggle.hidden = indicators.length === 0;
                 if (indicators.length === 0) {
                     indicatorPopup.hidden = true;
@@ -7765,6 +7838,17 @@ body { display: grid; place-items: center; padding: 32px; }
             let segments = [];
             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
             const computeCutFramingVisualFn = (${computeCutFramingVisual.toString()});
+            // items[].adjust.basic の DOM CSS 近似。直列化されるため common 側は自己完結関数に保つ。
+            const computeAdjustCssVisualFn = (${computeAdjustCssVisual.toString()});
+            const refreshAdjustCssApproximation = () => {
+                adjustCssApproximationActive = !frameEngineMediaIdle && [
+                    ...(Array.isArray(summary.cuts) ? summary.cuts : []),
+                    ...(Array.isArray(summary.layers) ? summary.layers : []),
+                    ...(Array.isArray(summary.filters) ? summary.filters : [])
+                ].some(item => computeAdjustCssVisualFn(item && item.adjust)?.hasApproximation === true);
+            };
+            refreshAdjustCssApproximation();
+            refreshIndicators();
             const checkCutFreezeCrossingFn = (${checkCutFreezeCrossing.toString()});
             const computeTransitionVisualFn = (${computeTransitionVisual.toString()});
             const transitionVocabulary = ${JSON.stringify(TRANSITION_VOCABULARY)};
@@ -8409,10 +8493,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.applyCutLayerStyleLayout) window.akari.applyCutLayerStyleLayout(media);
                 return true;
             };
+            const clearAdjustBaseFilter = element => {
+                if (frameEngineMediaIdle || !element) return;
+                if (Object.prototype.hasOwnProperty.call(element.dataset, 'akariAdjustFilter')) {
+                    delete element.dataset.akariAdjustFilter;
+                    element.style.filter = '';
+                }
+            };
+            const setAdjustBaseFilter = (element, item) => {
+                if (frameEngineMediaIdle || !element) return;
+                const visual = computeAdjustCssVisualFn(item && item.adjust);
+                if (!visual) return;
+                element.dataset.akariAdjustFilter = visual.filter;
+                element.style.filter = visual.filter;
+            };
+            const setAdjustTransitionFilter = (element, item, transitionFilter) => {
+                if (frameEngineMediaIdle || !element) return;
+                const visual = computeAdjustCssVisualFn(item && item.adjust, transitionFilter);
+                if (visual) element.style.filter = visual.filter;
+            };
             const applyCutVisual = segment => {
                 if (!segment || segment.kind !== 'src') {
                     video.dataset.akariCutTransformActive = 'false';
-                    for (const media of [video, stillImage]) writeCutLayerStyleBase(media, null);
+                    for (const media of [video, stillImage]) {
+                        writeCutLayerStyleBase(media, null);
+                        clearAdjustBaseFilter(media);
+                    }
                     video.style.transform = '';
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
@@ -8439,9 +8545,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.dataset.akariCutTransformActive = String(cutHasLayerStyleVisual(segment));
                 }
                 for (const media of [video, stillImage]) {
+                    clearAdjustBaseFilter(media);
                     if (writeCutLayerStyleBase(media, segment)) {
                         applyCutKeyframesToMedia(media, segment, Math.max(0, outputTime - segment.outStart));
                     }
+                    setAdjustBaseFilter(media, segment);
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
                 stillImage.style.opacity = video.style.opacity;
@@ -8525,6 +8633,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (layer.kind === 'baked') layerVideo.style.pointerEvents = 'none';
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
+                setAdjustBaseFilter(layerVideo, layer);
                 layerVideo.style.zIndex = String(zForTrack(layer.trackId));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
@@ -8589,6 +8698,16 @@ body { display: grid; place-items: center; padding: 32px; }
             // video FX rail is structurally absent when no LUT/chroma declaration exists. This is
             // the inert guarantee: no canvas, WebGL context, or per-tick work for ordinary projects.
             const videoFxConfig = summary.videoFx || null;
+            const clipLookForSegment = segment => {
+                const adjust = segment && segment.adjust;
+                if (!adjust || adjust.sections?.lut === false || !adjust.lut
+                    || typeof adjust.lut.lut !== 'string') return null;
+                const cubeText = (summary.adjustLutCubeTexts || {})[String(segment.id)];
+                if (typeof cubeText !== 'string') return null;
+                const intensity = Number.isFinite(adjust.lut.intensity)
+                    ? Math.max(0, Math.min(1, adjust.lut.intensity)) : 1;
+                return { cubeText, intensity };
+            };
             const videoFxRails = [];
             const railMeta = new Map();
             const noteVideoFxFailure = effects => {
@@ -8624,15 +8743,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 void rail.configure(effects);
             };
             const cutHasChroma = (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut => cut.chromaKey);
+            const firstClipLook = (Array.isArray(summary.cuts) ? summary.cuts : [])
+                .map(cut => clipLookForSegment(cut)).find(Boolean) || null;
             const hasBaseVideoFx = Boolean(videoFxConfig && (videoFxConfig.look
-                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma))
+                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma) || firstClipLook)
                 && !frameEngineMediaIdle;
             const representativeChroma = hasBaseVideoFx && (
-                Object.values(videoFxConfig.sources || {})[0]
+                Object.values(videoFxConfig && videoFxConfig.sources || {})[0]
                 || (Array.isArray(summary.cuts) ? summary.cuts.find(cut => cut.chromaKey)?.chromaKey : null)
             );
             const baseInitialEffects = hasBaseVideoFx ? {
-                ...(videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                ...(firstClipLook || (videoFxConfig && videoFxConfig.look)
+                    ? { look: firstClipLook || videoFxConfig.look } : {}),
                 ...(representativeChroma ? { chromaKey: representativeChroma } : {})
             } : null;
             let baseVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(video, 'source', baseInitialEffects) : null;
@@ -8667,11 +8789,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     { chromaKey: entry.spec.chromaKey }
                 );
             }
-            const effectsForSegment = segment => {
+            const effectsForSegment = (segment, allowClipLut = true) => {
                 const chromaKey = segment && (segment.chromaKey
                     || (videoFxConfig && videoFxConfig.sources && videoFxConfig.sources[segment.src]));
+                const clipLook = allowClipLut ? clipLookForSegment(segment) : null;
+                const look = clipLook || (videoFxConfig && videoFxConfig.look);
                 return {
-                    ...(videoFxConfig && videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                    ...(look ? { look } : {}),
                     ...(chromaKey ? { chromaKey } : {})
                 };
             };
@@ -8683,7 +8807,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const baseEffects = effectsForSegment(segment);
                 const baseKey = 'base:' + String(segment && segment.cutIndex) + ':' + String(segment && segment.src);
                 configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
-                configureVideoFxRail(stillVideoFxRail, baseKey, baseEffects);
+                configureVideoFxRail(stillVideoFxRail, baseKey + ':still', effectsForSegment(segment, false));
                 if (baseVideoFxRail) baseVideoFxRail.render(timelineTime);
                 if (stillVideoFxRail && stillImage.style.display !== 'none') stillVideoFxRail.render(timelineTime);
 
@@ -8717,6 +8841,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 element.style.zIndex = String(zForTrack(filter.trackId));
                 element.style.backdropFilter = cssFilterFor(filter.filter);
                 element.style.webkitBackdropFilter = cssFilterFor(filter.filter);
+                setAdjustBaseFilter(element, filter);
                 layersStage.appendChild(element);
                 return { spec: filter, element };
             });
@@ -8748,6 +8873,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
+                clearAdjustBaseFilter(layerVideo);
+                setAdjustBaseFilter(layerVideo, layer);
                 layerVideo.style.zIndex = String(zForTrack(layer.trackId));
                 if (entry.deferredPlaceholder) {
                     entry.deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
@@ -10707,6 +10834,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             crop: cut ? cut.crop : undefined,
                             perspective: cut ? cut.perspective : undefined,
                             keyframes: cut ? cut.keyframes : undefined,
+                            adjust: cut ? cut.adjust : undefined,
                             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
                             // 同じ理由（写像には関与しない見た目/再生情報）で元 cuts から補う。
                             framing: cut ? cut.framing : undefined,
@@ -10809,6 +10937,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (standbyPreloadKey === key) return;
                 standbyPreloadKey = key;
                 standbyPreloadReadyKey = null;
+                clearAdjustBaseFilter(standbyVideo);
+                setAdjustBaseFilter(standbyVideo, segment);
                 const target = Number.isFinite(segment.in) ? segment.in : 0;
                 const markReady = () => {
                     if (standbyPreloadKey !== key || currentStandbyVideoSourceId !== nextId) return;
@@ -12114,7 +12244,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionVideo.style.opacity = '0';
                 transitionVideo.style.clipPath = 'none';
                 transitionVideo.style.transform = '';
-                transitionVideo.style.filter = '';
+                transitionVideo.style.filter = transitionVideo.dataset.akariAdjustFilter || '';
                 setTransitionMask(transitionVideo, 'none');
                 transitionVideo.muted = true;
                 transitionVideo.pause();
@@ -12122,10 +12252,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionStill.style.opacity = '0';
                 transitionStill.style.clipPath = 'none';
                 transitionStill.style.transform = '';
-                transitionStill.style.filter = '';
+                transitionStill.style.filter = transitionStill.dataset.akariAdjustFilter || '';
                 setTransitionMask(transitionStill, 'none');
-                video.style.filter = '';
-                stillImage.style.filter = '';
+                video.style.filter = video.dataset.akariAdjustFilter || '';
+                stillImage.style.filter = stillImage.dataset.akariAdjustFilter || '';
                 setTransitionMask(video, 'none');
                 setTransitionMask(stillImage, 'none');
                 transitionPlate.style.opacity = '0';
@@ -12194,6 +12324,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const outgoingOpacity = Number.isFinite(window.outgoing.opacity) ? window.outgoing.opacity : 1;
                 const incomingOpacity = Number.isFinite(window.incoming.opacity) ? window.incoming.opacity : 1;
+                clearAdjustBaseFilter(outgoingElement);
+                clearAdjustBaseFilter(incomingElement);
+                setAdjustBaseFilter(outgoingElement, window.outgoing);
+                setAdjustBaseFilter(incomingElement, window.incoming);
+                if (outgoingIsStill) {
+                    clearAdjustBaseFilter(video);
+                    setAdjustBaseFilter(video, window.outgoing);
+                }
                 if (outgoingIsStill) {
                     // #preview-still は tick 外の layout/load 経路でも video.style.opacity を
                     // 鏡写しする。hidden の video にも同じ合成値を置けば、どの経路が後から
@@ -12203,9 +12341,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     video.style.opacity = String(outgoingOpacity * visual.outgoingOpacity);
                 }
-                outgoingElement.style.filter = visual.engine === 'directional-blur'
+                const outgoingTransitionFilter = visual.engine === 'directional-blur'
                     ? 'url(#akari-transition-hblur)'
                     : (visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter);
+                setAdjustTransitionFilter(outgoingElement, window.outgoing, outgoingTransitionFilter);
                 setTransitionMask(outgoingElement, visual.outgoingMask);
                 if (outgoingIsStill) {
                     video.style.filter = outgoingElement.style.filter;
@@ -12270,11 +12409,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     incomingElement.style.transform,
                     visual.incomingTransform
                 );
-                incomingElement.style.filter = visual.engine === 'directional-blur'
+                const incomingTransitionFilter = visual.engine === 'directional-blur'
                     ? 'url(#akari-transition-hblur)'
                     : visual.engine === 'noise-dissolve'
                         ? 'url(#akari-transition-dissolve)'
                         : (visual.incomingFilter === 'none' ? '' : visual.incomingFilter);
+                setAdjustTransitionFilter(incomingElement, window.incoming, incomingTransitionFilter);
                 setTransitionMask(incomingElement, visual.incomingMask);
                 outgoingElement.style.zIndex = String(visual.zSwap ? Math.max(outgoingZ, incomingZ) + 1 : outgoingZ);
                 if (outgoingIsStill) video.style.zIndex = outgoingElement.style.zIndex;
@@ -13496,6 +13636,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                refreshAdjustCssApproximation();
+                refreshIndicators();
                 rebuildVisualTrackZ();
                 for (let index = 0; index < layerEntries.length; index += 1) {
                     applyIncrementalLayerSpec(layerEntries[index], summary.layers[index]);
@@ -13518,7 +13660,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const entry of layerEntries) {
                     entry.video.style.zIndex = String(zForTrack(entry.spec.trackId));
                 }
-                for (const entry of filterEntries) {
+                for (const [index, entry] of filterEntries.entries()) {
+                    const filter = summary.filters[index];
+                    clearAdjustBaseFilter(entry.element);
+                    setAdjustBaseFilter(entry.element, filter);
                     entry.element.style.zIndex = String(zForTrack(entry.spec.trackId));
                 }
                 applyOverlayTracks();

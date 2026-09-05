@@ -250,6 +250,11 @@ import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
+    readInspectorAdjustSnapshot,
+    updateInspectorAdjust,
+    type InspectorAdjustPath
+} from './inspector/adjust-fields';
+import {
     isCutFramingWriteRequest,
     readCutFraming,
     updateCutFraming,
@@ -3146,6 +3151,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
+                } else if (request.path.startsWith('adjust.')) {
+                    patch = {
+                        adjust: updateInspectorAdjust(
+                            raw.adjust,
+                            request.path as InspectorAdjustPath,
+                            request.value
+                        )
+                    };
+                    label = 'クリップの調整を変更';
                 } else if (request.path.startsWith('source.vars.')) {
                     const name = request.path.slice('source.vars.'.length);
                     patch = {
@@ -3490,6 +3504,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...(transform ? { transform } : {}),
             ...(typeof raw.opacity === 'number' ? { opacity: raw.opacity } : {}),
             ...(raw.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop) ? { crop: raw.crop } : {}),
+            adjust: readInspectorAdjustSnapshot(raw.adjust),
             ...(raw.perspective && typeof raw.perspective === 'object' && !Array.isArray(raw.perspective)
                 ? { perspective: raw.perspective } : {}),
             ...(Array.isArray(raw.keyframes) ? { keyframes: raw.keyframes } : {}),
@@ -3512,11 +3527,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const freeze = readCutFreeze((cut as EditCut & { freeze?: unknown }).freeze);
-            const rawKeyframes = this.rawKeyframeItem(this.cutItemId(selection.index))?.keyframes;
+            const itemId = this.cutItemId(selection.index);
+            const rawItem = this.rawKeyframeItem(itemId);
+            const rawKeyframes = rawItem?.keyframes;
             return {
-                kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
-                trackName: this.trackDisplayNameForItem(this.cutItemId(selection.index)),
-                clipName: this.cutSourceName(cut) || this.cutItemId(selection.index),
+                kind: 'cut', index: selection.index, itemId, label: `C${selection.index + 1}`,
+                trackName: this.trackDisplayNameForItem(itemId),
+                clipName: this.cutSourceName(cut) || itemId,
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
                 playheadSeconds: this.playheadT,
@@ -3529,6 +3546,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
                 ...(freeze ? { freeze } : {}),
                 ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
+                adjust: readInspectorAdjustSnapshot(rawItem?.adjust),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
@@ -3544,12 +3562,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const crop = overlay.payload.crop && typeof overlay.payload.crop === 'object'
                 && !Array.isArray(overlay.payload.crop)
                 ? overlay.payload.crop as unknown as TimelineCropSnapshot : undefined;
-            const rawKeyframes = this.rawKeyframeItem(overlay.id)?.keyframes;
+            const rawItem = this.rawKeyframeItem(overlay.id);
+            const rawKeyframes = rawItem?.keyframes;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
                 trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
                 ...(crop !== undefined ? { crop } : {}),
+                adjust: readInspectorAdjustSnapshot(rawItem?.adjust),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 payload: overlay.payload
             };
@@ -3594,6 +3614,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(params !== undefined ? { params } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(crop !== undefined ? { crop } : {}),
+                adjust: readInspectorAdjustSnapshot(raw?.adjust),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),

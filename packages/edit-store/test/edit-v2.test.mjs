@@ -122,6 +122,32 @@ test("readEditV2 validates audio item fields and accepts duration: 0 with omitte
   assert.doesNotThrow(() => readEditV2(sentinel));
 });
 
+test("readEditV2 accepts clip adjust v0 and rejects closed/ranged violations", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+  value.tracks[3].items[0].adjust = {
+    basic: { exposure: 0.5, contrast: -0.25, highlights: 0.1, shadows: -0.1 },
+    lut: { lut: "cinematic-warm", intensity: 0.75 },
+    sections: { basic: true, lut: false },
+  };
+  assert.doesNotThrow(() => readEditV2(value));
+
+  const rangeInvalid = structuredClone(value);
+  rangeInvalid.tracks[3].items[0].adjust.basic.exposure = 3.01;
+  assert.throws(() => readEditV2(rangeInvalid), /adjust\.basic\.exposure.*-3\.\.3/u);
+
+  const unknownInvalid = structuredClone(value);
+  unknownInvalid.tracks[3].items[0].adjust.basic.gamma = 0.2;
+  assert.throws(() => readEditV2(unknownInvalid), /adjust\.basic.*未定義キー.*gamma/u);
+
+  const lutInvalid = structuredClone(value);
+  lutInvalid.tracks[3].items[0].adjust.lut.lut = "";
+  assert.throws(() => readEditV2(lutInvalid), /adjust\.lut\.lut.*空でない文字列/u);
+
+  const nullLut = structuredClone(value);
+  nullLut.tracks[3].items[0].adjust.lut = null;
+  assert.doesNotThrow(() => readEditV2(nullLut));
+});
+
 test("readEditV2 accepts and validates narration metadata on audio items", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
   const narration = value.tracks[1].items[0];

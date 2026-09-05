@@ -148,6 +148,22 @@ function audioDeclarations(edit: any): Array<{
   return declarations;
 }
 
+function resolvedItemAdjust(item: any, adjustLutCubeTexts: Record<string, string> | undefined): any {
+  const adjust = item?.adjust;
+  if (!adjust || typeof adjust !== 'object' || adjust.lut == null || adjust.sections?.lut === false) return item;
+  if (typeof adjust.lut?.lut !== 'string') return item;
+  const cubeText = adjustLutCubeTexts?.[String(item.id)];
+  return {
+    ...item,
+    adjust: {
+      ...adjust,
+      lut: typeof cubeText === 'string'
+        ? { ...adjust.lut, lut: parseCube(cubeText) }
+        : null,
+    },
+  };
+}
+
 function normalizedCuts(edit: any): FrameEngineCut[] {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   const declaredTracks = cuts
@@ -169,7 +185,7 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
     const placement = track > 0
       ? { track, ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {}) }
       : {};
-    return {
+    return resolvedItemAdjust({
       ...sequential,
       ...placement,
       src: cut.src ?? (Array.isArray(edit?.sources) ? edit.sources[0]?.id : 'default'),
@@ -177,7 +193,7 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
       out: Number(cut.out ?? cut.in ?? 0),
       transition_out: cut.transition_out ?? cut.transitionOut,
       id: cut.id ?? `cut-${index}`,
-    };
+    }, edit?.adjustLutCubeTexts);
   });
 }
 
@@ -189,7 +205,8 @@ function resolvedEngineLayers(edit: any): any[] {
       const key = String(layer?.id ?? layer?.src ?? index);
       if (skippedLayers.has(key)) return null;
       const prepared = frameEngineIntake[key];
-      const resolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+      const intakeResolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+      const resolved = resolvedItemAdjust(intakeResolved, edit?.adjustLutCubeTexts);
       if (resolved?.kind !== 'filter' || resolved?.filter?.type !== 'lut'
         || typeof resolved.filter.cubeText !== 'string') return resolved;
       return {

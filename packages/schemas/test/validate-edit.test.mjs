@@ -37,6 +37,24 @@ test("existing v1 sample passes unchanged (non-regression)", () => {
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("v2 clip adjust v0 example passes", () => {
+  const executed = run("edit-v2-adjust-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+for (const [name, expected] of [
+  ["edit-v2-adjust-range-invalid", /adjust\.basic\.exposure は -3 から 3/u],
+  ["edit-v2-adjust-unknown-key-invalid", /adjust\.basic に未知のキーがあります: gamma/u],
+  ["edit-v2-adjust-lut-empty-invalid", /adjust\.lut\.lut は空でない文字列/u],
+]) {
+  test(`${name} fails clip adjust validation`, () => {
+    const executed = run(name);
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, expected);
+  });
+}
+
 test("narration with bgm and full provenance passes", () => {
   const executed = run("edit-narration-valid");
   assert.equal(executed.status, 0, executed.stderr);

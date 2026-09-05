@@ -12,7 +12,8 @@ const {
   lutAtlasUploadPosition,
   lutAtlasSamplePosition,
   packLutAtlas,
-  rgbToFfmpegUv
+  rgbToFfmpegUv,
+  createRail
 } = context.globalThis.AkariVideoFx;
 
 const cube2 = `
@@ -91,4 +92,57 @@ test('FFmpeg chromakey RGB-to-UV reference pins green and red coordinates', () =
   assert.ok(Math.abs(green[1] - 0.08131) < 1e-8);
   assert.ok(Math.abs(red[0] - 0.33126) < 1e-8);
   assert.ok(Math.abs(red[1] - 1) < 1e-8);
+});
+
+test('video FX rail follows dynamic CSS adjust and transition filters', async () => {
+  const gl = new Proxy({
+    COMPILE_STATUS: 1,
+    LINK_STATUS: 2,
+    MAX_TEXTURE_SIZE: 4096,
+    createShader: () => ({}),
+    createProgram: () => ({}),
+    createBuffer: () => ({}),
+    createTexture: () => ({}),
+    getShaderParameter: () => true,
+    getProgramParameter: () => true,
+    getAttribLocation: () => 0,
+    getUniformLocation: () => ({}),
+    getExtension: () => ({}),
+    getParameter: () => 4096
+  }, {
+    get: (target, property) => property in target
+      ? target[property]
+      : (typeof property === 'string' && property === property.toUpperCase() ? 1 : () => undefined)
+  });
+  const parent = { insertBefore: canvas => { canvas.parentNode = parent; } };
+  const canvas = {
+    dataset: {},
+    style: {},
+    setAttribute: () => undefined,
+    getContext: name => name === 'webgl' ? gl : null,
+    remove() { this.parentNode = null; }
+  };
+  const media = {
+    ownerDocument: { createElement: () => canvas },
+    parentNode: parent,
+    style: { filter: '' },
+    videoWidth: 1920,
+    videoHeight: 1080
+  };
+  const rail = createRail({ media });
+  assert.equal(await rail.configure({ look: { cubeText: cube2, intensity: 0.5 } }), true);
+
+  media.style.filter = 'brightness(1.2)';
+  assert.equal(rail.render(1), true);
+  assert.equal(canvas.style.filter, 'brightness(1.2)');
+  assert.equal(media.style.filter, 'brightness(1.2) opacity(0)');
+
+  media.style.filter = 'brightness(1.2) blur(2px)';
+  assert.equal(rail.render(1.1), true);
+  assert.equal(canvas.style.filter, 'brightness(1.2) blur(2px)');
+
+  media.style.filter = 'brightness(1.2)';
+  rail.render(1.2);
+  rail.dispose();
+  assert.equal(media.style.filter, 'brightness(1.2)');
 });

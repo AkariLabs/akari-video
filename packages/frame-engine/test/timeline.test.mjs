@@ -15,7 +15,8 @@ import {
   hasCutLayerStyleVisual,
   KNOWN_CUT_KEYS,
   KNOWN_KEYFRAME_KEYS,
-  KNOWN_LAYER_KEYS
+  KNOWN_LAYER_KEYS,
+  parseCube
 } from '../dist/index.js';
 
 const transitionFixture = JSON.parse(readFileSync(
@@ -406,15 +407,19 @@ test('layer-style cuts resolve independently inside a transition and on still im
   assert.equal(plan.base[0].visual.transform.rotateDegrees, 0);
 });
 
-// page-runtime.js（gpu-export / osr-export）は編集禁止。normalizedCuts が cut のキーをそのまま写すので
-// crop / keyframes / perspective / opacity が buildResolvedTimelinePlan まで落ちずに届くことを確認する。
+// gpu-export / osr-export の normalizedCuts が宣言を写し、adjust LUT を parse したうえで
+// buildResolvedTimelinePlan まで落とさず届けることを確認する。
 async function loadNormalizedCuts(url) {
   const source = readFileSync(url, 'utf8');
-  const start = source.indexOf('  function normalizedCuts(edit) {');
+  const start = source.indexOf('  function resolvedItemAdjust(item, adjustLutCubeTexts) {');
+  const normalizedStart = source.indexOf('  function normalizedCuts(edit, adjustLutCubeTexts = {}) {', start);
   assert.ok(start >= 0, `${url}: normalizedCuts not found`);
-  const end = source.indexOf('\n  }\n', start);
+  assert.ok(normalizedStart >= start, `${url}: normalizedCuts not found`);
+  const end = source.indexOf('\n  }\n', normalizedStart);
   assert.ok(end > start, `${url}: normalizedCuts end not found`);
-  return vm.runInNewContext(`${source.slice(start, end + '\n  }\n'.length)}; normalizedCuts`, {});
+  return vm.runInNewContext(`${source.slice(start, end + '\n  }\n'.length)}; normalizedCuts`, {
+    FE: { parseCube: value => ({ parsed: value }) },
+  });
 }
 
 for (const [name, url] of [
@@ -452,6 +457,18 @@ for (const [name, url] of [
     assert.ok(Math.abs(second.visual.layerStyle.crop.x - 0.34) < 1e-12);
     assert.deepEqual([second.visual.layerStyle.crop.y, second.visual.layerStyle.crop.width, second.visual.layerStyle.crop.height], [0.165, 0.66, 0.66]);
     assert.deepEqual(warnings, ['cut v-886: perspective is not applied by the frame-engine base path yet (issue #39)']);
+  });
+
+  test(`${name} normalizedCuts parses item adjust cube text and preserves basic settings`, async () => {
+    const normalizedCuts = await loadNormalizedCuts(url);
+    const cuts = normalizedCuts({
+      sources: [{ id: 'main', path: 'assets/main.mp4' }],
+      cuts: [{ id: 'adjusted', src: 'main', in: 0, out: 1,
+        adjust: { basic: { exposure: 1 }, lut: { lut: 'mono', intensity: 0.5 } } }],
+    }, { adjusted: 'LUT_3D_SIZE 2' });
+    assert.deepEqual(cuts[0].adjust.basic, { exposure: 1 });
+    assert.equal(cuts[0].adjust.lut.intensity, 0.5);
+    assert.equal(cuts[0].adjust.lut.lut.parsed, 'LUT_3D_SIZE 2');
   });
 }
 
@@ -518,13 +535,57 @@ test('active non-filter layer without src warns before preserving the existing s
   assert.deepEqual(warnings, ['layer missing-src: src is missing; skipping']);
 });
 
+test('item adjustments are baked once into base and composite plans while disabled sections bypass', () => {
+  const lut = parseCube(`TITLE "identity"
+LUT_3D_SIZE 2
+0 0 0
+1 0 0
+0 1 0
+1 1 0
+0 0 1
+1 0 1
+0 1 1
+1 1 1`);
+  const source = videoSource();
+  const sources = new Map([['fixture.mp4', source], ['layer.mp4', source]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'adjusted-cut', src: 'fixture.mp4', in: 0, out: 2,
+      adjust: { basic: { exposure: 1, temperature: 0.5 }, lut: { lut, intensity: 0.5 } } },
+  ], {
+    layers: [
+      { id: 'adjusted-layer', t: 0, duration: 2, src: 'layer.mp4',
+        adjust: { basic: { saturation: 0.25 } } },
+    ],
+  });
+  const first = evaluationPlanFromResolvedTimeline(timeline, 250_000, sources, hd);
+  const second = evaluationPlanFromResolvedTimeline(timeline, 750_000, sources, hd);
+  assert.ok(first.base[0].visual.adjustLut);
+  assert.equal(first.base[0].visual.adjustLut, second.base[0].visual.adjustLut);
+  assert.equal(first.base[0].visual.adjustLut, timeline.cuts[0].adjustLut);
+  assert.ok(first.layers[0].adjustLut);
+  assert.equal(first.layers[0].adjustLut, second.layers[0].adjustLut);
+  assert.equal(first.layers[0].adjustLut, timeline.layerAdjustLuts[0]);
+
+  const disabled = buildResolvedTimelinePlan([
+    { id: 'off', src: 'fixture.mp4', in: 0, out: 1,
+      adjust: { basic: { exposure: 1 }, lut: { lut, intensity: 1 }, sections: { basic: false, lut: false } } },
+  ]);
+  const disabledPlan = evaluationPlanFromResolvedTimeline(disabled, 0, sources, hd);
+  const baselinePlan = evaluationPlanFromResolvedTimeline(
+    buildResolvedTimelinePlan([{ id: 'off', src: 'fixture.mp4', in: 0, out: 1 }]),
+    0, sources, hd,
+  );
+  assert.equal(disabledPlan.base[0].visual.adjustLut, undefined);
+  assert.deepEqual(disabledPlan, baselinePlan);
+});
+
 test('runtime known-key inventories exactly expose the declared frame-engine shapes', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'opacity', 'out', 'perspective',
+    'adjust', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'opacity',
+    'adjust', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'opacity',
     'perspective', 'src', 't', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [

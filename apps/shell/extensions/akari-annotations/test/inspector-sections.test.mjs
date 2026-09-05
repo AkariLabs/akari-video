@@ -136,6 +136,21 @@ test('節合成は時間→変形→外観→種別固有→情報の順に固�
   ]);
 });
 
+test('調整タブは実働 2 セクションを先に、近日 4 セクションを後に描く', () => {
+  const factory = sourceBetween('function ADJUST_SECTIONS(', '/**\n * タイムラインの選択内容');
+  assert.equal((factory.match(/id: 'adjust:(?:basic|lut)'/gu) ?? []).length, 2);
+  assert.match(factory, /id: 'adjust:basic'[\s\S]*id: 'adjust:lut'/u);
+  assert.equal((factory.match(/enable: \{/gu) ?? []).length, 2);
+
+  const branch = sourceBetween(
+    "if (activeTab === 'adjust') {",
+    "if (activeTab === 'audio' && sectionKind !== 'audio') {"
+  );
+  assert.match(branch, /ADJUST_SECTIONS\(rowSnapshot, requestWrite\)/u);
+  assert.match(branch, /ADJUST_PREVIEW_SECTIONS\.forEach/u);
+  assert.ok(branch.indexOf('ADJUST_SECTIONS') < branch.indexOf('ADJUST_PREVIEW_SECTIONS'));
+});
+
 test('cut の動画タブだけにフレーミングがクロップの直後へ出る', () => {
   assert.deepEqual(composeInspectorSections([
     { id: 'appearance' }, { id: 'framing' }, { id: 'crop' }, { id: 'transform' }

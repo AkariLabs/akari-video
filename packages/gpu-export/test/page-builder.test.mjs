@@ -53,6 +53,41 @@ function regionFilterEdit(lutId) {
   };
 }
 
+function itemAdjustEdit(lutId = 'mono') {
+  return {
+    version: 2, output: { width: 64, height: 36, fps: 30 },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
+    tracks: [{ id: 'v-main', lane: 'visual', items: [{
+      id: 'adjusted-cut', at: 0, duration: 30,
+      source: { kind: 'media', src: 'main', in: 0, out: 1 },
+      adjust: { basic: { exposure: 1 }, lut: { lut: lutId, intensity: 0.5 } },
+    }] }],
+  };
+}
+
+test('GPU page resolves item adjust LUT text by item id and declares source-quad application', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-item-adjust-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(itemAdjustEdit()));
+    const built = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+    assert.equal(built.edit.cuts[0].adjust.basic.exposure, 1);
+    assert.equal(built.manifest.adjustApplication, 'engine-item-source');
+    assert.match(built.html, /adjustLutCubeTexts/u);
+    assert.match(built.html, /"adjusted-cut":"[^"]*LUT_3D_SIZE/u);
+  } finally { await rm(projectRoot, { recursive: true, force: true }); }
+});
+
+test('GPU page fails closed with the item id and missing adjust LUT id', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-item-adjust-missing-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(itemAdjustEdit('missing-adjust-lut')));
+    await assert.rejects(
+      () => loadAndBuildGpuPage({ projectRoot, duration: 1 }),
+      /item adjust LUT missing-adjust-lut for adjusted-cut/u,
+    );
+  } finally { await rm(projectRoot, { recursive: true, force: true }); }
+});
+
 test('GPU page builder resolves region-filter LUT cube text into page config', async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-filter-lut-'));
   try {

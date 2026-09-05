@@ -30,24 +30,6 @@ function createValueRow(label: string, value = '0'): HTMLDivElement {
     return row;
 }
 
-function buildBasicCorrection(): HTMLElement {
-    const root = createPreviewRoot('basic');
-    const rows: ReadonlyArray<readonly [string, string?]> = [
-        ['露出', '0.00 EV'],
-        ['コントラスト'],
-        ['ハイライト'],
-        ['シャドウ'],
-        ['黒レベル'],
-        ['白レベル'],
-        ['色温度'],
-        ['ティント'],
-        ['自然な彩度'],
-        ['彩度']
-    ];
-    rows.forEach(([label, value]) => root.appendChild(createValueRow(label, value)));
-    return root;
-}
-
 function buildRgbCurve(): HTMLElement {
     const root = createPreviewRoot('rgb-curve');
     const channels = document.createElement('div');
@@ -112,18 +94,6 @@ function buildHueCurve(): HTMLElement {
     return root;
 }
 
-function buildLut(): HTMLElement {
-    const root = createPreviewRoot('lut');
-    const pickerRow = document.createElement('div');
-    pickerRow.className = 'akari-adjust-preview-row akari-adjust-preview-lut-row';
-    const picker = document.createElement('span');
-    picker.className = 'akari-adjust-preview-ghost-button';
-    picker.textContent = 'LUT (.cube) を選択';
-    pickerRow.appendChild(picker);
-    root.append(pickerRow, createValueRow('強度'));
-    return root;
-}
-
 function buildEffects(): HTMLElement {
     const root = createPreviewRoot('effects');
     for (const label of ['シャープ', 'ぼかし', 'ビネット', 'フィルムグレイン', 'グロー', 'クロマキー']) {
@@ -133,10 +103,8 @@ function buildEffects(): HTMLElement {
 }
 
 export const ADJUST_PREVIEW_SECTIONS: readonly AdjustPreviewSection[] = [
-    { id: 'basic', label: COMING_SOON_ADJUST_SECTIONS[0], build: buildBasicCorrection },
-    { id: 'rgb-curve', label: COMING_SOON_ADJUST_SECTIONS[1], build: buildRgbCurve },
-    { id: 'color-wheels', label: COMING_SOON_ADJUST_SECTIONS[2], build: buildColorWheels },
-    { id: 'hue-curve', label: COMING_SOON_ADJUST_SECTIONS[3], build: buildHueCurve },
-    { id: 'lut', label: COMING_SOON_ADJUST_SECTIONS[4], build: buildLut },
-    { id: 'effects', label: COMING_SOON_ADJUST_SECTIONS[5], build: buildEffects }
+    { id: 'rgb-curve', label: COMING_SOON_ADJUST_SECTIONS[0], build: buildRgbCurve },
+    { id: 'color-wheels', label: COMING_SOON_ADJUST_SECTIONS[1], build: buildColorWheels },
+    { id: 'hue-curve', label: COMING_SOON_ADJUST_SECTIONS[2], build: buildHueCurve },
+    { id: 'effects', label: COMING_SOON_ADJUST_SECTIONS[3], build: buildEffects }
 ];

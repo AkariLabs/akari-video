@@ -3,6 +3,8 @@ import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess
 import { inspectGopTailGolden } from './gop-tail.js';
 import {
   BufferedRawFrameSink,
+  applyAdjustBasic,
+  bakeAdjustLut,
   buildResolvedTimelinePlan,
   CachedStillImageSource,
   ClipSessionPool,
@@ -17,6 +19,7 @@ import {
   presentFrame,
   readVideoCodecFromMoov,
   readbackFrame,
+  sampleLutTrilinear,
 } from '../../src/index.js';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import type {
@@ -1156,6 +1159,98 @@ async function inspectLookParity(
   };
 }
 
+function directAdjustRgba(
+  source: Uint8Array,
+  basic: Parameters<typeof applyAdjustBasic>[3],
+  userLut: ReturnType<typeof parseCube> | undefined,
+  intensity: number,
+): Uint8Array {
+  const output = new Uint8Array(source.length);
+  for (let offset = 0; offset < source.length; offset += 4) {
+    const adjusted = applyAdjustBasic(
+      source[offset]! / 255,
+      source[offset + 1]! / 255,
+      source[offset + 2]! / 255,
+      basic,
+    );
+    const lutted = userLut ? sampleLutTrilinear(userLut, adjusted) : adjusted;
+    for (let channel = 0; channel < 3; channel += 1) {
+      const value = adjusted[channel]! + (lutted[channel]! - adjusted[channel]!) * intensity;
+      output[offset + channel] = Math.round(Math.max(0, Math.min(1, value)) * 255);
+    }
+    output[offset + 3] = source[offset + 3]!;
+  }
+  return output;
+}
+
+function meanAbsoluteDelta(left: Uint8Array, right: Uint8Array): number {
+  let total = 0;
+  for (let offset = 0; offset < left.length; offset += 1) {
+    total += Math.abs(left[offset]! - right[offset]!);
+  }
+  return total / left.length;
+}
+
+async function inspectAdjustParity(
+  output: EvaluationPlan['output'],
+  source: NativeFrameSource,
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  const timeUs = 750_000;
+  const basePlan: EvaluationPlan = {
+    timeUs,
+    base: [{ id: 'adjust-baseline', source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+    layers: [], transition: { type: 'hard-cut', progress: 0 }, output,
+  };
+  const baseline = await parityFrame(basePlan, context, previewCanvas);
+  const natural = parseCube(await window.goldenHarness.loadLut('natural'));
+  const cases = [
+    { id: 'exposure-plus-one', basic: { exposure: 1 }, userLut: undefined, intensity: 0 },
+    { id: 'temperature-plus-half', basic: { temperature: 0.5 }, userLut: undefined, intensity: 0 },
+    { id: 'natural-lut-half', basic: undefined, userLut: natural, intensity: 0.5 },
+  ] as const;
+  // The threshold covers 8-bit readback plus RGBA16F LUT storage/interpolation. Keep
+  // both the measured mean and worst-channel delta in results.json for regressions.
+  const tolerance = { meanAbs: 1, maxDelta: 4 } as const;
+  const rows: Array<Record<string, unknown>> = [];
+  for (const sample of cases) {
+    const adjustLut = bakeAdjustLut(sample.basic, sample.userLut, sample.intensity);
+    const rendered = await parityFrame({
+      ...basePlan,
+      base: [{
+        id: `adjust-${sample.id}`,
+        source,
+        sourceTimeUs: timeUs,
+        visual: { ...fullFrameVisual, adjustLut },
+      }],
+    }, context, previewCanvas);
+    const expected = directAdjustRgba(
+      baseline.exported,
+      sample.basic,
+      sample.userLut,
+      sample.intensity,
+    );
+    const comparison = compareRgba(expected, rendered.exported);
+    const meanAbs = meanAbsoluteDelta(expected, rendered.exported);
+    await window.goldenHarness.writeArtifact(
+      `adjust/${sample.id}.png`,
+      await rgbaToPng(rendered.exported),
+    );
+    rows.push({
+      id: sample.id,
+      timeUs,
+      meanAbs,
+      maxDelta: comparison.maxDelta,
+      differingPixels: comparison.differingPixels,
+      tolerance,
+      previewExportParity: rendered.pass,
+      pass: rendered.pass && meanAbs <= tolerance.meanAbs && comparison.maxDelta <= tolerance.maxDelta,
+    });
+  }
+  return { rows, tolerance, pass: rows.length === 3 && rows.every(row => row.pass === true) };
+}
+
 async function run(): Promise<void> {
   const metrics = new FrameMetrics();
   const warnings: string[] = [];
@@ -1729,6 +1824,13 @@ async function run(): Promise<void> {
   const lookStats = {
     glErrors: compositor.stats.glErrors - lookGlErrorsBefore,
   };
+  const adjustGlErrorsBefore = compositor.stats.glErrors;
+  const adjustParity = await inspectAdjustParity(
+    output, session, context, previewCanvas,
+  );
+  const adjustStats = {
+    glErrors: compositor.stats.glErrors - adjustGlErrorsBefore,
+  };
   const filterLayers = await Promise.all((filterEdit.layers as any[]).map(async layer => {
     if (layer.filter?.type !== 'lut') return layer;
     return {
@@ -1966,6 +2068,8 @@ async function run(): Promise<void> {
     transitionStats.glErrors === 0 &&
     lookParity.pass &&
     lookStats.glErrors === 0 &&
+    adjustParity.pass &&
+    adjustStats.glErrors === 0 &&
     filterParity.length === 3 && filterParity.every(row => row.pass === true) &&
     gopTail.pass &&
     bFrame.pass &&
@@ -2029,6 +2133,9 @@ async function run(): Promise<void> {
     lookParity: lookParity.rows,
     lookIntensity: lookParity.intensityRows,
     lookStats,
+    adjustParity: adjustParity.rows,
+    adjustTolerance: adjustParity.tolerance,
+    adjustStats,
     filterParity,
     gopTail,
     bFrame,
