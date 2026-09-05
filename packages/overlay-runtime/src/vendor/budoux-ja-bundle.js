@@ -8,7 +8,7 @@
  * 生成物: budoux 0.9.0 の module/parser.js + module/data/models/ja.js を
  * ESM から IIFE へ変換して結合したもの（改変は export の除去のみ）。
  * 用途と採用根拠: akari-video-internal
- *   planning/contract-2026-08-15-telop-motion-grammar-v0.md §5
+ *   テロップ運動文法契約 v0（2026-08-15）§5
  *   （holdout 20 文で完全一致 85% / 境界 F1 0.952。規則ベースは 65% / 0.870）
  */
 (() => {

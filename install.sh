@@ -375,6 +375,11 @@ fi
 
 echo ""
 info "Installing npm dependencies..."
+# 新規・更新とも、展開先だけを CLI 用に絞る（ブラウザプレビューを含む）。
+# AKARI_INSTALL_SHELL=1 の場合だけ、配布元の workspaces をそのまま使う。
+if [[ "${AKARI_INSTALL_SHELL:-}" != "1" ]]; then
+    (cd "${INSTALL_DIR}" && node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');")
+fi
 NPM_INSTALL_LOG="$(mktemp "${TMPDIR:-/tmp}/akari-npm-install.XXXXXX")"
 # pipefail 下で npm install の非ゼロ終了を握りつぶさず拾うため、パイプ全体は
 # 一時的に -e を外して実行し、PIPESTATUS[0]（npm 自身の終了コード。tee/grep の

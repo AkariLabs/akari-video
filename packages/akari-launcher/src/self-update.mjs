@@ -8,7 +8,7 @@ import { resolveAkariHome } from './update-check.mjs';
 
 /**
  * `akari update` の実適用（update-and-versioning 契約（内部リポ）§11）:
- * フィードの `components.app`（install.sh が入れるフル構成ソース tarball）を
+ * フィードの `components.app`（install.sh と共通のソース tarball、既定は CLI + プレビュー）を
  * DL → sha256 検証 → `~/.akari/staging/<version>/` へ展開 →（検証完了までスワップ開始しない）
  * → `~/.akari/app` と rename ベースで入れ替え → 旧版は `~/.akari/app-previous/` に 1 世代保持。
  *
@@ -106,8 +106,22 @@ function extractTarGz({ tarPath, destDir }) {
   }
 }
 
-/** install.sh `update_install()` と同じ意味論: 適用後に npm install で node_modules を整合させる。 */
+/** 展開先だけを CLI 用に絞る。明示的なシェル opt-in 時は配布元の設定を保持する。 */
+export function applyCliOnlyWorkspaces({ cwd }) {
+  if (process.env.AKARI_INSTALL_SHELL === '1') return;
+  const packagePath = join(cwd, 'package.json');
+  const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
+  pkg.workspaces = ['packages/*'];
+  writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + '\n');
+}
+
+/** install.sh と同じ意味論: スワップ後に CLI 用 workspaces を適用して npm install する。 */
 function defaultRunNpmInstall({ cwd }) {
+  try {
+    applyCliOnlyWorkspaces({ cwd });
+  } catch (error) {
+    return { ok: false, message: error.message };
+  }
   const result = spawnSync('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], { cwd, stdio: 'pipe' });
   if (result.error) {
     return { ok: false, message: result.error.message };
