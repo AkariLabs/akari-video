@@ -46,6 +46,7 @@ import {
 import { editForPut } from '/transition-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
+import { computeAdjustCssVisual } from '/adjust-css-visual.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -504,6 +505,7 @@ function buildSegments() {
         freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined,
         transform: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].transform : undefined,
         opacity: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].opacity : undefined,
+        adjust: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].adjust : undefined,
       });
   totalDuration = built.totalDuration;
   seek.max = totalDuration;
@@ -624,6 +626,7 @@ function setupLayers() {
       const type = layer.filter?.type;
       if (type === 'invert') el.style.backdropFilter = 'invert(1)';
       if (type === 'saturation') el.style.backdropFilter = `saturate(${Number(layer.filter.value) || 0})`;
+      setAdjustBaseFilter(el, layer.adjust);
       el.style.display = 'none';
       layerContainer.appendChild(el);
       layerVideos.push({ el, layer, index, visible: false, loaded: true, isFilter: true });
@@ -687,6 +690,13 @@ function setupLayers() {
     el.style.display = 'none';
     el.style.opacity = String(layer.opacity ?? 1);
     if (layer.blend) el.style.mixBlendMode = layer.blend;
+    if (!frameEngineEnabled) {
+      const adjustVisual = computeAdjustCssVisual(layer.adjust);
+      if (adjustVisual) {
+        el.dataset.akariAdjustFilter = adjustVisual.filter;
+        el.style.filter = adjustVisual.filter;
+      }
+    }
     el.dataset.layerX = layer.transform?.x || 0;
     el.dataset.layerY = layer.transform?.y || 0;
     el.dataset.layerScale = layer.transform?.scale || 1;
@@ -765,12 +775,26 @@ function configureVideoFxRail(rail, key, effects) {
   void rail.configure(effects);
 }
 
-function sourceEffectsForCut(cutIndex) {
+function clipLookForCut(cutIndex) {
+  const cut = summary?.cuts?.[cutIndex];
+  const adjust = cut?.adjust;
+  if (!adjust || adjust.sections?.lut === false || !adjust.lut
+    || typeof adjust.lut.lut !== 'string') return null;
+  const cubeText = summary?.adjustLutCubeTexts?.[String(cut.id)];
+  if (typeof cubeText !== 'string') return null;
+  const intensity = Number.isFinite(adjust.lut.intensity)
+    ? Math.max(0, Math.min(1, adjust.lut.intensity)) : 1;
+  return { cubeText, intensity };
+}
+
+function sourceEffectsForCut(cutIndex, allowClipLut = true) {
   const config = summary?.videoFx;
   const sourceId = summary?.cuts?.[cutIndex]?.src;
   const chromaKey = sourceId && config?.sources?.[sourceId];
+  const clipLook = allowClipLut ? clipLookForCut(cutIndex) : null;
+  const look = clipLook || config?.look;
   return {
-    ...(config?.look ? { look: config.look } : {}),
+    ...(look ? { look } : {}),
     ...(chromaKey ? { chromaKey } : {}),
   };
 }
@@ -803,9 +827,10 @@ function setupVideoFx() {
   videoFxFailedIndicators.clear();
   const config = summary?.videoFx;
   const sourceEffects = Object.values(config?.sources ?? {});
-  const hasBaseVideoFx = Boolean(config?.look || sourceEffects.length > 0);
+  const firstClipLook = (summary?.cuts ?? []).map((_cut, index) => clipLookForCut(index)).find(Boolean) ?? null;
+  const hasBaseVideoFx = Boolean(firstClipLook || config?.look || sourceEffects.length > 0);
   const representativeEffects = hasBaseVideoFx ? {
-    ...(config?.look ? { look: config.look } : {}),
+    ...(firstClipLook || config?.look ? { look: firstClipLook || config.look } : {}),
     ...(sourceEffects[0] ? { chromaKey: sourceEffects[0] } : {}),
   } : null;
 
@@ -840,7 +865,8 @@ function renderVideoFx(timelineTime) {
   const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(segment.index) : {};
   const baseKey = `base:${segment?.index ?? 'gap'}`;
   configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
-  configureVideoFxRail(stillVideoFxRail, baseKey, baseEffects);
+  configureVideoFxRail(stillVideoFxRail, `${baseKey}:still`,
+    segment?.index >= 0 ? sourceEffectsForCut(segment.index, false) : {});
   baseVideoFxRail?.render(timelineTime);
   stillVideoFxRail?.render(timelineTime);
 
@@ -2448,6 +2474,20 @@ function playedCutLocalSeconds(seg) {
   const speed = seg.speed > 0 ? seg.speed : 1;
   return ((video.currentTime || 0) - seg.inSec) / speed;
 }
+function clearAdjustBaseFilter(element) {
+  if (frameEngineEnabled || !element) return;
+  if (Object.prototype.hasOwnProperty.call(element.dataset, 'akariAdjustFilter')) {
+    delete element.dataset.akariAdjustFilter;
+    element.style.filter = '';
+  }
+}
+function setAdjustBaseFilter(element, adjust) {
+  if (frameEngineEnabled || !element) return;
+  const visual = computeAdjustCssVisual(adjust);
+  if (!visual) return;
+  element.dataset.akariAdjustFilter = visual.filter;
+  element.style.filter = visual.filter;
+}
 function applyCutFramingVisual() {
   const seg = getActiveSegment(outputTime);
   const cut = seg && !seg.isGap ? seg : null;
@@ -2466,6 +2506,8 @@ function applyCutFramingVisual() {
     el.style.transformOrigin = composed.transformOrigin;
     el.style.transform = composed.transform;
     el.style.opacity = composed.opacity;
+    clearAdjustBaseFilter(el);
+    setAdjustBaseFilter(el, cut?.adjust);
   }
 }
 
@@ -2735,6 +2777,8 @@ function updateTransitions() {
   );
   const outgoingSegment = getActiveSegment(outputTime);
   const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
+  const outgoingCut = outgoingSegment && !outgoingSegment.isGap
+    ? summary?.cuts?.[outgoingSegment.index] ?? null : null;
   const os = outputSizePx();
   const outgoingFramingVisual = computeCutFramingVisual(
     outgoingSegment?.framing,
@@ -2757,6 +2801,24 @@ function updateTransitions() {
     outputWidth: os.width,
     outputHeight: os.height,
   });
+  clearAdjustBaseFilter(outgoingElement);
+  clearAdjustBaseFilter(transitionVideo);
+  setAdjustBaseFilter(outgoingElement, outgoingCut?.adjust);
+  setAdjustBaseFilter(transitionVideo, incomingCut?.adjust);
+  const outgoingTransitionFilter = visual.engine === 'directional-blur'
+    ? 'url(#akari-transition-hblur)'
+    : (visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter);
+  const incomingTransitionFilter = visual.engine === 'directional-blur'
+    ? 'url(#akari-transition-hblur)'
+    : visual.engine === 'noise-dissolve'
+      ? 'url(#akari-transition-dissolve)'
+      : (visual.incomingFilter === 'none' ? '' : visual.incomingFilter);
+  const outgoingFilter = !frameEngineEnabled
+    ? computeAdjustCssVisual(outgoingCut?.adjust, outgoingTransitionFilter)?.filter ?? ''
+    : undefined;
+  const incomingFilter = !frameEngineEnabled
+    ? computeAdjustCssVisual(incomingCut?.adjust, incomingTransitionFilter)?.filter ?? ''
+    : undefined;
   transitionApplicator.apply({
     visual,
     type: window.type,
@@ -2770,6 +2832,8 @@ function updateTransitions() {
       ? Number.parseFloat(incomingComposed.opacity) : 1,
     outgoingZ: 0,
     incomingZ: 1,
+    outgoingFilter,
+    incomingFilter,
     width: os.width,
     height: os.height,
   });
@@ -2924,7 +2988,7 @@ async function applySoftReload() {
   for (const lv of layerVideos) lv.el.remove();
   layerVideos = [];
   setupLayers();
-  setupVideoFx();
+  if (!frameEngineEnabled) setupVideoFx();
 
   // MediaElementSource は 1 要素 1 回のため AudioContext / 下地経路は保持し、編集内容に
   // 依存する BGM・ナレーション・効果音のノードだけを組み直す。
@@ -3303,7 +3367,23 @@ indicatorBtn.addEventListener('click', () => {
 function renderIndicators() {
   const declared = Array.isArray(summary?.indicators) ? summary.indicators : [];
   const approximation = frameEngineEnabled ? ['プレビューは近似・最終音声は書き出しで確認'] : [];
-  const ind = [...new Set([...declared, ...videoFxFailedIndicators, ...approximation])];
+  const adjustApproximation = !frameEngineEnabled && [
+    ...(summary?.cuts ?? []),
+    ...(summary?.layers ?? []),
+    ...(summary?.filters ?? []),
+  ].some(item => computeAdjustCssVisual(item?.adjust)?.hasApproximation === true)
+    ? ['色調整は近似表示'] : [];
+  const clipLutReplacement = !frameEngineEnabled && summary?.videoFx?.look
+    && (summary?.cuts ?? []).some(cut =>
+      typeof summary?.adjustLutCubeTexts?.[String(cut?.id)] === 'string')
+    ? ['clip LUT はグローバル LUT を置換'] : [];
+  const ind = [...new Set([
+    ...declared,
+    ...videoFxFailedIndicators,
+    ...approximation,
+    ...adjustApproximation,
+    ...clipLutReplacement,
+  ])];
   if (!Array.isArray(ind) || !ind.length) {
     indicatorPopup.innerHTML = '<div class="indicator-item"><span class="val">指標なし</span></div>';
     return;

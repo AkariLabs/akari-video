@@ -323,8 +323,20 @@ void main(){
     let disposed = false;
     let collapsed = false;
     let status = 'initializing';
-    const originalFilter = media.style.filter || '';
+    let presentationFilter = media.style.filter || '';
+    let appliedMediaFilter = null;
     const originalBackground = [0, 0, 0];
+
+    const capturePresentationFilter = () => {
+      const current = media.style.filter || '';
+      if (current !== appliedMediaFilter) presentationFilter = current;
+      return presentationFilter;
+    };
+    const restorePresentationFilter = () => {
+      capturePresentationFilter();
+      media.style.filter = presentationFilter;
+      appliedMediaFilter = null;
+    };
 
     const reportState = (next, error) => {
       status = next;
@@ -334,7 +346,7 @@ void main(){
     const collapse = error => {
       if (collapsed || disposed) return;
       collapsed = true;
-      media.style.filter = originalFilter;
+      restorePresentationFilter();
       canvas.remove();
       reportState('failed', error instanceof Error ? error : new Error(String(error)));
     };
@@ -366,7 +378,7 @@ void main(){
       media.parentNode.insertBefore(canvas, media.nextSibling);
     } catch (error) {
       if (canvas.parentNode) canvas.remove();
-      media.style.filter = originalFilter;
+      restorePresentationFilter();
       throw error;
     }
 
@@ -475,8 +487,10 @@ void main(){
       canvas.style.position = media.style.position || 'absolute';
       canvas.style.maxWidth = media.style.maxWidth || 'none';
       canvas.style.maxHeight = media.style.maxHeight || 'none';
-      canvas.style.filter = originalFilter;
-      media.style.filter = `${originalFilter}${originalFilter ? ' ' : ''}opacity(0)`;
+      const filter = capturePresentationFilter();
+      canvas.style.filter = filter;
+      media.style.filter = `${filter}${filter ? ' ' : ''}opacity(0)`;
+      appliedMediaFilter = media.style.filter || 'opacity(0)';
     };
 
     const render = timeSeconds => {
@@ -553,7 +567,7 @@ void main(){
       if (disposed) return;
       disposed = true;
       configureGeneration += 1;
-      media.style.filter = originalFilter;
+      restorePresentationFilter();
       canvas.remove();
       for (const texture of [mediaTexture, lutTexture, backgroundTexture]) if (texture) gl.deleteTexture(texture);
       if (handle) gl.deleteProgram(handle);

@@ -193,6 +193,21 @@ test('方向性ブラーとノイズディゾルブは条件起動し、切替�
   assert.equal(f.incoming.style.display, 'none');
 });
 
+test('adjust 基底と合成済み transition filter を保ち、reset は基底へ戻す', () => {
+  const f = fixture();
+  f.outgoing.dataset.akariAdjustFilter = 'brightness(2.00)';
+  f.incoming.dataset.akariAdjustFilter = 'contrast(1.25)';
+  f.apply('blur', 0.5, {
+    outgoingFilter: 'brightness(2.00) url(#akari-transition-hblur)',
+    incomingFilter: 'contrast(1.25) url(#akari-transition-hblur)',
+  });
+  assert.equal(f.outgoing.style.filter, 'brightness(2.00) url(#akari-transition-hblur)');
+  assert.equal(f.incoming.style.filter, 'contrast(1.25) url(#akari-transition-hblur)');
+  f.applicator.reset();
+  assert.equal(f.outgoing.style.filter, 'brightness(2.00)');
+  assert.equal(f.incoming.style.filter, 'contrast(1.25)');
+});
+
 test('pixelize は宣言 block 辺で nearest-neighbor canvas を全描画し、同一適用で増殖しない', () => {
   const f = fixture();
   f.apply('pixelize', 0.5);
