@@ -24,9 +24,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../../main-ops/packages/edit-store/lib/transition-vocabulary.js
+// ../edit-store/lib/transition-vocabulary.js
 var require_transition_vocabulary = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/transition-vocabulary.js"(exports) {
+  "../edit-store/lib/transition-vocabulary.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
@@ -71,9 +71,9 @@ var require_transition_vocabulary = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/edit-store.js
+// ../edit-store/lib/edit-store.js
 var require_edit_store = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/edit-store.js"(exports) {
+  "../edit-store/lib/edit-store.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.findMatchingBracket = findMatchingBracket;
@@ -1277,9 +1277,9 @@ ${indent}`);
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-words-rederive.js
+// ../edit-store/lib/caption-words-rederive.js
 var require_caption_words_rederive = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-words-rederive.js"(exports) {
+  "../edit-store/lib/caption-words-rederive.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.KARAOKE_MIN_WORD_MATCH_RATIO = void 0;
@@ -1472,9 +1472,9 @@ var require_caption_words_rederive = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-style-preset.js
+// ../edit-store/lib/caption-style-preset.js
 var require_caption_style_preset = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-style-preset.js"(exports) {
+  "../edit-store/lib/caption-style-preset.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.mergePresetTextStyle = mergePresetTextStyle;
@@ -1555,9 +1555,9 @@ var require_caption_style_preset = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/generated/textstyle-catalog.js
+// ../edit-store/lib/generated/textstyle-catalog.js
 var require_textstyle_catalog = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
+  "../edit-store/lib/generated/textstyle-catalog.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TEXTSTYLE_CATALOG = void 0;
@@ -1810,9 +1810,9 @@ var require_textstyle_catalog = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-store.js
+// ../edit-store/lib/caption-store.js
 var require_caption_store = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-store.js"(exports) {
+  "../edit-store/lib/caption-store.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CAPTION_ZONES = void 0;
@@ -2979,9 +2979,9 @@ var require_caption_store = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-window.js
+// ../edit-store/lib/caption-window.js
 var require_caption_window = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-window.js"(exports) {
+  "../edit-store/lib/caption-window.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.captionWindowSeconds = captionWindowSeconds;
@@ -3001,9 +3001,9 @@ var require_caption_window = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-clock.js
+// ../edit-store/lib/caption-clock.js
 var require_caption_clock = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-clock.js"(exports) {
+  "../edit-store/lib/caption-clock.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.normalizeCaptionClock = normalizeCaptionClock;
@@ -3060,9 +3060,9 @@ var require_caption_clock = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/cut-adjacency.js
+// ../edit-store/lib/cut-adjacency.js
 var require_cut_adjacency = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/cut-adjacency.js"(exports) {
+  "../edit-store/lib/cut-adjacency.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
@@ -3103,9 +3103,9 @@ var require_cut_adjacency = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/timeline-map.js
+// ../edit-store/lib/timeline-map.js
 var require_timeline_map = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/timeline-map.js"(exports) {
+  "../edit-store/lib/timeline-map.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
@@ -3340,9 +3340,9 @@ var require_timeline_map = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/caption-display.js
+// ../edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/caption-display.js"(exports) {
+  "../edit-store/lib/caption-display.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
@@ -4275,9 +4275,9 @@ var require_caption_display = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/edit-v2.js
+// ../edit-store/lib/edit-v2.js
 var require_edit_v2 = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/edit-v2.js"(exports) {
+  "../edit-store/lib/edit-v2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.readEditV2 = readEditV2;
@@ -4976,9 +4976,9 @@ var require_edit_v2 = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/edit-v2-item-write.js
+// ../edit-store/lib/edit-v2-item-write.js
 var require_edit_v2_item_write = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/edit-v2-item-write.js"(exports) {
+  "../edit-store/lib/edit-v2-item-write.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
@@ -5155,9 +5155,9 @@ var require_edit_v2_item_write = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/item-anchor.js
+// ../edit-store/lib/item-anchor.js
 var require_item_anchor = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/item-anchor.js"(exports) {
+  "../edit-store/lib/item-anchor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toAnchorCaptions = toAnchorCaptions;
@@ -5314,9 +5314,9 @@ var require_item_anchor = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/migrate/error.js
+// ../edit-store/lib/migrate/error.js
 var require_error = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/migrate/error.js"(exports) {
+  "../edit-store/lib/migrate/error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LegacyEditVersionError = void 0;
@@ -5331,9 +5331,9 @@ var require_error = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/shape-markup.js
+// ../edit-store/lib/shape-markup.js
 var require_shape_markup = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/shape-markup.js"(exports) {
+  "../edit-store/lib/shape-markup.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shapeMarkup = shapeMarkup;
@@ -5402,9 +5402,9 @@ var require_shape_markup = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/internal-model.js
+// ../edit-store/lib/internal-model.js
 var require_internal_model = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/internal-model.js"(exports) {
+  "../edit-store/lib/internal-model.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.readInternalEdit = readInternalEdit;
@@ -6461,9 +6461,9 @@ var require_internal_model = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/legacy-audio-view.js
+// ../edit-store/lib/legacy-audio-view.js
 var require_legacy_audio_view = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/legacy-audio-view.js"(exports) {
+  "../edit-store/lib/legacy-audio-view.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.projectLegacyAudioView = projectLegacyAudioView;
@@ -6524,9 +6524,9 @@ var require_legacy_audio_view = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/retime.js
+// ../edit-store/lib/retime.js
 var require_retime = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/retime.js"(exports) {
+  "../edit-store/lib/retime.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.retime = retime;
@@ -6609,9 +6609,9 @@ var require_retime = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/track-order.js
+// ../edit-store/lib/track-order.js
 var require_track_order = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/track-order.js"(exports) {
+  "../edit-store/lib/track-order.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.deriveVisualTrackOrder = deriveVisualTrackOrder;
@@ -6662,9 +6662,9 @@ var require_track_order = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/track-z.js
+// ../edit-store/lib/track-z.js
 var require_track_z = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/track-z.js"(exports) {
+  "../edit-store/lib/track-z.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.collectTrackZByItemId = collectTrackZByItemId;
@@ -6711,9 +6711,9 @@ var require_track_z = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/track-transition-compatibility.js
+// ../edit-store/lib/track-transition-compatibility.js
 var require_track_transition_compatibility = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/track-transition-compatibility.js"(exports) {
+  "../edit-store/lib/track-transition-compatibility.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.usesDefaultCompatibilityTrackOrder = usesDefaultCompatibilityTrackOrder;
@@ -6782,9 +6782,9 @@ var require_track_transition_compatibility = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/transition-visual.js
+// ../edit-store/lib/transition-visual.js
 var require_transition_visual = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/transition-visual.js"(exports) {
+  "../edit-store/lib/transition-visual.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeTransitionVisual = computeTransitionVisual;
@@ -6928,9 +6928,9 @@ var require_transition_visual = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/envelope.js
+// ../edit-store/lib/envelope.js
 var require_envelope = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/envelope.js"(exports) {
+  "../edit-store/lib/envelope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
@@ -7217,9 +7217,9 @@ var require_envelope = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/ducking.js
+// ../edit-store/lib/ducking.js
 var require_ducking = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/ducking.js"(exports) {
+  "../edit-store/lib/ducking.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.STATIC_DUCK_GAIN_DB = void 0;
@@ -7236,9 +7236,9 @@ var require_ducking = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/audio-schedule.js
+// ../edit-store/lib/audio-schedule.js
 var require_audio_schedule = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/audio-schedule.js"(exports) {
+  "../edit-store/lib/audio-schedule.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.buildWebAudioSchedule = buildWebAudioSchedule2;
@@ -7801,9 +7801,9 @@ var require_audio_schedule = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/generated/edit-v2-keys.js
+// ../edit-store/lib/generated/edit-v2-keys.js
 var require_edit_v2_keys = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
+  "../edit-store/lib/generated/edit-v2-keys.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
@@ -8056,9 +8056,9 @@ var require_edit_v2_keys = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/canonical.js
+// ../edit-store/lib/canonical.js
 var require_canonical = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/canonical.js"(exports) {
+  "../edit-store/lib/canonical.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeEdit = serializeEdit;
@@ -8289,9 +8289,9 @@ var require_canonical = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/tree-ops.js
+// ../edit-store/lib/tree-ops.js
 var require_tree_ops = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/tree-ops.js"(exports) {
+  "../edit-store/lib/tree-ops.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
@@ -9025,9 +9025,9 @@ var require_tree_ops = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/cut-ranges.js
+// ../edit-store/lib/cut-ranges.js
 var require_cut_ranges = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/cut-ranges.js"(exports) {
+  "../edit-store/lib/cut-ranges.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.detectEditVersion = detectEditVersion;
@@ -9224,9 +9224,9 @@ var require_cut_ranges = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/migrate/legacy-parse.js
+// ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
+  "../edit-store/lib/migrate/legacy-parse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseEdit = parseEdit;
@@ -9699,9 +9699,9 @@ var require_legacy_parse = __commonJS({
   }
 });
 
-// ../../../main-ops/packages/edit-store/lib/index.js
+// ../edit-store/lib/index.js
 var require_lib = __commonJS({
-  "../../../main-ops/packages/edit-store/lib/index.js"(exports) {
+  "../edit-store/lib/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o2, m2, k2, k22) {
       if (k22 === void 0) k22 = k2;
@@ -9760,9 +9760,9 @@ var require_lib = __commonJS({
   }
 });
 
-// ../../../main-ops/node_modules/@webav/mp4box.js/dist/mp4box.all.js
+// ../../node_modules/@webav/mp4box.js/dist/mp4box.all.js
 var require_mp4box_all = __commonJS({
-  "../../../main-ops/node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
+  "../../node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
     var Log = /* @__PURE__ */ function() {
       var start = /* @__PURE__ */ new Date();
       var LOG_LEVEL_ERROR = 4;
@@ -19146,7 +19146,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
 // ../frame-engine/vendor/av-cliper/av-cliper.js
 var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
-// ../../../main-ops/node_modules/@webav/internal-utils/dist/internal-utils.js
+// ../../node_modules/@webav/internal-utils/dist/internal-utils.js
 var import_mp4box = __toESM(require_mp4box_all(), 1);
 var L = () => {
   let e, t = 16.6;
@@ -19253,7 +19253,7 @@ A.set(S.error, 3);
   }
 })();
 
-// ../../../main-ops/node_modules/wave-resampler/lib/interpolator.js
+// ../../node_modules/wave-resampler/lib/interpolator.js
 var Interpolator = class {
   /**
    * @param {number} scaleFrom the length of the original array.
@@ -19365,7 +19365,7 @@ function sinc_(x3) {
   return Math.sin(Math.PI * x3) / (Math.PI * x3);
 }
 
-// ../../../main-ops/node_modules/wave-resampler/lib/fir-lpf.js
+// ../../node_modules/wave-resampler/lib/fir-lpf.js
 var FIRLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -19425,7 +19425,7 @@ var FIRLPF = class {
   }
 };
 
-// ../../../main-ops/node_modules/wave-resampler/lib/butterworth-lpf.js
+// ../../node_modules/wave-resampler/lib/butterworth-lpf.js
 var ButterworthLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -19506,7 +19506,7 @@ var ButterworthLPF = class {
   }
 };
 
-// ../../../main-ops/node_modules/wave-resampler/index.js
+// ../../node_modules/wave-resampler/index.js
 var DEFAULT_LPF_USE = {
   "point": false,
   "linear": false,
@@ -19596,7 +19596,7 @@ function downsample_(samples, newSamples, interpolator, filter) {
   resample_(samples, newSamples, interpolator);
 }
 
-// ../../../main-ops/node_modules/opfs-tools/dist/opfs-tools.js
+// ../../node_modules/opfs-tools/dist/opfs-tools.js
 var z2 = (r) => {
   throw TypeError(r);
 };
