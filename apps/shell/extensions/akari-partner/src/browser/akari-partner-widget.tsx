@@ -1,8 +1,11 @@
 import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ApplicationShell } from '@theia/core/lib/browser';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { PartnerExtensionUpdater } from './partner-extension-updater';
+import { formatExtensionUpdateNotice } from '../common/extension-freshness';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
-import { Disposable, PreferenceService } from '@theia/core/lib/common';
+import { Disposable, MessageService, PreferenceService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import URI from '@theia/core/lib/common/uri';
@@ -80,6 +83,15 @@ export class AkariPartnerWidget extends ReactWidget {
 
     @inject(VSXExtensionsModel)
     protected readonly extensionsModel!: VSXExtensionsModel;
+
+    @inject(MessageService)
+    protected readonly messageService!: MessageService;
+
+    @inject(WindowService)
+    protected readonly windowService!: WindowService;
+
+    @inject(PartnerExtensionUpdater)
+    protected readonly extensionUpdater!: PartnerExtensionUpdater;
 
     @inject(PluginViewRegistry)
     protected readonly pluginViewRegistry!: PluginViewRegistry;
@@ -352,6 +364,19 @@ export class AkariPartnerWidget extends ReactWidget {
             return;
         }
         if (this.extensionsModel.isInstalled(entry.extensionId)) {
+            const outcome = await this.extensionUpdater.checkAndUpdate(entry, (status, detail) => this.setProgress(entry, status, detail));
+            if (outcome.kind === 'updated') {
+                this.setComplete(entry, `${entry.name} を ${outcome.installedVersion} → ${outcome.latestVersion} に更新しました`, '再読み込みで反映されます');
+                const choice = await this.messageService.info(
+                    formatExtensionUpdateNotice(entry.name, outcome.installedVersion!, outcome.latestVersion!), '今すぐ再読み込み', '後で');
+                if (choice === '今すぐ再読み込み') {
+                    this.windowService.reload();
+                    return;
+                }
+                this.setWarning(entry, '再読み込みするまで旧バージョンの拡張が動きます');
+            } else if (outcome.kind === 'failed') {
+                this.setWarning(entry, `拡張の更新に失敗しました（${outcome.detail}）。現在のバージョンで開きます`);
+            }
             await this.openExtension(entry);
             return;
         }
