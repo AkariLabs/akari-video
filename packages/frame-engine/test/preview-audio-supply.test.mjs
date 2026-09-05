@@ -1500,3 +1500,192 @@ test('prefetch 中の状態更新は旧 decode を無効化し、新 URL を一�
   assert.equal(supply.debug().supply.phase, 'ready');
   supply.dispose();
 });
+
+test('warm 再生は最初の PCM 窓が 600 ms 遅れても共通時計を開始位置に保ち、冒頭を飛ばさない', async t => {
+  const server = rangeServer({ requireRange: true, beforeResponse: request => {
+    if (request.start === 10 * sampleRate * 2) return new Promise(resolve => setTimeout(resolve, 600));
+  } });
+  const { supply, context, clock, requests } = pcmSupply(t, {
+    server, declarations: [pcmDeclaration('voice', 120, 'narration', { t: 0 })],
+  });
+  supply.prime();
+  await flush();
+  assert.deepEqual(supply.debug().supply.ready, ['narration:voice']);
+  assert.equal(requests.length, 0, 'メタデータだけが ready で、最初の窓はまだ無い');
+  supply.playFrom(10);
+  assert.equal(supply.playbackTime(10.5), 10);
+  assert.equal(supply.playbackTime(10.8), 10);
+  assert.equal(supply.position(11), 10);
+  await flush();
+  await clock.advance(599);
+  assert.equal(supply.playbackTime(11.5), 10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 599, reason: 'first-window' });
+  assert.equal(context.sources.length, 0);
+  await clock.advance(1);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.debug().scheduled.startAtSec, 10);
+  assertPcmNode(context.sources[0], 10 * sampleRate);
+  assert.equal(supply.playbackTime(12), 10);
+  context.currentTime = 0.52;
+  assert.equal(supply.playbackTime(13), 10.5, '窓到着後は音声時計で開始位置から進む');
+});
+
+test('最初の PCM 窓が 5 秒遅れると、3 秒の上限でゲートを解き壁時計へ戻す', async t => {
+  const server = rangeServer({ requireRange: true, beforeResponse: request => {
+    if (request.start === 10 * sampleRate * 2) return new Promise(resolve => setTimeout(resolve, 5000));
+  } });
+  // 既存の窓待ち期限（既定 1500 ms）より先に、ゲート自身の 3 秒上限へ到達させる。
+  const { supply, context, clock } = pcmSupply(t, { server, windowStartupWaitMs: 6000 });
+  supply.playFrom(10);
+  assert.equal(supply.playbackTime(10.5), 10);
+  await flush();
+  await clock.advance(2999);
+  assert.equal(supply.position(13), 10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 2999, reason: 'first-window' });
+  await clock.advance(1);
+  assert.equal(supply.playbackTime(13.2), 13.2);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.position(13.3), 13.3);
+  assert.equal(context.sources.length, 0);
+  await clock.advance(2000);
+  assert.equal(supply.debug().playing, true);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  assert.ok(context.sources.length > 0);
+});
+
+test('予定表を組む前の decode 待ちで上限を越えた場合は合流位置から予定する', async t => {
+  const { supply, context, clock } = pcmSupply(t, {
+    declarations: [{ kind: 'bgm', id: 'bed', url: '/bed.wav', spec: {} }],
+    fetchImpl: async () => {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return response(1);
+    },
+  });
+  supply.playFrom(10);
+  assert.equal(supply.playbackTime(10.5), 10);
+  await flush();
+  await clock.advance(3000);
+  assert.equal(supply.playbackTime(13.2), 13.2);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  await clock.advance(1999);
+  assert.equal(supply.playbackTime(15.2), 15.2);
+  await clock.advance(1);
+  assert.equal(supply.debug().scheduled.startAtSec, 15.2);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  context.currentTime = 0.52;
+  assert.equal(supply.playbackTime(20), 15.7);
+});
+
+test('開始位置に required が無ければゲートを張らず fallback を返す', async t => {
+  const { supply } = pcmSupply(t, {
+    declarations: [pcmDeclaration('later', 120, 'narration', { t: 20 })],
+  });
+  supply.playFrom(10);
+  assert.equal(supply.playbackTime(10.5), 10.5);
+  assert.deepEqual(supply.debug().supply.required, []);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  await flush();
+});
+
+test('required が全て decode 済みならゲートを張らず fallback を返す', async t => {
+  const { supply } = pcmSupply(t, {
+    declarations: [{ kind: 'bgm', id: 'bed', url: '/bed.wav', spec: {} }],
+    fetchImpl: async () => response(1),
+  });
+  supply.prime();
+  await flush();
+  supply.playFrom(10);
+  assert.deepEqual(supply.debug().supply.required, ['bgm:bed']);
+  assert.deepEqual(supply.debug().supply.ready, ['bgm:bed']);
+  assert.equal(supply.playbackTime(10.5), 10.5);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  await flush();
+});
+
+for (const action of ['seek', 'pause']) {
+  test(`hold 中の ${action} はゲートを解き、古い窓が届いても再開しない`, async t => {
+    const firstWindow = deferred();
+    const server = rangeServer({ requireRange: true, beforeResponse: () => firstWindow.promise });
+    const { supply, context, clock, requests } = pcmSupply(t, { server });
+    supply.playFrom(10);
+    await flush();
+    assert.equal(supply.debug().supply.gate.holding, true);
+    if (action === 'seek') supply.seek(20);
+    else supply.pause();
+    assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+    assert.equal(requests[0].signal.aborted, true);
+    firstWindow.resolve();
+    await flush();
+    await clock.advance(3000);
+    assert.equal(context.sources.length, 0);
+    assert.equal(supply.debug().playing, false);
+    assert.equal(supply.playbackTime(20.5), 20.5, '停止後の最初の呼び出しは fallback を返す');
+    supply.pause();
+    await flush();
+  });
+}
+
+for (const action of ['seek', 'setRate']) {
+  test(`hold 中の ${action} による再開は新しいゲートを張り、古い finally は解除しない`, async t => {
+    const firstWindow = deferred();
+    const server = rangeServer({ requireRange: true, beforeResponse: () => firstWindow.promise });
+    const { supply, clock, requests } = pcmSupply(t, { server });
+    supply.playFrom(10);
+    await flush();
+    await clock.advance(200);
+    assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 200, reason: 'first-window' });
+    if (action === 'seek') supply.seek(20, true);
+    else supply.setRate(1.5);
+    const startSec = action === 'seek' ? 20 : 10;
+    assert.equal(requests[0].signal.aborted, true);
+    assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec, heldMs: 0, reason: 'first-window' });
+    await flush();
+    assert.equal(supply.debug().supply.gate.holding, true, '旧世代の finally 後も新世代は hold する');
+    assert.equal(supply.playbackTime(25), startSec);
+    firstWindow.resolve();
+    await flush();
+    assert.equal(supply.debug().supply.gate.holding, false);
+    assert.equal(supply.debug().scheduled.startAtSec, startSec);
+  });
+}
+
+test('debug の gate は idle の形を保ち、sidecar 待ちの空予定表でも直ちに解除する', async t => {
+  const bed = pcmDeclaration();
+  const { supply } = pcmSupply(t, {
+    declarations: [{ ...bed, spec: { ...bed.spec, sidecarState: 'queued', sidecar: undefined } }],
+  });
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  supply.playFrom(10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 0, reason: 'sidecar' });
+  await flush();
+  assert.equal(supply.debug().supply.phase, 'preparing');
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+});
+
+test('decode 失敗と no-audio はゲートを張る理由にしない', async t => {
+  const { supply } = pcmSupply(t, {
+    declarations: [
+      { kind: 'bgm', id: 'failed', url: '/failed.wav', spec: {} },
+      { kind: 'narration', id: 'silent', url: '/silent.wav', spec: { t: 0, sidecarState: 'no-audio' } },
+    ],
+    fetchImpl: async () => ({ ok: false, status: 500 }),
+  });
+  supply.prime();
+  await flush();
+  assert.deepEqual(supply.debug().supply.failed, ['bgm:failed']);
+  assert.deepEqual(supply.debug().supply.noAudio, ['narration:silent']);
+  supply.playFrom(10);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  assert.equal(supply.playbackTime(10.5), 10.5);
+  await flush();
+});
+
+test('resume 失敗でも finally がゲートを解き、3 秒を待たず fallback を返す', async t => {
+  const { supply, context } = pcmSupply(t);
+  t.mock.method(context, 'resume', async () => { throw new Error('resume failed'); });
+  supply.playFrom(10);
+  assert.equal(supply.debug().supply.gate.holding, true);
+  await flush();
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.playbackTime(10.5), 10.5);
+});

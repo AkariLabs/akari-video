@@ -165,6 +165,8 @@ export interface PreviewAudioSupplyDebug {
     failed: string[];
     noAudio: string[];
     bufferedUntil: Record<string, number>;
+    /** 再生開始で音の最初の窓を待って共通時計を止めている間の状態。 */
+    gate: { holding: boolean; startSec: number; heldMs: number; reason: 'first-window' | 'sidecar' | null };
   };
   contextState: AudioContextState | 'unavailable';
   renderedTimelineSec: number | null;
@@ -273,6 +275,8 @@ const FAILED_DECODE_RETRY_MS = 5000;
 const RESTART_BACKOFF_MS = 500;
 const WINDOW_LOOKAHEAD_SEC = 12;
 const WINDOW_REFILL_MS = 500;
+/** 再生開始で「開始位置の音の最初の窓」を待つ上限。越えたら壁時計で進め、音は後から合流する。 */
+const PLAY_GATE_MAX_HOLD_SEC = 3;
 const MIB = 1024 * 1024;
 
 export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): PreviewAudioSupply {
@@ -339,6 +343,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let generation = 0;
   let starting = false;
   let replanPending = false;
+  let gate: { holding: boolean; startSec: number; sinceMs: number; reason: 'first-window' | 'sidecar' | null } = {
+    holding: false, startSec: 0, sinceMs: 0, reason: null,
+  };
+  /** gate を張った startFrom の世代。seek / pause / setRate / 新しい startFrom で無効になる。 */
+  let gateGeneration = -1;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -1028,6 +1037,55 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     };
   };
 
+  const supplyKeysAt = (positionSec: number, asPlaying: boolean): {
+    required: string[]; ready: string[]; pendingSidecar: string[]; failed: string[]; noAudio: string[];
+  } => {
+    const requiredTasks = tasks.filter(task => {
+      if (task.at > positionSec || task.state === 'no-audio') return false;
+      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
+        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
+          .find(finitePositive) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find(item => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
+        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map(task => task.key);
+    const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
+      && (task.state === 'decode' || (task.state === 'windowed'
+        && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))))
+      .map(task => task.key);
+    const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
+    const failed = tasks.filter(task => windowFailures.has(task.key)
+      || (task.failedAtMs !== null && !task.resolved())).map(task => task.key);
+    const noAudio = tasks.filter(task => task.state === 'no-audio').map(task => task.key);
+    return { required, ready, pendingSidecar, failed, noAudio };
+  };
+
+  const releaseGate = (): void => {
+    if (!gate.holding) return;
+    gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
+    gateGeneration = -1;
+  };
+  /** 読むたびに世代と上限を見て、切れていれば解く。 */
+  const gateHolding = (): boolean => {
+    if (!gate.holding) return false;
+    if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) {
+      releaseGate();
+      return false;
+    }
+    return true;
+  };
+
   // 途中で seek / pause が世代を進めたら黙って降りる（新しい startFrom が starting を持っている）。
   // 自分が最新世代のときだけ starting を戻す。以前は superseded な呼び出しも starting=false を
   // 書いていたため、進行中の新しい startFrom と並んで 3 本目が走れた。
@@ -1039,6 +1097,25 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
+    const gateStartSec = clamp(options.pinStart ? seconds : latestRequestedSec);
+    // 再生中の組み直し（replanIfNeeded の pinStart 起動）は音声時計が既に走っているので hold しない。
+    if (playing) {
+      releaseGate();
+    } else {
+      // 「その窓が実際に取れているか」で見るため readiness は再生中と同じ規則（bufferedUntil）で評価する。
+      const keys = supplyKeysAt(gateStartSec, true);
+      const missing = keys.required.filter(key => !keys.ready.includes(key)
+        && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+      if (missing.length === 0) {
+        releaseGate();
+      } else {
+        gate = {
+          holding: true, startSec: gateStartSec, sinceMs: now(),
+          reason: missing.some(key => keys.pendingSidecar.includes(key)) ? 'sidecar' : 'first-window',
+        };
+        gateGeneration = thisGeneration;
+      }
+    }
     let outcome: 'started' | 'empty' | 'failed' = 'failed';
     try {
       await ensureDecodedUpTo(clamp(options.pinStart ? seconds : latestRequestedSec));
@@ -1112,10 +1189,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       }
       playing = true;
       outcome = 'started';
+      releaseGate();
     } finally {
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
+        releaseGate();
         starting = false;
         lastStartOutcome = outcome;
         if (replanPending) {
@@ -1143,6 +1222,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const pause = (): void => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
+    releaseGate();
     playing = false;
     starting = false;
     replanPending = false;
@@ -1164,40 +1244,15 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       return metric ? [metric] : [];
     });
     const positionSec = playing ? audioPosition() : latestRequestedSec;
-    const requiredTasks = tasks.filter(task => {
-      if (task.at > positionSec || task.state === 'no-audio') return false;
-      const regular = declarations.find(item => `${item.kind}:${item.id}` === task.key);
-      if (regular) {
-        if (regular.kind === 'bgm') return positionSec < timelineDurationSec;
-        const durationSec = [regular.spec.durationSec, validSidecar(regular.spec.sidecar)?.durationSec,
-          regularDecoded.find(item => item.kind === regular.kind && item.id === regular.id)?.durationSec]
-          .find(finitePositive) ?? Infinity;
-        return positionSec < firstUseRegular(regular) + durationSec;
-      }
-      const spoken = speech.find(item => `speech:${item.id}` === task.key);
-      if (spoken) {
-        const durationSec = [spoken.durationSec, spoken.sidecar?.durationSec,
-          speechDecoded.get(spoken.id)?.durationSec].find(finitePositive) ?? Infinity;
-        const crossfadeOutSec = finitePositive(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec! : 0;
-        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
-      }
-      return true;
-    });
-    const required = requiredTasks.map(task => task.key);
-    const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
-      && (task.state === 'decode' || (task.state === 'windowed'
-        && (!playing || (bufferedUntil[task.key] ?? -Infinity) > positionSec))))
-      .map(task => task.key);
-    const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
-    const failed = tasks.filter(task => windowFailures.has(task.key)
-      || (task.failedAtMs !== null && !task.resolved())).map(task => task.key);
-    const noAudio = tasks.filter(task => task.state === 'no-audio').map(task => task.key);
+    const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
     const phase = required.length === 0 ? 'idle'
       : required.some(key => pendingSidecar.includes(key)) ? 'preparing'
         : required.some(key => failed.includes(key)) ? 'degraded'
           : required.every(key => ready.includes(key)) ? 'ready' : 'preparing';
+    const holding = gateHolding();
     return {
-      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil } },
+      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil },
+        gate: { holding, startSec: holding ? gate.startSec : 0, heldMs: holding ? now() - gate.sinceMs : 0, reason: holding ? gate.reason : null } },
       contextState: context?.state ?? 'unavailable',
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -1328,10 +1383,16 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
+      if (gateHolding()) { latestRequestedSec = gate.startSec; return gate.startSec; }
       latestRequestedSec = clamp(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        armPauseWatchdog();
+        return gate.startSec;
+      }
       latestRequestedSec = clamp(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
@@ -1341,6 +1402,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp(seconds);
       generation += 1;
+      releaseGate();
       playing = false;
       starting = false;
       replanPending = false;
@@ -1360,6 +1422,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       routeMasterBus();
       if (wasPlaying || wasStarting) {
         generation += 1;
+        releaseGate();
         playing = false;
         starting = false;
         replanPending = false;

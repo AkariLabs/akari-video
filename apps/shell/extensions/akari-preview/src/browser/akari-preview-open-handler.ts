@@ -7602,11 +7602,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!audioStatus || disposed) return;
                     const supply = audioSupply.debug().supply;
                     let message = '';
-                    if (supply?.phase === 'preparing') {
+                    if (supply?.phase === 'degraded') {
+                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                    } else if (supply && supply.gate && supply.gate.holding) {
+                        message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
+                    } else if (supply?.phase === 'preparing') {
                         const ready = supply.ready.filter(key => supply.required.includes(key)).length;
                         message = '音声を準備中 ' + ready + '/' + supply.required.length;
-                    } else if (supply?.phase === 'degraded') {
-                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
                     }
                     if (audioStatus.textContent !== message) audioStatus.textContent = message;
                     audioStatus.hidden = !message;
@@ -7819,6 +7821,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         // 読むだけの position() だったため、startFrom が黙って降りた後は映像だけ
                         // 進み、タブを作り直すまで無音だった。watchdog は pauseWatchdogMs:false で無効のまま。
                         position = audioSupply.playbackTime(fallbackPosition);
+                        // ゲートで据え置かれている間は壁時計のアンカーを今の位置に張り直し、
+                        // hold が解けた瞬間から開始位置基準で進むようにする。
+                        if (audioSupply.debug().supply.gate.holding) {
+                            playAnchorPosition = position;
+                            playAnchorMs = performance.now();
+                        }
                         position = renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false, totalDuration);
                         return position;

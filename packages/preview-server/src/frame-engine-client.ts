@@ -852,6 +852,12 @@ class FrameEngineRuntime {
     return this.audio.debug();
   }
 
+  /** ゲートで共通時計を据え置いている間の開始位置。据え置いていなければ null。 */
+  heldStartSec(): number | null {
+    const gate = this.audio.debug().supply.gate;
+    return gate.holding ? gate.startSec : null;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -985,6 +991,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   updateAudio(edit: any): void;
   dispose(): void;
   audioDebug(): PreviewAudioSupplyDebug;
+  heldStartSec(): number | null;
 }> {
   const ui = createUi(options.stage);
   let generation = 0;
@@ -1074,6 +1081,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     },
     updateAudio: edit => runtime.updateAudio(edit),
     audioDebug: () => runtime.audioDebug(),
+    heldStartSec: () => runtime.heldStartSec(),
   };
   (window as any).akariFrameEngineAudioDebug = () => runtime.audioDebug();
   return preview;

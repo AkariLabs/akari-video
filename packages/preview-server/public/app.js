@@ -373,11 +373,13 @@ function updateAudioStatus() {
   if (!audioStatus) return;
   const supply = frameEngineEnabled ? frameEnginePreview?.audioDebug().supply : null;
   let message = '';
-  if (supply?.phase === 'preparing') {
+  if (supply?.phase === 'degraded') {
+    message = `一部の音声を再生できません: ${supply.failed.join(', ')}`;
+  } else if (supply?.gate?.holding) {
+    message = `音声を待っています（${(supply.gate.heldMs / 1000).toFixed(1)} 秒）`;
+  } else if (supply?.phase === 'preparing') {
     const ready = supply.ready.filter(key => supply.required.includes(key)).length;
     message = `音声を準備中 ${ready}/${supply.required.length}`;
-  } else if (supply?.phase === 'degraded') {
-    message = `一部の音声を再生できません: ${supply.failed.join(', ')}`;
   }
   if (audioStatus.textContent !== message) audioStatus.textContent = message;
   audioStatus.hidden = !message;
@@ -2731,6 +2733,12 @@ function playbackLoop() {
     frameEngineRequestedTime += dt;
     if (frameEngineRequestedTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
     outputTime = frameEnginePreview?.renderPlayback(frameEngineRequestedTime) ?? frameEngineRequestedTime;
+    // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
+    const held = frameEnginePreview?.heldStartSec() ?? null;
+    if (held !== null) {
+      frameEngineRequestedTime = held;
+      outputTime = held;
+    }
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();

@@ -25469,6 +25469,7 @@ var FAILED_DECODE_RETRY_MS = 5e3;
 var RESTART_BACKOFF_MS = 500;
 var WINDOW_LOOKAHEAD_SEC = 12;
 var WINDOW_REFILL_MS = 500;
+var PLAY_GATE_MAX_HOLD_SEC = 3;
 var MIB = 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
@@ -25522,6 +25523,13 @@ function createPreviewAudioSupply(options) {
   let generation = 0;
   let starting = false;
   let replanPending = false;
+  let gate = {
+    holding: false,
+    startSec: 0,
+    sinceMs: 0,
+    reason: null
+  };
+  let gateGeneration = -1;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -26181,6 +26189,51 @@ function createPreviewAudioSupply(options) {
       narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
+  const supplyKeysAt = (positionSec, asPlaying) => {
+    const requiredTasks = tasks.filter((task) => {
+      if (task.at > positionSec || task.state === "no-audio") return false;
+      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === "bgm") return positionSec < timelineDurationSec;
+        const durationSec = [
+          regular.spec.durationSec,
+          validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [
+          spoken.durationSec,
+          spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map((task) => task.key);
+    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
+    const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
+    const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
+    const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
+    return { required, ready, pendingSidecar, failed, noAudio };
+  };
+  const releaseGate = () => {
+    if (!gate.holding) return;
+    gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
+    gateGeneration = -1;
+  };
+  const gateHolding = () => {
+    if (!gate.holding) return false;
+    if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) {
+      releaseGate();
+      return false;
+    }
+    return true;
+  };
   const startFrom = async (seconds, options2 = {}) => {
     if (!context) return;
     const thisGeneration = ++generation;
@@ -26189,6 +26242,24 @@ function createPreviewAudioSupply(options) {
     startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
+    const gateStartSec = clamp5(options2.pinStart ? seconds : latestRequestedSec);
+    if (playing) {
+      releaseGate();
+    } else {
+      const keys = supplyKeysAt(gateStartSec, true);
+      const missing = keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+      if (missing.length === 0) {
+        releaseGate();
+      } else {
+        gate = {
+          holding: true,
+          startSec: gateStartSec,
+          sinceMs: now(),
+          reason: missing.some((key) => keys.pendingSidecar.includes(key)) ? "sidecar" : "first-window"
+        };
+        gateGeneration = thisGeneration;
+      }
+    }
     let outcome = "failed";
     try {
       await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
@@ -26250,10 +26321,12 @@ function createPreviewAudioSupply(options) {
       }
       playing = true;
       outcome = "started";
+      releaseGate();
     } finally {
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
+        releaseGate();
         starting = false;
         lastStartOutcome = outcome;
         if (replanPending) {
@@ -26273,6 +26346,7 @@ function createPreviewAudioSupply(options) {
   const pause = () => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
+    releaseGate();
     playing = false;
     starting = false;
     replanPending = false;
@@ -26292,38 +26366,20 @@ function createPreviewAudioSupply(options) {
       return metric ? [metric] : [];
     });
     const positionSec = playing ? audioPosition() : latestRequestedSec;
-    const requiredTasks = tasks.filter((task) => {
-      if (task.at > positionSec || task.state === "no-audio") return false;
-      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
-      if (regular) {
-        if (regular.kind === "bgm") return positionSec < timelineDurationSec;
-        const durationSec = [
-          regular.spec.durationSec,
-          validSidecar(regular.spec.sidecar)?.durationSec,
-          regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
-        ].find(finitePositive2) ?? Infinity;
-        return positionSec < firstUseRegular(regular) + durationSec;
-      }
-      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
-      if (spoken) {
-        const durationSec = [
-          spoken.durationSec,
-          spoken.sidecar?.durationSec,
-          speechDecoded.get(spoken.id)?.durationSec
-        ].find(finitePositive2) ?? Infinity;
-        const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
-        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
-      }
-      return true;
-    });
-    const required = requiredTasks.map((task) => task.key);
-    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!playing || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
-    const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
-    const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
-    const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
+    const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
     const phase = required.length === 0 ? "idle" : required.some((key) => pendingSidecar.includes(key)) ? "preparing" : required.some((key) => failed.includes(key)) ? "degraded" : required.every((key) => ready.includes(key)) ? "ready" : "preparing";
+    const holding = gateHolding();
     return {
-      supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil } },
+      supply: {
+        phase,
+        required,
+        ready,
+        pendingSidecar,
+        failed,
+        noAudio,
+        bufferedUntil: { ...bufferedUntil },
+        gate: { holding, startSec: holding ? gate.startSec : 0, heldMs: holding ? now() - gate.sinceMs : 0, reason: holding ? gate.reason : null }
+      },
       contextState: context?.state ?? "unavailable",
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -26451,10 +26507,19 @@ function createPreviewAudioSupply(options) {
       if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        return gate.startSec;
+      }
       latestRequestedSec = clamp5(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        armPauseWatchdog();
+        return gate.startSec;
+      }
       latestRequestedSec = clamp5(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
@@ -26464,6 +26529,7 @@ function createPreviewAudioSupply(options) {
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp5(seconds);
       generation += 1;
+      releaseGate();
       playing = false;
       starting = false;
       replanPending = false;
@@ -26483,6 +26549,7 @@ function createPreviewAudioSupply(options) {
       routeMasterBus();
       if (wasPlaying || wasStarting) {
         generation += 1;
+        releaseGate();
         playing = false;
         starting = false;
         replanPending = false;
@@ -27515,6 +27582,11 @@ var FrameEngineRuntime = class {
   audioDebug() {
     return this.audio.debug();
   }
+  /** ゲートで共通時計を据え置いている間の開始位置。据え置いていなければ null。 */
+  heldStartSec() {
+    const gate = this.audio.debug().supply.gate;
+    return gate.holding ? gate.startSec : null;
+  }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
@@ -27713,7 +27785,8 @@ async function createFrameEnginePreview(options) {
       ui.root.remove();
     },
     updateAudio: (edit) => runtime.updateAudio(edit),
-    audioDebug: () => runtime.audioDebug()
+    audioDebug: () => runtime.audioDebug(),
+    heldStartSec: () => runtime.heldStartSec()
   };
   window.akariFrameEngineAudioDebug = () => runtime.audioDebug();
   return preview;
