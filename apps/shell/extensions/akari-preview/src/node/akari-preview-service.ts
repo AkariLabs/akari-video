@@ -1100,21 +1100,6 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         });
     }
 
-    protected nodeCliCommand(): string {
-        // npm start 経由の開発起動では、npm が実際に自分を動かした素の Node の execpath を
-        // env に設定する。これは明示 override として最優先で維持する。
-        if (process.env.npm_node_execpath) {
-            return process.env.npm_node_execpath;
-        }
-        // Finder / Dock から起動したパッケージ版には npm_node_execpath が無く、PATH も
-        // launchd 既定（/usr/bin:/bin:/usr/sbin:/sbin）— node を別途インストールしていない
-        // 配布先では 'node' 決め打ちが ENOENT になる。akari-quick-export-service.ts と同じ
-        // execPath 規約に合わせ、自プロセスの実行ファイルを Node CLI として使う
-        // （packaged では Electron 自身・プレーン node 実行ではその node 自身が入るので
-        // どちらでも動く）。ELECTRON_RUN_AS_NODE は runProcess が子プロセス env に常時付与する。
-        return process.execPath;
-    }
-
     protected async cleanupTemporaryAudio(filePath: string, temporaryDirectory: string): Promise<void> {
         let fileRemoved = false;
         try {
