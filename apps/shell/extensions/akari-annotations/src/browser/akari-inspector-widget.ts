@@ -46,6 +46,7 @@ import {
     type InspectorPerspectiveAxis
 } from './inspector/perspective-fields';
 import { createCutTransitionWriteRequest, transitionOptionLabel } from './inspector/transition-fields';
+import { createMaskWriteRequest, maskOptionLabel, maskOptionLabels } from './inspector/mask-fields';
 import {
     addCutFramingKeyframe,
     createCutFramingCropWriteRequest,
@@ -682,6 +683,32 @@ const LAYER_BLEND_OPTIONS = [
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ] as const;
 
+function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
+    snapshot: T,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (snapshot.maskSourceOptions === undefined) return [];
+    const options = maskOptionLabels(snapshot.maskSourceOptions);
+    const selected = maskOptionLabel(snapshot.maskSourceOptions, snapshot.mask);
+    if (!options.includes(selected)) options.push(selected);
+    const disabled = snapshot.maskSourceOptions.length === 0;
+    const title = 'グレースケール動画（白 = 表示・黒 = 透過）';
+    return [{
+        name: 'mask', label: 'マスク', inputKind: 'select', options,
+        getValue: () => selected, getEditValue: () => selected,
+        disabled, title: disabled ? `プロジェクトにマスクに使える動画ソースがありません。${title}` : title,
+        write: async (current, value) => {
+            try {
+                if (disabled) return { ok: false, message: 'プロジェクトにマスクに使える動画ソースがありません' };
+                return await requestWrite(createMaskWriteRequest(current, value));
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        },
+        reset: current => requestWrite(createMaskWriteRequest(current, 'なし'))
+    }];
+}
+
 function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -805,7 +832,8 @@ function LAYER_SECTIONS(
                             path: 'source.chroma_key.blend', value: null
                         })
                     })
-                }
+                },
+                ...MASK_FIELDS(snapshot, requestWrite)
             ]
         },
         ...(telopFields.length > 0 ? [{ id: 'telop', label: 'テキスト', fields: telopFields }] : []),
@@ -1778,7 +1806,7 @@ function TREE_ITEM_SECTIONS(
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }] },
+        }, ...MASK_FIELDS(snapshot, requestWrite)] },
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: 'kind', getValue: () => snapshot.sourceKind },
             { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },

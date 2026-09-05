@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
@@ -3237,6 +3238,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
+                } else if (request.path === 'mask') {
+                    const value = request.value;
+                    if (raw.source?.kind !== 'media') throw new Error('media item だけが指定できます');
+                    if (value !== null && typeof value !== 'string') throw new Error('mask は sources の id で指定してください');
+                    if (typeof value === 'string' && !this.sourceMap.has(value)) {
+                        return { ok: false, message: 'sources に無い id です' };
+                    }
+                    patch = { mask: value };
+                    label = 'クリップのマスクを変更';
                 } else if (request.path === 'perspective') {
                     const value = request.value;
                     if (value !== null) {
@@ -3593,6 +3603,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
         return {
             ...selection,
+            ...(raw.source?.kind === 'media' ? {
+                ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+            } : {}),
             outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
@@ -3705,6 +3719,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? raw.crop as TimelineCropSnapshot : undefined;
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
+                ...(raw?.source?.kind === 'media' ? {
+                    ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                    maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+                } : {}),
                 trackName: this.trackDisplayNameForItem(layer.id),
                 clipName: resolveTimelineClipName(layer),
                 outputStart: layer.t, duration: layer.duration,

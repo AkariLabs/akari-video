@@ -7,6 +7,42 @@ import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot }
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
+test('media layer / item の外観末尾に「なし」+ 動画候補のマスク select が出る', () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind, { maskSourceOptions: [{ id: 'maskgrad', label: 'mask.mp4' }] });
+    const row = factory(snapshot, async () => ({ ok: true })).find(section => section.id === 'appearance').fields.at(-1);
+    assert.equal(row.label, 'マスク');
+    assert.equal(row.inputKind, 'select');
+    assert.deepEqual(row.options, ['なし', 'mask.mp4']);
+    assert.equal(row.getValue(snapshot), 'なし');
+    assert.equal(row.disabled, false);
+    assert.match(row.title, /グレースケール動画（白 = 表示・黒 = 透過）/u);
+  }
+});
+
+test('telop layer と html / group item はマスク行を出さない', () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    for (const sourceKind of ['telop', 'html', 'group']) {
+      const snapshot = visualSnapshot(kind, { sourceKind, itemKind: sourceKind, layerKind: 'baked' });
+      const fields = factory(snapshot, async () => ({ ok: true })).flatMap(section => section.fields);
+      assert.equal(fields.some(field => field.name === 'mask'), false);
+    }
+  }
+});
+
+test('mask 候補0件の行は disabled と理由を表示し、書き込みを拒否する', async () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind, { maskSourceOptions: [] });
+    const row = factory(snapshot, async () => assert.fail('disabled write'))
+      .find(section => section.id === 'appearance').fields.at(-1);
+    assert.equal(row.disabled, true);
+    assert.deepEqual(row.options, ['なし']);
+    assert.match(row.title, /プロジェクトにマスクに使える動画ソースがありません/u);
+    assert.match(row.title, /グレースケール動画（白 = 表示・黒 = 透過）/u);
+    assert.equal((await row.write(snapshot, 'なし')).ok, false);
+  }
+});
+
 test('調整タブの A/B ボタンはイージング節より前に追加し、イージング節を隠さない', () => {
   const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
   const start = source.indexOf("if (activeTab === 'adjust' && compareTarget)");
