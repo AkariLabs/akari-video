@@ -1349,6 +1349,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const end = range?.end ?? Math.max(0, targetStat.size - 1);
             response.statusCode = range ? 206 : 200;
             response.setHeader('Access-Control-Allow-Origin', '*');
+            // webview（<id>.webview.localhost）から 127.0.0.1 の配信サーバへは cross-origin。
+            // Content-Range / Accept-Ranges は CORS の safelist 外なので、明示的に expose しないと
+            // frame-engine の fetch から見えず「Range 非対応」と判定されて原本を丸ごと読みに行く
+            // （実機 2026-09-05: 4K HEVC 9.7GB で 'this host does not support byte ranges' →
+            //  Range header exceeded 10000ms → カットが 1 枚も出ず、再生も音も始まらない）。
+            response.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
             response.setHeader('Accept-Ranges', 'bytes');
             response.setHeader('Cache-Control', 'no-store');
             response.setHeader('Content-Type', target.mimeType);

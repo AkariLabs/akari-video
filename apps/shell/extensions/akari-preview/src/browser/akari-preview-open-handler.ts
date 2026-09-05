@@ -7163,7 +7163,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     const source = new engine.LookaheadFrameSource(pool, {
                         fps,
-                        capacity: 12,
+                        // 先読み枚数 = デコーダの出力 surface を握る枚数。12 だと Windows の D3D11 HW デコーダ
+                        // （4K HEVC）が surface 切れで黙り、入力を飲んだまま 1 枚も出さなくなる（issue #28 と同機構）。
+                        // Web UI 側で実測（2026-09-05・90 秒再生）: 12 枚 = 凍結 11 回・作り直し 49 回・17fps /
+                        // 6 枚 = 凍結 0・作り直し 0・30fps。preview-server/src/frame-engine-client.ts と同じ値に揃える。
+                        capacity: 6,
                         onAccess: access => {
                             if (currentAccesses) currentAccesses.push(access);
                         }
