@@ -11,6 +11,35 @@ const closeTo = (actual, expected, message = '') => {
   assert.ok(Math.abs(actual - expected) < 1e-9, `${message} expected ${expected}, got ${actual}`);
 };
 
+test('muted speech cuts emit no declarations and preserve following cut timing', () => {
+  for (const freeze of [undefined, { at_sec: 1, duration_sec: 2 }]) {
+    const cuts = [
+      { id: 'camera', src: 'main', in: 0, out: 4, ...(freeze ? { freeze } : {}) },
+      { id: 'next', src: 'main', in: 4, out: 8, gain_db: -12 },
+    ];
+    const original = projectSpeechDeclarations(cuts, { fps: 30 });
+    const muted = projectSpeechDeclarations([{ ...cuts[0], mute: true }, cuts[1]], { fps: 30 });
+    assert.deepEqual(muted, original.filter(item => item.id === 'next-speech'));
+    assert.equal(muted.length, 1);
+    assert.equal(muted[0].gainDb, -12);
+    assert.equal(muted[0].atSec, freeze ? 6 : 4);
+    assert.deepEqual(projectSpeechDeclarations([{ ...cuts[0], mute: true }], { fps: 30 }), []);
+    assert.deepEqual(projectSpeechDeclarations([{ ...cuts[0], mute: false, gain_db: 0 }, cuts[1]], { fps: 30 }), original);
+  }
+});
+
+test('muted transition participants do not create speech declarations or throw', () => {
+  const cuts = [
+    { id: 'left', src: 'main', in: 0, out: 4, transition_out: { type: 'crossfade', duration: 1 } },
+    { id: 'right', src: 'main', in: 4, out: 8 },
+  ];
+  for (const mutedIndex of [0, 1]) {
+    const declarations = projectSpeechDeclarations(cuts.map((cut, index) => ({ ...cut, mute: index === mutedIndex })), { fps: 30 });
+    assert.equal(declarations.length, 1);
+    assert.equal(declarations[0].id, `${cuts[1 - mutedIndex].id}-speech`);
+  }
+});
+
 test('trim / fade / gain / track / ducking を一つの決定論的予定表へ落とす', () => {
   const result = buildWebAudioSchedule({
     timelineDurationSec: 20,

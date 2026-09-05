@@ -12,6 +12,7 @@ import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
+import { PromotePreviewAudioSidecarsRequest, PromotePreviewAudioSidecarsResult } from '../common/preview-audio-priority';
 import {
     AppendReviewSessionAudioRequest,
     AppendReviewSessionEventRequest,
@@ -230,6 +231,7 @@ type SpeechAtempoModule = {
         durationSec: number;
         reason?: string;
     }>;
+    promotePreviewAudioSidecars(options: { cacheDir: string; keys: string[]; sourcePaths: string[] }): PromotePreviewAudioSidecarsResult;
     sweepPreviewAudioSidecars(options: { cacheDir: string; keepKeys: string[]; keepProbes?: string[]; minAgeMs?: number }): {
         removed: number;
         bytes: number;
@@ -807,6 +809,31 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             keepKeys: request.keepKeys,
             ...(request.keepProbes !== undefined ? { keepProbes: request.keepProbes } : {}),
             ...(request.minAgeMs !== undefined ? { minAgeMs: request.minAgeMs } : {})
+        });
+    }
+
+    async promotePreviewAudioSidecars(request: PromotePreviewAudioSidecarsRequest): Promise<PromotePreviewAudioSidecarsResult> {
+        if (!request || typeof request.projectRootUri !== 'string') {
+            throw new Error('Invalid preview audio priority request');
+        }
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        const projectRoot = await realpath(this.filePath(request.projectRootUri));
+        if (!roots.some(root => this.contains(root, projectRoot))) {
+            throw new Error('Preview audio cache must stay inside an open workspace');
+        }
+        const sourcePaths: string[] = [];
+        for (const value of Array.isArray(request.sourcePaths) ? request.sourcePaths : []) {
+            if (typeof value !== 'string' || !isAbsolute(value)) continue;
+            try {
+                const sourcePath = await realpath(value);
+                if (roots.some(root => this.contains(root, sourcePath))) sourcePaths.push(sourcePath);
+            } catch { /* Missing or inaccessible sources cannot refer to a pending probe. */ }
+        }
+        const module = await this.loadSpeechAtempoModule();
+        return module.promotePreviewAudioSidecars({
+            cacheDir: join(projectRoot, '.akari', 'cache'),
+            keys: Array.isArray(request.keys) ? request.keys.filter(key => typeof key === 'string') : [],
+            sourcePaths
         });
     }
 

@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import childProcess from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { syncBuiltinESMExports } from 'node:module';
 import { setImmediate as nextTurn, setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
@@ -11,6 +13,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../src/index.mjs';
 import {
   __testing, ensurePreviewAudioSidecar, previewAudioSidecarStatus,
   requestPreviewAudioSidecar, subscribePreviewAudioSidecarEvents,
+  promotePreviewAudioSidecars,
 } from '../src/preview-audio-sidecar.mjs';
 
 const { Semaphore } = __testing;
@@ -298,6 +301,58 @@ function realBinaries() {
 
 const binaries = realBinaries();
 
+function mockSpawn(t, run) {
+  const observed = t.mock.method(childProcess, 'spawn', (command, args) => {
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.exitCode = null;
+    child.signalCode = null;
+    child.kill = () => { child.signalCode = 'SIGKILL'; child.emit('close', null, 'SIGKILL'); };
+    setImmediate(async () => {
+      try {
+        await run(child, command, args);
+        child.exitCode = 0;
+        child.emit('close', 0, null);
+      } catch (error) {
+        child.stderr.write(error.message);
+        child.exitCode = 1;
+        child.emit('close', 1, null);
+      }
+    });
+    return child;
+  });
+  syncBuiltinESMExports();
+  t.after(() => { observed.mock.restore(); syncBuiltinESMExports(); });
+  return observed;
+}
+
+test('短 SFX の probe キャッシュは request と status の再取得で ffprobe を起動しない',
+  { timeout: 10000 }, async t => {
+    const f = fixture(t);
+    const observedSpawn = mockSpawn(t, async child => {
+      child.stdout.write(JSON.stringify({ streams: [{ sample_rate: '48000', channels: 2 }],
+        format: { duration: '0.1' } }));
+    });
+    const event = deferred();
+    t.after(subscribePreviewAudioSidecarEvents(value => event.resolve(value)));
+    const options = { ...f.options, decodedBytesThreshold: 64 * 1024 * 1024 };
+    const first = requestPreviewAudioSidecar(options);
+    assert.equal(first.probe.pending, true);
+    assert.equal((await event.promise).state, 'not-needed');
+    await nextTurn();
+    assert.equal(observedSpawn.mock.callCount(), 1);
+    assert.equal(observedSpawn.mock.calls[0].arguments[0], options.ffprobe);
+    const cached = JSON.parse(fs.readFileSync(path.join(f.directory, `probe-${first.probe.fingerprint}.json`), 'utf8'));
+    assert.ok(cached.durationSec > 0 && cached.durationSec < 1);
+    for (const read of [requestPreviewAudioSidecar, previewAudioSidecarStatus]) {
+      assert.deepEqual(read(options), { state: 'not-needed', key: null,
+        probe: { fingerprint: first.probe.fingerprint } });
+    }
+    await nextTurn();
+    assert.equal(observedSpawn.mock.callCount(), 1, '2 回目はキャッシュを読み spawn を増やさない');
+  });
+
 test('実 ffmpeg: 120 秒 WAV の A（probe）→ B → C は A が最初に ready になる',
   { skip: binaries.skip, timeout: 60000 }, async t => {
     const f = fixture(t);
@@ -328,7 +383,7 @@ test('実 ffmpeg: 120 秒 WAV の A（probe）→ B → C は A が最初に rea
     }
   });
 
-test('実 ffmpeg: 遅い probe の A と既知尺 B・C は既定 2 枠で要求順に起動する',
+test('実 ffmpeg: 遅い probe の A は既定 2 枠の 1 枠を予約し B → A → C で起動する',
   { skip: binaries.skip, timeout: 60000 }, async t => {
     const f = fixture(t);
     const sources = ['a-narration.wav', 'b-speech1.wav', 'c-speech2.wav'].map(name => path.join(f.root, name));
@@ -351,7 +406,13 @@ test('実 ffmpeg: 遅い probe の A と既知尺 B・C は既定 2 枠で要求
     });
     syncBuiltinESMExports();
     t.after(() => { observedSpawn.mock.restore(); syncBuiltinESMExports(); });
-    const reservations = observeReservations(t);
+    const reservations = [];
+    const originalReserve = Semaphore.prototype.reserve;
+    t.mock.method(Semaphore.prototype, 'reserve', function (...args) {
+      const slot = originalReserve.apply(this, args);
+      reservations.push(slot);
+      return slot;
+    });
     const events = [];
     t.after(subscribePreviewAudioSidecarEvents(event => events.push(event)));
     const probe = deferred();
@@ -360,15 +421,255 @@ test('実 ffmpeg: 遅い probe の A と既知尺 B・C は既定 2 枠で要求
       probeAudio: () => probe.promise });
     for (const sourcePath of sources.slice(1)) requestPreviewAudioSidecar({ ...common, sourcePath, outSec: 120 });
     let deadline = Date.now() + 10000;
-    while (reservations.length < 3 && Date.now() < deadline) await delay(10);
+    while (starts.length < 1 && Date.now() < deadline) await delay(1);
     const startsDuringProbe = [...starts];
     const reservationsDuringProbe = reservations.length;
     probe.resolve(metadata);
     deadline = Date.now() + 30000;
     while (events.length < 3 && Date.now() < deadline) await delay(10);
     assert.equal(reservationsDuringProbe, 3);
-    assert.deepEqual(startsDuringProbe, [], 'probe は枠を占有せず順番だけを保持する');
-    assert.deepEqual(starts, sources);
+    assert.deepEqual(startsDuringProbe, [sources[1]], 'probe は 1 枠だけ予約し B を通す');
+    assert.deepEqual(starts, [sources[1], sources[0], sources[2]]);
     assert.equal(peak, 2);
     assert.deepEqual(events.map(event => event.state), ['ready', 'ready', 'ready']);
+  });
+
+test('promote は待機札を先頭へ移し先頭・取得済み・破棄済みなら何もしない', async () => {
+  const semaphore = new Semaphore();
+  await semaphore.acquire(1);
+  const slots = [semaphore.reserve(1), semaphore.reserve(1), semaphore.reserve(1)];
+  const order = [];
+  const jobs = slots.map((slot, index) => slot.acquire().then(() => order.push(index)));
+  assert.equal(slots[0].promote(), false);
+  assert.equal(slots[2].promote(), true);
+  assert.equal(slots[2].promote(), false);
+  semaphore.release();
+  await jobs[2];
+  assert.equal(slots[2].promote(), false);
+  semaphore.release();
+  await jobs[0];
+  semaphore.release();
+  await jobs[1];
+  semaphore.release();
+  assert.deepEqual(order, [2, 0, 1]);
+  const cancelled = semaphore.reserve(1);
+  cancelled.cancel();
+  assert.equal(cancelled.promote(), false);
+});
+
+test('hold は 2 枠で B だけを通し probe 完了後は A が C より先に取得する', async () => {
+  const semaphore = new Semaphore();
+  const a = semaphore.reserve(2);
+  a.hold();
+  a.hold();
+  const order = [];
+  const b = semaphore.acquire(2).then(() => order.push('B'));
+  const c = semaphore.acquire(2).then(() => order.push('C'));
+  await b;
+  await nextTurn();
+  assert.deepEqual(order, ['B']);
+  await a.acquire().then(() => order.push('A'));
+  await nextTurn();
+  assert.deepEqual(order, ['B', 'A']);
+  a.hold();
+  semaphore.release();
+  await c;
+  assert.deepEqual(order, ['B', 'A', 'C']);
+  semaphore.release();
+  semaphore.release();
+});
+
+test('hold は 1 枠なら probe 中の B と C を待たせる', async () => {
+  const semaphore = new Semaphore();
+  const a = semaphore.reserve(1);
+  a.hold();
+  const order = [];
+  const b = semaphore.acquire(1).then(() => order.push('B'));
+  const c = semaphore.acquire(1).then(() => order.push('C'));
+  await nextTurn();
+  assert.deepEqual(order, []);
+  await a.acquire().then(() => order.push('A'));
+  assert.deepEqual(order, ['A']);
+  semaphore.release();
+  await b;
+  semaphore.release();
+  await c;
+  semaphore.release();
+  assert.deepEqual(order, ['A', 'B', 'C']);
+});
+
+test('複数の hold は合計 1 枠だけを予約し通常札の FIFO 障壁は維持する', async () => {
+  const semaphore = new Semaphore();
+  const a = semaphore.reserve(2);
+  const b = semaphore.reserve(2);
+  const barrier = semaphore.reserve(2);
+  a.hold();
+  b.hold();
+  const order = [];
+  const c = semaphore.acquire(2).then(() => order.push('C'));
+  const d = semaphore.acquire(2).then(() => order.push('D'));
+  await nextTurn();
+  assert.deepEqual(order, []);
+  barrier.cancel();
+  await c;
+  await nextTurn();
+  assert.deepEqual(order, ['C']);
+  a.cancel();
+  await nextTurn();
+  assert.deepEqual(order, ['C'], '残った probe も 1 枠を予約する');
+  b.cancel();
+  await d;
+  semaphore.release();
+  semaphore.release();
+});
+
+for (const by of ['keys', 'sourcePaths']) {
+  test(`昇格 API は ${by} で 3 番目を先頭にして完了順を 3 → 1 → 2 にする`,
+    { timeout: 5000 }, async t => {
+      const f = fixture(t);
+      const sources = ['first.wav', 'second.wav', 'third.wav'].map(name => path.join(f.root, name));
+      for (const sourcePath of sources) fs.writeFileSync(sourcePath, 'fixture');
+      const starts = [];
+      mockSpawn(t, async (child, command, args) => {
+        starts.push(args[args.indexOf('-i') + 1]);
+        fs.writeFileSync(args.at(-1), Buffer.alloc(480));
+      });
+      const events = [];
+      const done = deferred();
+      t.after(subscribePreviewAudioSidecarEvents(event => {
+        events.push(event);
+        if (events.length === 3) done.resolve();
+      }));
+      const probe = deferred();
+      const probing = deferred();
+      let probeCount = 0;
+      t.after(() => probe.resolve(metadata));
+      const common = { ...f.options, ffmpeg: 'mock-ffmpeg', probeAudio: () => {
+        if (++probeCount === 3) probing.resolve();
+        return probe.promise;
+      } };
+      const statuses = sources.map(sourcePath => requestPreviewAudioSidecar({ ...common, sourcePath,
+        ...(by === 'keys' ? { outSec: 120 } : { decodedBytesThreshold: 1 }) }));
+      const target = by === 'keys' ? statuses[2].key : sources[2];
+      if (by === 'sourcePaths') await probing.promise;
+      assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: path.join(f.root, 'other'), [by]: [target] }),
+        { promoted: [] });
+      assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root, [by]: [target, target] }),
+        { promoted: [target] });
+      probe.resolve(metadata);
+      await done.promise;
+      assert.deepEqual(events.map(event => event.state), ['ready', 'ready', 'ready']);
+      assert.deepEqual(events.map(event => event.sourcePath), [sources[2], sources[0], sources[1]]);
+      assert.deepEqual(starts, [sources[2], sources[0], sources[1]]);
+      assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root,
+        keys: [events[0].key, 'missing'], sourcePaths: sources }), { promoted: [] });
+      assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root }), { promoted: [] });
+    });
+}
+
+test('昇格 API は keys → sourcePaths の入力順に移動し取得済み札を無視する',
+  { timeout: 5000 }, async t => {
+    const f = fixture(t);
+    const sources = ['first.wav', 'second.wav', 'third.wav'].map(name => path.join(f.root, name));
+    for (const sourcePath of sources) fs.writeFileSync(sourcePath, 'fixture');
+    const entered = deferred();
+    const gate = deferred();
+    t.after(() => gate.resolve());
+    const starts = [];
+    mockSpawn(t, async (child, command, args) => {
+      starts.push(args[args.indexOf('-i') + 1]);
+      entered.resolve();
+      await gate.promise;
+      fs.writeFileSync(args.at(-1), Buffer.alloc(480));
+    });
+    const events = [];
+    const done = deferred();
+    t.after(subscribePreviewAudioSidecarEvents(event => {
+      events.push(event);
+      if (events.length === 3) done.resolve();
+    }));
+    const statuses = sources.map(sourcePath => requestPreviewAudioSidecar({ ...f.known, sourcePath,
+      ffmpeg: 'mock-ffmpeg' }));
+    const keys = [statuses[1].key, statuses[2].key];
+    assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root, keys, sourcePaths: [sources[0]] }),
+      { promoted: [...keys, sources[0]] });
+    await entered.promise;
+    assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root,
+      keys: [statuses[0].key], sourcePaths: [sources[0]] }), { promoted: [] });
+    gate.resolve();
+    await done.promise;
+    assert.deepEqual(starts, [sources[0], sources[2], sources[1]]);
+    assert.deepEqual(events.map(event => event.state), ['ready', 'ready', 'ready']);
+  });
+
+test('背景 probe の hold は B だけを通し A → C へ枠を渡す',
+  { timeout: 5000 }, async t => {
+    const f = fixture(t);
+    const sources = ['first.wav', 'second.wav', 'third.wav'].map(name => path.join(f.root, name));
+    for (const sourcePath of sources) fs.writeFileSync(sourcePath, 'fixture');
+    const gates = sources.map(() => deferred());
+    const entered = sources.map(() => deferred());
+    const probe = deferred();
+    t.after(() => { probe.resolve(metadata); for (const gate of gates) gate.resolve(); });
+    const starts = [];
+    let active = 0;
+    let peak = 0;
+    mockSpawn(t, async (child, command, args) => {
+      const sourcePath = args[args.indexOf('-i') + 1];
+      const index = sources.indexOf(sourcePath);
+      starts.push(sourcePath);
+      peak = Math.max(peak, ++active);
+      entered[index].resolve();
+      await gates[index].promise;
+      fs.writeFileSync(args.at(-1), Buffer.alloc(480));
+      active -= 1;
+    });
+    const events = [];
+    const done = deferred();
+    t.after(subscribePreviewAudioSidecarEvents(event => {
+      events.push(event);
+      if (events.length === 3) done.resolve();
+    }));
+    const common = { ...f.options, concurrency: undefined, ffmpeg: 'mock-ffmpeg' };
+    requestPreviewAudioSidecar({ ...common, sourcePath: sources[0],
+      decodedBytesThreshold: 1, probeAudio: () => probe.promise });
+    for (const sourcePath of sources.slice(1)) requestPreviewAudioSidecar({ ...common, sourcePath, outSec: 120 });
+    await entered[1].promise;
+    await nextTurn();
+    assert.deepEqual(starts, [sources[1]]);
+    probe.resolve(metadata);
+    await entered[0].promise;
+    await nextTurn();
+    assert.deepEqual(starts, [sources[1], sources[0]]);
+    gates[0].resolve();
+    await entered[2].promise;
+    assert.deepEqual(starts, [sources[1], sources[0], sources[2]]);
+    gates[1].resolve();
+    gates[2].resolve();
+    await done.promise;
+    assert.equal(peak, 2);
+    assert.deepEqual(events.map(event => event.state), ['ready', 'ready', 'ready']);
+  });
+
+test('昇格 API は ensure の待機札も動かし失敗・完了後は台帳から外す',
+  { timeout: 5000 }, async t => {
+    const f = fixture(t);
+    const sources = ['first.wav', 'second.wav', 'third.wav'].map(name => path.join(f.root, name));
+    for (const sourcePath of sources) fs.writeFileSync(sourcePath, 'fixture');
+    mockSpawn(t, async (child, command, args) => {
+      if (args[args.indexOf('-i') + 1] === sources[2]) throw new Error('test generation failure');
+      fs.writeFileSync(args.at(-1), Buffer.alloc(480));
+    });
+    const options = sources.map(sourcePath => ({ ...f.known, sourcePath, ffmpeg: 'mock-ffmpeg' }));
+    const keys = options.map(value => previewAudioSidecarStatus(value).key);
+    const order = [];
+    const jobs = options.map((value, index) => ensurePreviewAudioSidecar(value).then(result => {
+      order.push(index);
+      return result;
+    }));
+    assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root, keys: [keys[2]] }), { promoted: [keys[2]] });
+    const results = await Promise.all(jobs);
+    assert.deepEqual(order, [2, 0, 1]);
+    assert.deepEqual(results.map(result => result.ok), [true, true, false]);
+    assert.deepEqual(promotePreviewAudioSidecars({ cacheDir: f.root, keys, sourcePaths: sources }), { promoted: [] });
   });

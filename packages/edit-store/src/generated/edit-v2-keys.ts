@@ -3,7 +3,7 @@
 
 export const ITEM_V2_KEYS = ["id","name","hidden","locked","at","duration","anchor","transform","opacity","blend","crop","adjust","perspective","motion","animator","keyframes","items","mask","source","role","gain_db","denoise","lowcut_hz","fade_in","fade_out","ducking","duck_db","duck_attack","duck_release","script","reading","provenance"] as const;
 
-export const ITEM_SOURCE_V2_KEYS = ["kind","src","in","out","framing","transition_out","freeze","fx","speed","chroma_key","pitch_semitones","formant","path","part","style","text","exclude","derivedFrom","vars","params","shape","preset","baked","from","filter","id"] as const;
+export const ITEM_SOURCE_V2_KEYS = ["kind","src","in","out","framing","transition_out","freeze","fx","speed","gain_db","mute","chroma_key","pitch_semitones","formant","path","part","style","text","exclude","derivedFrom","vars","params","shape","preset","baked","from","filter","id"] as const;
 
 export const KEYFRAME_V2_KEYS = ["t","transform","crop","perspective","opacity","gain_db","animator","easing"] as const;
 
@@ -210,6 +210,8 @@ export const ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
     "freeze",
     "fx",
     "speed",
+    "gain_db",
+    "mute",
     "chroma_key"
   ],
   "itemSourceAudioMediaV2": [

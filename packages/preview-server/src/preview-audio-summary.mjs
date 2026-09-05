@@ -5,6 +5,31 @@ import { hasAudioClipFx } from '../../media-bin/src/preview-audio-sidecar.mjs';
 const DECODED_BYTES_THRESHOLD = 64 * 1024 * 1024;
 const isHeavy = duration => duration * 48000 * 2 * 4 > DECODED_BYTES_THRESHOLD;
 
+export function selectPreviewAudioItemsAt(items, t) {
+  if (!Number.isFinite(t)) return [];
+  return items.filter(item => {
+    if (item.state !== 'queued' && item.state !== 'generating') return false;
+    if (item.kind === 'bgm' || item.at == null) return true;
+    const at = item.at ?? 0;
+    return at <= t && (!(Number.isFinite(item.durationSec) && item.durationSec > 0)
+      || t < at + item.durationSec);
+  }).sort((a, b) => (a.at ?? 0) - (b.at ?? 0)
+    || Number(a.kind === 'speech') - Number(b.kind === 'speech'));
+}
+
+export function promotePreviewAudioSummaryAt(summary, t, { cacheDir, promoteSidecars }) {
+  const selected = selectPreviewAudioItemsAt(summary?.priority ?? [], t);
+  const promoted = new Set();
+  // Separate calls preserve the global order even when keys and pending probes interleave.
+  for (const item of [...selected].reverse()) {
+    const result = promoteSidecars({ cacheDir,
+      keys: item.key ? [item.key] : [], sourcePaths: item.key ? [] : [item.sourcePath] });
+    for (const value of result.promoted) promoted.add(value);
+  }
+  return { promoted: [...new Set(selected.filter(item => promoted.has(item.key ?? item.sourcePath))
+    .map(item => item.key ?? `${item.kind}:${item.id}`))] };
+}
+
 // Summary only projects declarations and requests background work. The injected requester
 // returns known state synchronously; probing/transcoding belongs to media-bin.
 export function prepareFrameEngineAudioSummary(readData, deps) {
@@ -14,6 +39,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
   const keepKeys = new Set();
   const keepProbes = new Set();
   const items = [];
+  const priority = [];
   const requests = [];
   const warn = message => { warnings.push(message); deps.warn?.(message); };
   const fps = Number(readData?.output?.fps) > 0 ? Number(readData.output.fps) : 30;
@@ -72,7 +98,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       prepareRegular(item, kind, `${kind}-${index + 1}`));
   }
   requests.sort((a, b) => a.at - b.at);
-  for (const { target, kind, id, options, fallback } of requests) {
+  for (const { target, kind, id, at, options, fallback } of requests) {
     let result;
     try {
       result = ffmpeg ? requestSidecar({ ...options, ffmpeg, cacheDir })
@@ -87,7 +113,13 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
     target.sidecarState = state;
     if (result.key) keepKeys.add(result.key);
     if (result.probe?.fingerprint) keepProbes.add(result.probe.fingerprint);
-    items.push({ kind, id, key: result.key ?? null, state });
+    const durationSec = kind === 'bgm' ? undefined : kind === 'speech'
+      ? target.durationSec ?? (options.outSec - options.inSec) / options.speed
+      : options.outSec === undefined ? undefined : options.outSec - options.inSec;
+    const item = { kind, id, key: result.key ?? null, state, at,
+      ...(durationSec !== undefined ? { durationSec } : {}) };
+    items.push(item);
+    priority.push({ ...item, sourcePath: options.sourcePath });
     if (state === 'ready') {
       target.sidecar = {
         path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
@@ -103,5 +135,5 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       warn(`${fallback}: ${result.reason ?? result.state}`);
     }
   }
-  return { audio: { ...audio, speech }, warnings, keepKeys: [...keepKeys], keepProbes: [...keepProbes], items };
+  return { audio: { ...audio, speech }, warnings, keepKeys: [...keepKeys], keepProbes: [...keepProbes], items, priority };
 }

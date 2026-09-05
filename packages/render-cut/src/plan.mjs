@@ -971,11 +971,21 @@ function buildSequentialAudioCutCommand({
   });
 }
 
+function cutSpeechVolumeSuffix(cut, { warnings, index }) {
+  const gain = cut.gain_db;
+  if (!Number.isFinite(gain) || gain === 0) return "";
+  const clamped = Math.max(-60, Math.min(12, gain));
+  if (clamped !== gain) {
+    warnings.push(`cut ${cut.id ?? index + 1}: source.gain_db ${gain} is out of range; clamped to ${clamped}`);
+  }
+  return `,volume=${formatNumber(clamped)}dB`;
+}
+
 function appendInputSeekedCutAudioFilter({
   filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
 }) {
   const speed = cutSpeed(cut);
-  if (source.hasAudio === true) {
+  if (source.hasAudio === true && cut.mute !== true) {
     appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
     const atempoSuffix = buildAtempoChain(speed)
       .map((factor) => `,atempo=${formatNumber(factor)}`)
@@ -988,7 +998,7 @@ function appendInputSeekedCutAudioFilter({
       sourceOut: cut.out,
       preroll: source.preroll ?? 0,
       speed,
-      atempoSuffix,
+      atempoSuffix: atempoSuffix + cutSpeechVolumeSuffix(cut, { warnings, index }),
       freeze: cut.freeze,
       id: `v1_${index}`,
       normalize: true,
@@ -1232,7 +1242,7 @@ function appendInputSeekedGapAwareAudioFilters({
     const { index, cut } = segment;
     const source = sourcesByCutIndex.get(localIndex);
     const speed = cutSpeed(cut);
-    if (source.hasAudio === true) {
+    if (source.hasAudio === true && cut.mute !== true) {
       appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
@@ -1245,7 +1255,7 @@ function appendInputSeekedGapAwareAudioFilters({
         sourceOut: cut.out,
         preroll: source.preroll ?? 0,
         speed,
-        atempoSuffix,
+        atempoSuffix: atempoSuffix + cutSpeechVolumeSuffix(cut, { warnings, index }),
         padToSeconds: segmentDuration(cut),
       });
     } else {
@@ -1277,13 +1287,13 @@ function appendGapAwareAudioFilters({
     const { index, cut } = segment;
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
-    if (source.hasAudio) {
+    if (source.hasAudio && cut.mute !== true) {
       appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
       filters.push(
-        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix},apad=whole_dur=${formatNumber(segmentDuration(cut))}[araw1_${index}]`,
+        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}${cutSpeechVolumeSuffix(cut, { warnings, index })},apad=whole_dur=${formatNumber(segmentDuration(cut))}[araw1_${index}]`,
       );
     } else {
       filters.push(

@@ -47,10 +47,10 @@ test('summary は同期で first-use 順に要求し ready / queued / no-audio /
   assert.doesNotMatch(source, /\bawait\b/u);
   assert.equal(result.then, undefined);
   assert.deepEqual(result.items, [
-    { kind: 'speech', id: 'opening-speech', key: 'speech-key', state: 'ready' },
-    { kind: 'bgm', id: 'bed', key: null, state: 'queued' },
-    { kind: 'narration', id: 'voice', key: 'voice-key', state: 'no-audio' },
-    { kind: 'sfx', id: 'hit', key: 'hit-key', state: 'unavailable' },
+    { kind: 'speech', id: 'opening-speech', key: 'speech-key', state: 'ready', at: 0, durationSec: 2 },
+    { kind: 'bgm', id: 'bed', key: null, state: 'queued', at: 0 },
+    { kind: 'narration', id: 'voice', key: 'voice-key', state: 'no-audio', at: 1, durationSec: 2 },
+    { kind: 'sfx', id: 'hit', key: 'hit-key', state: 'unavailable', at: 3, durationSec: 1 },
   ]);
   assert.deepEqual(calls.map(value => path.basename(value.sourcePath)), ['video.mp4', 'heavy.WAV', 'heavy.WAV', 'hit.mp3']);
   assert.equal(calls[1].outSec, undefined, 'BGM endpoint is resolved by background probe');

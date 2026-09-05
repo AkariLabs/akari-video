@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -146,6 +146,83 @@ test('URL probe uses byte ranges and memoizes one result per URL', async () => {
   assert.deepEqual(second, first);
   assert.equal(fetches, afterFirst);
   assert.ok(fetches >= 1);
+});
+
+test('9 MiB 超の moov は既定予算で成功し転送量を抑え、明示 8 MiB では失敗する', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'akari-moov-budget-'));
+  try {
+    const original = readFileSync(fixture);
+    const originalInfo = readVideoCodecFromMoov(original);
+    assert.match(originalInfo?.codec ?? '', /^avc1\./u);
+    const moov = moovBox(original);
+    assert.ok(moov);
+    let ftyp = null;
+    for (let offset = 0; offset + 8 <= original.byteLength;) {
+      let size = original.readUInt32BE(offset);
+      const type = original.toString('latin1', offset + 4, offset + 8);
+      let header = 8;
+      if (size === 1) {
+        size = Number(original.readBigUInt64BE(offset + 8));
+        header = 16;
+      } else if (size === 0) {
+        size = original.byteLength - offset;
+      }
+      assert.ok(size >= header && offset + size <= original.byteLength);
+      if (type === 'ftyp') {
+        ftyp = original.subarray(offset, offset + size);
+        break;
+      }
+      offset += size;
+    }
+    assert.ok(ftyp);
+    assert.equal(moov.readUInt32BE(0), moov.byteLength);
+    const padding = Buffer.alloc(9 * 1024 * 1024);
+    padding.writeUInt32BE(padding.byteLength, 0);
+    padding.write('free', 4, 'latin1');
+    const paddedMoov = Buffer.concat([moov, padding]);
+    const moovSize = paddedMoov.byteLength;
+    paddedMoov.writeUInt32BE(moovSize, 0);
+    assert.ok(moovSize > 9 * 1024 * 1024);
+    assert.deepEqual(readVideoCodecFromMoov(paddedMoov), originalInfo);
+    const output = path.join(directory, 'moov-budget.mp4');
+    writeFileSync(output, Buffer.concat([ftyp, paddedMoov]));
+    const bytes = readFileSync(output);
+    let transferredBytes = 0;
+    const fetchImpl = async (_url, init = {}) => {
+      const range = String(new Headers(init.headers).get('range'));
+      const match = range.match(/^bytes=(\d+)-(\d+)$/u);
+      assert.ok(match, `Range ヘッダが不正: ${range}`);
+      const start = Number(match[1]);
+      const end = Math.min(Number(match[2]), bytes.byteLength - 1);
+      assert.ok(start <= end && start < bytes.byteLength);
+      transferredBytes += end - start + 1;
+      return new Response(bytes.subarray(start, end + 1), {
+        status: 206,
+        headers: {
+          'content-range': `bytes ${start}-${end}/${bytes.byteLength}`,
+          'content-length': String(end - start + 1),
+        },
+      });
+    };
+    resetCodecProbeCache();
+    const result = await probeSourceCodec('/moov-budget.mp4', { fetchImpl });
+    assert.equal(result.error, undefined);
+    assert.match(result.info?.codec ?? '', /^avc1\./u);
+    assert.equal(result.info?.codec, originalInfo.codec);
+    assert.ok(transferredBytes <= moovSize + 1024 * 1024);
+
+    resetCodecProbeCache();
+    const limited = await probeSourceCodec('/moov-budget-8mib.mp4', {
+      fetchImpl, maxProbeBytes: 8 * 1024 * 1024,
+    });
+    assert.match(limited.error ?? '', /moov exceeds probe budget/u);
+    assert.ok((limited.error ?? '').includes(String(moovSize)));
+    assert.ok((limited.error ?? '').includes(String(8 * 1024 * 1024)));
+    assert.equal(limited.info, null);
+  } finally {
+    resetCodecProbeCache();
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('URL probe default fetch preserves the global receiver', async () => {

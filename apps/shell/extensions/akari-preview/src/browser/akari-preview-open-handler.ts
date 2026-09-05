@@ -1,4 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
+import { FileUri } from '@theia/core/lib/common/file-uri';
+import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -411,6 +413,9 @@ interface PreviewAudioService {
 
 interface PreviewAudioPendingRequest {
     at?: number;
+    durationSec?: number;
+    key?: string;
+    state?: PreviewAudioSidecarRequestResult['state'];
     kind: 'speech' | 'bgm' | 'sfx' | 'narration';
     id: string;
     label: string;
@@ -2262,6 +2267,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
         disposables.push(widget.onMessage(message => {
+            if (message && message.type === 'akari-preview-audio-priority') {
+                void this.handlePreviewAudioPriority(widget, message.time);
+            }
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
@@ -3285,10 +3293,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
     }
 
+    protected async handlePreviewAudioPriority(widget: PreviewWidgetMarker, time: unknown): Promise<void> {
+        const projectRootUri = widget.akariPreviewAudioProjectRootUri;
+        if (!projectRootUri || typeof time !== 'number' || !Number.isFinite(time)) return;
+        try {
+            const items = selectPreviewAudioItemsAt((widget.akariPreviewAudioPendingRequests ?? [])
+                .map(item => ({ ...item, state: item.state ?? 'queued' })), time);
+            // A single call processes keys before sources; separate calls retain mixed first-use order.
+            for (const item of items.reverse()) {
+                await this.previewService.promotePreviewAudioSidecars({
+                    projectRootUri, keys: item.key ? [item.key] : [],
+                    sourcePaths: item.key ? [] : [FileUri.fsPath(item.request.sourceUri)]
+                });
+            }
+        } catch (error) {
+            console.warn('[akari-preview] preview audio priority failed', error);
+        }
+    }
+
     protected previewAudioSidecarFields(
         item: PreviewAudioPendingRequest,
         result: PreviewAudioSidecarRequestResult
     ): PreviewAudioSidecarFields {
+        item.key = result.key ?? item.key;
+        item.state = result.state;
         if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
         if (result.state === 'ready' && result.stream) {
             return {
@@ -3402,6 +3430,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return;
                 }
                 if (result.key) widget.akariPreviewAudioKeepKeys!.add(result.key);
+                item.key = result.key ?? item.key;
+                item.state = result.state;
                 if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes!.add(result.probe.fingerprint);
                 if (result.state === 'queued' || result.state === 'generating') return;
                 pending.splice(pending.indexOf(item), 1);
@@ -3809,6 +3839,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
                 const item: PreviewAudioPendingRequest = {
                     at: declaration.atSec,
+                    durationSec: declaration.durationSec ?? (declaration.outSec - declaration.inSec) / declaration.speed,
                     kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
                 };
                 sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
@@ -4319,6 +4350,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
                 const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
                 item.at = at;
+                item.durationSec = kind === 'bgm' || trim.outSec === undefined ? undefined : trim.outSec - trim.inSec;
                 entry.item = item;
                 // The shared first-use loop invokes this only after both kinds are collected.
                 entry.resolve = async () => {
@@ -6623,6 +6655,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
             window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
+            window.akari.requestAudioPriority = time => vscode.postMessage({ type: 'akari-preview-audio-priority', time });
             window.akari.stageScale = () => frameScale;
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
@@ -7626,6 +7659,20 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateAudio(pendingAudio);
                 }
                 const audioStatusTimer = setInterval(updateAudioStatus, 250);
+                const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
+                const AUDIO_PRIORITY_INTERVAL_MS = 10_000;
+                let audioPriorityTimer;
+                const requestAudioPriority = time => {
+                    clearTimeout(audioPriorityTimer);
+                    if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                    audioPriorityTimer = setTimeout(() => {
+                        if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                        window.akari.requestAudioPriority(time);
+                    }, AUDIO_PRIORITY_DEBOUNCE_MS);
+                };
+                const audioPriorityInterval = setInterval(() => {
+                    if (playing) requestAudioPriority(position);
+                }, AUDIO_PRIORITY_INTERVAL_MS);
                 updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
@@ -7797,6 +7844,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
                         updateAudioStatus();
+                        requestAudioPriority(position);
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
@@ -7984,6 +8032,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     delete window.akariFrameEngineAudioAnalyser;
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
                     clearInterval(audioStatusTimer);
+                    clearInterval(audioPriorityInterval);
+                    clearTimeout(audioPriorityTimer);
                     disposed = true;
                     sourceGeneration += 1;
                     scrub.dispose();
