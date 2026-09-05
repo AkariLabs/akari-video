@@ -16986,6 +16986,7 @@ ${indent}`);
     CachedStillImageSource: () => CachedStillImageSource,
     ClipSession: () => ClipSession,
     ClipSessionPool: () => ClipSessionPool,
+    DEFAULT_MOOV_BUDGET_BYTES: () => DEFAULT_MOOV_BUDGET_BYTES,
     DEFAULT_RANGE_CACHE_BYTES: () => DEFAULT_RANGE_CACHE_BYTES,
     DecodedFrameCoverageCache: () => DecodedFrameCoverageCache,
     DirectUploadFallbackError: () => DirectUploadFallbackError,
@@ -22290,6 +22291,7 @@ void main() {
   }
 
   // packages/frame-engine/src/decode/codec-probe.ts
+  var DEFAULT_MOOV_BUDGET_BYTES = 32 * 1024 * 1024;
   var supportCache = /* @__PURE__ */ new Map();
   var sourceCache = /* @__PURE__ */ new Map();
   var forceSoftwareDecode = false;
@@ -22505,7 +22507,7 @@ void main() {
   async function doProbeSourceCodec(url, options) {
     try {
       const fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
-      const maxProbeBytes = options.maxProbeBytes ?? 8 * 1024 * 1024;
+      const maxProbeBytes = options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES;
       const requestUrl = queryUrl(url, options.query);
       const initialLimit = Math.min(1024 * 1024, maxProbeBytes);
       const initialResponse = await fetchImpl(requestUrl, { headers: { Range: `bytes=0-${initialLimit - 1}` } });
@@ -22528,7 +22530,7 @@ void main() {
         if (!box2) throw new Error(`invalid MP4 box header at ${cursor}`);
         const boxSize = box2.size;
         if (box2.type === "moov") {
-          if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B)`);
+          if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B > ${maxProbeBytes} B)`);
           if (cursor + boxSize <= initial.byteLength) {
             moovBytes = initial.slice(cursor, cursor + boxSize);
           } else {
@@ -22554,7 +22556,7 @@ void main() {
     }
   }
   function probeSourceCodec(url, options = {}) {
-    const key = `${queryUrl(url, options.query)}\0${options.maxProbeBytes ?? 8 * 1024 * 1024}`;
+    const key = `${queryUrl(url, options.query)}\0${options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES}`;
     let cached = sourceCache.get(key);
     if (!cached) {
       cached = doProbeSourceCodec(url, options);
