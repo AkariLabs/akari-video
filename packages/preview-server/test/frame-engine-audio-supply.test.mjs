@@ -21,7 +21,7 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
   assert.match(supplySource, /buildWebAudioSchedule/u);
   assert.match(supplySource, /createBufferSource\(\)/u);
   assert.match(supplySource, /createGain\(\)/u);
-  assert.match(supplySource, /source\.playbackRate\.value = item\.playbackRate/u);
+  assert.match(supplySource, /source\.playbackRate\.value = item\.playbackRate \* rate/u);
   assert.match(supplySource, /item\.sourceDurationSec/u);
   assert.match(supplySource, /item\.envelopeEvents/u);
   assert.match(supplySource, /DEFAULT_DECODE_CACHE_BYTES = 256 \* 1024 \* 1024/u);
@@ -32,6 +32,13 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
   assert.equal([...bundle.matchAll(/function createPreviewAudioSupply\(/gu)].length, 1,
     'frame-engine bundle の音声供給実装は一つだけ');
   assert.match(bundle, /AudioContext unavailable|Web Audio unavailable/u);
+});
+
+test('共有音声供給は PCM sidecar を Range 窓として予約し 12 秒先まで補充する', () => {
+  assert.match(supplySource, /import \{ PcmWindowSource[^\n]*from '\.\/pcm-window-source\.js'/u);
+  assert.match(supplySource, /sidecar\?\.format === 'pcm-s16le'/u);
+  assert.match(supplySource, /const WINDOW_LOOKAHEAD_SEC = 12/u);
+  assert.match(supplySource, /\? startWindowedItem\(item, contextStart, thisGeneration/u);
 });
 
 test('音声状態の通知は runtime を作り直さず updateAudio へ渡し、通常 UI に準備状況を出す', () => {

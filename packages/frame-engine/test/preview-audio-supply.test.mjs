@@ -2,6 +2,349 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createPreviewAudioSupply } from '../dist/index.js';
+import { deferred, expectedSamples, fakeClock, flush, metadata, rangeServer, sampleRate } from './pcm-window-fixture.mjs';
+
+function pcmDeclaration(id = 'bed', durationSec = 120, kind = 'bgm', spec = {}) {
+  const meta = metadata(durationSec, `/${id}.pcm`);
+  return { kind, id, url: meta.url, sourceUrl: `/${id}.wav`, spec: {
+    id, sidecarState: 'ready', sidecar: { ...meta, path: meta.url, format: 'pcm-s16le',
+      padBeforeSec: 0, padAfterSec: 0 }, ...spec,
+  } };
+}
+
+function pcmSupply(t, { durationSec = 120, server, ...options } = {}) {
+  const clock = fakeClock(t);
+  const context = new FakeContext(new Map([[1, buffer(8, 80, 2)]]));
+  server ??= rangeServer({ durationSec, requireRange: true });
+  const warnings = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: durationSec, contextFactory: () => context,
+    declarations: [pcmDeclaration('bed', durationSec)], fetchImpl: server.fetchImpl,
+    nowImpl: clock.now, onWarning: message => warnings.push(message), ...options,
+  });
+  t.after(() => supply.dispose());
+  return { supply, context, clock, warnings, ...server };
+}
+
+function assertWindowStats(supply, requests, extra = {}) {
+  const successful = requests.filter(request => request.reads > 0 && !request.signal?.aborted);
+  const stats = supply.debug().prefetch.windows;
+  assert.equal(stats.fetched, successful.length);
+  assert.equal(stats.bytes, successful.reduce((sum, request) => sum + request.bodyBytes, 0));
+  for (const [key, value] of Object.entries(extra)) assert.equal(stats[key], value, key);
+}
+
+function assertPcmNode(source, startFrame) {
+  const [, offset, duration] = source.starts[0];
+  assert.equal(offset, 0);
+  assert.equal(duration, source.buffer.length / sampleRate, 'duration remains in material seconds');
+  assert.equal(source.loop, false);
+  assert.deepEqual(source.buffer.getChannelData(0), expectedSamples(startFrame, source.buffer.length));
+}
+
+test('windowed PCM uses only bounded Ranges and replenishes per-item bufferedUntil without decode bytes', async t => {
+  const { supply, context, clock, requests } = pcmSupply(t, {
+    declarations: [pcmDeclaration(), pcmDeclaration('voice', 120, 'narration', { t: 4 })],
+  });
+  supply.playFrom(0);
+  await flush();
+  const before = supply.debug().supply.bufferedUntil;
+  assert.deepEqual(before, { 'bgm:bed': 13, 'narration:voice': 14 });
+  assert.ok(context.createdBuffers.length > 2);
+  assert.equal(context.decodeCalls, 0);
+  assert.equal(supply.debug().prefetch.decodedBytes, 0);
+  context.currentTime = 4.02;
+  await clock.advance(500);
+  assert.deepEqual(supply.debug().supply.bufferedUntil, { 'bgm:bed': 16, 'narration:voice': 17 });
+  assert.deepEqual(before, { 'bgm:bed': 13, 'narration:voice': 14 }, 'debug returns a snapshot');
+  assert.ok(requests.every(request => request.range && request.bodyBytes <= (3 * sampleRate + 1) * 2));
+  assert.equal(requests.filter(request => !request.range).length, 0);
+  assertWindowStats(supply, requests, { evicted: 0, late: 0, failed: 0,
+    cacheBytes: requests.reduce((sum, request) => sum + request.bodyBytes * 2, 0) });
+});
+
+for (const [playbackRate, rate] of [[1, 1], [1.5, 1], [1.5, 2]]) {
+  test(`PCM windows are sample-contiguous at playbackRate=${playbackRate}, rate=${rate}`, async t => {
+    const startFrame = 9 * sampleRate + 1;
+    const { supply, context, requests } = pcmSupply(t, {
+      scheduleBuilder: ({ startAtSec }) => ({ startAtSec, warnings: [], items: [{
+        kind: 'bgm', id: 'bed', track: 0, timelineStartSec: 2, timelineEndSec: 32,
+        delaySec: 2, sourceOffsetSec: startFrame / sampleRate, durationSec: 30,
+        sourceDurationSec: 30 * playbackRate, playbackRate, loop: false, gainDb: 0,
+        gainEvents: [{ offsetSec: 0, value: 0, method: 'set' }, { offsetSec: 8, value: 1, method: 'linear' }],
+        envelopeEvents: [{ offsetSec: 0, value: 1, method: 'set' }, { offsetSec: 4, value: 0.5, method: 'linear' }],
+      }] }),
+    });
+    supply.setRate(rate);
+    supply.playFrom(0);
+    await flush();
+    assert.ok(context.sources.length >= 4);
+    assert.equal(context.gains.length, 3, 'one master and one base/envelope pair for the entire item');
+    assert.deepEqual(context.gains[1].gain.calls, [['set', 0, 0.02 + 2 / rate], ['linear', 1, 0.02 + 10 / rate]]);
+    assert.deepEqual(context.gains[2].gain.calls, [['set', 1, 0.02 + 2 / rate], ['linear', 0.5, 0.02 + 6 / rate]]);
+    let cursor = startFrame;
+    let consumed = 0;
+    for (const [index, source] of context.sources.entries()) {
+      assert.equal(source.playbackRate.value, playbackRate * rate);
+      assertPcmNode(source, cursor);
+      const [when, , duration] = source.starts[0];
+      assert.equal(when, 0.02 + 2 / rate + consumed / (playbackRate * rate));
+      if (index > 0) {
+        assert.equal(requests[index - 1].end + 1, requests[index].start, 'zero sample gap or overlap');
+        const previous = context.sources[index - 1].starts[0];
+        assert.ok(Math.abs((when - previous[0]) * playbackRate * rate * sampleRate - previous[2] * sampleRate) < 1e-7);
+      }
+      assert.equal(requests[index].start, cursor * 2);
+      cursor += source.buffer.length;
+      consumed += duration;
+    }
+  });
+}
+
+test('PCM BGM loop splits at the material end and wraps to zero with finite non-looping nodes', async t => {
+  const { supply, context, requests } = pcmSupply(t, { timelineDurationSec: 130 });
+  supply.playFrom(117.5);
+  await flush();
+  assert.ok(context.sources.length >= 3);
+  assert.deepEqual(requests.slice(0, 3).map(request => [request.start / (sampleRate * 2), (request.end + 1) / (sampleRate * 2)]),
+    [[117.5, 118.5], [118.5, 120], [0, 3]]);
+  let materialFrame = 117.5 * sampleRate;
+  let when = 0.02;
+  for (const source of context.sources) {
+    assertPcmNode(source, materialFrame);
+    assert.ok(Math.abs(source.starts[0][0] - when) < 1e-12);
+    materialFrame = (materialFrame + source.buffer.length) % (120 * sampleRate);
+    when += source.starts[0][2];
+  }
+});
+
+test('seek to 3000 seconds aborts old requests and starts from just one new first window', async t => {
+  const old = deferred();
+  const later = deferred();
+  const server = rangeServer({ durationSec: 3120, requireRange: true, beforeResponse: request => {
+    if (request.start === sampleRate * 2) return old.promise;
+    if (request.start >= 3001 * sampleRate * 2) return later.promise;
+  } });
+  const { supply, context, requests } = pcmSupply(t, { durationSec: 3120, server });
+  supply.playFrom(0);
+  await flush();
+  assert.equal(context.sources.length, 1);
+  const oldRequest = requests[1];
+  supply.seek(3000, true);
+  assert.equal(oldRequest.signal.aborted, true);
+  assert.equal(context.sources[0].stops.length, 1);
+  await flush();
+  assert.equal(requests[2].start, 3000 * sampleRate * 2);
+  assert.equal(requests[2].bodyBytes, sampleRate * 2);
+  assert.equal(context.sources.length, 2, 'first new window schedules while the second is still pending');
+  assertPcmNode(context.sources[1], 3000 * sampleRate);
+  assert.equal(supply.debug().supply.bufferedUntil['bgm:bed'], 3001);
+  const snapshot = supply.debug().prefetch.windows;
+  old.resolve();
+  await flush();
+  assert.deepEqual(supply.debug().prefetch.windows, snapshot);
+  assert.equal(context.sources.length, 2);
+  supply.dispose();
+  later.resolve();
+  await flush();
+});
+
+test('future PCM window 500 retries after exactly five seconds without stopping scheduled audio', async t => {
+  let attempts = 0;
+  const server = rangeServer({ requireRange: true, beforeResponse: request => {
+    if (request.start === sampleRate * 2 && ++attempts === 1) request.status = 500;
+  } });
+  const { supply, context, clock, requests, warnings } = pcmSupply(t, { server });
+  supply.playFrom(0);
+  await flush();
+  assert.equal(attempts, 1);
+  const playing = context.sources[0];
+  assert.equal(supply.debug().supply.bufferedUntil['bgm:bed'], 1);
+  assertWindowStats(supply, requests, { failed: 1, late: 0 });
+  context.currentTime = 0.52;
+  await clock.advance(4999);
+  assert.equal(attempts, 1);
+  assert.equal(playing.stops.length, 0);
+  await clock.advance(1);
+  assert.equal(attempts, 2);
+  assert.equal(playing.stops.length, 0);
+  assert.equal(supply.debug().playing, true);
+  assertPcmNode(context.sources[1], sampleRate);
+  assert.equal(context.sources[1].starts[0][0], 1.02);
+  assert.equal(supply.debug().supply.bufferedUntil['bgm:bed'], 13);
+  assertWindowStats(supply, requests, { failed: 1, late: 0 });
+  assert.deepEqual(warnings, []);
+});
+
+test('late PCM arrival counts lateness and schedules only the correctly timed sample suffix', async t => {
+  const gate = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: request =>
+    request.start === sampleRate * 2 ? gate.promise : undefined });
+  const { supply, context, requests } = pcmSupply(t, { server });
+  supply.playFrom(0);
+  await flush();
+  context.currentTime = 2.02;
+  gate.resolve();
+  await flush();
+  assertPcmNode(context.sources[1], 2 * sampleRate);
+  assert.deepEqual(context.sources[1].starts[0], [2.02, 0, 2]);
+  assert.equal(context.sources[2].starts[0][0], 4.02, 'later windows keep the original clock');
+  assert.equal(context.sources[0].stops.length, 0);
+  assertWindowStats(supply, requests, { late: 1, failed: 0 });
+  assert.equal(supply.debug().prefetch.decodedBytes, 0);
+});
+
+test('1 MiB window cache evicts played PCM and seeking back refetches identical audible samples', async t => {
+  const { supply, context, clock, requests } = pcmSupply(t, { windowCacheBytes: 1024 * 1024 });
+  supply.playFrom(0);
+  await flush();
+  const first = context.sources[0].buffer;
+  for (let second = 3; second <= 24; second += 3) {
+    context.currentTime = second + 0.02;
+    for (const source of context.sources) {
+      const [when, , duration] = source.starts[0];
+      if (source.onended && when + duration / source.playbackRate.value <= context.currentTime) {
+        const end = source.onended;
+        source.onended = null;
+        end();
+      }
+    }
+    await clock.advance(500);
+  }
+  const stats = supply.debug().prefetch.windows;
+  assert.ok(stats.evicted > 0);
+  const created = context.sources.length;
+  supply.seek(0, true);
+  assert.ok(supply.debug().prefetch.windows.cacheBytes <= 1024 * 1024, 'unpinning restores the 1 MiB limit');
+  await flush();
+  assert.equal(requests.filter(request => request.start === 0).length, 2);
+  assert.notEqual(context.sources[created].buffer, first);
+  assert.deepEqual(context.sources[created].buffer.getChannelData(0), first.getChannelData(0));
+  assertPcmNode(context.sources[created], 0);
+  assertWindowStats(supply, requests, { failed: 0, late: 0 });
+  assert.equal(supply.debug().prefetch.decodedBytes, 0);
+  supply.pause();
+  assert.ok(supply.debug().prefetch.windows.cacheBytes <= 1024 * 1024);
+});
+
+for (const outcome of ['ready', 'timeout', 'superseded']) {
+  test(`replan preserves old PCM audio until replacement startup is ${outcome}`, async t => {
+    const oldFuture = deferred();
+    const replacement = deferred();
+    const server = rangeServer({ requireRange: true, beforeResponse: request => {
+      if (request.start === sampleRate * 2) return oldFuture.promise;
+      if (request.start === sampleRate) return replacement.promise;
+    } });
+    const bed = pcmDeclaration();
+    const queued = { kind: 'narration', id: 'voice', url: '/voice.wav', spec: { id: 'voice', t: 0, sidecarState: 'queued' } };
+    const { supply, context, clock, requests } = pcmSupply(t, { server, declarations: [bed, queued],
+      fetchImpl: (url, options) => url.endsWith('.pcm') ? server.fetchImpl(url, options) : Promise.resolve(response(1)),
+    });
+    supply.playFrom(0);
+    await flush();
+    const original = context.sources[0];
+    const oldRequest = requests[1];
+    context.currentTime = 0.52;
+    supply.updateAudio({ declarations: [bed, { ...queued, url: '/voice.flac', spec: { ...queued.spec,
+      sidecarState: 'ready', sidecar: { path: '/voice.flac', durationSec: 8, padBeforeSec: 0, padAfterSec: 0 },
+    } }] });
+    await flush();
+    assert.equal(requests[2].start, sampleRate, 'replacement starts at the pinned audio position');
+    assert.equal(oldRequest.signal.aborted, false);
+    assert.equal(original.stops.length, 0, 'waiting for replacement must not silence the current node');
+    await clock.advance(1499);
+    assert.equal(original.stops.length, 0);
+    assert.equal(oldRequest.signal.aborted, false);
+    if (outcome === 'superseded') {
+      supply.seek(80);
+      assert.equal(requests[2].signal.aborted, true);
+      replacement.resolve();
+      await flush();
+      assert.equal(context.sources.length, 1, 'obsolete startFrom cannot schedule after seek');
+      assert.equal(supply.debug().playing, false);
+    } else {
+      if (outcome === 'ready') replacement.resolve();
+      else await clock.advance(1);
+      await flush();
+      assert.equal(supply.debug().playing, true);
+      assert.equal(supply.debug().scheduled.startAtSec, 0.5);
+      if (outcome === 'timeout') {
+        assert.equal(context.sources.length, 2, 'ready FLAC starts at the 1500 ms deadline');
+        replacement.resolve();
+        await flush();
+      }
+      const pcmNodes = context.sources.filter(source => source.buffer !== context.buffers.get(1));
+      assert.ok(pcmNodes.length > 1);
+      assertPcmNode(pcmNodes[1], sampleRate / 2);
+    }
+    assert.equal(oldRequest.signal.aborted, true);
+    assert.equal(original.stops.length, 1);
+    const before = supply.debug().prefetch.windows;
+    oldFuture.resolve();
+    await flush();
+    assert.deepEqual(supply.debug().prefetch.windows, before, 'old response cannot affect the new generation');
+  });
+}
+
+for (const stage of ['startup', 'playing']) {
+  for (const action of ['seek', 'pause', 'setRate', 'dispose']) {
+    test(`${action} immediately cancels PCM ${stage} requests, nodes and refill timers`, async t => {
+      const gate = deferred();
+      const server = rangeServer({ requireRange: true, beforeResponse: request =>
+        stage === 'startup' || request.start > 0 ? gate.promise : undefined });
+      const { supply, context, clock, requests } = pcmSupply(t, { server });
+      supply.playFrom(0);
+      await flush();
+      assert.equal(context.sources.length, stage === 'playing' ? 1 : 0);
+      const pending = requests.at(-1);
+      if (action === 'seek') supply.seek(30);
+      else if (action === 'setRate') supply.setRate(2);
+      else supply[action]();
+      assert.equal(pending.signal.aborted, true, 'cancellation is synchronous');
+      for (const source of context.sources) assert.equal(source.stops.length, 1);
+      // Rate changes intentionally launch another generation; stop it before draining.
+      if (action === 'setRate') supply.pause();
+      const count = requests.length;
+      const fetched = supply.debug().prefetch.windows.fetched;
+      gate.resolve();
+      await flush();
+      await clock.advance(10000);
+      assert.equal(requests.length, count);
+      assert.equal(context.sources.length, stage === 'playing' ? 1 : 0);
+      assert.equal(supply.debug().prefetch.windows.fetched, fetched);
+      assert.equal(clock.pending(), 0);
+    });
+  }
+}
+
+test('mixed PCM, FLAC, SFX and source-only items keep Range and whole-file decode paths separate', async t => {
+  const server = rangeServer({ requireRange: true });
+  const whole = [];
+  const { supply, context, requests } = pcmSupply(t, { server,
+    declarations: [pcmDeclaration(),
+      { kind: 'narration', id: 'flac', url: '/voice.flac', sourceUrl: '/voice.wav', spec: {
+        id: 'flac', t: 0, sidecar: { path: '/voice.flac', format: 'flac', durationSec: 8, padBeforeSec: 0, padAfterSec: 0 },
+      } },
+      { kind: 'sfx', id: 'hit', url: '/hit.mp3', spec: { id: 'hit', t: 0 } },
+      { kind: 'narration', id: 'raw', url: '/raw.wav', spec: { id: 'raw', t: 0 } }],
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('.pcm')) return server.fetchImpl(url, options);
+      assert.equal(new Headers(options?.headers).get('Range'), null);
+      whole.push(url);
+      return response(1);
+    },
+  });
+  supply.playFrom(0);
+  await flush();
+  assert.deepEqual(whole.sort(), ['/hit.mp3', '/raw.wav', '/voice.flac']);
+  assert.equal(context.decodeCalls, 3);
+  assert.equal(context.sources.filter(source => source.buffer === context.buffers.get(1)).length, 3);
+  assert.equal(supply.debug().scheduled.itemCount, 4);
+  assert.equal(supply.debug().prefetch.decodedBytes, 3 * 80 * 2 * 4);
+  assert.ok(requests.length > 1);
+  assert.ok(requests.every(request => request.range && request.url === '/bed.pcm'));
+  assertWindowStats(supply, requests, { failed: 0 });
+});
 
 class FakeParam {
   value = 1;
@@ -21,9 +364,10 @@ class FakeSource {
   buffer = null;
   onended = null;
   starts = [];
+  stops = [];
   connect() {}
   disconnect() {}
-  stop() {}
+  stop(...args) { this.stops.push(args); }
   start(...args) { this.starts.push(args); }
 }
 
@@ -75,6 +419,7 @@ class FakeContext {
   analysers = [];
   workletNodes = [];
   decodeCalls = 0;
+  createdBuffers = [];
   constructor(buffers) { this.buffers = buffers; }
   async decodeAudioData(data) {
     this.decodeCalls += 1;
@@ -84,7 +429,9 @@ class FakeContext {
     return value;
   }
   createBuffer(numberOfChannels, length, sampleRate) {
-    return new FakeBuffer(numberOfChannels, length, sampleRate);
+    const buffer = new FakeBuffer(numberOfChannels, length, sampleRate);
+    this.createdBuffers.push(buffer);
+    return buffer;
   }
   createBufferSource() {
     const source = new FakeSource();
@@ -137,17 +484,27 @@ async function settle() {
   for (let index = 0; index < 50; index += 1) await Promise.resolve();
 }
 
-test('PCM sidecars are never fetched and regular/speech audio decode through the source route', async () => {
-  const context = new FakeContext(new Map([[1, buffer(12)], [2, buffer(12)]]));
+test('PCM sidecars use Range windows and schedule PCM without fetching or decoding the source', async () => {
+  const context = new FakeContext(new Map());
   const fetches = [];
   const sidecar = { path: '/regular.pcm', format: 'pcm-s16le', sampleRate: 24000,
     channels: 1, frames: 288000, bytesPerSample: 2, durationSec: 12, padBeforeSec: 0, padAfterSec: 0 };
   const supply = createPreviewAudioSupply({
-    timelineDurationSec: 3, scheduleBuilder, contextFactory: () => context,
-    fetchImpl: async url => {
-      fetches.push(url);
-      assert.ok(['/bed.m4a', '/source.mp4'].includes(url), `unexpected fetch: ${url}`);
-      return response(url === '/bed.m4a' ? 1 : 2);
+    timelineDurationSec: 3, contextFactory: () => context,
+    fetchImpl: async (url, options) => {
+      assert.ok(['/regular.pcm', '/speech.pcm'].includes(url), `unexpected fetch: ${url}`);
+      const range = /^bytes=(\d+)-(\d+)$/.exec(options?.headers?.Range ?? '');
+      assert.ok(range, 'every PCM request must carry a byte Range');
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      fetches.push({ url, start, end });
+      const bytes = new ArrayBuffer(end - start + 1);
+      const view = new DataView(bytes);
+      for (let index = 0; index < bytes.byteLength; index += 2) {
+        view.setInt16(index, url === '/regular.pcm' ? 8192 : -16384, true);
+      }
+      return { status: 206, headers: new Headers({ 'Content-Range': `bytes ${start}-${end}/576000` }),
+        arrayBuffer: async () => bytes };
     },
     declarations: [{ kind: 'bgm', id: 'bed', url: '/regular.pcm', sourceUrl: '/bed.m4a',
       spec: { id: 'bed', durationSec: 0, sidecar, sidecarState: 'ready' } }],
@@ -158,12 +515,17 @@ test('PCM sidecars are never fetched and regular/speech audio decode through the
   try {
     await supply.prime();
     await settle();
-    assert.deepEqual(fetches.sort(), ['/bed.m4a', '/source.mp4']);
-    assert.equal(context.decodeCalls, 2);
+    assert.deepEqual(fetches, [], 'metadata resolution does not fetch PCM or original files');
+    assert.equal(context.decodeCalls, 0);
     supply.playFrom(0);
     await settle();
-    assert.equal(context.sources.length, 2);
-    assert.ok(context.sources.some(source => source.starts[0][1] === 2), 'speech retains original trim offset');
+    assert.equal(context.decodeCalls, 0);
+    assert.deepEqual([...new Set(fetches.map(item => item.url))].sort(), ['/regular.pcm', '/speech.pcm']);
+    assert.equal(context.sources.length, 3, 'BGM has two windows and speech has one');
+    assert.deepEqual(context.sources.map(source => source.buffer.duration).sort(), [1, 1, 2]);
+    assert.ok(context.sources.every(source => source.starts[0][1] === 0 && source.loop === false));
+    assert.ok(context.sources.some(source => source.buffer.getChannelData(0)[0] === 0.25));
+    assert.ok(context.sources.some(source => source.buffer.getChannelData(0)[0] === -0.5));
   } finally { supply.dispose(); }
 });
 
