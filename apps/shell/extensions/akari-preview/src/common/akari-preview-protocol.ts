@@ -52,6 +52,8 @@ export interface OverlayRuntimeAssetUrls {
     webviewKernelJavaScriptUrl: string;
     /** includeFrameEngine 指定時のみ。バンドルが無い（legacy 明示）時は undefined。 */
     frameEngineJavaScriptUrl?: string;
+    /** preview の両音声経路で使う pitch-preserving AudioWorklet。生成物が無い場合だけ undefined。 */
+    previewAudioWorkletUrl?: string;
     captionFontUrl: string;
 }
 

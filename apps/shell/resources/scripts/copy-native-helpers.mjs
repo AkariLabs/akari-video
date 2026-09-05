@@ -46,6 +46,10 @@ await copyFile(
   path.join(overlayRuntimeDestination, 'frame-engine.js')
 );
 await copyFile(
+  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'preview-audio-worklet.js'),
+  path.join(overlayRuntimeDestination, 'preview-audio-worklet.js')
+);
+await copyFile(
   path.join(repoRoot, 'packages', 'osr-export', 'generated', 'frame-engine.js'),
   path.join(overlayRuntimeDestination, 'osr-frame-engine.js')
 );

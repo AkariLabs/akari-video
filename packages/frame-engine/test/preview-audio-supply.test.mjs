@@ -29,8 +29,30 @@ class FakeSource {
 
 class FakeGain {
   gain = new FakeParam();
-  connect() {}
-  disconnect() {}
+  connections = [];
+  disconnectCalls = 0;
+  connect(target) { this.connections.push(target); }
+  disconnect() { this.disconnectCalls += 1; this.connections = []; }
+}
+
+class FakeAnalyser {
+  connections = [];
+  connect(target) { this.connections.push(target); }
+  disconnect() { this.connections = []; }
+}
+
+class FakeAudioWorkletNode {
+  parameters = new Map([['ratio', new FakeParam()]]);
+  connections = [];
+  disconnectCalls = 0;
+  constructor(context, name, options) {
+    this.context = context;
+    this.name = name;
+    this.parameters.get('ratio').value = options?.parameterData?.ratio ?? 1;
+    context.workletNodes.push(this);
+  }
+  connect(target) { this.connections.push(target); }
+  disconnect() { this.disconnectCalls += 1; this.connections = []; }
 }
 
 class FakeBuffer {
@@ -50,6 +72,8 @@ class FakeContext {
   destination = {};
   sources = [];
   gains = [];
+  analysers = [];
+  workletNodes = [];
   decodeCalls = 0;
   constructor(buffers) { this.buffers = buffers; }
   async decodeAudioData(data) {
@@ -68,6 +92,7 @@ class FakeContext {
     return source;
   }
   createGain() { const gain = new FakeGain(); this.gains.push(gain); return gain; }
+  createAnalyser() { const analyser = new FakeAnalyser(); this.analysers.push(analyser); return analyser; }
   async resume() { this.state = 'running'; }
   async close() { this.state = 'closed'; }
 }
@@ -566,7 +591,7 @@ test('sidecar 失敗時も 64 MB 以上の speech source 全体は arrayBuffer �
   supply.dispose();
 });
 
-test('SFX も第 2 GainNode で exponential envelopeEvents を適用する', async () => {
+test('SFX も item 内の第 2 GainNode で exponential envelopeEvents を適用する', async () => {
   const context = new FakeContext(new Map([[1, buffer(1)]]));
   const envelopeEvents = [
     { offsetSec: 0, value: 1, method: 'set' },
@@ -596,11 +621,164 @@ test('SFX も第 2 GainNode で exponential envelopeEvents を適用する', asy
   supply.playFrom(0);
   await settle();
 
-  assert.equal(context.gains.length, 2);
-  assert.deepEqual(context.gains[1].gain.calls.map(call => call.slice(0, 2)), [
+  assert.equal(context.gains.length, 3, 'master + base + envelope');
+  assert.deepEqual(context.gains[2].gain.calls.map(call => call.slice(0, 2)), [
     ['set', 1],
     ['exponential', 0.25],
   ]);
-  assert.equal(context.gains[1].gain.calls[1][2] - context.gains[1].gain.calls[0][2], 0.5);
+  assert.equal(context.gains[2].gain.calls[1][2] - context.gains[2].gain.calls[0][2], 0.5);
   supply.dispose();
+});
+
+test('s1 setRate(2) は source・開始遅延・gain イベントを 2 倍速で予定する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(4)]]));
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 4,
+    contextFactory: () => context,
+    fetchImpl: async () => response(1),
+    declarations: [{ kind: 'sfx', id: 'hit', url: '/hit.wav', spec: { id: 'hit', t: 2 } }],
+    scheduleBuilder: () => ({
+      startAtSec: 0,
+      warnings: [],
+      items: [{
+        kind: 'sfx', id: 'hit', track: 0,
+        timelineStartSec: 2, timelineEndSec: 3, delaySec: 2,
+        sourceOffsetSec: 0, durationSec: 1, playbackRate: 1.5,
+        sourceDurationSec: 1.5, loop: false, gainDb: 0,
+        gainEvents: [
+          { offsetSec: 0, value: 0, method: 'set' },
+          { offsetSec: 0.5, value: 1, method: 'linear' },
+        ],
+        envelopeEvents: [],
+      }],
+    }),
+  });
+
+  supply.setRate(2);
+  supply.playFrom(0);
+  await settle();
+
+  assert.equal(context.sources[0].playbackRate.value, 3);
+  assert.equal(context.sources[0].starts[0][0], 1.02);
+  assert.deepEqual(context.gains[1].gain.calls, [
+    ['set', 0, 1.02],
+    ['linear', 1, 1.27],
+  ]);
+  supply.dispose();
+});
+
+test('s2 再生中の setRate は位置を保って source を組み直し、時計を 2 倍で進める', async () => {
+  const context = new FakeContext(new Map([[1, buffer(8)]]));
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 8,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async () => response(1),
+    speech: [speech('a', 'source-a', '/a.mp4', { durationSec: 8, outSec: 8 })],
+  });
+  supply.playFrom(0);
+  await settle();
+  context.currentTime = 0.52;
+  const before = supply.position(0);
+
+  supply.setRate(2);
+  const immediatelyAfter = supply.position(before);
+  await settle();
+  assert.ok(Math.abs(immediatelyAfter - before) <= 1e-6);
+  assert.equal(context.sources.length, 2);
+  assert.equal(context.sources[0].onended, null, '前世代を停止して切り離す');
+
+  context.currentTime = 0.54;
+  const restartedAt = supply.position(before);
+  context.currentTime += 1;
+  assert.ok(Math.abs(supply.position(before) - restartedAt - 2) <= 1e-6);
+  supply.dispose();
+});
+
+test('s3 debug は worklet 成功と不在フォールバックの pitch 保持状態を返す', async () => {
+  const previousWorkletNode = globalThis.AudioWorkletNode;
+  globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+  try {
+    const workletContext = new FakeContext(new Map([[1, buffer(2)]]));
+    const moduleUrls = [];
+    workletContext.audioWorklet = { addModule: async url => { moduleUrls.push(url); } };
+    const workletSupply = createPreviewAudioSupply({
+      timelineDurationSec: 2,
+      scheduleBuilder,
+      contextFactory: () => workletContext,
+      fetchImpl: async () => response(1),
+      speech: [speech('a', 'source-a', '/a.mp4')],
+      pitchShiftWorkletUrl: '/preview-audio-worklet.js',
+    });
+    await settle();
+    workletSupply.setRate(2);
+    assert.deepEqual(moduleUrls, ['/preview-audio-worklet.js']);
+    assert.deepEqual(
+      (({ rate, pitchPreserved, stretcher }) => ({ rate, pitchPreserved, stretcher }))(workletSupply.debug()),
+      { rate: 2, pitchPreserved: true, stretcher: 'worklet' }
+    );
+    const analyser = workletSupply.attachAnalyser();
+    assert.equal(analyser, workletSupply.attachAnalyser(), '同じ AnalyserNode を再利用する');
+    assert.equal(workletContext.analysers.length, 1);
+    assert.equal(analyser.connections[0], workletContext.destination);
+    assert.equal(workletContext.workletNodes[0].connections[0], analyser);
+    workletSupply.dispose();
+
+    const fallbackContext = new FakeContext(new Map([[1, buffer(2)]]));
+    const warnings = [];
+    const fallbackSupply = createPreviewAudioSupply({
+      timelineDurationSec: 2,
+      scheduleBuilder,
+      contextFactory: () => fallbackContext,
+      fetchImpl: async () => response(1),
+      onWarning: message => warnings.push(message),
+      speech: [speech('b', 'source-b', '/b.mp4')],
+      pitchShiftWorkletUrl: '/preview-audio-worklet.js',
+    });
+    fallbackSupply.setRate(2);
+    assert.deepEqual(
+      (({ rate, pitchPreserved, stretcher }) => ({ rate, pitchPreserved, stretcher }))(fallbackSupply.debug()),
+      { rate: 2, pitchPreserved: false, stretcher: 'none' }
+    );
+    assert.equal(warnings.filter(message => /pitch-preserving playback unavailable/u.test(message)).length, 1);
+    fallbackSupply.dispose();
+  } finally {
+    if (previousWorkletNode === undefined) delete globalThis.AudioWorkletNode;
+    else globalThis.AudioWorkletNode = previousWorkletNode;
+  }
+});
+
+test('s4 setRate(1) は worklet を外して master を destination へ直結する', async () => {
+  const previousWorkletNode = globalThis.AudioWorkletNode;
+  globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+  try {
+    const context = new FakeContext(new Map([[1, buffer(2)]]));
+    context.audioWorklet = { addModule: async () => {} };
+    const supply = createPreviewAudioSupply({
+      timelineDurationSec: 2,
+      scheduleBuilder,
+      contextFactory: () => context,
+      fetchImpl: async () => response(1),
+      speech: [speech('a', 'source-a', '/a.mp4')],
+      pitchShiftWorkletUrl: '/preview-audio-worklet.js',
+    });
+    await settle();
+    const master = context.gains[0];
+    supply.setRate(2);
+    const worklet = context.workletNodes[0];
+    assert.equal(master.connections[0], worklet);
+    assert.equal(worklet.connections[0], context.destination);
+
+    supply.setRate(1);
+    assert.equal(worklet.connections.length, 0);
+    assert.equal(master.connections[0], context.destination);
+    assert.deepEqual(
+      (({ rate, pitchPreserved, stretcher }) => ({ rate, pitchPreserved, stretcher }))(supply.debug()),
+      { rate: 1, pitchPreserved: true, stretcher: 'none' }
+    );
+    supply.dispose();
+  } finally {
+    if (previousWorkletNode === undefined) delete globalThis.AudioWorkletNode;
+    else globalThis.AudioWorkletNode = previousWorkletNode;
+  }
 });
