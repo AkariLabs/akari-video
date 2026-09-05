@@ -345,6 +345,20 @@ Theia ベースのデスクトップシェル（`apps/shell/`、移行中）の
 アプリはエージェントが作った編集を**確認して直す場所**なので、
 最初の一歩はターミナルかセッション内から始めるのが現在の推奨です。
 
+#### ダウンロードした macOS 版の署名を確認する
+
+DMG をマウントし、中の `.app` を検証します。以下は v0.1.42 で実測したボリューム名です（別の版では読み替えてください）。
+```sh
+hdiutil attach shell-mac.dmg
+app='/Volumes/AKARI Video 0.1.42-arm64/AKARI Video.app'
+codesign --verify --deep --strict -vv "$app"
+spctl -a -t exec -vv "$app"
+xcrun stapler validate "$app"
+```
+期待出力は `valid on disk`、`accepted`、`source=Notarized Developer ID`、`origin=Developer ID Application: nakajima ryoma (WH2ZAX783Q)`、`The validate action worked!` です。
+DMG の署名・公証対応後の版では、DMG 単体も `xcrun stapler validate shell-mac.dmg` と `spctl -a -t open --context context:primary-signature -vv shell-mac.dmg` で確認できます（v0.1.42 は対象外）。
+zip は Finder または `ditto -x -k shell-mac.zip extracted` で展開してください。symlink を保存しない展開ツールでは `invalid signature` になることがあります。
+
 ---
 
 ## プロジェクトを作る
