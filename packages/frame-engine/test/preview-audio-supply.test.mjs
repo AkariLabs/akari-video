@@ -782,3 +782,115 @@ test('s4 setRate(1) は worklet を外して master を destination へ直結す
     else globalThis.AudioWorkletNode = previousWorkletNode;
   }
 });
+
+test('queued BGM は fetch せず speech を先に鳴らし、ready 更新後は BGM だけ decode して合流する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(10)], [2, buffer(10)]]));
+  const fetches = [];
+  const bgm = { kind: 'bgm', id: 'bed', url: '/bed.wav', spec: { sidecarState: 'queued' } };
+  const voice = speech('voice', 'video', '/video.mp4', {
+    durationSec: 10, outSec: 10, sidecarState: 'ready',
+    sidecar: { path: '/voice.flac', durationSec: 10, padBeforeSec: 0, padAfterSec: 0 },
+  });
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context,
+    declarations: [bgm], speech: [voice],
+    fetchImpl: async url => { fetches.push(url); return response(url === '/bed.flac' ? 2 : 1); },
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(fetches, ['/voice.flac']);
+  assert.equal(supply.debug().playing, true);
+  assert.equal(supply.debug().scheduled.speech, 1);
+  assert.equal(supply.debug().prefetch.pending, 0);
+  assert.deepEqual(supply.debug().prefetch.failed, []);
+  assert.equal(supply.debug().supply.phase, 'preparing');
+  assert.deepEqual(supply.debug().supply.pendingSidecar, ['bgm:bed']);
+  context.currentTime = 2.02;
+  const ready = { ...bgm, url: '/bed.flac', sourceUrl: '/bed.wav', spec: {
+    sidecarState: 'ready', sidecar: { path: '/bed.flac', durationSec: 10, padBeforeSec: 0, padAfterSec: 0 },
+  } };
+  supply.updateAudio({ declarations: [ready], speech: [structuredClone(voice)] });
+  await settle();
+  assert.deepEqual(fetches, ['/voice.flac', '/bed.flac']);
+  assert.equal(context.decodeCalls, 2);
+  assert.equal(supply.debug().scheduled.bgm, 1);
+  assert.equal(supply.debug().scheduled.speech, 1);
+  assert.equal(supply.debug().scheduled.startAtSec, 2, 'replan uses the audio clock');
+  assert.equal(supply.debug().supply.phase, 'ready');
+  supply.updateAudio({ declarations: [structuredClone(ready)], speech: [structuredClone(voice)] });
+  await settle();
+  assert.equal(fetches.length, 2);
+  supply.dispose();
+});
+
+test('no-audio は予定表・待ち・失敗に入らず、将来の pending は現在位置の phase を変えない', async () => {
+  const context = new FakeContext(new Map());
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context,
+    fetchImpl: () => assert.fail('no audio or pending sidecar must not fetch'),
+    declarations: [{ kind: 'bgm', id: 'silent', url: '/silent.wav', spec: { sidecarState: 'no-audio' } }],
+    speech: [speech('silent', 'silent', '/silent.mp4', { sidecarState: 'no-audio' }),
+      speech('later', 'later', '/later.mp4', { atSec: 5, sidecarState: 'generating' })],
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(supply.debug().supply.noAudio, ['bgm:silent', 'speech:silent']);
+  assert.deepEqual(supply.debug().supply.required, []);
+  assert.equal(supply.debug().supply.phase, 'idle');
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+  assert.equal(supply.debug().prefetch.pending, 0);
+  assert.deepEqual(supply.debug().prefetch.failed, []);
+  supply.seek(5);
+  assert.equal(supply.debug().supply.phase, 'preparing');
+  supply.dispose();
+});
+
+test('準備中だけの空の予定表も ready 通知で拾い直し、追加・削除は警告して無視する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(10)]]));
+  const warnings = [];
+  const queued = speech('voice', 'video', '/video.mp4', { durationSec: 10, outSec: 10, sidecarState: 'queued' });
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context,
+    speech: [queued], onWarning: message => warnings.push(message), fetchImpl: async () => response(1),
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.equal(supply.debug().playing, false);
+  supply.updateAudio({ speech: [{ ...queued, sidecarState: 'ready' }] });
+  await settle();
+  assert.equal(supply.debug().playing, true);
+  assert.equal(supply.debug().supply.phase, 'ready');
+  supply.updateAudio({ speech: [speech('extra', 'other', '/extra.mp4')] });
+  await settle();
+  assert.equal(context.decodeCalls, 1);
+  assert.equal(warnings.length, 2);
+  assert.equal(supply.debug().scheduled.speech, 1);
+  supply.dispose();
+});
+
+test('prefetch 中の状態更新は旧 decode を無効化し、新 URL を一度だけ読む', async () => {
+  const context = new FakeContext(new Map([[1, buffer(10)], [2, buffer(10)]]));
+  let release;
+  const fetches = [];
+  const initial = { kind: 'bgm', id: 'bed', url: '/old.wav', spec: {} };
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context, declarations: [initial],
+    fetchImpl: async url => {
+      fetches.push(url);
+      if (url === '/old.wav') await new Promise(resolve => { release = resolve; });
+      return response(url === '/old.wav' ? 1 : 2);
+    },
+  });
+  supply.prime();
+  await settle();
+  supply.updateAudio({ declarations: [{ ...initial, url: '/new.flac', spec: { sidecarState: 'ready' } }] });
+  release();
+  await settle();
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(fetches, ['/old.wav', '/new.flac']);
+  assert.equal(supply.debug().scheduled.bgm, 1);
+  assert.equal(context.sources.at(-1).buffer, context.buffers.get(2));
+  assert.equal(supply.debug().supply.phase, 'ready');
+  supply.dispose();
+});

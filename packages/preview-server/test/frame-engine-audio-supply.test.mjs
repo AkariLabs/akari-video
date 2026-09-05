@@ -4,12 +4,14 @@ import path from 'node:path';
 import test from 'node:test';
 
 const root = path.resolve(import.meta.dirname, '..');
-const [source, supplySource, bundle, syncHarness, comparisonHarness] = await Promise.all([
+const [source, supplySource, bundle, syncHarness, comparisonHarness, app, html] = await Promise.all([
   readFile(path.join(root, 'src/frame-engine-client.ts'), 'utf8'),
   readFile(path.join(root, '../frame-engine/src/audio/preview-audio-supply.ts'), 'utf8'),
   readFile(path.join(root, 'public/frame-engine.bundle.js'), 'utf8'),
   readFile(path.join(root, 'test/frame-engine-audio-sync.l1.mjs'), 'utf8'),
   readFile(path.join(root, 'test/frame-engine-audio-offline-vs-export.l1.mjs'), 'utf8'),
+  readFile(path.join(root, 'public/app.js'), 'utf8'),
+  readFile(path.join(root, 'public/index.html'), 'utf8'),
 ]);
 
 test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供給する', () => {
@@ -30,6 +32,29 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
   assert.equal([...bundle.matchAll(/function createPreviewAudioSupply\(/gu)].length, 1,
     'frame-engine bundle の音声供給実装は一つだけ');
   assert.match(bundle, /AudioContext unavailable|Web Audio unavailable/u);
+});
+
+test('音声状態の通知は runtime を作り直さず updateAudio へ渡し、通常 UI に準備状況を出す', () => {
+  assert.match(source, /sidecarState: raw\.sidecarState/u);
+  assert.match(source, /sidecarState: declaration\.sidecarState/u);
+  assert.match(source, /raw\.sidecarState === 'ready' \|\| raw\.sidecarState === undefined/u);
+  assert.match(source, /this\.audio\.updateAudio\(/u);
+  assert.match(source, /updateAudio: edit => runtime\.updateAudio\(edit\)/u);
+  assert.match(app, /m\.type === 'preview-audio'/u);
+  assert.match(app, /setTimeout\(refreshAudioSummary, 150\)/u);
+  const refresh = app.split('async function refreshAudioSummary()')[1].split('async function apiReadError')[0];
+  assert.match(refresh, /fetch\(api\.summary\)/u);
+  assert.match(refresh, /window\.akari\.state\.summary = summary/u);
+  assert.match(refresh, /frameEnginePreview\?\.updateAudio\(summary\)/u);
+  assert.doesNotMatch(refresh, /rebuild\(|requestSoftReload\(/u);
+  assert.match(app, /setInterval\(updateAudioStatus, 250\)/u);
+  const status = app.split('function updateAudioStatus()')[1].split('function requestAudioRefresh()')[0];
+  assert.match(status, /audioDebug\(\)\.supply/u);
+  assert.match(status, /音声を準備中/u);
+  assert.match(status, /一部の音声を再生できません/u);
+  assert.doesNotMatch(status, /frameEngineMetrics/u);
+  assert.match(html, /id="audio-status" class="audio-status" role="status" aria-live="polite" hidden/u);
+  assert.match(html, /href="\/style\.css"/u);
 });
 
 test('AudioContext.currentTime が描画クロックを支配し、観測窓が同期差を返す', () => {

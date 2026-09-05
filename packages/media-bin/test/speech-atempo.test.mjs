@@ -86,9 +86,12 @@ test('統合サイドカーは pad を atempo 前に含め、別キーと旧 WAV
     fs.writeFileSync(path.join(legacy, 'old.wav'), Buffer.alloc(64));
     const swept = sweepPreviewAudioSidecars({ cacheDir, keepKeys: [first.key] });
     assert.equal(fs.existsSync(first.path), true);
+    assert.equal(fs.existsSync(path.join(cacheDir, 'preview-audio', `${first.key}.json`)), true);
     assert.equal(fs.existsSync(orphan.path), false);
+    assert.equal(fs.existsSync(path.join(cacheDir, 'preview-audio', `${orphan.key}.json`)), false);
     assert.equal(fs.existsSync(path.join(legacy, 'old.wav')), false);
-    assert.equal(swept.removed, 2);
+    // 孤児 FLAC に同伴するメタデータ JSON も掃除するため、削除数は旧 WAV と合わせて 3 件。
+    assert.equal(swept.removed, 3);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

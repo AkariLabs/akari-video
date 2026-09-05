@@ -346,6 +346,7 @@ function probeArguments(filePath) {
 function parseProbeOutput(stdout) {
   const parsed = JSON.parse(stdout || '{}');
   const stream = Array.isArray(parsed.streams) ? parsed.streams[0] : undefined;
+  if (!stream) throw new Error('ffprobe: no audio stream');
   const durationSec = Number(parsed.format?.duration);
   const sampleRate = Number(stream?.sample_rate);
   const channels = Number(stream?.channels);
@@ -416,7 +417,7 @@ export async function probePreviewAudioSourceAsync(sourcePath, options = {}) {
 // Validates the request and derives the cache key / output path. Deliberately synchronous:
 // ensurePreviewAudioSidecar registers the in-flight promise right after this returns, so two
 // concurrent requests for the same output path cannot both slip past the in-flight check.
-function prepare(options, state) {
+function prepare(options, state, createDirectory = true) {
   if (!options || typeof options.sourcePath !== 'string' || !options.sourcePath) {
     throw new Error('sourcePath is required');
   }
@@ -445,7 +446,7 @@ function prepare(options, state) {
   state.key = keyFor(sourcePath, stat, values);
   const outputDirectory = path.resolve(options.cacheDir, 'preview-audio');
   state.outputPath = path.join(outputDirectory, `${state.key}.flac`);
-  fs.mkdirSync(outputDirectory, { recursive: true });
+  if (createDirectory) fs.mkdirSync(outputDirectory, { recursive: true });
   return {
     sourcePath,
     outputDirectory,
@@ -476,7 +477,11 @@ async function generate(prepared, options) {
     ? options.probeAudio(p, ffprobeOf())
     : probeAudioAsync(p, ffprobeOf(), settings));
   const fromExisting = async () => {
-    const metadata = await inspectAudio(outputPath);
+    let metadata = readMetadata(prepared);
+    if (!metadata) {
+      metadata = await inspectAudio(outputPath);
+      writeMetadata(prepared, options, metadata);
+    }
     return {
       ok: true, skipped: true, path: outputPath, key,
       durationSec: metadata.durationSec,
@@ -518,6 +523,7 @@ async function generate(prepared, options) {
       const metadata = await inspectAudio(temporary);
       if (metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
       fs.renameSync(temporary, outputPath);
+      writeMetadata(prepared, options, metadata);
       return {
         ok: true, skipped: false, path: outputPath, key,
         durationSec: metadata.durationSec,
@@ -541,6 +547,169 @@ async function generate(prepared, options) {
 // sidecar share one promise (and one ffmpeg). The entry is dropped as soon as it settles, so a
 // later request finds the finished file and takes the "already exists → reuse" path.
 const generating = new Map();
+const requested = new Map();
+const probing = new Map();
+const listeners = new Set();
+const FAILURE_RETRY_MS = 60000;
+
+function readCacheJson(filePath) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { return null; }
+}
+
+function writeCacheJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporary = `${filePath}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp.json`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(value), 'utf8');
+    fs.renameSync(temporary, filePath);
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
+}
+
+function metadataPath(prepared) {
+  return path.join(prepared.outputDirectory, `${prepared.key}.json`);
+}
+
+function readMetadata(prepared) {
+  const value = readCacheJson(metadataPath(prepared));
+  return value?.recipe === PREVIEW_AUDIO_RECIPE && value.key === prepared.key
+    && finitePositive(value.durationSec) && finitePositive(value.sampleRate)
+    && Number.isInteger(value.channels) && value.channels > 0 && finiteNonNegative(value.bytes)
+    ? value : null;
+}
+
+function writeMetadata(prepared, options, metadata) {
+  writeCacheJson(metadataPath(prepared), {
+    recipe: PREVIEW_AUDIO_RECIPE, key: prepared.key,
+    durationSec: metadata.durationSec, sampleRate: metadata.sampleRate, channels: metadata.channels,
+    bytes: fs.statSync(prepared.outputPath).size,
+    inSec: options.inSec, outSec: options.outSec, speed: options.speed,
+    padBeforeSec: options.padBeforeSec ?? 0, padAfterSec: options.padAfterSec ?? 0,
+    createdAt: Date.now(),
+  });
+}
+
+export function classifyPreviewAudioFailure(reason) {
+  // ffmpeg map errors (including builds which print an empty map), muxer errors,
+  // and our ffprobe empty-stream result all mean this fingerprint has no audio.
+  return /Stream map ['"][^'"]*['"] matches no streams|does not contain any stream|no audio stream/iu
+    .test(String(reason)) ? 'no-audio' : 'transient';
+}
+
+function retryRemaining(record) {
+  const createdAt = typeof record?.createdAt === 'number' ? record.createdAt : Date.parse(record?.createdAt);
+  return Math.max(0, createdAt + (record?.retryAfterMs ?? FAILURE_RETRY_MS) - Date.now()) || 0;
+}
+
+// Validate even duration-less requests synchronously, but obtain their real endpoint only
+// from a fingerprint-bound probe cache. No resolver or child process runs on this path.
+function requestOptions(options) {
+  if (options?.outSec !== undefined) return { options };
+  const validated = prepare({ ...options, outSec: (options?.inSec ?? 0) + 1 }, {}, false);
+  const stat = fs.statSync(validated.sourcePath);
+  const fingerprint = crypto.createHash('sha1')
+    .update([validated.sourcePath, stat.size, stat.mtimeMs].join('|')).digest('hex');
+  const probePath = path.join(validated.outputDirectory, `probe-${fingerprint}.json`);
+  const cached = readCacheJson(probePath);
+  if (cached?.error && (cached.error.class === 'no-audio' || retryRemaining(cached.error) > 0)) {
+    return { probePath, status: {
+      state: cached.error.class === 'no-audio' ? 'no-audio' : 'failed', key: null,
+      reason: cached.error.reason,
+      ...(cached.error.class === 'transient' ? { retryAfterMs: retryRemaining(cached.error) } : {}),
+    } };
+  }
+  if (finitePositive(cached?.durationSec)) {
+    return { probePath, options: { ...options, outSec: cached.durationSec } };
+  }
+  return { probePath, status: { state: 'queued', key: null, probe: 'pending' } };
+}
+
+export function previewAudioSidecarStatus(options) {
+  try {
+    const resolved = requestOptions(options);
+    if (resolved.status) return resolved.status;
+    const prepared = prepare(resolved.options, {}, false);
+    const { key, outputPath, outputDirectory } = prepared;
+    if (requested.has(outputPath) || generating.has(outputPath)) return { state: 'generating', key };
+    const metadata = readMetadata(prepared);
+    if (metadata && fs.existsSync(outputPath)) {
+      const { durationSec, sampleRate, channels, bytes } = metadata;
+      return { state: 'ready', key, path: outputPath, durationSec, sampleRate, channels, bytes };
+    }
+    const noAudio = readCacheJson(path.join(outputDirectory, `${key}.no-audio.json`));
+    if (noAudio?.key === key) return { state: 'no-audio', key, reason: noAudio.reason };
+    const failed = readCacheJson(path.join(outputDirectory, `${key}.failed.json`));
+    if (failed?.key === key && retryRemaining(failed) > 0) {
+      return { state: 'failed', key, reason: failed.reason, retryAfterMs: retryRemaining(failed) };
+    }
+    return { state: fs.existsSync(outputPath) ? 'legacy' : 'missing', key };
+  } catch (error) {
+    return { state: 'invalid', reason: summarize(error?.message, 'invalid preview audio request') };
+  }
+}
+
+export function subscribePreviewAudioSidecarEvents(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function emitSidecarEvent(event) {
+  for (const listener of [...listeners]) {
+    try { listener(event); } catch (error) { console.warn('[preview-audio] listener failed', error); }
+  }
+}
+
+export function requestPreviewAudioSidecar(options) {
+  const status = previewAudioSidecarStatus(options);
+  if (status.state === 'invalid') return status;
+  const resolved = requestOptions(options);
+  if (resolved.status) {
+    if (status.probe !== 'pending' || probing.has(resolved.probePath)) return status;
+    // Start after returning the declaration. The map is populated before any work runs.
+    const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
+      const probe = await probePreviewAudioSourceAsync(options.sourcePath, options);
+      if (probe.ok) {
+        writeCacheJson(resolved.probePath, probe);
+        requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec });
+      } else {
+        const failureClass = classifyPreviewAudioFailure(probe.reason);
+        writeCacheJson(resolved.probePath, {
+          error: { class: failureClass, reason: probe.reason, createdAt: Date.now() },
+        });
+        // A failed probe settles the overall request; successful probes have no event.
+        emitSidecarEvent({ key: null, state: failureClass === 'no-audio' ? 'no-audio' : 'failed',
+          reason: probe.reason, sourcePath: path.resolve(options.sourcePath) });
+      }
+    }).catch(error => console.warn('[preview-audio] probe cache failed', error))
+      .finally(() => probing.delete(resolved.probePath));
+    probing.set(resolved.probePath, pending);
+    return status;
+  }
+  if (status.state !== 'missing' && status.state !== 'legacy') return status;
+  const prepared = prepare(resolved.options, {}, false);
+  const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
+    fs.rmSync(path.join(prepared.outputDirectory, `${prepared.key}.failed.json`), { force: true });
+    const result = await ensurePreviewAudioSidecar(resolved.options);
+    let state = 'ready';
+    if (!result.ok) {
+      state = classifyPreviewAudioFailure(result.reason) === 'no-audio' ? 'no-audio' : 'failed';
+      writeCacheJson(path.join(prepared.outputDirectory, `${prepared.key}.${state}.json`), {
+        key: prepared.key, reason: result.reason, createdAt: Date.now(),
+        ...(state === 'failed' ? { retryAfterMs: FAILURE_RETRY_MS } : {}),
+      });
+    }
+    return { key: prepared.key, state, sourcePath: prepared.sourcePath,
+      ...(result.ok ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) };
+  }).catch(error => ({ key: prepared.key, state: 'failed', sourcePath: prepared.sourcePath,
+    reason: summarize(error?.message, 'preview audio cache failed') }))
+    .then(event => {
+      requested.delete(prepared.outputPath);
+      emitSidecarEvent(event);
+    });
+  requested.set(prepared.outputPath, pending);
+  return { state: 'queued', key: prepared.key };
+}
 
 export function ensurePreviewAudioSidecar(options) {
   const state = { outputPath: null, key: null };
@@ -559,25 +728,32 @@ export function ensurePreviewAudioSidecar(options) {
   return pending;
 }
 
-export function sweepPreviewAudioSidecars({ cacheDir, keepKeys }) {
+export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0 }) {
   const kept = new Set(Array.from(keepKeys ?? [], value => String(value).replace(/\.flac$/u, '')));
   const outputDirectory = path.resolve(cacheDir, 'preview-audio');
   let removed = 0;
   let bytes = 0;
   try {
     for (const entry of fs.readdirSync(outputDirectory, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.flac')) continue;
+      if (!entry.isFile()) continue;
       // 生成途中の一時ファイル（`.<key>.flac.<pid>.<ms>.tmp.flac`）も `.flac` で終わる。
       // ffmpeg が開いている最中に rm すると Windows は EPERM を投げ、以前はそれが
       // /api/summary まで抜けてサーバごと落ちた（実機 2026-09-05 14:25）。掃除の対象外にする。
-      if (entry.name.startsWith('.') || entry.name.endsWith('.tmp.flac')) continue;
-      const key = entry.name.slice(0, -'.flac'.length);
-      if (kept.has(key)) continue;
+      if (entry.name.startsWith('.') || /\.tmp\./u.test(entry.name)) continue;
+      const match = /^(.*?)(?:\.flac|\.no-audio\.json|\.failed\.json|\.json)$/u.exec(entry.name);
+      if (!match) continue;
+      const key = match[1];
+      const probingFile = key.startsWith('probe-');
+      const outputPath = path.join(outputDirectory, `${key}.flac`);
+      if ((!probingFile && kept.has(key)) || generating.has(outputPath)
+        || requested.has(outputPath) || probing.has(path.join(outputDirectory, entry.name))) continue;
       const target = path.join(outputDirectory, entry.name);
       // 1 本消せないだけで掃除全体（ましてサーバ）を止めない。ロック中・消えた直後は次回に回す。
       try {
-        bytes += fs.statSync(target).size;
+        const stat = fs.statSync(target);
+        if (minAgeMs > 0 && Date.now() - stat.mtimeMs < minAgeMs) continue;
         fs.rmSync(target, { force: true });
+        bytes += stat.size;
         removed += 1;
       } catch (error) {
         if (!['ENOENT', 'EPERM', 'EBUSY', 'EACCES'].includes(error?.code)) throw error;
@@ -593,9 +769,15 @@ export function sweepPreviewAudioSidecars({ cacheDir, keepKeys }) {
     for (const entry of fs.readdirSync(legacyDirectory, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.wav')) continue;
       const target = path.join(legacyDirectory, entry.name);
-      bytes += fs.statSync(target).size;
-      fs.rmSync(target, { force: true });
-      removed += 1;
+      try {
+        const stat = fs.statSync(target);
+        if (minAgeMs > 0 && Date.now() - stat.mtimeMs < minAgeMs) continue;
+        fs.rmSync(target, { force: true });
+        bytes += stat.size;
+        removed += 1;
+      } catch (error) {
+        if (!['ENOENT', 'EPERM', 'EBUSY', 'EACCES'].includes(error?.code)) throw error;
+      }
     }
     if (fs.readdirSync(legacyDirectory).length === 0) fs.rmdirSync(legacyDirectory);
   } catch (error) {

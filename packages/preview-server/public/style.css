@@ -1,0 +1,7 @@
+.audio-status {
+  color: #d0d0d0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.audio-status[hidden] { display: none; }
