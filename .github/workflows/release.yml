@@ -8,7 +8,7 @@ name: Release
 # npm publish を実行する操作そのものは、このワークフローを追加した実装作業の範囲外
 # （検収後に司令塔が行う）。ここに書くのは「発火されたら何が起きるか」のロジックのみ。
 #
-# 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball ∥
+# 流れ: 版整合ゲート →（mac シェルビルド → DMG 公証 + staple → 署名検証ゲート）∥ win シェルビルド ∥ CLI tarball ∥
 #       app tarball（CLI self-update 用フル構成ソース、並列）
 #       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
 #       （updates フィードはここでは触らない — 2026-08-29 改訂・下記 feed_only）
@@ -51,10 +51,10 @@ permissions:
   contents: write
 
 env:
-  # release-artifacts/ に置く成果物の固定名。scripts/release/gen-latest-json.mjs の
+  # release-artifacts/ に置く固定名は scripts/release/gen-latest-json.mjs の
   # ARTIFACT_FILES と一致させること（url 組み立て・sha256 計算がこの名前に依存する）。
+  # DMG は版付き名を build-mac の dmg_name output で渡す。
   ARTIFACT_MAC: shell-mac.zip
-  ARTIFACT_MAC_DMG: shell-mac.dmg
   ARTIFACT_WIN: shell-win.zip
   ARTIFACT_WIN_SETUP: shell-win-setup.exe
   ARTIFACT_CLI: cli.tgz
@@ -125,6 +125,8 @@ jobs:
     if: ${{ !inputs.feed_only }}
     runs-on: macos-14
     timeout-minutes: 90
+    outputs:
+      dmg_name: ${{ steps.mac-artifacts.outputs.dmg_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -336,28 +338,112 @@ jobs:
           # 後段の release ジョブの `gh release create` が担う。二重の公開経路を作らない）。
           npx electron-builder --mac zip dmg --publish never
 
+      - name: mac DMG の公証 + staple
+        working-directory: apps/shell
+        env:
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+          APPLE_API_KEY_PATH: ${{ steps.apple-api-key-file.outputs.path }}
+          APPLE_API_KEY_ID_SECRET: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CSC_LINK_SECRET" ]; then
+            {
+              echo '### ⚠️ mac DMG 公証スキップ'
+              echo ""
+              echo '未署名ビルドのため、DMG 公証をスキップしました。'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$APPLE_API_KEY_PATH" ] || [ -z "$APPLE_API_KEY_ID_SECRET" ] || [ -z "$APPLE_API_ISSUER_SECRET" ]; then
+            {
+              echo '### ❌ mac DMG 公証設定不足'
+              echo ""
+              echo 'APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER が不足しています。署名済みだが未公証の DMG は Gatekeeper が開かせないため、中途半端な secrets 構成では配布物を作らない。'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          shopt -s nullglob
+          dmgs=(electron-builder-out/*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
+          submission_json="$RUNNER_TEMP/mac-dmg-notarization.json"
+          submit_result=0
+          xcrun notarytool submit "$dmg" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID_SECRET" \
+            --issuer "$APPLE_API_ISSUER_SECRET" --wait --timeout 30m --output-format json \
+            > "$submission_json" || submit_result=$?
+          cat "$submission_json"
+          status=$(node -e 'const r = require(process.argv[1]); console.log(r.status || "");' "$submission_json")
+          submission_id=$(node -e 'const r = require(process.argv[1]); console.log(r.id || "");' "$submission_json")
+          if [ "$status" != 'Accepted' ] || [ "$submit_result" -ne 0 ]; then
+            if [ -n "$submission_id" ]; then
+              xcrun notarytool log "$submission_id" --key "$APPLE_API_KEY_PATH" \
+                --key-id "$APPLE_API_KEY_ID_SECRET" --issuer "$APPLE_API_ISSUER_SECRET" || true
+            fi
+            echo "DMG 公証失敗: status=$status, submission id=$submission_id" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+          {
+            echo '### ✅ mac DMG 公証 + staple 完了'
+            echo ""
+            echo "DMG: $dmg"
+            echo "submission id: $submission_id"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: postpackage (verify asar contents)
         working-directory: apps/shell
         run: npm run postpackage
 
-      # mac.artifactName（apps/shell/package.json = "shell-mac.${ext}"）により
-      # electron-builder は既にこの固定名で zip/dmg を出力している（U3 以前は
-      # デフォルトテンプレート "${productName}-${version}-${os}-${arch}.${ext}" だった
-      # ため、ここで find + cp するリネームが必要だった。同じ find で拾い直すと今は
-      # 送り元 = 送り先になり `cp` が「同一ファイル」エラーで失敗するため、確認のみに変更）
-      - name: 成果物の確認（固定名で出力済みか）
+      # ZIP は mac.artifactName の固定名、DMG は dmg.artifactName の版付き名。
+      # DMG が一意であることを確認し、実ファイル名を後続ジョブへ渡す。
+      - name: 成果物の確認（固定名 ZIP + 版付き DMG が 1 個）
+        id: mac-artifacts
         working-directory: apps/shell/electron-builder-out
         run: |
           test -f "${{ env.ARTIFACT_MAC }}" || { echo "mac zip 成果物（${{ env.ARTIFACT_MAC }}）が見つかりません"; exit 1; }
-          test -f "${{ env.ARTIFACT_MAC_DMG }}" || { echo "mac dmg 成果物（${{ env.ARTIFACT_MAC_DMG }}）が見つかりません"; exit 1; }
-          ls -la "${{ env.ARTIFACT_MAC }}" "${{ env.ARTIFACT_MAC_DMG }}"
+          shopt -s nullglob
+          dmgs=(*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"
+            exit 1
+          fi
+          test -f "${dmgs[0]}"
+          echo "dmg_name=${dmgs[0]}" >> "$GITHUB_OUTPUT"
+          ls -la "${{ env.ARTIFACT_MAC }}" "${dmgs[0]}"
+
+      - name: mac 配布物の署名検証ゲート
+        working-directory: apps/shell/electron-builder-out
+        env:
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CSC_LINK_SECRET" ]; then
+            echo '未署名ビルドのため署名検証ゲートをスキップ' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          shopt -s nullglob
+          dmgs=(*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::mac dmg 成果物は 1 個必要です（検出: ${#dmgs[@]}）"; exit 1
+          fi
+          dmg="${dmgs[0]}"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          result=0
+          bash "$GITHUB_WORKSPACE/scripts/release/verify-mac-artifacts.sh" "$dmg" shell-mac.zip \
+            | tee -a "$GITHUB_STEP_SUMMARY" || result=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
 
       - uses: actions/upload-artifact@v4
         with:
           name: shell-mac
           path: |
             apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC }}
-            apps/shell/electron-builder-out/${{ env.ARTIFACT_MAC_DMG }}
+            apps/shell/electron-builder-out/${{ steps.mac-artifacts.outputs.dmg_name }}
           retention-days: 14
           if-no-files-found: error
 
@@ -681,7 +767,7 @@ jobs:
         run: |
           assets=(
             "release-artifacts/${{ env.ARTIFACT_MAC }}"
-            "release-artifacts/${{ env.ARTIFACT_MAC_DMG }}"
+            "release-artifacts/${{ needs.build-mac.outputs.dmg_name }}"
             "release-artifacts/${{ env.ARTIFACT_WIN }}"
             "release-artifacts/${{ env.ARTIFACT_WIN_SETUP }}"
             "release-artifacts/${{ env.ARTIFACT_CLI }}"
@@ -756,6 +842,8 @@ jobs:
         with:
           node-version: '26.3.0'
 
+      # DMG も取得して任意の mac_dmg を再生成する。旧 Release に DMG がなくても
+      # 他の固定名パターンが一致するため download は成立する。
       - name: 対象タグの既存 Release から成果物を取得
         env:
           GH_TOKEN: ${{ github.token }}
@@ -763,6 +851,7 @@ jobs:
           mkdir -p release-artifacts
           gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir release-artifacts --clobber \
             --pattern "${{ env.ARTIFACT_MAC }}" \
+            --pattern "*.dmg" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
             --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
             --pattern "${{ env.ARTIFACT_CLI }}" \

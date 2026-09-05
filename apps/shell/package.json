@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -309,6 +309,31 @@
       "target": "dir",
       "category": "public.app-category.video",
       "artifactName": "shell-mac.${ext}"
+    },
+    "dmg": {
+      "sign": true,
+      "writeUpdateInfo": false,
+      "artifactName": "AKARI-Video-${version}-mac-${arch}.${ext}",
+      "title": "AKARI Video ${version}",
+      "background": "resources/dmg/background.tiff",
+      "window": {
+        "width": 660,
+        "height": 400
+      },
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 180,
+          "y": 170,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "win": {
       "icon": "resources/icons/icon.ico",
