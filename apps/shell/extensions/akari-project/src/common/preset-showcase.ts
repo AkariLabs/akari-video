@@ -1,4 +1,4 @@
-export type PresetShowcaseKind = 'telop' | 'lut' | 'textanim' | 'textstyle';
+export type PresetShowcaseKind = 'lut' | 'textanim' | 'textstyle';
 
 export interface PresetShowcaseItem {
     kind: PresetShowcaseKind;
@@ -12,7 +12,6 @@ export interface PresetShowcaseItem {
 }
 
 export interface PresetShowcase {
-    telop: PresetShowcaseItem[];
     lut: PresetShowcaseItem[];
     textanim: PresetShowcaseItem[];
     textstyle: PresetShowcaseItem[];
@@ -42,6 +41,7 @@ function parseTags(value: unknown): string[] | undefined {
 /** index.jsonl を行単位で読み、壊れた行だけを捨てて残りを返す寛容パーサー。 */
 export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind): PresetShowcaseItem[] {
     const items: PresetShowcaseItem[] = [];
+    if (!['lut', 'textanim', 'textstyle'].includes(kind)) return items;
     for (const line of raw.split(/\r?\n/)) {
         if (!line.trim()) {
             continue;
@@ -53,23 +53,6 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
             continue;
         }
         if (!isRecord(parsed) || !isNonEmptyString(parsed.id) || !isNonEmptyString(parsed.name)) {
-            continue;
-        }
-        if (kind === 'telop') {
-            const tags = parseTags(parsed.tags);
-            if (!tags) {
-                continue;
-            }
-            if (!isNonEmptyString(parsed.category)) {
-                continue;
-            }
-            items.push({
-                kind,
-                id: parsed.id,
-                name: parsed.name,
-                category: parsed.category,
-                tags
-            });
             continue;
         }
         if (kind === 'textanim') {
@@ -128,7 +111,6 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
 
 export function derivePresetShowcaseChips(showcase: PresetShowcase): PresetShowcaseChip[] {
     return [
-        { category: 'preset:telop', label: 'テロップ', count: showcase.telop.length },
         { category: 'preset:lut', label: 'LUT', count: showcase.lut.length },
         { category: 'preset:textanim', label: 'テキストアニメ', count: showcase.textanim.length },
         { category: 'preset:textstyle', label: 'テキストスタイル', count: showcase.textstyle.length }

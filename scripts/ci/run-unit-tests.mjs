@@ -56,7 +56,6 @@ export const LANES = {
       pkg('pen-visuals'),           // test script が tsc -b を含む（lib/ は追跡対象・drift させない）
       pkg('project-scaffold'),
       pkg('schemas'),
-      pkg('template-render'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
       {
@@ -118,7 +117,6 @@ export const LANES = {
     title: 'ffmpeg / ffprobe / Chrome が要る（CI: 参考）',
     entries: [
       pkg('media-bin'),
-      pkg('bake-layer'),
       pkg('decision-cards'),        // Chrome を起動するテストを含む（direction inputs persist… が /tmp プロファイルの rmdir ENOTEMPTY で落ちる・CI 上は d5f2a7b6 以降 required unit を赤にしていた）
       pkg('akari-tools'),
       pkg('render-cut'),

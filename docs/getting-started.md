@@ -242,24 +242,13 @@ To have the symlinks created for real, allow symlink creation and extract again:
 
 #### Install the npm dependencies
 
-A fresh checkout has no `node_modules/`, and nothing installs it for you. The CLI packages
-that need external npm packages fail at first use until you do — `template-render`, for
-example, reports (in Japanese) that it could not load `puppeteer-core` and that you should
-run `npm install` in that package's directory:
+A fresh checkout has no `node_modules/`. Install dependencies before running the CLI.
+ATF rendering has retired; get HTML telop assets through Lab. Existing baked items remain playable.
 
-```
-Error: puppeteer-core を読み込めませんでした。パッケージの依存が入っていない可能性があります。
-  npm install    をこのパッケージのディレクトリで実行してください。
-```
-
-These are the packages with external dependencies. Every other package under `packages/`
-runs on the Node standard library alone (a few declare devDependencies used only to build or
-test them):
+The following packages need runtime dependencies or tool setup:
 
 | Package | External dependencies | Needed for |
 |---|---|---|
-| `packages/template-render` | `puppeteer-core` | rendering overlay HTML into frames |
-| `packages/bake-layer` | `puppeteer`, `esbuild` | baking overlay layers |
 | `packages/preview-server` | `esbuild` | the browser preview server |
 | `packages/media-bin` | none — but its `postinstall` downloads ffmpeg/ffprobe (sha256-verified) | ffmpeg for every media step |
 | `packages/akari-tools` | `puppeteer-core` + the monorepo package `@akari-video/render-cut` | root install only — see below |
@@ -282,14 +271,14 @@ modules on Windows and needs the prerequisites listed in the
 
 ```powershell
 # PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
+foreach ($p in 'render-cut','preview-server','media-bin') {
   Push-Location "packages\$p"; npm install; Pop-Location
 }
 ```
 
 ```sh
 # bash
-for p in template-render render-cut bake-layer preview-server media-bin; do
+for p in render-cut preview-server media-bin; do
   (cd "packages/$p" && npm install)
 done
 ```

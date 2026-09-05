@@ -14,8 +14,8 @@
 
 ## エントリ
 
-- [telop](./telop/INDEX.md) — ATF テロップテンプレート 36 件。`bake-layer --preset <id>` が
-  `presets/telop/<id>/template.json` を読む
+- ATF テロップの参照表は退役。HTML 素材版は Lab で配布します。
+- [textstyle](./textstyle/INDEX.md) — 字幕スタイル（引き続き利用可能）
 - [luts](./luts/INDEX.md) — 3D LUT 2 件（自前生成）。`edit.json` の `output.look.lut` に id を書くと
   `packages/render-cut/src/plan.mjs` が `presets/luts/<id>/<id>.cube` を解決する
 - [word-book](./word-book/builtin.json) — 単語帳 v0 の製品出荷デフォルト。

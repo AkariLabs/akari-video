@@ -6,23 +6,11 @@ import {
     parsePresetShowcaseJsonl
 } from '../lib/common/preset-showcase.js';
 
-test('parsePresetShowcaseJsonl: telop は公開フィールドだけを読む', () => {
-    const items = parsePresetShowcaseJsonl(JSON.stringify({
-        id: 'caption-pop',
-        name: 'ポップ字幕',
-        category: 'caption',
-        tags: ['pop', 'caption'],
-        params: [{ key: 'text' }],
-        unknown: 'ignored'
-    }), 'telop');
-    assert.deepEqual(items, [{
-        kind: 'telop',
-        id: 'caption-pop',
-        name: 'ポップ字幕',
-        category: 'caption',
-        tags: ['pop', 'caption']
-    }]);
-    assert.equal('params' in items[0], false);
+test('parsePresetShowcaseJsonl: retired telop is never offered', () => {
+    assert.deepEqual(parsePresetShowcaseJsonl(JSON.stringify({
+        id: 'old', name: 'Old', category: 'caption', tags: [],
+        description: 'legacy', when_to_use: 'legacy'
+    }), 'telop'), []);
 });
 
 test('parsePresetShowcaseJsonl: LUT は説明と使いどころを camelCase へ正規化する', () => {
@@ -45,9 +33,9 @@ test('parsePresetShowcaseJsonl: LUT は説明と使いどころを camelCase へ
 });
 
 test('parsePresetShowcaseJsonl: 壊れた行と必須フィールド不正行だけを飛ばして残りを返す', () => {
-    const valid = JSON.stringify({ id: 'ok', name: '有効', category: 'caption', tags: ['caption'] });
+    const valid = JSON.stringify({ id: 'ok', name: '有効', description: 'description', when_to_use: 'use', tags: ['lut'] });
     const missing = JSON.stringify({ id: 'missing-category', name: '不正', tags: [] });
-    const items = parsePresetShowcaseJsonl([valid, '{ broken', missing, '', valid].join('\n'), 'telop');
+    const items = parsePresetShowcaseJsonl([valid, '{ broken', missing, '', valid].join('\n'), 'lut');
     assert.deepEqual(items.map(item => item.id), ['ok', 'ok']);
 });
 
@@ -97,9 +85,8 @@ test('parsePresetShowcaseJsonl: textanim / textstyle の壊れ行をスキップ
     assert.deepEqual(parsePresetShowcaseJsonl(invalidStyle, 'textstyle'), []);
 });
 
-test('derivePresetShowcaseChips: 4 種の件数を固定順で返す', () => {
+test('derivePresetShowcaseChips: 退役後の 3 種の件数を固定順で返す', () => {
     const chips = derivePresetShowcaseChips({
-        telop: [{ kind: 'telop', id: 'a', name: 'A', category: 'caption', tags: [] }],
         lut: [
             { kind: 'lut', id: 'b', name: 'B', description: 'B', whenToUse: 'B', tags: [] },
             { kind: 'lut', id: 'c', name: 'C', description: 'C', whenToUse: 'C', tags: [] }
@@ -108,7 +95,6 @@ test('derivePresetShowcaseChips: 4 種の件数を固定順で返す', () => {
         textstyle: [{ kind: 'textstyle', id: 'e', name: 'E', category: 'subtitle', tags: ['subtitle'] }]
     });
     assert.deepEqual(chips, [
-        { category: 'preset:telop', label: 'テロップ', count: 1 },
         { category: 'preset:lut', label: 'LUT', count: 2 },
         { category: 'preset:textanim', label: 'テキストアニメ', count: 1 },
         { category: 'preset:textstyle', label: 'テキストスタイル', count: 1 }
@@ -116,8 +102,8 @@ test('derivePresetShowcaseChips: 4 種の件数を固定順で返す', () => {
 });
 
 const SEARCH_ITEMS = [
-    { kind: 'telop', id: 'caption-pop', name: 'ポップ字幕', category: 'caption', tags: ['bright', 'caption'] },
-    { kind: 'telop', id: 'news-lower', name: 'ニュース下帯', category: 'lower-third', tags: ['news'] }
+    { kind: 'textstyle', id: 'caption-pop', name: 'ポップ字幕', category: 'caption', tags: ['bright', 'caption'] },
+    { kind: 'textstyle', id: 'news-lower', name: 'ニュース下帯', category: 'lower-third', tags: ['news'] }
 ];
 
 test('filterPresetShowcaseItems: 和名・id・タグを検索する', () => {

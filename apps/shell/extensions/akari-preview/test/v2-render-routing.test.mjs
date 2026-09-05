@@ -24,11 +24,14 @@ test('preview z is resolved from normalized track ids, including mixed tracks', 
     assert.doesNotMatch(browserSource, /resolveVisualTrackZ/);
 });
 
-test('unbaked telop and filter have concrete preview drawing routes', () => {
-    assert.match(browserSource, /rasterizeTelopPreview/);
+test('unbaked telop is retired without rasterization; filters still draw', () => {
+    assert.doesNotMatch(browserSource, /rasterizeTelopPreview/);
+    assert.match(browserSource, /retiredTelop: true/);
+    assert.match(browserSource, /テロップ（ATF）は退役しました/);
     assert.doesNotMatch(browserSource, /await this\.previewService\.rasterizeTelopPreview/);
     assert.match(browserSource, /type: 'akari-preview-model-update'/);
-    assert.match(backendSource, /--kind', 'telop'/);
+    assert.doesNotMatch(backendSource, /--kind', 'telop'/);
+    assert.match(backendSource, /throw new Error\('telop.retired:/);
     assert.ok(nodeCliCommandSource, 'nodeCliCommand の実装が見つかりません');
     assert.match(nodeCliCommandSource, /return process\.env\.npm_node_execpath;/);
     assert.match(nodeCliCommandSource, /return process\.execPath;/);

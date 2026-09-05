@@ -44,7 +44,7 @@ export const LIBRARY_GROUPS = [
     {
         label: '文字・飾り',
         categories: [
-            { key: 'telop', label: 'テロップ', icon: '字', hint: 'プレビューへドラッグ、＋でプレイヘッド位置に追加', status: 'live', chipKey: 'preset:telop' },
+            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'プレビューへドラッグ、＋でプレイヘッド位置に追加', status: 'live', chipKey: 'preset:textstyle' },
             { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選択中のテロップに適用（次のラウンドで有効化）', status: 'live', chipKey: 'preset:textanim' },
             { key: 'font', label: 'フォント', icon: 'Aa', hint: '「使う」でこのプロジェクトのフォントに追加', status: 'live', chipKey: 'font' },
             { key: 'shapes', label: '図形', icon: '◇', hint: '図形素材は近日利用できるようになります', status: 'soon' },
@@ -109,10 +109,10 @@ export function searchLibraryHome(query: string, sources: LibrarySearchSources):
             const categoryKey = CATALOG_CATEGORY_TO_LIBRARY[catalogItemCategoryChipKey(item)];
             return categoryKey ? [{ categoryKey, label: item.title, kind: 'catalog' as const }] : [];
         });
-    const presetKinds = ['telop', 'textstyle', 'textanim', 'lut'] as const;
+    const presetKinds = ['textstyle', 'textanim', 'lut'] as const;
     const presetHits = presetKinds.flatMap(kind => filterPresetShowcaseItems(sources.presetShowcase[kind], normalizedQuery)
         .map(item => ({
-            categoryKey: (kind === 'textstyle' ? 'telop' : kind) as LibraryCategoryKey,
+            categoryKey: kind as LibraryCategoryKey,
             label: item.name,
             kind: 'preset' as const
         })));

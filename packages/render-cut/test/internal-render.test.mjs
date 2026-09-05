@@ -6,7 +6,6 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
-  buildTelopRasterCommands,
   internalTrackZ,
   readRenderEdit,
   renderItemKind,
@@ -25,7 +24,7 @@ const fixture = {
       { id: "main-cut", at: 0, duration: 30, source: { kind: "media", src: "main", in: 0, out: 1 } },
     ] },
     { id: "telop", lane: "visual", items: [
-      { id: "name", at: 0, duration: 30, source: { kind: "telop", preset: "ref3_name_rounded" } },
+      { id: "name", at: 0, duration: 30, source: { kind: "telop", preset: "ref3_name_rounded", baked: "cached.mov" } },
     ] },
   ],
 };
@@ -39,7 +38,7 @@ test("v2 renderer view dispatches mixed-track items by source.kind", () => {
   assert.equal(edit.layers.length, 2);
   assert.equal(edit.layers[0].kind, "filter");
   assert.equal(edit.layers[1].kind, "baked");
-  assert.match(edit.layers[1].src, /telop-[a-f0-9]{16}\.mov$/u);
+  assert.equal(edit.layers[1].src, "cached.mov");
 });
 
 test("v2 renderer audio is derived from role-marked tracks while raw master is preserved", () => {
@@ -93,17 +92,11 @@ test("v2 renderer audio is derived from role-marked tracks while raw master is p
   assert.equal(edit.audio.master, master);
 });
 
-test("unbaked telop produces a deterministic rasterize command while baked is reused", () => {
-  const { internal } = readRenderEdit(JSON.stringify(fixture), "/tmp/render");
-  const commands = buildTelopRasterCommands(internal, "/tmp/render");
-  assert.equal(commands.length, 1);
-  assert.match(commands[0].output, /telop-[a-f0-9]{16}\.mov$/u);
-  assert.ok(commands[0].args.includes("--no-preview-proxy"));
-
-  const bakedFixture = structuredClone(fixture);
-  bakedFixture.tracks[1].items[0].source.baked = "cached.mov";
-  const baked = readRenderEdit(JSON.stringify(bakedFixture), "/tmp/render");
-  assert.equal(buildTelopRasterCommands(baked.internal, "/tmp/render").length, 0);
+test("unbaked telop is explicitly refused; existing baked is reused", () => {
+  const unbaked = structuredClone(fixture);
+  delete unbaked.tracks[1].items[0].source.baked;
+  assert.throws(() => readRenderEdit(unbaked, "/tmp/render"), /telop.retired.*name.*退役/u);
+  const baked = readRenderEdit(fixture, "/tmp/render");
   assert.equal(baked.edit.layers.find(layer => layer.id === "name").src, "cached.mov");
 });
 

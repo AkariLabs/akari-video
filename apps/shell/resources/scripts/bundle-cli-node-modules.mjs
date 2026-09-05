@@ -1,25 +1,7 @@
 #!/usr/bin/env node
-// bundle-cli-node-modules.mjs — 同梱 CLI（packages/render-cut・packages/bake-layer）が
-// 実行時に必要とする npm 依存を、パッケージ版の Resources へ持ち込むための staging。
-//
-// なぜ必要か: extraResources で `packages/<cli>` を配っても、その CLI が import する
-// npm 依存はモノレポルートの node_modules にしか無い。パッケージ版の Resources 配下には
-// node_modules が一切無いため、Node の上方探索がどこにも当たらず
-//   - render-cut: #130d（legacy 合成経路の全撤去）以降は gpu / osr の 2 出口だけで
-//     puppeteer を使わない（かつては puppeteer-core 不在で静止画へ縮退していた）
-//   - gpu-export: @webav/mp4box.js 不在で --engine gpu が落ちる（v0.1.25 で実測）
-//   - bake-layer: `import puppeteer` / `import { build } from "esbuild"` が
-//     トップレベルで落ち、CLI が起動すらしない
-// になる。
-//
-// 置き場は Resources/packages/node_modules。Resources 配下は `packages/<name>` という
-// リポジトリと同じ相対配置になっているので（render-cut の caption-font.mjs が
-// Resources をリポジトリルートとみなして assets/font を引くのと同じ前提）、
-// packages/ の直下に node_modules を置けば Node の上方探索が render-cut からも
-// bake-layer からも同じ 1 本に当たる。app.asar 内のバックエンドからは（探索経路が
-// app.asar/… で閉じるため）見えない位置なので、シェル本体の依存解決には影響しない。
-//
-// hyperframes を同梱しない判断の根拠は bundled-cli-npm-entries.mjs のコメントにある。
+// Stage runtime npm dependencies for the packaged GPU exporter.
+// Resources/packages/node_modules serves the CLI packages through Node's upward lookup,
+// independently of app.asar. The entry list explains why staging remains necessary.
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';

@@ -106,11 +106,8 @@
     購入済みも含む）も検索できる。`akari assets list [--category <c>]` で候補を確認し、使う素材が
     決まったら `akari assets fetch <id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
     取得後のライセンス確認は上記と同じく `meta.json` で行う。
-  - `presets/telop/` は素材カタログではなく、bake CLI が id で引く参照表である（本リポへ
-    ベンダリングされた目次方式・`meta.json` を持たない。実測: `index.jsonl` に license
-    フィールドは無い）。ライセンス根拠は
-    [presets/telop/INDEX.md](../../presets/telop/INDEX.md) の来歴で確認し、実際にレンダリングへ
-    使う書体のライセンスは `catalog/font/<id>/meta.json` で別途確認する。
+  - ATF テロップの描画・プリセット参照表は退役。HTML 素材版は Lab で取得し、
+    取得した素材のライセンスと書体のライセンスを確認する。既存の baked は再生可能。
 - 該当ヒットが無いことを「あれば提案」と記録しない。[report-guide.md](report-guide.md#素材計画) の
   三択（あれば提案 / なければ生成 / 使わない）へ落とし、プレビュー・検索結果を捏造しない。
 
@@ -164,7 +161,7 @@
 |---|---|---|---|---|---|
 | `sc-01` | 製品・物体の説明 | 3D モデル | `3D` は許可 → 通過 | 3D | `catalog/scene3d/modern-smartphone` |
 | `sc-02` | データ・数値・比較 | HTML グラフ/表 | `HTML 図解` は許可 → 通過 | HTML 図解 | 生成（overlay HTML）+ 書体 `catalog/font/noto-sans-jp` |
-| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | `presets/telop/ref3_mincho_flash` |
+| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | Lab の HTML テロップ（取得後に実物を選定） |
 
 素材の選定根拠（カタログ実測）:
 
@@ -178,19 +175,16 @@
   三択の「なければ生成」として overlay HTML を自作し、書体は `catalog/font/noto-sans-jp`
   （`OFL-1.1` / クレジット不要）を使う。**「使わない」列の 3D の飾りは、`3D` が許可されていても
   置かない。**
-- `sc-03`: `presets/telop/index.jsonl` を `use_when.beats ⊇ emotion` で検索するとヒットは 3 件
-  （`ref3_karaoke_flash` = エモい歌モノ / `ref3_kid_karaoke` = 子ども向け / `ref3_tl_r3s7_07` =
-  昭和ラジオ風）で、いずれも解説トーン（真面目）と不一致だった。**同じ「文字演出」の範囲内で**
-  `tone` 一致を優先し、`roles: emphasis` かつ `tone: 真面目・エモい` の `ref3_mincho_flash`
-  （極太明朝ドン）を採用する。第一候補の手段は変えていないため候補順位の逸脱ではないが、
-  `use_when.beats` が一致しない選択であるため理由を記録する。
+- `sc-03`: 真面目な解説トーンに合う文字演出を Lab の HTML 素材から選ぶ。
+  未取得なら素材計画に取得が必要と記録する。旧 ATF の検索件数は現在の候補の根拠にしない。
+
 
 記録行（`decision-log.md` の `material`）:
 
 ```text
 sc-01 @ 24.0 | 意味: 製品・物体の説明 | 行: 製品・物体の説明 / 第一候補 | 手段: 3D | 素材: modern-smartphone（catalog / CC0-1.0 / クレジット不要） | 理由: when_to_use「実機に画面を映し込んだモックアップ」がシーンの意味に一致
 sc-02 @ 98.0 | 意味: データ・数値・比較 | 行: データ・数値・比較 / 第一候補 | 手段: HTML 図解 | 素材: overlays/sc-02-chart.html（生成 / 書体 noto-sans-jp OFL-1.1 / クレジット不要） | 理由: catalog にグラフ素材のカテゴリが無く三択の「なければ生成」。3D の飾りは禁止列のため不使用
-sc-03 @ 232.0 | 意味: 感情・主張の瞬間 | 行: 感情・主張の瞬間 / 第一候補 | 手段: 文字演出 | 素材: ref3_mincho_flash（presets/telop / 来歴 akari-telop / クレジット不要） | 理由: emotion 一致の 3 件はトーン不一致のため、同じ文字演出の中で tone 一致（真面目・エモい）の emphasis を採用
+sc-03 @ 232.0 | 意味: 感情・主張の瞬間 | 手段: 文字演出 | 素材: Lab の HTML テロップ（取得・選定待ち） | 理由: 真面目なトーンに合う表現を実物で確認する
 ```
 
 ### ケース 2 — `3D` と `AI 生成` が不許可（5 値）
@@ -203,7 +197,7 @@ sc-03 @ 232.0 | 意味: 感情・主張の瞬間 | 行: 感情・主張の瞬間
 |---|---|---|---|---|---|
 | `sc-01` | 製品・物体の説明 | 3D モデル | `3D` が**除外** → 第二候補へ | 実写 B ロール | `catalog/broll/laptop-typing-closeup` |
 | `sc-02` | データ・数値・比較 | HTML グラフ/表 | `HTML 図解` は許可 → 通過 | HTML 図解 | 生成（overlay HTML）+ 書体 `catalog/font/noto-sans-jp` |
-| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | `presets/telop/ref3_mincho_flash` |
+| `sc-03` | 感情・主張の瞬間 | 文字演出（語レベル） | `文字演出` は許可 → 通過 | 文字演出 | Lab の HTML テロップ（取得後に実物を選定） |
 
 ケース 1 との差分と、`AI 生成` 不許可が効いた箇所:
 
@@ -263,9 +257,7 @@ $ node -e "const m=require('./catalog/font/noto-sans-jp/meta.json');console.log(
 OFL-1.1 false
 ```
 
-`presets/telop/index.jsonl`（36 件）を `use_when.beats ⊇ emotion` で絞ると 3 件
-（`ref3_karaoke_flash` / `ref3_kid_karaoke` / `ref3_tl_r3s7_07`）であり、採用した
-`ref3_mincho_flash` は `roles: ["emphasis"]` / `tone: ["真面目","エモい"]` / `strength: high` である。
+旧 ATF の検索結果は退役により利用不可。HTML 素材の実データは取得後に確認する。
 
 ケース 1 の `sc-02` / `sc-03` の overlay HTML を一時プロジェクトへ置いた `edit.json`
 （`version: 0` + 単一 `source`）は、`validate-edit.mjs` が `OK`、`edit-lint` が

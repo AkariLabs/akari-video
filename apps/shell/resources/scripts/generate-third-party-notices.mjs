@@ -131,7 +131,7 @@ function enqueueDependencies(packageJson, fromDir) {
 
 enqueueDependencies(rootPackageJson, shellRoot);
 
-// extraResources で配る CLI（packages/render-cut・packages/bake-layer）が実行時に import する
+// extraResources で配る CLI（packages/render-cut・packages/gpu-export）が実行時に import する
 // npm 依存も配布物に入る（prepackage の bundle-cli-node-modules.mjs が
 // resources/cli-node-modules へ staging し、Resources/packages/node_modules として同梱される）。
 // apps/shell の dependencies には現れないので、ここで明示的に BFS の起点へ足す。
