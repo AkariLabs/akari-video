@@ -58,6 +58,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const MIME = {
+  '.pcm': 'application/octet-stream',
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.mjs': 'application/javascript; charset=utf-8',
@@ -359,6 +360,7 @@ function serveRange(res, filePath, contentType, rangeHeader) {
     res.writeHead(206, {
       'content-type': contentType,
       'content-range': `bytes ${start}-${end}/${total}`,
+      'access-control-expose-headers': 'Content-Range, Accept-Ranges, Content-Length',
       'accept-ranges': 'bytes',
       'content-length': chunkSize,
       'access-control-allow-origin': '*',
@@ -848,10 +850,10 @@ function serveProjectFile(res, pathname, reqHeaders = null) {
     // chosen=original と判定されているのに proxy だけが作られ続けていた）。
     // proxy が要る器は /api/auto-proxy で明示的に要求し、返った .proxy/… の URL を直接読む。
     serveRange(res, safe, mime, rangeHeader);
-  } else if (rangeHeader && mime.startsWith('audio/')) {
+  } else if (rangeHeader && (mime.startsWith('audio/') || ext === '.pcm')) {
     serveRange(res, safe, mime, rangeHeader);
   } else {
-    const extra = (mime.startsWith('video/') || mime.startsWith('audio/'))
+    const extra = (mime.startsWith('video/') || mime.startsWith('audio/') || ext === '.pcm')
       ? { 'accept-ranges': 'bytes' } : {};
     serveFile(res, safe, mime, extra, reqHeaders);
   }

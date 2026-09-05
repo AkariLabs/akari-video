@@ -1,7 +1,9 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
 import { hasAudioClipFx } from '../../media-bin/src/preview-audio-sidecar.mjs';
+
+const DECODED_BYTES_THRESHOLD = 64 * 1024 * 1024;
+const isHeavy = duration => duration * 48000 * 2 * 4 > DECODED_BYTES_THRESHOLD;
 
 // Summary only projects declarations and requests background work. The injected requester
 // returns known state synchronously; probing/transcoding belongs to media-bin.
@@ -31,6 +33,8 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       sourcePath: sourcePathOf(declaredPath), inSec: declaration.inSec, outSec: declaration.outSec,
       speed: declaration.speed, padBeforeSec: declaration.padBeforeSec ?? 0,
       padAfterSec: declaration.padAfterSec ?? 0,
+      format: isHeavy(declaration.outSec - declaration.inSec
+        + (declaration.padBeforeSec ?? 0) + (declaration.padAfterSec ?? 0)) ? 'pcm-s16le' : 'flac',
     }, `speech sidecar ${declaration.id} unavailable; using source fallback`);
   }
   const prepareRegular = (raw, kind, fallbackId) => {
@@ -44,20 +48,18 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       ...(Number.isFinite(raw.lowcut_hz) ? { lowcut_hz: raw.lowcut_hz } : {}),
     };
     const needsClipFx = hasAudioClipFx(clipFx);
-    let isHeavyWav = false;
-    try {
-      isHeavyWav = path.extname(sourcePath).toLowerCase() === '.wav'
-        && fs.statSync(sourcePath).size > 8 * 1024 * 1024;
-    } catch { /* FX requests still report invalid sources through the requester. */ }
-    if (!needsClipFx && !isHeavyWav) return raw;
+    const inSec = Number.isFinite(raw.in) && raw.in >= 0 ? raw.in : 0;
+    const outSec = Number.isFinite(raw.out) && raw.out > inSec ? raw.out : undefined;
+    const heavy = outSec !== undefined && isHeavy(outSec - inSec);
+    if (outSec !== undefined && !needsClipFx && !heavy) return raw;
     const target = { ...raw };
     const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
     const label = kind === 'bgm' ? 'bgm' : `${kind} ${id}`;
-    const inSec = Number.isFinite(raw.in) && raw.in >= 0 ? raw.in : 0;
-    const outSec = kind !== 'bgm' && Number.isFinite(raw.out) && raw.out > inSec ? raw.out : undefined;
     enqueue(target, kind, id, kind === 'bgm' ? 0 : (raw.t ?? 0), {
       sourcePath, inSec, ...(outSec !== undefined ? { outSec } : {}),
       speed: clipFx.speed ?? 1, padBeforeSec: 0, padAfterSec: 0,
+      format: heavy || outSec === undefined ? 'pcm-s16le' : 'flac',
+      ...(outSec === undefined ? { decodedBytesThreshold: DECODED_BYTES_THRESHOLD } : {}),
       ...(needsClipFx ? { clipFx } : {}),
     }, needsClipFx
       ? `${label} sidecar unavailable; using source fallback (preview approximation will differ from export)`
@@ -78,6 +80,8 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
     } catch (error) {
       result = { state: 'invalid', reason: error instanceof Error ? error.message : String(error) };
     }
+    if (result.probe?.fingerprint) keepProbes.add(result.probe.fingerprint);
+    if (result.state === 'not-needed') continue;
     const state = ['ready', 'queued', 'generating', 'no-audio'].includes(result.state)
       ? result.state : 'unavailable';
     target.sidecarState = state;
@@ -89,6 +93,8 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
         path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
         durationSec: result.durationSec, padBeforeSec: options.padBeforeSec,
         padAfterSec: options.padAfterSec, skipped: true, bytes: result.bytes,
+        ...Object.fromEntries(['format', 'sampleRate', 'channels', 'frames', 'bytesPerSample']
+          .filter(field => result[field] !== undefined).map(field => [field, result[field]])),
       };
     } else if (state === 'no-audio') {
       warn(`${kind} ${id}: no audio stream: ${result.reason ?? 'no-audio'}`);

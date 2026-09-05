@@ -6,6 +6,26 @@ import { spawn, spawnSync } from 'node:child_process';
 import { resolveFfmpeg, resolveFfprobe } from './index.mjs';
 
 export const PREVIEW_AUDIO_RECIPE = 'preview-audio-flac-v2';
+export const PREVIEW_AUDIO_PCM_RECIPE = 'preview-audio-pcm-v1';
+
+export function pcmWindowByteRange({ sampleRate, channels, bytesPerSample, frames }, startSec, endSec) {
+  if (!finitePositive(sampleRate) || !Number.isSafeInteger(channels) || channels <= 0
+    || !Number.isSafeInteger(bytesPerSample) || bytesPerSample <= 0
+    || !Number.isSafeInteger(frames) || frames < 0
+    || !Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return null;
+  const startFrame = Math.min(frames, Math.max(0, Math.floor(startSec * sampleRate)));
+  const endFrame = Math.min(frames, Math.max(0, Math.ceil(endSec * sampleRate)));
+  if (endFrame <= startFrame) return null;
+  const stride = channels * bytesPerSample;
+  return { startByte: startFrame * stride, endByte: endFrame * stride - 1,
+    startFrame, frameCount: endFrame - startFrame };
+}
+
+function audioFormat(options) {
+  const format = options?.format ?? 'flac';
+  if (format !== 'flac' && format !== 'pcm-s16le') throw new Error('format must be flac or pcm-s16le');
+  return format;
+}
 
 // Process-wide ceilings for the child processes this module starts. Both callers (the Theia
 // backend that also serves media bytes over HTTP Range, and preview-server's /api/summary)
@@ -316,6 +336,7 @@ export function previewAudioSidecarKey(options) {
     padBeforeSec: options.padBeforeSec ?? 0,
     padAfterSec: options.padAfterSec ?? 0,
     filters: buildPreviewAudioFilterChain(options),
+    format: audioFormat(options),
   });
 }
 
@@ -330,7 +351,9 @@ function keyFor(sourcePath, stat, values) {
     formatNumber(values.padBeforeSec),
     formatNumber(values.padAfterSec),
     ...(values.filters ?? []),
-    PREVIEW_AUDIO_RECIPE,
+    // Keep the complete FLAC v2 hash input unchanged, including its final recipe token.
+    ...(values.format === 'pcm-s16le'
+      ? [PREVIEW_AUDIO_PCM_RECIPE, 'pcm-s16le', 24000, 1, 2] : [PREVIEW_AUDIO_RECIPE]),
   ].join('|')).digest('hex');
 }
 
@@ -431,6 +454,7 @@ function prepare(options, state, createDirectory = true) {
     throw new Error('inSec, outSec, speed, and pads must describe a positive source range');
   }
   if (options.clipFx) validateAudioClipFx(options.clipFx);
+  const format = audioFormat(options);
   if (typeof options.cacheDir !== 'string' || !options.cacheDir) {
     throw new Error('cacheDir is required');
   }
@@ -444,16 +468,20 @@ function prepare(options, state, createDirectory = true) {
     padBeforeSec,
     padAfterSec,
     filters: buildPreviewAudioFilterChain({ ...options, padBeforeSec, padAfterSec }),
+    format,
   };
   state.key = keyFor(sourcePath, stat, values);
   const outputDirectory = path.resolve(options.cacheDir, 'preview-audio');
-  state.outputPath = path.join(outputDirectory, `${state.key}.flac`);
+  const extension = format === 'pcm-s16le' ? 'pcm' : 'flac';
+  state.outputPath = path.join(outputDirectory, `${state.key}.${extension}`);
   if (createDirectory) fs.mkdirSync(outputDirectory, { recursive: true });
   return {
     sourcePath,
     outputDirectory,
     outputPath: state.outputPath,
     key: state.key,
+    format, extension,
+    recipe: format === 'pcm-s16le' ? PREVIEW_AUDIO_PCM_RECIPE : PREVIEW_AUDIO_RECIPE,
     startSec: Math.max(0, options.inSec - padBeforeSec),
     endSec: options.outSec + padAfterSec,
     speed: options.speed,
@@ -475,17 +503,19 @@ async function generate(prepared, options) {
   const settings = settingsFrom(options);
   const ffprobeOf = () => options.ffprobe ?? defaultFfprobe();
   // テスト・呼び出し側の注入シーム（T4 由来）: probeAudio があれば同期関数として尊重する。
-  const inspectAudio = async (p) => (typeof options.probeAudio === 'function'
+  const inspectAudio = async (p) => prepared.format === 'pcm-s16le' ? inspectPcm(p) : (typeof options.probeAudio === 'function'
     ? options.probeAudio(p, ffprobeOf())
     : probeAudioAsync(p, ffprobeOf(), settings));
   const fromExisting = async () => {
     let metadata = readMetadata(prepared);
     if (!metadata) {
       metadata = await inspectAudio(outputPath);
-      writeMetadata(prepared, options, metadata);
+      writeMetadata(prepared, options, metadata, prepared.format === 'flac');
     }
     return {
       ok: true, skipped: true, path: outputPath, key,
+      format: prepared.format,
+      ...(prepared.format === 'pcm-s16le' ? { frames: metadata.frames, bytesPerSample: 2 } : {}),
       durationSec: metadata.durationSec,
       sampleRate: metadata.sampleRate,
       channels: metadata.channels,
@@ -499,7 +529,7 @@ async function generate(prepared, options) {
   try {
     if (fs.existsSync(outputPath)) return fromExisting();
     const temporary = path.join(outputDirectory,
-      `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp.flac`);
+      `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp.${prepared.extension}`);
     try {
       const filters = prepared.filters ?? [
         'asetpts=PTS-STARTPTS',
@@ -512,22 +542,26 @@ async function generate(prepared, options) {
         '-i', sourcePath,
         '-map', '0:a:0', '-vn',
         '-af', filters.join(','),
-        '-ar', '48000', '-c:a', 'flac', '-compression_level', '5',
+        ...(prepared.format === 'pcm-s16le'
+          ? ['-ar', '24000', '-ac', '1', '-f', 's16le', '-c:a', 'pcm_s16le']
+          : ['-ar', '48000', '-c:a', 'flac', '-compression_level', '5']),
         '-y', temporary,
       ], { timeoutMs: settings.timeoutMs.ffmpeg, maxBuffer: 16 * 1024 * 1024 }));
       if (result.error || result.status !== 0) {
         throw processFailure(result, 'ffmpeg failed to create the preview audio sidecar');
       }
       const outputStat = fs.statSync(temporary);
-      if (!outputStat.isFile() || outputStat.size <= 42) {
+      if (!outputStat.isFile() || outputStat.size <= (prepared.format === 'pcm-s16le' ? 0 : 42)) {
         throw new Error('ffmpeg created an empty preview audio sidecar');
       }
       const metadata = await inspectAudio(temporary);
-      if (metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
+      if (prepared.format === 'flac' && metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
       fs.renameSync(temporary, outputPath);
       writeMetadata(prepared, options, metadata);
       return {
         ok: true, skipped: false, path: outputPath, key,
+        format: prepared.format,
+        ...(prepared.format === 'pcm-s16le' ? { frames: metadata.frames, bytesPerSample: 2 } : {}),
         durationSec: metadata.durationSec,
         sampleRate: metadata.sampleRate,
         channels: metadata.channels,
@@ -535,7 +569,7 @@ async function generate(prepared, options) {
       };
     } finally {
       for (const name of fs.readdirSync(outputDirectory)) {
-        if (name.startsWith(`.${path.basename(outputPath)}.${process.pid}.`) && name.endsWith('.tmp.flac')) {
+        if (name.startsWith(`.${path.basename(outputPath)}.${process.pid}.`) && name.endsWith(`.tmp.${prepared.extension}`)) {
           fs.rmSync(path.join(outputDirectory, name), { force: true });
         }
       }
@@ -575,15 +609,30 @@ function metadataPath(prepared) {
 
 function readMetadata(prepared) {
   const value = readCacheJson(metadataPath(prepared));
-  return value?.recipe === PREVIEW_AUDIO_RECIPE && value.key === prepared.key
+  const format = value?.format ?? 'flac';
+  return value?.recipe === prepared.recipe && value.key === prepared.key && format === prepared.format
     && finitePositive(value.durationSec) && finitePositive(value.sampleRate)
     && Number.isInteger(value.channels) && value.channels > 0 && finiteNonNegative(value.bytes)
-    ? value : null;
+    && (format !== 'pcm-s16le' || (value.sampleRate === 24000 && value.channels === 1
+      && Number.isSafeInteger(value.frames) && value.frames > 0 && value.bytesPerSample === 2
+      && value.bytes === value.frames * 2 && value.durationSec === value.frames / 24000))
+    ? { ...value, format } : null;
 }
 
-function writeMetadata(prepared, options, metadata) {
+function inspectPcm(filePath) {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile() || stat.size <= 0 || stat.size % 2 !== 0) {
+    throw new Error('preview PCM sidecar must contain complete nonempty s16le frames');
+  }
+  const frames = stat.size / 2;
+  return { sampleRate: 24000, channels: 1, frames, bytesPerSample: 2, durationSec: frames / 24000 };
+}
+
+function writeMetadata(prepared, options, metadata, legacyFlac = false) {
   writeCacheJson(metadataPath(prepared), {
-    recipe: PREVIEW_AUDIO_RECIPE, key: prepared.key,
+    recipe: prepared.recipe, key: prepared.key,
+    ...(!legacyFlac ? { format: prepared.format } : {}),
+    ...(prepared.format === 'pcm-s16le' ? { frames: metadata.frames, bytesPerSample: 2 } : {}),
     durationSec: metadata.durationSec, sampleRate: metadata.sampleRate, channels: metadata.channels,
     bytes: fs.statSync(prepared.outputPath).size,
     inSec: options.inSec, outSec: options.outSec, speed: options.speed,
@@ -607,7 +656,16 @@ function retryRemaining(record) {
 // Validate even duration-less requests synchronously, but obtain their real endpoint only
 // from a fingerprint-bound probe cache. No resolver or child process runs on this path.
 function requestOptions(options) {
-  if (options?.outSec !== undefined) return { options };
+  if (options?.outSec !== undefined) {
+    if (finitePositive(options.decodedBytesThreshold)) {
+      prepare(options, {}, false);
+      const duration = options.outSec - options.inSec + (options.padBeforeSec ?? 0) + (options.padAfterSec ?? 0);
+      const heavy = duration * 48000 * 2 * 4 > options.decodedBytesThreshold;
+      if (!heavy && !hasAudioClipFx(options.clipFx)) return { status: { state: 'not-needed', key: null } };
+      return { options: { ...options, decodedBytesThreshold: undefined, format: heavy ? 'pcm-s16le' : 'flac' } };
+    }
+    return { options };
+  }
   const validated = prepare({ ...options, outSec: (options?.inSec ?? 0) + 1 }, {}, false);
   const stat = fs.statSync(validated.sourcePath);
   const fingerprint = crypto.createHash('sha1')
@@ -622,7 +680,9 @@ function requestOptions(options) {
     } };
   }
   if (finitePositive(cached?.durationSec)) {
-    return { probePath, probe: { fingerprint }, options: { ...options, outSec: cached.durationSec } };
+    const resolved = requestOptions({ ...options, outSec: cached.durationSec });
+    return { ...resolved, probePath, probe: { fingerprint },
+      ...(resolved.status ? { status: { ...resolved.status, probe: { fingerprint } } } : {}) };
   }
   return { probePath, status: { state: 'queued', key: null, probe: { fingerprint, pending: true } } };
 }
@@ -637,8 +697,9 @@ export function previewAudioSidecarStatus(options) {
     if (requested.has(outputPath) || generating.has(outputPath)) return { state: 'generating', key };
     const metadata = readMetadata(prepared);
     if (metadata && fs.existsSync(outputPath)) {
-      const { durationSec, sampleRate, channels, bytes } = metadata;
-      return { state: 'ready', key, path: outputPath, durationSec, sampleRate, channels, bytes };
+      const { durationSec, sampleRate, channels, bytes, format, frames, bytesPerSample } = metadata;
+      return { state: 'ready', key, path: outputPath, durationSec, sampleRate, channels, bytes, format,
+        ...(format === 'pcm-s16le' ? { frames, bytesPerSample } : {}) };
     }
     const noAudio = readCacheJson(path.join(outputDirectory, `${key}.no-audio.json`));
     if (noAudio?.key === key) return { state: 'no-audio', key, reason: noAudio.reason };
@@ -675,7 +736,7 @@ export function requestPreviewAudioSidecar(options) {
       if (probe.ok) {
         writeCacheJson(resolved.probePath, probe);
         const result = requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec });
-        if (['ready', 'no-audio', 'failed'].includes(result.state)) {
+        if (['ready', 'no-audio', 'failed', 'not-needed'].includes(result.state)) {
           emitSidecarEvent({ key: result.key, state: result.state, sourcePath: path.resolve(options.sourcePath),
             ...(result.state === 'ready'
               ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) });
@@ -737,7 +798,7 @@ export function ensurePreviewAudioSidecar(options) {
 }
 
 export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0, keepProbes }) {
-  const kept = new Set(Array.from(keepKeys ?? [], value => String(value).replace(/\.flac$/u, '')));
+  const kept = new Set(Array.from(keepKeys ?? [], value => String(value).replace(/\.(?:flac|pcm)$/u, '')));
   const keptProbes = new Set(Array.from(keepProbes ?? [], value =>
     String(value).replace(/^probe-/u, '').replace(/\.json$/u, '')));
   const outputDirectory = path.resolve(cacheDir, 'preview-audio');
@@ -750,12 +811,14 @@ export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0, ke
       // ffmpeg が開いている最中に rm すると Windows は EPERM を投げ、以前はそれが
       // /api/summary まで抜けてサーバごと落ちた（実機 2026-09-05 14:25）。掃除の対象外にする。
       if (entry.name.startsWith('.') || /\.tmp\./u.test(entry.name)) continue;
-      const match = /^(.*?)(?:\.flac|\.no-audio\.json|\.failed\.json|\.json)$/u.exec(entry.name);
+      const match = /^(.*?)(?:\.flac|\.pcm|\.no-audio\.json|\.failed\.json|\.json)$/u.exec(entry.name);
       if (!match) continue;
       const key = match[1];
       const probingFile = key.startsWith('probe-');
       const outputPath = path.join(outputDirectory, `${key}.flac`);
+      const pcmPath = path.join(outputDirectory, `${key}.pcm`);
       if ((!probingFile && kept.has(key)) || generating.has(outputPath)
+        || generating.has(pcmPath) || requested.has(pcmPath)
         || (probingFile && keptProbes.has(key.slice('probe-'.length)))
         || requested.has(outputPath) || probing.has(path.join(outputDirectory, entry.name))) continue;
       const target = path.join(outputDirectory, entry.name);

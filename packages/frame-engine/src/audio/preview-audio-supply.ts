@@ -72,6 +72,11 @@ export type PreviewScheduleBuilder = (input: {
 export type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable';
 
 export interface PreviewAudioSidecar {
+  format?: 'flac' | 'pcm-s16le';
+  sampleRate?: number;
+  channels?: number;
+  frames?: number;
+  bytesPerSample?: number;
   path: string;
   durationSec: number;
   padBeforeSec: number;
@@ -497,8 +502,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   const resolveRegular = async (declaration: PreviewAudioDeclaration): Promise<void> => {
-    const sidecar = validSidecar(declaration.spec.sidecar);
-    let buffer = await decodeUrl(declaration.url,
+    const declaredSidecar = validSidecar(declaration.spec.sidecar);
+    const sidecar = declaredSidecar?.format === 'pcm-s16le' ? undefined : declaredSidecar;
+    let buffer = await decodeUrl(declaredSidecar?.format === 'pcm-s16le' ? declaration.sourceUrl ?? declaration.url : declaration.url,
       `${declaration.kind} ${declaration.id}${sidecar ? ' sidecar' : ''}`);
     let usedSidecar = Boolean(sidecar && buffer);
     if (!buffer && sidecar && declaration.sourceUrl) {
@@ -518,7 +524,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     const started = nowMs();
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
-    const bakedPath = sidecar?.path ?? legacy?.path;
+    const bakedPath = sidecar?.format === 'pcm-s16le' ? undefined : sidecar?.path ?? legacy?.path;
     let buffer = bakedPath
       ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`)
       : null;

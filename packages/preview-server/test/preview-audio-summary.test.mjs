@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { stripTypeScriptTypes } from 'node:module';
+import vm from 'node:vm';
 import { prepareFrameEngineAudioSummary } from '../src/preview-audio-summary.mjs';
 
 function fixture(t) {
@@ -19,8 +21,8 @@ function fixture(t) {
     audio: {
       bgm: { id: 'bed', path: 'heavy.WAV' },
       sfx: [{ id: 'hit', path: 'hit.mp3', t: 3, lowcut_hz: 100, out: 1 },
-        { id: 'light', path: 'light.mp3', t: 2 }],
-      narration: [{ id: 'voice', path: 'heavy.WAV', t: 1, out: 2 }],
+        { id: 'light', path: 'light.mp3', t: 2, out: 1 }],
+      narration: [{ id: 'voice', path: 'heavy.WAV', t: 1, out: 2, lowcut_hz: 100 }],
     },
   };
   return { data, deps };
@@ -97,4 +99,78 @@ test('generating・invalid・ffmpeg 不在も即時の状態で返す', t => {
     assert.equal(failed.warnings.length, 4);
     assert.match(failed.warnings[0], /using source fallback/u);
   }
+});
+
+test('long m4a BGM requests PCM, short mp3 SFX requests nothing, short WAV FX stays FLAC', t => {
+  const { deps } = fixture(t);
+  const calls = [];
+  const pcm = { format: 'pcm-s16le', sampleRate: 24000, channels: 1,
+    frames: 88 * 60 * 24000, bytesPerSample: 2 };
+  const result = prepareFrameEngineAudioSummary({ audio: {
+    bgm: { id: 'long', path: 'bed.m4a', in: 0, out: 88 * 60 },
+    sfx: [{ id: 'short', path: 'hit.mp3', in: 0, out: 3 },
+      { id: 'fx', path: 'short.wav', in: 0, out: 3, lowcut_hz: 100, t: 1 }],
+  } }, { ...deps, requestSidecar: options => {
+    calls.push(options);
+    return { state: 'ready', key: String(calls.length),
+      path: path.join(deps.cacheDir, 'preview-audio', `${calls.length}.pcm`),
+      durationSec: options.outSec - options.inSec, bytes: pcm.frames * 2,
+      ...(options.format === 'pcm-s16le' ? pcm : { format: 'flac', sampleRate: 48000, channels: 2 }) };
+  } });
+  assert.deepEqual(calls.map(call => [path.basename(call.sourcePath), call.format]),
+    [['bed.m4a', 'pcm-s16le'], ['short.wav', 'flac']]);
+  assert.equal(result.audio.sfx[0].sidecar, undefined);
+  for (const [field, value] of Object.entries(pcm)) assert.equal(result.audio.bgm.sidecar[field], value);
+  assert.equal(result.audio.sfx[1].sidecar.format, 'flac');
+});
+
+test('decoded threshold is strict, extension independent, and uses speech trim plus pads', t => {
+  const { deps } = fixture(t);
+  const thresholdSec = 64 * 1024 * 1024 / (48000 * 2 * 4);
+  const calls = [];
+  const result = prepareFrameEngineAudioSummary({
+    output: { fps: 30 }, sources: [{ id: 'v', path: 'video.mp4' }],
+    cuts: [{ id: 'long-speech', src: 'v', in: 60, out: 60 + 24 * 60 }],
+    audio: { narration: [{ id: 'exact', path: 'exact.wav', in: 1, out: 1 + thresholdSec },
+      { id: 'over', path: 'over.mp3', in: 1, out: 1 + thresholdSec + 1 / 48000 }] },
+  }, { ...deps, requestSidecar: options => { calls.push(options); return { state: 'queued', key: 'k' }; } });
+  assert.deepEqual(calls.map(call => path.basename(call.sourcePath)), ['video.mp4', 'over.mp3']);
+  assert.ok(calls.every(call => call.format === 'pcm-s16le'));
+  assert.equal(result.audio.narration[0].sidecarState, undefined);
+  assert.equal(result.audio.speech[0].sidecar, undefined);
+});
+
+test('duration-less requests delegate selection to background probe and retain its fingerprint', t => {
+  const { deps } = fixture(t);
+  const calls = [];
+  const result = prepareFrameEngineAudioSummary({ audio: {
+    bgm: { path: 'long.m4a' }, sfx: [{ path: 'short.mp3', t: 1 }],
+  } }, { ...deps, requestSidecar: options => {
+    calls.push(options);
+    return { state: 'not-needed', key: null, probe: { fingerprint: path.basename(options.sourcePath) } };
+  } });
+  assert.ok(calls.every(call => call.outSec === undefined && call.decodedBytesThreshold === 64 * 1024 * 1024));
+  assert.deepEqual(result.items, []);
+  assert.deepEqual(result.keepProbes, ['long.m4a', 'short.mp3']);
+  assert.equal(result.audio.sfx[0].sidecarState, undefined);
+});
+
+test('Web audio and speech declarations preserve PCM metadata and their source fallback URLs', () => {
+  const source = fs.readFileSync(new URL('../src/frame-engine-client.ts', import.meta.url), 'utf8');
+  const functions = source.slice(source.indexOf('function mediaUrl('), source.indexOf('function resolvedItemAdjust('));
+  const js = stripTypeScriptTypes(functions);
+  const { audioDeclarations, speechDeclarations } = vm.runInNewContext(
+    `${js}\n({ audioDeclarations, speechDeclarations })`, { normalizedCuts: () => [] });
+  const sidecar = { path: '.akari/cache/preview-audio/test.pcm', durationSec: 12,
+    padBeforeSec: 0, padAfterSec: 0, format: 'pcm-s16le', sampleRate: 24000,
+    channels: 1, frames: 288000, bytesPerSample: 2 };
+  const edit = { audio: { bgm: { path: 'bed.m4a', sidecar, sidecarState: 'ready' },
+    speech: [{ id: 'speech', src: 'v', sidecar, sidecarState: 'ready' }] } };
+  const regular = audioDeclarations(edit)[0];
+  const spoken = speechDeclarations(edit, 30, new Map([['v', { url: '/source.mp4' }]]))[0];
+  for (const value of [regular.spec.sidecar, spoken.sidecar]) {
+    assert.deepEqual(JSON.parse(JSON.stringify(value)), { ...sidecar, path: `/${sidecar.path}` });
+  }
+  assert.equal(regular.sourceUrl, '/bed.m4a');
+  assert.equal(spoken.url, '/source.mp4');
 });

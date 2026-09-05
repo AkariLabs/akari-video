@@ -25496,9 +25496,10 @@ function createPreviewAudioSupply(options) {
     return entry.promise;
   };
   const resolveRegular = async (declaration) => {
-    const sidecar = validSidecar(declaration.spec.sidecar);
+    const declaredSidecar = validSidecar(declaration.spec.sidecar);
+    const sidecar = declaredSidecar?.format === "pcm-s16le" ? void 0 : declaredSidecar;
     let buffer = await decodeUrl(
-      declaration.url,
+      declaredSidecar?.format === "pcm-s16le" ? declaration.sourceUrl ?? declaration.url : declaration.url,
       `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
     );
     let usedSidecar = Boolean(sidecar && buffer);
@@ -25521,7 +25522,7 @@ function createPreviewAudioSupply(options) {
     const started = nowMs();
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
-    const bakedPath = sidecar?.path ?? legacy?.path;
+    const bakedPath = sidecar?.format === "pcm-s16le" ? void 0 : sidecar?.path ?? legacy?.path;
     let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
     let usedSidecar = Boolean(bakedPath && buffer);
     if (!buffer) {

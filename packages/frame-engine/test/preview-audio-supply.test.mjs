@@ -137,6 +137,36 @@ async function settle() {
   for (let index = 0; index < 50; index += 1) await Promise.resolve();
 }
 
+test('PCM sidecars are never fetched and regular/speech audio decode through the source route', async () => {
+  const context = new FakeContext(new Map([[1, buffer(12)], [2, buffer(12)]]));
+  const fetches = [];
+  const sidecar = { path: '/regular.pcm', format: 'pcm-s16le', sampleRate: 24000,
+    channels: 1, frames: 288000, bytesPerSample: 2, durationSec: 12, padBeforeSec: 0, padAfterSec: 0 };
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 3, scheduleBuilder, contextFactory: () => context,
+    fetchImpl: async url => {
+      fetches.push(url);
+      assert.ok(['/bed.m4a', '/source.mp4'].includes(url), `unexpected fetch: ${url}`);
+      return response(url === '/bed.m4a' ? 1 : 2);
+    },
+    declarations: [{ kind: 'bgm', id: 'bed', url: '/regular.pcm', sourceUrl: '/bed.m4a',
+      spec: { id: 'bed', durationSec: 0, sidecar, sidecarState: 'ready' } }],
+    speech: [speech('spoken', 'v', '/source.mp4', { inSec: 2, outSec: 3,
+      sidecar: { ...sidecar, path: '/speech.pcm' }, sidecarState: 'ready',
+      atempo: { path: '/legacy.flac' } })],
+  });
+  try {
+    await supply.prime();
+    await settle();
+    assert.deepEqual(fetches.sort(), ['/bed.m4a', '/source.mp4']);
+    assert.equal(context.decodeCalls, 2);
+    supply.playFrom(0);
+    await settle();
+    assert.equal(context.sources.length, 2);
+    assert.ok(context.sources.some(source => source.starts[0][1] === 2), 'speech retains original trim offset');
+  } finally { supply.dispose(); }
+});
+
 function speech(id, src, url, overrides = {}) {
   return {
     id, src, url, atSec: 0, durationSec: 1, inSec: 0, outSec: 1,
