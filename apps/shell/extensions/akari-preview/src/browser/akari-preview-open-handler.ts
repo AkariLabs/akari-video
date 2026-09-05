@@ -41,6 +41,7 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
+import { AudioClipFx, audioClipFxOf, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
 import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
@@ -4041,6 +4042,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 padBeforeSec?: number;
                 padAfterSec?: number;
                 heavyWavOnly?: boolean;
+                clipFx?: {
+                    speed?: number;
+                    pitch_semitones?: number;
+                    formant?: 'preserve' | 'shift';
+                    denoise?: { method: 'fft' | 'nlm'; strength: number };
+                    lowcut_hz?: number;
+                };
             }): Promise<{
                 ok: boolean;
                 skipped: boolean;
@@ -4077,7 +4085,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const resolveSource = async (
             pathValue: unknown,
             label: string,
-            trim: { inSec: number; outSec?: number }
+            trim: { inSec: number; outSec?: number },
+            clipFx: AudioClipFx
         ): Promise<{ src: string; sidecar?: PreviewAudioSidecarSummary } | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
@@ -4087,18 +4096,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const key = assetUri.toString();
             try {
                 const stream = await ensure(key, assetUri);
+                const sidecarRequest = previewAudioSidecarRequestFor(clipFx);
                 const result = await previewAudioService.preparePreviewAudioSidecar({
                     sourceUri: assetUri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: trim.inSec,
                     ...(trim.outSec !== undefined ? { outSec: trim.outSec } : {}),
-                    speed: 1,
+                    ...sidecarRequest,
                     padBeforeSec: 0,
                     padAfterSec: 0,
                     heavyWavOnly: true
                 });
                 if (!result.ok || !result.stream) {
-                    if (result.eligible !== false) {
+                    if (sidecarRequest.clipFx !== undefined || result.eligible !== false) {
                         console.warn(`[akari-preview] ${label} sidecar unavailable; using source: ${
                             result.reason ?? 'generation failed'
                         }`);
@@ -4269,7 +4279,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
-                });
+                }, audioClipFxOf(item, kind));
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
@@ -4365,7 +4375,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
                         }
                     }
-                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 });
+                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, audioClipFxOf(rawBgm, 'bgm'));
                     const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
                         bgm = {
