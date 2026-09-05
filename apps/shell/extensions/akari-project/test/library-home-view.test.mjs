@@ -9,7 +9,7 @@ test('LIBRARY_GROUPS: 5 グループとカテゴリ語彙を宣言順で保持�
     assert.deepEqual(LIBRARY_GROUPS.map(group => group.categories.map(category => category.key)), [
         ['fav', 'brandkit', 'mypresets'],
         ['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d', 'pack'],
-        ['telop', 'textanim', 'font', 'shapes', 'stamps'],
+        ['textstyle', 'textanim', 'font', 'shapes', 'stamps'],
         ['lut', 'transition', 'fx', 'motion'],
         ['template']
     ]);
@@ -23,11 +23,11 @@ test('LIBRARY_GROUPS: ラベル・soon・chipKey 対応を固定する', () => {
         ['fav', 'brandkit', 'mypresets', 'shapes', 'stamps', 'fx', 'motion', 'template']
     );
     assert.deepEqual(
-        Object.fromEntries(['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d', 'telop', 'textanim', 'font', 'lut']
+        Object.fromEntries(['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d', 'textstyle', 'textanim', 'font', 'lut']
             .map(key => [key, categories[key].chipKey])),
         {
             bgm: 'audio:bgm', sfx: 'audio:sfx', broll: 'broll', image: 'still', overlay: 'overlay', scene3d: 'scene3d',
-            telop: 'preset:telop', textanim: 'preset:textanim', font: 'font', lut: 'preset:lut'
+            textstyle: 'preset:textstyle', textanim: 'preset:textanim', font: 'font', lut: 'preset:lut'
         }
     );
     assert.equal(categories.fav.label, 'お気に入り');
@@ -40,7 +40,7 @@ test('LIBRARY_GROUPS: 操作導線の文言を固定する', () => {
     for (const key of ['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d']) {
         assert.equal(categories[key].hint, 'タイムラインへドラッグ、＋でプレイヘッド位置に追加');
     }
-    assert.equal(categories.telop.hint, 'プレビューへドラッグ、＋でプレイヘッド位置に追加');
+    assert.equal(categories.textstyle.hint, 'プレビューへドラッグ、＋でプレイヘッド位置に追加');
     assert.equal(categories.textanim.hint, '選択中のテロップに適用（次のラウンドで有効化）');
     assert.equal(categories.transition.hint, 'タイムラインのカット境界へドラッグして適用');
     assert.equal(categories.lut.hint, '選択中のカットに適用（強さはインスペクター）');
@@ -49,7 +49,6 @@ test('LIBRARY_GROUPS: 操作導線の文言を固定する', () => {
 const SEARCH_SOURCES = {
     catalogItems: [{ id: 'spark-se', category: 'audio', title: 'Spark 決定音', tags: ['sfx'] }],
     presetShowcase: {
-        telop: [],
         lut: [],
         textanim: [{ kind: 'textanim', id: 'spark-in', name: 'Spark 登場', tags: ['in'] }],
         textstyle: []

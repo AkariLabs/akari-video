@@ -1,8 +1,8 @@
 // BGM 自動提案（v0）— intake / 演出の tone 語彙 × AKARI Sounds のトラック系統の突き合わせ。
 //
 // 設計方針:
-// - tone 語彙は表現選定（skills/edit-plan/expression-selection.md / presets/telop の tone）と
-//   同じ 8 語に固定する。BGM だけ別の語彙を発明しない
+// - tone 語彙は表現選定（skills/edit-plan/expression-selection.md）と同じ 8 語に固定する。
+//   BGM だけ別の語彙を発明しない
 // - 対応表は「系統（トラック id の接頭辞）→ tone 重み」の宣言表。トラック個別の
 //   when_to_use（宣言パック = 有償レイヤ）には依存しない — 無料の catalog.json（tags / id）
 //   だけで動く

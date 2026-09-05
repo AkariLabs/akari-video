@@ -19,7 +19,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
 import { buildAudioClipFxFilters } from "../../media-bin/src/preview-audio-sidecar.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
-import { buildTelopRasterCommands, readRenderEdit } from "./internal-render.mjs";
+import { readRenderEdit } from "./internal-render.mjs";
 import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
 const require = createRequire(import.meta.url);
@@ -102,7 +102,6 @@ export function buildPlan({
         finalDurationSeconds,
       })
     : null;
-  const telopRasterCommands = buildTelopRasterCommands(normalizedInternalEdit, temporaryDirectory);
   const audioMix = buildAudioMixCommand({
     edit,
     projectRoot,
@@ -126,14 +125,12 @@ export function buildPlan({
       cutAudioPath,
       ...(cutAudio.intermediates ?? []),
       ...(tailPadAudio ? [tailPaddedAudioPath] : []),
-      ...telopRasterCommands.map((command) => command.output),
       compositePath,
       ...(container.kind === "directory" ? [join(temporaryDirectory, "final-audio.wav")] : []),
       ...(container.kind === "directory" ? [] : [finalPath]),
     ].map((value) => relative(projectRoot, value)),
     commands: {
       cut_audio: cutAudio,
-      telops: telopRasterCommands,
       tail_pad_audio: tailPadAudio,
       audio_mix: audioMix,
       verify: {

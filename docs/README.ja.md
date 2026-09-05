@@ -157,6 +157,7 @@
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | 字幕とカット編集の方向性（word 精度カット・captions 第一級化・カラオケ表示） |
 | [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | 自己検証ループとトランスクリプト編集 UI の方向性（edit-lint の原型） |
 | [notes-2026-08-28-engine-v2-open-items.md](./notes-2026-08-28-engine-v2-open-items.md) | エンジン v2 残課題 — 実機条件、決定論的 seek、OSR 隔離、±0 検収、legacy 退役条件の移管先 |
+| [notes-2026-09-05-bake-layer-retired.md](./notes-2026-09-05-bake-layer-retired.md) | bake-layer / ATF テロップ描画の退役 — 消したもの・`kind:"telop"` の後方互換・対象外の線引き |
 
 ## 開発者向け
 

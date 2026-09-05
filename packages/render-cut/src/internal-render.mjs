@@ -1,8 +1,6 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, dirname, resolve } from "node:path";
 
 import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 import { generateCaptionOverlays } from "./captions.mjs";
@@ -13,8 +11,6 @@ const projectRoots = new WeakMap();
 const hiddenItemIds = new WeakMap();
 const frameNormalizedHtmlItems = new WeakSet();
 
-const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", "bin", "bake-layer.mjs");
 
 /**
  * edit.json の版差を読み込み層で吸収し、renderer が消費する組を作る。
@@ -410,13 +406,16 @@ export function renderItemDeclaration(item, temporaryDirectory) {
         captionId: item.source.id,
       };
     case "telop":
+      if (item.source.baked === undefined) {
+        throw new Error(`telop.retired: ${item.id}: テロップ（ATF）の描画は退役しました。Lab の HTML 素材版へ差し替えてください。既存の baked は再生できます。`);
+      }
       return {
         ...declaration,
         id: item.id,
         t: item.at,
         duration: item.duration,
         kind: "baked",
-        src: item.source.baked ?? telopRasterPath(temporaryDirectory, item.id),
+        src: item.source.baked,
       };
     case "filter":
       return {
@@ -434,37 +433,6 @@ export function renderItemDeclaration(item, temporaryDirectory) {
     default:
       return declaration;
   }
-}
-
-export function buildTelopRasterCommands(internal, temporaryDirectory) {
-  const commands = [];
-  for (const track of internal.tracks) {
-    for (const item of track.items) {
-      if (item.source.kind !== "telop" || item.source.baked !== undefined) continue;
-      commands.push({
-        id: item.id,
-        command: process.execPath,
-        args: [
-          BAKE_LAYER_ENTRY,
-          "--kind", "telop",
-          "--preset", item.source.preset,
-          "--params", JSON.stringify(item.source.params ?? {}),
-          "--duration", String(item.duration),
-          "--size", `${internal.output.width}x${internal.output.height}`,
-          "--fps", String(internal.output.fps),
-          "--out", telopRasterPath(temporaryDirectory, item.id),
-          "--no-preview-proxy",
-        ],
-        output: telopRasterPath(temporaryDirectory, item.id),
-      });
-    }
-  }
-  return commands;
-}
-
-export function telopRasterPath(temporaryDirectory, itemId) {
-  const digest = createHash("sha256").update(String(itemId)).digest("hex").slice(0, 16);
-  return join(temporaryDirectory, `telop-${digest}.mov`);
 }
 
 export function internalTrackZ(internal, track) {

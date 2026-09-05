@@ -78,7 +78,7 @@ assets/                     ← 当面はローカルディレクトリ。コミ
   値へ付く単位だけを書き、**無単位の倍率・比率（短辺比など）では `unit` を省略する**。
   意味は `label` に書く（例「木枠の太さ（短辺比。0 で枠なし）」）。この規律により、
   ツールが `--var board-width=940` を `940px` へ、比率のツマミは数値のまま渡せる
-  （`packages/template-render`）。ここを混ぜると `width: 940` という無効な CSS が生まれ、
+  （HTML 素材のパラメータ展開）。ここを混ぜると `width: 940` という無効な CSS が生まれ、
   **絵は変わるが「効いた」のではなく「壊れた」**という誤検知が検査側にも起きる
 - `knobs.type` の語彙: `text` / `color` / `slider` / `dropdown` / `checkbox` / `media`
   （.mogrt と同じ心的モデル。世界中のモーションデザイナーが既に知っている語彙）
@@ -400,8 +400,7 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 
 現在の収録:
 
-- `presets/telop/` — ATF テロップテンプレート 36 件。`packages/bake-layer` が
-  `--preset <id>` から `presets/telop/<id>/template.json` を解決する
+- ATF テロップの参照表と描画器は退役。HTML 素材版は Lab で取得する。既存の baked は再生互換を維持する。
 - `presets/luts/` — 3D LUT 2 件（自前生成）。`packages/render-cut/src/plan.mjs` が
   `edit.json` の `output.look.lut`（区切り文字を含まない名前）から
   `presets/luts/<id>/<id>.cube` を解決する

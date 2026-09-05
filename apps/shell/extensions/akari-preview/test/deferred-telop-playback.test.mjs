@@ -77,10 +77,12 @@ test('区間外ではプレースホルダも動画も非表示にする', () =>
     assert.deepEqual(resolveDeferredTelopPlayback({ ...base, active: false }), { phase: 'inactive' });
 });
 
-test('webview は準備中プレースホルダを持ち、deferred ready を通常 model-update で即時反映する', () => {
+test('webview は既存プレースホルダで退役を表示し、ラスタ要求を送らない', () => {
     assert.match(browserSource, /data-akari-deferred-telop-id/);
-    assert.match(browserSource, /テロップを準備中…/);
-    assert.match(browserSource, /resolveDeferredTelopPlaybackFn/);
+    assert.match(browserSource, /テロップ（ATF）は退役しました/);
+    assert.match(browserSource, /if \(layer\.retiredTelop\)/);
+    assert.match(browserSource, /activeWindow \? 'retired' : 'inactive'/);
+    assert.doesNotMatch(browserSource, /rasterizeTelopPreview/);
     assert.match(browserSource, /type: 'akari-preview-model-update'/);
     assert.match(browserSource, /layerVideo\.addEventListener\('seeked'/);
 });

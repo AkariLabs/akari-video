@@ -192,16 +192,6 @@
         ]
       },
       {
-        "from": "../../packages/bake-layer",
-        "to": "packages/bake-layer",
-        "filter": [
-          "package.json",
-          "bin/**/*",
-          "src/**/*",
-          "vendor/**/*"
-        ]
-      },
-      {
         "from": "../../packages/akari-launcher",
         "to": "packages/akari-launcher",
         "filter": [
@@ -303,10 +293,6 @@
         ]
       },
       {
-        "from": "../../presets/telop",
-        "to": "presets/telop"
-      },
-      {
         "from": "../../presets/luts",
         "to": "presets/luts"
       },
@@ -354,7 +340,6 @@
     "msgpackr-extract@3.0.4": true,
     "native-keymap@2.5.0": true,
     "node-pty@1.2.0-beta.12": true,
-    "puppeteer@25.1.0": true,
     "@parcel/watcher@2.6.0": true,
     "@theia/ffmpeg@1.73.1": true
   }
