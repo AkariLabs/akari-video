@@ -80,6 +80,8 @@ interface PrepareSpeechAtempoRequest {
     padBeforeSec?: number;
     padAfterSec?: number;
     heavyWavOnly?: boolean;
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
     clipFx?: {
         speed?: number;
         pitch_semitones?: number;
@@ -105,10 +107,13 @@ interface PrepareSpeechAtempoResult {
 }
 
 interface PreviewAudioSidecarModuleResult {
-    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'invalid' | 'legacy' | 'missing';
+    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'invalid' | 'legacy' | 'missing' | 'not-needed';
     key?: string | null;
     path?: string;
     probe?: { fingerprint?: string; pending?: boolean };
+    format?: 'flac' | 'pcm-s16le';
+    frames?: number;
+    bytesPerSample?: number;
     durationSec?: number;
     bytes?: number;
     sampleRate?: number;
@@ -118,7 +123,7 @@ interface PreviewAudioSidecarModuleResult {
 }
 
 interface PreviewAudioSidecarRequestResult extends Omit<PreviewAudioSidecarModuleResult, 'state' | 'key' | 'path' | 'probe'> {
-    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'not-eligible';
+    state: 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable' | 'not-eligible' | 'not-needed';
     key?: string;
     probe?: { fingerprint: string };
     stream?: VideoStreamReference;
@@ -132,6 +137,8 @@ type PreviewAudioSidecarOptions = {
     padBeforeSec: number;
     padAfterSec: number;
     clipFx?: PrepareSpeechAtempoRequest['clipFx'];
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
     ffmpeg?: string;
     cacheDir: string;
 };
@@ -242,6 +249,7 @@ const ASSET_MIME_TYPES = new Map<string, string>([
     ['.webm', 'video/webm'],
     ['.aac', 'audio/aac'],
     ['.flac', 'audio/flac'],
+    ['.pcm', 'application/octet-stream'],
     ['.m4a', 'audio/mp4'],
     ['.mp3', 'audio/mpeg'],
     ['.oga', 'audio/ogg'],
@@ -741,6 +749,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 sourcePath,
                 inSec: request.inSec,
                 ...(request.outSec !== undefined ? { outSec: request.outSec } : {}),
+                ...(request.format !== undefined ? { format: request.format } : {}),
+                ...(request.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: request.decodedBytesThreshold } : {}),
                 speed: request.speed,
                 padBeforeSec: request.padBeforeSec ?? 0,
                 padAfterSec: request.padAfterSec ?? 0,
@@ -749,6 +759,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 cacheDir: join(projectRoot, '.akari', 'cache')
             });
             const { path: sidecarPath, key, probe, state, ...metadata } = result;
+            if (state === 'not-needed') return { state: 'not-needed' };
             const mapped: PreviewAudioSidecarRequestResult = {
                 ...metadata,
                 state: state === 'ready' || state === 'queued' || state === 'generating'

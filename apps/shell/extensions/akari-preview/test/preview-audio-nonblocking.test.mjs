@@ -13,6 +13,56 @@ const section = (text, start, end) => {
     return text.slice(from, to);
 };
 
+test('loading requests carry decoded-size plans and never use heavyWavOnly', () => {
+    const load = section(source, '    protected async loadPreviewModel(', '    protected async resolveAudioAssets(');
+    const resolve = section(source, '    protected async resolveAudioAssets(', '        const gainDb =');
+    for (const text of [load, resolve]) assert.doesNotMatch(text, /heavyWavOnly/u);
+    assert.match(load, /format: resolveSpeechSidecarFormat\(declaration\)/u);
+    assert.match(resolve, /resolveRegularSidecarPlan\(\{ \.\.\.trim, hasClipFx: false \}\)/u);
+    assert.match(resolve, /await ensure\(key, assetUri\);[\s\S]*if \(!plan\.request\) return \{ src: stream\.url \};[\s\S]*const request:/u);
+    assert.match(resolve, /format: plan\.format/u);
+    assert.match(resolve, /plan\.decodedBytesThreshold !== undefined \? \{ decodedBytesThreshold: plan\.decodedBytesThreshold \} : \{\}/u);
+    assert.match(resolve, /const item: PreviewAudioPendingRequest = \{ kind, id, label: label \+ ' sidecar', request \}/u);
+});
+
+test('ready fields preserve defined PCM metadata and not-needed returns no declaration fields', () => {
+    const fields = section(source, '    protected previewAudioSidecarFields(', '    // Incremental refresh');
+    assert.match(fields, /if \(result\.state === 'not-eligible' \|\| result\.state === 'not-needed'\) return \{\}/u);
+    const ready = section(fields, "if (result.state === 'ready'", "if (result.state === 'queued'");
+    for (const field of ['format', 'sampleRate', 'channels', 'frames', 'bytesPerSample']) {
+        assert.match(ready, new RegExp(`result\\.${field} !== undefined \\? \\{ ${field}: result\\.${field} \\} : \\{\\}`, 'u'));
+    }
+    const poll = section(source, '        const poll = async', '    // Picks the URI');
+    assert.match(poll, /requestPreviewAudioSidecar\(item\.request\)/u);
+    assert.match(poll, /if \(result\.key\)/u);
+    assert.match(poll, /pending\.splice\(pending\.indexOf\(item\), 1\)/u);
+    assert.match(poll, /delete target\.sidecar;\s+delete target\.sidecarState;\s+Object\.assign\(target, this\.previewAudioSidecarFields\(item, result\)\)/u);
+});
+
+test('webview passes the whole PCM sidecar through regular and speech declarations', () => {
+    const declarations = section(compiled, 'const audioDeclarationsForSummary =', 'const createAudioSupplyForSummary =');
+    assert.match(declarations, /raw\.sidecar\.path \? raw\.sidecar : undefined/u);
+    assert.match(declarations, /spec: \{ \.\.\.raw, sidecar,/u);
+    assert.match(declarations, /\? declaration\.sidecar : undefined/u);
+    const project = vm.runInNewContext(`(() => { ${declarations} return audioDeclarationsForSummary; })()`, {
+        sourceUrls: new Map([['camera', 'source-video']]), fps: 30, engine: {}
+    });
+    const sidecar = {
+        path: 'sidecar.pcm', durationSec: 5310, format: 'pcm-s16le', sampleRate: 24000,
+        channels: 1, frames: 127440000, bytesPerSample: 2
+    };
+    for (const state of ['ready', undefined]) {
+        const raw = { src: 'source-audio', sidecar, sidecarState: state };
+        const result = project({ audio: {
+            bgm: raw, sfx: [raw], narration: [raw],
+            speech: [{ id: 'speech', src: 'camera', sidecar, sidecarState: state }]
+        } }, []);
+        assert.equal(result.declarations.length, 3);
+        for (const declaration of result.declarations) assert.equal(declaration.spec.sidecar, sidecar);
+        assert.equal(result.speech[0].sidecar, sidecar);
+    }
+});
+
 test('モデル読み込みと素材解決は即返し RPC を使い、sweep を待たない', () => {
     const load = section(source, '    protected async loadPreviewModel(', '    protected async resolveAudioAssets(');
     const resolve = section(source, '    protected async resolveAudioAssets(', '        const gainDb =');
@@ -141,6 +191,50 @@ function lifecycle(requestSidecar = async () => ({ state: 'no-audio' })) {
     const dispose = () => { widget.isDisposed = true; callbacks.forEach(callback => callback()); };
     return { host, widget, model, timers, messages, sweeps, released, warnings, run, flush, dispose };
 }
+
+test('poll keeps PCM request options and settles not-needed without sidecar state or retained keys', async () => {
+    const calls = [];
+    const f = lifecycle(async request => {
+        calls.push(request);
+        return { state: calls.length === 1 ? 'generating' : 'not-needed' };
+    });
+    const request = { inSec: 0, format: 'pcm-s16le', decodedBytesThreshold: 64 * 1024 * 1024 };
+    f.model.previewAudioPendingRequests[0].request = request;
+    f.widget.akariPreviewSummary.audio.bgm.sidecar = { path: 'stale-sidecar' };
+    f.host.startPreviewAudioTracking(f.widget, f.model, true);
+    await f.run(1000);
+    await f.run(1000);
+    assert.deepEqual(calls, [request, request]);
+    assert.equal(calls[0], request);
+    assert.equal(calls[1], request);
+    assert.equal(f.widget.akariPreviewAudioPendingRequests.length, 0);
+    assert.equal('sidecar' in f.widget.akariPreviewSummary.audio.bgm, false);
+    assert.equal('sidecarState' in f.widget.akariPreviewSummary.audio.bgm, false);
+    assert.equal(f.messages.length, 1);
+    assert.equal(f.warnings.length, 0);
+    assert.equal([...f.timers.values()].some(timer => timer.delay === 1000), false);
+    await f.run(60000);
+    assert.deepEqual([...f.sweeps[0].keepKeys], ['initial-key']);
+    f.dispose();
+});
+
+test('host ready fields copy PCM metadata and omit all undefined metadata fields', () => {
+    const f = lifecycle();
+    const metadata = { format: 'pcm-s16le', sampleRate: 24000, channels: 1, frames: 0, bytesPerSample: 2 };
+    const item = { kind: 'speech', label: 'speech', request: {} };
+    for (const values of [metadata, {}]) {
+        const result = f.host.previewAudioSidecarFields(item, {
+            state: 'ready', stream: { url: 'sidecar' }, ...values
+        });
+        for (const field of Object.keys(metadata)) {
+            assert.equal(result.sidecar[field], values[field]);
+            assert.equal(field in result.sidecar, field in values);
+        }
+    }
+    assert.deepEqual(Object.keys(f.host.previewAudioSidecarFields(item, { state: 'not-needed' })), []);
+    assert.equal(f.warnings.length, 0);
+    f.dispose();
+});
 
 test('poll 完了は audio だけ更新し最新 key/probe を sweep に渡す', async () => {
     const f = lifecycle(async () => ({

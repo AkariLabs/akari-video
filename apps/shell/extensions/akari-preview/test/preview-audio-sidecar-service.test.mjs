@@ -196,6 +196,56 @@ function nonblockingService(t, data, result) {
     return { service: serviceFor(data.project, module), module, calls, requests };
 }
 
+test('PCM ready resolves an asset stream target and preserves its complete metadata', async t => {
+    const data = await fixture(t);
+    const path = join(data.project, 'ready.pcm');
+    await writeFile(path, Buffer.alloc(48000));
+    const metadata = { format: 'pcm-s16le', sampleRate: 24000, channels: 1, frames: 24000, bytesPerSample: 2 };
+    const { service } = nonblockingService(t, data, {
+        state: 'ready', key: 'pcm-key', path, durationSec: 1, bytes: 48000, ...metadata
+    });
+    const targets = [];
+    service.createAssetStream = async request => {
+        targets.push(await service.resolveAssetStreamTarget(request));
+        return { id: 'pcm-stream', url: 'http://127.0.0.1:1/asset/pcm-stream' };
+    };
+    const result = await service.requestPreviewAudioSidecar(requestFor(data, { format: 'pcm-s16le' }));
+    assert.equal(result.state, 'ready', result.reason);
+    assert.equal(targets.length, 1);
+    assert.equal(targets[0].path, await realpath(path));
+    assert.equal(targets[0].mimeType, 'application/octet-stream');
+    assert.equal(result.stream.id, 'pcm-stream');
+    for (const [field, value] of Object.entries(metadata)) assert.equal(result[field], value);
+});
+
+test('request forwards format and decodedBytesThreshold unchanged and omits undefined options', async t => {
+    const data = await fixture(t);
+    const { service, requests, calls } = nonblockingService(t, data, { state: 'queued', key: 'k' });
+    for (const options of [
+        { format: 'pcm-s16le', decodedBytesThreshold: 64 * 1024 * 1024 },
+        { format: 'flac', decodedBytesThreshold: 12345 },
+        { format: undefined, decodedBytesThreshold: undefined }
+    ]) {
+        assert.equal((await service.requestPreviewAudioSidecar(requestFor(data, options))).state, 'queued');
+        const forwarded = requests.at(-1);
+        for (const field of ['format', 'decodedBytesThreshold']) {
+            assert.equal(forwarded[field], options[field]);
+            assert.equal(field in forwarded, options[field] !== undefined);
+        }
+    }
+    assert.deepEqual([calls.probeSync, calls.probeAsync, calls.ensure.length], [0, 0, 0]);
+});
+
+test('request not-needed returns unadorned state without creating a stream', async t => {
+    const data = await fixture(t);
+    const { service, calls } = nonblockingService(t, data, { state: 'not-needed' });
+    service.createAssetStream = async () => assert.fail('not-needed must not create a stream');
+    assert.deepEqual(await service.requestPreviewAudioSidecar(requestFor(data, {
+        format: 'pcm-s16le', decodedBytesThreshold: 64 * 1024 * 1024
+    })), { state: 'not-needed' });
+    assert.deepEqual([calls.probeSync, calls.probeAsync, calls.ensure.length], [0, 0, 0]);
+});
+
 test('request ready は stream と key / duration / bytes / probe を写す', async t => {
     const data = await fixture(t);
     const path = join(data.project, 'ready.flac');

@@ -106,6 +106,7 @@ import {
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
+import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat } from '../common/preview-audio-eligibility';
 import {
     clampPreviewPlaybackRate,
     effectiveMediaRate,
@@ -380,10 +381,17 @@ interface PreviewAudioSidecarRequest {
     padBeforeSec?: number;
     padAfterSec?: number;
     heavyWavOnly?: boolean;
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
 }
 
 interface PreviewAudioSidecarRequestResult {
-    state: PreviewAudioSidecarState | 'not-eligible';
+    state: PreviewAudioSidecarState | 'not-eligible' | 'not-needed';
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
     key?: string;
     probe?: { fingerprint: string };
     bytes?: number;
@@ -430,6 +438,11 @@ interface EditSummarySpeech {
 }
 
 interface PreviewAudioSidecarSummary {
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
     path: string;
     durationSec: number;
     padBeforeSec: number;
@@ -3266,7 +3279,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         item: PreviewAudioPendingRequest,
         result: PreviewAudioSidecarRequestResult
     ): PreviewAudioSidecarFields {
-        if (result.state === 'not-eligible') return {};
+        if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
         if (result.state === 'ready' && result.stream) {
             return {
                 sidecarState: 'ready',
@@ -3276,7 +3289,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     padBeforeSec: item.request.padBeforeSec ?? 0,
                     padAfterSec: item.request.padAfterSec ?? 0,
                     skipped: true,
-                    bytes: result.bytes
+                    bytes: result.bytes,
+                    ...(result.format !== undefined ? { format: result.format } : {}),
+                    ...(result.sampleRate !== undefined ? { sampleRate: result.sampleRate } : {}),
+                    ...(result.channels !== undefined ? { channels: result.channels } : {}),
+                    ...(result.frames !== undefined ? { frames: result.frames } : {}),
+                    ...(result.bytesPerSample !== undefined ? { bytesPerSample: result.bytesPerSample } : {})
                 }
             };
         }
@@ -3770,6 +3788,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     inSec: declaration.inSec,
                     outSec: declaration.outSec,
                     speed: declaration.speed,
+                    format: resolveSpeechSidecarFormat(declaration),
                     padBeforeSec: declaration.padBeforeSec ?? 0,
                     padAfterSec: declaration.padAfterSec ?? 0
                 };
@@ -4244,6 +4263,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const key = assetUri.toString();
             try {
                 const stream = await ensure(key, assetUri);
+                const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: false });
+                if (!plan.request) return { src: stream.url };
                 const request: PreviewAudioSidecarRequest = {
                     sourceUri: assetUri.toString(),
                     projectRootUri: editUri.parent.toString(),
@@ -4252,7 +4273,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     speed: 1,
                     padBeforeSec: 0,
                     padAfterSec: 0,
-                    heavyWavOnly: true
+                    format: plan.format,
+                    ...(plan.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: plan.decodedBytesThreshold } : {})
                 };
                 const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
                 const result = await previewAudioService.requestPreviewAudioSidecar(request);
