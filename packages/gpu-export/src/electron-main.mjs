@@ -51,6 +51,7 @@ export async function runGpuExport(options) {
     queueDepth = 4,
     quality = "high",
     bitrate = undefined,
+    quantizer = undefined,
     codec = "h264",
     soft = false,
     forceEligibility = false,
@@ -86,7 +87,7 @@ export async function runGpuExport(options) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
   if (!["h264", "hevc"].includes(codec)) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
-  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec });
+  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec, quantizer });
   const outputScale = {
     from: [width, height],
     to: [outputWidth, outputHeight],
@@ -147,6 +148,11 @@ export async function runGpuExport(options) {
     queueDepth,
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    quantizer: encoding.quantizer,
+    rateControl: encoding.rateControl,
+    bitrateSource: encoding.bitrateSource,
+    // 検証用フック（前票の AKARI_EXPORT_FORCE_FIXED_BITRATE と同じ流儀）。quantizer を強制的に使えなくする。
+    ...(process.env.AKARI_GPU_FORCE_FIXED_BITRATE === "1" ? { forceFixedBitrate: true } : {}),
     codec,
     outputWidth,
     outputHeight,
@@ -523,6 +529,7 @@ export function parseElectronArguments(argv) {
     queueDepth: 4,
     quality: "high",
     bitrate: undefined,
+    quantizer: undefined,
     codec: "h264",
     soft: false,
     forceEligibility: false,
@@ -549,6 +556,7 @@ export function parseElectronArguments(argv) {
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");
     else if (argument === "--bitrate") options.bitrate = positiveInteger(required(argv, ++index, "--bitrate"), "--bitrate");
+    else if (argument === "--quantizer") options.quantizer = quantizerInteger(required(argv, ++index, "--quantizer"), "--quantizer");
     else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--soft") options.soft = true;
     else if (argument === "--force-eligibility") options.forceEligibility = true;
@@ -617,6 +625,13 @@ function positiveNumber(value, label) {
 function positiveInteger(value, label) {
   const number = positiveNumber(value, label);
   if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`);
+  return number;
+}
+function quantizerInteger(value, label) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 51) {
+    throw new Error(`${label} must be an integer between 0 and 51`);
+  }
   return number;
 }
 function codecValue(value) {

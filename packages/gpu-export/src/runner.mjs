@@ -25,9 +25,19 @@ export async function resolveGpuLauncher(options = {}) {
 }
 
 export function buildGpuElectronArguments(launcher, options) {
-  const encoding = resolveGpuEncoding({ quality: options.quality ?? "high", bitrate: options.bitrate, width: options.width, height: options.height });
+  const encoding = resolveGpuEncoding({
+    quality: options.quality ?? "high",
+    bitrate: options.bitrate,
+    width: options.width,
+    height: options.height,
+    // codec 未指定だと hevc でも h264 のプリセットで解決してしまう既存の取りこぼし（前票 §4-1）。
+    codec: options.codec ?? "h264",
+    quantizer: options.quantizer,
+  });
   const extraArgs = [
     "--bitrate", String(encoding.bitrate),
+    // quality プリセット由来のときだけ QP を同伴させる。--bitrate 明示なら null なので付かない。
+    ...(encoding.quantizer === null ? [] : ["--quantizer", String(encoding.quantizer)]),
     ...(options.editPath ? ["--edit", options.editPath] : []),
     ...(options.force ? ["--force-eligibility"] : []),
     ...(options.trapReadback ? ["--trap-readback"] : []),

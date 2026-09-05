@@ -17,8 +17,18 @@ test("tier 2 uses the GPU main and product flags", () => {
   assert.ok(args.includes("--trap-readback"));
   assert.ok(args.includes("--bitrate"));
   assert.equal(args[args.indexOf("--bitrate") + 1], "1234");
+  assert.equal(args.includes("--quantizer"), false);
   assert.equal(args[args.indexOf("--quality") + 1], "high");
   assert.ok(args.includes("--soft"));
+});
+
+test("runner places a forwarded quantizer immediately after bitrate", () => {
+  const args = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 1920, height: 1080,
+    duration: 1, frames: 30, quality: "standard", bitrate: 8_000_000, quantizer: 26,
+  });
+  const bitrateIndex = args.indexOf("--bitrate");
+  assert.deepEqual(args.slice(bitrateIndex, bitrateIndex + 4), ["--bitrate", "8000000", "--quantizer", "26"]);
 });
 
 test("runner forwards sorted dump frame numbers", () => {
@@ -52,10 +62,20 @@ test("runner resolves quality bitrate and keeps master fail-closed", () => {
   });
   assert.equal(args[args.indexOf("--quality") + 1], "light");
   assert.equal(args[args.indexOf("--bitrate") + 1], "5000000");
+  assert.equal(args[args.indexOf("--quantizer") + 1], "30");
   assert.throws(() => buildGpuElectronArguments({ tier: 2 }, {
     projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
     duration: 1, frames: 30, quality: "master",
   }), /master は GPU 出口では --bitrate の明示が必要/);
+});
+
+test("runner resolves HEVC bitrate and quantizer from HEVC presets", () => {
+  const args = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 1920, height: 1080,
+    duration: 1, frames: 30, quality: "standard", codec: "hevc",
+  });
+  assert.equal(args[args.indexOf("--bitrate") + 1], "4800000");
+  assert.equal(args[args.indexOf("--quantizer") + 1], "24");
 });
 
 test("GPU launcher uses the GPU desktop runtime probe (tier 1 via electron-entry --akari-main)", async () => {
