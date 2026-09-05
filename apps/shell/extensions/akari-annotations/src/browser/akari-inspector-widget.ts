@@ -3143,6 +3143,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         row.appendChild(input);
+        this.attachRowMenu(row, field, snapshot, kind);
         input.disabled = field.disabled === true;
         if (field.title) input.title = field.title;
         input.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
