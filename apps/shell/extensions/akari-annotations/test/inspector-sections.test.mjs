@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+test('調整タブの A/B ボタンはイージング節より前に追加し、イージング節を隠さない', () => {
+  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const start = source.indexOf("if (activeTab === 'adjust' && compareTarget)");
+  assert.ok(start >= 0);
+  const render = source.slice(start, source.indexOf('protected syncAdjustCompare'));
+  assert.match(render, /this.body.appendChild\(button\);\s*\}\s*if \(keyframeSection\) \{\s*this.appendSection\(keyframeSection, rowSnapshot, sectionKind\);/u);
+  assert.ok(render.indexOf('this.body.appendChild(button)') < render.indexOf('this.appendSection(keyframeSection'));
+  assert.ok(render.indexOf('this.appendSection(keyframeSection') < render.indexOf('ADJUST_SECTIONS(rowSnapshot'));
+});
+
 import {
   composeInspectorSections,
   InspectorSectionState
@@ -146,7 +156,7 @@ test('調整タブは実働 5 セクションを先に、近日 1 セクショ�
     "if (activeTab === 'adjust') {",
     "if (activeTab === 'audio' && sectionKind !== 'audio') {"
   );
-  assert.match(branch, /ADJUST_SECTIONS\(rowSnapshot, requestWrite\)/u);
+  assert.match(branch, /ADJUST_SECTIONS\(rowSnapshot, requestWrite, \{/u);
   assert.match(branch, /ADJUST_PREVIEW_SECTIONS\.forEach/u);
   assert.ok(branch.indexOf('ADJUST_SECTIONS') < branch.indexOf('ADJUST_PREVIEW_SECTIONS'));
 });

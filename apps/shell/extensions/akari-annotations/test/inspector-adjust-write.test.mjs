@@ -252,8 +252,8 @@ test('実働 5 セクションは近日 1 セクションより先に描かれ�
   assert.match(adjustFactory, /disabled: !basicEnabled/u);
   assert.match(adjustFactory, /keyframeDisabled: true/u);
   assert.match(adjustFactory, /disabled: !lutEnabled \|\| !adjust\.lut/u);
-  assert.match(adjustFactory, /options: \['なし', \.\.\.INSPECTOR_LUT_PRESET_IDS\]/u);
-  assert.match(inspectorSource, /ADJUST_SECTIONS\(rowSnapshot, requestWrite\)[\s\S]{0,360}ADJUST_PREVIEW_SECTIONS/u);
+  assert.match(adjustFactory, /options: lutOptions.map\(option => option.label\)/u);
+  assert.match(inspectorSource, /ADJUST_SECTIONS\(rowSnapshot, requestWrite, \{[\s\S]{0,500}ADJUST_PREVIEW_SECTIONS/u);
   assert.match(inspectorSource, /field\.keyframeDisabled[\s\S]{0,180}\.akari-inspector-kf-controls button/u);
 });
 

@@ -278,6 +278,7 @@ import {
     InspectorWriteRequest,
     InspectorWriteResult,
     KeyframeControlRequest,
+    AdjustBypassRequest,
     LivePreviewRequest,
     TimelineAudioSelection,
     TimelineCropSnapshot,
@@ -522,6 +523,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
+// akari-preview 側とミラー（文字列のみ、cross-package import なし）。調整タブの A/B 比較で adjust を一時バイパスする。
+const TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const SHORTCUTS_HELP_TEXT = [
     'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
@@ -1952,6 +1955,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
         };
         this.selectionModel.requestLivePreview = requestLivePreview;
+        let bypass: AdjustBypassRequest | undefined;
+        const requestAdjustBypass = (request: AdjustBypassRequest): void => {
+            bypass = request.enabled ? request : undefined;
+            this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: request.target, enabled: request.enabled });
+        };
+        const requestAdjustLutList = async (): Promise<string[]> => this.location
+            ? (await this.annotationsService.listAdjustLuts({ projectRootUri: this.location.root.toString() })).refs : [];
+        const requestAdjustLutImport = async (sourcePath: string): Promise<string> => {
+            if (!this.location) throw new Error('プロジェクトが開かれていません。');
+            return (await this.annotationsService.importAdjustLut({ projectRootUri: this.location.root.toString(), sourcePath })).ref;
+        };
+        this.selectionModel.requestAdjustBypass = requestAdjustBypass;
+        this.selectionModel.requestAdjustLutList = requestAdjustLutList;
+        this.selectionModel.requestAdjustLutImport = requestAdjustLutImport;
+        this.toDispose.push(Disposable.create(() => {
+            if (this.selectionModel.requestAdjustBypass === requestAdjustBypass) {
+                if (bypass) requestAdjustBypass({ target: bypass.target, enabled: false });
+                this.selectionModel.requestAdjustBypass = undefined;
+            }
+            if (this.selectionModel.requestAdjustLutList === requestAdjustLutList) this.selectionModel.requestAdjustLutList = undefined;
+            if (this.selectionModel.requestAdjustLutImport === requestAdjustLutImport) this.selectionModel.requestAdjustLutImport = undefined;
+        }));
         const requestKeyframe = (request: KeyframeControlRequest): Promise<InspectorWriteResult> =>
             this.handleKeyframeControl(request);
         this.selectionModel.requestKeyframe = requestKeyframe;
@@ -3151,7 +3176,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
-                } else if (request.path.startsWith('adjust.')) {
+                } else if (request.path === 'adjust' || request.path.startsWith('adjust.')) {
                     patch = {
                         adjust: updateInspectorAdjust(
                             raw.adjust,

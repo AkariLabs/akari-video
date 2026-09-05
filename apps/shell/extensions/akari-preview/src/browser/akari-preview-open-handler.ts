@@ -32,6 +32,7 @@ import {
 } from '@akari-video/edit-store';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2 } from '@akari-video/edit-store';
 import type { ReadableTransitionType } from '@akari-video/edit-store';
+import { applyAdjustBypass } from '../common/adjust-bypass';
 import {
     AssetStreamRequest,
     AkariPreviewService,
@@ -539,6 +540,7 @@ interface PreviewModel {
     session?: {
         muted: boolean;
         captionsVisible: boolean;
+        adjustBypassIds: string[];
         hiddenTracks: number[];
         hiddenTracksByScope: { cuts: number[]; layers: number[]; audio: number[] };
         mutedTracksByScope: { cuts: number[]; audio: number[]; layers: number[] };
@@ -718,6 +720,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewSeekable?: boolean;
     akariPreviewMuted?: boolean;
     akariPreviewCaptionsVisible?: boolean;
+    /** A/B 比較（contract-2026-09-05 D15）のバイパス対象 item。setHTML をまたいで保持する。 */
+    akariPreviewAdjustBypassIds?: Set<string>;
     akariPreviewHiddenTracks?: Set<number>;
     akariPreviewHiddenTracksByScope?: { cuts?: number[]; layers?: number[]; audio?: number[] };
     akariPreviewMutedTracksByScope?: { cuts?: number[]; audio?: number[]; layers?: number[] };
@@ -777,6 +781,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
+// akari-annotations 側とミラー（文字列のみ、cross-package import なし）。調整タブの A/B 比較で adjust を一時バイパスする。
+const TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
@@ -1315,6 +1321,47 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform);
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
+        });
+        const onAdjustBypass = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string;
+                target?: { kind: 'cut'; index: number }
+                    | { kind: 'layer' | 'item'; id: string };
+                enabled?: boolean;
+            }>).detail;
+            if (!detail?.editUri || !detail.target
+                || (detail.target.kind !== 'cut'
+                    && detail.target.kind !== 'layer'
+                    && detail.target.kind !== 'item')
+                || typeof detail.enabled !== 'boolean') {
+                return;
+            }
+            let key: string;
+            try {
+                key = new URI(detail.editUri).normalizePath().toString();
+            } catch {
+                return;
+            }
+            const widget = this.openOutputPreviews.get(key);
+            if (widget) {
+                const target = detail.target;
+                const id = target.kind === 'cut' ? widget.akariPreviewSummary?.cuts?.[target.index]?.id : target.id;
+                if (id === undefined) return;
+                const ids = widget.akariPreviewAdjustBypassIds ?? (widget.akariPreviewAdjustBypassIds = new Set<string>());
+                if (detail.enabled) ids.add(String(id));
+                else ids.delete(String(id));
+            }
+            if (widget?.isAttached) {
+                widget.sendMessage({
+                    type: 'akari-preview-adjust-bypass',
+                    target: detail.target,
+                    enabled: detail.enabled
+                });
+            }
+        };
+        window.addEventListener(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener(TIMELINE_ADJUST_BYPASS_EVENT, onAdjustBypass)
         });
         registerTimelineSetting<{ editUri?: string; start?: number; end?: number }>(
             TIMELINE_LOOP_RANGE_EVENT, (widget, detail, _settings) => {
@@ -3133,6 +3180,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         model.session = {
             muted: widget.akariPreviewMuted ?? false,
             captionsVisible: widget.akariPreviewCaptionsVisible ?? true,
+            adjustBypassIds: [...(widget.akariPreviewAdjustBypassIds ?? [])],
             hiddenTracks: [...(widget.akariPreviewHiddenTracks ?? new Set<number>())],
             hiddenTracksByScope: {
                 cuts: [...(widget.akariPreviewHiddenTracksByScope?.cuts ?? [])],
@@ -5455,6 +5503,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             compositeError: model.compositeError ?? null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
+            adjustBypassIds: model.session?.adjustBypassIds ?? [],
             hiddenTracks: model.session?.hiddenTracks ?? [],
             hiddenTracksByScope: model.session?.hiddenTracksByScope ?? { cuts: [], layers: [], audio: [] },
             mutedTracksByScope: model.session?.mutedTracksByScope ?? { cuts: [], audio: [], layers: [] },
@@ -6925,6 +6974,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview || {};
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             let engineSummary = initial.summary || {};
+            const applyAdjustBypassFn = (${applyAdjustBypass.toString()});
+            window.akari = window.akari || {};
+            const adjustBypassIds = window.akari.adjustBypassIds || (window.akari.adjustBypassIds = new Set(initial.adjustBypassIds || []));
             const engine = window.AkariFrameEngine;
             const filterRenderableFrameEngineLayersFn = (${filterRenderableFrameEngineLayers.toString()});
             const stage = document.getElementById('preview-stage');
@@ -6994,7 +7046,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }, value);
                 });
             };
-            let normalizedCuts = normalizeSummaryCuts(engineSummary);
+            let normalizedCuts = normalizeSummaryCuts(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
 
             stage.dataset.frameEngineActive = 'true';
             for (const media of layersStage.querySelectorAll('video, img')) {
@@ -7249,7 +7301,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
                     return layer;
                 });
-                const engineLayers = engineLayersForSummary(engineSummary);
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
                 for (const layer of engineLayers) {
                     const maskUrl = layer && layer.mask;
                     if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
@@ -7527,6 +7579,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateModel(nextSummary) {
                         return queueEngineSummaryUpdate(() => nextSummary, true);
                     },
+                    refreshAdjustBypass() {
+                        return queueEngineSummaryUpdate(current => current, false);
+                    },
                     applyLivePreview(message) {
                         return queueEngineSummaryUpdate(
                             current => summaryWithLivePreview(current, message),
@@ -7570,8 +7625,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     try {
                         await waitForRender();
                         if (disposed) return;
-                        const nextCuts = normalizeSummaryCuts(nextSummary);
-                        const nextLayers = engineLayersForSummary(nextSummary);
+                        const effectiveSummary = applyAdjustBypassFn(nextSummary, [...adjustBypassIds]);
+                        const nextCuts = normalizeSummaryCuts(effectiveSummary);
+                        const nextLayers = engineLayersForSummary(effectiveSummary);
                         const nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
                             fps,
                             layers: nextLayers
@@ -7630,6 +7686,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari = window.akari || {};
                 window.akari.frameEngineClock = clock;
 
+                // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
+                if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();
                 updateMetrics();
                 await renderFrame(0, 'seek', performance.now());
                 await renderFrame(0, 'seek', performance.now());
@@ -7681,6 +7739,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
             let summary = initial.summary;
+            window.akari = window.akari || {};
+            const adjustBypassIds = window.akari.adjustBypassIds || (window.akari.adjustBypassIds = new Set(initial.adjustBypassIds || []));
+            const adjustOfItem = item => item && adjustBypassIds.has(String(item.id)) ? undefined : item && item.adjust;
             let video = document.getElementById('preview-video');
             let standbyVideo = document.getElementById('standby-video');
             const transitionVideo = document.getElementById('transition-video');
@@ -7848,7 +7909,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     ...(Array.isArray(summary.cuts) ? summary.cuts : []),
                     ...(Array.isArray(summary.layers) ? summary.layers : []),
                     ...(Array.isArray(summary.filters) ? summary.filters : [])
-                ].some(item => computeAdjustCssVisualFn(item && item.adjust)?.hasApproximation === true);
+                ].some(item => computeAdjustCssVisualFn(adjustOfItem(item))?.hasApproximation === true);
             };
             refreshAdjustCssApproximation();
             refreshIndicators();
@@ -8505,14 +8566,14 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const setAdjustBaseFilter = (element, item) => {
                 if (frameEngineMediaIdle || !element) return;
-                const visual = computeAdjustCssVisualFn(item && item.adjust);
+                const visual = computeAdjustCssVisualFn(adjustOfItem(item));
                 if (!visual) return;
                 element.dataset.akariAdjustFilter = visual.filter;
                 element.style.filter = visual.filter;
             };
             const setAdjustTransitionFilter = (element, item, transitionFilter) => {
                 if (frameEngineMediaIdle || !element) return;
-                const visual = computeAdjustCssVisualFn(item && item.adjust, transitionFilter);
+                const visual = computeAdjustCssVisualFn(adjustOfItem(item), transitionFilter);
                 if (visual) element.style.filter = visual.filter;
             };
             const applyCutVisual = segment => {
@@ -8702,7 +8763,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // the inert guarantee: no canvas, WebGL context, or per-tick work for ordinary projects.
             const videoFxConfig = summary.videoFx || null;
             const clipLookForSegment = segment => {
-                const adjust = segment && segment.adjust;
+                const adjust = adjustOfItem(segment);
                 if (!adjust || adjust.sections?.lut === false || !adjust.lut
                     || typeof adjust.lut.lut !== 'string') return null;
                 const cubeText = (summary.adjustLutCubeTexts || {})[String(segment.id)];
@@ -13829,6 +13890,31 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-select-layer'
                     && (typeof message.layerId === 'string' || message.layerId === null)) {
                     selectLayer(message.layerId, { report: false });
+                }
+                if (message && message.type === 'akari-preview-adjust-bypass' && message.target
+                    && typeof message.enabled === 'boolean') {
+                    const target = message.target;
+                    const id = target.kind === 'cut' ? summary.cuts?.[target.index]?.id
+                        : target.kind === 'item' || target.kind === 'layer' ? target.id : undefined;
+                    if (id === undefined) return;
+                    if (message.enabled) adjustBypassIds.add(String(id));
+                    else adjustBypassIds.delete(String(id));
+                    void window.akari.frameEngineClock?.refreshAdjustBypass();
+                    refreshAdjustCssApproximation();
+                    refreshIndicators();
+                    applyCutVisual(segments[activeSegmentIndex]);
+                    for (const entry of layerEntries) {
+                        clearAdjustBaseFilter(entry.video);
+                        setAdjustBaseFilter(entry.video, entry.spec);
+                    }
+                    for (const entry of filterEntries) {
+                        clearAdjustBaseFilter(entry.element);
+                        setAdjustBaseFilter(entry.element, entry.spec);
+                    }
+                    window.akari.updateLayerLayout?.();
+                    renderVideoFx(outputTime);
+                    tick(true);
+                    return;
                 }
                 if (message && message.type === 'akari-preview-live-transform' && message.target
                     && (message.target.kind === 'cut'

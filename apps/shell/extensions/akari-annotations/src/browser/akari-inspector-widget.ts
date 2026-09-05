@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { BaseWidget } from '@theia/core/lib/browser';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -50,6 +51,9 @@ import {
     resolveCutFreezeDisplayAt
 } from './inspector/freeze-fields';
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from './inspector/adjust-editors';
+import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from './inspector/look-presets';
+import { buildLutOptions } from './inspector/lut-options';
+import { nextAdjustCompareState, type AdjustCompareState } from './inspector/adjust-compare';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
@@ -64,7 +68,6 @@ import {
     createInspectorAdjustWriteRequest,
     formatInspectorAdjustValue,
     INSPECTOR_ADJUST_BASIC_FIELDS,
-    INSPECTOR_LUT_PRESET_IDS,
     readInspectorAdjustSnapshot
 } from './inspector/adjust-fields';
 import {
@@ -1606,7 +1609,8 @@ function TREE_ITEM_SECTIONS(
 
 function ADJUST_SECTIONS(
     snapshot: InspectorSnapshot,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    adjustLutOptions: { projectLutRefs: readonly string[]; importLut?: () => Promise<InspectorWriteResult> }
 ): InspectorSection[] {
     if (snapshot.kind === 'caption' || snapshot.kind === 'audio') return [];
     const itemId = snapshot.kind === 'cut' ? snapshot.itemId ?? `cut:${snapshot.index}` : snapshot.id;
@@ -1647,27 +1651,43 @@ function ADJUST_SECTIONS(
             null
         ))
     }));
-    const lutId = adjust.lut?.lut ?? 'なし';
+    const lookName = (): string => INSPECTOR_LOOK_PRESETS.find(preset => preset.id === matchLookPreset(adjust))?.name ?? 'カスタム';
+    basicFields.unshift({
+        name: 'adjust-look', label: 'ルック', inputKind: 'select',
+        options: ['カスタム', ...INSPECTOR_LOOK_PRESETS.map(preset => preset.name)],
+        keyframeDisabled: true, disabled: !basicEnabled, title: basicEnabled ? undefined : disabledTitle,
+        getValue: lookName, getEditValue: lookName,
+        write: async (_snapshot, value) => {
+            if (!basicEnabled) return { ok: false, message: disabledTitle };
+            if (value === 'カスタム') return { ok: true };
+            const preset = INSPECTOR_LOOK_PRESETS.find(candidate => candidate.name === value);
+            if (!preset) return { ok: false, message: '一覧からルックを選択してください。' };
+            return requestWrite(createInspectorAdjustWriteRequest(itemId, 'adjust', {
+                basic: preset.adjust.basic, wheels: preset.adjust.wheels
+            }));
+        }
+    });
+    const lutOptions = buildLutOptions(adjustLutOptions.projectLutRefs);
+    const lutId = lutOptions.find(option => option.value === (adjust.lut?.lut ?? null))?.label ?? adjust.lut!.lut;
     const lutFields: InspectorFieldDef[] = [{
         name: 'adjust-lut-preset',
         label: 'プリセット',
         getValue: () => lutId,
         getEditValue: () => lutId,
         inputKind: 'select',
-        options: ['なし', ...INSPECTOR_LUT_PRESET_IDS],
+        options: lutOptions.map(option => option.label),
         disabled: !lutEnabled,
         title: lutEnabled ? undefined : disabledTitle,
         write: async (_snapshot, value) => {
             if (!lutEnabled) return { ok: false, message: disabledTitle };
-            if (value !== 'なし' && !INSPECTOR_LUT_PRESET_IDS.includes(
-                value as typeof INSPECTOR_LUT_PRESET_IDS[number]
-            )) {
+            const option = lutOptions.find(candidate => candidate.label === value);
+            if (!option) {
                 return { ok: false, message: '一覧から LUT プリセットを選択してください。' };
             }
             return requestWrite(createInspectorAdjustWriteRequest(
                 itemId,
                 'adjust.lut.lut',
-                value === 'なし' ? null : value
+                option.value
             ));
         },
         reset: () => requestWrite(createInspectorAdjustWriteRequest(
@@ -1703,6 +1723,13 @@ function ADJUST_SECTIONS(
             null
         ))
     }];
+    lutFields.push({
+        name: 'adjust-lut-import', label: '読み込み', getValue: () => '',
+        actionLabel: 'LUT を読み込む…', keyframeDisabled: true, disabled: !lutEnabled,
+        title: lutEnabled ? undefined : disabledTitle,
+        action: async () => lutEnabled && adjustLutOptions.importLut
+            ? adjustLutOptions.importLut() : { ok: false, message: disabledTitle }
+    });
     return [{
         id: 'adjust:basic',
         label: ACTIVE_ADJUST_SECTIONS[0],
@@ -1790,6 +1817,14 @@ export class AkariInspectorWidget extends BaseWidget {
     @inject(WorkspaceService)
     protected readonly workspaceService!: WorkspaceService;
 
+    @inject(FileDialogService)
+    protected readonly fileDialogService!: FileDialogService;
+
+    protected projectLutRefs: readonly string[] = [];
+    protected lutGeneration = 0;
+    protected lutRequestedGeneration = -1;
+    protected adjustCompare?: AdjustCompareState;
+
     protected readonly body = document.createElement('div');
     protected readonly fieldNotice = document.createElement('div');
     protected fieldNoticeTimer: number | undefined;
@@ -1832,6 +1867,10 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
+    .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-adjust-compare[aria-pressed="true"] {
+        background: var(--theia-button-background); color: var(--theia-button-foreground);
+    }
     .akari-inspector-widget button,
     .akari-inspector-popover-menu button,
     .akari-inspector-row-menu button {
@@ -2284,7 +2323,11 @@ export class AkariInspectorWidget extends BaseWidget {
 `;
         this.node.appendChild(style);
 
-        this.toDispose.push(this.model.onChanged(() => this.render()));
+        this.toDispose.push(this.model.onChanged(() => {
+            this.lutGeneration++;
+            this.projectLutRefs = [];
+            this.render();
+        }));
         this.render();
     }
 
@@ -2293,6 +2336,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.replaceChildren();
         this.hideFieldNotice();
         const snapshot = this.model.snapshot;
+        if (!snapshot || snapshot.kind === 'multi') this.syncAdjustCompare(undefined, '');
         if (!snapshot) {
             const empty = document.createElement('div');
             empty.className = 'akari-inspector-empty';
@@ -2349,6 +2393,10 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         const tabs = tabsForKind(sectionKind, { src: this.tabSourceHint(rowSnapshot) });
         const activeTab = this.tabState.activeTab(sectionKind, tabs);
+        const compareTarget: LivePreviewTarget | undefined = rowSnapshot.kind === 'caption' || rowSnapshot.kind === 'audio'
+            ? undefined : rowSnapshot.kind === 'cut' ? { kind: 'cut', index: rowSnapshot.index }
+                : { kind: 'item', id: rowSnapshot.id };
+        this.syncAdjustCompare(compareTarget, activeTab);
         this.appendTabStrip(sectionKind, tabs, activeTab);
 
         let keyframeSection: InspectorSection | undefined;
@@ -2380,11 +2428,29 @@ export class AkariInspectorWidget extends BaseWidget {
                 }]
             };
         }
+        if (activeTab === 'adjust' && compareTarget) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'akari-inspector-adjust-compare';
+            button.setAttribute('data-akari-ui', 'toggle:inspector-adjust-compare');
+            button.setAttribute('aria-pressed', String(this.adjustCompare?.enabled === true));
+            button.textContent = 'A/B 比較';
+            button.addEventListener('click', () => {
+                this.adjustCompare = { target: compareTarget, enabled: !this.adjustCompare?.enabled };
+                this.model.requestAdjustBypass?.(this.adjustCompare);
+                this.render();
+            });
+            this.body.appendChild(button);
+        }
         if (keyframeSection) {
             this.appendSection(keyframeSection, rowSnapshot, sectionKind);
         }
         if (activeTab === 'adjust') {
-            ADJUST_SECTIONS(rowSnapshot, requestWrite)
+            this.refreshAdjustLuts();
+            ADJUST_SECTIONS(rowSnapshot, requestWrite, {
+                projectLutRefs: this.projectLutRefs,
+                importLut: () => this.importAdjustLut(rowSnapshot)
+            })
                 .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
                 .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
             ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
@@ -2405,6 +2471,51 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
             );
             this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
+        }
+    }
+
+    protected syncAdjustCompare(target: LivePreviewTarget | undefined, activeTab: string): void {
+        const next = nextAdjustCompareState(this.adjustCompare, { target, activeTab });
+        this.adjustCompare = next.state;
+        if (next.release) this.model.requestAdjustBypass?.({ target: next.release, enabled: false });
+    }
+
+    override dispose(): void {
+        this.syncAdjustCompare(undefined, '');
+        this.lutGeneration++;
+        super.dispose();
+    }
+
+    protected refreshAdjustLuts(): void {
+        if (this.lutRequestedGeneration === this.lutGeneration) return;
+        const generation = this.lutGeneration;
+        this.lutRequestedGeneration = generation;
+        void (this.model.requestAdjustLutList?.() ?? Promise.resolve([])).catch(error => {
+            console.warn('LUT 一覧を取得できませんでした。', error);
+            return [];
+        }).then(refs => {
+            if (this.isDisposed || generation !== this.lutGeneration) return;
+            this.projectLutRefs = refs;
+            this.render();
+        });
+    }
+
+    protected async importAdjustLut(snapshot: InspectorSnapshot): Promise<InspectorWriteResult> {
+        if (snapshot.kind === 'caption' || snapshot.kind === 'audio') return { ok: false, message: '映像を選択してください。' };
+        try {
+            const uri = await this.fileDialogService.showOpenDialog({ title: 'LUT を読み込む',
+                canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+                filters: { 'LUT (*.cube)': ['cube'] } });
+            if (!uri) return { ok: true };
+            if (!this.model.requestAdjustLutImport) throw new Error('LUT の取り込みを利用できません。');
+            const ref = await this.model.requestAdjustLutImport(uri.path.fsPath());
+            const itemId = snapshot.kind === 'cut' ? snapshot.itemId ?? `cut:${snapshot.index}` : snapshot.id;
+            const result = await this.commitWrite(createInspectorAdjustWriteRequest(itemId, 'adjust.lut.lut', ref));
+            this.lutGeneration++;
+            this.refreshAdjustLuts();
+            return result;
+        } catch (error) {
+            return { ok: false, message: 'LUT を取り込めませんでした: ' + (error instanceof Error ? error.message : String(error)) };
         }
     }
 

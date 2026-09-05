@@ -13,9 +13,10 @@ import { applyMigration, planMigration, revertMigration } from '@akari-video/edi
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
-import { basename, dirname, join, relative, sep } from 'path';
+import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } from 'path';
 import { promisify } from 'util';
 import {
+    ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
     AkariAnnotationsService,
     ApplyCutRangesRequest,
@@ -1111,6 +1112,61 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     /** lint 対象外ファイル（review.json / canvas / events）用。edit.json / captions.json は writeProjectFileGuarded を使うこと。 */
     protected async writeAtomic(destination: string, content: string): Promise<void> {
         await writeAtomic(destination, content);
+    }
+
+    async listAdjustLuts({ projectRootUri }: ListAdjustLutsRequest): Promise<ListAdjustLutsResult> {
+        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error('プロジェクトルートを指定してください。');
+        try {
+            const entries = await fs.readdir(join(this.fsPath(projectRootUri), 'assets', 'luts'), { withFileTypes: true });
+            return { refs: entries.filter(entry => entry.isFile() && extname(entry.name).toLowerCase() === '.cube')
+                .map(entry => entry.name).sort((a, b) => a < b ? -1 : a > b ? 1 : 0).map(name => 'assets/luts/' + name) };
+        } catch (error) {
+            if (['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) return { refs: [] };
+            throw new Error('LUT 一覧を取得できませんでした。');
+        }
+    }
+
+    async importAdjustLut({ projectRootUri, sourcePath }: ImportAdjustLutRequest): Promise<ImportAdjustLutResult> {
+        if (typeof projectRootUri !== 'string' || !projectRootUri.trim()) throw new Error('プロジェクトルートを指定してください。');
+        if (typeof sourcePath !== 'string' || !sourcePath.trim() || !isAbsolute(sourcePath)) throw new Error('LUT の絶対パスを指定してください。');
+        if (extname(sourcePath).toLowerCase() !== '.cube') throw new Error('.cube ファイルを選択してください。');
+        try {
+            const stat = await fs.stat(sourcePath);
+            if (!stat.isFile() || stat.size > 8 * 1024 * 1024) throw new Error('LUT は 8 MB 以下のファイルを指定してください。');
+            const data = await fs.readFile(sourcePath);
+            if (data.length > 8 * 1024 * 1024) throw new Error('LUT は 8 MB 以下で指定してください。');
+            const valid = data.toString('utf8').split(/\r?\n/u).slice(0, 64).some(line => {
+                const match = /^\s*LUT_3D_SIZE\s+(\d+)\s*$/u.exec(line);
+                return match && Number(match[1]) >= 2 && Number(match[1]) <= 65;
+            });
+            if (!valid) throw new Error('先頭 64 行以内に LUT_3D_SIZE 2〜65 が必要です。');
+            const root = resolve(this.fsPath(projectRootUri));
+            const folder = resolve(root, 'assets', 'luts');
+            const within = (path: string, parent: string): boolean => path.startsWith(parent + sep);
+            if (!within(folder, root)) throw new Error('プロジェクト外へ LUT を保存できません。');
+            // 既存の assets がリンクでもプロジェクト外へ mkdir しない。
+            const realRoot = await fs.realpath(root);
+            for (const directory of [join(root, 'assets'), folder]) {
+                try { await fs.mkdir(directory, { recursive: true }); } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+                }
+                if (!within(await fs.realpath(directory), realRoot)) throw new Error('プロジェクト外へ LUT を保存できません。');
+            }
+            const safe = basename(sourcePath, extname(sourcePath)).replace(/[^A-Za-z0-9_-]/gu, '-') || 'lut';
+            for (let suffix = 1; ; suffix++) {
+                const name = safe + (suffix === 1 ? '' : '-' + suffix) + '.cube';
+                const dest = resolve(folder, name);
+                if (!within(dest, root)) throw new Error('プロジェクト外へ LUT を保存できません。');
+                try {
+                    await fs.writeFile(dest, data, { flag: 'wx' });
+                    return { ref: 'assets/luts/' + name };
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+                }
+            }
+        } catch (error) {
+            throw new Error('LUT を取り込めませんでした: ' + (error instanceof Error ? error.message : String(error)));
+        }
     }
 
     protected fsPath(uri: string): string {

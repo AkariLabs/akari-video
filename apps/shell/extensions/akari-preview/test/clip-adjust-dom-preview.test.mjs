@@ -19,7 +19,7 @@ test('shell wheels-only indicator executes on DOM and is suppressed on frame-eng
     ${refresh}
     ${indicator}
     return adjustApproximation;
-  }`, { computeAdjustCssVisualFn: computeAdjustCssVisual });
+  }`, { computeAdjustCssVisualFn: computeAdjustCssVisual, adjustOfItem: item => item?.adjust });
   for (const seat of ['cuts', 'layers', 'filters']) {
     const summary = { [seat]: [{ adjust: { wheels: { lift: { r: 0.1 } } } }] };
     assert.deepEqual([...evaluate(summary, false)], ['色調整は近似表示']);

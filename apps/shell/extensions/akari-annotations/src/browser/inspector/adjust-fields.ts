@@ -22,6 +22,7 @@ export type InspectorAdjustBasicKey =
 export type InspectorAdjustSectionKey = 'basic' | 'lut' | 'curves' | 'wheels' | 'hue';
 
 export type InspectorAdjustPath =
+    | 'adjust'
     | `adjust.basic.${InspectorAdjustBasicKey}`
     | 'adjust.lut.lut'
     | 'adjust.lut.intensity'
@@ -32,6 +33,7 @@ export type InspectorAdjustPath =
     | `adjust.sections.${InspectorAdjustSectionKey}`;
 
 export type InspectorAdjustValue = number | string | boolean | null
+    | { basic?: Record<string, number>; wheels?: Record<string, { r?: number; g?: number; b?: number }> }
     | AdjustCurvePointV1[] | AdjustHuePointV1[] | { r?: number; g?: number; b?: number };
 
 export interface InspectorAdjustBasicField {
@@ -284,7 +286,40 @@ export function updateInspectorAdjust(
     value: InspectorAdjustValue
 ): Record<string, unknown> | null {
     const next = { ...record(current) };
-    if (path.startsWith('adjust.curves.') || path.startsWith('adjust.hue.')) {
+    if (path === 'adjust') {
+        const assertObject = (v: unknown): void => {
+            if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+                throw new Error('ルックは基本補正とホイールのオブジェクトで指定してください。');
+            }
+        };
+        if (value !== null) assertObject(value);
+        const replacement = record(value);
+        if (Object.keys(replacement).some(key => !['basic', 'wheels'].includes(key))) {
+            throw new Error('ルックに未対応のキーがあります。');
+        }
+        delete next.basic;
+        delete next.wheels;
+        if (replacement.basic !== undefined) {
+            assertObject(replacement.basic);
+            const basic: Record<string, number> = {};
+            for (const [key, v] of Object.entries(record(replacement.basic))) {
+                if (!BASIC_FIELD_BY_KEY.has(key as InspectorAdjustBasicKey)) throw new Error(`未対応の基本補正です: ${key}`);
+                assertBasicValue(key as InspectorAdjustBasicKey, v);
+                if (v !== 0) basic[key] = v;
+            }
+            if (hasOwnKeys(basic)) next.basic = basic;
+        }
+        if (replacement.wheels !== undefined) {
+            assertObject(replacement.wheels);
+            for (const [key, wheel] of Object.entries(record(replacement.wheels))) {
+                assertObject(wheel);
+                if (Object.values(record(wheel)).some(v => typeof v !== 'number' || !Number.isFinite(v))) {
+                    throw new Error('ホイールの RGB は有限数で指定してください。');
+                }
+                updateWheel(next, key, undefined, wheel as InspectorAdjustValue);
+            }
+        }
+    } else if (path.startsWith('adjust.curves.') || path.startsWith('adjust.hue.')) {
         const [, section, key] = path.split('.');
         updatePointChannel(next, section as 'curves' | 'hue', key, value);
     } else if (path.startsWith('adjust.wheels.')) {
