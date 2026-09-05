@@ -41,6 +41,9 @@ test('layer compositor keeps the no-FBO base path and guards projective w', () =
 test('golden transition and look sections fail on GL errors and expose readable expectations', () => {
   assert.match(goldenRendererSource, /transitionStats = \{\s+glErrors:/u);
   assert.match(goldenRendererSource, /lookStats = \{\s+glErrors:/u);
+  assert.match(goldenRendererSource, /adjustStats = \{\s+glErrors:/u);
+  assert.match(goldenRendererSource, /meanAbs:\s*1, maxDelta:\s*4/u);
+  assert.match(goldenRendererSource, /adjustParity: adjustParity\.rows/u);
   assert.match(goldenRendererSource, /expectedDetail:/u);
   assert.match(goldenRendererSource, /expected,\s+expectedDetail/u);
   assert.match(goldenRendererSource, /axis=\$\{expectedDetail\.axis\}, bSide=/u);
@@ -217,16 +220,32 @@ test('base shader samples layer-style cuts through crop / box per input and leav
   assert.match(source, /vec2 inverseBox\(vec2 p, vec4 transform, vec2 box\) \{[\s\S]+?return pixel \/ box \+ 0\.5;\s+\}/u);
   // the fit path's arithmetic is byte-identical to before: same statements, same order
   assert.match(source, /vec2 inverseVisual\(vec2 p, vec4 transform, vec4 framing\) \{\s+vec2 pixel = \(p - 0\.5\) \* outputSize - transform\.xy;\s+float angle = transform\.w;\s+pixel = mat2\(cos\(angle\), -sin\(angle\), sin\(angle\), cos\(angle\)\) \* pixel;\s+pixel \/= transform\.z;\s+vec2 local = pixel \/ outputSize \+ 0\.5;\s+return framing\.xy \+ local \* framing\.zw;\s+\}/u);
-  assert.match(source, /private setCut\(\s+u: CutUniforms,\s+v: ResolvedCutVisual,\s+source: \{ width: number; height: number \},\s+\)/u);
+  assert.match(source, /private setCut\(\s+u: CutUniforms,\s+v: ResolvedCutVisual,\s+source: \{ width: number; height: number \},\s+adjustLutUnit: number,\s+\)/u);
   assert.match(source, /if \(v\.layerStyle\) \{\s+const box = cutLayerStyleBox\(v, source\.width, source\.height\);\s+this\.gl\.uniform1i\(u\.layerStyle, 1\);/u);
   assert.match(source, /this\.gl\.uniform1i\(u\.layerStyle, 0\);/u);
   assert.match(source, /sizes\[index\] = this\.uploadStillBaseTexture\(/u);
-  assert.match(source, /this\.setCut\(baseProgram\.cutUniforms\[1\]!, plan\.base\[0\]!\.visual, sizes\[0\]!\)/u);
+  assert.match(source, /this\.setCut\(\s+baseProgram\.cutUniforms\[1\]!, plan\.base\[0\]!\.visual, sizes\[0\]!, BASE_ADJUST_LUT_UNITS\[1\],\s+\)/u);
   for (const type of ['hard-cut', 'dissolve', 'reveal-down']) {
     const fragment = buildBaseFragment(type);
     assert.match(fragment, /if \(layerStyle0 == 1\)/u, type);
     assert.match(fragment, /if \(layerStyle1 == 1\)/u, type);
   }
+});
+
+test('item adjustment LUTs are sampled on each source quad before transition or layer blending', () => {
+  for (const index of [0, 1]) {
+    const fragment = buildBaseFragment('dissolve');
+    assert.match(fragment, new RegExp(`uniform sampler3D adjustLut${index};`, 'u'));
+    assert.match(fragment, new RegExp(`applyAdjust${index}\\(yuv709`, 'u'));
+    assert.match(fragment, new RegExp(`applyAdjust${index}\\(texture\\(rgba${index}`, 'u'));
+  }
+  assert.match(source, /src\.rgb = applyAdjust\(src\.rgb\);[\s\S]+blend\(dst\.rgb, src\.rgb\)/u);
+  assert.match(source, /this\.configureAdjustLut\(v\.adjustLut, adjustLutUnit, u\)/u);
+  assert.match(source, /this\.configureAdjustLut\(layer\.adjustLut, LUT_UNIT, layerAdjustUniforms\)/u);
+  assert.match(source, /this\.bind3d\(unit, this\.lookTexture\(lut, unit\)\)/u);
+  assert.match(source, /private lookTexture\(lut: ParsedCubeLut, allocationUnit = LUT_UNIT\)/u);
+  assert.match(source, /this\.bind3d\(allocationUnit, texture\)/u);
+  assert.match(source, /const BASE_ADJUST_LUT_UNITS = \[LUT_UNIT, 13\]/u);
 });
 
 test('layer-style cut box matches the layer program forwardInverse on identical inputs (issue #39)', () => {

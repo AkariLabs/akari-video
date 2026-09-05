@@ -30,6 +30,14 @@ function mediaEdit(itemOverrides = {}) {
   };
 }
 
+function overlayEdit(itemOverrides = {}) {
+  return mediaEdit({
+    id: "overlay-1",
+    source: { kind: "html", path: "overlay.html" },
+    ...itemOverrides,
+  });
+}
+
 async function createProject(edit) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-engine-"));
   await Promise.all([
@@ -79,7 +87,7 @@ test("--engine auto collapses matching gpu/osr perspective errors", async () => 
   }
 });
 
-test("valid clip adjust is structurally accepted and reported as one unsupported field", async () => {
+test("valid clip adjust is structurally accepted and has no unsupported-field finding", async () => {
   const root = await createProject(mediaEdit({
     adjust: {
       basic: { exposure: 0.5, temperature: -0.25, saturation: 0.1 },
@@ -91,11 +99,33 @@ test("valid clip adjust is structurally accepted and reported as one unsupported
     const result = await lintProject(root, { engine: "auto", writeReports: false });
     const structural = result.findings.filter((finding) => finding.check.startsWith("adjust."));
     assert.deepEqual(structural, []);
-    const unsupported = engineFindings(result).filter((finding) => finding.path.endsWith(".adjust"));
-    assert.equal(unsupported.length, 1);
-    assert.equal(unsupported[0].check, "engine.unsupported-field");
-    assert.equal(unsupported[0].severity, "error");
-    assert.match(unsupported[0].message, /^gpu\/osr: .*tracks\[\]\.items\[\]\.adjust/u);
+    const adjustFindings = engineFindings(result).filter((finding) => finding.path.endsWith(".adjust"));
+    assert.deepEqual(adjustFindings, []);
+    assert.equal(result.findings.some((finding) => finding.check === "engine.unsupported-field"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("valid overlay adjust is one unsupported-field error for gpu and osr", async () => {
+  const root = await createProject(overlayEdit({
+    adjust: {
+      basic: { exposure: 0.5, temperature: -0.25, saturation: 0.1 },
+      lut: { lut: "cinematic-warm", intensity: 0.75 },
+      sections: { basic: true, lut: false },
+    },
+  }));
+  try {
+    for (const engine of ["gpu", "osr"]) {
+      const result = await lintProject(root, { engine, writeReports: false });
+      const findings = engineFindings(result).filter((finding) => finding.path.endsWith(".adjust"));
+      assert.equal(result.verdict, "fail");
+      assert.equal(findings.length, 1);
+      assert.equal(findings[0].check, "engine.unsupported-field");
+      assert.equal(findings[0].severity, "error");
+      assert.match(findings[0].message, new RegExp(`^${engine} 経路は tracks\\[\\]\\.items\\[\\]\\.adjust`, "u"));
+      assert.equal(findings[0].path, "edit.json#tracks[0].items[0].adjust");
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

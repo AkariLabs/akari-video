@@ -112,6 +112,8 @@ export interface ResolvedCutVisual {
     rotateDegrees: number;
   };
   opacity: number;
+  /** Item-scoped basic + LUT adjustment, baked once while the timeline plan is built. */
+  adjustLut?: ParsedCubeLut;
   /**
    * Present only for layer-style cuts (see ResolvedCutLayerStyle). Absent — not `undefined` — for every
    * other cut so the fit-basis visual stays deep-equal to the pre-issue-#39 shape.
@@ -168,6 +170,8 @@ export interface ResolvedCompositeLayer {
   visual: ResolvedLayerVisual;
   blend: ResolvedLayerBlendMode;
   opacity: number;
+  /** Item-scoped adjustment applied to the source quad before blending. */
+  adjustLut?: ParsedCubeLut;
 }
 
 export type ResolvedFilter =

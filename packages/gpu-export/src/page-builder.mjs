@@ -43,6 +43,7 @@ export function buildGpuPage({
   captionTrackZ = null,
   lutCubeText = null,
   layerLutCubeTexts = [],
+  adjustLutCubeTexts = {},
   eligibility = null,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
@@ -154,6 +155,7 @@ export function buildGpuPage({
     duration,
     frames: Math.round(duration * fps),
     look: lookDeclaration,
+    adjustLutCubeTexts,
     spriteManifest,
     eligibility: resultEligibility,
   };
@@ -211,6 +213,7 @@ export function buildGpuPage({
       domOverlayCount: spriteManifest.dom.reduce((sum, run) => sum + run.entries.length, 0),
       textSlotOverlayCount,
       lutApplication: lookDeclaration ? "engine-canvas" : "none",
+      adjustApplication: hasEffectiveItemAdjust(projectedEdit) ? "engine-item-source" : "none",
       stampRow: false,
     },
     warnings: [],
@@ -308,6 +311,7 @@ export async function loadAndBuildGpuPage({
       throw new Error(`filter layer LUT ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
     }
   }));
+  const adjustLutCubeTexts = await resolveItemAdjustLutCubeTexts(edit, projectRoot);
   const eligibility = evaluateGpuEligibility({
     edit,
     captions,
@@ -326,9 +330,43 @@ export async function loadAndBuildGpuPage({
     captionTrackZ: resolveCaptionTrackZ(renderEdit.internal.tracks),
     lutCubeText,
     layerLutCubeTexts,
+    adjustLutCubeTexts,
     eligibility,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };
+}
+
+function effectiveAdjustLutRef(item) {
+  if (item?.adjust?.sections?.lut === false) return null;
+  const ref = item?.adjust?.lut?.lut;
+  return typeof ref === "string" && ref !== "" ? ref : null;
+}
+
+function hasEffectiveItemAdjust(edit) {
+  return [...(edit?.cuts ?? []), ...(edit?.layers ?? [])].some((item) => {
+    const basic = item?.adjust?.sections?.basic === false ? null : item?.adjust?.basic;
+    const hasBasic = basic && Object.values(basic).some((value) => Number.isFinite(value) && Math.abs(value) > 1e-6);
+    const intensity = Number(item?.adjust?.lut?.intensity ?? 1);
+    return Boolean(hasBasic || (effectiveAdjustLutRef(item) && (!Number.isFinite(intensity) || intensity > 0)));
+  });
+}
+
+async function resolveItemAdjustLutCubeTexts(edit, projectRoot) {
+  const table = {};
+  const items = [
+    ...(edit?.cuts ?? []).map((item, index) => ({ item, id: String(item?.id ?? `cut-${index}`) })),
+    ...(edit?.layers ?? []).map((item, index) => ({ item, id: String(item?.id ?? `layer-${index}`) })),
+  ];
+  await Promise.all(items.map(async ({ item, id }) => {
+    const ref = effectiveAdjustLutRef(item);
+    if (!ref) return;
+    try {
+      table[id] = await readFile(resolveLutPath(projectRoot, ref), "utf8");
+    } catch (error) {
+      throw new Error(`item adjust LUT ${ref} for ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+  return table;
 }
 
 // render-cut captionTextStyleVars が書いた `<number>px` の --caption-font-size を数値へ戻す。

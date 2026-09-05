@@ -206,6 +206,7 @@ interface EditSummaryLayer {
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    adjust?: EditSummaryAdjust;
 }
 
 interface EditSummaryFilter {
@@ -215,6 +216,13 @@ interface EditSummaryFilter {
     trackId: string;
     track: number;
     filter: { type?: string; value?: number; id?: string };
+    adjust?: EditSummaryAdjust;
+}
+
+interface EditSummaryAdjust {
+    basic?: Record<string, number>;
+    lut?: { lut: string; intensity?: number } | null;
+    sections?: { basic?: boolean; lut?: boolean };
 }
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
@@ -344,6 +352,7 @@ interface EditSummaryCut {
      * common/cut-freeze-visual.ts の checkCutFreezeCrossing 側。 */
     freeze?: CutFreeze;
     chromaKey?: VideoFxChromaKey;
+    adjust?: EditSummaryAdjust;
 }
 
 interface EditSummarySpeech {
@@ -485,6 +494,7 @@ interface EditSummary {
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
     videoFx?: EditSummaryVideoFx;
+    adjustLutCubeTexts?: Record<string, string>;
     indicators: string[];
 }
 
@@ -3431,6 +3441,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
             const videoFxFailures = new Set<string>();
+            const adjustLutCubeTexts: Record<string, string> = {};
+            const resolveItemAdjustLut = async (
+                item: typeof internal.tracks[number]['items'][number]
+            ): Promise<void> => {
+                const adjust = (item.declaration as { adjust?: EditSummaryAdjust }).adjust;
+                const lutRef = adjust?.sections?.lut === false ? undefined : adjust?.lut?.lut;
+                if (typeof lutRef !== 'string' || !lutRef) return;
+                try {
+                    adjustLutCubeTexts[item.id] = await this.previewService.readVideoFxLut({
+                        projectRootUri: editUri.parent.toString(),
+                        lutRef
+                    });
+                } catch (error) {
+                    videoFxFailures.add('LUT');
+                    console.warn(`[akari-preview] item adjust LUT could not be resolved for ${item.id}`, error);
+                }
+            };
             const resolveChromaKey = async (
                 raw: ChromaKeySummary | undefined,
                 mode: 'source' | 'layer'
@@ -3488,6 +3515,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const cuts: EditSummaryCut[] = [];
             const cutResults = await Promise.all(cutItems.map(async (item): Promise<EditSummaryCut | undefined> => {
                 const value = item.declaration as any;
+                await resolveItemAdjustLut(item);
                 const trackId = String(trackIdByItem.get(item) ?? '');
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
@@ -3513,6 +3541,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? { gainDb: value.gainDb } : {}),
                     ...(typeof value.volume_db === 'number' && Number.isFinite(value.volume_db)
                         ? { volume_db: value.volume_db } : {}),
+                    ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
                     trackId,
                     renderTrack: resolveInternalTrackZ(
@@ -3704,6 +3733,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 | { kind: 'layer'; layer: EditSummaryLayer; deferTelop?: boolean; unsupportedBlend?: boolean }
                 | { kind: 'skip'; unsupportedBlend?: boolean };
             const resolveLayerItem = async (item: typeof layerItems[number]): Promise<LayerResolution> => {
+                await resolveItemAdjustLut(item);
                 if (item.source.kind === 'filter') {
                     return {
                         kind: 'filter',
@@ -3714,7 +3744,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             trackId: String(trackIdByItem.get(item) ?? ''),
                             track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
                                 ? Number(item.declaration.track) : 0,
-                            filter: item.source.filter as EditSummaryFilter['filter']
+                            filter: item.source.filter as EditSummaryFilter['filter'],
+                            ...(isTruthyObject(item.declaration.adjust)
+                                ? { adjust: item.declaration.adjust as EditSummaryAdjust } : {})
                         }
                     };
                 }
@@ -3742,6 +3774,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const unsupportedBlend = result.unsupportedBlend === true;
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
+                    ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
@@ -3977,6 +4010,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     layers,
                     filters,
                     cuts,
+                    ...(Object.keys(adjustLutCubeTexts).length > 0 ? { adjustLutCubeTexts } : {}),
                     indicators,
                     ...((audio || speech.length > 0) ? {
                         audio: { ...(audio ?? { sfx: [], narration: [] }), speech }
@@ -6789,6 +6823,28 @@ body { display: grid; place-items: center; padding: 32px; }
             // 外すと最下段の後ろへ直列に連結され、出力尺の外へ押し出されて無言で消える（issue #31。
             // gpu / osr / preview-server の normalizedCuts と同じ規則。前後関係は frame-engine の既定 =
             // 番号が大きいトラックが前面で、buildTimelineMap 直呼びの trackZ: track => track と同じ向き）。
+            const resolveSummaryItemAdjust = (item, summary) => {
+                const adjust = item && item.adjust;
+                if (!adjust || typeof adjust !== 'object' || adjust.lut == null
+                    || adjust.sections && adjust.sections.lut === false) return item;
+                if (typeof adjust.lut.lut !== 'string') return item;
+                const cubeText = summary && summary.adjustLutCubeTexts
+                    && summary.adjustLutCubeTexts[String(item.id)];
+                try {
+                    return {
+                        ...item,
+                        adjust: {
+                            ...adjust,
+                            lut: typeof cubeText === 'string'
+                                ? { ...adjust.lut, lut: engine.parseCube(cubeText) }
+                                : null
+                        }
+                    };
+                } catch (reason) {
+                    console.warn('[frame-engine] item adjust LUT parse failed for ' + String(item.id), reason);
+                    return { ...item, adjust: { ...adjust, lut: null } };
+                }
+            };
             const normalizeSummaryCuts = value => {
                 const summaryCuts = Array.isArray(value && value.cuts) ? value.cuts : [];
                 const renderTracks = summaryCuts
@@ -6810,7 +6866,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
                         }
                         : {};
-                    return {
+                    return resolveSummaryItemAdjust({
                         ...sequential,
                         ...placement,
                         src: cut.src || 'default',
@@ -6818,7 +6874,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         out: Number(cut.out == null ? cut.in || 0 : cut.out),
                         transition_out: cut.transition_out || cut.transitionOut,
                         id: cut.id || 'cut-' + index
-                    };
+                    }, value);
                 });
             };
             let normalizedCuts = normalizeSummaryCuts(engineSummary);
@@ -7058,7 +7114,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const engineLayersForSummary = value => filterRenderableFrameEngineLayersFn(
                     Array.isArray(value && value.layers) ? value.layers : [],
                     message => console.warn('[frame-engine] ' + message)
-                ).map((layer, index) => {
+                ).map((rawLayer, index) => {
+                    const layer = resolveSummaryItemAdjust(rawLayer, value);
                     if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
                     if (layer.isImage === true) {
                         // frame-engine v0 recognizes a still layer from its registry key suffix.
