@@ -7,7 +7,7 @@ const directory = dirname(fileURLToPath(import.meta.url));
 const results = JSON.parse(readFileSync(resolve(directory, '.generated/results.json'), 'utf8'));
 const rows = results.adjustParity ?? [];
 
-assert.equal(rows.length, 3);
+assert.equal(rows.length, 6);
 assert.equal(rows.every(row => row.pass === true), true);
 process.stdout.write('| item adjust | meanAbs | maxDelta | differingPixels | tolerance |\n');
 process.stdout.write('|---|---:|---:|---:|---|\n');

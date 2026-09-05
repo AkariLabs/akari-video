@@ -3,8 +3,8 @@ import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess
 import { inspectGopTailGolden } from './gop-tail.js';
 import {
   BufferedRawFrameSink,
-  applyAdjustBasic,
-  bakeAdjustLut,
+  applyItemAdjust,
+  bakeItemAdjustLut,
   buildResolvedTimelinePlan,
   CachedStillImageSource,
   ClipSessionPool,
@@ -21,7 +21,7 @@ import {
   readbackFrame,
   sampleLutTrilinear,
 } from '../../src/index.js';
-import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { TRANSITION_VOCABULARY, type AdjustV1 } from '@akari-video/edit-store';
 import type {
   EvaluationPlan,
   FrameEngineCut,
@@ -1161,21 +1161,21 @@ async function inspectLookParity(
 
 function directAdjustRgba(
   source: Uint8Array,
-  basic: Parameters<typeof applyAdjustBasic>[3],
+  adjust: AdjustV1,
   userLut: ReturnType<typeof parseCube> | undefined,
-  intensity: number,
 ): Uint8Array {
   const output = new Uint8Array(source.length);
+  const sampler = userLut ? (r: number, g: number, b: number) => sampleLutTrilinear(userLut, [r, g, b]) : undefined;
   for (let offset = 0; offset < source.length; offset += 4) {
-    const adjusted = applyAdjustBasic(
+    const adjusted = applyItemAdjust(
       source[offset]! / 255,
       source[offset + 1]! / 255,
       source[offset + 2]! / 255,
-      basic,
+      adjust,
+      sampler,
     );
-    const lutted = userLut ? sampleLutTrilinear(userLut, adjusted) : adjusted;
     for (let channel = 0; channel < 3; channel += 1) {
-      const value = adjusted[channel]! + (lutted[channel]! - adjusted[channel]!) * intensity;
+      const value = adjusted[channel]!;
       output[offset + channel] = Math.round(Math.max(0, Math.min(1, value)) * 255);
     }
     output[offset + 3] = source[offset + 3]!;
@@ -1205,17 +1205,22 @@ async function inspectAdjustParity(
   };
   const baseline = await parityFrame(basePlan, context, previewCanvas);
   const natural = parseCube(await window.goldenHarness.loadLut('natural'));
-  const cases = [
-    { id: 'exposure-plus-one', basic: { exposure: 1 }, userLut: undefined, intensity: 0 },
-    { id: 'temperature-plus-half', basic: { temperature: 0.5 }, userLut: undefined, intensity: 0 },
-    { id: 'natural-lut-half', basic: undefined, userLut: natural, intensity: 0.5 },
-  ] as const;
+  const cases: Array<{ id: string; adjust: AdjustV1; userLut?: ReturnType<typeof parseCube> }> = [
+    { id: 'exposure-plus-one', adjust: { basic: { exposure: 1 } } },
+    { id: 'temperature-plus-half', adjust: { basic: { temperature: 0.5 } } },
+    { id: 'natural-lut-half', adjust: { lut: { lut: 'natural', intensity: 0.5 } }, userLut: natural },
+    { id: 'curves-master-s', adjust: { curves: { master: [
+      { in: 0, out: 0 }, { in: 0.25, out: 0.15 }, { in: 0.75, out: 0.85 }, { in: 1, out: 1 },
+    ] } } },
+    { id: 'wheels-lift-gain', adjust: { wheels: { lift: { r: 0.1 }, gain: { b: -0.2 } } } },
+    { id: 'hue-desaturate', adjust: { hue: { sat: [{ hue: 0, value: 0 }, { hue: 1, value: 0 }] } } },
+  ];
   // The threshold covers 8-bit readback plus RGBA16F LUT storage/interpolation. Keep
   // both the measured mean and worst-channel delta in results.json for regressions.
   const tolerance = { meanAbs: 1, maxDelta: 4 } as const;
   const rows: Array<Record<string, unknown>> = [];
   for (const sample of cases) {
-    const adjustLut = bakeAdjustLut(sample.basic, sample.userLut, sample.intensity);
+    const adjustLut = bakeItemAdjustLut(sample.adjust, sample.userLut);
     const rendered = await parityFrame({
       ...basePlan,
       base: [{
@@ -1227,9 +1232,8 @@ async function inspectAdjustParity(
     }, context, previewCanvas);
     const expected = directAdjustRgba(
       baseline.exported,
-      sample.basic,
+      sample.adjust,
       sample.userLut,
-      sample.intensity,
     );
     const comparison = compareRgba(expected, rendered.exported);
     const meanAbs = meanAbsoluteDelta(expected, rendered.exported);
@@ -1248,7 +1252,7 @@ async function inspectAdjustParity(
       pass: rendered.pass && meanAbs <= tolerance.meanAbs && comparison.maxDelta <= tolerance.maxDelta,
     });
   }
-  return { rows, tolerance, pass: rows.length === 3 && rows.every(row => row.pass === true) };
+  return { rows, tolerance, pass: rows.length === 6 && rows.every(row => row.pass === true) };
 }
 
 async function run(): Promise<void> {

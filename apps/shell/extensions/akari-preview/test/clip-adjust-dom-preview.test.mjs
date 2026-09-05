@@ -2,11 +2,32 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
+import { computeAdjustCssVisual } from '../lib/common/adjust-css-visual.js';
 
 const source = await readFile(path.resolve(
   import.meta.dirname,
   '../src/browser/akari-preview-open-handler.ts',
 ), 'utf8');
+
+test('shell wheels-only indicator executes on DOM and is suppressed on frame-engine', () => {
+  const refresh = source.match(/adjustCssApproximationActive = !frameEngineMediaIdle[\s\S]*?;/u)?.[0];
+  const indicator = source.match(/const adjustApproximation = !frameEngineMediaIdle[\s\S]*?;/u)?.[0];
+  assert.ok(refresh && indicator);
+  const evaluate = vm.runInNewContext(`(summary, frameEngineMediaIdle) => {
+    let adjustCssApproximationActive = false;
+    ${refresh}
+    ${indicator}
+    return adjustApproximation;
+  }`, { computeAdjustCssVisualFn: computeAdjustCssVisual });
+  for (const seat of ['cuts', 'layers', 'filters']) {
+    const summary = { [seat]: [{ adjust: { wheels: { lift: { r: 0.1 } } } }] };
+    assert.deepEqual([...evaluate(summary, false)], ['色調整は近似表示']);
+    assert.deepEqual([...evaluate(summary, true)], []);
+    summary[seat][0].adjust.sections = { wheels: false };
+    assert.deepEqual([...evaluate(summary, false)], []);
+  }
+});
 
 test('shell DOM preview serializes and applies basic adjust to cuts and media layers', () => {
   assert.match(source, /const computeAdjustCssVisualFn = \(\$\{computeAdjustCssVisual\.toString\(\)\}\);/u);

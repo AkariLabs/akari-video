@@ -9845,7 +9845,21 @@ ${indent}`);
         const basic = rawBasic && typeof rawBasic === "object" && !Array.isArray(rawBasic) ? rawBasic : null;
         const rawTransition = typeof transitionFilter === "string" ? transitionFilter.trim() : "";
         const transition = rawTransition === "none" ? "" : rawTransition;
-        if (!basic && !transition)
+        const clamp013 = (value) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+        const hasWheels = source?.sections?.wheels !== false && ["lift", "gamma", "gain", "offset"].some((wheel) => ["r", "g", "b"].some((channel) => {
+          const value = source?.wheels?.[wheel]?.[channel];
+          return Number.isFinite(value) && value !== 0;
+        }));
+        const hasCurves = source?.sections?.curves !== false && ["master", "r", "g", "b"].some((channel) => {
+          const raw = source?.curves?.[channel];
+          if (raw == null)
+            return false;
+          const points = raw.map((point) => ({ in: clamp013(point.in), out: clamp013(point.out) })).sort((a, b) => a.in - b.in);
+          return !(points.length === 2 && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5 && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
+        });
+        const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point) => Math.abs((Number.isFinite(point.value) ? clamp013(point.value) : 0.5) - 0.5) > 1e-4));
+        const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
+        if (!basic && !transition && !hasUnsupportedSection)
           return null;
         const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
         const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
@@ -9869,7 +9883,7 @@ ${indent}`);
         if (transition)
           parts.push(transition);
         const unsupportedKeys = ["tint", "highlights", "shadows", "blacks", "whites", "vibrance"];
-        const hasApproximation = Boolean(basic) && unsupportedKeys.some((key) => {
+        const hasApproximation = hasUnsupportedSection || Boolean(basic) && unsupportedKeys.some((key) => {
           const value = basic?.[key];
           return Number.isFinite(value) && value !== 0;
         });
@@ -19606,11 +19620,12 @@ void main() {
   }
   function resolveAdjustLut(adjust) {
     if (!adjust) return void 0;
-    const basic = adjust.sections?.basic === false ? void 0 : adjust.basic;
     const userLut = adjust.sections?.lut === false ? void 0 : adjust.lut?.lut;
-    const intensity = userLut ? clamp3(finite3(adjust.lut?.intensity, 1), 0, 1) : 0;
-    if (isAdjustBasicIdentity(basic) && (!userLut || intensity <= 0)) return void 0;
-    return bakeAdjustLut(basic, userLut, intensity);
+    const view = {
+      ...adjust,
+      lut: userLut ? { lut: "resolved", intensity: adjust.lut?.intensity } : null
+    };
+    return isItemAdjustIdentity(view) ? void 0 : bakeItemAdjustLut(view, userLut);
   }
   function normalizeTransition(cut) {
     return cut.transition_out ?? cut.transitionOut;

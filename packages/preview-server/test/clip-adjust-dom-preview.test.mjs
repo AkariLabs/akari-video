@@ -3,10 +3,27 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { computeAdjustCssVisual } from '../../edit-store/lib/index.js';
 
 const app = await readFile(path.resolve(import.meta.dirname, '../public/app.js'), 'utf8');
 const transition = await readFile(path.resolve(import.meta.dirname, '../public/transition-visual.js'), 'utf8');
 const projection = await readFile(path.resolve(import.meta.dirname, '../src/preview-edit.mjs'), 'utf8');
+
+test('Web UI wheels-only indicator executes on DOM and is suppressed on frame-engine', () => {
+  const indicator = app.match(/const adjustApproximation = !frameEngineEnabled[\s\S]*?;/u)?.[0];
+  assert.ok(indicator);
+  const evaluate = vm.runInNewContext(`(summary, frameEngineEnabled) => {
+    ${indicator}
+    return adjustApproximation;
+  }`, { computeAdjustCssVisual });
+  for (const seat of ['cuts', 'layers', 'filters']) {
+    const summary = { [seat]: [{ adjust: { wheels: { lift: { r: 0.1 } } } }] };
+    assert.deepEqual([...evaluate(summary, false)], ['色調整は近似表示']);
+    assert.deepEqual([...evaluate(summary, true)], []);
+    summary[seat][0].adjust.sections = { wheels: false };
+    assert.deepEqual([...evaluate(summary, false)], []);
+  }
+});
 
 test('Web UI receives resolved per-item LUTs through /api/summary and prefers the clip look', () => {
   assert.match(projection, /adjustLutCubeTexts\[id\] = resolveVideoFxLut\(projectRoot, ref\)/u);

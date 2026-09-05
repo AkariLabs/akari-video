@@ -30,7 +30,7 @@ import {
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
-import type { EditV2 } from '@akari-video/edit-store';
+import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2 } from '@akari-video/edit-store';
 import type { ReadableTransitionType } from '@akari-video/edit-store';
 import {
     AssetStreamRequest,
@@ -232,7 +232,10 @@ interface EditSummaryFilter {
 interface EditSummaryAdjust {
     basic?: Record<string, number>;
     lut?: { lut: string; intensity?: number } | null;
-    sections?: { basic?: boolean; lut?: boolean };
+    curves?: AdjustCurvesV1;
+    wheels?: AdjustWheelsV1;
+    hue?: AdjustHueCurvesV1;
+    sections?: { basic?: boolean; lut?: boolean; curves?: boolean; wheels?: boolean; hue?: boolean };
 }
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する

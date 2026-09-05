@@ -9837,7 +9837,21 @@ var require_adjust_css_visual = __commonJS({
       const basic = rawBasic && typeof rawBasic === "object" && !Array.isArray(rawBasic) ? rawBasic : null;
       const rawTransition = typeof transitionFilter === "string" ? transitionFilter.trim() : "";
       const transition = rawTransition === "none" ? "" : rawTransition;
-      if (!basic && !transition)
+      const clamp012 = (value) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+      const hasWheels = source?.sections?.wheels !== false && ["lift", "gamma", "gain", "offset"].some((wheel) => ["r", "g", "b"].some((channel) => {
+        const value = source?.wheels?.[wheel]?.[channel];
+        return Number.isFinite(value) && value !== 0;
+      }));
+      const hasCurves = source?.sections?.curves !== false && ["master", "r", "g", "b"].some((channel) => {
+        const raw = source?.curves?.[channel];
+        if (raw == null)
+          return false;
+        const points = raw.map((point) => ({ in: clamp012(point.in), out: clamp012(point.out) })).sort((a, b) => a.in - b.in);
+        return !(points.length === 2 && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5 && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
+      });
+      const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point) => Math.abs((Number.isFinite(point.value) ? clamp012(point.value) : 0.5) - 0.5) > 1e-4));
+      const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
+      if (!basic && !transition && !hasUnsupportedSection)
         return null;
       const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
       const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
@@ -9861,7 +9875,7 @@ var require_adjust_css_visual = __commonJS({
       if (transition)
         parts.push(transition);
       const unsupportedKeys = ["tint", "highlights", "shadows", "blacks", "whites", "vibrance"];
-      const hasApproximation = Boolean(basic) && unsupportedKeys.some((key) => {
+      const hasApproximation = hasUnsupportedSection || Boolean(basic) && unsupportedKeys.some((key) => {
         const value = basic?.[key];
         return Number.isFinite(value) && value !== 0;
       });
@@ -19070,6 +19084,9 @@ function normalizeAdjustHue(hue) {
   for (const channel of HUE_CHANNELS) result[channel] = (hue?.[channel] ?? []).map((point) => ({ hue: clamp01(point.hue), value: Number.isFinite(point.value) ? clamp01(point.value) : 0.5 })).sort((a, b) => a.hue - b.hue);
   return result;
 }
+function isAdjustWheelsIdentity(wheels) {
+  return Object.values(normalizeAdjustWheels(wheels)).every((wheel) => Object.values(wheel).every((value) => value === 0));
+}
 function isAdjustCurvesIdentity(curves) {
   return Object.values(normalizeAdjustCurves(curves)).every((points) => points.length === 2 && Math.abs(points[0].in) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[0].out) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].in - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].out - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON);
 }
@@ -19319,8 +19336,8 @@ function normalizedIntensity(value) {
 function cubeComponent(value) {
   return Number(value.toFixed(6));
 }
-function bakeAdjustLut(basic, userLut, intensity = 1, size = ADJUST_LUT_SIZE) {
-  return bakeItemAdjustLut({ basic: basic ?? void 0, lut: userLut ? { lut: "", intensity } : void 0 }, userLut, size);
+function isItemAdjustIdentity(adjust) {
+  return (adjust?.sections?.basic === false || isAdjustBasicIdentity(adjust?.basic)) && (adjust?.sections?.lut === false || !adjust?.lut || adjust.lut.intensity === 0) && (adjust?.sections?.wheels === false || isAdjustWheelsIdentity(adjust?.wheels)) && (adjust?.sections?.curves === false || isAdjustCurvesIdentity(adjust?.curves)) && (adjust?.sections?.hue === false || isAdjustHueIdentity(adjust?.hue));
 }
 function bakeItemAdjustLut(adjust, userLut, size = ADJUST_LUT_SIZE) {
   if (!Number.isInteger(size) || size < 2 || size > 256) {
@@ -19422,11 +19439,12 @@ function clamp3(value, minimum, maximum) {
 }
 function resolveAdjustLut(adjust) {
   if (!adjust) return void 0;
-  const basic = adjust.sections?.basic === false ? void 0 : adjust.basic;
   const userLut = adjust.sections?.lut === false ? void 0 : adjust.lut?.lut;
-  const intensity = userLut ? clamp3(finite3(adjust.lut?.intensity, 1), 0, 1) : 0;
-  if (isAdjustBasicIdentity(basic) && (!userLut || intensity <= 0)) return void 0;
-  return bakeAdjustLut(basic, userLut, intensity);
+  const view = {
+    ...adjust,
+    lut: userLut ? { lut: "resolved", intensity: adjust.lut?.intensity } : null
+  };
+  return isItemAdjustIdentity(view) ? void 0 : bakeItemAdjustLut(view, userLut);
 }
 function normalizeTransition(cut) {
   return cut.transition_out ?? cut.transitionOut;

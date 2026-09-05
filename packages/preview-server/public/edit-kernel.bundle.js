@@ -3610,7 +3610,20 @@ function computeAdjustCssVisual(adjust, transitionFilter) {
   const basic = rawBasic && typeof rawBasic === "object" && !Array.isArray(rawBasic) ? rawBasic : null;
   const rawTransition = typeof transitionFilter === "string" ? transitionFilter.trim() : "";
   const transition = rawTransition === "none" ? "" : rawTransition;
-  if (!basic && !transition) return null;
+  const clamp01 = (value) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+  const hasWheels = source?.sections?.wheels !== false && ["lift", "gamma", "gain", "offset"].some((wheel) => ["r", "g", "b"].some((channel) => {
+    const value = source?.wheels?.[wheel]?.[channel];
+    return Number.isFinite(value) && value !== 0;
+  }));
+  const hasCurves = source?.sections?.curves !== false && ["master", "r", "g", "b"].some((channel) => {
+    const raw = source?.curves?.[channel];
+    if (raw == null) return false;
+    const points = raw.map((point) => ({ in: clamp01(point.in), out: clamp01(point.out) })).sort((a, b) => a.in - b.in);
+    return !(points.length === 2 && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5 && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
+  });
+  const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point) => Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
+  const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
+  if (!basic && !transition && !hasUnsupportedSection) return null;
   const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
   const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
   const saturation = basic && Number.isFinite(basic.saturation) ? basic.saturation : 0;
@@ -3632,7 +3645,7 @@ function computeAdjustCssVisual(adjust, transitionFilter) {
   }
   if (transition) parts.push(transition);
   const unsupportedKeys = ["tint", "highlights", "shadows", "blacks", "whites", "vibrance"];
-  const hasApproximation = Boolean(basic) && unsupportedKeys.some((key) => {
+  const hasApproximation = hasUnsupportedSection || Boolean(basic) && unsupportedKeys.some((key) => {
     const value = basic?.[key];
     return Number.isFinite(value) && value !== 0;
   });

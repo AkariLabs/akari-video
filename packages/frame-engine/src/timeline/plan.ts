@@ -7,7 +7,7 @@ import {
   transitionProgressAt
 } from '@akari-video/edit-store';
 import { isTransitionType } from '@akari-video/edit-store';
-import type { AdjustBasicV0, EditCut, TimelineMapResult, TimelineSegment } from '@akari-video/edit-store';
+import type { AdjustV1, EditCut, TimelineMapResult, TimelineSegment } from '@akari-video/edit-store';
 import type {
   EvaluationPlan,
   NativeFrameSource,
@@ -18,8 +18,7 @@ import type {
   TimelineTimeUs
 } from '../types.js';
 import type { ParsedCubeLut } from '../look/cube.js';
-import { bakeAdjustLut } from '../adjust/bake.js';
-import { isAdjustBasicIdentity } from '../adjust/kernel.js';
+import { bakeItemAdjustLut, isItemAdjustIdentity } from '../adjust/bake.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
 
 export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
@@ -31,10 +30,8 @@ export interface CutFramingKeyframe {
   cy?: number;
 }
 
-export interface FrameEngineAdjust {
-  basic?: AdjustBasicV0;
+export interface FrameEngineAdjust extends Omit<AdjustV1, 'lut'> {
   lut?: { lut: ParsedCubeLut; intensity?: number } | null;
-  sections?: { basic?: boolean; lut?: boolean };
 }
 
 export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'> {
@@ -161,13 +158,12 @@ function clamp(value: number, minimum: number, maximum: number): number {
 /** Resolve the effective item adjustment and bake it once for the timeline plan. */
 export function resolveAdjustLut(adjust: FrameEngineAdjust | null | undefined): ParsedCubeLut | undefined {
   if (!adjust) return undefined;
-  const basic = adjust.sections?.basic === false ? undefined : adjust.basic;
   const userLut = adjust.sections?.lut === false ? undefined : adjust.lut?.lut;
-  const intensity = userLut
-    ? clamp(finite(adjust.lut?.intensity, 1), 0, 1)
-    : 0;
-  if (isAdjustBasicIdentity(basic) && (!userLut || intensity <= 0)) return undefined;
-  return bakeAdjustLut(basic, userLut, intensity);
+  const view: AdjustV1 = {
+    ...adjust,
+    lut: userLut ? { lut: 'resolved', intensity: adjust.lut?.intensity } : null,
+  };
+  return isItemAdjustIdentity(view) ? undefined : bakeItemAdjustLut(view, userLut);
 }
 
 function normalizeTransition(cut: FrameEngineCut): EditCut['transitionOut'] {

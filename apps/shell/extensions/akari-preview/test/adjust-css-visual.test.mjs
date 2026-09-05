@@ -42,4 +42,8 @@ test('webview 用の関数直列化はクロージャなしで実行できる', 
     { ...serialized({ basic: { exposure: 1, tint: 0.2 } }, 'blur(2px)') },
     { filter: 'brightness(2.00) blur(2px)', hasApproximation: true },
   );
+  assert.deepEqual(
+    { ...serialized({ wheels: { lift: { r: 0.1 } } }) },
+    { filter: '', hasApproximation: true },
+  );
 });

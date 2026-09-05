@@ -1,3 +1,5 @@
+import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1 } from './edit-v2';
+
 // Serialized into the preview webview via Function.prototype.toString(). Keep this function
 // self-contained: no closures over module state and no calls to sibling functions in this file.
 // The filter math intentionally mirrors packages/edit-store/src/adjust-css-approx.ts; the unit
@@ -18,12 +20,15 @@ export interface AdjustCssBasic {
 
 export interface AdjustCssInput {
     basic?: AdjustCssBasic | null;
-    sections?: { basic?: boolean } | null;
+    curves?: AdjustCurvesV1;
+    wheels?: AdjustWheelsV1;
+    hue?: AdjustHueCurvesV1;
+    sections?: { basic?: boolean; lut?: boolean; curves?: boolean; wheels?: boolean; hue?: boolean } | null;
 }
 
 export interface AdjustCssVisual {
     filter: string;
-    /** True when active basic controls contain values that CSS filters cannot reproduce. */
+    /** True when active controls contain values that CSS filters cannot reproduce. */
     hasApproximation: boolean;
 }
 
@@ -42,7 +47,30 @@ export function computeAdjustCssVisual(
     const basic = rawBasic && typeof rawBasic === 'object' && !Array.isArray(rawBasic) ? rawBasic : null;
     const rawTransition = typeof transitionFilter === 'string' ? transitionFilter.trim() : '';
     const transition = rawTransition === 'none' ? '' : rawTransition;
-    if (!basic && !transition) return null;
+    // Match kernel normalization and identity tolerances without a runtime dependency.
+    const clamp01 = (value: number) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+    const hasWheels = source?.sections?.wheels !== false
+      && (['lift', 'gamma', 'gain', 'offset'] as const).some(wheel =>
+        (['r', 'g', 'b'] as const).some(channel => {
+          const value = source?.wheels?.[wheel]?.[channel];
+          return Number.isFinite(value) && value !== 0;
+        }));
+    const hasCurves = source?.sections?.curves !== false
+      && (['master', 'r', 'g', 'b'] as const).some(channel => {
+        const raw = source?.curves?.[channel];
+        if (raw == null) return false;
+        const points = raw.map(point => ({ in: clamp01(point.in), out: clamp01(point.out) }))
+          .sort((a, b) => a.in - b.in);
+        return !(points.length === 2
+          && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5
+          && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
+      });
+    const hasHue = source?.sections?.hue !== false
+      && (['hue', 'sat', 'luma'] as const).some(channel =>
+        (source?.hue?.[channel] ?? []).some(point =>
+          Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
+    const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
+    if (!basic && !transition && !hasUnsupportedSection) return null;
 
     const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure as number : 0;
     const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast as number : 0;
@@ -66,7 +94,7 @@ export function computeAdjustCssVisual(
     if (transition) parts.push(transition);
 
     const unsupportedKeys = ['tint', 'highlights', 'shadows', 'blacks', 'whites', 'vibrance'];
-    const hasApproximation = Boolean(basic) && unsupportedKeys.some(key => {
+    const hasApproximation = hasUnsupportedSection || Boolean(basic) && unsupportedKeys.some(key => {
         const value = basic?.[key as keyof AdjustCssBasic];
         return Number.isFinite(value) && value !== 0;
     });
