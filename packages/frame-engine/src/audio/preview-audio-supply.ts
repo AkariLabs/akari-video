@@ -738,6 +738,30 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     });
   };
 
+  // cold（sidecar 未生成）では待つものが無いまま予定表が組まれ、後から届いた音が冒頭を失っていた。
+  // ゲートを張っている間は、開始位置の required が解決するまで（上限 3 秒）予定表を組まずに待つ。
+  const waitForGateStart = (positionSec: number, thisGeneration: number): Promise<void> => {
+    if (gateMissingKeys(positionSec, false).length === 0) return Promise.resolve();
+    const remaining = gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1000 - now();
+    if (!(remaining > 0)) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (): void => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        clearTimeout(timer);
+        resolve();
+      };
+      const check = (): void => {
+        if (thisGeneration !== generation || gateMissingKeys(positionSec, false).length === 0) finish();
+      };
+      const timer = setTimeout(finish, remaining);
+      taskWaiters.add(check);
+      check();
+    });
+  };
+
   const replanIfNeeded = (): void => {
     if (starting) {
       replanPending = true;
@@ -1071,15 +1095,24 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     return { required, ready, pendingSidecar, failed, noAudio };
   };
 
+  /** 開始位置で鳴っているはずなのに、まだ揃っていない required。失敗と no-audio は待たない。 */
+  const gateMissingKeys = (positionSec: number, asPlaying: boolean): string[] => {
+    const keys = supplyKeysAt(positionSec, asPlaying);
+    return keys.required.filter(key => !keys.ready.includes(key)
+      && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+  };
+
   const releaseGate = (): void => {
     if (!gate.holding) return;
     gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
     gateGeneration = -1;
   };
-  /** 読むたびに世代と上限を見て、切れていれば解く。 */
+  /** 読むたびに世代・上限・readiness を見て、解けていれば解く。 */
   const gateHolding = (): boolean => {
     if (!gate.holding) return false;
-    if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) {
+    if (gateGeneration !== generation
+      || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000
+      || gateMissingKeys(gate.startSec, true).length === 0) {
       releaseGate();
       return false;
     }
@@ -1127,6 +1160,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         return;
       }
       if (thisGeneration !== generation) return;
+      // 開始位置の音（sidecar 生成待ちを含む）が揃うまで、上限 3 秒だけ予定表を先送りする。
+      if (gateHolding()) {
+        await waitForGateStart(gateStartSec, thisGeneration);
+        if (thisGeneration !== generation) return;
+      }
       const speechForSchedule = speech.flatMap(item => {
         const resolved = speechDecoded.get(item.id);
         if (!resolved) return [];
@@ -1189,12 +1227,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       }
       playing = true;
       outcome = 'started';
-      releaseGate();
     } finally {
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
-        releaseGate();
+        // 開始できなかった（例外・resume 失敗・空の予定表）ときは待っても届かないので解く。
+        // 開始できたときは readiness（最初の窓）と上限だけが hold を解く。
+        if (outcome !== 'started') releaseGate();
         starting = false;
         lastStartOutcome = outcome;
         if (replanPending) {

@@ -26218,6 +26218,27 @@ void main() {
         check();
       });
     };
+    const waitForGateStart = (positionSec, thisGeneration) => {
+      if (gateMissingKeys(positionSec, false).length === 0) return Promise.resolve();
+      const remaining = gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now();
+      if (!(remaining > 0)) return Promise.resolve();
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          taskWaiters.delete(check);
+          clearTimeout(timer);
+          resolve();
+        };
+        const check = () => {
+          if (thisGeneration !== generation || gateMissingKeys(positionSec, false).length === 0) finish();
+        };
+        const timer = setTimeout(finish, remaining);
+        taskWaiters.add(check);
+        check();
+      });
+    };
     const replanIfNeeded = () => {
       if (starting) {
         replanPending = true;
@@ -26544,6 +26565,10 @@ void main() {
       const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
       return { required, ready, pendingSidecar, failed, noAudio };
     };
+    const gateMissingKeys = (positionSec, asPlaying) => {
+      const keys = supplyKeysAt(positionSec, asPlaying);
+      return keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+    };
     const releaseGate = () => {
       if (!gate.holding) return;
       gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
@@ -26551,7 +26576,7 @@ void main() {
     };
     const gateHolding = () => {
       if (!gate.holding) return false;
-      if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) {
+      if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3 || gateMissingKeys(gate.startSec, true).length === 0) {
         releaseGate();
         return false;
       }
@@ -26594,6 +26619,10 @@ void main() {
           return;
         }
         if (thisGeneration !== generation) return;
+        if (gateHolding()) {
+          await waitForGateStart(gateStartSec, thisGeneration);
+          if (thisGeneration !== generation) return;
+        }
         const speechForSchedule = speech.flatMap((item) => {
           const resolved = speechDecoded.get(item.id);
           if (!resolved) return [];
@@ -26644,12 +26673,11 @@ void main() {
         }
         playing = true;
         outcome = "started";
-        releaseGate();
       } finally {
         if (startingWindowController === controller) startingWindowController = null;
         if (windowController !== controller) controller.abort();
         if (thisGeneration === generation) {
-          releaseGate();
+          if (outcome !== "started") releaseGate();
           starting = false;
           lastStartOutcome = outcome;
           if (replanPending) {

@@ -64,6 +64,7 @@ test('再生中の組み直しが最初の窓を待つ間に届いた次の read
   const stops = () => markerSources().reduce((sum, source) => sum + source.stops.length, 0);
   supply.playFrom(0);
   await flush();
+  await clock.advance(3000); // cold の初回ゲートが上限で解けてから、再生中の組み直しを検証する。
   assert.equal(supply.debug().scheduled.itemCount, 1);
   context.currentTime = 0.52;
   supply.updateAudio({ declarations: [marker, voice, queuedBed] });
@@ -109,6 +110,7 @@ for (const action of ['pause', 'seek', 'dispose']) {
     const resume = t.mock.method(context, 'resume');
     supply.playFrom(0);
     await flush();
+    await clock.advance(3000);
     supply.updateAudio({ declarations: [bed, voice] });
     await flush();
     const replacement = { ...voice, url: '/new-voice.pcm', spec: { ...voice.spec,
@@ -140,7 +142,7 @@ test('同じ tick の updateAudio は prefetch に合流し、finally と then �
   const queuedBed = { ...bed, spec: { ...bed.spec, sidecarState: 'queued', sidecar: undefined } };
   const gate = deferred();
   const server = rangeServer({ requireRange: true });
-  const { supply, context, warnings } = pcmSupply(t, {
+  const { supply, context, clock, warnings } = pcmSupply(t, {
     server, declarations: [marker, queuedVoice, queuedBed],
     fetchImpl: async (url, options) => {
       if (url.endsWith('.pcm')) return server.fetchImpl(url, options);
@@ -151,6 +153,7 @@ test('同じ tick の updateAudio は prefetch に合流し、finally と then �
   const resume = t.mock.method(context, 'resume');
   supply.playFrom(0);
   await flush();
+  await clock.advance(3000);
   const original = context.sources[0];
   supply.updateAudio({ declarations: [marker, voice, queuedBed] });
   supply.updateAudio({ declarations: [marker, voice, bed] });
@@ -186,10 +189,13 @@ test('再生前は PCM メタデータだけで ready になり、再生中は�
   await flush();
   await clock.advance(1500);
   assert.equal(supply.debug().playing, true);
+  assert.equal(supply.debug().supply.gate.holding, true, 'playing だけでは最初の窓の hold は解けない');
+  assert.equal(supply.playbackTime(1.5), 0);
   assert.deepEqual(supply.debug().supply.ready, []);
   assert.equal(supply.debug().supply.phase, 'preparing');
   gate.resolve();
   await flush();
+  assert.equal(supply.debug().supply.gate.holding, false, '最初の窓の readiness で解除する');
   assert.ok(supply.debug().supply.bufferedUntil['bgm:bed'] > supply.position(0));
   assert.deepEqual(supply.debug().supply.ready, ['bgm:bed']);
   assert.equal(supply.debug().supply.phase, 'ready');
@@ -456,6 +462,7 @@ for (const outcome of ['ready', 'timeout', 'superseded']) {
     });
     supply.playFrom(0);
     await flush();
+    await clock.advance(3000);
     const original = context.sources[0];
     const oldRequest = requests[1];
     context.currentTime = 0.52;
@@ -1389,7 +1396,8 @@ test('s4 setRate(1) は worklet を外して master を destination へ直結す
   }
 });
 
-test('queued BGM は fetch せず speech を先に鳴らし、ready 更新後は BGM だけ decode して合流する', async () => {
+test('queued BGM は fetch せず 3 秒後に speech を先に鳴らし、ready 更新後は BGM だけ decode して合流する', async t => {
+  const clock = fakeClock(t);
   const context = new FakeContext(new Map([[1, buffer(10)], [2, buffer(10)]]));
   const fetches = [];
   const bgm = { kind: 'bgm', id: 'bed', url: '/bed.wav', spec: { sidecarState: 'queued' } };
@@ -1399,11 +1407,14 @@ test('queued BGM は fetch せず speech を先に鳴らし、ready 更新後は
   });
   const supply = createPreviewAudioSupply({
     timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context,
+    nowImpl: clock.now,
     declarations: [bgm], speech: [voice],
     fetchImpl: async url => { fetches.push(url); return response(url === '/bed.flac' ? 2 : 1); },
   });
+  t.after(() => supply.dispose());
   supply.playFrom(0);
-  await settle();
+  await flush();
+  await clock.advance(3000);
   assert.deepEqual(fetches, ['/voice.flac']);
   assert.equal(supply.debug().playing, true);
   assert.equal(supply.debug().scheduled.speech, 1);
@@ -1416,7 +1427,7 @@ test('queued BGM は fetch せず speech を先に鳴らし、ready 更新後は
     sidecarState: 'ready', sidecar: { path: '/bed.flac', durationSec: 10, padBeforeSec: 0, padAfterSec: 0 },
   } };
   supply.updateAudio({ declarations: [ready], speech: [structuredClone(voice)] });
-  await settle();
+  await flush();
   assert.deepEqual(fetches, ['/voice.flac', '/bed.flac']);
   assert.equal(context.decodeCalls, 2);
   assert.equal(supply.debug().scheduled.bgm, 1);
@@ -1424,7 +1435,7 @@ test('queued BGM は fetch せず speech を先に鳴らし、ready 更新後は
   assert.equal(supply.debug().scheduled.startAtSec, 2, 'replan uses the audio clock');
   assert.equal(supply.debug().supply.phase, 'ready');
   supply.updateAudio({ declarations: [structuredClone(ready)], speech: [structuredClone(voice)] });
-  await settle();
+  await flush();
   assert.equal(fetches.length, 2);
   supply.dispose();
 });
@@ -1451,23 +1462,27 @@ test('no-audio は予定表・待ち・失敗に入らず、将来の pending �
   supply.dispose();
 });
 
-test('準備中だけの空の予定表も ready 通知で拾い直し、追加・削除は警告して無視する', async () => {
+test('準備中だけの空の予定表も ready 通知で拾い直し、追加・削除は警告して無視する', async t => {
+  const clock = fakeClock(t);
   const context = new FakeContext(new Map([[1, buffer(10)]]));
   const warnings = [];
   const queued = speech('voice', 'video', '/video.mp4', { durationSec: 10, outSec: 10, sidecarState: 'queued' });
   const supply = createPreviewAudioSupply({
     timelineDurationSec: 10, scheduleBuilder, contextFactory: () => context,
+    nowImpl: clock.now,
     speech: [queued], onWarning: message => warnings.push(message), fetchImpl: async () => response(1),
   });
+  t.after(() => supply.dispose());
   supply.playFrom(0);
-  await settle();
+  await flush();
+  await clock.advance(3000); // 空の予定表を組んだ後の ready 通知を検証する。
   assert.equal(supply.debug().playing, false);
   supply.updateAudio({ speech: [{ ...queued, sidecarState: 'ready' }] });
-  await settle();
+  await flush();
   assert.equal(supply.debug().playing, true);
   assert.equal(supply.debug().supply.phase, 'ready');
   supply.updateAudio({ speech: [speech('extra', 'other', '/extra.mp4')] });
-  await settle();
+  await flush();
   assert.equal(context.decodeCalls, 1);
   assert.equal(warnings.length, 2);
   assert.equal(supply.debug().scheduled.speech, 1);
@@ -1649,9 +1664,9 @@ for (const action of ['seek', 'setRate']) {
   });
 }
 
-test('debug の gate は idle の形を保ち、sidecar 待ちの空予定表でも直ちに解除する', async t => {
+test('debug の gate は idle の形を保ち、sidecar 待ちは空予定表を組まず 3 秒まで hold する', async t => {
   const bed = pcmDeclaration();
-  const { supply } = pcmSupply(t, {
+  const { supply, clock } = pcmSupply(t, {
     declarations: [{ ...bed, spec: { ...bed.spec, sidecarState: 'queued', sidecar: undefined } }],
   });
   assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
@@ -1659,7 +1674,110 @@ test('debug の gate は idle の形を保ち、sidecar 待ちの空予定表で
   assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 0, reason: 'sidecar' });
   await flush();
   assert.equal(supply.debug().supply.phase, 'preparing');
+  await clock.advance(2999);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 2999, reason: 'sidecar' });
+  assert.equal(supply.debug().playing, false);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+  assert.equal(supply.playbackTime(12), 10);
+  await clock.advance(1);
+  assert.equal(supply.debug().playing, false);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
   assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.playbackTime(13), 13);
+});
+
+for (const startSec of [0, 10]) {
+  test(`(f) cold で 3 秒以内に sidecar が届けば narration を開始位置 ${startSec} 秒から鳴らす`, async t => {
+    const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: startSec } };
+    const voice = pcmDeclaration('voice', 120, 'narration', { t: 0 });
+    const queued = { ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } };
+    const server = rangeServer({ requireRange: true });
+    const { supply, context, clock, requests } = pcmSupply(t, {
+      server, declarations: [marker, queued],
+      fetchImpl: (url, options) => url.endsWith('.pcm') ? server.fetchImpl(url, options) : Promise.resolve(response(1)),
+    });
+    supply.playFrom(startSec);
+    await flush();
+    await clock.advance(2000);
+    assert.equal(supply.debug().playing, false);
+    assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec, heldMs: 2000, reason: 'sidecar' });
+    assert.deepEqual(supply.debug().supply.ready, ['sfx:marker']);
+    assert.equal(supply.playbackTime(startSec + 1.5), startSec);
+    assert.equal(supply.position(startSec + 2), startSec);
+    assert.equal(supply.debug().scheduled.itemCount, 0);
+    assert.equal(context.sources.length, 0, 'ready の sfx だけで先に鳴り始めない');
+    assert.equal(requests.length, 0);
+
+    supply.updateAudio({ declarations: [marker, voice] });
+    await flush();
+    const debug = supply.debug();
+    assert.equal(debug.playing, true);
+    assert.equal(debug.supply.gate.holding, false);
+    assert.equal(debug.scheduled.startAtSec, startSec);
+    assert.equal(debug.scheduled.sfx, 1);
+    assert.ok(debug.scheduled.narration >= 1);
+    assert.deepEqual(debug.scheduled.skipped, []);
+    const firstVoice = context.sources.find(source => source.buffer !== context.buffers.get(1));
+    assertPcmNode(firstVoice, startSec * sampleRate);
+    assert.equal(supply.playbackTime(startSec + 3), startSec);
+  });
+}
+
+test('(g) cold で sidecar が 3 秒届かなければ ready の sfx だけで開始し、遅着 narration は音声位置で合流する', async t => {
+  const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } };
+  const voice = pcmDeclaration('voice', 120, 'narration', { t: 0 });
+  const queued = { ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } };
+  const server = rangeServer({ requireRange: true });
+  const { supply, context, clock, requests } = pcmSupply(t, {
+    server, declarations: [marker, queued],
+    fetchImpl: (url, options) => url.endsWith('.pcm') ? server.fetchImpl(url, options) : Promise.resolve(response(1)),
+  });
+  supply.playFrom(0);
+  let deadlineObserved = false;
+  // 待ちタイマーより先に登録して、期限到達から予定表開始までの同期区間を見る。
+  setTimeout(() => {
+    assert.equal(supply.debug().supply.gate.holding, false);
+    assert.equal(supply.debug().playing, false);
+    assert.equal(supply.playbackTime(0), 0, 'hold 中に据え置いた開始位置の fallback で再開する');
+    deadlineObserved = true;
+  }, 3000);
+  await flush();
+  await clock.advance(2999);
+  assert.equal(supply.debug().supply.gate.holding, true);
+  assert.equal(supply.debug().supply.gate.reason, 'sidecar');
+  assert.equal(supply.debug().playing, false);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+  assert.equal(supply.playbackTime(1.5), 0);
+  await clock.advance(1);
+  assert.equal(deadlineObserved, true);
+  const started = supply.debug();
+  assert.equal(started.supply.gate.holding, false);
+  assert.equal(started.playing, true);
+  assert.equal(started.scheduled.startAtSec, 0);
+  assert.equal(started.scheduled.itemCount, 1);
+  assert.equal(started.scheduled.sfx, 1);
+  assert.equal(started.scheduled.narration, 0);
+  assert.equal(context.sources.length, 1);
+  assert.equal(context.sources[0].buffer, context.buffers.get(1));
+  assert.equal(requests.length, 0);
+
+  context.currentTime = 0.52;
+  const joinSec = supply.playbackTime(50);
+  assert.equal(joinSec, 0.5, '開始後は従来どおり音声時計を使う');
+  supply.updateAudio({ declarations: [marker, voice] });
+  assert.equal(supply.debug().supply.gate.holding, false);
+  await flush();
+  const joined = supply.debug();
+  assert.equal(joined.playing, true);
+  assert.equal(joined.supply.gate.holding, false);
+  assert.equal(joined.scheduled.startAtSec, joinSec);
+  assert.ok(joined.scheduled.startAtSec > started.scheduled.startAtSec);
+  assert.equal(joined.scheduled.sfx, 1);
+  assert.ok(joined.scheduled.narration >= 1);
+  assert.deepEqual(joined.scheduled.skipped, []);
+  assert.equal(context.sources[0].stops.length, 1, '初回の sfx は組み直しで一度だけ置き換える');
+  const firstVoice = context.sources.find(source => source.buffer !== context.buffers.get(1));
+  assertPcmNode(firstVoice, joinSec * sampleRate);
 });
 
 test('decode 失敗と no-audio はゲートを張る理由にしない', async t => {
