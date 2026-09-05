@@ -216,6 +216,13 @@
         }
       }
       this.sources = new Map([...videoSources, ...images]);
+      // 書き出しは厳密に前方順なので、plan から外れたカットのデコーダセッションは捨ててよい。
+      // 捨てないとカット本数ぶんのセッションが最後まで積み上がり、長尺で RSS が hard stop に
+      // 当たって成果物ゼロで終わる（issue #52）。grace は 1 秒 — トランジションの送出側は
+      // plan に載るので 0 でも壊れないが、数フレームだけ間の空く層で fork をやり直さないため。
+      this.fps = Number(config.fps) > 0 ? Number(config.fps) : 30;
+      this.reaper = new FE.StreamReaper(lookahead.values(), { graceFrames: Math.max(1, Math.round(this.fps)) });
+      this.decoderSessions = { live: 0, released: 0 };
       this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit, config.adjustLutCubeTexts), {
         fps: config.fps,
         layers: engineLayers,
@@ -230,7 +237,10 @@
     async frameAt(seconds) {
       const clamped = Math.max(0, Math.min(Number(seconds) || 0, this.timeline.totalDuration));
       const plan = FE.evaluationPlanFromResolvedTimeline(this.timeline, Math.round(clamped * 1e6), this.sources, this.output);
-      if (plan.base.length === 0 && plan.layers.length === 0) throw new Error(`frame-engine produced an empty plan at ${seconds}s`);
+      // 新しい decode が始まる前に空ける（評価の後ろに置くと、解放したいフレームと新しい
+      // フレームが同時に生きる瞬間ができる）
+      const reaped = this.reaper.reap(plan, Math.round(clamped * this.fps));
+      this.decoderSessions = { live: reaped.liveStreams, released: this.reaper.released() };
       return FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
     }
 
@@ -291,7 +301,7 @@
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(vars)}">
           <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -1267,17 +1277,20 @@
     };
   }
 
-  function orderedSpriteDraws(manifest, seconds, domRuntime) {
+  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null) {
     const values = [];
     for (const value of manifest.statics) {
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
       if (activeAt(value, seconds)) values.push({ z, index: value.index, id: value.id, opacity: 1 });
     }
     for (const value of manifest.three) {
+      if (value.entranceMode === "composite") continue;
       if (!activeAt(value, seconds)) continue;
-      const state = value.entrance
-        ? threeEntranceStateAt(value.entrance, seconds - value.start)
-        : { opacity: 1 };
+      const state = value.entranceMode === "sampled" && threeStates?.has(value.id)
+        ? threeStates.get(value.id)
+        : value.entrance
+          ? threeEntranceStateAt(value.entrance, seconds - value.start)
+          : { opacity: 1 };
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
       values.push({ z, index: value.index, id: value.id, ...state });
     }
@@ -1298,6 +1311,369 @@
     return new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
+  function isSupported2DMatrix(matrix) {
+    const value = (name, fallback) => Number.isFinite(Number(matrix?.[name])) ? Number(matrix[name]) : fallback;
+    return Math.abs(value("m13", 0)) <= 1e-6
+      && Math.abs(value("m14", 0)) <= 1e-6
+      && Math.abs(value("m23", 0)) <= 1e-6
+      && Math.abs(value("m24", 0)) <= 1e-6
+      && Math.abs(value("m31", 0)) <= 1e-6
+      && Math.abs(value("m32", 0)) <= 1e-6
+      && Math.abs(value("m34", 0)) <= 1e-6
+      && Math.abs(value("m43", 0)) <= 1e-6
+      && Math.abs(value("m33", 1) - 1) <= 1e-6
+      && Math.abs(value("m44", 1) - 1) <= 1e-6;
+  }
+
+  function sampledDrawStateFromMatrix(matrix, width, height) {
+    if (!isSupported2DMatrix(matrix)) return null;
+    const a = Number(matrix.a);
+    const b = Number(matrix.b);
+    const c = Number(matrix.c);
+    const d = Number(matrix.d);
+    const e = Number(matrix.e);
+    const f = Number(matrix.f);
+    if (![a, b, c, d, e, f].every(Number.isFinite) || Math.abs(b) > 1e-6 || Math.abs(c) > 1e-6) return null;
+    const centerX = Number(width) / 2;
+    const centerY = Number(height) / 2;
+    return {
+      scaleX: a,
+      scaleY: d,
+      translateX: e - centerX * (1 - a),
+      translateY: f - centerY * (1 - d),
+    };
+  }
+
+  function untransformedBox(element) {
+    let x = 0;
+    let y = 0;
+    for (let current = element; current; current = current.offsetParent) {
+      x += Number(current.offsetLeft) || 0;
+      y += Number(current.offsetTop) || 0;
+    }
+    return {
+      x,
+      y,
+      width: Number(element.offsetWidth) || Number(element.width) || 0,
+      height: Number(element.offsetHeight) || Number(element.height) || 0,
+    };
+  }
+
+  function boxMatchesFrame(box, width, height, tolerance = 0.5) {
+    return Math.abs(Number(box?.x)) <= tolerance
+      && Math.abs(Number(box?.y)) <= tolerance
+      && Math.abs(Number(box?.width) - Number(width)) <= tolerance
+      && Math.abs(Number(box?.height) - Number(height)) <= tolerance;
+  }
+
+  function rectsIntersect(left, right) {
+    return Number(left?.width) > 0 && Number(left?.height) > 0
+      && Number(right?.width) > 0 && Number(right?.height) > 0
+      && Number(left.x) < Number(right.x) + Number(right.width)
+      && Number(right.x) < Number(left.x) + Number(left.width)
+      && Number(left.y) < Number(right.y) + Number(right.height)
+      && Number(right.y) < Number(left.y) + Number(left.height);
+  }
+
+  function preserve3dSampleTimes(start, duration) {
+    const normalizedStart = Number.isFinite(Number(start)) ? Number(start) : 0;
+    const normalizedDuration = Number.isFinite(Number(duration)) && Number(duration) > 0 ? Number(duration) : 0;
+    if (normalizedDuration === 0) return Array(5).fill(normalizedStart);
+    const endInset = Math.min(Math.max(normalizedDuration / 1000, 1e-3), normalizedDuration / 8);
+    return [
+      normalizedStart,
+      normalizedStart + normalizedDuration / 4,
+      normalizedStart + normalizedDuration / 2,
+      normalizedStart + normalizedDuration * 3 / 4,
+      normalizedStart + normalizedDuration - endInset,
+    ];
+  }
+
+  function detectPreserve3dOrderConflicts(elements) {
+    const comparable = (Array.isArray(elements) ? elements : [])
+      .filter((element) => element?.paints === true)
+      .slice(0, 200);
+    const conflicts = [];
+    let pairs = 0;
+    for (let i = 0; i < comparable.length; i += 1) {
+      for (let j = i + 1; j < comparable.length; j += 1) {
+        if (pairs >= 2000) return conflicts;
+        pairs += 1;
+        const front = comparable[i];
+        const back = comparable[j];
+        if (Array.isArray(back.ancestors) && back.ancestors.includes(front.id)
+          && rectsIntersect(front.rect, back.rect)
+          && Number.isFinite(Number(front.z))
+          && Number.isFinite(Number(back.z))
+          && Number(front.z) > Number(back.z) + 0.5) {
+          conflicts.push({ front: front.label ?? front.id, back: back.label ?? back.id });
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  function computedColorHasAlpha(value) {
+    const color = String(value ?? "").trim().toLowerCase();
+    if (color === "" || color === "transparent") return false;
+    const slashAlpha = color.match(/\/\s*([\d.]+%?)(?:\s*\)|$)/u);
+    if (slashAlpha) {
+      const alpha = Number.parseFloat(slashAlpha[1]);
+      return Number.isFinite(alpha) && alpha > 0;
+    }
+    const commaParts = color.match(/^rgba?\(([^)]+)\)$/u)?.[1].split(",");
+    if (commaParts?.length === 4) {
+      const alpha = Number.parseFloat(commaParts[3]);
+      return Number.isFinite(alpha) && alpha > 0;
+    }
+    return true;
+  }
+
+  function directlyContainsText(element) {
+    return [...element.childNodes].some((node) => node.nodeType === 3 && /\S/u.test(node.textContent ?? ""));
+  }
+
+  function paintsElement(element, computed) {
+    if (computed.display === "none" || computed.visibility === "hidden" || Number.parseFloat(computed.opacity) === 0) return false;
+    if (computedColorHasAlpha(computed.backgroundColor) || computed.backgroundImage !== "none") return true;
+    for (const side of ["Top", "Right", "Bottom", "Left"]) {
+      if (Number.parseFloat(computed[`border${side}Width`]) > 0
+        && !["none", "hidden"].includes(computed[`border${side}Style`])
+        && computedColorHasAlpha(computed[`border${side}Color`])) return true;
+    }
+    return directlyContainsText(element);
+  }
+
+  function shortElementIdentifier(element) {
+    const classes = [...element.classList].slice(0, 2).map((name) => `.${name}`).join("");
+    const siblings = element.parentElement ? [...element.parentElement.children] : [element];
+    return `${element.tagName.toLowerCase()}${classes}:${Math.max(0, siblings.indexOf(element)) + 1}`;
+  }
+
+  function domTreePath(element, root) {
+    if (element === root) return "0";
+    const parts = [];
+    for (let current = element; current && current !== root; current = current.parentElement) {
+      if (!current.parentElement) return null;
+      parts.unshift([...current.parentElement.children].indexOf(current));
+    }
+    return `0/${parts.join("/")}`;
+  }
+
+  function collectPreserve3dElements(container) {
+    const elements = [container, ...container.querySelectorAll("*")];
+    const computed = new Map(elements.map((element) => [element, getComputedStyle(element)]));
+    const roots = elements.filter((element) => computed.get(element).transformStyle === "preserve-3d");
+    if (roots.length === 0) return [];
+    const collected = elements.filter((element) => roots.some((root) => root === element || root.contains(element)));
+    const collectedSet = new Set(collected);
+    const ids = new Map(collected.map((element) => [element, domTreePath(element, container)]));
+    return collected
+      .map((element) => {
+        const style = computed.get(element);
+        let z = 0;
+        if (style.transform && style.transform !== "none") {
+          try { z = Number(new DOMMatrix(style.transform).m43) || 0; } catch {}
+        }
+        const rect = element.getBoundingClientRect();
+        const ancestors = [];
+        for (let current = element.parentElement; current; current = current.parentElement) {
+          if (collectedSet.has(current)) ancestors.push(ids.get(current));
+          if (current === container) break;
+        }
+        return {
+          id: ids.get(element),
+          label: shortElementIdentifier(element),
+          ancestors,
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          z,
+          paints: paintsElement(element, style),
+        };
+      });
+  }
+
+  class ThreeSamplingRuntime {
+    constructor(config, spriteCompositor) {
+      this.config = config;
+      this.spriteCompositor = spriteCompositor;
+      this.records = new Map();
+      this.entries = [];
+      this.sampleCostMs = [];
+    }
+
+    mount(overlayFrame, threeRecords, manifest) {
+      this.entries = (manifest?.three ?? []).filter((entry) => ["curve", "sampled", "composite"].includes(entry.entranceMode));
+      for (const entry of manifest?.three ?? []) {
+        if (entry.entranceMode !== "sampled") continue;
+        const existing = threeRecords.get(entry.id);
+        if (!existing) throw new Error(`3D overlay record is missing: ${entry.id}`);
+        const sceneContent = existing.container;
+        const container = sceneContent.parentElement;
+        if (!container?.classList.contains("akari-overlay-container")) {
+          throw new Error(`3D overlay container parent is invalid: ${entry.id}`);
+        }
+        const root = [...sceneContent.children]
+          .find((element) => !["SCRIPT", "STYLE", "LINK", "META"].includes(element.tagName));
+        if (!root) throw new Error(`3D sampled entrance root is missing: ${entry.id}`);
+        const reverseChain = [];
+        for (let node = existing.canvas; node; node = node.parentElement) {
+          reverseChain.push(node);
+          if (node === container) break;
+        }
+        if (reverseChain.at(-1) !== container) throw new Error(`3D sampled entrance canvas is outside its container: ${entry.id}`);
+        const canvasBox = untransformedBox(existing.canvas);
+        this.records.set(entry.id, {
+          entry,
+          container,
+          root,
+          canvas: existing.canvas,
+          canvasBox,
+          fullFrameCanvas: boxMatchesFrame(canvasBox, this.config.width, this.config.height),
+          chain: reverseChain.reverse(),
+          intermediate: null,
+          context: null,
+        });
+      }
+    }
+
+    syncActive(seconds) {
+      for (const record of this.records.values()) {
+        record.container.toggleAttribute("data-akari-active", activeAt(record.entry, seconds));
+      }
+    }
+
+    sampleAt(entry, seconds) {
+      const record = this.records.get(entry.id);
+      if (!record) throw new Error(`3D sampled entrance record is missing: ${entry.id}`);
+      const started = performance.now();
+      record.container.toggleAttribute("data-akari-active", true);
+      for (const animation of record.container.getAnimations({ subtree: true })) {
+        try { animation.pause(); } catch {}
+        try { animation.currentTime = seconds * 1000; } catch {}
+      }
+
+      const view = record.container.ownerDocument.defaultView;
+      const Matrix = view.DOMMatrix;
+      let matrix = new Matrix();
+      let opacity = 1;
+      for (const node of record.chain) {
+        const computed = view.getComputedStyle(node);
+        const nodeOpacity = Number.parseFloat(computed.opacity);
+        opacity *= Math.max(0, Math.min(1, Number.isFinite(nodeOpacity) ? nodeOpacity : 1));
+        if (computed.transform && computed.transform !== "none") {
+          const transform = new Matrix(computed.transform);
+          const box = untransformedBox(node);
+          const origin = computed.transformOrigin.split(/\s+/u);
+          const originX = box.x + (Number.parseFloat(origin[0]) || 0);
+          const originY = box.y + (Number.parseFloat(origin[1]) || 0);
+          const aroundOrigin = new Matrix()
+            .translate(originX, originY)
+            .multiply(transform)
+            .translate(-originX, -originY);
+          matrix = matrix.multiply(aroundOrigin);
+        }
+      }
+      if (!isSupported2DMatrix(matrix)) {
+        throw new Error(`3D transform matrix is not supported for sampled 3D entrance: ${entry.id}`);
+      }
+
+      const axisState = sampledDrawStateFromMatrix(matrix, this.config.width, this.config.height);
+      if (axisState && record.fullFrameCanvas) {
+        this.spriteCompositor.updateSprite(entry.id, record.canvas);
+        this.sampleCostMs.push(performance.now() - started);
+        return { opacity, ...axisState };
+      }
+
+      if (!record.intermediate) {
+        record.intermediate = document.createElement("canvas");
+        record.intermediate.width = this.config.width;
+        record.intermediate.height = this.config.height;
+        record.context = record.intermediate.getContext("2d", { alpha: true });
+        if (!record.context) throw new Error(`3D sampled entrance 2D canvas is unavailable: ${entry.id}`);
+      }
+      const context = record.context;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, this.config.width, this.config.height);
+      context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+      const box = record.canvasBox;
+      context.drawImage(record.canvas, box.x, box.y, box.width, box.height);
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      this.spriteCompositor.updateSprite(entry.id, record.intermediate);
+      this.sampleCostMs.push(performance.now() - started);
+      return { opacity };
+    }
+
+    summary() {
+      return {
+        overlays: this.entries.map((entry) => ({ id: entry.id, entrance: { mode: entry.entranceMode } })),
+        sampling: summarize(this.sampleCostMs),
+      };
+    }
+
+    dispose() {
+      this.records.clear();
+    }
+  }
+
+  class ThreeCompositeRuntime {
+    constructor(domRuntime) {
+      this.domRuntime = domRuntime;
+      this.records = new Map();
+      this.copyMs = [];
+    }
+
+    mount(manifest, threeRecords) {
+      for (const entry of manifest?.three ?? []) {
+        if (entry.entranceMode !== "composite") continue;
+        const source = threeRecords.get(entry.id)?.canvas;
+        if (!source) throw new Error(`3D composite source canvas is missing: ${entry.id}`);
+        const container = this.domRuntime.containerFor(entry.id);
+        if (!container) throw new Error(`3D composite DOM container is missing: ${entry.id}`);
+        const target = container.querySelector("canvas");
+        if (!target) throw new Error(`3D composite target canvas is missing: ${entry.id}`);
+        const context = target.getContext("2d", { alpha: true });
+        if (!context) throw new Error(`3D composite target 2D canvas is unavailable: ${entry.id}`);
+        for (const fallback of container.querySelectorAll("[data-akari-3d-fallback]")) {
+          fallback.hidden = true;
+          fallback.style.setProperty("display", "none", "important");
+        }
+        this.records.set(entry.id, {
+          source,
+          target,
+          context,
+          domElements: container.querySelectorAll("*").length,
+        });
+      }
+    }
+
+    syncAt(entry, _seconds) {
+      const record = this.records.get(entry.id);
+      if (!record) throw new Error(`3D composite record is missing: ${entry.id}`);
+      const started = performance.now();
+      if (record.target.width !== record.source.width) record.target.width = record.source.width;
+      if (record.target.height !== record.source.height) record.target.height = record.source.height;
+      record.context.setTransform(1, 0, 0, 1, 0, 0);
+      record.context.clearRect(0, 0, record.target.width, record.target.height);
+      record.context.drawImage(record.source, 0, 0);
+      this.copyMs.push(performance.now() - started);
+    }
+
+    summary() {
+      if (this.records.size === 0) return null;
+      const domLayerCost = summarize(this.domRuntime.metrics.domLayerCostMs);
+      return {
+        overlays: this.records.size,
+        domElements: [...this.records.values()].reduce((sum, record) => sum + record.domElements, 0),
+        copy: summarize(this.copyMs),
+        domLayerCostMs: { p50: domLayerCost.p50, p95: domLayerCost.p95 },
+      };
+    }
+
+    dispose() {
+      this.records.clear();
+    }
+  }
+
   class DomLayerRuntime {
     constructor(config, runs, spriteCompositor, verifier = null) {
       this.config = config;
@@ -1308,6 +1684,19 @@
       this.settlePolicy = null;
       this.api = { drawElementImage: null, devicePixelRatio: window.devicePixelRatio };
       this.metrics = { timeFixMs: [], waitMs: [], drawElementMs: [], uploadMs: [], domLayerCostMs: [], frameCostMs: [] };
+      this.preserve3dOrder = new Map(this.runs.flatMap((run) => run.entries).map((entry) => {
+        const start = Number(entry.start) || 0;
+        const duration = Math.max(0, Number(entry.duration) || 0);
+        return [String(entry.id), {
+          overlayId: String(entry.id),
+          times: preserve3dSampleTimes(start, duration),
+          next: 0,
+          samples: 0,
+          pairs: 0,
+          conflicts: [],
+          warned: false,
+        }];
+      }));
       this.sentinel = {
         checked: Boolean(config.verifyFrames && this.runs.length > 0),
         mode: config.verifyFrames && this.runs.length > 0 ? "css-mod" : "disabled",
@@ -1417,6 +1806,15 @@
       return runActiveAt(run, seconds);
     }
 
+    containerFor(id) {
+      const target = String(id);
+      for (const record of this.records.values()) {
+        const match = record.containers.find(({ entry }) => String(entry.id) === target);
+        if (match) return match.container;
+      }
+      return null;
+    }
+
     async settle(record) {
       if (this.settlePolicy === "sync-layout") {
         const active = record.containers.find(({ container }) => container.hasAttribute("data-akari-active"));
@@ -1457,14 +1855,60 @@
       }
     }
 
+    async samplePreserve3dOrder(record, seconds) {
+      for (const { entry, container } of record.containers) {
+        if (!container.hasAttribute("data-akari-active")) continue;
+        const state = this.preserve3dOrder.get(String(entry.id));
+        if (!state) continue;
+        while (state.next < state.times.length && state.times[state.next] <= seconds) {
+          const sampleSeconds = state.times[state.next];
+          state.next += 1;
+          const conflicts = detectPreserve3dOrderConflicts(collectPreserve3dElements(container));
+          if (conflicts.length === 0) continue;
+          state.samples += 1;
+          state.pairs += conflicts.length;
+          for (const conflict of conflicts) {
+            if (state.conflicts.length >= 10) break;
+            state.conflicts.push({ seconds: sampleSeconds, front: conflict.front, back: conflict.back });
+          }
+          if (!state.warned) {
+            state.warned = true;
+            const message = `WARN overlay ${state.overlayId}: preserve-3d の子同士が画面上で重なり、奥行き順と DOM 順が食い違っています。GPU 経路の遮蔽順は DOM 順になるため OSR と絵が変わります。子同士を重ねない構成にするか --engine osr で書き出してください`;
+            try { await bridge?.log?.(message); } catch {}
+            console.warn(message);
+          }
+        }
+      }
+    }
+
     async captureRun(run, seconds, frameNumber) {
       const record = this.records.get(run.runId);
       if (!record) throw new Error(`GPU DOM layer record is missing: ${run.runId}`);
       const started = performance.now();
       for (const { entry, container, itemKeyframes } of record.containers) {
         const active = activeAt(entry, seconds);
+        // 時間窓の外は display: none で落とす。visibility: hidden は継承するだけなので、
+        // 子孫が visibility: visible を再宣言すると打ち消される — 実制作の断片は
+        // 「基本 hidden・ゲートアニメの 0% が visible」という書き方をするため、非活性の
+        // コンテナで 0% を適用した瞬間に中身が見えてしまう（実測: s35 の B ロール写真が
+        // 配置 110s なのに 0s のフレームへ出た）。display: none は子孫から打ち消せない。
+        // 断片側も同じ意図のガード（:not([data-akari-active]) > .x { display: none !important }）
+        // を持つが、そちらは直下セレクタなので .scene-content を挟む構造では当たらない。
+        // issue #53 (a)
+        container.style.display = active ? "" : "none";
         container.style.visibility = active ? "visible" : "hidden";
         container.toggleAttribute("data-akari-active", active);
+        // 活性・非活性を問わず毎コマ止めて時刻を書く。非活性を飛ばすと、時間窓の外の断片の
+        // CSS アニメが壁時計で走り切り（書き出しは分単位）、fill-mode: both/forwards の姿勢に
+        // 張り付いたまま窓に入ってくる = 同じ時刻でも直前に何を撮ったかで絵が変わる。
+        // display: none の間は CSS アニメ自体が動かないので固定は不要だが、活性へ戻った
+        // フレームで必ずこの行を通るため、時刻の書き込みは同じ 1 か所に残す。
+        // OSR の __akariSyncAnimations は active 判定を持たず全コンテナを固定している
+        // （render-cut/src/rasterize.mjs）。issue #53 (a)
+        for (const animation of container.getAnimations({ subtree: true })) {
+          try { animation.pause(); } catch {}
+          try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
+        }
         if (!active) continue;
         if (itemKeyframes) {
           const state = window.akari.keyframes.interpolateKeyframes(
@@ -1479,16 +1923,13 @@
           container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
           container.style.setProperty("opacity", String(state.opacity));
         }
-        for (const animation of container.getAnimations({ subtree: true })) {
-          try { animation.pause(); } catch {}
-          try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
-        }
       }
       this.setSentinelFrame(record, frameNumber);
       const timeFixMs = performance.now() - started;
       const waitStarted = performance.now();
       await this.settle(record);
       const waitMs = performance.now() - waitStarted;
+      await this.samplePreserve3dOrder(record, seconds);
       const drawStarted = performance.now();
       const context = record.context;
       context.setTransform(1, 0, 0, 1, 0, 0);
@@ -1548,6 +1989,9 @@
           breakdown: Object.fromEntries(Object.entries(this.metrics).map(([name, values]) => [name, summarize(values)])),
         },
         sentinel: this.sentinel,
+        preserve3dOrderConflicts: [...this.preserve3dOrder.values()]
+          .filter((state) => state.pairs > 0)
+          .map(({ overlayId, samples, pairs, conflicts }) => ({ overlayId, samples, pairs, conflicts })),
       };
     }
 
@@ -1560,6 +2004,8 @@
 
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
+    sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
+    detectPreserve3dOrderConflicts,
   };
 
   window.__akariGpuRun = async function () {
@@ -1614,12 +2060,17 @@
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
+    let rateControlResolution = null;
     let encodeCanvas = null;
     let supported = false;
     let hashFrame = null;
     let captureFrame = null;
     let drawTimingProbe = null;
     let domRuntime = null;
+    let threeSampling = null;
+    let threeComposite = null;
+    let overlaySheetHasVideo = false;
+    const overlayVideoWarnings = new Set();
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
     const started = performance.now();
@@ -1715,9 +2166,14 @@
           const canvas = container.querySelector("canvas");
           if (!canvas) throw new Error(`3D sprite canvas is missing: ${value.id}`);
           threeRecords.set(value.id, { container, canvas });
-          spriteCompositor.registerSprite(value.id, canvas);
+          if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
         }
       }
+      overlaySheetHasVideo = Boolean(overlayFrame)
+        && typeof overlayFrame.contentWindow?.__akariSeekVideos === "function"
+        && overlayFrame.contentDocument.querySelector("video") !== null;
+      threeSampling = new ThreeSamplingRuntime(config, spriteCompositor);
+      threeSampling.mount(overlayFrame, threeRecords, config.spriteManifest);
       let verifyModule = null;
       if (config.verifyFrames || captureMode || dumpFrameNumbers.size > 0) {
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
@@ -1736,6 +2192,8 @@
         : null;
       domRuntime = new DomLayerRuntime(config, config.spriteManifest.dom, spriteCompositor, sentinelVerifier);
       await domRuntime.mount();
+      threeComposite = new ThreeCompositeRuntime(domRuntime);
+      threeComposite.mount(config.spriteManifest, threeRecords);
       const hardwareAcceleration = config.soft ? "prefer-software" : "prefer-hardware";
       encoderSupport = captureMode ? null : await collectEncoderSupport(config);
       supported = captureMode || encoderSupport[hardwareAcceleration];
@@ -1743,9 +2201,7 @@
         const encodeWidth = config.outputWidth ?? config.width;
         const encodeHeight = config.outputHeight ?? config.height;
         await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames, codec: config.codec ?? "h264" });
-        encoder = new FE.WebCodecsH264Encoder({
-          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
-        }, {
+        const encoderOptions = {
           width: encodeWidth,
           height: encodeHeight,
           fps: config.fps,
@@ -1753,7 +2209,26 @@
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
           codec: config.codec ?? "h264",
-        });
+          ...(Number.isInteger(config.quantizer) ? { quantizer: config.quantizer } : {}),
+        };
+        // quantizer 対応の可否をエンコーダ 1 本につき 1 回だけ確認する（frame-engine 側の実装）。
+        rateControlResolution = await FE.WebCodecsH264Encoder.resolveRateControl(encoderOptions);
+        if (config.forceFixedBitrate && rateControlResolution.rateControl === "quantizer") {
+          rateControlResolution = {
+            options: { ...encoderOptions, quantizer: undefined },
+            rateControl: "bitrate",
+            fallbackReason: "forced-fixed-bitrate",
+          };
+        }
+        // 無言のフォールバック禁止（裁定 3）: stderr に 1 行（WARN 接頭辞が main で stderr へ回る）。
+        if (rateControlResolution.fallbackReason !== null) {
+          try {
+            await bridge.log(`WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（${config.bitrate}bps）へ切り替えました（quality=${config.quality} codec=${config.codec ?? "h264"} reason=${rateControlResolution.fallbackReason}）`);
+          } catch {}
+        }
+        encoder = new FE.WebCodecsH264Encoder({
+          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
+        }, rateControlResolution.options, rateControlResolution);
       } else if (!captureMode && !config.verifyFrames) {
         // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
         // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
@@ -1771,8 +2246,12 @@
       }
       for (let sequenceIndex = 0; sequenceIndex < sequenceLength; sequenceIndex += 1) {
         const frameNumber = captureMode ? frameSequence[sequenceIndex] : sequenceIndex;
-        const timeUs = Math.round(frameNumber / config.fps * 1e6);
-        const seconds = timeUs / 1e6;
+        // overlay の時間窓判定・CSS アニメ位相・item keyframes のフレーム番号はすべてこの seconds から
+        // 流れる。overlay の start は必ず atFrames / fps なので、同じ「フレーム番号 / fps」で作らないと
+        // カット境界がちょうど丸め誤差の効く点に乗り、境界フレーム 1 枚だけ OSR と食い違う
+        // （issue #53 (b)。OSR は osr-export/src/electron-main.mjs の __akariSeek(frame / fps)）。
+        // 映像レイヤーは frameAt が内部で Math.round(seconds * 1e6) を掛け直すので影響しない。
+        const seconds = frameNumber / config.fps;
         const evaluateStarted = performance.now();
         const frame = await engine.frameAt(seconds);
         stages.evaluate.push(performance.now() - evaluateStarted);
@@ -1781,13 +2260,31 @@
             throw new Error(`direct upload fallback at frame ${frameNumber}`);
           }
           const threeStarted = performance.now();
+          const threeStates = new Map();
+          threeSampling.syncActive(seconds);
           if (threeRuntime) {
+            // シーク → 提示フレーム確定 → 3D 描画 の順を守る（3d.md）。順序が逆だと <video> が
+            // 1 コマ前の絵のままテクスチャへ上がる。GPU 経路はシートの __akariSeek を呼ばないので
+            // video 部分だけをここで呼ぶ（呼ばないと動画テクスチャは 0 秒の絵に固定される。issue #53 (c)）
+            if (overlaySheetHasVideo) {
+              for (const message of await overlayFrame.contentWindow.__akariSeekVideos(seconds)) {
+                if (overlayVideoWarnings.has(message)) continue;
+                overlayVideoWarnings.add(message);
+                warn(message);
+              }
+            }
             for (const value of config.spriteManifest.three) {
               if (!activeAt(value, seconds)) continue;
               const record = threeRecords.get(value.id);
               if (!record) throw new Error(`3D overlay record is missing: ${value.id}`);
               threeRuntime.render(record.container, seconds - value.start);
-              spriteCompositor.updateSprite(value.id, record.canvas);
+              if (value.entranceMode === "composite") {
+                threeComposite.syncAt(value, seconds);
+              } else if (value.entranceMode === "sampled") {
+                threeStates.set(value.id, threeSampling.sampleAt(value, seconds));
+              } else {
+                spriteCompositor.updateSprite(value.id, record.canvas);
+              }
             }
           }
           stages.three.push(performance.now() - threeStarted);
@@ -1801,7 +2298,7 @@
           const domFrameCost = performance.now() - domStarted;
           stages.dom.push(domFrameCost);
           if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
-          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates);
           for (const unit of captionUnits) {
             if (seconds >= unit.cueStart + unit.cueDuration) {
               releaseCaptionUnit(unit, spriteCompositor);
@@ -1950,6 +2447,10 @@
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
+              bitrateSource: config.bitrateSource ?? null,
+              rateControl: rateControlResolution?.rateControl ?? null,
+              rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+              quantizer: rateControlResolution?.options?.quantizer ?? null,
               codec: config.codec ?? "h264",
               queueDepth: config.queueDepth,
               queueWaits,
@@ -1967,6 +2468,10 @@
               previewDisabledReason,
             },
             domLayer: domRuntime.summary(),
+            three: { ...threeSampling.summary(), composite: threeComposite.summary() },
+            // 生存デコーダセッション数。#28 の時点で「RSS はセッション数に比例」と分かって
+            // いたのに記録が無く、issue #52 でまた手探りになったので run.json に残す
+            decoderSessions: engine.decoderSessions,
           });
         }
       }
@@ -1997,6 +2502,10 @@
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
+          bitrateSource: config.bitrateSource ?? null,
+          rateControl: rateControlResolution?.rateControl ?? null,
+          rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+          quantizer: rateControlResolution?.options?.quantizer ?? null,
           codec: config.codec ?? "h264",
           queueDepth: config.queueDepth,
           queueWaits,
@@ -2015,6 +2524,7 @@
           previewDisabledReason,
         },
         domLayer: domRuntime.summary(),
+        three: { ...threeSampling.summary(), composite: threeComposite.summary() },
         mux,
         eligibility: config.eligibility,
         warnings,
@@ -2023,6 +2533,8 @@
       restoreTraps();
       encoder?.close();
       domRuntime?.dispose();
+      threeSampling?.dispose();
+      threeComposite?.dispose();
       spriteCompositor.dispose();
       engine.dispose();
     }

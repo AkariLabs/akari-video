@@ -20,6 +20,7 @@ import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
 import { buildAudioClipFxFilters } from "../../media-bin/src/preview-audio-sidecar.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 import { buildTelopRasterCommands, readRenderEdit } from "./internal-render.mjs";
+import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
 const require = createRequire(import.meta.url);
 const {
@@ -71,8 +72,9 @@ export function buildPlan({
   });
   const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
   const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
-  const compositePath = join(temporaryDirectory, "composite.mp4");
-  const finalPath = join(temporaryDirectory, "final.mp4");
+  const container = containerForCodec(codec);
+  const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
+  const finalPath = container.kind === "directory" ? compositePath : join(temporaryDirectory, `final.${container.ext}`);
   const cutAudio = needsGapAwareCutTimeline(edit.cuts)
     ? buildGapAwareMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
@@ -87,6 +89,7 @@ export function buildPlan({
         sourceInputs: capabilities.sourceInputs,
         cutPath: cutAudioPath,
         cuts: edit.cuts,
+        duration: finalDurationSeconds,
         ffmpegCommand: capabilities.ffmpegCommand,
         ffprobeCommand: capabilities.ffprobeCommand,
         audioDurationCache: sourceAudioDurationCache,
@@ -103,12 +106,13 @@ export function buildPlan({
   const audioMix = buildAudioMixCommand({
     edit,
     projectRoot,
-    inputPath: compositePath,
-    outputPath: finalPath,
+    inputPath: codec === "png" ? join(compositePath, "audio.wav") : compositePath,
+    outputPath: codec === "png" ? join(temporaryDirectory, "final-audio.wav") : finalPath,
     duration: finalDurationSeconds,
     ffmpegCommand: capabilities.ffmpegCommand,
     ffprobeCommand: capabilities.ffprobeCommand,
     workDirectory: temporaryDirectory,
+    codec,
   });
 
   return {
@@ -124,7 +128,8 @@ export function buildPlan({
       ...(tailPadAudio ? [tailPaddedAudioPath] : []),
       ...telopRasterCommands.map((command) => command.output),
       compositePath,
-      finalPath,
+      ...(container.kind === "directory" ? [join(temporaryDirectory, "final-audio.wav")] : []),
+      ...(container.kind === "directory" ? [] : [finalPath]),
     ].map((value) => relative(projectRoot, value)),
     commands: {
       cut_audio: cutAudio,
@@ -140,13 +145,15 @@ export function buildPlan({
 }
 
 export function buildVideoPreset({ codec = "h264", width, height, fps }) {
-  if (!["h264", "hevc"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
+  if (!["h264", "hevc", "prores422", "png"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
+  const container = containerForCodec(codec);
   return {
-    video_codec: codec,
-    profile: codec === "hevc" ? "main" : "high",
-    pixel_format: "yuv420p",
+    video_codec: codec === "prores422" ? "prores" : codec,
+    profile: codec === "hevc" ? "main" : codec === "prores422" ? 3 : codec === "png" ? null : "high",
+    pixel_format: codec === "prores422" ? "yuv422p10le" : codec === "png" ? "rgba" : "yuv420p",
     color_range: "tv",
-    audio_codec: "aac",
+    ...(codec === "h264" || codec === "hevc" ? {} : { container: container.ext ?? "directory" }),
+    audio_codec: codec === "prores422" || codec === "png" ? "pcm_s16le" : "aac",
     width,
     height,
     fps,
@@ -162,6 +169,7 @@ export function buildAudioMixCommand({
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   workDirectory = dirname(outputPath),
+  codec = "h264",
 }) {
   const audio = normalizeAudioPlan(edit.audio);
   const { tracks: narrationTracks, warnings } = resolveNarrationTracks({
@@ -169,6 +177,7 @@ export function buildAudioMixCommand({
     projectRoot,
     duration,
     ffprobeCommand,
+    fps: edit.output?.fps,
   });
   const hasNarration = narrationTracks.length > 0;
   const master = normalizeMasterPlan(edit.audio?.master);
@@ -213,7 +222,7 @@ export function buildAudioMixCommand({
     return `${clipFilters.join(",")},`;
   };
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master && codec !== "prores422") {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
       hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
@@ -230,6 +239,16 @@ export function buildAudioMixCommand({
     "-i",
     inputPath,
   ];
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
+    args.push(
+      "-map", "0:v:0", "-map", "0:a:0", "-t", formatNumber(duration),
+      "-c:v", "copy", ...audioArgsForCodec(codec), outputPath,
+    );
+    return {
+      operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
+      hasAudibleAudio: false, envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
+    };
+  }
   const labels = ["[0:a]"];
   const filters = [];
   let inputIndex = 1;
@@ -325,7 +344,15 @@ export function buildAudioMixCommand({
     const sfxSourcePath = resolve(projectRoot, sfx.path);
     const needsEnvelopeDuration = Array.isArray(sfx.keyframes) || sfx.ducking === true;
     const clipSpeed = isFiniteNumber(sfx.speed) && sfx.speed > 0 ? sfx.speed : 1;
-    const trim = resolveSfxTrim(sfx, ffprobeCommand, sfxSourcePath, index, needsEnvelopeDuration, clipSpeed);
+    const trim = resolveSfxTrim(
+      sfx,
+      ffprobeCommand,
+      sfxSourcePath,
+      index,
+      needsEnvelopeDuration,
+      clipSpeed,
+      edit.output?.fps,
+    );
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     args.push("-i", sfxSourcePath);
@@ -398,18 +425,13 @@ export function buildAudioMixCommand({
   args.push(
     "-filter_complex",
     filters.join(";"),
-    "-map",
-    "0:v:0",
+    ...(codec === "png" ? [] : ["-map", "0:v:0"]),
     "-map",
     finalLabel,
     "-t",
     formatNumber(duration),
-    "-c:v",
-    "copy",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
+    ...(codec === "png" ? [] : ["-c:v", "copy"]),
+    ...audioArgsForCodec(codec),
     outputPath,
   );
   return {
@@ -445,7 +467,7 @@ function normalizeMasterPlan(master) {
 // filesystem and its declared values, skipping (with a warning) whatever cannot be rendered safely
 // instead of failing the whole export. Runs during planning so the resulting command is deterministic
 // for a fixed filesystem/edit.json pair.
-function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand }) {
+function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps }) {
   const warnings = [];
   const tracks = [];
   if (!Array.isArray(narration)) return { tracks, warnings };
@@ -486,7 +508,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
     if (gain_db !== rawGain) {
       warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
     }
-    const trim = resolveNarrationTrim(item, probe.duration, id);
+    const trim = resolveNarrationTrim(item, probe.duration, id, fps);
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     tracks.push({
@@ -498,7 +520,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
   return { tracks, warnings };
 }
 
-function resolveNarrationTrim(item, actualDuration, id) {
+function resolveNarrationTrim(item, actualDuration, id, fps) {
   const hasIn = item.in !== undefined;
   const hasOut = item.out !== undefined;
   if (!hasIn && !hasOut) {
@@ -515,9 +537,11 @@ function resolveNarrationTrim(item, actualDuration, id) {
     inSeconds = 0;
   }
   if (outSeconds > actualDuration) {
-    warnings.push(
-      `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
-    );
+    if (shouldWarnForOutClamp(outSeconds, actualDuration, fps)) {
+      warnings.push(
+        `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
+      );
+    }
     outSeconds = actualDuration;
   }
   if (outSeconds <= inSeconds) {
@@ -716,7 +740,15 @@ function resolveBgmInSeconds(bgm, ffprobeCommand, resolvedPath) {
 // effectiveDuration (the [in,out) window's own length, once knowable) is what audio-clip-fades'
 // resolveSfxFadeSeconds clamps fade_in/fade_out against -- null means "not knowable without a
 // probe that didn't happen" and the caller skips fade application rather than guessing.
-function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeDuration = false, speed = 1) {
+function resolveSfxTrim(
+  sfx,
+  ffprobeCommand,
+  resolvedPath,
+  index,
+  needsEnvelopeDuration = false,
+  speed = 1,
+  fps,
+) {
   const hasIn = sfx.in !== undefined;
   const hasOut = sfx.out !== undefined;
   const hasFade = sfx.fade_in !== undefined || sfx.fade_out !== undefined;
@@ -738,7 +770,7 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeD
       return { skip: true, trimFilter: "", effectiveDuration: null, warnings };
     }
     if (outSeconds === null || outSeconds > actualDuration) {
-      if (outSeconds !== null) {
+      if (outSeconds !== null && shouldWarnForOutClamp(outSeconds, actualDuration, fps)) {
         warnings.push(
           `${label}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
         );
@@ -762,6 +794,10 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeD
     inSeconds > 0 || end !== "" ? `atrim=start=${formatNumber(inSeconds)}${end},asetpts=PTS-STARTPTS,` : "";
   const effectiveDuration = outSeconds === null ? null : (outSeconds - inSeconds) / speed;
   return { skip: false, trimFilter, effectiveDuration, warnings };
+}
+
+function shouldWarnForOutClamp(outSeconds, actualDuration, fps) {
+  return !isPositiveNumber(fps) || outSeconds - actualDuration >= 1 / fps;
 }
 
 // audio.bgm.fadeIn/fadeOut clamp rule: the "clip" bgm occupies is the full timeline (it is
@@ -835,11 +871,24 @@ export function buildMultiSourceAudioCutCommand({
   sourceInputs,
   cutPath,
   cuts,
+  duration,
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
   maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
 }) {
+  if (cuts.length === 0) {
+    return {
+      command: ffmpegCommand,
+      warnings: [],
+      args: [
+        "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-map", "0:a", "-vn", "-c:a", "aac", "-ar", "48000",
+        "-t", formatNumber(duration), cutPath,
+      ],
+    };
+  }
   const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
   const inputLimit = normalizeAudioInputLimit(maxInputsPerCommand);
   if (countAudioInputs(cuts, sourcesById) <= inputLimit) {
@@ -1334,17 +1383,18 @@ function isPositiveNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-export function selectDefaultOutput(projectRoot, edit, exists) {
+export function selectDefaultOutput(projectRoot, edit, exists, codec = "h264") {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;
-  const namingSource = edit.sources[0]?.path;
-  const sourceName = basename(namingSource, extname(namingSource));
-  const stem = sanitizeName(configured ?? sourceName ?? "render");
+  const projectName = basename(resolve(projectRoot)) || null;
+  const stem = sanitizeName(configured ?? projectName ?? "render");
   const directory = join(projectRoot, "exports");
+  const container = containerForCodec(codec);
+  const suffix = container.ext ? `.${container.ext}` : "";
   let index = 1;
-  let candidate = join(directory, `${stem}.mp4`);
+  let candidate = join(directory, `${stem}${suffix}`);
   while (exists(candidate)) {
     index += 1;
-    candidate = join(directory, `${stem}-${index}.mp4`);
+    candidate = join(directory, `${stem}-${index}${suffix}`);
   }
   return candidate;
 }

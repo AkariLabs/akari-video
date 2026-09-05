@@ -19,6 +19,8 @@ const FFMPEG_ENCODERS = {
   mf: "h264_mf",
 };
 
+const H264_COLOR_TAG_BSF = ["-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"];
+
 function probeSpawn({ listed = [], smokePasses = listed } = {}) {
   const calls = [];
   const spawnSyncImpl = (command, args) => {
@@ -54,40 +56,40 @@ test("encoder x quality argument snapshots preserve legacy bytes and fix every h
   );
   assert.deepEqual(actual, {
     x264: {
-      master: ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-color_range", "tv"],
-      high: ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "18", "-color_range", "tv"],
-      standard: ["-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "23", "-color_range", "tv"],
-      light: ["-c:v", "libx264", "-profile:v", "high", "-preset", "fast", "-crf", "26", "-color_range", "tv"],
+      master: ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "15", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      high: ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "18", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "23", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "libx264", "-profile:v", "high", "-preset", "fast", "-crf", "26", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
     videotoolbox: {
       master: { error: "master quality does not support videotoolbox" },
-      high: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "12M", "-profile:v", "high", "-color_range", "tv"],
-      standard: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "8M", "-profile:v", "high", "-color_range", "tv"],
-      light: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "5M", "-profile:v", "high", "-color_range", "tv"],
+      high: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "12M", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "8M", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "5M", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
     nvenc: {
       master: { error: "master quality does not support nvenc; it requires x264" },
-      high: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-preset", "p6", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      standard: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "23", "-b:v", "0", "-preset", "p5", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      light: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "26", "-b:v", "0", "-preset", "p4", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
+      high: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-preset", "p6", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "23", "-b:v", "0", "-preset", "p5", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "h264_nvenc", "-rc", "vbr", "-cq", "26", "-b:v", "0", "-preset", "p4", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
     qsv: {
       master: { error: "master quality does not support qsv; it requires x264" },
-      high: ["-c:v", "h264_qsv", "-global_quality", "18", "-preset", "slow", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      standard: ["-c:v", "h264_qsv", "-global_quality", "23", "-preset", "medium", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      light: ["-c:v", "h264_qsv", "-global_quality", "26", "-preset", "fast", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
+      high: ["-c:v", "h264_qsv", "-global_quality", "18", "-preset", "slow", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "h264_qsv", "-global_quality", "23", "-preset", "medium", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "h264_qsv", "-global_quality", "26", "-preset", "fast", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
     amf: {
       master: { error: "master quality does not support amf; it requires x264" },
-      high: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "18", "-qp_p", "18", "-quality", "quality", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      standard: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "23", "-qp_p", "23", "-quality", "balanced", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      light: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "26", "-qp_p", "26", "-quality", "speed", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
+      high: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "18", "-qp_p", "18", "-quality", "quality", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "23", "-qp_p", "23", "-quality", "balanced", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "26", "-qp_p", "26", "-quality", "speed", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
     mf: {
       master: { error: "master quality does not support mf; it requires x264" },
-      high: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "85", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      standard: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "70", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
-      light: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "55", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"],
+      high: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "85", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      standard: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "70", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
+      light: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "55", "-hw_encoding", "1", "-profile:v", "high", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv", ...H264_COLOR_TAG_BSF],
     },
   });
   assert.equal(buildVideoEncodeArgs({}), null);
@@ -99,6 +101,10 @@ test("encoder x quality argument snapshots preserve legacy bytes and fix every h
     qsvPreset: null,
     amfQuality: null,
     mfQuality: null,
+    videotoolboxQuality: null,
+    videotoolboxHevcQuality: null,
+    webcodecsQuantizer: null,
+    webcodecsHevcQuantizer: null,
   });
 });
 
@@ -169,6 +175,7 @@ test("resolveEncodingPolicy produces the complete NVENC args through Windows aut
     "-color_primaries", "bt709",
     "-color_trc", "bt709",
     "-color_range", "tv",
+    ...H264_COLOR_TAG_BSF,
   ]);
 });
 

@@ -199,6 +199,15 @@ export declare function readInternalSources(source: string | unknown): InternalS
  * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
  */
 export declare function visualContentEndSeconds(internal: InternalEdit): number;
+/**
+ * 出力タイムラインの総尺。映像本体がある間は visualContentEndSeconds を唯一の正本とし、
+ * 映像本体が 0 秒のときだけ overlays / 字幕 / narration / sfx の最大終端へ後退する。
+ * BGM は総尺に合わせて切られる素材なので、後退尺には含めない。
+ */
+export declare function timelineDurationSeconds(internal: InternalEdit): {
+    seconds: number;
+    basis: 'visual' | 'overlays-audio' | 'empty';
+};
 /** 全トラックの明示アイテムを、親→子の深さ優先で列挙する。 */
 export declare function walkItems(internal: InternalEdit): Generator<InternalItem>;
 export interface CrossTrackLayerEvacuation {

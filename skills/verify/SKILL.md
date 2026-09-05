@@ -52,6 +52,11 @@ npm run lint                                       # eslint "extensions/*/src/**
 `shell-s12-preview-tab` / `shell-sc-repair` / `shell-strip-menu-repair` 等）。
 以下は `shell-s4-tabs`（report.md §6-2）と `preview-streaming`（report.md §2）で確立・実証済みの再現手順。
 
+**フレーム視認は境界時刻だけで判定しない**。拍ちょうど・カット境界ちょうどのフレームは区間の境界値
+（0% / 100% = 画面外・opacity 0）に必ず当たるため、正常な動きを事故と誤診する。区間の中間時刻
+（1/4・1/2・3/4）も必ず撮る（`akari capture --auto` は各オーバーレイ / 字幕区間の中点を含む代表時刻を
+決定論で導出する）。
+
 ### 手順
 
 1. **ビルド**（L0 に加え electron 実体が要る）:

@@ -49,6 +49,26 @@ interface CurationEntry {
 const ROLE_BUCKETS_WIDGET_ID = 'akari-role-buckets-widget';
 const MENU_WIDGET_ID = 'akari-menu-widget';
 
+/**
+ * サイドパネル最上部のタイトル帯（`.theia-sidepanel-toolbar`）を畳むビュー。
+ * 素材/ライブラリ面は自前の固定セグメントを最上部に持っており、その上にさらに
+ * Theia のタイトル帯（`title.label` = 「素材」）が乗ると二重見出しになる
+ * （2026-09-03 オーナー指示「一番上に書いてある『素材』という文字はいらない」）。
+ * 検索・パートナー/拡張はツールバー項目を持つので対象にしない。
+ */
+const TITLE_BAR_SUPPRESSED_IDS = new Set([ROLE_BUCKETS_WIDGET_ID]);
+
+/** `ApplicationShell.leftPanelHandler` の、ここで触る分だけの最小形（Theia 内部 API）。 */
+interface LeftPanelInternals {
+    /** BoxLayout の子。`hide()`/`show()` で帯そのものを出し入れする。 */
+    toolBar?: { hide(): void; show(): void; readonly isHidden: boolean };
+    tabBar?: {
+        titles: Iterable<{ owner: { id: string; dispose(): void; close(): void; isDisposed: boolean }; label: string }>;
+        readonly currentTitle?: { owner: { id: string } } | null;
+        readonly currentChanged?: { connect(slot: () => void, thisArg?: unknown): void };
+    };
+}
+
 // 既定 5 アイコン = 素材 / 検索 / パートナー・拡張 / 設定 / メニュー（task.md スコープ2 + 本ラウンド追加分）。
 // 「素材」は下記 MODE_SENSITIVE_PAIR の 2 id のどちらか一方だけが常時表示される。
 // akari-settings-widget は AkariSettingsContribution.onStart、
@@ -100,6 +120,11 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
         app.shell.onDidAddWidget((widget: Widget) => {
             this.reconcileLeftPanel(`onDidAddWidget:${widget.id}`);
         });
+
+        // 左パネルのタブ切り替え（素材 ⇄ 検索 ⇄ パートナー…）ではウィジェットの
+        // 追加が起きないので onDidAddWidget では拾えない。タイトル帯の出し入れは
+        // tabBar.currentChanged（Lumino シグナル）に直接ぶら下げる。
+        this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => this.reconcileSidePanelTitleBar());
 
         // developer mode の切り替え時に「素材」の表示先を即座に入れ替える。
         // トグルはアプリ再起動なしに反映される想定（task.md 要件）。
@@ -157,14 +182,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     }
 
     protected reconcileLeftPanel(trigger: string): void {
-        const shell = this.shell as unknown as {
-            leftPanelHandler?: {
-                tabBar?: {
-                    titles: Iterable<{ owner: { id: string; dispose(): void; close(): void; isDisposed: boolean }; label: string }>;
-                };
-            };
-        } | undefined;
-        const tabBar = shell?.leftPanelHandler?.tabBar;
+        const tabBar = this.leftPanelInternals()?.tabBar;
         if (!tabBar) {
             console.warn('[akari-shell-strip] leftPanelHandler.tabBar not found — Theia internal API may have changed.');
             return;
@@ -197,6 +215,40 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             // allowlist 外 = 拡張が後から追加したものを含め、即座に隠す。
             console.info(`[akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=${trigger}):`, id);
             title.owner.dispose();
+        }
+
+        this.reconcileSidePanelTitleBar();
+    }
+
+    protected leftPanelInternals(): LeftPanelInternals | undefined {
+        return (this.shell as unknown as { leftPanelHandler?: LeftPanelInternals } | undefined)?.leftPanelHandler;
+    }
+
+    /**
+     * 現在の左パネルビューに応じてタイトル帯を出し入れする。
+     *
+     * CSS の `display: none` ではなく Lumino の `hide()` を使う: この帯は
+     * `SidePanelHandler.createContainer()` が組む BoxLayout の子で、Lumino は子を
+     * 絶対配置（top/height を実測して書く）する。display だけ消しても下の dockPanel の
+     * top オフセットは帯の高さぶん残り、空白の帯になるだけで詰まらない。`hide()` なら
+     * BoxLayout の fit/update が非表示の子を飛ばして再計算するのでパネルが上まで詰まる。
+     */
+    protected reconcileSidePanelTitleBar(): void {
+        const handler = this.leftPanelInternals();
+        const toolBar = handler?.toolBar;
+        if (!toolBar) {
+            console.warn('[akari-shell-strip] leftPanelHandler.toolBar not found — Theia internal API may have changed.');
+            return;
+        }
+        const currentId = handler?.tabBar?.currentTitle?.owner.id;
+        const suppress = !!currentId && TITLE_BAR_SUPPRESSED_IDS.has(currentId);
+        if (suppress === toolBar.isHidden) {
+            return;
+        }
+        if (suppress) {
+            toolBar.hide();
+        } else {
+            toolBar.show();
         }
     }
 

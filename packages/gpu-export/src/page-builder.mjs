@@ -45,6 +45,7 @@ export function buildGpuPage({
   layerLutCubeTexts = [],
   adjustLutCubeTexts = {},
   eligibility = null,
+  forceDegraded = false,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
@@ -77,14 +78,21 @@ export function buildGpuPage({
     captions: captionRoot,
     defaultTextStyle,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    forceDegraded,
   });
   const classifications = new Map(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay")
     .map((entry) => [entry.id, entry.classification]));
+  const overlayEligibility = new Map(resultEligibility.entries
+    .filter((entry) => entry.kind === "overlay")
+    .map((entry) => [entry.id, entry]));
   const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
-  const dom = buildDomRuns(indexedOverlays, classifications, duration);
+  const compositeIds = new Set(resultEligibility.entries
+    .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
+    .map((entry) => entry.id));
+  const dom = buildDomRuns(indexedOverlays, classifications, compositeIds);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
@@ -121,21 +129,28 @@ export function buildGpuPage({
       };
     }),
     statics: statics.map(({ overlay, index }) => ({
-      id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
+      id: String(overlay.id), ...overlayWindow(overlay, "statics"),
       html: overlay.html, vars: resolveOverlayVars(overlay), index,
       z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
       params: overlayTextSlotParams(overlay),
     })),
     three: three.map(({ overlay, index }) => {
-      const parsed = parseThreeEntrance(overlay.html, {
-        vars: overlay.vars,
-        transform: overlay.transform,
-        role: overlay.role,
-      });
+      const reason = overlayEligibility.get(String(overlay.id))?.reason;
+      const entranceMode = reason === "three-scene-entrance-curve" ? "curve"
+        : reason === "three-scene-entrance-sampled" ? "sampled"
+          : reason === "three-scene-sampled-composite" ? "composite" : "none";
+      const parsed = entranceMode === "curve"
+        ? parseThreeEntrance(overlay.html, {
+          vars: overlay.vars,
+          transform: overlay.transform,
+          role: overlay.role,
+        })
+        : null;
       return {
-        id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
+        id: String(overlay.id), ...overlayWindow(overlay, "three"), index,
         z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
-        ...(parsed.ok ? { entrance: parsed.entrance } : {}),
+        entranceMode,
+        ...(parsed?.ok ? { entrance: parsed.entrance } : {}),
       };
     }),
     dom,
@@ -184,7 +199,10 @@ export function buildGpuPage({
   <div id="akari-stage">
     <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
     <canvas id="akari-final" width="${width}" height="${height}"></canvas>
-    <div id="akari-dom-stage"></div>
+    <!-- data-no-timeline: 断片の規約は [data-akari-active] .x, [data-no-timeline] .x { animation: ... }。
+         OSR のシートは #stage に data-no-timeline を持つ（render-cut/src/rasterize.mjs）。
+         GPU の DOM ステージに無いと、no-timeline アームだけで宣言した断片が GPU だけ動かない（issue #53 (c)） -->
+    <div id="akari-dom-stage" data-no-timeline></div>
     ${iframe}
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
@@ -220,12 +238,31 @@ export function buildGpuPage({
   };
 }
 
-function buildDomRuns(indexedOverlays, classifications, duration) {
+/**
+ * overlay の時間窓。overlay-runtime の overlayRecord が start / duration をスプレッドより後ろで
+ * 無条件に書き、edit-store が atFrames / fps で秒へ正規化するので、ここへ来る時点で必ず有限数。
+ * 既定値（?? 0 / ?? duration）を置くと、欠けたときに「OSR は絶対に出さない・GPU は全尺出す」
+ * という最悪の非対称になる（OSR のシートは formatNumber(undefined) が "NaN" を書き、
+ * seconds >= NaN が常に false になるため）。黙って全尺にせず fail-closed にする（issue #53）。
+ */
+function overlayWindow(overlay, kind) {
+  const start = Number(overlay?.start);
+  const duration = Number(overlay?.duration);
+  if (!Number.isFinite(start) || !Number.isFinite(duration)) {
+    throw new Error(
+      `${kind} overlay ${overlay?.id} has no finite time window: start=${overlay?.start} duration=${overlay?.duration}`,
+    );
+  }
+  return { start, duration };
+}
+
+function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set()) {
   const runs = [];
   let current = null;
   for (const { overlay, index } of indexedOverlays) {
     const z = Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0;
-    if (classifications.get(String(overlay.id)) !== "dom") {
+    const id = String(overlay.id);
+    if (classifications.get(id) !== "dom" && !compositeIds.has(id)) {
       current = null;
       continue;
     }
@@ -235,13 +272,13 @@ function buildDomRuns(indexedOverlays, classifications, duration) {
     }
     current.entries.push({
       id: String(overlay.id),
-      start: Number(overlay.start ?? 0),
-      duration: Number(overlay.duration ?? duration),
+      ...overlayWindow(overlay, "dom"),
       html: String(overlay.html ?? "").replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
       vars: resolveOverlayVars(overlay),
       transform: overlay.transform ?? {},
       role: overlay.role ?? null,
       params: overlayTextSlotParams(overlay),
+      ...(compositeIds.has(id) ? { composite: true } : {}),
     });
   }
   return runs;
@@ -276,6 +313,7 @@ export async function loadAndBuildGpuPage({
   width,
   height,
   duration,
+  forceDegraded = false,
 }) {
   const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
   const editText = await readFile(resolvedEditPath, "utf8");
@@ -317,6 +355,7 @@ export async function loadAndBuildGpuPage({
     captions,
     defaultTextStyle: Array.isArray(captions) ? null : captions?.default_text_style ?? null,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
+    forceDegraded,
   });
   const page = buildGpuPage({
     edit,
@@ -332,6 +371,7 @@ export async function loadAndBuildGpuPage({
     layerLutCubeTexts,
     adjustLutCubeTexts,
     eligibility,
+    forceDegraded,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };
 }

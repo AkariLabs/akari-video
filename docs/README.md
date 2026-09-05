@@ -117,6 +117,7 @@ All contracts follow the
 | File | Contents |
 |---|---|
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Engine v2 parity — one `T → frame` evaluator, two preview containers, one OSR exit, and a single golden-frame acceptance suite (Japanese) |
+| [contract-2026-09-03-preview-playback-rate-v1.md](./contract-2026-09-03-preview-playback-rate-v1.md) | Preview playback rate v1 — 0.5×–3× transport presets, widget-lifetime state, output-timeline clock semantics, and pitch preservation across frame-engine and legacy audio paths (Japanese) |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: one-way export to other NLEs (FCPXML / FCP7 XML / SRT) — **BETA, untested against real NLEs** |
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | Whole-page Electron OSR export v0 — page layers, seek/paint verification handshake, launcher fallback, and memory limits (Japanese) |
 | [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU-direct export v0 — eligibility, zero-readback WebCodecs path, incremental MP4 mux (moov reserved up front, no temp file, no ffmpeg process), fallback, and determinism gates (Japanese) |

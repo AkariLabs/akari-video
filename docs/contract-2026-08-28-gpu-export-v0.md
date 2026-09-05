@@ -13,11 +13,14 @@
 ## 2. 適格性
 
 適格性は宣言時に HTML 文字列、字幕 cue、編集宣言から機械判定する。結果は全件 receipt に残す。
+自由 HTML の判定は、`<!-- ... -->` の HTML コメントを除去した文字列に対して行う。コメント内の
+`data-akari-3d-scene`、タグ、URL、CSS 語彙は適格性へ影響させず、CSS コメントと
+`<script type="application/json">` の内容は従来どおり判定対象の文字列に残す。
 
 | 分類 | 適格 | 意味 |
 |---|---|---|
 | `same` | はい | 静的 HTML は起動時、対応済み字幕は unit の初回活性時に 1 回だけスプライト化する |
-| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新する |
+| `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新し、登場表現は `three-scene-entrance-curve`、`three-scene-entrance-sampled`、または `three-scene-sampled-composite` で処理する |
 | `degraded` | いいえ | raster 自体は可能でも live DOM と同じ時間変化を保証できない |
 | `unsupported` | いいえ | v0 の表現範囲外であり、正しい完成画を生成できない |
 
@@ -116,11 +119,19 @@ frame-engine canvas は cuts、layers、transition、matte、LUT を評価する
 字幕・HTML・3D は LUT の外に置く。全 upload は `uploadPath = "direct"` を必須とし、fallback を検出した
 コマで書き出しを停止する。
 
+cuts と layers が同時に空のフレームは、出力解像度の黒 1 枚として合成する。その後の静的 HTML、3D、字幕の
+スプライト合成は通常どおりこの黒い frame-engine canvas の上へ重ねる。
+
 3D は engine の時計から得た local seconds を `threeRuntime.render(container, t)` へ直接渡して駆動する。
-GPU 出口は overlay sheet の `__akariSeek` を使用しない。毎コマの DOM animation 同期、全 container の
-visibility 更新、video seek 待ちを 3D canvas の texture 更新へ持ち込まないためである。sheet の
+GPU 出口は overlay sheet の `__akariSeek` を使用しない。毎コマの DOM animation 同期と全 container の
+visibility 更新を 3D canvas の texture 更新へ持ち込まないためである。sheet の
 `__akariReady` は起動時に 1 回だけ待ち、各 scene が ready でない場合は overlay id と状態を示して
 fail-closed にする。active 区間は最終 compositor の draw へ積むかどうかで決める。
+
+**2026-09-04 改訂（issue #53）**: video seek 待ちだけは例外とし、sheet が公開する `__akariSeekVideos(seconds)`
+（`__akariSeek` から切り出した video 部分・OSR と同一実装）を毎コマ、3D 描画の前に呼ぶ。3D 断片の動画テクスチャは
+`<video>` の提示フレームから上がるため、シーク → 提示確定 → 3D 描画 の順序が必要で（`3d.md`）、呼ばないと
+GPU 経路の動画テクスチャは起動時の 0 秒の絵に固定される。シートに `<video>` が無ければ呼ばない。
 
 ## 4. 読み戻しゼロ
 
@@ -180,6 +191,26 @@ exit code 2 で中止する。edit.json の音声を混ぜる製品経路は §1
 software MP4 SHA はエンコーダが決定論的な場合だけ必須とし、それ以外は警告を伴う診断値とする。
 GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以下、字幕 cue の代表 5 時刻の
 下半分 MAD 1.0 以下、3D 区間 MAD 1.0 以下を固定閾値とする。
+
+**2026-09-04 追加（issue #53）— 2 経路で同じでなければならない 4 点**:
+
+1. **overlay へ渡す時刻は `frameNumber / fps`**。µs へ丸めてはならない。overlay の `start` は必ず
+   `atFrames / fps` なので、丸めると比較が 1 ulp で反転し、カット境界の 1 コマだけ絵が食い違う。
+   この `seconds` は時間窓判定・CSS アニメ位相・item keyframes のフレーム番号すべてに流れる。
+2. **時間窓の外の container も毎コマ pause して `currentTime` を書く**。飛ばすと窓の外の断片の CSS アニメが
+   壁時計（書き出しは分単位）で走り切り、`animation-fill-mode: both/forwards` の最終姿勢に張り付いたまま
+   窓へ入ってくる = 同じ時刻でも直前に何を撮ったかで絵が変わる。OSR の `__akariSyncAnimations` は
+   active 判定を持たない。
+3. **DOM ステージのルートに `data-no-timeline`**。断片の規約は
+   `[data-akari-active] .x, [data-no-timeline] .x { animation: … }` の 2 アームで、OSR のシートは `#stage` に
+   これを持つ。GPU 側に無いと no-timeline アームだけで宣言した断片が GPU でのみ動かない。
+4. **静的スプライトは overlay の `transform` を落とさない**。`.akari-sprite-root` に OSR の
+   `.akari-overlay-container` と同じ `translate/scale/rotate` + `transform-origin: center` を宣言する
+   （`role: "background"` は両経路とも恒等固定）。
+
+あわせて、manifest 生成時に overlay の `start` / `duration` が有限数でなければ fail-closed とする。
+既定値（`?? 0` / `?? duration`）を置くと、欠けたときに「OSR は絶対に出さない・GPU は全尺出す」という
+最悪の非対称になる（OSR は `formatNumber(undefined)` が `"NaN"` を書き、`seconds >= NaN` が常に偽になる）。
 
 ## 7. receipt
 
@@ -272,17 +303,26 @@ GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync
 宣言順で連続する項目をまとめ、静的 HTML、3D、DOM ランを元の index 順に合成したあと、字幕を最後に載せる。
 すべて LUT の外である。
 
+CSS 3D は次の 3 群に分けて判定する。
+
+- 幾何（`perspective` / `perspective-origin` / `rotateX/Y/3d` / `matrix3d` / 非ゼロの
+  `translateZ/3d`）は `dom` 適格とする。2026-09-03 の 8 fixture × 5 時刻の実測では最大外接矩形内 MAD
+  0.5336（2D ノイズ床 0.1929、予算 1.0）だった。次の例外を維持する。
+  **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
+  2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので 3D として検出しない。
+  Z が 0 以外、引数の個数が違う、Z が `var()` / `calc()` 等でリテラルとして読めない場合は 3D 幾何として扱う。
+  引数の切り出しは括弧の入れ子を数えるので、`translate3d(var(--x), calc(1px + 2px), 0)` のように X / Y が
+  CSS 変数・calc 駆動でも Z のリテラル 0 を読める（オーバーレイ規約は調整値を CSS 変数に出すため自然に現れる形）。
+- `backface-visibility: hidden` を伴う CSS 3D は `css-3d-backface-hidden` として fail-closed を維持する。
+  2026-09-03 の 8 fixture × 5 時刻の実測では外接矩形内 MAD 13.4318、GPU にだけ現れる画素が最大
+  207,679 px であり、裏面除去は転写されなかった。
+- `transform-style: preserve-3d` は `dom` 適格とする。ただし GPU 経路の遮蔽順は DOM 順になる。
+  子孫の描画域が画面上で交差し、手前の要素が DOM 上で先に描かれる矛盾対を検出した場合は警告するが、
+  fail-closed にはしない。
+
 次の条件は fail-closed のまま `degraded` とし、receipt に overlay id、理由、検出条件を全件残す。
 
 - `iframe`、`object`、`embed` の埋め込み context。
-- `perspective`、`preserve-3d`、`rotateX/Y/3d`、`matrix3d`、`translateZ/3d` のいずれかを含む
-  CSS 3D transform。先行実験では `translateZ` 単独・`perspective` 単独は正しく転写できたため、
-  将来はこの粒度まで緩和できる余地があるが、v1 では緩和しない。
-  **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
-  2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので検出しない。
-  Z が 0 以外、引数の個数が違う、Z が `var()` / `calc()` 等でリテラルとして読めない場合は従来どおり `degraded`。
-  引数の切り出しは括弧の入れ子を数えるので、`translate3d(var(--x), calc(1px + 2px), 0)` のように X / Y が
-  CSS 変数・calc 駆動でも Z のリテラル 0 を読める（オーバーレイ規約は調整値を CSS 変数に出すため自然に現れる形）。
 - `requestAnimationFrame`、`setTimeout`、`setInterval`、`Date.now`、`performance.now` で自走する時計。
 - `video`、`audio`、canvas/宣言型 3D 以外の runtime、JSON 以外の script。
 - 絶対 URL と外部 font/image/background resource。`background(-image)` の `url(` 走査は宣言の区切り
@@ -290,6 +330,18 @@ GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync
   外部扱いしない（2026-08-31・issue #33。それまでは末尾に `;` の無いインライン style から後続 SVG の
   `fill="url(#id)"` まで走査が届いて誤検出していた）。
 - `drawElementImage` が利用できない実行環境、または device pixel ratio が 1 でない環境。
+- 宣言型 3D が composite 経路の入口条件（`three-or-canvas-runtime` / `animation-timing` /
+  `css-3d-transform` / `advanced-css`）を満たさない場合は `three-sampled-condition:<条件名を , 連結>` とし、
+  curve 解析の失敗理由を流用しない。CSS 3D 幾何は composite 経路で断片全体を転写するため適格とする。
+- root〜Three canvas の祖先チェーン上の `filter` / `clip-path` / `mask(-image)` / `backdrop-filter` /
+  `mix-blend-mode` に対する `three-sampled-chain-css:<プロパティ>` は、canvas だけを合成する方式 A（sampled）専用の
+  ガードとして走査側に保持する。方式 B（composite）はチェーン内外とも断片全体を転写するため `advanced-css` を通す。
+- composite 候補に `@property` がある場合は `three-composite-property` とする。overlay sheet の WAAPI clone と
+  DOM 層の素の CSS animation でカスタムプロパティ補間が割れる可能性があるため、実測までは fail-closed とする。
+- `transform-style: preserve-3d` を宣言する要素の要素の子に、Three canvas への祖先チェーン上の要素と
+  チェーン外の Z を持つ変形を宣言した要素が同居する場合は `three-composite-preserve-3d-siblings` とする。
+  静的に判定できない場合も同じ理由で degraded へ倒す（2026-09-04 実測: 外接矩形 MAD 5.0082。
+  OSR は z 深度で、GPU は DOM 順で重ねるため）。
 
 settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
 `requestPaint()` と `paint` event（上限 250 ms）を待つ。API がない Chromium では computed style、
@@ -301,9 +353,18 @@ texture の左上 4×4 が期待 RGB の ±8 に一致するかを毎コマ検�
 環境では JS channel 指定へ切り替え、その mode も記録する。pixel read は
 `src/verify-readback.js` に隔離した検証経路だけに許可し、製品経路の読み戻しゼロ契約は変えない。
 
-DOM 層の OSR decode 比較は overlay 外接矩形内 MAD 1.0 以下を、animation 開始時刻を含む代表 5 時刻で
-要求する。sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、CSS 3D、
-自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合である。
+DOM 層の OSR decode 比較は、animation 開始時刻を含む代表 5 時刻で、(1) overlay 外接矩形内 MAD 1.0 以下、
+または (2) 構造一致（全画面 MAD 0.2 以下、かつ片側にだけ現れる画素の合計が外接矩形面積の 0.5% 以下）の
+いずれかを要求する。0.5% はアンチエイリアスの差が面積でなく周長に比例して増えることに基づく
+（実測: 二段 preserve-3d の構造一致例は片側 193〜273 px = 外接矩形の 0.136〜0.161% で、
+外接矩形の周長の約 17%。面が丸ごと出現する不合格例は片側 207,679 px で 3 桁離れている）。
+外接矩形の面積が 1,000 px 未満へ退化した時刻（例: 全面が真横を向いて消える瞬間）は (1) を使わず
+全画面 MAD 0.2 以下だけで判定する。`gpu.domLayer.preserve3dOrderConflicts` が非空の overlay は
+この比較の対象外とし、**警告が出ていること自体**を合格条件とする（下記の既知の限界を承知で通すため）。
+sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、
+自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合に加え、
+`preserve-3d` の子孫が交差すると遮蔽順が DOM 順になることである。検出器は Z 順との矛盾を警告し、receipt の
+`gpu.domLayer.preserve3dOrderConflicts` に残す。`backface-visibility: hidden` は転写されないため degraded とする。
 
 決定論には長尺時の既知の限界がある。短い書き出し（実測 450 / 678 / 900 コマ）は 2 走の全コマ SHA と
 MP4 SHA が一致した。一方、大きな文字を持つ DOM overlay を多数含む長い書き出し（実測 5400 コマ）では、
@@ -355,35 +416,19 @@ receipt の `gpu.captions[].mode = "sprite"` と warning に出して書き出�
 （1.2〜1.3 倍）で、#120f 時点の 1.07〜1.14 倍からは改善している。RSS の上限は 531〜914 MB
 （1 GB 以内）、`--trap-readback` の読み戻しは 0 だった。
 
-## 10. v3 — 宣言型 3D の登場曲線
+## 10. v3 — 宣言型 3D の登場表現
 
-v3 は、宣言型 Three.js scene のルート要素にある 1 回きりの登場 CSS animation を時刻の関数へ解析し、
-3D canvas の sprite draw state として GPU-native に合成する。Three.js 自体は従来どおり engine clock の
-local seconds を `threeRuntime.render(container, t)` へ直接渡す。scene 内部の animation、動画 texture、
-ready 判定は変更しない。
+v3 は、宣言型 Three.js scene の HTML 部分にある CSS animation / transition / `@property` を GPU 経路で
+扱う。Three.js 自体は従来どおり engine clock の local seconds を
+`threeRuntime.render(container, t)` へ直接渡し、scene 内部の animation、動画 texture、ready 判定は
+変更しない。登場表現を従来の文法へ解析できる場合は理由 `three-scene-entrance-curve`、解析できない場合は
+計算済みスタイルを実測する理由 `three-scene-entrance-sampled` とする。解析不能だけを理由に fail-closed
+にはしない。CSS animation のない宣言型 3D は理由 `three-scene-canvas-direct` のままである。
 
-`three` 分類・理由 `three-scene-entrance-curve` にできるのは、次の条件をすべて満たす overlay だけである。
-
-- `<script type="application/json" data-akari-3d-scene>` が属性順にかかわらずちょうど 1 個あり、他の
-  script がない。
-- animation を持つのは HTML のルート要素 1 個だけで、selector は
-  `[data-akari-active] .root, [data-no-timeline] .root` の対である。canvas と fallback は動かさない。
-- animation は 1 本、iteration count は 1、direction は normal、delay は 0 以上、fill mode は
-  `both` または `forwards` である。timing は `linear`、`ease`、`ease-in`、`ease-out`、`ease-in-out`、
-  または妥当な `cubic-bezier(x1,y1,x2,y2)` に限る。
-- keyframe は `from` / `to` または 0% / 100% の 2 点だけで、両端に opacity と transform がある。
-  transform は `translate()` / `translateX()` / `translateY()` / `scale()` / `scaleX()` / `scaleY()`
-  だけを使う。px 平行移動と単位なし scale に加え、`var(--name, fallback)`、
-  `calc(var(--name) + Npx)`、`calc(var(--name) * N)` を受理する。
-
-transition、`@property`、複数 animation、複数の animated element、中間 keyframe、iteration count が
-1 以外、alternate / reverse、負の delay、fill mode の欠落、未知の timing、rotate / skew / 3D transform、
-filter、clip-path、解決不能な値は不可とし、`three-entrance-*` の具体的な理由で fail-closed にする。
-animation のない従来の宣言型 3D は理由 `three-scene-canvas-direct` と manifest 形を変えない。
-
-解析時は overlay の `vars` と `transform.x / y / scale` を CSS 変数へ解決する。未定義変数の既定値は
-平行移動が 0 px、scale が 1 である。manifest の `entrance` は次の additive な形を持ち、from / to は
-変数解決後の絶対値である。
+curve モードは従来どおり、対になった `[data-akari-active] .root, [data-no-timeline] .root` selector、
+1 本・2 endpoint の keyframe、既知の timing、非負 delay、iteration 1、normal direction、`both` または
+`forwards` fill、opacity と 2D translate / scale だけを解析する。overlay の `vars` と
+`transform.x / y / scale` を解決し、manifest の `entrance` に絶対値を置く。
 
 ```json
 {
@@ -410,6 +455,52 @@ value    = from + (to - from) * eased
 `getComputedStyle` と delay 前・登場中 3 点・終了後の 5 時刻で突き合わせた実測差は、translate 最大
 0.00043 px、scale 最大 0.000001、opacity 0 だった。検収閾値は translate 0.5 px 以下、opacity 0.005
 以下、3D 登場区間の GPU / OSR 外接矩形内 MAD 1.0 以下とする。
+
+sampled モードは overlay sheet が生成した paused WAAPI clone を使い、毎コマ、OSR と同じ合成時刻
+`seconds * 1000` を `currentTime` に設定する。`data-akari-active` を更新した後、overlay container から
+Three canvas までの各要素について計算済み opacity と transform を読み、transform-origin を含む 2D 行列を
+上から順に累積する。opacity は積を clamp する。サンプリングは engine clock の時刻だけの関数であり、
+壁時計や rAF の進行へ依存しない。
+
+`@property` を使う断片も `degraded` にはせず sampled として扱う。ただし書き出し用 sheet の WAAPI clone
+変換は登録済みカスタムプロパティの keyframe を引き継がないため、そのプロパティ自体は GPU / OSR の
+どちらでも補間されず初期値のまま描かれる。同じ keyframe に直接宣言した opacity / transform は補間され、
+両エンジンの結果も一致するためパリティは保たれる。カスタムプロパティ補間は sheet 側の別課題である。
+
+累積行列が軸平行な translate / scale だけなら 3D canvas を従来の texture のまま使い、中心基準の
+sprite draw state へ変換する。回転またはせん断を含む一般 2D affine は、出力寸法の中間 canvas へ
+`setTransform(a,b,c,d,e,f)` で描いてから恒等 draw state で合成する。perspective、実 Z 成分、その他の
+3D 行列は方式 A では扱わず、方式 B の断片全体転写へ回す。
+
+sampled 方式 A の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つで、対象は断片 root から
+Three canvas までの祖先チェーン（両端を含む）である。このチェーン上の任意の要素にある
+animation / transition は累積行列へ含める。Three canvas の CSS ボックスが出力全面と一致しない場合は、軸平行な
+行列でも中間 canvas 経路を使い、元の位置と寸法を保つ。
+
+方式 B（composite）は、方式 A で祖先チェーン内だけと証明できない断片、CSS 3D 幾何、または
+`advanced-css` を持つ断片を理由 `three-scene-sampled-composite` で処理する。Three.js は overlay sheet で従来どおり
+描画し、その Three canvas を DOM 層コピー側の同じ canvas 要素へ毎コマ `drawImage` で中継する。その後、paused WAAPI を
+合成時刻へ seek して断片 root 全体を `drawElementImage` する。DOM 層コピー側の `[data-akari-3d-fallback]` は
+`hidden` と `display:none !important` で隠す。断片内は canvas を含む DOM 順と z-index がそのまま効き、断片間は従来どおり
+track z、宣言 index の順で合成する。これにより祖先チェーン上の 3D 行列と、チェーン内外の `advanced-css` も転写される。
+
+CSS 3D の判定は DOM 層と同じ 3 群を使う。`backface-visibility:hidden` と深度 transform の組み合わせだけは
+`css-3d-backface-hidden` で degraded を維持する。`transform-style:preserve-3d` の交差は composite として通し、
+検出した場合は stderr と receipt の `preserve3dOrderConflicts` へ警告を残す。それ以外の CSS 3D は通す。
+ただし `preserve-3d` 空間で兄弟同士（3D canvas と兄弟要素など）が z 深度で並び替わる断片は、GPU が DOM 順で描くため
+OSR と絵が変わる（2026-09-04 実測: 外接矩形 MAD 5.0082、OSR では z>0 の兄弟だけが canvas の前）。この型は
+`three-composite-preserve-3d-siblings` で fail-closed にし、警告なしで絵が変わる断片を通さない。DOM 層の
+`preserve3dOrderConflicts` 検出器を兄弟対まで広げれば再解禁できる（次ラウンド候補）。親子対は従来どおり、
+検出器の警告を receipt に残して通す（実測パリティ 0.6374）。
+composite 候補の `@property` は、overlay sheet と DOM 層で補間結果が割れる可能性があるため
+`three-composite-property` で fail-closed とする。方式 A の `three-sampled-chain-css:<プロパティ>` ガードは残すが、
+方式 B ではチェーン内外とも断片全体を描くため `advanced-css` を通す。その他の入口外条件は
+`three-sampled-condition:<条件名>` とし、curve 解析の失敗理由を流用しない。
+
+manifest の各 3D sprite は `entranceMode: "curve" | "sampled" | "composite" | "none"` を持つ。run payload と receipt の
+`gpu.three.overlays[].entrance.mode` は `curve` / `sampled` / `composite` を記録し、`gpu.three.sampling` は sampled
+フレームの `count`、`p50`、`p95` ミリ秒を記録する。composite がある場合は `gpu.three.composite` に overlay 数、
+DOM 要素数、canvas 中継費用と DOM 層費用の p50/p95 を記録する。
 
 ## 11. v2 の cut 音声中間物（2026-08-29 追記）
 

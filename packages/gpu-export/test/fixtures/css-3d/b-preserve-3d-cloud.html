@@ -1,0 +1,33 @@
+<div class="fx fx-b">
+  <style>
+    .fx-b, .fx-b *, .fx-b *::before, .fx-b *::after { box-sizing: border-box; }
+    .fx-b { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .b-stage { position: absolute; inset: 0; perspective: 1000px; }
+    .b-cloud { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(0deg) rotateX(-12deg); opacity: 1; }
+    .b-card { position: absolute; left: 840px; top: 465px; width: 240px; height: 150px; transform-style: preserve-3d; transform: rotateY(var(--theta)) translateZ(430px); }
+    .b-card__inner { width: 240px; height: 150px; display: grid; place-items: center; transform-style: preserve-3d; transform: translateZ(24px); color: #ffffff; font-size: 25px; font-weight: 750; letter-spacing: 0.13em; background: var(--color); border: 8px solid #f1f1f1; }
+    [data-akari-active] .b-cloud, [data-no-timeline] .b-cloud { animation: b-orbit 1.60s linear both; animation-delay: 0.30s; animation-iteration-count: 1; }
+    @keyframes b-orbit {
+      0% { transform: rotateY(180deg) rotateX(-12deg); opacity: 1; }
+      100% { transform: rotateY(0deg) rotateX(-12deg); opacity: 1; }
+    }
+  </style>
+  <div class="b-stage">
+    <div class="b-cloud">
+      <div class="b-card" style="--theta:0deg;--color:#d1495b"><div class="b-card__inner">C01</div></div>
+      <div class="b-card" style="--theta:25.714286deg;--color:#00798c"><div class="b-card__inner">C02</div></div>
+      <div class="b-card" style="--theta:51.428571deg;--color:#edae49"><div class="b-card__inner">C03</div></div>
+      <div class="b-card" style="--theta:77.142857deg;--color:#30638e"><div class="b-card__inner">C04</div></div>
+      <div class="b-card" style="--theta:102.857143deg;--color:#8f3985"><div class="b-card__inner">C05</div></div>
+      <div class="b-card" style="--theta:128.571429deg;--color:#2a9d8f"><div class="b-card__inner">C06</div></div>
+      <div class="b-card" style="--theta:154.285714deg;--color:#e76f51"><div class="b-card__inner">C07</div></div>
+      <div class="b-card" style="--theta:180deg;--color:#5c6bc0"><div class="b-card__inner">C08</div></div>
+      <div class="b-card" style="--theta:205.714286deg;--color:#6a994e"><div class="b-card__inner">C09</div></div>
+      <div class="b-card" style="--theta:231.428571deg;--color:#bc4749"><div class="b-card__inner">C10</div></div>
+      <div class="b-card" style="--theta:257.142857deg;--color:#577590"><div class="b-card__inner">C11</div></div>
+      <div class="b-card" style="--theta:282.857143deg;--color:#f3722c"><div class="b-card__inner">C12</div></div>
+      <div class="b-card" style="--theta:308.571429deg;--color:#277da1"><div class="b-card__inner">C13</div></div>
+      <div class="b-card" style="--theta:334.285714deg;--color:#9b5de5"><div class="b-card__inner">C14</div></div>
+    </div>
+  </div>
+</div>

@@ -19,6 +19,12 @@ export const EXPORT_RESOLUTION_PRESETS: readonly ExportResolutionPreset[] = [
 
 export const DEFAULT_EXPORT_OUTPUT_NAME = 'final.mp4';
 
+export function defaultExportOutputNameForCodec(codec: 'h264' | 'hevc' | 'prores422' | 'png'): string {
+    if (codec === 'prores422') return 'final.mov';
+    if (codec === 'png') return 'final';
+    return DEFAULT_EXPORT_OUTPUT_NAME;
+}
+
 export interface ExportRequestSettings {
     resolutionLabel: string;
     outputName: string;

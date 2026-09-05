@@ -3518,6 +3518,9 @@ function ensureThreeRuntime(needsText = false) {
     threeRuntimeReady = (async () => {
       await prerequisites;
       await loadThreeScript('/three-runtime.js');
+      window.akari.threeRuntime.configure({
+        defaultFontUrl: '/__akari/fonts/zen-kaku-gothic-new-black.ttf',
+      });
       return Boolean(window.akari?.threeRuntime);
     })().catch((e) => {
       console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
@@ -3712,30 +3715,39 @@ function createOverlayRuntime() {
         o.el.style.setProperty('--rotate', o.isBackground ? '0deg' : `${state.rotate}deg`);
         o.el.style.setProperty('opacity', String(state.opacity));
       }
-      if (o.is3d) {
-        if (!o.threeReady) continue;
-        // 3D 断片は three 側が時刻を持つ（mixer.setTime）。shell と同じく
-        // getAnimations ループは回さない — ここで continue する
-        window.akari?.threeRuntime?.render(o.el, ms / 1000, {
-          syncVideos: true,
-          maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE,
-        });
-        if (o.hitPolicyPending) {
-          window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
-          o.hitPolicyPending = false;
-        }
-        continue;
-      }
       // getAnimations({subtree:true}) のコストは「ドキュメント全体に現存する CSS animation の
       // 総数」にほぼ比例する（overlay-runtime.js の注記。実測の地雷）。断片のアニメは
       // `[data-akari-active]` ゲートで宣言する規約なので、可視の間は顔ぶれが変わらない。
       // 毎フレーム引き直さず、可視化時と 250ms ごとだけ引き直す（遅れて生えるものも拾える）。
+      //
+      // 3D 断片も必ずここを通す。three のシーンは three 側が時刻を持つ（mixer.setTime）が、
+      // 断片の **CSS** アニメを進めるのは誰の仕事でもなくなる。以前はこの手前で continue して
+      // いたため、3D 宣言を含む断片の CSS アニメが 1 本も同期されず、壁時計で走り切って
+      // animation-fill-mode の最終姿勢に張り付いていた（実機報告 2026-09-04: S4 の 3D ステージが
+      // 画面中央に残り続ける。仕様は translate3d(142%) = 局所 7 秒まで画面外）。
+      // 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも
+      // 等しく掛けているので、ここで飛ばすとプレビューと書き出しで絵が食い違う。
       const nowMs = performance.now();
       if (!o._anims || nowMs - o._animsAt > 250) {
         o._anims = o.el.getAnimations({ subtree: true });
         o._animsAt = nowMs;
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
+      if (o.is3d) {
+        // three の描画だけはランタイム読み込み後に始まる。CSS 側は上で同期済みなので、
+        // 読み込み待ちの間も断片の見た目はタイムラインに追従する。
+        if (o.threeReady) {
+          window.akari?.threeRuntime?.render(o.el, ms / 1000, {
+            syncVideos: true,
+            maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE,
+          });
+        }
+        if (o.hitPolicyPending) {
+          window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
+          o.hitPolicyPending = false;
+        }
+        continue;
+      }
       if (o.hitPolicyPending) {
         window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
         o.hitPolicyPending = false;

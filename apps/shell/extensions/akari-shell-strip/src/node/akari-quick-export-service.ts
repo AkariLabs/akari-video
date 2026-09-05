@@ -6,6 +6,8 @@ import { dirname, join, resolve, sep } from 'path';
 import {
     AkariQuickExportService,
     QuickExportLintFinding,
+    QuickExportRecheckRequest,
+    QuickExportRecheckResult,
     QuickExportStartOutcome,
     QuickExportStartRequest,
     QuickExportStatus
@@ -64,15 +66,16 @@ export interface RevealArtifactCommand {
 
 export function buildRevealArtifactCommand(
     platform: NodeJS.Platform,
-    artifactPath: string
+    artifactPath: string,
+    isDirectory = false
 ): RevealArtifactCommand {
     if (platform === 'darwin') {
-        return { command: 'open', args: ['-R', artifactPath] };
+        return { command: 'open', args: isDirectory ? [artifactPath] : ['-R', artifactPath] };
     }
     if (platform === 'win32') {
-        return { command: 'explorer', args: [`/select,${artifactPath}`] };
+        return { command: 'explorer', args: isDirectory ? [artifactPath] : [`/select,${artifactPath}`] };
     }
-    return { command: 'xdg-open', args: [dirname(artifactPath)] };
+    return { command: 'xdg-open', args: [isDirectory ? artifactPath : dirname(artifactPath)] };
 }
 
 /**
@@ -92,6 +95,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected renderStageStartedAt: number | undefined;
     protected activeChild: ChildProcessWithoutNullStreams | undefined;
     protected cancelRequested = false;
+    /** recheckLint の二重起動ガード（running とは別。再検査は書き出しではない）。 */
+    protected recheckRunning = false;
     protected currentProjectRoot: string | undefined;
     /** テストからの上書き用（実 CLI を起動しない）。 */
     protected readonly fsImpl: typeof fs = fs;
@@ -121,6 +126,92 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     async getStatus(): Promise<QuickExportStatus> {
         return this.status;
+    }
+
+    /**
+     * 書き出しを始めずに edit-lint だけ走らせ直す（task 2026-09-03-export-lint-auto-recheck）。
+     *
+     * 出自: `status` は次の start まで書き換わらないため、パートナーが edit.json を直しても
+     * 書き出しエラー画面は止まった時点の findings を出し続け、閉じて開き直しても
+     * 同じ結果が返っていた（getStatus はサーバー保持の status をそのまま返す）。
+     *
+     * 実行中の書き出しには一切触らない: running なら skipped で返し、走らせた結果も
+     * 「戻ってきた時点でまだ running でない」ときだけ status へ反映する。
+     * phase は 'linting' にしない — 再検査は書き出しではないので、画面を
+     * 「書き出し中」へ飛ばさずに lint 停止画面のまま更新する。
+     */
+    async recheckLint(request: QuickExportRecheckRequest): Promise<QuickExportRecheckResult> {
+        if (this.running) {
+            return { outcome: 'skipped', status: this.status, reason: '書き出しの実行中は再検査しません' };
+        }
+        if (this.recheckRunning) {
+            return { outcome: 'skipped', status: this.status, reason: 'すでに再検査中です' };
+        }
+        this.recheckRunning = true;
+        try {
+            return await this.runLintRecheck(this.fsPath(request.projectRootUri));
+        } catch (error) {
+            return {
+                outcome: 'unavailable',
+                status: this.status,
+                reason: describeUnexpectedQuickExportFailure(error, 'lint の再検査に失敗しました')
+            };
+        } finally {
+            this.recheckRunning = false;
+        }
+    }
+
+    protected async runLintRecheck(projectRoot: string): Promise<QuickExportRecheckResult> {
+        // 再検査は書き出しのログ（logTail）を汚さない。CLI 解決の失敗理由だけは結果に載せる。
+        const cli = await this.findEditLintCli(() => undefined);
+        if (!cli) {
+            return {
+                outcome: 'unavailable',
+                status: this.status,
+                reason: 'edit-lint CLI が見つかりませんでした（packages/edit-lint/bin/edit-lint.mjs 不在）'
+            };
+        }
+        const result = await this.spawnNodeScript(
+            cli,
+            buildEditLintArgs(projectRoot),
+            () => undefined,
+            { trackActive: false }
+        );
+        if (this.running) {
+            return { outcome: 'skipped', status: this.status, reason: '書き出しが始まったため再検査の結果は捨てました' };
+        }
+        const outcome = determineLintOutcome(result.exitCode);
+        const checkedAt = this.now();
+        if (outcome === 'pass') {
+            // 直っていた: 保持していた lint-failed を捨て、設定画面へ戻せる idle にする。
+            // done（前回の成果物）を消さないよう、書き換えるのは lint で止まっている時だけ。
+            if (this.status.phase === 'lint-failed') {
+                this.status = { phase: 'idle', logTail: this.status.logTail, lintCheckedAt: checkedAt };
+            } else {
+                this.updateStatus({ lintCheckedAt: checkedAt });
+            }
+            return { outcome: 'pass', status: this.status };
+        }
+        if (outcome === 'fail') {
+            const lintSummary = this.parseLintFindingSummary(result.stdout);
+            this.updateStatus({
+                phase: 'lint-failed',
+                lintIssueCount: lintSummary?.issueCount,
+                lintErrorCount: lintSummary?.errorCount,
+                lintWarningCount: lintSummary?.warningCount,
+                lintFindings: lintSummary?.findings,
+                reportPath: await this.existingReportPath(projectRoot, EDIT_LINT_REPORT_RELATIVE_PATH),
+                failureSummary: undefined,
+                lintCheckedAt: checkedAt
+            });
+            return { outcome: 'lint-failed', status: this.status };
+        }
+        return {
+            outcome: 'unavailable',
+            status: this.status,
+            reason: summarizeStderrTail(result.stderr)
+                || `edit-lint が exit code ${result.exitCode ?? '不明'} で終了しました（エラー出力はありません）`
+        };
     }
 
     async cancel(): Promise<{ cancelled: boolean }> {
@@ -159,8 +250,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             return { revealed: false };
         }
         const artifactPath = resolve(this.currentProjectRoot, this.status.artifactPath);
-        const request = buildRevealArtifactCommand(this.platform(), artifactPath);
         try {
+            const artifact = await this.fsImpl.stat(artifactPath);
+            const request = buildRevealArtifactCommand(this.platform(), artifactPath, artifact.isDirectory());
             await this.spawnRevealCommand(request.command, request.args);
             return { revealed: true };
         } catch (error) {
@@ -354,10 +446,13 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         }
     }
 
-    protected async statOrUndefined(path: string): Promise<{ size: number } | undefined> {
+    protected async statOrUndefined(path: string): Promise<{ size: number; isDirectory: boolean } | undefined> {
         try {
             const stat = await this.fsImpl.stat(path);
-            return { size: stat.size };
+            if (!stat.isDirectory()) return { size: stat.size, isDirectory: false };
+            const children = await this.fsImpl.readdir(path, { withFileTypes: true });
+            const sizes = await Promise.all(children.filter(child => child.isFile()).map(async child => (await this.fsImpl.stat(join(path, child.name))).size));
+            return { size: sizes.reduce((sum, size) => sum + size, 0), isDirectory: true };
         } catch {
             return undefined;
         }
@@ -423,8 +518,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
      * 候補の組み立ては packaged-cli-candidates.ts に集約する（`process.cwd()` を
      * 使わない理由と 3 段の内訳はそちらのコメント参照）。
      */
-    protected async findEditLintCli(): Promise<string | undefined> {
-        return this.findCli(packagedCliCandidates('edit-lint', 'edit-lint.mjs', __dirname, this.resourcesPath()));
+    protected async findEditLintCli(log?: (chunk: string) => void): Promise<string | undefined> {
+        return this.findCli(packagedCliCandidates('edit-lint', 'edit-lint.mjs', __dirname, this.resourcesPath()), log);
     }
 
     protected async findRenderCutCli(): Promise<string | undefined> {
@@ -442,18 +537,21 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
      * （実測: v0.1.12 では 4 候補すべてが外れており、CLI が見つからない理由の
      * 特定に .app を開ける必要があった）。
      */
-    protected async findCli(candidates: readonly string[]): Promise<string | undefined> {
+    protected async findCli(
+        candidates: readonly string[],
+        log: (chunk: string) => void = chunk => this.appendLog(chunk)
+    ): Promise<string | undefined> {
         for (const [index, candidate] of candidates.entries()) {
             try {
                 if ((await this.fsImpl.stat(candidate)).isFile()) {
-                    this.appendLog(`CLI 解決: 候補 ${index + 1}/${candidates.length} = ${candidate}\n`);
+                    log(`CLI 解決: 候補 ${index + 1}/${candidates.length} = ${candidate}\n`);
                     return candidate;
                 }
             } catch {
                 // 次の候補（パッケージ版配置 / 祖先探索 / 後方互換配置）を試す。
             }
         }
-        this.appendLog(`CLI 解決に失敗（試した候補 ${candidates.length} 件）:\n${candidates.map(c => `  - ${c}`).join('\n')}\n`);
+        log(`CLI 解決に失敗（試した候補 ${candidates.length} 件）:\n${candidates.map(c => `  - ${c}`).join('\n')}\n`);
         return undefined;
     }
 
@@ -473,7 +571,15 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
      * 受信のたびに onChunk へ渡す（ポーリングされる `status.logTail` の
      * ストリーム更新に使う）。
      */
-    protected spawnNodeScript(scriptPath: string, args: string[], onChunk: (chunk: string) => void): Promise<SpawnResult> {
+    protected spawnNodeScript(
+        scriptPath: string,
+        args: string[],
+        onChunk: (chunk: string) => void,
+        options: { readonly trackActive?: boolean } = {}
+    ): Promise<SpawnResult> {
+        // 再検査（trackActive: false）の子は cancel の対象にしない。中止ボタンは
+        // 「書き出しを止める」ボタンであって、裏で走った lint を止める口ではない。
+        const trackActive = options.trackActive ?? true;
         return new Promise(resolvePromise => {
             let stdout = '';
             let stderr = '';
@@ -495,7 +601,9 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 settle({ exitCode: 2, stdout, stderr: message });
                 return;
             }
-            this.activeChild = child;
+            if (trackActive) {
+                this.activeChild = child;
+            }
             child.stdout.on('data', chunk => {
                 const text = chunk.toString();
                 stdout += text;
@@ -513,7 +621,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             // `exit` より `close` を待つ。close は stdout/stderr が閉じた後なので、
             // 失敗理由の末尾を取りこぼした状態で GUI を終端させない。
             child.on('close', code => {
-                if (this.activeChild === child) {
+                if (trackActive && this.activeChild === child) {
                     this.activeChild = undefined;
                 }
                 settle({ exitCode: code, stdout, stderr });
@@ -523,6 +631,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     protected platform(): NodeJS.Platform {
         return process.platform;
+    }
+
+    /** テストからの上書き用の時刻シーム。 */
+    protected now(): number {
+        return Date.now();
     }
 
     protected spawnRevealCommand(command: string, args: readonly string[]): Promise<void> {

@@ -417,7 +417,8 @@ test("verifyArtifact appends declared checks after the unchanged eleven checks a
   ]);
   assert.equal(verification.declared.audio_level.verdict, "pass");
   assert.deepEqual(verification.declared.motion, []);
-  assert.equal(calls.length, 3);
+  assert.deepEqual(verification.declared.blank_frames, []);
+  assert.equal(calls.length, 4);
 });
 
 test("verifyArtifact keeps pass when motion measurement adds a static-camera warning", () => {
@@ -545,6 +546,27 @@ test("render report gives verification warnings their yellow warning class", () 
   }, "reports/render-report.html", ".");
   assert.match(html, /\.warning \{ color: #f5c451; \}/u);
   assert.match(html, /<li class="warning"><code>verify\.motion-static<\/code>/u);
+});
+
+test("render report shows the verification-only GPU force stamp only when recorded in state", () => {
+  const state = {
+    version: 1,
+    phase: "planned",
+    inputs: {},
+    warnings: [],
+    plan: {
+      output: "exports/final.mp4",
+      predicted_duration_seconds: 1,
+      preset: { width: 320, height: 180, fps: 10 },
+      rasterizer: { selected: "gpu" },
+      intermediates: [],
+      commands: {},
+    },
+    provenance: { rasterizer: { adopted: null, attempts: [] } },
+    artifacts: [],
+  };
+  assert.doesNotMatch(renderReport(state, "reports/render-report.html", "."), /検証用（GPU 強制）/u);
+  assert.match(renderReport({ ...state, gpu_forced: true }, "reports/render-report.html", "."), /検証用（GPU 強制）/u);
 });
 
 test("real ffmpeg measures audible and silent ten-second signals", async (t) => {

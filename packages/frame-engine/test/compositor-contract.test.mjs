@@ -21,7 +21,7 @@ const mattePathSource = await Promise.all([
 ].map(file => readFile(path.resolve(import.meta.dirname, '..', file), 'utf8'))).then(values => values.join('\n'));
 
 test('layer compositor keeps the no-FBO base path and guards projective w', () => {
-  assert.match(source, /if \(layers\.length === 0 && !hasLook\)[\s\S]+configureBaseDraw\(plan, null, baseProgram!\)/u);
+  assert.match(source, /if \(layers\.length === 0 && !hasLook && baseProgram\)[\s\S]+configureBaseDraw\(plan, null, baseProgram!\)/u);
   const directPath = source.slice(
     source.indexOf('if (layers.length === 0 && !hasLook)'),
     source.indexOf('this.ensureFbos(output.width, output.height)'),

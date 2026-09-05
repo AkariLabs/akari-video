@@ -9,7 +9,7 @@ import electron from "electron";
 import { startRawVideoEncoder } from "./encode.mjs";
 import { verifyEncodedVideo } from "./ffprobe.mjs";
 import { collectGpuDevices, summarizeGpuAdapters } from "./gpu-adapters.mjs";
-import { createMemorySampler, resolveMemoryBudget } from "./memory.mjs";
+import { createMemorySampler, resolveMemoryBudget, memoryHardStopError } from "./memory.mjs";
 import {
   OSR_WARM_UP_BUDGET_MS,
   captureNonEmptyBitmap,
@@ -99,6 +99,7 @@ export async function runOsrExport(options) {
   let encoderSession = null;
   let fatalMemoryError = null;
   const memoryWarnings = [];
+  const memoryTelemetry = { decoderSessions: null };
   const memorySampler = createMemorySampler({
     budget: memoryBudget,
     sample: () => {
@@ -106,7 +107,7 @@ export async function runOsrExport(options) {
       return total > 0 ? total : process.memoryUsage().rss;
     },
     onWarning: (bytes) => memoryWarnings.push(`RSS warning: ${bytes} bytes`),
-    onHardStop: (bytes) => { fatalMemoryError = new Error(`RSS hard stop: ${bytes} bytes`); },
+    onHardStop: (bytes) => { fatalMemoryError = memoryHardStopError(bytes); },
   });
   const stages = { seek: [], paint: [], toBitmap: [], verify: [], write: [] };
   const paintTimeouts = [];
@@ -170,6 +171,7 @@ export async function runOsrExport(options) {
       warnings: [...rendererWarnings],
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
+    if (codec === "png") await mkdir(out, { recursive: true });
     encoderSession = startRawVideoEncoder({
       ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, codec, edit: built.edit, queueDepth,
     });
@@ -190,6 +192,7 @@ export async function runOsrExport(options) {
         viewport: viewportContext,
         activeDevice,
         rendererWarnings,
+        memoryTelemetry,
       });
       stages.seek.push(capturedFrame.seekMs);
       stages.paint.push(capturedFrame.paintMs);
@@ -259,7 +262,7 @@ export async function runOsrExport(options) {
       backpressure: encoded.backpressure,
       paintTimeouts,
       emptyPaints,
-      memory: { ...memory, afterDestroyBytes: afterDestroyMemory, warnings: memoryWarnings },
+      memory: { ...memory, afterDestroyBytes: afterDestroyMemory, warnings: memoryWarnings, decoderSessions: memoryTelemetry.decoderSessions },
       viewport,
       warm_up: warmUp,
       ffprobe,
@@ -281,7 +284,7 @@ export async function runOsrExport(options) {
       frameHashes,
       paintTimeouts,
       emptyPaints,
-      memory: memorySampler.stop("failed"),
+      memory: { ...memorySampler.stop("failed"), decoderSessions: memoryTelemetry.decoderSessions },
       viewport,
       warm_up: warmUp,
       warnings: [...rendererWarnings],
@@ -532,10 +535,12 @@ async function captureFrameBitmap({
   viewport = null,
   activeDevice = null,
   rendererWarnings = null,
+  memoryTelemetry = null,
 }) {
   const seekStarted = performance.now();
   const seekResult = await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
   collectRendererWarnings(rendererWarnings, seekResult);
+  if (memoryTelemetry && seekResult?.decoderSessions) memoryTelemetry.decoderSessions = seekResult.decoderSessions;
   const seekMs = performance.now() - seekStarted;
   const nonEmpty = { windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport, activeDevice };
   let captured = await captureFrameNonEmpty(nonEmpty);
@@ -759,7 +764,7 @@ async function destroyWindow(windowRef) {
 function required(argv, index, option) { if (index >= argv.length) throw new Error(`${option} requires a value`); return argv[index]; }
 function positiveNumber(value, label) { const number = Number(value); if (!Number.isFinite(number) || number <= 0) throw new Error(`${label} requires a positive number`); return number; }
 function positiveInteger(value, label) { const number = positiveNumber(value, label); if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`); return number; }
-function codecValue(value) { if (!["h264", "hevc"].includes(value)) throw new Error(`--codec must be h264|hevc, got: ${value}`); return value; }
+function codecValue(value) { if (!["h264", "hevc", "prores422", "png"].includes(value)) throw new Error(`--codec must be h264|hevc|prores422|png, got: ${value}`); return value; }
 function parseFrameList(value) {
   if (value === "") return [];
   return [...new Set(value.split(",").map((entry) => {

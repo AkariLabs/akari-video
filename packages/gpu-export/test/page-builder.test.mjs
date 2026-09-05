@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -170,6 +170,35 @@ test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   assert.match(result.html, /id="akari-final"/);
   assert.doesNotMatch(result.html, /akari-stamp/);
   assert.doesNotMatch(result.html, /\/Users\//);
+});
+
+test("GPU page builders pass forceDegraded into eligibility and create DOM runs", async () => {
+  const overlays = [{ id: "forced", start: 0, duration: 1, html: "<iframe></iframe>", vars: {} }];
+  const direct = buildGpuPage({
+    edit: { ...edit, overlays },
+    overlays,
+    captions: [],
+    projectRoot: "/unused",
+    duration: 1,
+    forceDegraded: true,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+  });
+  assert.equal(direct.eligibility.entries[0].classification, "dom");
+  assert.equal(direct.eligibility.entries[0].forced, true);
+  assert.equal(direct.spriteManifest.dom[0].entries[0].id, "forced");
+
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-force-page-builder-"));
+  try {
+    await writeFile(join(projectRoot, "edit.json"), JSON.stringify(zAxisEdit(["low"])));
+    await writeFile(join(projectRoot, "low.html"), "<iframe></iframe>");
+    const loaded = await loadAndBuildGpuPage({ projectRoot, duration: 1, forceDegraded: true });
+    assert.equal(loaded.eligibility.entries[0].classification, "dom");
+    assert.equal(loaded.eligibility.entries[0].forced, true);
+    assert.equal(loaded.spriteManifest.dom[0].entries[0].id, "low");
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("GPU page builder は字幕段の最下・中間・最上を overlays 2 段と同じ z 軸へ載せる", async () => {
@@ -352,6 +381,7 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
   });
   assert.deepEqual(result.spriteManifest.three[0], {
     id: "animated", start: 1, duration: 2, index: 0, z: 0,
+    entranceMode: "curve",
     entrance: {
       durationSec: 1.1,
       delaySec: 0.05,
@@ -362,10 +392,43 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
     },
   });
   assert.deepEqual(result.spriteManifest.three[1], {
-    id: "direct", start: 0, duration: 3, index: 1, z: 0,
+    id: "direct", start: 0, duration: 3, index: 1, z: 0, entranceMode: "none",
   });
   assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-curve");
   assert.equal(result.eligibility.entries[1].reason, "three-scene-canvas-direct");
+});
+
+test("GPU page manifest takes sampled entrance mode from eligibility", async () => {
+  const html = await readFile(join(import.meta.dirname, "fixtures", "three-sampled-middle-keyframe.html"), "utf8");
+  const overlays = [{ id: "sampled", start: 0, duration: 2, html }];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: resolve(import.meta.dirname, "../../.."), duration: 2,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.three, [{
+    id: "sampled", start: 0, duration: 2, index: 0, z: 0, entranceMode: "sampled",
+  }]);
+  assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-sampled");
+});
+
+test("GPU page puts composite Three overlays in the Three manifest and a shared DOM run", async () => {
+  const compositeHtml = await readFile(join(import.meta.dirname, "fixtures", "three-composite-s1-title.html"), "utf8");
+  const overlays = [
+    { id: "dom-before", z: 2, start: 0, duration: 2, html: "<style>.x{animation:x 1s linear}@keyframes x{to{opacity:.5}}</style><div class=\"x\">before</div>" },
+    { id: "composite", z: 2, start: 0, duration: 2, html: compositeHtml },
+    { id: "dom-after", z: 2, start: 0, duration: 2, html: "<style>.y{animation:y 1s linear}@keyframes y{to{opacity:.5}}</style><div class=\"y\">after</div>" },
+  ];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: resolve(import.meta.dirname, "../../.."), duration: 2,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.three, [{
+    id: "composite", start: 0, duration: 2, index: 1, z: 2, entranceMode: "composite",
+  }]);
+  assert.equal(result.spriteManifest.dom.length, 1);
+  assert.deepEqual(result.spriteManifest.dom[0].entries.map(({ id, composite }) => [id, composite]), [
+    ["dom-before", undefined], ["composite", true], ["dom-after", undefined],
+  ]);
 });
 
 test("GPU page carries text slot params to static sprites and DOM runs and inlines the slot runtime (#32)", () => {

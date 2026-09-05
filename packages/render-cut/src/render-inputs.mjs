@@ -208,7 +208,7 @@ function resolveDeclaredProjectInputBinding(projectRoot, value, label, env) {
     }
     throw new RenderInputError(`${label} could not be resolved: ${messageOf(error)}`);
   }
-  if (!isWithin(root, actual) || !lstatSync(lexical).isFile()) {
+  if (!isWithin(root, actual) || !lstatSync(actual).isFile()) {
     throw new RenderInputError(`${label} is not a regular project file`);
   }
   return { absolute: actual, lexical, libraryRoot: null, scope: "project" };
@@ -401,15 +401,15 @@ function resolveProjectLexicalPath(root, value, label) {
 
 function assertCurrentInputBinding(input) {
   const lexical = input.lexical_path ?? input.absolute_path;
-  let info;
   let actual;
+  let actualInfo;
   try {
-    info = lstatSync(lexical);
     actual = realpathSync(lexical);
+    actualInfo = lstatSync(actual);
   } catch (error) {
     throw new RenderInputError(`${input.role} binding could not be resolved: ${messageOf(error)}`);
   }
-  if (!info.isFile() || actual !== input.absolute_path) {
+  if (!actualInfo.isFile() || actual !== input.absolute_path) {
     throw new RenderInputError(`${input.role} lexical input binding changed during rendering`);
   }
   if (input.scope === "project" && !isWithin(input.project_root, actual)) {

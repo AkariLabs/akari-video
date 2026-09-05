@@ -14,15 +14,28 @@ export interface WebCodecsH264Options {
   height: number;
   fps: number;
   bitrate?: number;
+  /** WebCodecs の codec-specific quantizer（0〜51、小さいほど高品質）。 */
+  quantizer?: number;
   keyframeIntervalFrames?: number;
   hardwareAcceleration?: HardwarePreference;
   /** 出力コーデック。クラス名は既存 API 互換のため WebCodecsH264Encoder のまま。 */
   codec?: 'h264' | 'hevc';
 }
 
-type H264EncoderConfig = VideoEncoderConfig & { avc: { format: 'annexb' } };
-type HevcEncoderConfig = VideoEncoderConfig & { hevc: { format: 'hevc' } };
+type QuantizerVideoEncoderConfig = { bitrateMode?: 'quantizer' };
+type H264EncoderConfig = VideoEncoderConfig & QuantizerVideoEncoderConfig & { avc: { format: 'annexb' } };
+type HevcEncoderConfig = VideoEncoderConfig & QuantizerVideoEncoderConfig & { hevc: { format: 'hevc' } };
 type AkariVideoEncoderConfig = H264EncoderConfig | HevcEncoderConfig;
+type AkariVideoEncoderEncodeOptions = VideoEncoderEncodeOptions & {
+  avc?: { quantizer: number };
+  hevc?: { quantizer: number };
+};
+
+export interface WebCodecsRateControlResolution {
+  options: WebCodecsH264Options;
+  rateControl: 'quantizer' | 'bitrate';
+  fallbackReason: string | null;
+}
 
 export class RefusalError extends Error {
   override readonly name = 'RefusalError';
@@ -118,6 +131,7 @@ export function hevcEncoderCodecString({ width, height, fps }: Pick<WebCodecsH26
 }
 
 function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderConfig {
+  const quantizer = validateQuantizer(options.quantizer);
   const bitrate = options.bitrate ?? 8_000_000;
   if (options.codec === 'hevc') {
     return {
@@ -127,7 +141,9 @@ function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderCon
       bitrate,
       framerate: options.fps,
       hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-      latencyMode: 'realtime',
+      ...(quantizer !== undefined ? { bitrateMode: 'quantizer' as const } : {}),
+      // 'quality' の理由は下の H.264 側と同じ（realtime は VideoToolbox 共有時にフレームを捨てる）。
+      latencyMode: 'quality',
       hevc: { format: 'hevc' }
     };
   }
@@ -141,9 +157,28 @@ function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderCon
     bitrate,
     framerate: options.fps,
     hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-    latencyMode: 'realtime',
+    ...(quantizer !== undefined ? { bitrateMode: 'quantizer' as const } : {}),
+    // ファイル書き出しなので 'quality'。'realtime' は仕様上フレーム落ちを許し、実際に macOS の VideoToolbox を
+    // 他セッション（プレビューの H.264 デコード・別のエンコード等）と共有すると黙ってチャンクを捨てた
+    // （2026-09-02 実測 M1: 1464 中 809 欠落、同条件の 'quality' は 0 欠落、単独でも 'quality' が 26% 速い）。
+    // 落ちた分は finish() の欠落検出と mp4-mux の sample count mismatch で fail closed になる。
+    latencyMode: 'quality',
     avc: { format: 'annexb' }
   };
+}
+
+const MISSING_FRAME_LIST_LIMIT = 20;
+
+/** encode() した frame 番号のうち出力 timestamp が無いものを列挙する（timestamp は encode() と同じ丸め）。 */
+export function describeMissingFrames(frames: number, fps: number, outputTimestamps: ReadonlySet<number>): string {
+  const missing: number[] = [];
+  let omitted = 0;
+  for (let frame = 0; frame < frames; frame += 1) {
+    if (outputTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+    if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+    else omitted += 1;
+  }
+  return omitted > 0 ? `${missing.join(', ')}, … and ${omitted} more` : missing.join(', ');
 }
 
 /**
@@ -152,8 +187,12 @@ function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderCon
  */
 export class WebCodecsH264Encoder {
   readonly config: AkariVideoEncoderConfig;
+  readonly rateControl: 'quantizer' | 'bitrate';
+  readonly rateControlFallbackReason: string | null;
   private readonly encoder: VideoEncoder;
   private readonly writes: Promise<void>[] = [];
+  // 出力チャンクの timestamp。encode() した frame と突き合わせ、エンコーダが黙って捨てた frame を finish() で名指しする。
+  private readonly outputTimestamps = new Set<number>();
   private failure: Error | null = null;
   private frameNumber = 0;
   private closed = false;
@@ -162,9 +201,12 @@ export class WebCodecsH264Encoder {
 
   constructor(
     private readonly sink: EncodedVideoChunkSink,
-    private readonly options: WebCodecsH264Options
+    private readonly options: WebCodecsH264Options,
+    rateControlResolution?: Pick<WebCodecsRateControlResolution, 'rateControl' | 'fallbackReason'>
   ) {
     this.config = buildEncoderConfig(options);
+    this.rateControl = rateControlResolution?.rateControl ?? (options.quantizer !== undefined ? 'quantizer' : 'bitrate');
+    this.rateControlFallbackReason = rateControlResolution?.fallbackReason ?? null;
     this.encoder = new VideoEncoder({
       output: (chunk, metadata) => {
         const bytes = new Uint8Array(chunk.byteLength);
@@ -173,6 +215,7 @@ export class WebCodecsH264Encoder {
           ? copyDescription(metadata?.decoderConfig?.description)
           : undefined;
         if (description) this.decoderConfigSent = true;
+        this.outputTimestamps.add(chunk.timestamp);
         this.writes.push(Promise.resolve(this.sink.write(bytes, {
           type: chunk.type,
           timestamp: chunk.timestamp,
@@ -192,6 +235,38 @@ export class WebCodecsH264Encoder {
     if (typeof VideoEncoder === 'undefined') return false;
     const config = buildEncoderConfig(options);
     return (await VideoEncoder.isConfigSupported(config)).supported === true;
+  }
+
+  /** quantizer 対応を 1 回だけ確認し、非対応なら既存 bitrate config へ落として生成する。 */
+  static async create(
+    sink: EncodedVideoChunkSink,
+    options: WebCodecsH264Options
+  ): Promise<WebCodecsH264Encoder> {
+    const resolution = await WebCodecsH264Encoder.resolveRateControl(options);
+    return new WebCodecsH264Encoder(sink, resolution.options, resolution);
+  }
+
+  static async resolveRateControl(options: WebCodecsH264Options): Promise<WebCodecsRateControlResolution> {
+    const config = buildEncoderConfig(options);
+    if (options.quantizer === undefined) {
+      return { options, rateControl: 'bitrate', fallbackReason: null };
+    }
+    let supported = false;
+    if (typeof VideoEncoder !== 'undefined') {
+      try {
+        supported = (await VideoEncoder.isConfigSupported(config)).supported === true;
+      } catch {
+        supported = false;
+      }
+    }
+    if (supported) {
+      return { options, rateControl: 'quantizer', fallbackReason: null };
+    }
+    return {
+      options: { ...options, quantizer: undefined },
+      rateControl: 'bitrate',
+      fallbackReason: 'quantizer-config-unsupported'
+    };
   }
 
   get encodeQueueSize(): number {
@@ -237,22 +312,37 @@ export class WebCodecsH264Encoder {
     const videoFrame = new VideoFrame(frame.surface.canvas, { timestamp });
     try {
       const interval = this.options.keyframeIntervalFrames ?? this.options.fps * 2;
-      this.encoder.encode(videoFrame, { keyFrame: this.frameNumber % interval === 0 });
+      const keyFrame = this.frameNumber % interval === 0;
+      const encodeOptions: AkariVideoEncoderEncodeOptions = this.options.quantizer === undefined
+        ? { keyFrame }
+        : this.options.codec === 'hevc'
+          ? { keyFrame, hevc: { quantizer: this.options.quantizer } }
+          : { keyFrame, avc: { quantizer: this.options.quantizer } };
+      this.encoder.encode(videoFrame, encodeOptions);
       this.frameNumber += 1;
     } finally {
       videoFrame.close();
     }
   }
 
-  async finish(): Promise<{ frames: number }> {
+  async finish(): Promise<{ frames: number; outputs: number }> {
     this.assertOpen();
     await this.encoder.flush();
     await Promise.all(this.writes);
     if (this.failure) throw this.failure;
+    // flush() 後に出力が encode() 回数へ届かなければエンコーダがフレームを捨てている。書き出しは全フレームが
+    // 必要なので、どの frame が欠けたかを添えて fail closed にする（後段の mp4-mux の検算より先に原因を名指しする）。
+    const dropped = this.frameNumber - this.writes.length;
+    if (dropped > 0) {
+      throw new Error(
+        `WebCodecs encoder dropped ${dropped} of ${this.frameNumber} frames`
+        + ` (missing frame numbers: ${describeMissingFrames(this.frameNumber, this.options.fps, this.outputTimestamps)})`
+      );
+    }
     this.encoder.close();
     this.closed = true;
     this.notifyQueueWaiters();
-    return { frames: this.frameNumber };
+    return { frames: this.frameNumber, outputs: this.writes.length };
   }
 
   close(): void {
@@ -270,6 +360,14 @@ export class WebCodecsH264Encoder {
   private notifyQueueWaiters(): void {
     for (const waiter of [...this.queueWaiters]) waiter();
   }
+}
+
+function validateQuantizer(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 51) {
+    throw new RangeError(`WebCodecs quantizer must be an integer from 0 to 51, got ${value}`);
+  }
+  return value;
 }
 
 function copyDescription(value: AllowSharedBufferSource | undefined): Uint8Array | undefined {

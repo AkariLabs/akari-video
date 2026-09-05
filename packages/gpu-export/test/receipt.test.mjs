@@ -64,6 +64,58 @@ test("GPU receipt keeps unavailable renderer and encoder support explicit", () =
   assert.equal(receipt.gpu.encoder_support, null);
 });
 
+test("GPU receipt records normalized forced overlay reasons", () => {
+  const forced = {
+    entries: [
+      { kind: "overlay", id: "a", classification: "dom", reason: "forced-dom:first", forced: true },
+      { kind: "caption", id: "b", classification: "same", reason: "caption-sprite" },
+      { kind: "overlay", id: "c", classification: "dom", reason: "forced-dom:second", forced: true },
+    ],
+  };
+  assert.deepEqual(buildGpuReceipt({ forced }).gpu.forced, {
+    reasons: [
+      { id: "a", reason: "forced-dom:first" },
+      { id: "c", reason: "forced-dom:second" },
+    ],
+  });
+});
+
+test("GPU receipt keeps an absent or malformed forced record null", () => {
+  assert.equal(buildGpuReceipt().gpu.forced, null);
+  assert.equal(buildGpuReceipt({ forced: { entries: "invalid" } }).gpu.forced, null);
+  assert.equal(buildGpuReceipt({ forced: { entries: [{ id: 42, reason: null, forced: true }] } }).gpu.forced, null);
+});
+
+test("GPU receipt normalizes sampled 3D entrance mode and sampling costs", () => {
+  const three = {
+    overlays: [{ id: "three-title", entrance: { mode: "sampled" } }],
+    sampling: { count: 450, p50: 0.21, p95: 0.68 },
+  };
+  assert.deepEqual(buildGpuReceipt({ run: { three } }).gpu.three, three);
+  assert.equal(buildGpuReceipt({ run: { three: { overlays: [], sampling: { count: 1, p50: -1, p95: 2 } } } }).gpu.three, null);
+  assert.equal(buildGpuReceipt({ run: { three: { overlays: [{ id: "x", entrance: { mode: "none" } }], sampling: { count: 0, p50: null, p95: null } } } }).gpu.three, null);
+});
+
+test("GPU receipt normalizes composite 3D diagnostics without changing legacy summaries", () => {
+  const legacy = {
+    overlays: [{ id: "curve", entrance: { mode: "curve" } }],
+    sampling: { count: 0, p50: null, p95: null },
+  };
+  assert.deepEqual(buildGpuReceipt({ run: { three: legacy } }).gpu.three, legacy);
+  const three = {
+    overlays: [{ id: "scene", entrance: { mode: "composite" } }],
+    sampling: { count: 0, p50: null, p95: null },
+    composite: {
+      overlays: 1,
+      domElements: 14,
+      copy: { count: 180, p50: 0.08, p95: 0.15 },
+      domLayerCostMs: { p50: 0.7, p95: 1.4 },
+    },
+  };
+  assert.deepEqual(buildGpuReceipt({ run: { three } }).gpu.three, three);
+  assert.equal(buildGpuReceipt({ run: { three: { ...three, composite: { ...three.composite, domElements: -1 } } } }).gpu.three, null);
+});
+
 test("GPU receipt records each normalized audio mode", () => {
   for (const audio of [
     { mode: "copy", source: "cut-audio.mp4", source_has_audio: true },

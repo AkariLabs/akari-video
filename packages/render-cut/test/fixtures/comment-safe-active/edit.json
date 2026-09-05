@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [
+    { "id": "main", "path": "media/background.mp4", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "base",
+      "lane": "visual",
+      "items": [
+        { "id": "base-video", "at": 0, "duration": 20, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+      ]
+    },
+    {
+      "id": "overlays",
+      "lane": "visual",
+      "items": [
+        { "id": "comment-only", "at": 0, "duration": 20, "source": { "kind": "html", "path": "overlays/comment-only.html" } },
+        { "id": "active-gate", "at": 0, "duration": 20, "source": { "kind": "html", "path": "overlays/active-gate.html" } }
+      ]
+    }
+  ]
+}

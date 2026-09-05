@@ -2100,7 +2100,8 @@ ${indent}`);
             changed++;
             continue;
           }
-          if (hasPreset && record.style_preset === presetId)
+          const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+          if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
             continue;
           let nextElement;
           if (hasPreset) {
@@ -2115,10 +2116,30 @@ ${indent}`);
               nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
             }
           }
+          nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
           output = replaceElement(output, array.openIndex + 1, element, nextElement);
           changed++;
         }
         return { source: output, changed };
+      }
+      function shadowedPresetStyleKeys(presetId, textStyle) {
+        const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId) ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : void 0;
+        if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
+          return [];
+        }
+        const style = textStyle;
+        return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+      }
+      function pruneShadowedTextStyle(element, keys, captionId) {
+        if (keys.length === 0) {
+          return element;
+        }
+        const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+        let textStyle = located.text;
+        for (const key of keys) {
+          textStyle = removeObjectProperty(textStyle, key);
+        }
+        return Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(element, "text_style") : element.slice(0, located.start) + textStyle + element.slice(located.end);
       }
       function insertCaptionLine(source, caption) {
         const parsed = parseCaptions(source);
@@ -3458,9 +3479,9 @@ ${indent}`);
           fail("INVALID_POLICY", `display_policy.algorithm must be ${exports.CAPTION_DISPLAY_ALGORITHM}`);
         if (value.unit_metric !== exports.CAPTION_UNIT_METRIC)
           fail("INVALID_POLICY", `display_policy.unit_metric must be ${exports.CAPTION_UNIT_METRIC}`);
-        if (!finitePositive3(value.max_line_units))
+        if (!finitePositive4(value.max_line_units))
           fail("INVALID_POLICY", "display_policy.max_line_units must be a positive finite number");
-        if (!finitePositive3(value.minimum_fragment_duration_seconds))
+        if (!finitePositive4(value.minimum_fragment_duration_seconds))
           fail("INVALID_POLICY", "display_policy.minimum_fragment_duration_seconds must be a positive finite number");
         if (!strictText(value.locale)) {
           fail("INVALID_POLICY", "display_policy.locale must be a non-empty NFC trimmed string");
@@ -3622,7 +3643,7 @@ ${indent}`);
         rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
         if (Object.prototype.hasOwnProperty.call(value, "color"))
           validateHexColor(value.color, `${label}.color`);
-        if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
+        if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive4(value.size_px)) {
           fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
         }
         if (Object.prototype.hasOwnProperty.call(value, "reference_height_px") && !positiveInteger(value.reference_height_px)) {
@@ -3631,7 +3652,7 @@ ${indent}`);
         if (Object.prototype.hasOwnProperty.call(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1e3)) {
           fail("INVALID_TEXT_STYLE", `${label}.font_weight must be an integer within [1, 1000]`);
         }
-        if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive3(value.line_height)) {
+        if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive4(value.line_height)) {
           fail("INVALID_TEXT_STYLE", `${label}.line_height must be a positive finite number`);
         }
         validateTextStyleV0(value, label);
@@ -3700,7 +3721,7 @@ ${indent}`);
             fail("INVALID_TEXT_STYLE", `${label}.${key} is required`);
           }
         }
-        if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative2(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
+        if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive4(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative2(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
           fail("INVALID_TEXT_STYLE", `${label} must be a bounded reference-pixel layout with center/max_lines=1`);
         }
       }
@@ -3761,13 +3782,13 @@ ${indent}`);
             if (typeof entry.id !== "string" || entry.id === "") {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.id must be a non-empty string`);
             }
-            if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive3(entry.duration_sec)) {
+            if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive4(entry.duration_sec)) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.duration_sec must be a positive finite number`);
             }
             if (Object.prototype.hasOwnProperty.call(entry, "ease") && (typeof entry.ease !== "string" || entry.ease === "")) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.ease must be a non-empty string`);
             }
-            if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive3(entry.amp)) {
+            if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive4(entry.amp)) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.amp must be a positive finite number`);
             }
           }
@@ -3831,13 +3852,13 @@ ${indent}`);
       }
       function validateLinearCuts(cuts, edit) {
         cuts.forEach((cut, index) => {
-          if (!isRecord2(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
+          if (!isRecord2(cut) || !finiteNonNegative2(cut.in) || !finitePositive4(cut.out) || cut.out <= cut.in) {
             fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
           }
           if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
             fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].at/track/transition_out`);
           }
-          if (cut.speed !== void 0 && !finitePositive3(cut.speed))
+          if (cut.speed !== void 0 && !finitePositive4(cut.speed))
             fail("INVALID_CUT", `edit.json cuts[${index}].speed must be positive`);
         });
         if (Array.isArray(edit?.timeline?.tracks) && edit.timeline.tracks.some((track) => track?.kind === "cuts")) {
@@ -3848,7 +3869,7 @@ ${indent}`);
         const occurrences = [];
         let cursor = 0;
         const segments = cuts.map((cut, cutIndex) => {
-          const speed = finitePositive3(cut.speed) ? cut.speed : 1;
+          const speed = finitePositive4(cut.speed) ? cut.speed : 1;
           const duration = (cut.out - cut.in) / speed;
           const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
           cursor += duration;
@@ -3880,7 +3901,7 @@ ${indent}`);
             if (caption?.time_domain === "output")
               return;
             const text = caption?.display_text ?? caption?.text;
-            if (isRecord2(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
+            if (isRecord2(caption) && finiteNonNegative2(caption.start) && finitePositive4(caption.end) && caption.end > caption.start && typeof text === "string") {
               occurrences.push({
                 source_cue_id: caption.id,
                 src: typeof caption.src === "string" ? caption.src : null,
@@ -3934,7 +3955,7 @@ ${indent}`);
       function validateSourceCaption(caption, index, policy) {
         if (!isRecord2(caption) || !strictText(caption.id))
           fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
-        if (!finiteNonNegative2(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
+        if (!finiteNonNegative2(caption.start) || !finitePositive4(caption.end) || caption.end <= caption.start) {
           fail("INVALID_CAPTION", `captions[${index}] must satisfy 0 <= start < end`);
         }
         if (caption.src !== void 0 && !strictText(caption.src)) {
@@ -3962,7 +3983,7 @@ ${indent}`);
         captions.forEach((caption, index) => {
           if (caption.time_domain === "output")
             return;
-          const conflict = emphasisValue.some((value) => isRecord2(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
+          const conflict = emphasisValue.some((value) => isRecord2(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive4(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
           if (conflict)
             fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
         });
@@ -4085,7 +4106,7 @@ ${indent}`);
         if (!positiveInteger(style.reference_height_px)) {
           fail("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
         }
-        if (!output || !finitePositive3(output.height)) {
+        if (!output || !finitePositive4(output.height)) {
           fail("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
         }
         return output.height / style.reference_height_px;
@@ -4144,7 +4165,7 @@ ${indent}`);
           fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
         }
         if (style.layout !== void 0) {
-          if (!output || !finitePositive3(output.width) || !finitePositive3(output.height))
+          if (!output || !finitePositive4(output.width) || !finitePositive4(output.height))
             fail("INVALID_OUTPUT_GEOMETRY", "output width/height are required for reference-pixel caption layout");
           layout = resolveReferencePixelLayout(style.layout, output);
           scale = layout.scale;
@@ -4158,14 +4179,14 @@ ${indent}`);
         }
         if (typeof style.color === "string")
           vars["--caption-color"] = style.color;
-        if (finitePositive3(style.size_px))
+        if (finitePositive4(style.size_px))
           vars["--caption-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
         if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
           vars["--caption-font-weight"] = String(style.weight);
         } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3) {
           vars["--caption-font-weight"] = String(style.font_weight);
         }
-        if (finitePositive3(style.line_height))
+        if (finitePositive4(style.line_height))
           vars["--caption-line-height"] = formatCssNumber(style.line_height);
         if (isRecord2(style.stroke)) {
           const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
@@ -4194,7 +4215,7 @@ ${indent}`);
         for (const key of required)
           if (!Object.prototype.hasOwnProperty.call(value, key))
             fail("INVALID_LAYOUT", `caption layout.${key} is required`);
-        if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || !finiteNonNegative2(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
+        if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive4(value.width_px) || !finiteNonNegative2(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
           fail("INVALID_LAYOUT", "caption reference-pixel layout fields are invalid");
         }
         const widthScale = output.width / value.reference_width_px;
@@ -4239,7 +4260,7 @@ ${indent}`);
       function finiteNumber2(value) {
         return typeof value === "number" && Number.isFinite(value);
       }
-      function finitePositive3(value) {
+      function finitePositive4(value) {
         return typeof value === "number" && Number.isFinite(value) && value > 0;
       }
       function finiteNonNegative2(value) {
@@ -5443,6 +5464,7 @@ ${indent}`);
       exports.readInternalEdit = readInternalEdit;
       exports.readInternalSources = readInternalSources;
       exports.visualContentEndSeconds = visualContentEndSeconds;
+      exports.timelineDurationSeconds = timelineDurationSeconds;
       exports.walkItems = walkItems;
       exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
       exports.projectLegacyEdit = projectLegacyEdit;
@@ -5491,6 +5513,27 @@ ${indent}`);
           }
         }
         return maxEnd;
+      }
+      function timelineDurationSeconds(internal) {
+        const visualEnd = visualContentEndSeconds(internal);
+        if (visualEnd > 0) {
+          return { seconds: visualEnd, basis: "visual" };
+        }
+        let fallbackEnd = 0;
+        const walk = (item, lane) => {
+          const isFallbackVisual = lane === "visual" && ["html", "group", "captions", "caption"].includes(item.source.kind);
+          const isFallbackAudio = lane === "audio" && (item.legacy.collection === "narration" || item.legacy.collection === "sfx");
+          if (isFallbackVisual || isFallbackAudio) {
+            fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+          }
+          for (const child of item.children)
+            walk(child, lane);
+        };
+        for (const track of internal.tracks) {
+          for (const item of track.items)
+            walk(item, track.lane);
+        }
+        return fallbackEnd > 0 ? { seconds: fallbackEnd, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
       }
       function* walkItems(internal) {
         function* walk(item) {
@@ -7260,7 +7303,7 @@ ${indent}`);
       var timeline_map_1 = require_timeline_map();
       function buildWebAudioSchedule2(input) {
         const warnings = [];
-        const timelineDurationSec = finitePositive3(input.timelineDurationSec) ? input.timelineDurationSec : 0;
+        const timelineDurationSec = finitePositive4(input.timelineDurationSec) ? input.timelineDurationSec : 0;
         const startAtSec = Math.max(0, Math.min(timelineDurationSec, Number.isFinite(input.startAtSec) ? input.startAtSec : 0));
         const audio = input.audio;
         if (!audio || timelineDurationSec <= 0 || startAtSec >= timelineDurationSec) {
@@ -7310,7 +7353,7 @@ ${indent}`);
           const spec = specs[index];
           const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
           const label = `${kind} ${id}`;
-          if (!spec || !finitePositive3(spec.durationSec)) {
+          if (!spec || !finitePositive4(spec.durationSec)) {
             warnings.push(`${label}: decoded duration is invalid; skipped`);
             continue;
           }
@@ -7354,7 +7397,7 @@ ${indent}`);
           warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
           sourceOffsetSec = 0;
         }
-        let outSec = finitePositive3(spec.out) ? spec.out : materialDurationSec;
+        let outSec = finitePositive4(spec.out) ? spec.out : materialDurationSec;
         if (outSec > materialDurationSec) {
           warnings.push(`${label}: out exceeds decoded duration; clamped to material end`);
           outSec = materialDurationSec;
@@ -7396,7 +7439,7 @@ ${indent}`);
       }
       function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
         const label = "bgm";
-        if (!finitePositive3(spec.durationSec)) {
+        if (!finitePositive4(spec.durationSec)) {
           warnings.push(`${label}: decoded duration is invalid; skipped`);
           return null;
         }
@@ -7451,7 +7494,7 @@ ${indent}`);
       function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
         const id = typeof spec?.id === "string" && spec.id ? spec.id : "speech";
         const label = `speech ${id}`;
-        if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative2(spec.atSec) || !finitePositive3(spec.durationSec) || !finiteNonNegative2(spec.inSec) || !finitePositive3(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive3(spec.speed) || !finitePositive3(spec.materialDurationSec)) {
+        if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative2(spec.atSec) || !finitePositive4(spec.durationSec) || !finiteNonNegative2(spec.inSec) || !finitePositive4(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive4(spec.speed) || !finitePositive4(spec.materialDurationSec)) {
           warnings.push(`${label}: declaration is invalid; skipped`);
           return null;
         }
@@ -7463,12 +7506,12 @@ ${indent}`);
         const sidecar = validSidecar2(spec.sidecar);
         if (spec.sidecar && !sidecar)
           warnings.push(`${label}: sidecar declaration is invalid; using source`);
-        const atempo = spec.atempo && typeof spec.atempo.path === "string" && spec.atempo.path && finitePositive3(spec.atempo.durationSec) ? spec.atempo : void 0;
+        const atempo = spec.atempo && typeof spec.atempo.path === "string" && spec.atempo.path && finitePositive4(spec.atempo.durationSec) ? spec.atempo : void 0;
         if (spec.atempo && !atempo)
           warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
         const baked = sidecar ?? atempo;
-        const crossfadeInSec = finitePositive3(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
-        const crossfadeOutSec = finitePositive3(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
+        const crossfadeInSec = finitePositive4(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
+        const crossfadeOutSec = finitePositive4(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
         const effectiveAtSec = spec.atSec - crossfadeInSec;
         const effectiveDurationSec = spec.durationSec + crossfadeInSec;
         const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
@@ -7507,13 +7550,13 @@ ${indent}`);
         };
       }
       function projectSpeechDeclarations3(cuts, options) {
-        const fps = finitePositive3(options?.fps) ? options.fps : 30;
+        const fps = finitePositive4(options?.fps) ? options.fps : 30;
         const normalizedCuts = cuts.map((cut) => ({
           ...cut,
           transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
         }));
         const virtualCuts = normalizedCuts.map((cut) => {
-          const speed = finitePositive3(cut?.speed) ? cut.speed : 1;
+          const speed = finitePositive4(cut?.speed) ? cut.speed : 1;
           const holdSec = freezeDuration(cut?.freeze);
           return { ...cut, out: cut.out + holdSec * speed };
         });
@@ -7525,7 +7568,7 @@ ${indent}`);
           const cut = normalizedCuts[segment.cutIndex];
           if (!cut || typeof cut.src !== "string" || !cut.src)
             continue;
-          const speed = finitePositive3(cut.speed) ? cut.speed : 1;
+          const speed = finitePositive4(cut.speed) ? cut.speed : 1;
           const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
           const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
           const baseDurationSec = Math.max(0, cut.out - cut.in) / speed;
@@ -7618,7 +7661,7 @@ ${indent}`);
         });
       }
       function freezeDuration(freeze) {
-        return freeze && finitePositive3(freeze.duration_sec) ? freeze.duration_sec : 0;
+        return freeze && finitePositive4(freeze.duration_sec) ? freeze.duration_sec : 0;
       }
       function freezeAt(freeze) {
         return freeze && finiteNonNegative2(freeze.at_sec) ? freeze.at_sec : 0;
@@ -7628,7 +7671,7 @@ ${indent}`);
         return typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
       }
       function validSidecar2(value) {
-        return value && typeof value.path === "string" && value.path && finitePositive3(value.durationSec) && finiteNonNegative2(value.padBeforeSec) && finiteNonNegative2(value.padAfterSec) ? value : void 0;
+        return value && typeof value.path === "string" && value.path && finitePositive4(value.durationSec) && finiteNonNegative2(value.padBeforeSec) && finiteNonNegative2(value.padAfterSec) ? value : void 0;
       }
       function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain) {
         if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
@@ -7670,8 +7713,8 @@ ${indent}`);
       }
       function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
         const ceiling = itemDurationSec / 2;
-        const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-        const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+        const fadeIn = finitePositive4(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+        const fadeOut = finitePositive4(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
         const multiplierAt = (localSec) => {
           let multiplier = 1;
           if (fadeIn > 0 && localSec < fadeIn)
@@ -7699,8 +7742,8 @@ ${indent}`);
       }
       function bgmFadeGainEvents(rawFadeIn, rawFadeOut, timelineDurationSec, timelineStartSec, availableSec, baseGain) {
         const ceiling = timelineDurationSec / 2;
-        const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-        const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+        const fadeIn = finitePositive4(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+        const fadeOut = finitePositive4(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
         if (fadeIn <= 0 && fadeOut <= 0) {
           return [{ offsetSec: 0, value: baseGain, method: "set" }];
         }
@@ -7775,7 +7818,7 @@ ${indent}`);
         return [...new Set(value.filter((entry) => entry === "narration" || entry === "speech"))];
       }
       function mergeDuckIntervals(intervals) {
-        const sorted = intervals.filter((interval) => interval && finiteNonNegative2(interval.startSec) && finitePositive3(interval.endSec) && interval.endSec > interval.startSec).map((interval) => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+        const sorted = intervals.filter((interval) => interval && finiteNonNegative2(interval.startSec) && finitePositive4(interval.endSec) && interval.endSec > interval.startSec).map((interval) => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
         const result = [];
         for (const interval of sorted) {
           const last = result[result.length - 1];
@@ -7792,7 +7835,7 @@ ${indent}`);
       function normalizedTrack(value) {
         return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
       }
-      function finitePositive3(value) {
+      function finitePositive4(value) {
         return typeof value === "number" && Number.isFinite(value) && value > 0;
       }
       function finiteClipSpeed(value) {
@@ -16841,10 +16884,12 @@ ${indent}`);
     KNOWN_LAYER_KEYS: () => KNOWN_LAYER_KEYS,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
+    PitchShiftKernel: () => PitchShiftKernel,
     RangeMp4Source: () => RangeMp4Source,
     RefusalError: () => RefusalError,
     ScrubController: () => ScrubController,
     SpriteCompositor: () => SpriteCompositor,
+    StreamReaper: () => StreamReaper,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
     TimeoutError: () => TimeoutError,
     WarmupManager: () => WarmupManager,
@@ -16880,6 +16925,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     downmixToMono: () => downmixToMono,
@@ -16915,6 +16961,7 @@ ${indent}`);
     parseFlacStreamInfo: () => parseFlacStreamInfo,
     parseSourceSelectionMode: () => parseSourceSelectionMode,
     parseWavHeader: () => parseWavHeader,
+    planStreamsBySource: () => planStreamsBySource,
     precedingSyncSample: () => precedingSyncSample,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
@@ -18484,8 +18531,6 @@ void main() {
       }
       if (layers.length !== plan.layers.length)
         throw new Error("layer inputs must match plan.layers");
-      if (base.length === 0 && layers.length === 0)
-        throw new Error("cannot compose an empty plan");
       const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => input.kind !== "filter" && (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format))));
       if (hasBlockedDirectInput && this.directUploadDisabled)
         this.failDirectUpload("direct upload is disabled for this session");
@@ -18514,7 +18559,7 @@ void main() {
           queries.push(query);
         }
       };
-      if (layers.length === 0 && !hasLook) {
+      if (layers.length === 0 && !hasLook && baseProgram) {
         this.configureBaseDraw(plan, null, baseProgram);
         draw();
         this.recordGlErrors(synchronization);
@@ -24737,6 +24782,37 @@ void main() {
       this.caches.clear();
       this.inFlight.clear();
     }
+    /**
+     * 生きている stream（キャッシュを持つもの + 内側のソースが掴んでいるデコーダのレーン）。
+     * StreamReaper がこの一覧を見て「plan に載っていない stream」を選ぶ。
+     */
+    liveStreamIds() {
+      const ids = new Set(this.caches.keys());
+      const inner = this.source;
+      if (typeof inner.liveStreamIds === "function") {
+        for (const streamId of inner.liveStreamIds()) ids.add(streamId);
+      }
+      return [...ids];
+    }
+    /**
+     * stream 1 本ぶんのキャッシュと、内側のデコーダセッションを解放する。書き出しは厳密に前方順で
+     * 過去フレームを読み直さないので、plan から外れたカットはここで捨ててよい（issue #52）。
+     * 進行中の prefetch は握っている frame を put() でキャッシュへ戻すため、in-flight の間は
+     * 解放しない（次のフレームで回収される）。
+     */
+    releaseStream(streamId) {
+      for (const key of this.inFlight.keys()) {
+        if (key.slice(0, key.lastIndexOf(":")) === streamId) return false;
+      }
+      const cache = this.caches.get(streamId);
+      if (cache) {
+        cache.clear();
+        this.caches.delete(streamId);
+      }
+      const inner = this.source;
+      const releasedSession = typeof inner.releaseSession === "function" ? inner.releaseSession(streamId) : false;
+      return Boolean(cache) || releasedSession;
+    }
     frameNumber(timeUs) {
       return Math.max(0, Math.round(timeUs * this.fps / 1e6));
     }
@@ -24747,6 +24823,92 @@ void main() {
         this.caches.set(streamId, cache);
       }
       return cache;
+    }
+  };
+
+  // packages/frame-engine/src/decode/stream-reaper.ts
+  function isReapable(source) {
+    const value = source;
+    return typeof value.liveStreamIds === "function" && typeof value.releaseStream === "function";
+  }
+  function planStreamsBySource(plan) {
+    const streams = /* @__PURE__ */ new Map();
+    const add = (source, streamId) => {
+      if (!source) return;
+      let ids = streams.get(source);
+      if (!ids) {
+        ids = /* @__PURE__ */ new Set();
+        streams.set(source, ids);
+      }
+      ids.add(streamId);
+    };
+    for (const layer of plan.base) {
+      if (layer.kind === "image") continue;
+      add(layer.source, layer.id);
+    }
+    for (const layer of plan.layers) {
+      if (layer.kind === "filter") continue;
+      add(layer.source, `layer-${layer.id}`);
+      if (layer.mask) add(layer.mask.source, `layer-${layer.id}-mask`);
+    }
+    return streams;
+  }
+  var StreamReaper = class {
+    sources;
+    lastSeen = /* @__PURE__ */ new Map();
+    graceFrames;
+    releasedTotal = 0;
+    constructor(sources, options = {}) {
+      this.sources = [...sources].filter(isReapable);
+      const grace = Number(options.graceFrames);
+      this.graceFrames = Number.isFinite(grace) && grace >= 0 ? Math.floor(grace) : 30;
+    }
+    /**
+     * 1 フレームぶんの回収。plan を評価する **前** に呼ぶ（新しい decode が始まる前に空ける）。
+     */
+    reap(plan, frameNumber) {
+      const inUse = planStreamsBySource(plan);
+      const frame = Number.isFinite(frameNumber) ? Math.round(frameNumber) : 0;
+      let released = 0;
+      let liveStreams = 0;
+      for (const source of this.sources) {
+        const seen = this.seenFor(source);
+        const active = inUse.get(source);
+        if (active) for (const streamId of active) seen.set(streamId, frame);
+        for (const streamId of [...source.liveStreamIds()]) {
+          const last = seen.get(streamId);
+          if (last === void 0) {
+            seen.set(streamId, frame);
+            continue;
+          }
+          if (frame - last <= this.graceFrames) continue;
+          if (source.releaseStream(streamId)) {
+            released += 1;
+            seen.delete(streamId);
+          }
+        }
+        liveStreams += source.liveStreamIds().length;
+      }
+      this.releasedTotal += released;
+      return { released, liveStreams };
+    }
+    /** 現在生きている stream の総数（run.json の memory ブロックに出す可視化用）。 */
+    liveStreams() {
+      let total = 0;
+      for (const source of this.sources) total += source.liveStreamIds().length;
+      return total;
+    }
+    /** これまでに解放した stream の累計。 */
+    released() {
+      return this.releasedTotal;
+    }
+    seenFor(source) {
+      let seen = this.lastSeen.get(source);
+      if (!seen) {
+        seen = /* @__PURE__ */ new Map();
+        this.lastSeen.set(source, seen);
+      }
+      return seen;
     }
   };
 
@@ -25232,6 +25394,13 @@ void main() {
     let lastAudioPositionAtRenderSec = null;
     let lastSchedule = [];
     let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
+    let rate = 1;
+    const masterGain = context?.createGain() ?? null;
+    let analyser = null;
+    let pitchShiftNode = null;
+    let workletReady = false;
+    let workletWarningEmitted = false;
+    let stretcher = "none";
     const sidecarValues = [
       ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
       ...speech.map((item) => item.sidecar)
@@ -25246,7 +25415,60 @@ void main() {
       0,
       Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
     );
-    const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec)) : latestRequestedSec;
+    const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+    const warnPitchUnavailable = (reason) => {
+      if (workletWarningEmitted) return;
+      workletWarningEmitted = true;
+      warn("[frame-engine] pitch-preserving playback unavailable; using native playback rate", reason);
+    };
+    const outputNode = () => analyser ?? context?.destination ?? null;
+    const disconnectPitchShiftNode = () => {
+      if (!pitchShiftNode) return;
+      try {
+        pitchShiftNode.disconnect();
+      } catch {
+      }
+    };
+    const routeMasterBus = () => {
+      if (!context || !masterGain) return;
+      try {
+        masterGain.disconnect();
+      } catch {
+      }
+      disconnectPitchShiftNode();
+      stretcher = "none";
+      const output = outputNode();
+      if (!output) return;
+      if (rate !== 1 && workletReady) {
+        try {
+          const WorkletNode = globalThis.AudioWorkletNode;
+          if (typeof WorkletNode !== "function") throw new Error("AudioWorkletNode is unavailable");
+          pitchShiftNode ??= new WorkletNode(context, "akari-pitch-shift", {
+            parameterData: { ratio: 1 / rate }
+          });
+          const ratio = pitchShiftNode.parameters.get("ratio");
+          if (ratio) ratio.value = 1 / rate;
+          masterGain.connect(pitchShiftNode);
+          pitchShiftNode.connect(output);
+          stretcher = "worklet";
+          return;
+        } catch (reason) {
+          warnPitchUnavailable(reason);
+        }
+      }
+      masterGain.connect(output);
+    };
+    if (masterGain) routeMasterBus();
+    if (context && options.pitchShiftWorkletUrl) {
+      if (context.audioWorklet?.addModule) {
+        void context.audioWorklet.addModule(options.pitchShiftWorkletUrl).then(() => {
+          workletReady = true;
+          routeMasterBus();
+        }).catch((reason) => warnPitchUnavailable(reason));
+      } else {
+        warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
+      }
+    }
     const stopSources = () => {
       const sources = active;
       active = [];
@@ -25430,14 +25652,14 @@ void main() {
       });
       return prefetchInFlight;
     };
-    const applyGainEvents = (param, events, startTime) => {
+    const applyGainEvents = (param, events, startTime, playbackRate) => {
       if (events.length === 0) {
         param.setValueAtTime(1, startTime);
         return;
       }
       param.cancelScheduledValues(startTime);
       for (const event of events) {
-        const at2 = startTime + event.offsetSec;
+        const at2 = startTime + event.offsetSec / playbackRate;
         if (event.method === "linear") param.linearRampToValueAtTime(event.value, at2);
         else if (event.method === "exponential") param.exponentialRampToValueAtTime(event.value, at2);
         else param.setValueAtTime(event.value, at2);
@@ -25454,7 +25676,7 @@ void main() {
         const gains = [baseGain];
         source.buffer = buffer;
         source.loop = item.loop;
-        source.playbackRate.value = item.playbackRate;
+        source.playbackRate.value = item.playbackRate * rate;
         source.connect(baseGain);
         let tail = baseGain;
         if (item.envelopeEvents.length > 0) {
@@ -25462,11 +25684,16 @@ void main() {
           baseGain.connect(envelopeGain);
           tail = envelopeGain;
           gains.push(envelopeGain);
-          applyGainEvents(envelopeGain.gain, item.envelopeEvents, contextStart + item.delaySec);
+          applyGainEvents(
+            envelopeGain.gain,
+            item.envelopeEvents,
+            contextStart + item.delaySec / rate,
+            rate
+          );
         }
-        tail.connect(context.destination);
-        applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-        source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
+        tail.connect(masterGain ?? context.destination);
+        applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
+        source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
         const activeItem = { source, gains };
         active.push(activeItem);
         source.onended = () => {
@@ -25590,6 +25817,9 @@ void main() {
         audioPositionSec,
         driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
         playing,
+        rate,
+        pitchPreserved: rate === 1 || stretcher === "worklet",
+        stretcher,
         scheduled: {
           startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
           itemCount: lastSchedule.length,
@@ -25661,6 +25891,32 @@ void main() {
         if (continuePlaying && context) launch(latestRequestedSec);
       },
       pause,
+      setRate(value) {
+        const nextRate = clampPlaybackRate(value);
+        if (nextRate === rate) return;
+        const wasPlaying = playing;
+        const position = wasPlaying ? audioPosition() : latestRequestedSec;
+        rate = nextRate;
+        latestRequestedSec = position;
+        routeMasterBus();
+        if (wasPlaying) {
+          generation += 1;
+          playing = false;
+          starting = false;
+          lastStartOutcome = null;
+          stopSources();
+          launch(latestRequestedSec);
+        }
+      },
+      attachAnalyser() {
+        if (!context || !masterGain) return null;
+        if (!analyser) {
+          analyser = context.createAnalyser();
+          analyser.connect(context.destination);
+          routeMasterBus();
+        }
+        return analyser;
+      },
       noteRendered(seconds) {
         lastRenderedTimelineSec = clamp5(seconds);
         lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
@@ -25670,6 +25926,15 @@ void main() {
         if (pauseTimer !== null) clearTimeout(pauseTimer);
         pauseTimer = null;
         pause();
+        try {
+          masterGain?.disconnect();
+        } catch {
+        }
+        disconnectPitchShiftNode();
+        try {
+          analyser?.disconnect();
+        } catch {
+        }
         decoded.clear();
         decodedBytes = 0;
         void context?.close().catch(() => void 0);
@@ -25697,6 +25962,9 @@ void main() {
   }
   function finiteNonNegative(value) {
     return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  }
+  function clampPlaybackRate(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.min(3, value)) : 1;
   }
   function nowMs() {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -25778,6 +26046,233 @@ void main() {
       for (let index = 0; index < out.length; index += 1) out[index] = (out[index] ?? 0) + (data[index] ?? 0) * scale;
     }
     return mono;
+  }
+
+  // packages/frame-engine/src/audio/pitch-shift-kernel.ts
+  var MIN_RATIO = 0.25;
+  var MAX_RATIO = 4;
+  var BUFFER_TRIM_FRAMES = 8192;
+  var PitchShiftKernel = class {
+    latencyFrames;
+    sampleRate;
+    channels;
+    windowFrames;
+    overlapFrames;
+    synthesisHop;
+    searchFrames;
+    window;
+    ratioValue = 1;
+    input;
+    inputBase = 0;
+    inputEnd = 0;
+    stretched;
+    stretchedBase = 0;
+    stretchedFinalized = 0;
+    nextSynthesisStart = 0;
+    previousAnalysisStart = null;
+    nextExpectedAnalysisStart = 0;
+    previousOverlapMid = new Float32Array(0);
+    resamplePosition = 0;
+    outputFrames = 0;
+    constructor(sampleRate, channels, options = {}) {
+      this.sampleRate = finitePositive3(sampleRate) ? sampleRate : 48e3;
+      this.channels = Math.max(1, Math.floor(finitePositive3(channels) ? channels : 1));
+      const requestedWindowMs = clampFinite(options.windowMs, 20, 40, 24);
+      const rawWindow = Math.max(2, Math.round(this.sampleRate * requestedWindowMs / 1e3));
+      this.windowFrames = rawWindow % 2 === 0 ? rawWindow : rawWindow + 1;
+      this.overlapFrames = this.windowFrames / 2;
+      this.synthesisHop = this.windowFrames - this.overlapFrames;
+      this.searchFrames = Math.max(1, Math.round(
+        this.sampleRate * clampFinite(options.searchMs, 1, 15, 10) / 1e3
+      ));
+      this.latencyFrames = this.windowFrames + Math.ceil(this.synthesisHop / MIN_RATIO) + this.searchFrames;
+      this.window = new Float32Array(this.windowFrames);
+      for (let index = 0; index < this.windowFrames; index += 1) {
+        this.window[index] = 0.5 - 0.5 * Math.cos(2 * Math.PI * index / this.windowFrames);
+      }
+      this.input = Array.from({ length: this.channels }, () => []);
+      this.stretched = Array.from({ length: this.channels }, () => []);
+    }
+    setRatio(ratio) {
+      const next = clampFinite(ratio, MIN_RATIO, MAX_RATIO, 1);
+      if (Math.abs(next - this.ratioValue) <= 1e-9) return;
+      this.ratioValue = next;
+      this.reset();
+    }
+    process(input, output) {
+      const frames = output.reduce((maximum, channel) => Math.max(maximum, channel.length), 0);
+      if (frames === 0) return;
+      if (this.ratioValue === 1) {
+        for (let channel = 0; channel < output.length; channel += 1) {
+          const source = input[channel] ?? input[0];
+          const target = output[channel];
+          target.fill(0);
+          if (source) target.set(source.subarray(0, target.length));
+        }
+        return;
+      }
+      this.appendInput(input, frames);
+      this.generateStretchedFrames();
+      for (let frame = 0; frame < frames; frame += 1) {
+        if (this.outputFrames >= this.latencyFrames && this.canResample()) {
+          const left = Math.floor(this.resamplePosition);
+          const fraction = this.resamplePosition - left;
+          for (let channel = 0; channel < output.length; channel += 1) {
+            const target = output[channel];
+            const sourceChannel = Math.min(channel, this.channels - 1);
+            const a = this.stretchedAt(sourceChannel, left);
+            const b = this.stretchedAt(sourceChannel, left + 1);
+            target[frame] = a + (b - a) * fraction;
+          }
+          this.resamplePosition += this.ratioValue;
+        } else {
+          for (const target of output) target[frame] = 0;
+        }
+        this.outputFrames += 1;
+      }
+      this.trimBuffers();
+    }
+    reset() {
+      this.input = Array.from({ length: this.channels }, () => []);
+      this.inputBase = 0;
+      this.inputEnd = 0;
+      this.stretched = Array.from({ length: this.channels }, () => []);
+      this.stretchedBase = 0;
+      this.stretchedFinalized = 0;
+      this.nextSynthesisStart = 0;
+      this.previousAnalysisStart = null;
+      this.nextExpectedAnalysisStart = 0;
+      this.previousOverlapMid = new Float32Array(0);
+      this.resamplePosition = 0;
+      this.outputFrames = 0;
+    }
+    appendInput(channels, frames) {
+      for (let channel = 0; channel < this.channels; channel += 1) {
+        const source = channels[channel] ?? channels[0];
+        const target = this.input[channel];
+        for (let frame = 0; frame < frames; frame += 1) {
+          target.push(source?.[frame] ?? 0);
+        }
+      }
+      this.inputEnd += frames;
+    }
+    generateStretchedFrames() {
+      if (this.previousAnalysisStart === null) {
+        if (this.inputEnd < this.windowFrames) return;
+        this.addGrain(0, 0);
+        this.previousAnalysisStart = 0;
+        this.nextExpectedAnalysisStart = this.synthesisHop / this.ratioValue;
+        this.nextSynthesisStart = this.synthesisHop;
+        this.stretchedFinalized = this.synthesisHop;
+      }
+      const analysisHop = this.synthesisHop / this.ratioValue;
+      while (this.previousAnalysisStart !== null) {
+        const expected = this.nextExpectedAnalysisStart;
+        if (this.inputEnd < Math.round(expected) + this.searchFrames + this.windowFrames) break;
+        const earliest = Math.max(this.inputBase, Math.round(expected) - this.searchFrames);
+        const latest = Math.round(expected) + this.searchFrames;
+        if (latest < earliest) break;
+        const selected = this.bestAnalysisStart(earliest, latest, Math.round(expected));
+        this.addGrain(selected, this.nextSynthesisStart);
+        this.previousAnalysisStart = selected;
+        this.nextExpectedAnalysisStart += analysisHop;
+        this.nextSynthesisStart += this.synthesisHop;
+        this.stretchedFinalized = this.nextSynthesisStart;
+      }
+    }
+    bestAnalysisStart(earliest, latest, expected) {
+      let best = Math.max(earliest, Math.min(latest, expected));
+      let bestScore = -Infinity;
+      const coarseStep = 4;
+      for (let candidate = earliest; candidate <= latest; candidate += coarseStep) {
+        const score = this.correlation(candidate);
+        if (score > bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      }
+      const refineStart = Math.max(earliest, best - coarseStep + 1);
+      const refineEnd = Math.min(latest, best + coarseStep - 1);
+      for (let candidate = refineStart; candidate <= refineEnd; candidate += 1) {
+        const score = this.correlation(candidate);
+        if (score > bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      }
+      return best;
+    }
+    correlation(candidate) {
+      let dot = 0;
+      let previousEnergy = 0;
+      let candidateEnergy = 0;
+      for (let offset = 0; offset < this.overlapFrames; offset += 1) {
+        const previous = this.previousOverlapMid[offset] ?? 0;
+        const current = this.inputMid(candidate + offset);
+        dot += previous * current;
+        previousEnergy += previous * previous;
+        candidateEnergy += current * current;
+      }
+      const scale = Math.sqrt(previousEnergy * candidateEnergy);
+      return scale > 1e-12 ? dot / scale : -Math.abs(candidate - (this.previousAnalysisStart ?? 0));
+    }
+    inputMid(frame) {
+      const left = this.inputAt(0, frame);
+      return this.channels > 1 ? (left + this.inputAt(1, frame)) * 0.5 : left;
+    }
+    inputAt(channel, frame) {
+      return this.input[channel]?.[frame - this.inputBase] ?? 0;
+    }
+    stretchedAt(channel, frame) {
+      return this.stretched[channel]?.[frame - this.stretchedBase] ?? 0;
+    }
+    addGrain(analysisStart, synthesisStart) {
+      const requiredLength = synthesisStart - this.stretchedBase + this.windowFrames;
+      for (const channel of this.stretched) {
+        while (channel.length < requiredLength) channel.push(0);
+      }
+      for (let channel = 0; channel < this.channels; channel += 1) {
+        const target = this.stretched[channel];
+        for (let offset = 0; offset < this.windowFrames; offset += 1) {
+          const targetIndex = synthesisStart + offset - this.stretchedBase;
+          target[targetIndex] = (target[targetIndex] ?? 0) + this.inputAt(channel, analysisStart + offset) * this.window[offset];
+        }
+      }
+      const nextOverlap = new Float32Array(this.overlapFrames);
+      for (let offset = 0; offset < this.overlapFrames; offset += 1) {
+        nextOverlap[offset] = this.inputMid(analysisStart + this.synthesisHop + offset);
+      }
+      this.previousOverlapMid = nextOverlap;
+    }
+    canResample() {
+      return Math.floor(this.resamplePosition) + 1 < this.stretchedFinalized;
+    }
+    trimBuffers() {
+      if (this.previousAnalysisStart !== null) {
+        const keepInputFrom = Math.max(
+          0,
+          Math.floor(this.nextExpectedAnalysisStart) - this.searchFrames - 2
+        );
+        const removeInput = keepInputFrom - this.inputBase;
+        if (removeInput >= BUFFER_TRIM_FRAMES) {
+          for (const channel of this.input) channel.splice(0, removeInput);
+          this.inputBase += removeInput;
+        }
+      }
+      const keepStretchedFrom = Math.max(0, Math.floor(this.resamplePosition) - 2);
+      const removeStretched = keepStretchedFrom - this.stretchedBase;
+      if (removeStretched >= BUFFER_TRIM_FRAMES) {
+        for (const channel of this.stretched) channel.splice(0, removeStretched);
+        this.stretchedBase += removeStretched;
+      }
+    }
+  };
+  function finitePositive3(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0;
+  }
+  function clampFinite(value, minimum, maximum, fallback) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+    return Math.max(minimum, Math.min(maximum, value));
   }
 
   // packages/frame-engine/src/metrics/collector.ts
@@ -25973,6 +26468,7 @@ void main() {
     throw new RefusalError(`no HEVC Main profile level fits ${width}x${height}@${fps}fps (max is Level 5.2)`);
   }
   function buildEncoderConfig(options) {
+    const quantizer = validateQuantizer(options.quantizer);
     const bitrate = options.bitrate ?? 8e6;
     if (options.codec === "hevc") {
       return {
@@ -25982,7 +26478,9 @@ void main() {
         bitrate,
         framerate: options.fps,
         hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
-        latencyMode: "realtime",
+        ...quantizer !== void 0 ? { bitrateMode: "quantizer" } : {},
+        // 'quality' の理由は下の H.264 側と同じ（realtime は VideoToolbox 共有時にフレームを捨てる）。
+        latencyMode: "quality",
         hevc: { format: "hevc" }
       };
     }
@@ -25994,21 +26492,40 @@ void main() {
       bitrate,
       framerate: options.fps,
       hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
-      latencyMode: "realtime",
+      ...quantizer !== void 0 ? { bitrateMode: "quantizer" } : {},
+      // ファイル書き出しなので 'quality'。'realtime' は仕様上フレーム落ちを許し、実際に macOS の VideoToolbox を
+      // 他セッション（プレビューの H.264 デコード・別のエンコード等）と共有すると黙ってチャンクを捨てた
+      // （2026-09-02 実測 M1: 1464 中 809 欠落、同条件の 'quality' は 0 欠落、単独でも 'quality' が 26% 速い）。
+      // 落ちた分は finish() の欠落検出と mp4-mux の sample count mismatch で fail closed になる。
+      latencyMode: "quality",
       avc: { format: "annexb" }
     };
   }
-  var WebCodecsH264Encoder = class {
-    constructor(sink, options) {
+  var MISSING_FRAME_LIST_LIMIT = 20;
+  function describeMissingFrames(frames, fps, outputTimestamps) {
+    const missing = [];
+    let omitted = 0;
+    for (let frame = 0; frame < frames; frame += 1) {
+      if (outputTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+      if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+      else omitted += 1;
+    }
+    return omitted > 0 ? `${missing.join(", ")}, \u2026 and ${omitted} more` : missing.join(", ");
+  }
+  var WebCodecsH264Encoder = class _WebCodecsH264Encoder {
+    constructor(sink, options, rateControlResolution) {
       this.sink = sink;
       this.options = options;
       this.config = buildEncoderConfig(options);
+      this.rateControl = rateControlResolution?.rateControl ?? (options.quantizer !== void 0 ? "quantizer" : "bitrate");
+      this.rateControlFallbackReason = rateControlResolution?.fallbackReason ?? null;
       this.encoder = new VideoEncoder({
         output: (chunk, metadata) => {
           const bytes = new Uint8Array(chunk.byteLength);
           chunk.copyTo(bytes);
           const description = this.options.codec === "hevc" && !this.decoderConfigSent && chunk.type === "key" ? copyDescription(metadata?.decoderConfig?.description) : void 0;
           if (description) this.decoderConfigSent = true;
+          this.outputTimestamps.add(chunk.timestamp);
           this.writes.push(Promise.resolve(this.sink.write(bytes, {
             type: chunk.type,
             timestamp: chunk.timestamp,
@@ -26024,8 +26541,12 @@ void main() {
       this.encoder.configure(this.config);
     }
     config;
+    rateControl;
+    rateControlFallbackReason;
     encoder;
     writes = [];
+    // 出力チャンクの timestamp。encode() した frame と突き合わせ、エンコーダが黙って捨てた frame を finish() で名指しする。
+    outputTimestamps = /* @__PURE__ */ new Set();
     failure = null;
     frameNumber = 0;
     closed = false;
@@ -26035,6 +26556,33 @@ void main() {
       if (typeof VideoEncoder === "undefined") return false;
       const config = buildEncoderConfig(options);
       return (await VideoEncoder.isConfigSupported(config)).supported === true;
+    }
+    /** quantizer 対応を 1 回だけ確認し、非対応なら既存 bitrate config へ落として生成する。 */
+    static async create(sink, options) {
+      const resolution = await _WebCodecsH264Encoder.resolveRateControl(options);
+      return new _WebCodecsH264Encoder(sink, resolution.options, resolution);
+    }
+    static async resolveRateControl(options) {
+      const config = buildEncoderConfig(options);
+      if (options.quantizer === void 0) {
+        return { options, rateControl: "bitrate", fallbackReason: null };
+      }
+      let supported = false;
+      if (typeof VideoEncoder !== "undefined") {
+        try {
+          supported = (await VideoEncoder.isConfigSupported(config)).supported === true;
+        } catch {
+          supported = false;
+        }
+      }
+      if (supported) {
+        return { options, rateControl: "quantizer", fallbackReason: null };
+      }
+      return {
+        options: { ...options, quantizer: void 0 },
+        rateControl: "bitrate",
+        fallbackReason: "quantizer-config-unsupported"
+      };
     }
     get encodeQueueSize() {
       return this.encoder.encodeQueueSize;
@@ -26077,7 +26625,9 @@ void main() {
       const videoFrame = new VideoFrame(frame.surface.canvas, { timestamp });
       try {
         const interval = this.options.keyframeIntervalFrames ?? this.options.fps * 2;
-        this.encoder.encode(videoFrame, { keyFrame: this.frameNumber % interval === 0 });
+        const keyFrame = this.frameNumber % interval === 0;
+        const encodeOptions = this.options.quantizer === void 0 ? { keyFrame } : this.options.codec === "hevc" ? { keyFrame, hevc: { quantizer: this.options.quantizer } } : { keyFrame, avc: { quantizer: this.options.quantizer } };
+        this.encoder.encode(videoFrame, encodeOptions);
         this.frameNumber += 1;
       } finally {
         videoFrame.close();
@@ -26088,10 +26638,16 @@ void main() {
       await this.encoder.flush();
       await Promise.all(this.writes);
       if (this.failure) throw this.failure;
+      const dropped = this.frameNumber - this.writes.length;
+      if (dropped > 0) {
+        throw new Error(
+          `WebCodecs encoder dropped ${dropped} of ${this.frameNumber} frames (missing frame numbers: ${describeMissingFrames(this.frameNumber, this.options.fps, this.outputTimestamps)})`
+        );
+      }
       this.encoder.close();
       this.closed = true;
       this.notifyQueueWaiters();
-      return { frames: this.frameNumber };
+      return { frames: this.frameNumber, outputs: this.writes.length };
     }
     close() {
       if (this.closed) return;
@@ -26107,6 +26663,13 @@ void main() {
       for (const waiter of [...this.queueWaiters]) waiter();
     }
   };
+  function validateQuantizer(value) {
+    if (value === void 0) return void 0;
+    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 51) {
+      throw new RangeError(`WebCodecs quantizer must be an integer from 0 to 51, got ${value}`);
+    }
+    return value;
+  }
   function copyDescription(value) {
     if (value === void 0) return void 0;
     if (ArrayBuffer.isView(value)) {

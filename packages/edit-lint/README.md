@@ -10,6 +10,22 @@ node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json> [--json]
 Exit code `0` means PASS, `1` means lint findings include an error, and `2` means the lint command
 could not run.
 
+## Overlay fragment checks
+
+- `overlays.html-root`: errors unless a referenced overlay HTML fragment has exactly one balanced
+  root element.
+- `overlays.data-attributes`: errors when a fragment root's `data-start` or `data-duration` does not
+  match `edit.json`.
+- `overlays.root-data-attributes`: warns whenever a fragment root declares `data-start` or
+  `data-duration`; `edit.json` is the source of truth, and animation delays inside a fragment use
+  local seconds starting at clip time 0.
+- `overlays.keyframes-sparse`: warns when a multi-step keyframes rule omits an animated property
+  from its 0% or 100% endpoint.
+- `overlays.base-hidden-state`: warns when a selector has a hidden base state but its animation
+  ends visible; keep the final resting state in the base rule and put the hidden state at 0%.
+- `overlays.preserve-3d-opacity-animation`: warns when one selector combines `preserve-3d` with an
+  opacity animation; move opacity to a parent so Blink does not flatten the 3D element.
+
 ## Media checks (`--media`)
 
 Media decoding is opt-in. Without `--media`, edit-lint does not probe or decode media for these
@@ -42,6 +58,8 @@ are skipped with a reason.
 
 `timeline.items.order` is a default-path warning when a track's `items[]` are not stored in
 non-decreasing `at` order. It does not change the render meaning or fail lint.
+
+`timeline.duration-derived` is an info finding when a project without visual media derives its duration from overlays, captions, narration, or SFX; BGM never extends that fallback duration.
 
 ## Engine compatibility (`--engine`)
 

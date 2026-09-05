@@ -1,0 +1,21 @@
+<div class="fx fx-f">
+  <style>
+    .fx-f, .fx-f *, .fx-f *::before, .fx-f *::after { box-sizing: border-box; }
+    .fx-f { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .f-stage { position: absolute; inset: 0; perspective: 700px; }
+    .f-tile { position: absolute; left: 0; top: 0; width: 360px; height: 210px; display: grid; place-items: center; color: #ffffff; background: var(--color); font-size: 34px; font-weight: 780; letter-spacing: 0.10em; transform: translate(var(--x), var(--y)) scale(1); opacity: 1; }
+    [data-akari-active] .f-tile, [data-no-timeline] .f-tile { animation: f-enter 1.60s linear both; animation-delay: 0.30s; animation-iteration-count: 1; }
+    @keyframes f-enter {
+      0% { transform: translate(calc(var(--x) - 84px), var(--y)) scale(0.80); opacity: 0.15; }
+      100% { transform: translate(var(--x), var(--y)) scale(1); opacity: 1; }
+    }
+  </style>
+  <div class="f-stage">
+    <div class="f-tile" style="--x:350px;--y:260px;--color:#d1495b">TILE 1</div>
+    <div class="f-tile" style="--x:780px;--y:260px;--color:#00798c">TILE 2</div>
+    <div class="f-tile" style="--x:1210px;--y:260px;--color:#edae49">TILE 3</div>
+    <div class="f-tile" style="--x:350px;--y:610px;--color:#30638e">TILE 4</div>
+    <div class="f-tile" style="--x:780px;--y:610px;--color:#8f3985">TILE 5</div>
+    <div class="f-tile" style="--x:1210px;--y:610px;--color:#2a9d8f">TILE 6</div>
+  </div>
+</div>

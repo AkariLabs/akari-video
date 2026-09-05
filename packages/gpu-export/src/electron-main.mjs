@@ -7,7 +7,7 @@ import electron from "electron";
 
 import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
 import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
-import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { createMemorySampler, memoryHardStopError, MEMORY_HARD_STOP_MARKER, MEMORY_HARD_STOP_REASON, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
@@ -51,8 +51,10 @@ export async function runGpuExport(options) {
     queueDepth = 4,
     quality = "high",
     bitrate = undefined,
+    quantizer = undefined,
     codec = "h264",
     soft = false,
+    forceEligibility = false,
     trapReadback = false,
     verifyFrames = false,
     dumpFrames = [],
@@ -85,7 +87,7 @@ export async function runGpuExport(options) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
   if (!["h264", "hevc"].includes(codec)) throw new Error(`GPU codec must be h264|hevc, got: ${codec}`);
-  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec });
+  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight, codec, quantizer });
   const outputScale = {
     from: [width, height],
     to: [outputWidth, outputHeight],
@@ -116,8 +118,9 @@ export async function runGpuExport(options) {
     width,
     height,
     duration,
+    forceDegraded: forceEligibility,
   });
-  if (!built.eligibility.eligible) {
+  if (!built.eligibility.eligible && !(forceEligibility && built.eligibility.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(built.eligibility)}`);
   }
   const server = await startStaticServer({
@@ -128,6 +131,7 @@ export async function runGpuExport(options) {
   });
   const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
   let fatalMemoryError = null;
+  let lastDecoderSessions = null;
   const memoryWarnings = [];
   const memorySampler = createMemorySampler({
     budget: memoryBudget,
@@ -136,7 +140,7 @@ export async function runGpuExport(options) {
       return total > 0 ? total : process.memoryUsage().rss;
     },
     onWarning: (bytes) => memoryWarnings.push(`RSS warning: ${bytes} bytes`),
-    onHardStop: (bytes) => { fatalMemoryError = new Error(`RSS hard stop: ${bytes} bytes`); },
+    onHardStop: (bytes) => { fatalMemoryError = memoryHardStopError(bytes); },
   });
   const runPath = captureMode ? out : join(dirname(out), "run.json");
   const runtimeConfig = {
@@ -144,6 +148,11 @@ export async function runGpuExport(options) {
     queueDepth,
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    quantizer: encoding.quantizer,
+    rateControl: encoding.rateControl,
+    bitrateSource: encoding.bitrateSource,
+    // 検証用フック（前票の AKARI_EXPORT_FORCE_FIXED_BITRATE と同じ流儀）。quantizer を強制的に使えなくする。
+    ...(process.env.AKARI_GPU_FORCE_FIXED_BITRATE === "1" ? { forceFixedBitrate: true } : {}),
     codec,
     outputWidth,
     outputHeight,
@@ -176,18 +185,22 @@ export async function runGpuExport(options) {
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
   register("gpu:config", () => runtimeConfig);
-  register("gpu:log", (_event, message) => { process.stdout.write(`[gpu-renderer] ${message}\n`); return true; });
+  register("gpu:log", (_event, message) => { (String(message).startsWith("WARN ") ? process.stderr : process.stdout).write(`[gpu-renderer] ${message}\n`); return true; });
   register("gpu:checkpoint", async (_event, value) => {
     if (fatalMemoryError) throw fatalMemoryError;
+    const { decoderSessions, ...checkpoint } = value ?? {};
+    if (decoderSessions) lastDecoderSessions = decoderSessions;
     const running = {
-      ...value,
+      ...checkpoint,
       gpu: {
         ...value?.gpu,
         platform: process.platform,
         chromium: process.versions.chrome,
         devices: gpuDevices,
       },
-      memory: memorySampler.snapshot(),
+      // RSS はデコーダセッション数に比例して伸びる（issue #28 / #52）。ランプの原因を後から
+      // 突き合わせられるよう、memory と同じブロックに生存セッション数を残す
+      memory: { ...memorySampler.snapshot(), decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport,
       output_scale: outputScale,
@@ -214,10 +227,10 @@ export async function runGpuExport(options) {
     if (value?.description?.length > 0) chunkState.writer.setDecoderConfig(value.description, codec);
     return chunkState.writer.write(value);
   });
-  register("gpu:chunks-finish", async () => {
+  register("gpu:chunks-finish", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
-    const mux = await state.writer.finish();
+    const mux = await state.writer.finish({ encoderFrames: value?.encoderFinish?.frames });
     const ffprobe = normalizeCodecVerification(await verifyEncodedVideo({
       command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
     }), codec);
@@ -322,7 +335,7 @@ export async function runGpuExport(options) {
           ? { disabledReason: previewDisabledReason ?? result.gpu.previewDisabledReason }
           : {}),
       },
-      memory: { ...memory, warnings: memoryWarnings },
+      memory: { ...memory, warnings: memoryWarnings, decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport,
       ffprobe: result?.mux?.ffprobe ?? null,
@@ -359,7 +372,7 @@ export async function runGpuExport(options) {
         frames: previewFramesWritten,
         ...(previewDisabledReason ? { disabledReason: previewDisabledReason } : {}),
       },
-      memory: memorySampler.stop("failed"),
+      memory: { ...memorySampler.stop("failed"), decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport: viewport ?? error?.viewport ?? null,
       output_scale: outputScale,
@@ -380,6 +393,9 @@ export async function runGpuExport(options) {
 export function gpuFailureReasonCode(error) {
   const message = String(error?.stack ?? error);
   if (message.includes(HEVC_UNSUPPORTED_REASON)) return HEVC_UNSUPPORTED_REASON;
+  // RSS hard stop は「この機械では GPU 経路が通らない」であって編集の不備ではないので、
+  // auto なら OSR で完走させる（issue #52）
+  if (message.includes(MEMORY_HARD_STOP_MARKER)) return MEMORY_HARD_STOP_REASON;
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
 }
 
@@ -513,8 +529,10 @@ export function parseElectronArguments(argv) {
     queueDepth: 4,
     quality: "high",
     bitrate: undefined,
+    quantizer: undefined,
     codec: "h264",
     soft: false,
+    forceEligibility: false,
     trapReadback: false,
     verifyFrames: false,
     dumpFrames: [],
@@ -538,8 +556,10 @@ export function parseElectronArguments(argv) {
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");
     else if (argument === "--bitrate") options.bitrate = positiveInteger(required(argv, ++index, "--bitrate"), "--bitrate");
+    else if (argument === "--quantizer") options.quantizer = quantizerInteger(required(argv, ++index, "--quantizer"), "--quantizer");
     else if (argument === "--codec") options.codec = codecValue(required(argv, ++index, "--codec"));
     else if (argument === "--soft") options.soft = true;
+    else if (argument === "--force-eligibility") options.forceEligibility = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"), "--dump-frames");
@@ -605,6 +625,13 @@ function positiveNumber(value, label) {
 function positiveInteger(value, label) {
   const number = positiveNumber(value, label);
   if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`);
+  return number;
+}
+function quantizerInteger(value, label) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 51) {
+    throw new Error(`${label} must be an integer between 0 and 51`);
+  }
   return number;
 }
 function codecValue(value) {

@@ -1,0 +1,27 @@
+<div class="fx fx-c">
+  <style>
+    .fx-c, .fx-c *, .fx-c *::before, .fx-c *::after { box-sizing: border-box; }
+    .fx-c { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .c-stage { position: absolute; inset: 0; perspective: 800px; perspective-origin: 50% 80%; }
+    .c-floor { position: absolute; left: 460px; top: 210px; width: 1000px; height: 650px; background: #343a40; transform-style: preserve-3d; transform: rotateX(62deg); transform-origin: 50% 80%; }
+    .c-pillar { position: absolute; left: 455px; top: 120px; width: 90px; height: 260px; display: grid; place-items: center; color: #ffffff; font-size: 22px; font-weight: 750; background: var(--color); transform-origin: 50% 100%; transform: translate3d(var(--x), var(--y1), var(--z)) rotateX(-62deg) scaleY(1); opacity: 1; }
+    [data-akari-active] .c-pillar, [data-no-timeline] .c-pillar { animation: c-rise 1.60s linear both; animation-delay: 0.30s; animation-iteration-count: 1; }
+    @keyframes c-rise {
+      0% { transform: translate3d(var(--x), var(--y0), var(--z)) rotateX(-62deg) scaleY(0.15); opacity: 0.35; }
+      100% { transform: translate3d(var(--x), var(--y1), var(--z)) rotateX(-62deg) scaleY(1); opacity: 1; }
+    }
+  </style>
+  <div class="c-stage">
+    <div class="c-floor">
+      <div class="c-pillar" style="--x:-330px;--y0:250px;--y1:120px;--z:-220px;--color:#d1495b">P1</div>
+      <div class="c-pillar" style="--x:0px;--y0:250px;--y1:90px;--z:-220px;--color:#00798c">P2</div>
+      <div class="c-pillar" style="--x:330px;--y0:250px;--y1:130px;--z:-220px;--color:#edae49">P3</div>
+      <div class="c-pillar" style="--x:-330px;--y0:300px;--y1:170px;--z:0px;--color:#30638e">P4</div>
+      <div class="c-pillar" style="--x:0px;--y0:300px;--y1:120px;--z:0px;--color:#8f3985">P5</div>
+      <div class="c-pillar" style="--x:330px;--y0:300px;--y1:150px;--z:0px;--color:#2a9d8f">P6</div>
+      <div class="c-pillar" style="--x:-330px;--y0:350px;--y1:210px;--z:220px;--color:#e76f51">P7</div>
+      <div class="c-pillar" style="--x:0px;--y0:350px;--y1:180px;--z:220px;--color:#5c6bc0">P8</div>
+      <div class="c-pillar" style="--x:330px;--y0:350px;--y1:200px;--z:220px;--color:#6a994e">P9</div>
+    </div>
+  </div>
+</div>

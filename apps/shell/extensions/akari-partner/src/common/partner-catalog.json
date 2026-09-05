@@ -58,6 +58,14 @@
     "recommended": false
   },
   {
+    "id": "langbase/command-code-cli",
+    "agent": "commandcode",
+    "form": "cli",
+    "name": "Command Code CLI",
+    "description": "Command Code を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
     "id": "github/copilot-cli",
     "agent": "copilot",
     "form": "cli",

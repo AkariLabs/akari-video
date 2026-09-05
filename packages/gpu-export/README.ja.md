@@ -14,8 +14,11 @@ layer に加え、CSS animation、transition、keyframes、Web Animations、`@pr
 動的 HTML を扱います。動的 HTML は実行時に作る `canvas[layoutsubtree]` の下へ mount し、エンジン時計へ
 固定して `drawElementImage` で転写し、製品経路で pixel を読み戻さず compositor texture へ載せます。
 
-埋め込み context、CSS 3D transform、JavaScript の自走時計、media element、runtime script、外部
-resource は fail-closed です。karaoke などの語単位字幕と強調語は v1 でも対象外です。
+埋め込み context、JavaScript の自走時計、media element、runtime script、外部 resource、および
+`backface-visibility: hidden` を伴う CSS 3D は fail-closed です。CSS 3D 幾何は
+`transform-style: preserve-3d` を含めて適格ですが、GPU 経路での preserve-3d の遮蔽順は DOM 順です。
+authoring 規約として、その子孫同士を重ねてはいけません。画面上の重なりと Z 順が矛盾すると検出器が警告し、
+receipt に記録します。karaoke などの語単位字幕と強調語は v1 でも対象外です。
 
 ### 語単位字幕（v2）
 
@@ -43,21 +46,40 @@ unit 終了時に解放します。canvas / WebGL を汚染する Blob・HTTP UR
 karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
 具体的な理由を付けて fail-closed になります。
 
-### 宣言型 3D の登場曲線（v3）
+### 宣言型 3D の登場表現（v3）
 
-宣言型 Three.js scene は、ルート要素 1 個の登場 animation だけを GPU 経路で扱えます。
-`[data-akari-active] .root, [data-no-timeline] .root` の対になった selector、両端だけの keyframe
-1 本、既知の CSS timing、0 以上の delay、iteration 1 回、normal direction、`both` または
-`forwards` fill が必須です。keyframe で動かせるのは opacity と 2D translate / scale だけです。
-対応する CSS 変数と `calc(var(...) + Npx)` / `calc(var(...) * N)` は、書き出し前に overlay の
-vars と x / y / scale transform から解決します。manifest は opacity・平行移動・scale の絶対的な
-両端値を保持し、Three.js の内部 animation は従来どおりエンジンの local clock で動かしたまま、
-compositor が同じ登場曲線を毎コマ評価します。
+宣言型 Three.js scene は、transition、`@property`、複数 animation、中間 keyframe、alternate、
+rotate、skew を使う CSS 登場表現も GPU 経路で扱えます。従来の 2 endpoint 文法は `curve` の高速経路に
+残し、それ以外で断片 root から Three canvas までの祖先チェーン内に閉じた登場表現は `sampled` 経路へ
+送ります。paused WAAPI を合成時刻へ seek し、overlay container から Three canvas までの計算済み
+opacity と 2D transform をアクティブな毎コマで実測します。canvas が出力全面なら軸平行 transform は
+sprite draw state、回転・せん断・非全画面 canvas は中間 2D canvas で処理します。Three.js 自体は
+従来どおりエンジンの local clock で動きます。
 
-transition、`@property`、複数 animation、複数の animated element、中間 keyframe、alternate、
-rotate / skew / 3D transform、filter、clip-path は、具体的な `three-entrance-*` 理由で fail-closed
-になります。CSS animation のない宣言型 3D は、既存の `three-scene-canvas-direct` manifest 形と
-挙動を維持します。
+登録済みカスタムプロパティの keyframe も sampled 経路へ入りますが、現状の書き出し用 sheet の WAAPI
+clone では GPU / OSR ともプロパティが初期値のままです。直接宣言した opacity / transform は補間され、
+両エンジンのパリティは保たれます。カスタムプロパティ補間は書き出し用 sheet 側の別課題です。
+
+sampled 経路の入口条件は `three-or-canvas-runtime` / `animation-timing` の 2 つです。方式 A が
+root→canvas の祖先チェーンだけでは断片を説明できない場合は、方式 B で
+`three-scene-sampled-composite` に分類します。Three.js は従来どおり overlay sheet で描画し、毎コマその
+canvas を DOM 層コピー内の対応 canvas へ中継し、`[data-akari-3d-fallback]` を隠してから断片全体を
+`drawElementImage` で転写します。これにより canvas 前後の DOM 順と z-index を保ち、断片間は track z と
+宣言 index の順を維持します。
+
+composite は canvas チェーン内外の CSS 3D 幾何と `advanced-css` を扱います。CSS 3D は DOM 層と同じ判定を
+再利用し、深度 transform は通し、preserve-3d の順序競合は警告付きで通し、深度を伴う
+`backface-visibility:hidden` だけ `css-3d-backface-hidden` で degraded のままにします。`@property` は
+sheet / DOM 間のカスタムプロパティ補間パリティを実測するまで `three-composite-property` で fail-closed です。
+`preserve-3d` 要素に Three canvas チェーン上の子と、深度 transform を持つチェーン外の子が同居する composite は
+`three-composite-preserve-3d-siblings` で fail-closed にします。GPU はこれらの兄弟を DOM 順で描くため OSR と
+絵が変わっていました（2026-09-04 実測: 外接矩形 MAD 5.0082。OSR では z>0 の兄弟だけが canvas の前）。
+`preserve3dOrderConflicts` を兄弟対まで広げれば次ラウンドで再解禁できます。親子対は従来どおり警告付きで通します
+（実測パリティ 0.6374）。
+composite の入口外条件は `three-sampled-condition:<条件名>` を報告します。方式 A の
+`three-sampled-chain-css:<プロパティ>` ガードは残します。manifest は `entranceMode`、receipt は
+`curve` / `sampled` / `composite` mode、sampling 費用、composite の DOM 要素数と canvas 中継・DOM 層費用の
+p50/p95 を記録します。CSS animation のない scene は従来どおり `three-scene-canvas-direct` です。
 
 `render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
 不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ

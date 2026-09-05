@@ -9,6 +9,7 @@
        ここでは overlay-runtime / interaction / minimap が要求する DOM id
        （#overlay-stage / #preview-pane / #minimap / #minimap-frame / #minimap-viewport）
        だけを持つ最小の静的ページを用意する。 -->
+  <link rel="stylesheet" href="../src/motion-vocab.css" />
   <link rel="stylesheet" href="../src/interaction.css" />
   <link rel="stylesheet" href="../src/minimap.css" />
   <style>
@@ -103,6 +104,12 @@
 
   <!-- 本パッケージのランタイム -->
   <script src="../src/viewport-units.js"></script>
+  <!-- 日本語の表示単位分割（BudouX / Apache-2.0）。text-split.js より前に読む。
+       未読込でも text-split.js は精度の落ちる近似で動作する（契約 §5） -->
+  <script src="../src/vendor/budoux-ja-bundle.js"></script>
+
+  <!-- 本パッケージ本体 -->
+  <script src="../src/text-split.js"></script>
   <script src="../src/overlay-runtime.js"></script>
   <script src="../src/interaction.js"></script>
   <script src="../src/minimap.js"></script>

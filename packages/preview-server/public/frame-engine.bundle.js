@@ -2092,7 +2092,8 @@ var require_caption_store = __commonJS({
           changed++;
           continue;
         }
-        if (hasPreset && record.style_preset === presetId)
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
           continue;
         let nextElement;
         if (hasPreset) {
@@ -2107,10 +2108,30 @@ var require_caption_store = __commonJS({
             nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
           }
         }
+        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;
       }
       return { source: output, changed };
+    }
+    function shadowedPresetStyleKeys(presetId, textStyle) {
+      const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId) ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : void 0;
+      if (!preset || textStyle === null || typeof textStyle !== "object" || Array.isArray(textStyle)) {
+        return [];
+      }
+      const style = textStyle;
+      return Object.keys(preset.style).filter((key) => Object.prototype.hasOwnProperty.call(style, key));
+    }
+    function pruneShadowedTextStyle(element, keys, captionId) {
+      if (keys.length === 0) {
+        return element;
+      }
+      const located = locateTopLevelObjectProperty(element, "text_style", `\u5B57\u5E55 ${captionId}`);
+      let textStyle = located.text;
+      for (const key of keys) {
+        textStyle = removeObjectProperty(textStyle, key);
+      }
+      return Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(element, "text_style") : element.slice(0, located.start) + textStyle + element.slice(located.end);
     }
     function insertCaptionLine(source, caption) {
       const parsed = parseCaptions(source);
@@ -5435,6 +5456,7 @@ var require_internal_model = __commonJS({
     exports.readInternalEdit = readInternalEdit;
     exports.readInternalSources = readInternalSources;
     exports.visualContentEndSeconds = visualContentEndSeconds;
+    exports.timelineDurationSeconds = timelineDurationSeconds;
     exports.walkItems = walkItems;
     exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
     exports.projectLegacyEdit = projectLegacyEdit;
@@ -5483,6 +5505,27 @@ var require_internal_model = __commonJS({
         }
       }
       return maxEnd;
+    }
+    function timelineDurationSeconds(internal) {
+      const visualEnd = visualContentEndSeconds(internal);
+      if (visualEnd > 0) {
+        return { seconds: visualEnd, basis: "visual" };
+      }
+      let fallbackEnd = 0;
+      const walk = (item, lane) => {
+        const isFallbackVisual = lane === "visual" && ["html", "group", "captions", "caption"].includes(item.source.kind);
+        const isFallbackAudio = lane === "audio" && (item.legacy.collection === "narration" || item.legacy.collection === "sfx");
+        if (isFallbackVisual || isFallbackAudio) {
+          fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
+        }
+        for (const child of item.children)
+          walk(child, lane);
+      };
+      for (const track of internal.tracks) {
+        for (const item of track.items)
+          walk(item, track.lane);
+      }
+      return fallbackEnd > 0 ? { seconds: fallbackEnd, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
     }
     function* walkItems(internal) {
       function* walk(item) {
@@ -18333,8 +18376,6 @@ var WebGL2Compositor = class {
     }
     if (layers.length !== plan.layers.length)
       throw new Error("layer inputs must match plan.layers");
-    if (base.length === 0 && layers.length === 0)
-      throw new Error("cannot compose an empty plan");
     const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => input.kind !== "filter" && (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format))));
     if (hasBlockedDirectInput && this.directUploadDisabled)
       this.failDirectUpload("direct upload is disabled for this session");
@@ -18363,7 +18404,7 @@ var WebGL2Compositor = class {
         queries.push(query);
       }
     };
-    if (layers.length === 0 && !hasLook) {
+    if (layers.length === 0 && !hasLook && baseProgram) {
       this.configureBaseDraw(plan, null, baseProgram);
       draw();
       this.recordGlErrors(synchronization);
@@ -24548,6 +24589,37 @@ var LookaheadFrameSource = class {
     this.caches.clear();
     this.inFlight.clear();
   }
+  /**
+   * 生きている stream（キャッシュを持つもの + 内側のソースが掴んでいるデコーダのレーン）。
+   * StreamReaper がこの一覧を見て「plan に載っていない stream」を選ぶ。
+   */
+  liveStreamIds() {
+    const ids = new Set(this.caches.keys());
+    const inner = this.source;
+    if (typeof inner.liveStreamIds === "function") {
+      for (const streamId of inner.liveStreamIds()) ids.add(streamId);
+    }
+    return [...ids];
+  }
+  /**
+   * stream 1 本ぶんのキャッシュと、内側のデコーダセッションを解放する。書き出しは厳密に前方順で
+   * 過去フレームを読み直さないので、plan から外れたカットはここで捨ててよい（issue #52）。
+   * 進行中の prefetch は握っている frame を put() でキャッシュへ戻すため、in-flight の間は
+   * 解放しない（次のフレームで回収される）。
+   */
+  releaseStream(streamId) {
+    for (const key of this.inFlight.keys()) {
+      if (key.slice(0, key.lastIndexOf(":")) === streamId) return false;
+    }
+    const cache = this.caches.get(streamId);
+    if (cache) {
+      cache.clear();
+      this.caches.delete(streamId);
+    }
+    const inner = this.source;
+    const releasedSession = typeof inner.releaseSession === "function" ? inner.releaseSession(streamId) : false;
+    return Boolean(cache) || releasedSession;
+  }
   frameNumber(timeUs) {
     return Math.max(0, Math.round(timeUs * this.fps / 1e6));
   }
@@ -25014,6 +25086,13 @@ function createPreviewAudioSupply(options) {
   let lastAudioPositionAtRenderSec = null;
   let lastSchedule = [];
   let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
+  let rate = 1;
+  const masterGain = context?.createGain() ?? null;
+  let analyser = null;
+  let pitchShiftNode = null;
+  let workletReady = false;
+  let workletWarningEmitted = false;
+  let stretcher = "none";
   const sidecarValues = [
     ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
     ...speech.map((item) => item.sidecar)
@@ -25028,7 +25107,60 @@ function createPreviewAudioSupply(options) {
     0,
     Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
   );
-  const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec)) : latestRequestedSec;
+  const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+  const warnPitchUnavailable = (reason) => {
+    if (workletWarningEmitted) return;
+    workletWarningEmitted = true;
+    warn("[frame-engine] pitch-preserving playback unavailable; using native playback rate", reason);
+  };
+  const outputNode = () => analyser ?? context?.destination ?? null;
+  const disconnectPitchShiftNode = () => {
+    if (!pitchShiftNode) return;
+    try {
+      pitchShiftNode.disconnect();
+    } catch {
+    }
+  };
+  const routeMasterBus = () => {
+    if (!context || !masterGain) return;
+    try {
+      masterGain.disconnect();
+    } catch {
+    }
+    disconnectPitchShiftNode();
+    stretcher = "none";
+    const output = outputNode();
+    if (!output) return;
+    if (rate !== 1 && workletReady) {
+      try {
+        const WorkletNode = globalThis.AudioWorkletNode;
+        if (typeof WorkletNode !== "function") throw new Error("AudioWorkletNode is unavailable");
+        pitchShiftNode ??= new WorkletNode(context, "akari-pitch-shift", {
+          parameterData: { ratio: 1 / rate }
+        });
+        const ratio = pitchShiftNode.parameters.get("ratio");
+        if (ratio) ratio.value = 1 / rate;
+        masterGain.connect(pitchShiftNode);
+        pitchShiftNode.connect(output);
+        stretcher = "worklet";
+        return;
+      } catch (reason) {
+        warnPitchUnavailable(reason);
+      }
+    }
+    masterGain.connect(output);
+  };
+  if (masterGain) routeMasterBus();
+  if (context && options.pitchShiftWorkletUrl) {
+    if (context.audioWorklet?.addModule) {
+      void context.audioWorklet.addModule(options.pitchShiftWorkletUrl).then(() => {
+        workletReady = true;
+        routeMasterBus();
+      }).catch((reason) => warnPitchUnavailable(reason));
+    } else {
+      warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
+    }
+  }
   const stopSources = () => {
     const sources = active;
     active = [];
@@ -25212,14 +25344,14 @@ function createPreviewAudioSupply(options) {
     });
     return prefetchInFlight;
   };
-  const applyGainEvents = (param, events, startTime) => {
+  const applyGainEvents = (param, events, startTime, playbackRate) => {
     if (events.length === 0) {
       param.setValueAtTime(1, startTime);
       return;
     }
     param.cancelScheduledValues(startTime);
     for (const event of events) {
-      const at2 = startTime + event.offsetSec;
+      const at2 = startTime + event.offsetSec / playbackRate;
       if (event.method === "linear") param.linearRampToValueAtTime(event.value, at2);
       else if (event.method === "exponential") param.exponentialRampToValueAtTime(event.value, at2);
       else param.setValueAtTime(event.value, at2);
@@ -25236,7 +25368,7 @@ function createPreviewAudioSupply(options) {
       const gains = [baseGain];
       source.buffer = buffer;
       source.loop = item.loop;
-      source.playbackRate.value = item.playbackRate;
+      source.playbackRate.value = item.playbackRate * rate;
       source.connect(baseGain);
       let tail = baseGain;
       if (item.envelopeEvents.length > 0) {
@@ -25244,11 +25376,16 @@ function createPreviewAudioSupply(options) {
         baseGain.connect(envelopeGain);
         tail = envelopeGain;
         gains.push(envelopeGain);
-        applyGainEvents(envelopeGain.gain, item.envelopeEvents, contextStart + item.delaySec);
+        applyGainEvents(
+          envelopeGain.gain,
+          item.envelopeEvents,
+          contextStart + item.delaySec / rate,
+          rate
+        );
       }
-      tail.connect(context.destination);
-      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
+      tail.connect(masterGain ?? context.destination);
+      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
+      source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
       const activeItem = { source, gains };
       active.push(activeItem);
       source.onended = () => {
@@ -25372,6 +25509,9 @@ function createPreviewAudioSupply(options) {
       audioPositionSec,
       driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
       playing,
+      rate,
+      pitchPreserved: rate === 1 || stretcher === "worklet",
+      stretcher,
       scheduled: {
         startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
         itemCount: lastSchedule.length,
@@ -25443,6 +25583,32 @@ function createPreviewAudioSupply(options) {
       if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
+    setRate(value) {
+      const nextRate = clampPlaybackRate(value);
+      if (nextRate === rate) return;
+      const wasPlaying = playing;
+      const position = wasPlaying ? audioPosition() : latestRequestedSec;
+      rate = nextRate;
+      latestRequestedSec = position;
+      routeMasterBus();
+      if (wasPlaying) {
+        generation += 1;
+        playing = false;
+        starting = false;
+        lastStartOutcome = null;
+        stopSources();
+        launch(latestRequestedSec);
+      }
+    },
+    attachAnalyser() {
+      if (!context || !masterGain) return null;
+      if (!analyser) {
+        analyser = context.createAnalyser();
+        analyser.connect(context.destination);
+        routeMasterBus();
+      }
+      return analyser;
+    },
     noteRendered(seconds) {
       lastRenderedTimelineSec = clamp5(seconds);
       lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
@@ -25452,6 +25618,15 @@ function createPreviewAudioSupply(options) {
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
+      try {
+        masterGain?.disconnect();
+      } catch {
+      }
+      disconnectPitchShiftNode();
+      try {
+        analyser?.disconnect();
+      } catch {
+      }
       decoded.clear();
       decodedBytes = 0;
       void context?.close().catch(() => void 0);
@@ -25479,6 +25654,9 @@ function finitePositive2(value) {
 }
 function finiteNonNegative(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+function clampPlaybackRate(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.min(3, value)) : 1;
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();

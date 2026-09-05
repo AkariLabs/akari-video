@@ -296,7 +296,10 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId) {
             changed++;
             continue;
         }
-        if (hasPreset && record.style_preset === presetId)
+        const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
+        // 同じテンプレの再適用でも、そのテンプレを覆い隠している字幕個別の指定が残っていれば
+        // 掃除する仕事が残っている（「変更はありません」で終わらせない）。
+        if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
             continue;
         let nextElement;
         if (hasPreset) {
@@ -317,10 +320,45 @@ function updateCaptionStylePresetInSource(source, captionIds, presetId) {
                     + element.text.slice(textStyle.start);
             }
         }
+        nextElement = pruneShadowedTextStyle(nextElement, shadowed, captionId);
         output = replaceElement(output, array.openIndex + 1, element, nextElement);
         changed++;
     }
     return { source: output, changed };
+}
+/**
+ * そのテンプレが決めるツマミのうち、字幕個別の text_style が上書きしてしまっているキーを挙げる。
+ *
+ * 合成規則は `{ ...presetStyle, ...text_style }`（caption-style-preset.ts）で **字幕側が強い**。
+ * そのため text_style に既定値が丸ごと書かれていると、テンプレを当てても見た目が変わらない
+ * （オーナー報告 2026-09-04:「ニュース帯だけ効く」= ニュース風の background だけが text_style に
+ *  無いツマミだった）。テンプレを選ぶ操作は「このツマミはテンプレに任せる」という意思表示なので、
+ * 適用時に該当キーを落としてテンプレを表に出す。テンプレが決めないツマミ（ドラッグした position /
+ * zone / max_characters など）は字幕個別の指定として残す。
+ */
+function shadowedPresetStyleKeys(presetId, textStyle) {
+    const preset = Object.prototype.hasOwnProperty.call(textstyle_catalog_1.TEXTSTYLE_CATALOG, presetId)
+        ? textstyle_catalog_1.TEXTSTYLE_CATALOG[presetId] : undefined;
+    if (!preset || textStyle === null || typeof textStyle !== 'object' || Array.isArray(textStyle)) {
+        return [];
+    }
+    const style = textStyle;
+    return Object.keys(preset.style)
+        .filter(key => Object.prototype.hasOwnProperty.call(style, key));
+}
+/** text_style から指定キーを取り除く。空になったら text_style ごと落とす。 */
+function pruneShadowedTextStyle(element, keys, captionId) {
+    if (keys.length === 0) {
+        return element;
+    }
+    const located = locateTopLevelObjectProperty(element, 'text_style', `字幕 ${captionId}`);
+    let textStyle = located.text;
+    for (const key of keys) {
+        textStyle = removeObjectProperty(textStyle, key);
+    }
+    return Object.keys(JSON.parse(textStyle)).length === 0
+        ? removeObjectProperty(element, 'text_style')
+        : element.slice(0, located.start) + textStyle + element.slice(located.end);
 }
 function insertCaptionLine(source, caption) {
     const parsed = parseCaptions(source);

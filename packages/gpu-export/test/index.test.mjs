@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
+import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
 
 test("GPU runtime fallback reasons are a closed shared set", () => {
-  assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported"]);
+  assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported", "memory-hard-stop"]);
   assert.equal(Object.isFrozen(FALLBACK_REASONS), true);
 });
 
@@ -20,6 +20,85 @@ test("GPU export rejects ineligible projects before launcher resolution", async 
   assert.equal(resolved, false);
 });
 
+test("GPU export force passes degraded-only eligibility but not unsupported eligibility", async () => {
+  let resolved = false;
+  await assert.rejects(exportWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "overlay", id: "x", classification: "dom", reason: "forced-dom:script", forced: true }],
+      summary: { degraded: 1, unsupported: 0, forced: 1 },
+    },
+    launcherResolver: async () => { resolved = true; return { tier: 3, reason: "fixture" }; },
+  }), /GPU export unavailable: fixture/u);
+  assert.equal(resolved, true);
+
+  resolved = false;
+  await assert.rejects(exportWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "caption", id: "c", classification: "unsupported", reason: "motion" }],
+      summary: { degraded: 0, unsupported: 1, forced: 0 },
+    },
+    launcherResolver: async () => { resolved = true; return { tier: 2 }; },
+  }), /caption:c:motion/u);
+  assert.equal(resolved, false);
+});
+
+test("GPU export forwards force to the launcher runner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-index-force-export-"));
+  const out = join(root, "render", "composite.mp4");
+  await mkdir(join(root, "render"), { recursive: true });
+  try {
+    let launchOptions;
+    await assert.rejects(exportWithGpu({
+      projectRoot: root,
+      out,
+      fps: 30,
+      width: 320,
+      height: 180,
+      duration: 1,
+      force: true,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        launchOptions = options;
+        throw new Error("stop after observing launcher options");
+      },
+    }), /stop after observing launcher options/u);
+    assert.equal(launchOptions.force, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("GPU capture forwards force to the launcher runner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-index-force-capture-"));
+  try {
+    let launchOptions;
+    await assert.rejects(captureFramesWithGpu({
+      projectRoot: root,
+      outputDirectory: join(root, "frames"),
+      frameNumbers: [0],
+      fps: 30,
+      width: 320,
+      height: 180,
+      duration: 1,
+      force: true,
+      eligibility: { eligible: true, entries: [] },
+      launcher: { tier: 2, executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        launchOptions = options;
+        throw new Error("stop after observing launcher options");
+      },
+    }), /stop after observing launcher options/u);
+    assert.equal(launchOptions.force, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("GPU export rejects tier 3", async () => {
   await assert.rejects(exportWithGpu({
     eligibility: { eligible: true, entries: [] },
@@ -29,10 +108,11 @@ test("GPU export rejects tier 3", async () => {
 
 test("GPU environment options normalize and keep trap/verify exclusive", () => {
   assert.deepEqual(resolveGpuRuntimeOptions({ env: { AKARI_GPU_SOFT: "1", AKARI_GPU_QUEUE_DEPTH: "6", AKARI_GPU_BITRATE: "9000" } }), {
-    soft: true, queueDepth: 6, quality: "high", bitrate: 9000, trapReadback: false, verifyFrames: false,
+    soft: true, queueDepth: 6, quality: "high", bitrate: 9000, quantizer: null, trapReadback: false, verifyFrames: false,
   });
   assert.throws(() => resolveGpuRuntimeOptions({ trapReadback: true, verifyFrames: true }), /mutually exclusive/);
   assert.equal(resolveGpuRuntimeOptions({ bitrate: 7000, env: { AKARI_GPU_BITRATE: "9000" } }).bitrate, 7000);
+  assert.equal(resolveGpuRuntimeOptions({ env: {} }).quantizer, 18);
 });
 
 test("GPU export refuses master without bitrate before resolving a launcher", async () => {
@@ -92,6 +172,7 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
   assert.equal(finalVerifyOptions.requireAudio, true);
   assert.equal(launchOptions.quality, "high");
   assert.equal(launchOptions.bitrate, 12_000_000);
+  assert.equal(launchOptions.quantizer, 18);
   assert.deepEqual(launchOptions.dumpFrames, [0, 29]);
   assert.equal(result.receipt.gpu.quality, "high");
   assert.equal(result.receipt.gpu.bitrate, 12_000_000);

@@ -255,3 +255,117 @@ test('readPreviewFrame: 許可ディレクトリ外を拒否してファイル�
     assert.equal(await service.readPreviewFrame(traversal), undefined);
     assert.equal(service.readCount, 0);
 });
+
+// --- recheckLint（task 2026-09-03-export-lint-auto-recheck）--------------------
+
+const LINT_FAILED_STATUS = {
+    phase: 'lint-failed',
+    logTail: '直前の書き出しログ',
+    lintIssueCount: 1,
+    lintErrorCount: 1,
+    lintWarningCount: 0,
+    lintFindings: [{ check: 'captions.overlap', severity: 'error', message: 'old finding' }],
+    reportPath: '.akari/reports/edit-lint-report.html'
+};
+
+class RecheckService extends AkariQuickExportServiceImpl {
+    constructor(spawnResult) {
+        super();
+        this.spawnResult = spawnResult;
+        this.spawnCalls = [];
+        this.status = { ...LINT_FAILED_STATUS };
+    }
+    fsPath() { return '/project'; }
+    now() { return 1_772_000_000_000; }
+    async findEditLintCli() { return '/cli/edit-lint.mjs'; }
+    async existingReportPath() { return '.akari/reports/edit-lint-report.html'; }
+    async spawnNodeScript(script, args, onChunk, options) {
+        this.spawnCalls.push({ script, args, options });
+        return this.spawnResult;
+    }
+}
+
+test('recheckLint: 直っていれば保持していた lint-failed を idle へ戻す', async () => {
+    const service = new RecheckService({ exitCode: 0, stdout: '{"findings":[]}', stderr: '' });
+
+    const result = await service.recheckLint({ projectRootUri: 'file:///project' });
+
+    assert.equal(result.outcome, 'pass');
+    assert.equal(result.status.phase, 'idle');
+    assert.equal(result.status.lintFindings, undefined);
+    assert.equal(result.status.lintErrorCount, undefined);
+    assert.equal(result.status.lintCheckedAt, 1_772_000_000_000);
+    assert.equal((await service.getStatus()).phase, 'idle');
+    // 再検査は書き出しのログを汚さない（子プロセス出力は status.logTail へ流さない）。
+    assert.equal((await service.getStatus()).logTail, '直前の書き出しログ');
+    // 中止ボタンの対象にしない子として起動する。
+    assert.deepEqual(service.spawnCalls[0].options, { trackActive: false });
+    assert.deepEqual(service.spawnCalls[0].args, ['/project', '--json']);
+});
+
+test('recheckLint: まだ NG なら findings を最新へ差し替える', async () => {
+    const service = new RecheckService({
+        exitCode: 1,
+        stdout: JSON.stringify({
+            findings: [
+                { check: 'captions.overlap', severity: 'error', message: 'new finding' },
+                { check: 'timeline.tracks.declaration-missing', severity: 'warning', message: 'warn' }
+            ]
+        }),
+        stderr: ''
+    });
+
+    const result = await service.recheckLint({ projectRootUri: 'file:///project' });
+
+    assert.equal(result.outcome, 'lint-failed');
+    assert.equal(result.status.phase, 'lint-failed');
+    assert.equal(result.status.lintIssueCount, 2);
+    assert.equal(result.status.lintErrorCount, 1);
+    assert.equal(result.status.lintWarningCount, 1);
+    assert.equal(result.status.lintFindings[0].message, 'new finding');
+    assert.equal(result.status.lintCheckedAt, 1_772_000_000_000);
+});
+
+test('recheckLint: 書き出しの実行中は走らせず status も触らない', async () => {
+    const service = new RecheckService({ exitCode: 0, stdout: '{"findings":[]}', stderr: '' });
+    service.running = true;
+
+    const result = await service.recheckLint({ projectRootUri: 'file:///project' });
+
+    assert.equal(result.outcome, 'skipped');
+    assert.equal(result.status.phase, 'lint-failed');
+    assert.equal(service.spawnCalls.length, 0);
+});
+
+test('recheckLint: 再検査の最中に書き出しが始まったら結果を捨てる', async () => {
+    class RaceService extends RecheckService {
+        async spawnNodeScript(script, args, onChunk, options) {
+            this.running = true;
+            return super.spawnNodeScript(script, args, onChunk, options);
+        }
+    }
+    const service = new RaceService({ exitCode: 0, stdout: '{"findings":[]}', stderr: '' });
+
+    const result = await service.recheckLint({ projectRootUri: 'file:///project' });
+
+    assert.equal(result.outcome, 'skipped');
+    assert.equal((await service.getStatus()).phase, 'lint-failed');
+});
+
+test('recheckLint: CLI 不在・異常終了は unavailable として保持中の所見を残す', async () => {
+    class MissingCliService extends RecheckService {
+        async findEditLintCli() { return undefined; }
+    }
+    const missing = new MissingCliService({ exitCode: 0, stdout: '', stderr: '' });
+    const missingResult = await missing.recheckLint({ projectRootUri: 'file:///project' });
+    assert.equal(missingResult.outcome, 'unavailable');
+    assert.match(missingResult.reason, /edit-lint CLI/);
+    assert.equal(missingResult.status.phase, 'lint-failed');
+    assert.equal(missingResult.status.lintFindings[0].message, 'old finding');
+
+    const crashed = new RecheckService({ exitCode: 2, stdout: '', stderr: 'boom' });
+    const crashedResult = await crashed.recheckLint({ projectRootUri: 'file:///project' });
+    assert.equal(crashedResult.outcome, 'unavailable');
+    assert.match(crashedResult.reason, /boom|exit code 2/);
+    assert.equal(crashedResult.status.phase, 'lint-failed');
+});

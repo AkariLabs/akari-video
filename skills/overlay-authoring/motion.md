@@ -10,17 +10,46 @@
 - particle や反復要素は先に DOM を確定し、index と固定 seed から値を作る。再生中に未 seed の乱数で作り直さない。
 - 外側コンテナの transform は AKARI の幾何操作用、断片内の子 transform は演出用として分離する。
 
+断片ルートには `data-start` / `data-duration` を置かない。タイムライン上の開始・長さは
+`edit.json` を正本とし、断片内部の `animation-delay` などの時刻はクリップ先頭を 0 とする
+ローカル秒で書く（タイムラインの絶対秒を入れない）。
+
 ## イージング語彙
 
-| 意図 | CSS 語彙 | 使い方 |
-|---|---|---|
-| 等速・進捗・連続回転 | `linear` | 速度変化そのものに意味がない動き |
-| 入場・減速して止まる | `ease-out` | 画面外から定位置へ入る要素 |
-| 退場・加速して去る | `ease-in` | 定位置から画面外へ出る要素 |
-| 姿勢 A と B の往復 | `ease-in-out` | カード反転、視線移動、穏やかな遷移 |
-| 離散切替 | `steps()` | カウンタの桁、LED、コマ送り風表現 |
+数値の `cubic-bezier()` を断片に直書きしない。ランタイムの語彙
+（`packages/overlay-runtime/src/motion-vocab.css`。ホストが読み込み、書き出し側は
+rasterize.mjs が同じ内容をシートへ埋め込む）を **名前で** 呼ぶ。
 
-独自 `cubic-bezier()` は named easing で意図を表せない場合だけ使い、CSS 変数化して理由を残す。標準キーワードの定義は [W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) を参照する。
+| 変数 | 質感 | 使いどころ |
+|---|---|---|
+| `--ease-smooth` | **既定**。すっと出て長く減速 | 入場・移動・サイズ変化の第一候補。未指定の `var(--anim-easing)` はこれになる |
+| `--ease-natural` | 中庸の立ち上がり + 長い減速の尾 | リストの送り、続きものの移動 |
+| `--ease-slowdown` | 初速最大 → 匍匐して止まる | 勢いから静止へ。強い ease-out |
+| `--ease-accelerate` | 深い溜め → 加速して去る | 退場。**直後にカットが来る前提**の動き |
+| `--ease-overshoot` | バネ。目標を大きく越えてから戻る（約 +90%） | 強調の飛び込み・ポップイン |
+| `--ease-overshoot-mid` / `--ease-overshoot-soft` | 同じバネの控えめ段（約 +66% / +32%） | 移動量がやや大きいときの逃がし先 |
+| `--ease-impulse` | 突進して小さく上振れ | 高速スライドイン |
+| `--ease-linear` | 等速 | 進捗・連続回転など、速度変化に意味がない動き |
+| `--ease-snap-out` / `--ease-hard-out` / `--ease-deep-inout` / `--ease-snappy` | 切れ味系の補助語彙 | テロップの歯切れを出したいとき（telop.md） |
+
+`--anim-duration` に入れる尺の相場も対象別の変数がある:
+
+| 変数 | 値 | 対象 |
+|---|---|---|
+| `--anim-duration-telop` | 500ms | テロップ（1 文字 / 1 文節あたり） |
+| `--anim-duration-shape` | 800ms | 図形・帯・カード |
+| `--anim-duration-group` | 1000ms | ラッパ `<div>` ごと動かすとき |
+
+**overshoot / impulse は「小さい移動・スケールのポップ」専用**。越え量は移動量に
+**比例**するため、画面幅級の搬入（数百 px の translate）に掛けると目標を数百 px
+突き抜けて画面外へ飛ぶ。長距離の搬入は `--ease-smooth` / `--ease-natural`、退場は
+`--ease-accelerate`、ポップ強調（scale 0.7→1、数十 px の移動）にだけ overshoot 系を使う。
+どうしても大きめの移動で使うときは `-mid` / `-soft` へ落とす。
+
+CSS 標準キーワード（`ease-out` 等）より上記の語彙を優先する。離散切替（カウンタの桁・
+LED・コマ送り風）だけは標準の `steps()` を使う。語彙で意図を表せない場合に限り
+`cubic-bezier()` を新設し、CSS 変数化して理由を残す。標準キーワードの定義は
+[W3C CSS Easing Functions Level 2](https://www.w3.org/TR/css-easing-2/) を参照する。
 
 ## compositor 合成の制約
 
@@ -93,6 +122,8 @@ rAF は、外部タイムラインから既に決めた状態を再描画する�
 
 ### 入場して留まる要素の base を隠れ状態にすると書き出しで消える（2026-08-14 実測）
 
+edit-lint: `overlays.base-hidden-state`
+
 WAAPI クローン化の前に、書き出しシートは仮想クロックで free-run するセットアップ期間を持つ。delay 0 の短尺アニメはこの間に完走扱いになり**クローン化を逃す**ことがある。以後その要素は base の CSS に戻るため、base に `opacity: 0` や `transform: scaleX(0)` のような「隠れ状態」を書いていると、**一瞬正しく見えた後（または最初から）完全に消える**。
 
 - 実例1: 見出し（delay 0・0.51s の叩きつけ）の base に `opacity: 0` → t≈0.3s では見えるが t≈0.6s 以降で消滅
@@ -103,10 +134,16 @@ WAAPI クローン化の前に、書き出しシートは仮想クロックで f
 
 `animation` shorthand は明示しないサブプロパティ（`animation-delay` 含む）を**暗黙に初期値へリセット**する。発火ゲート付きルール `[data-akari-active] .x { animation: ... }`（詳細度 0,2,0）はゲート無しのモディファイア `.x--2 { animation-delay: 2s }`（0,1,0）に**詳細度で勝つ**ため、per-要素の delay が全て捨てられ**全要素が delay 0 で同時発火**する。
 
+`data-akari-active` は活性区間の外側容器へプレビュー / OSR / GPU のすべてで付与される。
+したがって `[data-akari-active] .x` は経路共通の発火ゲートとして使える。非活性区間では属性が
+除去されるため、断片自身が属性を固定で持たせてはならない。
+
 - 実例: 3 行見出し（b0/b4/b8 の時間差入場）が書き出しで全行同時に出現。1 文字ずつの落下・回転の時間差も全損。**「速いだけ」に見えるため目視検収をすり抜けやすい**
 - 直し方: `animation-delay` は**必ず shorthand と同じゲート付きルールの中**に書く。per-要素の値は inline `style="--d: 2.043s"` + ゲート内 `animation-delay: var(--d)` が定石。モディファイアクラスで delay を上書きする設計は禁止
 
 ### 多段 keyframes はプロパティを全ステップで明示する（密化・2026-08-14 実測）
+
+edit-lint: `overlays.keyframes-sparse`
 
 疎な keyframes（例: `transform` は全 6 ステップにあるが `opacity` は 0%/10%/55% にしか無い）は、**条件次第で WAAPI クローン化が黙って失敗**する（変換部の `catch {}` に握り潰され、元アニメも `animation-name: none` 済みのため**アニメーション丸ごと消滅**）。base が最終状態と一致していると「動かないだけで絵は正しい」ため発見が非常に難しい。
 
@@ -119,3 +156,10 @@ base で `transform: translate(-50%, -50%)` により中央配置した要素に
 
 - 実例: 中央チップのポップイン中、接続線との間に隙間が発生（チップだけ右下へずれて拡大）
 - 直し方: keyframe の全ステップに base 分を含める（`translate(-50%,-50%) scale(0.2)` → `translate(-50%,-50%) scale(1)`）。そもそも centering は親ラッパー（grid `place-items: center`）に任せ、アニメ対象要素の base transform を空にしておくのが最安全
+
+### `duration` = 1 拍の要素は拍ちょうどのフレームで必ず 0% / 100% になる（2026-09-04 実測）
+
+拍やカット境界にぴったり合わせた要素（`duration` = ちょうど 1 拍）は、**その拍ちょうどのフレームで必ず境界値**（`0%` / `100%` = 画面外・`opacity: 0`）に当たる。拍ちょうど・カット境界ちょうどの時刻だけを抜いて眺めると、区間の中では正しく動いている要素が全コマ不在に見える。**断片の欠陥ではなく検収側のサンプリングの罠**である点が本節の他項目と異なる。
+
+- 実例: 実制作の目視検収で、拍に合わせた入退場を持つ断片について **2 名が「アニメが死んでいる」と誤認しかけた**（実体は正常動作）
+- 直し方: 目視を境界時刻だけで判定しない。`akari capture --auto` は各オーバーレイ / 字幕区間の**中点**を含む代表時刻を決定論で導出するので、**`capture --auto` の中点フレームで確認する**（`render.json` の `contact_sheet.timestamps_seconds` に中点が入っているかを先に見る）。逆に「本当に何も映っていない」区間の検出は目視に頼らず、render-cut の空フレーム走査（`verify.blank-frames`・連続 0.3 秒以上・活性 overlay / cut があれば `warning`、活性 0 件は `info`）に任せる

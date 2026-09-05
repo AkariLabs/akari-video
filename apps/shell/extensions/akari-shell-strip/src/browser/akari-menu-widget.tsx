@@ -570,7 +570,7 @@ export class AkariMenuWidget extends ReactWidget {
                             <button className='theia-button secondary' style={{ marginLeft: 'auto', padding: '2px 7px', fontSize: '0.82em' }} onClick={() => void this.openExportDialog()}>開く</button>
                         </div>
                         {running && (
-                            <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(128,128,128,0.25)', overflow: 'hidden', marginTop: '5px' }}>
+                            <div style={{ height: '4px', borderRadius: '2px', background: 'var(--akari-elevated, rgba(128,128,128,0.25))', overflow: 'hidden', marginTop: '5px' }}>
                                 <div style={{ height: '100%', width: `${percent}%`, background: 'var(--akari-accent, #f97316)', transition: 'width .2s linear' }} />
                             </div>
                         )}

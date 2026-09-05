@@ -159,3 +159,31 @@ test('(f) review sessions accept a non-MRU root present in the workspace ledger'
     const resolved = await service.reviewSessionWriter.resolveProjectRoot(pathToFileURL(data.a).toString());
     assert.equal(resolved, data.canonicalA);
 });
+
+test('(g) 台帳から行が落ちても、一度確認できた開いている root の配信は続く', async t => {
+    const data = await fixture(t);
+    const service = new AkariPreviewServiceImpl();
+    // b を開いているウィンドウが MRU、a を開いているウィンドウは台帳の行だけが頼り。
+    let ledgerRoots = [pathToFileURL(data.b).toString(), pathToFileURL(data.a).toString()];
+    service.workspaceServer = {
+        getMostRecentlyUsedWorkspace: async () => pathToFileURL(data.b).toString(),
+        getRecentWorkspaces: async () => ledgerRoots
+    };
+    const request = {
+        videoUri: pathToFileURL(data.paths.aVideo).toString(),
+        workspaceRoots: [pathToFileURL(data.a).toString()]
+    };
+    assert.equal((await service.resolveVideoStreamTarget(request)).path, await realpath(data.paths.aVideo));
+
+    // 別ウィンドウの書き込みや台帳の破損で a の行が落ちた状態（実機で観測した形）。
+    ledgerRoots = [pathToFileURL(data.b).toString()];
+    const target = await service.resolveVideoStreamTarget(request);
+    assert.equal(target.path, await realpath(data.paths.aVideo));
+    assert.deepEqual(target.workspaceRoots, [data.canonicalA]);
+
+    // 一度も台帳に無かった root は、これまでどおり拒否したまま。
+    await assert.rejects(service.resolveVideoStreamTarget({
+        videoUri: pathToFileURL(data.paths.cVideo).toString(),
+        workspaceRoots: [pathToFileURL(data.c).toString()]
+    }), /The requested workspace root is not an open workspace/u);
+});

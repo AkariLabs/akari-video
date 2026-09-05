@@ -1,0 +1,18 @@
+<div class="cm-icon__stage">
+  <style>
+    .cm-icon__motion { position: absolute; inset: 0; }
+    [data-akari-active] .cm-icon__motion, [data-no-timeline] .cm-icon__motion {
+      animation: cm-icon__pop var(--enter-duration, .72s) ease-out both;
+    }
+    @keyframes cm-icon__pop {
+      from { opacity: 0; transform: translateY(48px) scale(.72); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .cm-icon__canvas { position: absolute; left: 100px; top: 30px; width: 120px; height: 120px; }
+  </style>
+  <div class="cm-icon__motion">
+    <canvas class="cm-icon__canvas"></canvas>
+    <div class="cm-icon__fallback" data-akari-3d-fallback>3D fallback</div>
+  </div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

@@ -1,3 +1,5 @@
+import { isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
+
 export interface NumberFieldOptions {
     name: string;
     label: string;
@@ -236,6 +238,8 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             restore();
         };
         const keydown = (event: KeyboardEvent): void => {
+            // IME 変換中の Escape は変換の取り消しなので、ドラッグの巻き戻しに食わせない（issue #51）。
+            if (isImeCompositionKeydown(event)) return;
             if (event.key === 'Escape') {
                 event.preventDefault();
                 cleanup();

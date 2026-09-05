@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripHtmlComments } from "./html-scan.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -11,7 +12,7 @@ const RECENT_FRAME_LIMIT = 5;
 // シートに埋まった 3D シーン宣言の数。負荷起因のタイムアウトかを一目で判断する材料。
 function countThreeDimensionalScenes(sheetPath) {
   try {
-    return readFileSync(sheetPath, "utf8").split("data-akari-3d-scene").length - 1;
+    return stripHtmlComments(readFileSync(sheetPath, "utf8")).split("data-akari-3d-scene").length - 1;
   } catch {
     return 0;
   }
@@ -36,6 +37,24 @@ const SLOT_PARAMS_PATH = resolve(
 const THREE_TEXT_BUNDLE_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js",
+);
+const DEFAULT_THREE_FONT_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf",
+);
+let defaultThreeFontDataUri;
+function resolveDefaultThreeFontDataUri() {
+  defaultThreeFontDataUri ??=
+    `data:font/ttf;base64,${readFileSync(DEFAULT_THREE_FONT_PATH).toString("base64")}`;
+  return defaultThreeFontDataUri;
+}
+// モーション語彙（イージング名 + 対象別既定尺の CSS 変数）。プレビュー側はホストが
+// <link> するのと同じ内容を、語彙を参照するシートにだけ埋め込む（パリティ）。
+// 参照しないシートに埋め込まないのは、非対象シートのバイト同一性を守るため
+// （threeRuntimeScripts の出し分けと同じ判断）
+const MOTION_VOCAB_CSS_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/motion-vocab.css",
 );
 const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
 const TEXTURE_MIME_TYPES = new Map([
@@ -69,23 +88,24 @@ const FONT_MIME_TYPES = new Map([
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
+  const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
       && Object.keys(overlay.params).length > 0,
   );
-  const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
-    overlay.html.includes("data-akari-3d-scene"),
+  const hasThreeDimensionalOverlay = strippedOverlayHtml.some((html) =>
+    /data-akari-3d-scene/u.test(html),
   );
   // texts[] を含む宣言だけ vendor-3d-text-bundle.js（troika-three-text）を追加で読み込む。
   // 素朴な文字列検査で足りるのは、他フラグ（hasResolvedSingleLineCaption 等）と同じ判断
   const hasThreeDimensionalTextOverlay = hasThreeDimensionalOverlay
-    && orderedOverlays.some((overlay) =>
-      overlay.html.includes("data-akari-3d-scene") && overlay.html.includes('"texts"'),
+    && strippedOverlayHtml.some((html) =>
+      /data-akari-3d-scene/u.test(html) && html.includes('"texts"'),
     );
   const sheetOverlays = hasThreeDimensionalOverlay
     ? orderedOverlays.map((overlay) => ({
         ...overlay,
-        html: embedThreeModels(overlay.html, projectRoot, overlay.id),
+        html: embedThreeModels(overlay.html, projectRoot, overlay.id, overlay.vars ?? {}),
       }))
     : orderedOverlays;
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
@@ -129,6 +149,13 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
             container.style.setProperty('opacity', String(state.opacity));
           }
         }`
+    : "";
+  // 断片がモーション語彙（var(--ease-*) / var(--anim-duration-*)）を参照するときだけ
+  // 語彙定義を埋め込む。overlays[].vars 経由の参照は container の style 属性に乗るので
+  // nodes の文字列検査で両方拾える
+  const usesMotionVocabulary = /var\(\s*--(?:ease-|anim-duration-)/u.test(nodes);
+  const motionVocabularyStyle = usesMotionVocabulary
+    ? `\n  <style>\n${readFileSync(MOTION_VOCAB_CSS_PATH, "utf8")}  </style>`
     : "";
   const threeTextBundleScript = hasThreeDimensionalTextOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_TEXT_BUNDLE_PATH, "utf8"))}</script>`
@@ -178,7 +205,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${itemKeyframesRuntimeScripts}${threeRuntimeScripts}
+  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -262,14 +289,10 @@ ${nodes}${slotRuntimeScripts}
       };
       if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(hold);
     })();
-    window.__akariSeek = async function(seconds) {${threeSeekCollector}
-      for (const container of document.querySelectorAll('.akari-overlay-container')) {
-        const start = Number(container.dataset.start);
-        const duration = Number(container.dataset.duration);
-        const active = seconds >= start && seconds < start + duration;
-        container.style.visibility = active ? 'visible' : 'hidden';${threeSeekBranch}
-      }
-      window.__akariSyncAnimations(seconds);
+    // 動画テクスチャのシークだけを切り出した入口。GPU 直描き経路（gpu-export）はこのシートの
+    // __akariSeek を呼ばず自前で 3D を描くので、video を進める部分だけをここから呼ぶ。
+    // 切り出さないと GPU の 3D 動画テクスチャは 0 秒の絵に固定される（issue #53 (c)）。
+    window.__akariSeekVideos = async function(seconds) {
       const videoSeekTimeoutMilliseconds = 5000;
       const waitForVideo = (video, index) => new Promise((resolve) => {
         let animationFrameOne = null;
@@ -335,9 +358,20 @@ ${nodes}${slotRuntimeScripts}
           finish();
         }
       });
-      const warnings = (await Promise.all(
+      return (await Promise.all(
         Array.from(document.querySelectorAll('video'), waitForVideo),
-      )).filter(Boolean);${threeDrawStep}
+      )).filter(Boolean);
+    };
+    window.__akariSeek = async function(seconds) {${threeSeekCollector}
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {
+        const start = Number(container.dataset.start);
+        const duration = Number(container.dataset.duration);
+        const active = seconds >= start && seconds < start + duration;
+        container.style.visibility = active ? 'visible' : 'hidden';
+        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
+      }
+      window.__akariSyncAnimations(seconds);
+      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}
       await Promise.resolve();
       return { warnings };
     };${threeReadySetup}
@@ -490,8 +524,8 @@ function renderOverlayNode(overlay, index, fps) {
   return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params}${keyframes} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
 }
 
-function embedThreeModels(html, projectRoot, overlayId) {
-  if (!html.includes("data-akari-3d-scene")) return html;
+function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
+  if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
   let declarationCount = 0;
   const embedded = html.replace(
     THREE_SCENE_SCRIPT_PATTERN,
@@ -531,6 +565,9 @@ function embedThreeModels(html, projectRoot, overlayId) {
       if (hasTexts) {
         embeddedDescriptor.texts = descriptor.texts.map((textDescriptor) => {
           const font = textDescriptor.font;
+          if (font === undefined) {
+            return { ...textDescriptor, font: resolveDefaultThreeFontDataUri() };
+          }
           if (typeof font !== "string"
             || font.length === 0
             || font.startsWith("/")
@@ -585,22 +622,50 @@ function embedThreeModels(html, projectRoot, overlayId) {
               || !override
               || typeof override !== "object"
               || Array.isArray(override)
-              || Object.keys(override).some((key) => key !== "texture")
+              || Object.keys(override).some(
+                (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
+              )
               || typeof override.texture !== "string"
-              || override.texture.length === 0
-              || override.texture.startsWith("/")
-              || /^[a-z][a-z\d+.-]*:/i.test(override.texture)) {
+              || override.texture.length === 0) {
               throw new TypeError(
                 `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
               );
             }
-            const texture = readFileSync(resolve(projectRoot, override.texture));
-            const mimeType = textureMimeType(override.texture);
+            if (override.textureVar !== undefined
+              && (typeof override.textureVar !== "string"
+                || !/^--[A-Za-z_][A-Za-z0-9_-]*$/u.test(override.textureVar))) {
+              throw new TypeError(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.textureVar must be a CSS custom property name`,
+              );
+            }
+            const variableTexture = override.textureVar === undefined
+              ? undefined
+              : overlayVars[override.textureVar];
+            let texturePath = typeof variableTexture === "string" && variableTexture.length > 0
+              ? variableTexture
+              : override.texture;
+            const textureVariableMatch = /^var\(\s*(--[\w-]+)\s*\)$/u.exec(texturePath);
+            if (textureVariableMatch) {
+              const resolvedTexture = overlayVars[textureVariableMatch[1]];
+              if (typeof resolvedTexture !== "string" || resolvedTexture.length === 0) {
+                throw new TypeError(
+                  `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
+                );
+              }
+              texturePath = resolvedTexture;
+            }
+            if (texturePath.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(texturePath)) {
+              throw new TypeError(
+                `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
+              );
+            }
+            const texture = readFileSync(resolve(projectRoot, texturePath));
+            const mimeType = textureMimeType(texturePath);
             if (mimeType.startsWith("video/") && texture.length > MAX_VIDEO_TEXTURE_BYTES) {
               throw new Error(
                 `3D overlay ${overlayId} materialOverrides.${materialName}.texture is too large `
                   + `(${Math.round(texture.length / 1024 / 1024)}MiB > ${MAX_VIDEO_TEXTURE_BYTES / 1024 / 1024}MiB): `
-                  + `${override.texture}\n`
+                  + `${texturePath}\n`
                   + "  Give the 720p editing proxy, not the master. The sheet embeds this as base64\n"
                   + "  (~1.37x), and live preview seeks it on every tick.\n"
                   + `  ffmpeg -i <master> -vf scale=-2:720 -c:v libx264 -crf 23 -preset medium `
@@ -608,7 +673,9 @@ function embedThreeModels(html, projectRoot, overlayId) {
               );
             }
             return [materialName, {
+              ...override,
               texture: `data:${mimeType};base64,${texture.toString("base64")}`,
+              textureVar: undefined,
             }];
           }),
         );

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync,
-  readdirSync, rmSync, writeFileSync
+  readFileSync, readdirSync, renameSync, rmSync, writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -51,6 +51,173 @@ function findFile(dir, name) {
     }
   }
   return null;
+}
+
+const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
+
+function readJsonFile(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+function titleFromMeta(assetRoot) {
+  try {
+    const meta = readJsonFile(path.join(assetRoot, 'meta.json'));
+    return typeof meta.title === 'string' && meta.title ? meta.title : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSafePathSegment(value) {
+  return typeof value === 'string' && value.length > 0
+    && value !== '.' && value !== '..'
+    && !value.includes('/') && !value.includes('\\');
+}
+
+function pathWithin(root, ...parts) {
+  const absoluteRoot = path.resolve(root);
+  const candidate = path.resolve(absoluteRoot, ...parts);
+  if (candidate !== absoluteRoot && !candidate.startsWith(`${absoluteRoot}${path.sep}`)) {
+    throw new Error(`PACK.json の path がパック外を指しています: ${parts.join('/')}`);
+  }
+  return candidate;
+}
+
+function flattenPackContents(pack, packRoot) {
+  if (!Array.isArray(pack?.contents)) {
+    throw new Error('PACK.json に contents[] がありません');
+  }
+
+  const items = [];
+  for (const entry of pack.contents) {
+    const candidates = Array.isArray(entry?.assets)
+      ? entry.assets.map((asset) => ({ asset, parentTitle: entry.title }))
+      : [{ asset: entry, parentTitle: null }];
+    if (candidates.length === 0) {
+      throw new Error('PACK.json の contents[] に空の assets[] があります');
+    }
+
+    for (const { asset, parentTitle } of candidates) {
+      if (!asset || !isSafePathSegment(asset.id)
+        || typeof asset.path !== 'string' || !asset.path) {
+        throw new Error('PACK.json の contents[] に不正な id / path があります');
+      }
+      const assetRoot = pathWithin(packRoot, asset.path);
+      if (!Array.isArray(asset.files) || asset.files.length === 0) {
+        throw new Error(`PACK.json の item に files[] がありません: ${asset.id}`);
+      }
+      const files = asset.files.map((file) => {
+        if (!file || typeof file.path !== 'string' || !file.path
+          || !Number.isInteger(file.bytes) || file.bytes < 0
+          || typeof file.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(file.sha256)) {
+          throw new Error(`PACK.json の files[] が不正です: ${asset.id}`);
+        }
+        pathWithin(assetRoot, file.path);
+        return {
+          path: file.path,
+          bytes: file.bytes,
+          sha256: file.sha256
+        };
+      });
+      const version = asset.version ?? pack.version;
+      if (version === undefined || version === null) {
+        throw new Error(`PACK.json の item に version がありません: ${asset.id}`);
+      }
+      items.push({
+        id: asset.id,
+        title: (typeof asset.title === 'string' && asset.title)
+          || titleFromMeta(assetRoot)
+          || (typeof parentTitle === 'string' && parentTitle)
+          || asset.id,
+        path: asset.path,
+        version,
+        files
+      });
+    }
+  }
+  return items;
+}
+
+function registerInstalledPack(env, productId, packPath) {
+  const home = resolveAkariHome(env);
+  const indexPath = path.join(home, 'assets', 'installed.json');
+  const packRoot = path.dirname(packPath);
+  const pack = readJsonFile(packPath);
+  if ((typeof pack?.version !== 'string' && typeof pack?.version !== 'number')) {
+    throw new Error('PACK.json に version がありません');
+  }
+  let index = { schema: INSTALLED_ASSETS_SCHEMA, packs: {} };
+
+  if (existsSync(indexPath)) {
+    index = readJsonFile(indexPath);
+    if (index?.schema !== INSTALLED_ASSETS_SCHEMA
+      || !index.packs || typeof index.packs !== 'object' || Array.isArray(index.packs)) {
+      throw new Error(`導入済み素材索引の形式が想定と違います: ${indexPath}`);
+    }
+  }
+
+  const items = flattenPackContents(pack, packRoot);
+  index.packs[productId] = {
+    version: pack.version,
+    installedAt: new Date().toISOString(),
+    root: packRoot,
+    items
+  };
+  mkdirSync(path.dirname(indexPath), { recursive: true });
+  const tempPath = `${indexPath}.tmp-${process.pid}`;
+  writeFileSync(tempPath, `${JSON.stringify(index, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tempPath, indexPath);
+  return items;
+}
+
+const KNOWN_BUNDLE_COMPONENTS = new Map([
+  ['multi-device-combo', ['phone-pro-titanium', 'laptop-slim-aluminum', 'app-icon-squircle']]
+]);
+
+async function readJsonResponse(res) {
+  try {
+    const data = await res.json();
+    return data && typeof data === 'object' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function componentIds(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((component) => typeof component === 'string'
+      ? component
+      : component?.id ?? component?.product_id)
+    .filter((id) => typeof id === 'string' && id.length > 0);
+}
+
+function bundleDetails(data, productId) {
+  const candidates = [data, data?.product, data?.status];
+  const products = Array.isArray(data?.products) ? data.products : [];
+  const matchingProduct = products.find((product) =>
+    product?.id === productId || product?.product_id === productId);
+  if (matchingProduct) candidates.push(matchingProduct);
+
+  const bundle = candidates.find((candidate) => candidate?.kind === 'bundle');
+  if (!bundle) return null;
+  return { components: componentIds(bundle.components ?? data?.components) };
+}
+
+async function resolveBundleDetails(fetchImpl, creds, productId, errorData) {
+  const knownComponents = KNOWN_BUNDLE_COMPONENTS.get(productId);
+  if (knownComponents) return { components: knownComponents };
+
+  const fromError = bundleDetails(errorData, productId);
+  if (fromError) return fromError;
+
+  try {
+    const productsRes = await fetchImpl(`${creds.url}/products`);
+    if (!productsRes.ok) return null;
+    return bundleDetails(await readJsonResponse(productsRes), productId);
+  } catch {
+    return null;
+  }
 }
 
 export async function runStoreCommand(args, options = {}) {
@@ -149,6 +316,27 @@ export async function runStoreCommand(args, options = {}) {
       return { exitCode: 1 };
     }
     if (!res.ok) {
+      const data = await readJsonResponse(res);
+      if (res.status === 404) {
+        const bundle = await resolveBundleDetails(fetchImpl, creds, productId, data);
+        if (bundle) {
+          const componentList = bundle.components.length > 0
+            ? `: ${bundle.components.join(', ')}`
+            : '';
+          log(`セット商品は構成商品を個別に download してください${componentList}`);
+          return { exitCode: 1 };
+        }
+      }
+      if (res.status === 404 && data?.error === 'unknown_product') {
+        log(`${typeof data.message === 'string' ? data.message : '商品が見つかりません'}（${productId}）`);
+        return { exitCode: 1 };
+      }
+      if (res.status === 404 && data?.error === 'artifact_missing') {
+        log(typeof data.message === 'string'
+          ? data.message
+          : '配布物が未入稿です。サポートへご連絡ください');
+        return { exitCode: 1 };
+      }
       log(`ダウンロードに失敗しました（${res.status}）`);
       return { exitCode: 1 };
     }
@@ -164,13 +352,22 @@ export async function runStoreCommand(args, options = {}) {
 
   if (sub === 'install') {
     const productId = args[1];
-    if (!productId || productId.startsWith('--')) {
-      log('使い方: akari store install <productId>');
+    if (!isSafePathSegment(productId) || productId.startsWith('--')) {
+      log('使い方: akari store install <productId> [--from <zip>]');
+      return { exitCode: 1 };
+    }
+    const hasFrom = args.includes('--from');
+    const fromZip = parseFlag(args, '--from');
+    if (hasFrom && !fromZip) {
+      log('使い方: akari store install <productId> [--from <zip>]');
       return { exitCode: 1 };
     }
     const stage = mkdtempSync(path.join(tmpdir(), 'akari-store-install-'));
     try {
-      const dl = await runStoreCommand(['download', productId, '--dest', stage], options);
+      const dl = fromZip
+        ? { exitCode: existsSync(fromZip) ? 0 : 1, filePath: path.resolve(fromZip) }
+        : await runStoreCommand(['download', productId, '--dest', stage], options);
+      if (fromZip && dl.exitCode !== 0) log(`zip が見つかりません: ${fromZip}`);
       if (dl.exitCode !== 0) return { exitCode: 1 };
       const extractDir = path.join(stage, 'x');
       mkdirSync(extractDir, { recursive: true });
@@ -218,6 +415,12 @@ export async function runStoreCommand(args, options = {}) {
       const readme = findFile(destDir, 'README.md');
       log(`展開しました: ${destDir}`);
       if (readme) log(`導入手順: ${readme}`);
+      const packPath = findFile(destDir, 'PACK.json');
+      if (packPath) {
+        const items = registerInstalledPack(env, productId, packPath);
+        log(`akari assets list に ${items.length} 件を登録しました`);
+        if (items[0]) log(`次の一手: akari assets fetch ${items[0].id}`);
+      }
       return { exitCode: 0 };
     } finally {
       rmSync(stage, { recursive: true, force: true });
@@ -236,7 +439,7 @@ export async function runStoreCommand(args, options = {}) {
   log('使い方: akari store <connect|status|install|download|disconnect>');
   log('  connect                              ブラウザで承認して接続（既定。--token akst_... で手動 / --no-open でブラウザを開かない / --url <base>）');
   log('  status                               接続状態と購入済み一覧');
-  log('  install <productId>                  購入済み商品のダウンロード + 導入まで一括');
+  log('  install <productId> [--from <zip>]   購入済み商品の導入（--from は手元 zip / PACK.json 素材を installed 索引へ登録）');
   log('  download <productId> [--dest <dir>]  購入済み配布物の取得のみ');
   log('  disconnect                           接続解除');
   return { exitCode: sub ? 1 : 0 };

@@ -2,7 +2,7 @@ import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preferenc
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
-export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null, codec = run?.codec ?? "h264" } = {}) {
+export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, forced = null, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null, codec = run?.codec ?? "h264" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   const memory = run?.memory ?? {};
   return {
@@ -41,8 +41,10 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
       preview: normalizePreview(run?.preview),
       domLayer: run?.domLayer ?? null,
+      three: normalizeThreeSummary(run?.three),
       viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
+      forced: normalizeForcedEligibility(forced),
     },
     memory: {
       profile: memory.profile ?? fallbackBudget.profile,
@@ -62,6 +64,14 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     finalVerify,
     audio: normalizeGpuAudioRecord(audio),
   };
+}
+
+function normalizeForcedEligibility(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.entries)) return null;
+  const forcedEntries = value.entries.filter((entry) => entry?.forced === true);
+  if (forcedEntries.some((entry) => typeof entry.id !== "string" || typeof entry.reason !== "string")) return null;
+  const reasons = forcedEntries.map((entry) => ({ id: entry.id, reason: entry.reason }));
+  return { reasons };
 }
 
 function normalizeOutputScale(value) {
@@ -96,6 +106,62 @@ function normalizeViewport(value) {
   return requested === null || measured === null || display === null || typeof value.emulated !== "boolean"
     ? null
     : { requested, measured, emulated: value.emulated, display };
+}
+
+function normalizeThreeSummary(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.overlays) || !value.sampling || typeof value.sampling !== "object") {
+    return null;
+  }
+  const overlays = [];
+  for (const overlay of value.overlays) {
+    const mode = overlay?.entrance?.mode;
+    if (typeof overlay?.id !== "string" || overlay.id === "" || !["curve", "sampled", "composite"].includes(mode)) return null;
+    overlays.push({ id: overlay.id, entrance: { mode } });
+  }
+  const count = nonNegativeInteger(value.sampling.count);
+  if (count === null) return null;
+  let sampling;
+  if (count === 0) {
+    if (value.sampling.p50 !== null || value.sampling.p95 !== null) return null;
+    sampling = { count, p50: null, p95: null };
+  } else {
+    const p50 = finiteNonNegative(value.sampling.p50);
+    const p95 = finiteNonNegative(value.sampling.p95);
+    if (p50 === null || p95 === null) return null;
+    sampling = { count, p50, p95 };
+  }
+  const normalized = { overlays, sampling };
+  if (value.composite !== undefined && value.composite !== null) {
+    const composite = normalizeThreeCompositeSummary(value.composite);
+    if (composite === null) return null;
+    normalized.composite = composite;
+  }
+  return normalized;
+}
+
+function normalizeThreeCompositeSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  const overlays = nonNegativeInteger(value.overlays);
+  const domElements = nonNegativeInteger(value.domElements);
+  const copy = normalizeCostPercentiles(value.copy, true);
+  const domLayerCostMs = normalizeCostPercentiles(value.domLayerCostMs, false);
+  return overlays === null || domElements === null || copy === null || domLayerCostMs === null
+    ? null
+    : { overlays, domElements, copy, domLayerCostMs };
+}
+
+function normalizeCostPercentiles(value, includeCount) {
+  if (!value || typeof value !== "object") return null;
+  const count = includeCount ? nonNegativeInteger(value.count) : null;
+  if (includeCount && count === null) return null;
+  if (value.p50 === null && value.p95 === null) {
+    if (includeCount && count !== 0) return null;
+    return includeCount ? { count, p50: null, p95: null } : { p50: null, p95: null };
+  }
+  const p50 = finiteNonNegative(value.p50);
+  const p95 = finiteNonNegative(value.p95);
+  if (p50 === null || p95 === null) return null;
+  return includeCount ? { count, p50, p95 } : { p50, p95 };
 }
 
 function normalizeSize(value) {

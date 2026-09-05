@@ -32,6 +32,9 @@ issue #45 では、長尺の書き出しが既存の ffprobe 検査をすべて�
 | 既存 `verify.*` | plan の尺・fps・映像 / 音声 codec 等 | ffprobe + 全フレーム decode | 不一致は error | `verification.measured`（従来どおり） |
 | `verify.audio-level` | `plan.commands.audio_mix.hasAudibleAudio`（BGM / SFX / narration / master）または使用素材の `has_audio` | 最終 MP4 の最大 6 区間へ `volumedetect` | 宣言あり + 最大音量 < −80 dB、または測定不能は error。宣言なし + 音声ストリームありは warning。可聴なら info。音声ストリームなしは skipped | `verification.declared.audio_level` |
 | `verify.motion-static` | 2 点以上の keyframes で crop または transform が変化する cut（先頭から最大 8 cut） | 差が最大の 2 時点を 160×90 gray で抽出し NCC を計算 | NCC ≥ 0.98 は warning、それ未満は info。一様フレームは skipped | `verification.declared.motion[]` |
+| `verify.blank-frames` | `edit.overlays` / `edit.cuts` の活性区間 | 最終 MP4 の全フレームを 1 パスの `signalstats` で測り、YMAX が背景推定値 + 8 以下に 0.3 秒以上張り付く区間を抽出 | 活性 overlay / cut があれば warning、0 件なら info。error にはせず verdict を変えない | `verification.declared.blank_frames[]` |
+
+空フレーム走査は既定 ON（`--no-verify-blank` で停止）とし、背景 YMAX は出力全体の YMAX 観測値の下位 5% の中央値から推定する。`-skip_frame` と縮小は使わず全フレームを測るため、報告する最小連続長は 0.3 秒である。記録は `{start, duration, ymax_max, active_overlays[], active_cuts[], severity}` とし、既存 11 findings の内容と順序、`verification.measured` および receipt payload の閉じたキー集合は変更しない。
 
 `verification.declared.audio_level` は次の形を持つ。
 
@@ -102,4 +105,3 @@ receipt payload の拡張と edit-lint の変更は、上記候補とは別の�
 - 静止した非一様映像は motion warning、一様映像は `uniform` skip、動く映像は info になる
 - 既存 11 findings の内容と順序、`verification.measured` のキー集合、receipt payload のキー集合を不変に保つ
 - warning が verdict、exit code、receipt 作成を変えず、CLI と HTML report では黄色の行として観測できる
-

@@ -3,7 +3,7 @@ import URI from '@theia/core/lib/common/uri';
 import { execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { constants, Dirent, existsSync, promises as fs, watch } from 'fs';
-import { basename, dirname, extname, join, resolve } from 'path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
@@ -23,6 +23,7 @@ import {
     MaterialThumbnailOutcome,
     PresetShowcase,
     PresetShowcaseKind,
+    ProjectCardThumbnailsOutcome,
     ProjectGitEligibility,
     StoreConnectionStatus,
     StoreDevicePollOutcome,
@@ -30,6 +31,22 @@ import {
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
+import {
+    deriveEditTimelineSamples,
+    deriveProjectCardTimestamps,
+    EditTimelineSample,
+    parseProjectCardFrameIndex,
+    projectCardFrameFileName,
+    projectCardFrameRelativePath,
+    PROJECT_CARD_CACHE_DIRECTORY,
+    PROJECT_CARD_FRAME_COUNT,
+    PROJECT_CARD_SOURCE_EXTENSIONS,
+    ProjectCardThumbnailOrigin,
+    readContactSheetTimestamps,
+    readPlannedDurationSeconds,
+    RenderStateSummary,
+    selectRenderedOutputPath
+} from './project-card-thumbnails';
 import { CATALOG_ROOT_UPWARD_MAX_DEPTH, resolveUpwardCatalogRoot } from './catalog-root-search';
 import { assetResolverSrcCandidates, editLintCliCandidates, presetShowcaseIndexCandidates } from './packaged-tool-candidates';
 import { CATALOG_CATEGORIES, parseCatalogItemMeta } from '../common/catalog-reader';
@@ -43,6 +60,11 @@ import {
     removeCredentials,
     startDeviceConnection
 } from 'akari-video/src/store-device-connect.mjs';
+import {
+    applyHistoryPolicy,
+    hasGeneratedMediaExtension,
+    PROJECT_GITIGNORE
+} from 'akari-video/src/history-policy.mjs';
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -86,13 +108,46 @@ interface AkariEvent {
     occurredAt?: string;
 }
 
+/** カードのコマ 1 枚を抜く指示（どのファイルの・何秒地点か）。 */
+interface ProjectCardShot {
+    absolutePath: string;
+    seconds: number;
+}
+
+/**
+ * カードの絵をどこから採るかの決定（{@link ProjectCardThumbnailOrigin} の 3 段）。
+ * `keyAbsolutePath` はキャッシュ世代の基準になる正本ファイルで、これが変われば作り直る。
+ */
+type ProjectCardPlan =
+    | {
+        origin: 'export';
+        keyPath: string;
+        keyAbsolutePath: string;
+        videoPath: string;
+        renderState?: RenderStateSummary;
+    }
+    | {
+        origin: 'edit';
+        keyPath: string;
+        keyAbsolutePath: string;
+        samples: EditTimelineSample[];
+    }
+    | {
+        origin: 'material';
+        keyPath: string;
+        keyAbsolutePath: string;
+        videoPath: string;
+    };
+
 @injectable()
 export class AkariProjectServiceImpl implements AkariProjectService {
     protected readonly watchers = new Map<string, { close(): void }>();
     protected readonly processedEvents = new Set<string>();
     protected readonly pendingEvents = new Map<string, ReturnType<typeof setTimeout>>();
     protected readonly thumbnailGenerationInFlight = new Map<string, Promise<MaterialThumbnailOutcome>>();
+    protected readonly projectCardGenerationInFlight = new Map<string, Promise<ProjectCardThumbnailsOutcome>>();
     protected ffmpegPathPromise?: Promise<string | undefined>;
+    protected ffprobePathPromise?: Promise<string | undefined>;
     /** Overridable for tests: lets the symlink/junction/copy fallback chain be exercised from mac. */
     protected readonly fsImpl: typeof fs = fs;
     /** Overridable for tests: lets the win32-only junction fallback be exercised from mac. */
@@ -589,6 +644,7 @@ try {
         }
         await this.ensureRuntimeDirectories(root);
         await this.ensureGitInitialized(root);
+        await this.migrateHistoryPolicy(root);
         const eventsDirectory = join(root, '.akari', 'events');
         try {
             const watcher = watch(eventsDirectory, (_event, fileName) => {
@@ -901,11 +957,334 @@ try {
         }
     }
 
+    /**
+     * プロジェクト選択画面のカード用サムネを解決する。既存キャッシュがあればそれを返し、
+     * なければ元動画から ffmpeg で最大 5 コマ抜いて `.akari/cache/project-card/<key>/` に貯める。
+     *
+     * 元の選び方はプロジェクトの進み具合そのままの 3 段（{@link ProjectCardThumbnailOrigin}）で、
+     * キャッシュキーはその段の「正本ファイル」の path+size+mtime 由来。つまり
+     * **書き出し直せば・編集し直せばキーが変わって自動で作り直る** — オーナーの言う
+     * 「出力完了のタイミングで反映」を、render-cut にも preview にも手を入れずに実現している。
+     * 同時に、既に書き出し済み／編集済みの過去プロジェクトへも遡って絵が付く。
+     * ffmpeg 不在・元動画不在・生成失敗はすべて available=false（プレースホルダ運用）。
+     */
+    async resolveProjectCardThumbnails(projectUri: string): Promise<ProjectCardThumbnailsOutcome> {
+        const root = this.fsPath(projectUri);
+        const plan = await this.locateProjectCardPlan(root);
+        if (!plan) {
+            return { available: false };
+        }
+        let stat: { size: number; mtimeMs: number };
+        try {
+            stat = await fs.stat(plan.keyAbsolutePath);
+        } catch {
+            return { available: false };
+        }
+        const key = deriveThumbnailCacheKey(`${plan.origin}:${plan.keyPath}`, stat.size, stat.mtimeMs);
+        const cacheRoot = join(root, ...PROJECT_CARD_CACHE_DIRECTORY.split('/'));
+        const cacheDirectory = join(cacheRoot, key);
+        const cached = await this.readProjectCardCache(cacheDirectory, key, plan.origin);
+        if (cached) {
+            return cached;
+        }
+        const inFlight = this.projectCardGenerationInFlight.get(cacheDirectory);
+        if (inFlight) {
+            return inFlight;
+        }
+        const generation = this.generateProjectCardFrames(root, cacheRoot, plan, key, cacheDirectory)
+            .finally(() => this.projectCardGenerationInFlight.delete(cacheDirectory));
+        this.projectCardGenerationInFlight.set(cacheDirectory, generation);
+        return generation;
+    }
+
+    /**
+     * カードの絵をどこから採るかを決める。良いほうから順に:
+     *
+     * 1. `export`   — `.akari/render.json` が記録した検収済み出力、無ければ `exports/` の最新動画
+     * 2. `edit`     — `edit.json` に実際に組まれたカットがある。タイムラインを引いて各カットの該当秒
+     * 3. `material` — まだ素材だけ。`assets/` の最新動画
+     *
+     * キャッシュキーの基準（`keyAbsolutePath`）はその段の正本ファイル: 1 は出力動画、
+     * 2 は `edit.json`（編集を直したら作り直る）、3 は素材そのもの。
+     */
+    protected async locateProjectCardPlan(root: string): Promise<ProjectCardPlan | undefined> {
+        const renderState = await this.readRenderState(root);
+        const recorded = selectRenderedOutputPath(renderState);
+        if (recorded) {
+            const absolutePath = isAbsolute(recorded) ? recorded : join(root, recorded);
+            if (await this.isReadableFile(absolutePath)) {
+                return {
+                    origin: 'export',
+                    keyPath: this.projectRelativeOrAbsolute(root, absolutePath),
+                    keyAbsolutePath: absolutePath,
+                    videoPath: absolutePath,
+                    renderState
+                };
+            }
+        }
+        const exported = await this.newestVideoIn(join(root, 'exports'), 1);
+        if (exported) {
+            return {
+                origin: 'export',
+                keyPath: this.projectRelativeOrAbsolute(root, exported),
+                keyAbsolutePath: exported,
+                videoPath: exported
+            };
+        }
+        const editPath = join(root, 'edit.json');
+        const edit = await this.readJsonFile(editPath);
+        const samples = deriveEditTimelineSamples(edit, PROJECT_CARD_FRAME_COUNT);
+        if (samples.length > 0) {
+            return {
+                origin: 'edit',
+                keyPath: 'edit.json',
+                keyAbsolutePath: editPath,
+                samples
+            };
+        }
+        const material = await this.newestVideoIn(join(root, 'assets'), 2);
+        if (material) {
+            return {
+                origin: 'material',
+                keyPath: this.projectRelativeOrAbsolute(root, material),
+                keyAbsolutePath: material,
+                videoPath: material
+            };
+        }
+        return undefined;
+    }
+
+    /** 実際に抜く「どのファイルの・何秒地点か」の列へ落とす（存在しないファイルは落とす）。 */
+    protected async resolveProjectCardShots(root: string, plan: ProjectCardPlan): Promise<ProjectCardShot[]> {
+        if (plan.origin === 'edit') {
+            const shots: ProjectCardShot[] = [];
+            const stillsSeen = new Set<string>();
+            for (const sample of plan.samples) {
+                const absolutePath = isAbsolute(sample.sourcePath) ? sample.sourcePath : join(root, sample.sourcePath);
+                // 静止画ソースは時刻が違っても同じ絵になる。同じ 1 枚を 5 コマ並べると
+                // ループが止まって見えるので、静止画は 1 回だけ採る。
+                if (IMAGE_EXTENSIONS.has(extname(absolutePath).toLowerCase())) {
+                    if (stillsSeen.has(absolutePath)) {
+                        continue;
+                    }
+                    stillsSeen.add(absolutePath);
+                }
+                if (await this.isReadableFile(absolutePath)) {
+                    shots.push({ absolutePath, seconds: sample.sourceSeconds });
+                }
+            }
+            return shots;
+        }
+        const contactSheetTimestamps = plan.origin === 'export' ? readContactSheetTimestamps(plan.renderState) : [];
+        const timestamps = deriveProjectCardTimestamps({
+            contactSheetTimestamps,
+            durationSeconds: contactSheetTimestamps.length > 0
+                ? undefined
+                : await this.probeDurationSeconds(plan.videoPath)
+                    ?? (plan.origin === 'export' ? readPlannedDurationSeconds(plan.renderState) : undefined)
+        });
+        return timestamps.map(seconds => ({ absolutePath: plan.videoPath, seconds }));
+    }
+
+    /** `.akari/render.json` を防御的に読む（無い・壊れているときは undefined）。 */
+    protected async readRenderState(root: string): Promise<RenderStateSummary | undefined> {
+        const parsed = await this.readJsonFile(join(root, '.akari', 'render.json'));
+        return parsed && typeof parsed === 'object' ? parsed as RenderStateSummary : undefined;
+    }
+
+    /** JSON を防御的に読む（無い・壊れているときは undefined）。 */
+    protected async readJsonFile(absolutePath: string): Promise<unknown> {
+        try {
+            return JSON.parse(await fs.readFile(absolutePath, 'utf8'));
+        } catch {
+            return undefined;
+        }
+    }
+
+    protected async isReadableFile(absolutePath: string): Promise<boolean> {
+        return fs.stat(absolutePath).then(entry => entry.isFile(), () => false);
+    }
+
+    /** ディレクトリ配下（深さ maxDepth まで）で mtime が最も新しい動画。ドット項目は見ない。 */
+    protected async newestVideoIn(directory: string, maxDepth: number): Promise<string | undefined> {
+        let best: { path: string; mtimeMs: number } | undefined;
+        const visit = async (current: string, depth: number): Promise<void> => {
+            let entries: Dirent[];
+            try {
+                entries = await fs.readdir(current, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            for (const entry of entries) {
+                if (entry.name.startsWith('.')) {
+                    continue;
+                }
+                const candidate = join(current, entry.name);
+                if (entry.isDirectory()) {
+                    if (depth < maxDepth) {
+                        await visit(candidate, depth + 1);
+                    }
+                    continue;
+                }
+                if (!entry.isFile() || !PROJECT_CARD_SOURCE_EXTENSIONS.includes(extname(entry.name).toLowerCase())) {
+                    continue;
+                }
+                try {
+                    const stat = await fs.stat(candidate);
+                    if (!best || stat.mtimeMs > best.mtimeMs) {
+                        best = { path: candidate, mtimeMs: stat.mtimeMs };
+                    }
+                } catch {
+                    // 読めない項目は候補から外すだけ（列挙全体は続ける）。
+                }
+            }
+        };
+        await visit(directory, 1);
+        return best?.path;
+    }
+
+    /** キャッシュ済みのコマを番号順に読み直す。1 枚も無ければ undefined（生成へ進む）。 */
+    protected async readProjectCardCache(
+        cacheDirectory: string,
+        key: string,
+        origin: ProjectCardThumbnailOrigin
+    ): Promise<ProjectCardThumbnailsOutcome | undefined> {
+        let names: string[];
+        try {
+            names = await fs.readdir(cacheDirectory);
+        } catch {
+            return undefined;
+        }
+        const frames = names
+            .map(name => ({ name, index: parseProjectCardFrameIndex(name) }))
+            .filter((entry): entry is { name: string; index: number } => entry.index !== undefined)
+            .sort((left, right) => left.index - right.index)
+            .map(entry => `${PROJECT_CARD_CACHE_DIRECTORY}/${key}/${entry.name}`);
+        return frames.length > 0 ? { available: true, origin, frames } : undefined;
+    }
+
+    /**
+     * コマを抜いて JPEG で貯める。1 コマ抜きに失敗しても残りは続行し、取れたぶんだけ返す
+     * （fail-soft — ポスター 1 枚でもカードは成立する）。1 枚も取れなければ空のキャッシュ
+     * ディレクトリを残さずに消して available=false。
+     */
+    protected async generateProjectCardFrames(
+        root: string,
+        cacheRoot: string,
+        plan: ProjectCardPlan,
+        key: string,
+        cacheDirectory: string
+    ): Promise<ProjectCardThumbnailsOutcome> {
+        const ffmpeg = await this.resolveFfmpegPath();
+        if (!ffmpeg) {
+            return { available: false };
+        }
+        const shots = await this.resolveProjectCardShots(root, plan);
+        if (shots.length === 0) {
+            return { available: false };
+        }
+        await fs.mkdir(cacheDirectory, { recursive: true });
+        const frames: string[] = [];
+        for (let index = 0; index < shots.length; index += 1) {
+            const fileName = projectCardFrameFileName(frames.length);
+            const temporaryPath = join(cacheDirectory, `.tmp-${process.pid}-${fileName}`);
+            try {
+                await execFileAsync(ffmpeg, this.projectCardFrameArgs(shots[index], temporaryPath));
+                await fs.rename(temporaryPath, join(cacheDirectory, fileName));
+                frames.push(projectCardFrameRelativePath(key, frames.length));
+            } catch (error) {
+                await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+                console.warn('[akari-project] project card frame extraction failed; continuing with the remaining frames:', error);
+            }
+        }
+        if (frames.length === 0) {
+            await fs.rm(cacheDirectory, { recursive: true, force: true }).catch(() => undefined);
+            return { available: false };
+        }
+        await this.pruneProjectCardCache(cacheRoot, key);
+        return { available: true, origin: plan.origin, frames };
+    }
+
+    /**
+     * 1 コマ抜きの ffmpeg 引数。`-ss` を `-i` の前に置く入力シークで、全デコードを避ける。
+     * 静止画ソース（v1 の still image cut source）にはシークが効かないので付けない。
+     */
+    protected projectCardFrameArgs(shot: ProjectCardShot, temporaryPath: string): string[] {
+        const still = IMAGE_EXTENSIONS.has(extname(shot.absolutePath).toLowerCase());
+        return [
+            '-y', '-hide_banner', '-loglevel', 'error', '-nostdin',
+            ...(still ? [] : ['-ss', shot.seconds.toFixed(3)]),
+            '-i', shot.absolutePath,
+            '-frames:v', '1',
+            '-vf', "scale='min(480,iw)':-2",
+            '-q:v', '4',
+            temporaryPath
+        ];
+    }
+
+    /** 世代が変わって使われなくなったキー配下を捨てる（再書き出し・再編集のたびに溜まるのを防ぐ）。 */
+    protected async pruneProjectCardCache(cacheRoot: string, keepKey: string): Promise<void> {
+        let entries: Dirent[];
+        try {
+            entries = await fs.readdir(cacheRoot, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        await Promise.all(entries
+            .filter(entry => entry.isDirectory() && entry.name !== keepKey)
+            .map(entry => fs.rm(join(cacheRoot, entry.name), { recursive: true, force: true }).catch(() => undefined)));
+    }
+
+    /** 動画の尺（秒）。ffprobe が無い・読めないときは undefined（呼び出し側が既定へ落とす）。 */
+    protected async probeDurationSeconds(videoPath: string): Promise<number | undefined> {
+        const ffprobe = await this.resolveFfprobePath();
+        if (!ffprobe) {
+            return undefined;
+        }
+        try {
+            const { stdout } = await execFileAsync(ffprobe, [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                videoPath
+            ]);
+            const parsed = Number(stdout.trim());
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** プロジェクト内なら POSIX 区切りの相対パス、外なら絶対パス（キャッシュキーの安定化用）。 */
+    protected projectRelativeOrAbsolute(root: string, absolutePath: string): string {
+        const relativePath = relative(root, absolutePath);
+        if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+            return absolutePath;
+        }
+        return relativePath.split(sep).join('/');
+    }
+
     protected async resolveFfmpegPath(): Promise<string | undefined> {
         if (!this.ffmpegPathPromise) {
             this.ffmpegPathPromise = this.locateFfmpeg();
         }
         return this.ffmpegPathPromise;
+    }
+
+    protected async resolveFfprobePath(): Promise<string | undefined> {
+        if (!this.ffprobePathPromise) {
+            this.ffprobePathPromise = this.locateFfprobe();
+        }
+        return this.ffprobePathPromise;
+    }
+
+    /** ffprobe の解決。3 段（明示指定 env → PATH → 同梱）は {@link locateFfmpeg} と同じ。 */
+    protected async locateFfprobe(): Promise<string | undefined> {
+        if (process.env.AKARI_FFPROBE_BIN) {
+            return process.env.AKARI_FFPROBE_BIN;
+        }
+        const onPath = await this.locateMediaBinOnPath('ffprobe');
+        return onPath ?? this.bundledMediaBinPath('ffprobe');
     }
 
     /**
@@ -925,9 +1304,14 @@ try {
 
     /** ffmpeg を PATH から解決する。見つからなければ undefined（呼び出し側が同梱へ落とす）。 */
     protected async locateFfmpegOnPath(): Promise<string | undefined> {
+        return this.locateMediaBinOnPath('ffmpeg');
+    }
+
+    /** ffmpeg / ffprobe を PATH から解決する共通実装（which / where）。 */
+    protected async locateMediaBinOnPath(name: 'ffmpeg' | 'ffprobe'): Promise<string | undefined> {
         const finder = this.platform === 'win32' ? 'where' : 'which';
         try {
-            const { stdout } = await execFileAsync(finder, ['ffmpeg']);
+            const { stdout } = await execFileAsync(finder, [name]);
             return stdout.split(/\r?\n/).map(line => line.trim()).find(Boolean);
         } catch {
             return undefined;
@@ -1115,11 +1499,68 @@ try {
         }
     }
 
+    /**
+     * 旧世代の `.gitignore` を現行の方針へ揃え、新たに対象外になった追跡済みファイルを
+     * 履歴から外す（`git rm --cached`）。**ディスク上のファイルは消さない** — 利用者の
+     * 成果物であり、消してよいかは `akari clean` の宣言表が別に判断する。
+     *
+     * 履歴そのもの（過去のコミットが抱える blob）は書き換えない。これは利用者の明示操作の
+     * 領域であり、移行だけでは `.git` は縮まず横ばいになる（issue #48）。
+     *
+     * 自分がルートである git リポジトリのときだけ動く。親リポジトリの中に置かれた
+     * プロジェクトの `.gitignore` を書き換えると、こちらが管理していないリポジトリの
+     * 追跡対象を黙って変えてしまうため。
+     */
+    protected async migrateHistoryPolicy(root: string): Promise<void> {
+        if ((await this.gitEligibility(root)) !== 'own-root') {
+            return;
+        }
+        try {
+            const gitignorePath = join(root, '.gitignore');
+            const current = await fs.readFile(gitignorePath, 'utf8').catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                    return undefined;
+                }
+                throw error;
+            });
+            const outcome = applyHistoryPolicy(current);
+            if (!outcome.changed) {
+                return;
+            }
+            await fs.writeFile(gitignorePath, outcome.text, 'utf8');
+            await this.runGit(root, ['add', '--', '.gitignore']);
+            const untracked = await this.untrackNewlyIgnoredFiles(root);
+            await this.commitIfChanged(root, untracked
+                ? '変更履歴に入れない生成物を整理（ファイルはそのまま残っています）'
+                : '変更履歴の設定を更新');
+        } catch (error) {
+            console.warn('[akari-project] history policy migration failed:', error);
+        }
+    }
+
+    /**
+     * 追跡済みだが現在は除外対象になっているファイルを索引から外す。作業ツリーには残す。
+     * 実プロジェクトでは 2,000 件規模になるため、コマンドラインの上限に当たらないよう分割する。
+     */
+    protected async untrackNewlyIgnoredFiles(root: string): Promise<number> {
+        const files = await this.gitPaths(root, ['ls-files', '-z', '--cached', '--ignored', '--exclude-standard']);
+        for (let index = 0; index < files.length; index += UNTRACK_BATCH_SIZE) {
+            const batch = files.slice(index, index + UNTRACK_BATCH_SIZE);
+            await this.runGit(root, ['rm', '--cached', '--quiet', '--force', '--', ...batch]);
+        }
+        return files.length;
+    }
+
+    /**
+     * 「変更を見る」に出しても意味の無いパスか。拡張子の集合は `.gitignore` 雛形と同じ
+     * `history-policy.mjs` から導く（片方だけが育つと、表示から外した生成物が履歴には
+     * 積まれ続ける — issue #48）。
+     */
     protected isInternalOrBinaryPath(file: string): boolean {
         if (file.startsWith('.akari/diffs/')) {
             return true;
         }
-        return new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.png', '.jpg', '.jpeg', '.gif', '.wav', '.mp3']).has(extname(file).toLowerCase());
+        return hasGeneratedMediaExtension(file);
     }
 
     protected async ensureRuntimeDirectories(root: string): Promise<void> {
@@ -1424,20 +1865,9 @@ try {
 }
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-const PROJECT_GITIGNORE = [
-    '# Source video and audio are intentionally kept outside the project history.',
-    'assets/**',
-    '!assets/.gitkeep',
-    '',
-    '# Temporary files used by the friendly "変更を見る" view.',
-    '.akari/diffs/**',
-    '!.akari/diffs/.gitkeep',
-    '',
-    '# Local operating-system files.',
-    '.DS_Store',
-    'Thumbs.db',
-    ''
-].join('\n');
+// 1 回の `git rm --cached` へ渡すパス数の上限。Windows のコマンドライン長（約 32,000 文字）に
+// 収まるよう、長いパスが並んでも余裕のある件数にしてある。
+const UNTRACK_BATCH_SIZE = 200;
 const FALLBACK_CLAUDE_GUIDANCE = [
     '# AKARI Video プロジェクト',
     '',

@@ -7,6 +7,36 @@ import test from "node:test";
 import { captureFramesWithGpu } from "../src/index.mjs";
 import { buildGpuElectronArguments } from "../src/runner.mjs";
 
+test("GPU capture force passes degraded-only eligibility and keeps unsupported fail-closed", async () => {
+  let resolved = false;
+  await assert.rejects(captureFramesWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "overlay", id: "x", classification: "dom", reason: "forced-dom:script", forced: true }],
+      summary: { degraded: 1, unsupported: 0, forced: 1 },
+    },
+    frameNumbers: [0],
+    frames: 1,
+    projectRoot: "/project",
+    outputDirectory: "/output",
+    launcherResolver: async () => { resolved = true; return { tier: 3, reason: "fixture" }; },
+  }), /GPU capture unavailable: fixture/u);
+  assert.equal(resolved, true);
+
+  resolved = false;
+  await assert.rejects(captureFramesWithGpu({
+    force: true,
+    eligibility: {
+      eligible: false,
+      entries: [{ kind: "caption", id: "c", classification: "unsupported", reason: "motion" }],
+      summary: { degraded: 0, unsupported: 1, forced: 0 },
+    },
+    launcherResolver: async () => { resolved = true; return { tier: 2 }; },
+  }), /caption:c:motion/u);
+  assert.equal(resolved, false);
+});
+
 test("GPU capture launches one page runtime and carries frame/readback flags", async () => {
   const root = await mkdtemp(join(tmpdir(), "gpu-capture-api-"));
   try {

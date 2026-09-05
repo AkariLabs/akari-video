@@ -84,6 +84,8 @@ const MIME = {
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 const CAPTION_FONT_PATH = fileURLToPath(new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url));
 const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
+const DEFAULT_THREE_FONT_PATH = fileURLToPath(new URL('../../overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf', import.meta.url));
+const DEFAULT_THREE_FONT_ROUTE = '/__akari/fonts/zen-kaku-gothic-new-black.ttf';
 // 3D オーバーレイのランタイム。どちらも素の IIFE（vendor は window.AkariThree、
 // runtime は window.akari.threeRuntime を立てる）なのでバンドルは要らず、
 // 字幕フォントと同じ「リポ所有の固定ルート」で配る（776KB を public/ へ複製しない）。
@@ -102,6 +104,13 @@ const THREE_ROUTES = {
   // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
   '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
+  // テキスト分割（data-akari-split）。断片は分割済みで出荷する規約なので
+  // 書き出し（rasterize）は無改造で通るが、プレビューは打ち替え編集をするため
+  // 再分割の実装が要る。three と同じ「リポ所有の固定ルート」で配る。
+  // budoux は Apache-2.0（vendor/budoux-LICENSE.txt）。
+  // 契約: akari-video-internal contract-2026-08-15-telop-motion-grammar-v0
+  '/budoux-ja-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/budoux-ja-bundle.js', import.meta.url)),
+  '/text-split.js': fileURLToPath(new URL('../../overlay-runtime/src/text-split.js', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
@@ -922,6 +931,28 @@ const server = http.createServer(async (req, res) => {
   // 3D ランタイム（リポ所有の固定ルート。断片が 3D を宣言した時だけ取りに来る）
   if (THREE_ROUTES[pathname] && req.method === 'GET') {
     return serveFile(res, THREE_ROUTES[pathname], MIME['.js'], {}, req.headers);
+  }
+
+  // 3D text の既定フォント。projectRoot を経由しない固定ルートに限定し、ランタイムへは
+  // app.js の configure({ defaultFontUrl }) から注入する。
+  if (pathname === DEFAULT_THREE_FONT_ROUTE && (req.method === 'GET' || req.method === 'HEAD')) {
+    if (req.method === 'HEAD') {
+      try {
+        const size = fs.statSync(DEFAULT_THREE_FONT_PATH).size;
+        res.writeHead(200, {
+          'content-type': 'font/ttf',
+          'content-length': size,
+          'access-control-allow-origin': '*',
+          'cache-control': 'public, max-age=31536000, immutable',
+        });
+        return res.end();
+      } catch {
+        return respond(res, 404, { error: 'Default 3D font not found' });
+      }
+    }
+    return serveFile(res, DEFAULT_THREE_FONT_PATH, 'font/ttf', {
+      'cache-control': 'public, max-age=31536000, immutable',
+    });
   }
 
   // Fixed route to the repository-owned caption font. It is intentionally not

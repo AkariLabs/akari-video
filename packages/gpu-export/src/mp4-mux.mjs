@@ -116,6 +116,20 @@ export function buildIncrementalMp4Metadata({
   };
 }
 
+const MISSING_FRAME_LIST_LIMIT = 20;
+
+// 宣言フレーム数のうち sample が届いていない frame 番号（timestamp は WebCodecsH264Encoder.encode と同じ丸め）。
+export function describeMissingFrames(frames, fps, receivedTimestamps) {
+  const missing = [];
+  let omitted = 0;
+  for (let frame = 0; frame < frames; frame += 1) {
+    if (receivedTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+    if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+    else omitted += 1;
+  }
+  return omitted > 0 ? `${missing.join(", ")}, … and ${omitted} more` : missing.join(", ");
+}
+
 export async function createIncrementalMp4Writer({ outputPath, width, height, fps, frames, codec = "h264" }) {
   validateWriterOptions({ outputPath, width, height, fps, frames });
   const videoCodec = normalizeVideoCodec(codec);
@@ -135,6 +149,8 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
   let finished = false;
   let chain = Promise.resolve();
   const samples = [];
+  // 届いた sample の timestamp。宣言フレーム数に足りないとき、どの frame が欠けたかを finish() のエラーで名指しする。
+  const receivedTimestamps = new Set();
 
   try {
     await writeFully(handle, ftyp, 0);
@@ -188,17 +204,24 @@ export async function createIncrementalMp4Writer({ outputPath, width, height, fp
       writeOffset += output.length;
       mdatBytes += output.length;
       samples.push({ size: output.length, isKey });
+      receivedTimestamps.add(timestamp);
       previousTimestamp = timestamp;
       return samples.length;
     });
     return chain;
   };
 
-  const finish = () => {
+  // encoderFrames: レンダラのエンコーダが encode() した frame 数（page-runtime の encoderFinish.frames）。
+  // 宣言と食い違ったとき「エンコーダが捨てた」のか「転送で消えた」のかをエラー文で切り分ける。
+  const finish = ({ encoderFrames = undefined } = {}) => {
     chain = chain.then(async () => {
       assertWritable();
       if (samples.length !== frames) {
-        throw new Error(`encoded sample count mismatch: expected ${frames}, got ${samples.length}`);
+        const submitted = Number.isInteger(encoderFrames) ? `; encoder submitted ${encoderFrames}` : "";
+        throw new Error(
+          `encoded sample count mismatch: expected ${frames}, got ${samples.length}${submitted}`
+          + ` (missing frames: ${describeMissingFrames(frames, fps, receivedTimestamps)})`,
+        );
       }
       const metadata = buildIncrementalMp4Metadata({
         width,

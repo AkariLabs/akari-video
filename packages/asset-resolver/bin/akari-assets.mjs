@@ -21,6 +21,7 @@ function flagValue(args, name) {
 const STATE_BADGE = { cached: '✓', locked: '¥', available: '☁' };
 
 function badgeOf(item) {
+  if (item.source === 'installed') return '[installed]';
   if (item.state === 'locked') return `¥${(item.price ?? 0).toLocaleString()}`;
   return STATE_BADGE[item.state] ?? '?';
 }
@@ -106,7 +107,7 @@ async function cmdBundle(args, env) {
 }
 
 async function cmdSync(_args, env) {
-  const catalog = await loadCatalog({ env });
+  const catalog = await loadCatalog({ env, includeInstalled: false });
   await cacheCatalog(env, catalog);
   console.log(`カタログを同期しました: ${catalog.items.length} 件（version ${catalog.version ?? '不明'}）`);
 }

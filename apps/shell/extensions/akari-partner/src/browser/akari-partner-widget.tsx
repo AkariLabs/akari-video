@@ -66,6 +66,7 @@ const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     claude: ['Claude Code'],
     codex: ['Codex'],
     opencode: [],
+    commandcode: [],
     copilot: [],
     cursor: [],
     antigravity: [],
@@ -383,12 +384,12 @@ export class AkariPartnerWidget extends ReactWidget {
                 }
             }
             await this.ensureCliProvisioned(entry);
-            const launch = await this.partnerServer.prepareLaunch(entry.agent);
+            const launch = await this.partnerServer.prepareLaunch(entry.agent, bootstrap.executablePath);
             this.setProgress(entry, 'パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
                 title: entry.name,
                 iconClass: PARTNER_CLI_ICON_CLASSES[entry.agent],
-                shellPath: bootstrap.executablePath,
+                shellPath: launch.executablePath ?? bootstrap.executablePath,
                 // This is a CLI process, not a shell. Avoid Theia's platform shell args (for example, macOS `-l`).
                 shellArgs: launch.args,
                 cwd,
@@ -714,6 +715,18 @@ export class AkariPartnerWidget extends ReactWidget {
         };
         this.toDispose.push(terminal.onTerminalDidClose(clear));
         this.toDispose.push(terminal.onDidOpenFailure(clear));
+        this.toDispose.push(terminal.onDidChangeVisibility(visible => {
+            if (visible) {
+                // 非表示中 (display:none) は xterm の viewport 同期が壊れ、再表示後に
+                // 数行ずれて CLI の入力欄が隠れる。Theia の resizeTerminal は 50ms
+                // debounce なので、それより後に最下部へ寄せ直す必要がある
+                setTimeout(() => {
+                    if (!terminal.isDisposed) {
+                        terminal.scrollToBottom();
+                    }
+                }, 120);
+            }
+        }));
     }
 
     protected syncTerminalState(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, restored: boolean): void {

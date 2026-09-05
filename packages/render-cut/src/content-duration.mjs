@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 
-const { visualContentEndSeconds } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
+const { timelineDurationSeconds } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 export function computeContentDurationSeconds({
   edit,
@@ -39,12 +39,9 @@ export function computeContentDurationSeconds({
     layersEnd = Math.max(layersEnd, t + duration);
   }
 
-  // edit-store の visualContentEndSeconds（全 visual トラックのアイテムの最大終端）と同じ定義を
-  // 共有する（P0 2026-08-20 track-identity-and-duration 指示 2）。cuts/layers のどちらに
-  // 振り分けられたクリップかに関わらず、段を移動しても総尺が変わらない。cutsEndSeconds /
-  // layersEnd は既存の呼び出し（internalEdit を渡さない単体テスト含む）との後方互換のため残し、
-  // Math.max の一項として足すだけにする（internalEdit を渡す実呼び出しではこちらが上回る）。
-  const visualEnd = internalEdit ? visualContentEndSeconds(internalEdit) : 0;
+  // edit-store と同じ総尺定義を共有する。cutsEndSeconds / layersEnd は既存の呼び出し
+  // （internalEdit を渡さない単体テスト含む）との後方互換のため Math.max の項として残す。
+  const visualEnd = internalEdit ? timelineDurationSeconds(internalEdit).seconds : 0;
 
   let captionsEnd = 0;
   for (const overlay of Array.isArray(captionOverlays) ? captionOverlays : []) {

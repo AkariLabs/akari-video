@@ -1538,6 +1538,10 @@ window.akari.interaction = (() => {
     // 編集層のテキストで全ミラー層を同期してから書き出す（P0-R 契約 §3）。
     syncMirrorLayers(edit.container, edit.element);
 
+    // 編集開始時に畳んだテキスト分割を、確定したテキストで分割し直す（--i を振り直す）。
+    // ミラー同期の後に行う（ミラー層は素のテキストを保つ）。
+    if (edit.splitHost) window.akari.textSplit?.apply?.(edit.splitHost);
+
     restoreAttribute(
       edit.element,
       "contenteditable",
@@ -1625,6 +1629,16 @@ window.akari.interaction = (() => {
       slotName: slotNameForElement(element),
       writeContext: captureWriteContext(),
     };
+
+    // テキスト分割断片（data-akari-split）は編集中だけ素のテキストへ畳む。
+    // <span class="akari-u"> のまま contenteditable にすると、打鍵で span が
+    // 割れる・消える・キャレットが単位境界で飛ぶ、といった壊れ方をするため。
+    // 確定時（commitEdit）に分割し直す（contract-2026-08-15-telop-motion-grammar-v0 §4）。
+    const splitHost = window.akari.textSplit?.closestHost?.(element);
+    if (splitHost) {
+      activeEdit.splitHost = splitHost;
+      window.akari.textSplit.collapse(splitHost);
+    }
 
     element.setAttribute("contenteditable", "true");
     element.setAttribute("spellcheck", "false");

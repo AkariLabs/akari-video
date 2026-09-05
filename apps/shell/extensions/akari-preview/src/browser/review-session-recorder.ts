@@ -15,6 +15,7 @@ import {
     ReviewToolMode,
     ReviewToolModeState,
     isEditableEventTarget,
+    isImeCompositionKeydown,
     reduceReviewToolMode,
     reviewToolModeForShortcutKey
 } from '../common/review-tool-mode';
@@ -589,6 +590,10 @@ export class ReviewSessionRecorder {
     protected handleKeydown(event: KeyboardEvent): void {
         const active = this.active;
         if (!active || this.status !== 'recording' || event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+        }
+        // IME 変換中の 1 / 2 / 3 / Escape でツールモードを切り替えない（issue #51）。
+        if (isImeCompositionKeydown(event)) {
             return;
         }
         const activeElement = typeof document !== 'undefined' ? document.activeElement : null;

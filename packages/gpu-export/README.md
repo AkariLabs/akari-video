@@ -15,9 +15,12 @@ keyframes, Web Animations, or `@property`. Dynamic HTML is mounted under a runti
 `canvas[layoutsubtree]`, fixed to the engine clock, copied with `drawElementImage`, and uploaded as
 a compositor texture without product-path pixel readback.
 
-Embedded contexts, CSS 3D transforms, self-driving JavaScript clocks, media elements, runtime
-scripts, and external resources fail closed. Karaoke and other word-level captions and emphasis
-words remain outside v1.
+Embedded contexts, self-driving JavaScript clocks, media elements, runtime scripts, external
+resources, and CSS 3D that uses `backface-visibility: hidden` fail closed. CSS 3D geometry is
+eligible, including `transform-style: preserve-3d`; however, preserve-3d occlusion follows DOM
+order on the GPU path. Authors must avoid overlapping its descendants. A detector warns when
+screen-space overlap conflicts with Z order and records the conflict in the receipt. Karaoke and
+other word-level captions and emphasis words remain outside v1.
 
 ### Word-level captions (v2)
 
@@ -48,21 +51,43 @@ and a receipt warning rather than failing closed.
 Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
 ineligible and fail closed with a concrete reason.
 
-### Declarative 3D entrance curves (v3)
+### Declarative 3D entrances (v3)
 
-A declarative Three.js scene may keep one root-element entrance animation on the GPU path. It must
-use the paired `[data-akari-active] .root, [data-no-timeline] .root` selector, exactly one two-endpoint
-keyframe animation, a known CSS timing function, a non-negative delay, one iteration, normal direction,
-and `both` or `forwards` fill. Keyframes may animate only opacity and 2D translate/scale; supported CSS
-variables and `calc(var(...) + Npx)` / `calc(var(...) * N)` are resolved from overlay variables and
-x/y/scale transforms before export. The manifest records absolute opacity, translation, and scale
-endpoints, and the compositor evaluates the same curve on every frame while Three.js continues to use
-the engine's local clock.
+Declarative Three.js scenes keep CSS entrances on the GPU path even when they use transitions,
+`@property`, multiple animations, intermediate keyframes, alternate directions, rotation, or skew.
+The existing two-endpoint grammar remains the `curve` fast path. Other entrances confined to the
+root-to-Three-canvas ancestor chain use the `sampled` path: paused WAAPI animations are sought with
+composition time, and computed opacity and the 2D transform chain from the overlay container to the
+Three canvas are measured on every active frame. Axis-aligned transforms become sprite draw state when
+the canvas fills the output; rotation, shear, and non-full-frame canvases are drawn through an
+intermediate 2D canvas. Three.js itself continues to use the engine's local clock.
 
-Transitions, `@property`, multiple animations or animated elements, intermediate keyframes, alternate
-directions, rotate/skew/3D transforms, filter, and clip-path fail closed with a concrete
-`three-entrance-*` reason. A declarative 3D scene without CSS animation retains the existing
-`three-scene-canvas-direct` manifest shape and behavior.
+Registered custom-property keyframes are accepted into the sampled path, but the export sheet's WAAPI
+clone currently leaves those properties at their initial values in both GPU and OSR; directly declared
+opacity and transform keyframes still interpolate, so engine parity is preserved. Custom-property
+interpolation remains a separate export-sheet issue.
+
+The sampled path admits `three-or-canvas-runtime` and `animation-timing`. When method A cannot describe the fragment
+from its root-to-canvas chain, method B classifies it as `three-scene-sampled-composite`. Three.js still renders in
+the overlay sheet; each frame copies that canvas into the matching canvas in the DOM-layer clone, hides
+`[data-akari-3d-fallback]`, then transfers the whole fragment with `drawElementImage`. This preserves DOM order and
+z-index around the canvas, while overlays remain ordered by track z and declaration index.
+
+Composite scenes admit CSS 3D geometry and `advanced-css` both inside and outside the canvas chain. They reuse the
+DOM layer's CSS 3D policy: depth transforms pass, preserve-3d order conflicts pass with a warning, and
+`backface-visibility:hidden` with depth remains degraded as `css-3d-backface-hidden`. `@property` remains fail-closed
+as `three-composite-property` until sheet/DOM custom-property interpolation parity is measured. Other conditions
+outside the composite entry set report `three-sampled-condition:<condition>`. The method-A scan retains
+`three-sampled-chain-css:<property>` as its own guard.
+
+Composite scenes now fail closed as `three-composite-preserve-3d-siblings` when a `preserve-3d` element has both the
+Three-canvas chain child and an off-chain child with a depth transform. GPU paints those siblings in DOM order, so it
+diverged from OSR (measured 2026-09-04: bounding-box MAD 5.0082; OSR put only z>0 siblings in front of the canvas).
+Extending `preserve3dOrderConflicts` to sibling pairs can re-enable this shape in a later round. Parent-child conflicts
+continue to pass with a warning (measured parity 0.6374).
+Manifests record `entranceMode`, and receipts record
+`curve` / `sampled` / `composite`, sampling cost, plus composite DOM-element and p50/p95 copy/DOM-layer costs.
+Scenes without CSS animation remain `three-scene-canvas-direct`.
 
 `render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
 project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is

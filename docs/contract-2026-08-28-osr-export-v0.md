@@ -38,6 +38,10 @@ tier 3 の場合に `{ from: "gpu", reason: <launcher.reason> }` を記録する
 
 CSS animationはpauseし、`currentTime`を合成時刻へ設定する。Three.jsは対象区間のローカル時刻で描画する。動画要素は提示フレームの確定まで待つ。`frameNumber`はmainから明示的に渡し、秒から再計算しない。
 
+overlay sheet は各シークで活性区間の自由 HTML 容器へ `data-akari-active` を付与し、非活性区間では
+除去する。`#stage` の `data-no-timeline` は後方互換のため維持し、どちらの発火ゲートを使う断片も
+OSR で同じタイムライン時刻に同期する。
+
 ## 3. スタンプ行
 
 最下1行はフレーム番号 `n mod 65536` を次で符号化する。
@@ -113,6 +117,17 @@ ffprobe timeoutは `max(120000, frames × 100)` msとする。尺、フレーム
 - `AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きでき（絶対値・スケールも下限も上限も受けない）、
   適用値はwarning < hard stopを必須とする。hard stop だけを上書きし既定 warning がそれ以上になるときは warning を hard stop の 75% に追従させる。
   同じ変数を GPU 直結出口（gpu-export）も読む。
+- 書き出しは厳密に前方順で過去フレームを読み直さないため、**評価 plan から外れたカットのデコーダセッションは解放する**
+  （`StreamReaper`。frame-engine が `plan.base` / `plan.layers` の `streamId` を集め、最後に使ったフレームから 1 秒ぶんの
+  猶予を過ぎたものを `LookaheadFrameSource.releaseStream` で落とす）。解放しないとカット本数ぶんのセッションが最後まで
+  積み上がり、RSS が単調に伸びて長尺ほど後ろで hard stop に当たる（2026-09-04 追加・issue #52。
+  244 秒 / 7,320 コマの実機報告で 98% 地点・RSS 4.01 GB）。トランジション中の送出カットは plan に載るので残る。
+- receipt / run.json の `memory.decoderSessions` に生存セッション数（`live`）と累計解放数（`released`）を記録する。
+  RSS はセッション数に比例するため、ランプの原因を後から突き合わせられるようにする（同・issue #52。
+  #28 の時点で比例は分かっていたが記録が無く、再発時にまた手探りになった）。
+- hard stop に当たった GPU 直結出口の失敗は reasonCode `memory-hard-stop` とし、`--engine auto` のときは OSR で
+  走り直して完走させる（`FALLBACK_REASONS`。同・issue #52。それまでは成果物ゼロで終わり、前版で出せていたものが
+  出せない退行になっていた）。`--engine gpu` 明示は従来どおり fail-closed。
 - 並列予算1 worker = 1 GiBはGPU前提の値である。v0のworker数は1。
 - 10秒ごとにRSSを記録し、ウィンドウ破棄後も採る。
 - 固定Nコマごとのページ再生成は行わない。再生成を許すのはページ境界、renderer crash、watchdog回復時だけである。

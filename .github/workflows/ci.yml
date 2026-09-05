@@ -28,6 +28,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
+      # 同じ required の配布ゲートへ相乗りし、RVM コード・重みの混入を最短で止める。
+      # Node 組み込みのみで追加 install は不要なため、依存 staging より先に実行する。
+      - name: check-no-gpl-redistribution
+        run: node scripts/release/check-no-gpl-redistribution.mjs
       # v0.1.25 の同梱漏れ（packages/gpu-export / skills/analyze-footage/bin/person-matte / @webav/mp4box.js）は
       # モノレポのテストでは見えず、実ビルドのパッケージ版でだけ ERR_MODULE_NOT_FOUND になった。
       # release.yml と同じ手順で同梱 npm 入口を staging し、extraResources どおりの模擬 Resources から
@@ -70,6 +74,12 @@ jobs:
       # ローカル実測 2026-09-02（macOS arm64・Node 26.3.0）: added 1480 packages / 7 s（キャッシュ有）。
       - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
+      # frame-engine 3 consumers + preview-server の Web UI バンドル 5 本
+      # （pen-visuals / overlay-interaction.bundle.js / overlay-interaction.css / edit-kernel / frame-engine）を
+      # 1 ステップでまとめて検査する。preview-server 側は packages/preview-server/package.json の build
+      # スクリプトを読み、一時ディレクトリへ再生成してバイト比較するため working tree を汚さない。
+      - name: check generated bundle drift (frame-engine 3 consumers + preview-server 5 bundles)
+        run: node scripts/ci/check-frame-engine-drift.mjs
       - name: unit tests (lane pure)
         run: node scripts/ci/run-unit-tests.mjs --lane pure
 
@@ -131,6 +141,14 @@ jobs:
           node-version: '26.3.0'
           cache: npm
           cache-dependency-path: apps/shell/package-lock.json
+
+      # frame-engine の再バンドルには repoRoot の node_modules が必要。CI の drift 検査を
+      # 依存不足で skip させず実行するため、shell 側とは別にルート依存も用意する。
+      # root の npm ci は workspaces を reify して apps/shell/node_modules を空にするため、
+      # 必ず shell install より前に置く（2026-09-04 実測: 804 → 1 エントリ）。
+      - name: Install workspace dependencies for frame-engine drift check (repo root)
+        working-directory: ${{ github.workspace }}
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       # apps/shell/package-lock.json は 2026-08-19 から追跡対象（apps/shell/.gitignore 参照）なので
       # `npm ci` を使う（2026-09-02 に `npm install` から切替。`npm install` はその日のレジストリで

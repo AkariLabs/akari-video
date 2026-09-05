@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, cp, mkdir } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +46,10 @@ await copyFile(
   path.join(overlayRuntimeDestination, 'frame-engine.js')
 );
 await copyFile(
+  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'preview-audio-worklet.js'),
+  path.join(overlayRuntimeDestination, 'preview-audio-worklet.js')
+);
+await copyFile(
   path.join(repoRoot, 'packages', 'osr-export', 'generated', 'frame-engine.js'),
   path.join(overlayRuntimeDestination, 'osr-frame-engine.js')
 );
@@ -84,13 +88,78 @@ console.log(`Copied project-default template to ${path.relative(shellRoot, proje
 // （<asar>/lib/backend）からの上方探索が 1 段上で当たるのでリゾルバ側は無変更でよい
 // （lib/skills・lib/schemas・lib/templates と同じ流儀。dev 実行でもこの写しが先に
 // 当たるため、packages/ を直したら prepackage を回して写しを更新する）。
-// 依存ゼロの ESM なので src/ と package.json だけ運べば動く（node_modules 不要）。
+// 依存ゼロの ESM なので src/ と package.json だけ運べば動く（node_modules 不要）…
+// だったが、この「依存ゼロ」は暗黙の前提でしかなく、実際に破れた: issue #48 の対応で
+// project-scaffold が `../../akari-launcher/src/history-policy.mjs` を import するように
+// なり、その写しが無い v0.1.39 の .app では「新しい動画の作成に失敗しました
+// （Cannot find module …/lib/packages/akari-launcher/src/history-policy.mjs）」で必ず失敗した。
+// パッケージ名の決め打ちリストだけだと、packages/ 間に import を 1 本足した誰も気づけない。
+// そこで写した後に **パッケージの外へ出る相対 import を実際に辿って写す**（連鎖も追う）。
+// これで同種の同梱漏れは構造的に起きなくなる。verify-asar-contents.mjs 側にも
+// 実在チェックを置いてあり、こちらが取りこぼしても package 時に落ちる。
 for (const name of ['project-scaffold', 'creator-root']) {
   const source = path.join(repoRoot, 'packages', name);
   const destination = path.join(shellRoot, 'lib', 'packages', name);
   await cp(path.join(source, 'src'), path.join(destination, 'src'), { recursive: true });
   await copyFile(path.join(source, 'package.json'), path.join(destination, 'package.json'));
   console.log(`Copied ${name} module to ${path.relative(shellRoot, destination)}`);
+}
+await copyCrossPackageImports(['project-scaffold', 'creator-root']);
+
+/**
+ * 写した packages/<name>/src 配下の ESM を読み、`../../<other>/…` のように
+ * 自パッケージの外を指す相対 import を lib/packages/ へ写す。写したファイルが
+ * さらに外を指していれば、それも辿る（連鎖・循環対応）。
+ *
+ * packages/ の外（node_modules や別ツリー）を指す import は運べないので、その場で落とす
+ * — 黙って通すと「配布版でだけ落ちる」という一番気づきにくい形の壊れ方に戻るため。
+ */
+async function copyCrossPackageImports(rootNames) {
+  const packagesRoot = path.join(repoRoot, 'packages');
+  const queue = [];
+  for (const name of rootNames) {
+    queue.push(...(await listEsmFiles(path.join(packagesRoot, name, 'src'))));
+  }
+  const visited = new Set(queue);
+  while (queue.length > 0) {
+    const file = queue.shift();
+    const contents = await readFile(file, 'utf8');
+    for (const specifier of contents.matchAll(/(?:^|\n)\s*(?:import|export)[^'"]*?from\s*['"](\.[^'"]*)['"]/g)) {
+      const resolved = path.resolve(path.dirname(file), specifier[1]);
+      if (!resolved.startsWith(`${packagesRoot}${path.sep}`)) {
+        throw new Error(
+          `${path.relative(repoRoot, file)} が packages/ の外を相対 import しています: ${specifier[1]}\n` +
+          'パッケージ済み .app へは運べません（lib/packages/ 配下しか写せない）。import を packages/ 内へ寄せてください。'
+        );
+      }
+      if (visited.has(resolved)) {
+        continue;
+      }
+      visited.add(resolved);
+      if (!existsSync(resolved)) {
+        throw new Error(`${path.relative(repoRoot, file)} の import 先が存在しません: ${specifier[1]}`);
+      }
+      const destination = path.join(shellRoot, 'lib', 'packages', path.relative(packagesRoot, resolved));
+      await mkdir(path.dirname(destination), { recursive: true });
+      await copyFile(resolved, destination);
+      console.log(`Copied cross-package import to ${path.relative(shellRoot, destination)}`);
+      queue.push(resolved);
+    }
+  }
+}
+
+/** ディレクトリ配下の ESM（.mjs / .js）を再帰列挙する。 */
+async function listEsmFiles(directory) {
+  const found = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const candidate = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...(await listEsmFiles(candidate)));
+    } else if (entry.isFile() && /\.(?:mjs|js)$/.test(entry.name)) {
+      found.push(candidate);
+    }
+  }
+  return found;
 }
 
 // ネイティブヘルパーの追加コピーはプラットフォームごとに要否が異なる（node-pty の

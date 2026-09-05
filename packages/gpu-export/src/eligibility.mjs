@@ -1,55 +1,11 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
-import { parseThreeEntrance } from "./three-entrance.mjs";
+import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
+import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
-// 3D transform のうち、Z 成分が 0 の translateZ / translate3d は 2D の translate と等価で描画結果が
-// 同一なので不適格にしない（issue #34。GPU レイヤー化の定石として広く使われる）。Z が 0 以外、
-// または値がリテラルで読めない（var() / calc() 等）ときだけ 3D とみなす。
-const CSS_3D_TRANSFORM_PATTERN = /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(/iu;
-const TRANSLATE_FUNCTION_PATTERN = /\b(translateZ|translate3d)\s*\(/giu;
-const ZERO_LENGTH_PATTERN = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?$/iu;
-
-function isZeroLength(value) {
-  return ZERO_LENGTH_PATTERN.test(String(value ?? "").trim());
-}
-
-/**
- * `name(` の直後から対応する `)` までを、入れ子の括弧（`var()` / `calc()` 等）を数えながら切り出し、
- * 最上位のカンマで引数へ分ける。`translate3d(var(--x), var(--y), 0)` のように X / Y が CSS 変数駆動でも
- * Z のリテラル 0 を読めるようにする（オーバーレイ規約は調整値を CSS 変数に出すので自然に現れる形）。
- * 閉じ括弧が見つからなければ null（= 読めないので 3D 扱い）。
- */
-function readTopLevelArguments(html, openIndex) {
-  const parts = [];
-  let depth = 0;
-  let start = openIndex;
-  for (let index = openIndex; index < html.length; index += 1) {
-    const character = html[index];
-    if (character === "(") depth += 1;
-    else if (character === ")") {
-      if (depth === 0) {
-        parts.push(html.slice(start, index));
-        return parts;
-      }
-      depth -= 1;
-    } else if (character === "," && depth === 0) {
-      parts.push(html.slice(start, index));
-      start = index + 1;
-    }
-  }
-  return null;
-}
-
-function hasDepthTransform(html) {
-  if (CSS_3D_TRANSFORM_PATTERN.test(html)) return true;
-  for (const match of html.matchAll(TRANSLATE_FUNCTION_PATTERN)) {
-    const parts = readTopLevelArguments(html, match.index + match[0].length);
-    if (parts === null) return true;
-    const expectedArity = match[1].toLowerCase() === "translatez" ? 1 : 3;
-    if (parts.length !== expectedArity || !isZeroLength(parts[parts.length - 1])) return true;
-  }
-  return false;
+function hasBackfaceHiddenWithDepthTransform(html) {
+  return /backface-visibility\s*:\s*hidden/iu.test(html) && hasDepthTransform(html);
 }
 
 const OVERLAY_CONDITIONS = [
@@ -62,6 +18,7 @@ const OVERLAY_CONDITIONS = [
   ["background-image-external-resource", /background(?:-image)?\s*:[^;}"'<>]*url\((?!["']?(?:data:|#))/iu, "external"],
   ["embedded-context", /<(?:iframe|object|embed)\b/iu, "dynamic"],
   ["css-3d-transform", hasDepthTransform, "dynamic"],
+  ["css-3d-backface-hidden", hasBackfaceHiddenWithDepthTransform, "dynamic"],
   ["self-driving-clock", /requestAnimationFrame\s*\(|setTimeout\s*\(|setInterval\s*\(|Date\.now\s*\(|performance\.now\s*\(/iu, "dynamic"],
   ["media-element", /<(?:video|audio)\b/iu, "dynamic"],
   ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b/iu, "dynamic"],
@@ -70,7 +27,12 @@ const OVERLAY_CONDITIONS = [
   ["advanced-css", /backdrop-filter|mix-blend-mode|filter\s*:|mask(?:-image)?\s*:|clip-path\s*:/iu, "dynamic"],
 ];
 
-const DOM_LAYER_CONDITIONS = new Set(["animation-timing", "advanced-css"]);
+// 2026-09-03 の実測では CSS 3D 幾何は e 0.5222 / f 0.2364 / h 0.1757 / d 0.5336 と
+// 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、
+// 幾何は DOM 層へ通し、裏面除去だけを別条件で fail-closed に保つ。
+const DOM_LAYER_CONDITIONS = new Set(["css-3d-transform", "animation-timing", "advanced-css"]);
+const SAMPLED_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing"]);
+const COMPOSITE_CONDITIONS = new Set(["three-or-canvas-runtime", "animation-timing", "css-3d-transform", "advanced-css"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -87,13 +49,15 @@ export function evaluateGpuEligibility({
   captions = [],
   defaultTextStyle = null,
   emphasisWords = [],
+  forceDegraded = false,
 } = {}) {
   const entries = [];
   for (const [index, overlay] of (edit.overlays ?? []).entries()) {
     if (overlay?.enabled === false) continue;
     const html = typeof overlay?.html === "string" ? overlay.html : "";
+    const source = stripHtmlComments(html);
     const conditions = OVERLAY_CONDITIONS
-      .filter(([, pattern]) => (typeof pattern === "function" ? pattern(html) : pattern.test(html)))
+      .filter(([, pattern]) => (typeof pattern === "function" ? pattern(source) : pattern.test(source)))
       .map(([condition, , kind]) => ({ condition, kind }));
     if (Array.isArray(overlay?.keyframes)) {
       conditions.unshift({ condition: "item-keyframes", kind: "dynamic" });
@@ -106,12 +70,39 @@ export function evaluateGpuEligibility({
       : null;
     if (names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
-    } else if (isThreeOnlyOverlay(html, names)) {
+    } else if (isThreeOnlyOverlay(source, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
-    } else if (entrance?.ok && names.every((name) => ["three-or-canvas-runtime", "animation-timing"].includes(name))) {
-      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
-    } else if (entranceCandidate && !entrance.ok) {
-      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason, names));
+    } else if (entranceCandidate) {
+      const withinSampledConditions = names.every((name) => SAMPLED_CONDITIONS.has(name));
+      if (names.includes("css-3d-backface-hidden")) {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-backface-hidden", names));
+      } else if (entrance.ok && withinSampledConditions) {
+        entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
+      } else if (withinSampledConditions) {
+        const sampled = scanThreeSampled(html);
+        if (sampled.ok) {
+          entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names));
+          continue;
+        }
+        const composite = scanThreeComposite(html);
+        entries.push(composite.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
+      } else if (names.every((name) => COMPOSITE_CONDITIONS.has(name))) {
+        const composite = scanThreeComposite(html);
+        entries.push(composite.ok
+          ? entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-sampled-composite", names)
+          : entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", composite.reason, names));
+      } else {
+        const unsupported = names.filter((name) => !COMPOSITE_CONDITIONS.has(name));
+        entries.push(entry(
+          "overlay",
+          overlay.id ?? `overlay-${index}`,
+          "degraded",
+          `three-sampled-condition:${unsupported.join(",")}`,
+          names,
+        ));
+      }
     } else if (names.length === 0) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "same", "static-html-sprite", []));
     } else if (names.every((name) => DOM_LAYER_CONDITIONS.has(name))) {
@@ -163,11 +154,19 @@ export function evaluateGpuEligibility({
       wordSupport.hasWordDisplay ? ["words"] : [],
     ));
   }
+  const originalDegraded = entries.filter((value) => value.classification === "degraded").length;
+  const forcedEntries = forceDegraded
+    ? entries.map((value) => value.kind === "overlay" && value.classification === "degraded"
+      ? { ...value, classification: "dom", reason: `forced-dom:${value.reason}`, forced: true }
+      : value)
+    : entries;
   const summary = { same: 0, three: 0, dom: 0, degraded: 0, unsupported: 0 };
-  for (const value of entries) summary[value.classification] += 1;
+  for (const value of forcedEntries) summary[value.classification] += 1;
+  summary.degraded = originalDegraded;
+  if (forceDegraded) summary.forced = forcedEntries.filter((value) => value.forced === true).length;
   return {
     eligible: summary.degraded === 0 && summary.unsupported === 0,
-    entries,
+    entries: forcedEntries,
     summary,
   };
 }

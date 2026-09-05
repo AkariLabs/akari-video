@@ -1,0 +1,28 @@
+<div class="composite-backface">
+  <style>
+    .composite-backface { position: absolute; inset: 0; perspective: 1000px; }
+    .composite-backface__canvas { position: absolute; left: 200px; top: 70px; width: 240px; height: 220px; }
+    .composite-backface__card { position: absolute; left: 270px; top: 130px; width: 100px; height: 72px; border-radius: 12px; display: grid; place-items: center; color: white; background: linear-gradient(135deg, #7c3aed, #22d3ee); backface-visibility: hidden; }
+    [data-akari-active] .composite-backface__card--1, [data-no-timeline] .composite-backface__card--1 { animation: composite-backface-1 1.4s ease-out both; }
+    [data-akari-active] .composite-backface__card--2, [data-no-timeline] .composite-backface__card--2 { animation: composite-backface-2 1.4s ease-out both; }
+    [data-akari-active] .composite-backface__card--3, [data-no-timeline] .composite-backface__card--3 { animation: composite-backface-3 1.4s ease-out both; }
+    [data-akari-active] .composite-backface__card--4, [data-no-timeline] .composite-backface__card--4 { animation: composite-backface-4 1.4s ease-out both; }
+    [data-akari-active] .composite-backface__card--5, [data-no-timeline] .composite-backface__card--5 { animation: composite-backface-5 1.4s ease-out both; }
+    [data-akari-active] .composite-backface__card--6, [data-no-timeline] .composite-backface__card--6 { animation: composite-backface-6 1.4s ease-out both; }
+    @keyframes composite-backface-1 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(-220px, -84px, -80px) rotateY(0); } }
+    @keyframes composite-backface-2 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(-184px, 92px, 30px) rotateY(0); } }
+    @keyframes composite-backface-3 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(-72px, -112px, -20px) rotateY(0); } }
+    @keyframes composite-backface-4 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(74px, 108px, 50px) rotateY(0); } }
+    @keyframes composite-backface-5 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(176px, -92px, -40px) rotateY(0); } }
+    @keyframes composite-backface-6 { from { transform: translate3d(0, 0, 0) rotateY(180deg); } to { transform: translate3d(216px, 82px, 70px) rotateY(0); } }
+  </style>
+  <div class="composite-backface__card composite-backface__card--1">1</div>
+  <div class="composite-backface__card composite-backface__card--2">2</div>
+  <div class="composite-backface__card composite-backface__card--3">3</div>
+  <canvas class="composite-backface__canvas"></canvas>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <div class="composite-backface__card composite-backface__card--4">4</div>
+  <div class="composite-backface__card composite-backface__card--5">5</div>
+  <div class="composite-backface__card composite-backface__card--6">6</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

@@ -27,11 +27,14 @@ export class AkariExportDialog extends ReactDialog<void> {
 
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
+        // 開いた瞬間に lint を検査し直させる（保持された古い所見を出さないため）。
+        this.session.setDialogVisible(true);
         this.visibilityEmitter.fire(true);
     }
 
     protected override onAfterDetach(msg: Message): void {
         super.onAfterDetach(msg);
+        this.session.setDialogVisible(false);
         this.visibilityEmitter.fire(false);
     }
 
@@ -62,7 +65,7 @@ export class AkariExportDialog extends ReactDialog<void> {
                 </div>
                 {view === 'running' && <ExportRunningView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'done' && <ExportDoneView session={this.session} snapshot={snapshot} close={() => this.close()} />}
-                {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} />}
+                {view === 'lint-failed' && <ExportLintFailedView session={this.session} snapshot={snapshot} close={() => this.close()} />}
                 {view === 'setup' && <ExportSetupView session={this.session} snapshot={snapshot} />}
             </div>
         );

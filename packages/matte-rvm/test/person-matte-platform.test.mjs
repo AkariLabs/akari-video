@@ -14,6 +14,11 @@ const installedModel = {
   missing: false,
   fetchHint: "cd packages/matte-rvm && node scripts/fetch-models.mjs",
 };
+const installedRuntime = {
+  available: true,
+  reason: null,
+  installHint: "cd packages/matte-rvm && npm install",
+};
 
 function successfulMediaProbe(command, args) {
   if (command === "/mock/ffmpeg" && args.includes("-encoders")) {
@@ -28,6 +33,7 @@ test("win32 maps every quality to RVM mobilenetv3 without building Vision", () =
     const prepared = prepareExecution(parseArguments(["--quality", quality]), {
       platform: "win32",
       resolveModel: () => installedModel,
+      resolveRuntime: () => installedRuntime,
       buildVisionHelper: () => {
         visionBuilds += 1;
         return null;
@@ -52,6 +58,7 @@ test("win32 availability probes only media tools and never swiftc", () => {
     resolveFfmpegBin: () => "/mock/ffmpeg",
     resolveFfprobeBin: () => "/mock/ffprobe",
     resolveModel: () => installedModel,
+    resolveRuntime: () => installedRuntime,
   });
   assert.deepEqual(availability, { available: true });
   assert.deepEqual(calls, [
@@ -73,6 +80,7 @@ test("win32 availability requires the managed mobilenetv3 model", () => {
     resolveFfmpegBin: () => "/mock/ffmpeg",
     resolveFfprobeBin: () => "/mock/ffprobe",
     resolveModel: () => missingModel,
+    resolveRuntime: () => installedRuntime,
   });
   assert.equal(result.available, false);
   assert.match(result.reason, /FETCH_MNV3_MODEL/);
@@ -103,12 +111,48 @@ test("availability converts a media-bin resolution error to the unavailable shap
   });
 });
 
+test("win32 availability reports a missing RVM runtime with one install command", () => {
+  const result = checkAvailability({
+    platform: "win32",
+    runSync: successfulMediaProbe,
+    resolveFfmpegBin: () => "/mock/ffmpeg",
+    resolveFfprobeBin: () => "/mock/ffprobe",
+    resolveModel: () => installedModel,
+    resolveRuntime: () => ({
+      available: false,
+      reason: "RVM の実行環境が入っていないため、この品質では人物マットを生成できません",
+      installHint: "cd packages/matte-rvm && npm install",
+    }),
+  });
+  assert.equal(result.available, false);
+  assert.match(result.reason, /RVM の実行環境が入っていない/u);
+  assert.match(result.reason, /cd packages\/matte-rvm && npm install/u);
+  assert.doesNotMatch(result.reason, /ERR_MODULE_NOT_FOUND|onnxruntime-node|optionalDependencies/u);
+});
+
+test("prepareExecution stops a missing RVM runtime before returning a spawnable plan", () => {
+  assert.throws(
+    () => prepareExecution(parseArguments(["--quality", "best"]), {
+      platform: "darwin",
+      resolveModel: () => installedModel,
+      resolveRuntime: () => ({
+        available: false,
+        reason: "RVM の実行環境が入っていないため、この品質では人物マットを生成できません",
+        installHint: "cd packages/matte-rvm && npm install",
+      }),
+      buildVisionHelper: () => assert.fail("RVM must not build Vision"),
+    }),
+    /RVM の実行環境が入っていない.*cd packages\/matte-rvm && npm install/u,
+  );
+});
+
 test("darwin keeps Vision for non-best, RVM for best, and does not require the RVM model", () => {
   let visionBuilds = 0;
   for (const quality of QUALITIES) {
     const prepared = prepareExecution(parseArguments(["--quality", quality]), {
       platform: "darwin",
       resolveModel: () => installedModel,
+      resolveRuntime: () => installedRuntime,
       buildVisionHelper: () => {
         visionBuilds += 1;
         return null;

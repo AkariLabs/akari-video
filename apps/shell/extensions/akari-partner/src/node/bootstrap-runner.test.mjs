@@ -113,7 +113,7 @@ async function startFixtureServer(fixtures) {
     }
 }
 
-async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', force = false, pathEnv = '' }) {
+async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', arch = 'arm64', force = false, pathEnv = '' }) {
     const sourceLines = [
         `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });`,
         `Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} });`
@@ -144,7 +144,7 @@ async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', f
         ...(force ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {})
     };
     return new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, ['-e', source, 'codex'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(process.execPath, ['-e', source, agent], { env, stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
         child.stdout.on('data', chunk => stdout += chunk.toString());
@@ -153,6 +153,89 @@ async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', f
         child.on('exit', code => resolve({ code, stdout, stderr }));
     });
 }
+
+test('PATH 上の既存 Command Code を再利用する', async () => {
+    const home = await makeHome('akari-commandcode-existing-home-');
+    const binDir = await makeHome('akari-commandcode-existing-bin-');
+    const executable = path.join(binDir, 'command-code');
+    await writeFile(executable, '#!/bin/sh\necho 1.45.0\n');
+    await chmod(executable, 0o755);
+    try {
+        const result = await runBootstrap({
+            home,
+            mock: { origin: 'http://example.test' },
+            agent: 'commandcode',
+            pathEnv: binDir
+        });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, new RegExp(`既存の commandcode 1\\.45\\.0 を検出: ${executable}`));
+        assert.match(result.stdout, /"reused":true/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(binDir, { recursive: true, force: true });
+    }
+});
+
+test('Command Code を公式 npm パッケージからユーザー領域へ導入する', async () => {
+    const home = await makeHome('akari-commandcode-install-home-');
+    const toolsDir = await makeHome('akari-commandcode-install-tools-');
+    const fakeNode = path.join(toolsDir, 'node');
+    const fakeNpm = path.join(toolsDir, 'npm');
+    await writeFile(fakeNode, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} "$@"\n`);
+    await writeFile(fakeNpm, `#!/bin/sh
+printf '%s\\n' "$@" > "$HOME/npm-args.txt"
+mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'echo 1.45.0' > "$HOME/.local/bin/command-code"
+chmod +x "$HOME/.local/bin/command-code"
+`);
+    await Promise.all([chmod(fakeNode, 0o755), chmod(fakeNpm, 0o755)]);
+    try {
+        const result = await runBootstrap({
+            home,
+            mock: { origin: 'http://example.test' },
+            agent: 'commandcode',
+            force: true,
+            pathEnv: toolsDir
+        });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /Command Code を npm 公式パッケージからユーザー領域へインストールしています/);
+        assert.match(result.stdout, /Command Code 1\.45\.0 を検出/);
+        assert.match(result.stdout, /"reused":false/);
+        assert.equal(
+            await readFile(path.join(home, 'npm-args.txt'), 'utf8'),
+            `install\n--global\n--prefix\n${path.join(home, '.local')}\n--no-audit\n--no-fund\ncommand-code\n`
+        );
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(toolsDir, { recursive: true, force: true });
+    }
+});
+
+test('Command Code は Node.js 22 未満ならインストール前に案内付きで停止する', async () => {
+    const home = await makeHome('akari-commandcode-node20-home-');
+    const toolsDir = await makeHome('akari-commandcode-node20-tools-');
+    const fakeNode = path.join(toolsDir, 'node');
+    const fakeNpm = path.join(toolsDir, 'npm');
+    await writeFile(fakeNode, '#!/bin/sh\necho 20.19.0\n');
+    await writeFile(fakeNpm, '#!/bin/sh\nexit 99\n');
+    await Promise.all([chmod(fakeNode, 0o755), chmod(fakeNpm, 0o755)]);
+    try {
+        const result = await runBootstrap({
+            home,
+            mock: { origin: 'http://example.test' },
+            agent: 'commandcode',
+            force: true,
+            pathEnv: toolsDir
+        });
+        assert.equal(result.code, 1, result.stdout);
+        assert.match(result.stderr, /Command Code は Node\.js 22 以上が必要です（検出: 20\.19\.0）/);
+        assert.match(result.stderr, /npm install -g command-code/);
+        await assert.rejects(readFile(path.join(home, 'npm-args.txt')));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(toolsDir, { recursive: true, force: true });
+    }
+});
 
 function latestRelease(origin = '__ORIGIN__') {
     return {

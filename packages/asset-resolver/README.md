@@ -21,7 +21,14 @@ akari-assets sync                                      # カタログを取得�
 akari-assets browse [--port <n>]                       # ローカル HTTP サーバでカタログを閲覧・投入
 ```
 
-`list` の状態バッジ: `☁` 未取得 / `✓` 取得済み（ローカルにキャッシュ済み） / `¥<price>` 未購入。
+`list` の状態バッジ: `☁` 未取得 / `✓` 取得済み（ローカルにキャッシュ済み） / `¥<price>` 未購入 /
+`[installed]` `akari store install` で導入済み。
+
+`akari store install <productId> [--from <zip>]` が `PACK.json` を持つ購入パックを展開すると、
+収載素材は `~/.akari/assets/installed.json` に登録される。resolver はこの索引をリモートカタログへ
+マージし、同じ id があれば導入済みのローカル実体を優先する。`fetch` はネットワークや entitlement
+照会を使わずパックからコピーし、`PACK.json` 記載の sha256 と照合してから通常の素材ライブラリへ
+原子的に登録する。
 
 `fetch` はキャッシュヒットなら即座にそのパスを返す。未取得なら、カタログの `files[]` を全部
 一時ディレクトリへ実体化 → sha256 検証 → （`meta.json` を含む素材は）`validate-asset.mjs` で
@@ -108,8 +115,9 @@ checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_fa
 `AKARI_ASSETS_CATALOG` がリモート URL のとき、`loadCatalog` は取得成功のたびに
 `~/.akari/catalog-cache.json` へ自動キャッシュする。オフライン時（fetch 失敗）はこのキャッシュへ
 フォールバックする。キャッシュも無い場合は「取得できていない」ことを明示するエラーで止まる
-（黙って空のカタログを返したりしない）。`akari-assets sync` はオンライン環境で明示的にキャッシュを
-温めておくためのコマンド。
+（黙って空のカタログを返したりしない）。ただし `installed.json` に導入済み素材がある場合は、
+キャッシュが無くてもその素材だけを `list` / `fetch` できる。`akari-assets sync` はオンライン環境で
+明示的にキャッシュを温めておくためのコマンド。
 
 ## テスト
 

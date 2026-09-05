@@ -71,7 +71,15 @@ import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
+import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
+import {
+    AKARI_BORDER,
+    AKARI_INK,
+    AKARI_LINE,
+    AKARI_RADIUS,
+    AKARI_SURFACE
+} from 'akari-project/lib/common/akari-surface-tokens';
 import {
     StoreConnectionFlowController,
     StoreConnectionFlowPhase
@@ -287,6 +295,21 @@ export class AkariHomeWidget extends ReactWidget {
     protected projectLauncherDialogClosed: Promise<void> | undefined;
     protected launcherDismissedThisSession = false;
 
+    // --- カードのサムネ（ポスター + ホバーでループするコマ）。
+    // 生成はバックエンド（`resolveProjectCardThumbnails`）が持ち、ここは解決済みの
+    // file URL をプロジェクト単位で覚えるだけ。ffmpeg が一覧ぶん一斉に立ち上がらないよう
+    // 2 レーンの直列キューで流す。
+    protected readonly projectCardFrames = new Map<string, string[]>();
+    protected readonly projectCardLanes: Promise<unknown>[] = [Promise.resolve(), Promise.resolve()];
+    protected projectCardLaneCursor = 0;
+    // ホバー再生はランチャーと同じ `ProjectCardPreview`（素の DOM 制御）に持たせる。
+    // React には「中身を描かせない span」を 1 個渡すだけで、コマの出し入れは制御側が所有する
+    // — こうすると 650ms ごとに widget 全体を再描画せずに済み、挙動も 3 面で 1 実装に揃う。
+    protected readonly projectCardPreviews = new Map<string, ProjectCardPreview>();
+    // ref コールバックは行ごとに同一関数を使い回す。毎描画で新しい関数を渡すと React が
+    // 「ref が変わった」と見なして null → node の付け外しを繰り返し、再生が毎回作り直される。
+    protected readonly projectCardPreviewRefs = new Map<string, (node: HTMLElement | null) => void>();
+
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
@@ -380,6 +403,15 @@ export class AkariHomeWidget extends ReactWidget {
             }
         });
         this.toDispose.push({ dispose: () => this.storeConnectionFlow.dispose() });
+        // カードのホバー再生は React の外で DOM を持つため、widget と一緒に必ず止める。
+        this.toDispose.push({
+            dispose: () => {
+                for (const preview of this.projectCardPreviews.values()) {
+                    preview.dispose();
+                }
+                this.projectCardPreviews.clear();
+            }
+        });
         this.update();
     }
 
@@ -495,11 +527,15 @@ export class AkariHomeWidget extends ReactWidget {
             this.projectLauncherDialog.activate();
             return this.projectLauncherDialogClosed;
         }
+        // 開き直すたびに覚え直す。前回開いてから書き出し・編集が進んでいれば絵も新しくなる
+        // （バックエンドはディスクのキャッシュを見るだけなので、変わっていなければ即返る）。
+        this.projectCardFrames.clear();
         const dialog = new AkariProjectLauncherDialog({
             title: 'プロジェクトを選ぶ',
             rows: this.buildProjectRows(),
             onStartNewProject: this.startNewProject,
             onOpenProject: this.openCreatorRootProject,
+            loadThumbnails: this.loadProjectCardThumbnails,
             onDismissed: () => {
                 this.launcherDismissedThisSession = true;
             }
@@ -514,6 +550,134 @@ export class AkariHomeWidget extends ReactWidget {
         this.projectLauncherDialogClosed = closed;
         return closed;
     };
+
+    /**
+     * カード 1 枚ぶんのサムネを file URL の配列で返す（先頭がポスター、以降がホバー時の
+     * ループ用）。絵が用意できないプロジェクトは空配列 = カードはプレースホルダのまま。
+     *
+     * 絵の元は「書き出し済みの完成品 → `edit.json` で組んだタイムライン → `assets/` の素材」の
+     * 3 段で、良いほうが勝つ（判定と生成はバックエンドの
+     * `resolveProjectCardThumbnails` が持つ）。ここは失敗を握り潰して空配列にするだけ —
+     * サムネが出ないことでランチャーの主動線（新規作成・開く）を止めない。
+     */
+    protected loadProjectCardThumbnails = async (uri: URI): Promise<string[]> => {
+        const key = uri.toString();
+        const remembered = this.projectCardFrames.get(key);
+        if (remembered) {
+            return remembered;
+        }
+        const frames = await this.enqueueProjectCardWork(async () => {
+            try {
+                const outcome = await this.storeService.resolveProjectCardThumbnails(key);
+                return outcome.available && outcome.frames?.length
+                    ? outcome.frames.map(frame => uri.resolve(frame).toString())
+                    : [];
+            } catch (error) {
+                console.warn('[akari-surfaces] failed to resolve project card thumbnails:', error);
+                return [];
+            }
+        });
+        this.projectCardFrames.set(key, frames);
+        return frames;
+    };
+
+    /**
+     * カード 1 枚のホバー再生をつなぐ ref。React に描かせない空の span を受け取り、
+     * ランチャーと同じ {@link ProjectCardPreview} へ渡す。ホバーを受けるのは外枠のカード
+     * （`[data-akari-project-card]`）— いま開いているプロジェクトは中の「開く」ボタンが
+     * disabled で、disabled なボタンはマウスイベントを飲むため。
+     *
+     * 行ごとに同じ関数を返すこと（毎描画で新しい関数だと React が ref を付け外しする）。
+     */
+    protected projectCardPreviewRef(row: ProjectListRow): (node: HTMLElement | null) => void {
+        const cached = this.projectCardPreviewRefs.get(row.key);
+        if (cached) {
+            return cached;
+        }
+        const uri = row.uri;
+        const callback = (node: HTMLElement | null): void => {
+            this.projectCardPreviews.get(row.key)?.dispose();
+            this.projectCardPreviews.delete(row.key);
+            if (!node) {
+                return;
+            }
+            const card = node.closest('[data-akari-project-card]') as HTMLElement | null ?? node;
+            const preview = new ProjectCardPreview(node, card);
+            this.projectCardPreviews.set(row.key, preview);
+            void this.loadProjectCardThumbnails(uri).then(frames => preview.adopt(frames));
+        };
+        this.projectCardPreviewRefs.set(row.key, callback);
+        return callback;
+    }
+
+    /**
+     * プロジェクトカード 1 枚（ウェルカム面・ホーム面の共通部品。ランチャーの
+     * `createRow` と同じ造り）。上が 16:9 のサムネ、下が名前とバッジ。
+     * `reveal` を立てるとサムネ右上に「Finder で表示」を重ねる（ホーム面だけ）。
+     */
+    protected renderProjectCard(row: ProjectListRow, options: { reveal?: boolean } = {}): React.ReactNode {
+        const badgeText = row.current ? '開いています'
+            : (!row.standalone && row.channel) ? row.channel
+                : row.standalone ? '単体' : undefined;
+        return (
+            <div
+                key={row.key}
+                style={homeFlowStyles.projectCard}
+                data-akari-project-card='true'
+                data-akari-project-row='true'
+            >
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    style={homeFlowStyles.projectCardButton}
+                    disabled={row.current}
+                    title={badgeText ? `${row.name}（${badgeText}）` : row.name}
+                    data-akari-project-item='true'
+                    data-akari-project-current={row.current ? 'true' : undefined}
+                    data-akari-project-standalone={row.standalone ? 'true' : undefined}
+                    onClick={() => !row.current && this.openCreatorRootProject(row.uri)}
+                >
+                    <span style={homeFlowStyles.projectCardThumb}>
+                        <span className='codicon codicon-device-camera-video' aria-hidden='true' style={homeFlowStyles.projectCardPlaceholder} />
+                        {/* この層の中身は ProjectCardPreview が所有する（React は描かない）。 */}
+                        <span ref={this.projectCardPreviewRef(row)} style={homeFlowStyles.projectCardFrames} />
+                    </span>
+                    <span style={homeFlowStyles.projectCardBody}>
+                        <strong style={homeFlowStyles.projectCardName}>{row.name}</strong>
+                        {badgeText && <span style={homeFlowStyles.projectCardBadge}>{badgeText}</span>}
+                    </span>
+                </button>
+                {options.reveal && (
+                    <button
+                        type='button'
+                        className='theia-button secondary'
+                        title={revealInFileManagerActionLabel(row.name)}
+                        aria-label={revealInFileManagerActionLabel(row.name)}
+                        data-akari-project-reveal={row.key}
+                        style={homeFlowStyles.projectCardReveal}
+                        onClick={event => {
+                            event.stopPropagation();
+                            void this.revealProjectInFileManager(row);
+                        }}
+                    >
+                        <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    /**
+     * サムネ生成を 2 レーンの直列キューで流す。初回はプロジェクトごとに ffmpeg が走るため、
+     * 一覧を開いた瞬間に列挙ぶん一斉起動させない（先頭のカードから順に絵が埋まる）。
+     */
+    protected enqueueProjectCardWork<T>(work: () => Promise<T>): Promise<T> {
+        const lane = this.projectCardLaneCursor % this.projectCardLanes.length;
+        this.projectCardLaneCursor += 1;
+        const result = this.projectCardLanes[lane].then(work, work);
+        this.projectCardLanes[lane] = result.catch(() => undefined);
+        return result;
+    }
 
     /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */
     openFirstRunSetup = async (): Promise<void> => {
@@ -2013,24 +2177,7 @@ export class AkariHomeWidget extends ReactWidget {
                     <>
                         <p style={homeFlowStyles.welcomeListHeading}>最近のプロジェクト</p>
                         <div style={homeFlowStyles.welcomeList} data-akari-welcome-list='true'>
-                            {rows.map(row => (
-                                <button
-                                    key={row.key}
-                                    type='button'
-                                    className='theia-button secondary'
-                                    style={homeFlowStyles.welcomeProjectItem}
-                                    data-akari-project-item='true'
-                                    data-akari-project-standalone={row.standalone ? 'true' : undefined}
-                                    onClick={() => this.openCreatorRootProject(row.uri)}
-                                >
-                                    <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
-                                    <span style={homeFlowStyles.projectItemBody}>
-                                        <strong style={homeFlowStyles.projectItemName}>{row.name}</strong>
-                                    </span>
-                                    {!row.standalone && row.channel && <span style={homeFlowStyles.welcomeProjectBadge}>{row.channel}</span>}
-                                    {row.standalone && <span style={homeFlowStyles.welcomeProjectBadge}>単体</span>}
-                                </button>
-                            ))}
+                            {rows.map(row => this.renderProjectCard(row))}
                         </div>
                     </>
                 )}
@@ -2093,10 +2240,7 @@ export class AkariHomeWidget extends ReactWidget {
     /** 取り込み完了後の一時的なステータス表示（v3 renderProjectOverview から再利用）。 */
     protected renderImportedNotice(): React.ReactNode {
         return (
-            <div role='status' style={{
-                marginBottom: 16, padding: '10px 14px', borderRadius: 8,
-                border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)'
-            }}>
+            <div role='status' style={homeFlowStyles.importedNotice}>
                 {this.importedNotice}
             </div>
         );
@@ -2172,10 +2316,10 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected renderDashboardHeader(): React.ReactNode {
         return (
-            <header style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
-                    <div style={{ display: 'flex', gap: 8 }}>
+            <header style={homeFlowStyles.dashboardHeader}>
+                <div style={homeFlowStyles.dashboardHeaderRow}>
+                    <h1 style={homeFlowStyles.dashboardTitle}>ホーム</h1>
+                    <div style={homeFlowStyles.dashboardHeaderActions}>
                         <button
                             type='button'
                             className='theia-button secondary'
@@ -2294,48 +2438,15 @@ export class AkariHomeWidget extends ReactWidget {
         return (
             <section style={{ marginBottom: 16 }}>
                 <p style={homeFlowStyles.glabel}>プロジェクト</p>
-                <div style={homeFlowStyles.projectList}>
-                    {this.renderNewProjectItem()}
-                    {rows.length === 0 ? (
-                        <p style={homeFlowStyles.cardLead}>まだプロジェクトがありません。</p>
-                    ) : rows.map(row => (
-                        <div key={row.key} style={homeFlowStyles.projectRow} data-akari-project-row='true'>
-                            <button
-                                type='button'
-                                className='theia-button secondary'
-                                style={{ ...homeFlowStyles.projectItem, flex: '1 1 auto' }}
-                                disabled={row.current}
-                                data-akari-project-item='true'
-                                data-akari-project-current={row.current ? 'true' : undefined}
-                                data-akari-project-standalone={row.standalone ? 'true' : undefined}
-                                onClick={() => !row.current && this.openCreatorRootProject(row.uri)}
-                            >
-                                {row.current && <span aria-hidden='true' style={homeFlowStyles.projectCurrentArrow}>▶</span>}
-                                <span className='codicon codicon-folder' aria-hidden='true' style={homeFlowStyles.chipIcon} />
-                                <span style={homeFlowStyles.projectItemBody}>
-                                    <strong style={homeFlowStyles.projectItemName}>{row.name}</strong>
-                                    {!row.standalone && row.channel && <small style={homeFlowStyles.projectItemChannel}>{row.channel}</small>}
-                                </span>
-                                {row.current && <span style={homeFlowStyles.projectBadge}>開いています</span>}
-                                {row.standalone && <span style={homeFlowStyles.projectBadge}>単体</span>}
-                            </button>
-                            <button
-                                type='button'
-                                className='theia-button secondary'
-                                title={revealInFileManagerActionLabel(row.name)}
-                                aria-label={revealInFileManagerActionLabel(row.name)}
-                                data-akari-project-reveal={row.key}
-                                style={homeFlowStyles.projectRevealButton}
-                                onClick={event => {
-                                    event.stopPropagation();
-                                    void this.revealProjectInFileManager(row);
-                                }}
-                            >
-                                <span className='codicon codicon-folder-opened' aria-hidden='true' />
-                            </button>
-                        </div>
-                    ))}
-                </div>
+                {/* 新規作成は主動線なのでカード格子には混ぜず、従来どおり 1 本の帯で上に置く。 */}
+                {this.renderNewProjectItem()}
+                {rows.length === 0 ? (
+                    <p style={{ ...homeFlowStyles.cardLead, marginTop: 8 }}>まだプロジェクトがありません。</p>
+                ) : (
+                    <div style={{ ...homeFlowStyles.projectList, marginTop: 8 }}>
+                        {rows.map(row => this.renderProjectCard(row, { reveal: true }))}
+                    </div>
+                )}
             </section>
         );
     }
@@ -2610,26 +2721,56 @@ export class AkariHomeWidget extends ReactWidget {
 // 無変更で追随する。akari-partner-widget.tsx の chatStyles と同じ流儀）。
 // v3 から持ち込む語彙は「1px widget-border + editorWidget-background +
 // focusBorder アクセント」のカード再構成のみ（v4 で新規の語彙は増やさない）。
+// プロジェクトカード格子。`min(目標幅, calc(33.333% - gap 調整))` は素材／カタログ面
+// （akari-project の `MATERIAL_GRID_COLUMNS` / `CATALOG_GRID_COLUMNS`）と同じ流儀で、
+// 「広ければ列が増え、狭くても 3 列を割らない」を 1 本の式で満たす。ウェルカムの 480px
+// カード内でちょうど 3 列、ホーム面の中央カラムでは 4 列前後になる。
+const PROJECT_CARD_GRID_GAP = 10;
+const PROJECT_CARD_GRID_COLUMNS = 'repeat(auto-fill, minmax(min(150px, calc(33.333% - 7px)), 1fr))';
+
+//
+// 2026-09-05（カード言語そろえ・レーン B）: 面と線を
+// `akari-project/common/akari-surface-tokens` へ一本化した。
+// それまでは `--theia-editorWidget-background`(=VS Code 既定の #252526) と
+// `--theia-widget-border`(=#262626) を直接参照していたため、
+//   * 面が黒×オレンジのパレットから浮く（#252526 はパレットに無い灰）
+//   * 項目の枠（#262626）がカード外周のヘアライン（alpha .13 ≒ 33）より明るく、
+//     線の階層が逆転する
+// という 2 つの症状が出ていた。spec.md §1 §2 §3 に合わせ、
+//   面 = raised(--akari-card) / 線 = hairline(外周の約半分) / 角丸 = 8 か 6
+// で統一する。色は必ずトークン経由（= 変数参照）にすること。
 const homeFlowStyles: Record<string, React.CSSProperties> = {
     eyebrow: { fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.18em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
     h2: { fontSize: 22, fontWeight: 800, lineHeight: 1.4, margin: 0 },
     sub: { color: 'var(--theia-descriptionForeground)', fontSize: 13.5, marginTop: 8, maxWidth: '38em' },
 
+    // ダッシュボード見出し行。見出しが「ホー / ム」と折り返さないよう縮ませない。
+    dashboardHeader: { marginBottom: 14 },
+    dashboardHeaderRow: {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap'
+    },
+    dashboardTitle: { margin: 0, fontSize: 21, flex: '0 0 auto', whiteSpace: 'nowrap' },
+    dashboardHeaderActions: { display: 'flex', gap: 8, flex: '0 1 auto', flexWrap: 'wrap' },
+
     cta: {
-        display: 'inline-block', padding: '12px 30px', borderRadius: 10, fontWeight: 700, fontSize: 14.5,
+        display: 'inline-block', padding: '12px 30px', borderRadius: AKARI_RADIUS.panel, fontWeight: 700, fontSize: 14.5,
         minHeight: 'auto', height: 'auto'
     },
 
-    setupReopenButton: { minHeight: 'auto', height: 'auto', padding: '5px 10px', fontSize: 11.5 },
+    setupReopenButton: {
+        minHeight: 'auto', height: 'auto', padding: '5px 10px', fontSize: 11.5,
+        borderRadius: AKARI_RADIUS.chip
+    },
 
     // 案内カード（説明 / 過去プロジェクトのフォールバック / 接続）。ロックではないので画面を占有せず 1 枚に収める。
     card: {
         display: 'flex', alignItems: 'flex-start', gap: 13, marginBottom: 12, padding: '13px 15px',
-        borderRadius: 12, border: '1px solid var(--theia-widget-border)',
-        background: 'var(--theia-editorWidget-background)'
+        borderRadius: AKARI_RADIUS.panel, border: AKARI_BORDER.hairline,
+        background: AKARI_SURFACE.raised
     },
     cardMark: {
-        width: 38, height: 38, flex: '0 0 auto', borderRadius: 11,
+        width: 38, height: 38, flex: '0 0 auto', borderRadius: AKARI_RADIUS.panel,
         background: 'var(--theia-button-background)', display: 'flex', alignItems: 'center', justifyContent: 'center'
     },
     cardBody: { flex: '1 1 auto', minWidth: 0 },
@@ -2637,24 +2778,63 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     cardLead: { color: 'var(--theia-descriptionForeground)', fontSize: 12.5, lineHeight: 1.75, margin: '6px 0 0', maxWidth: '44em' },
     cardFine: { marginTop: 8, marginBottom: 0, fontSize: 11, opacity: 0.6, fontFamily: 'monospace' },
     cardCta: {
-        flex: '0 0 auto', padding: '9px 18px', borderRadius: 9, fontWeight: 700, fontSize: 13,
+        flex: '0 0 auto', padding: '9px 18px', borderRadius: AKARI_RADIUS.chip, fontWeight: 700, fontSize: 13,
         minHeight: 'auto', height: 'auto'
     },
 
     // プロジェクト一覧 = 唯一のスイッチャー（U3。旧・過去プロジェクト一覧 裁定 R3）。
-    projectList: { display: 'flex', flexDirection: 'column', gap: 6 },
+    projectList: { display: 'grid', gridTemplateColumns: PROJECT_CARD_GRID_COLUMNS, gap: PROJECT_CARD_GRID_GAP },
+
+    // プロジェクトカード（ウェルカム面・ホーム面・ランチャーで同じ造り）。
+    projectCard: { position: 'relative', display: 'flex', minWidth: 0 },
+    projectCardButton: {
+        display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%',
+        padding: 0, borderRadius: PROJECT_CARD_RADIUS_PX, overflow: 'hidden', textAlign: 'left',
+        minHeight: 'auto', height: 'auto', cursor: 'pointer',
+        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        color: 'var(--theia-editorWidget-foreground)'
+    },
+    projectCardThumb: {
+        position: 'relative', display: 'block', width: '100%', aspectRatio: '16 / 9',
+        background: 'var(--theia-sideBar-background)', overflow: 'hidden'
+    },
+    projectCardPlaceholder: {
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 20, opacity: 0.35
+    },
+    // コマを敷く層。中身は ProjectCardPreview が所有する（React は空のまま渡す）。
+    projectCardFrames: { position: 'absolute', inset: 0, display: 'block' },
+    projectCardBody: { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', minWidth: 0 },
+    projectCardName: {
+        flex: '1 1 auto', minWidth: 0, fontSize: 12, fontWeight: 600,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+    },
+    projectCardBadge: {
+        flex: '0 0 auto', maxWidth: '54%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        fontSize: 10, padding: '1px 7px', borderRadius: 999,
+        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)'
+    },
+    // 「Finder で表示」はサムネ右上に重ねる（行だった頃は横に並べていた）。
+    projectCardReveal: {
+        position: 'absolute', top: 5, right: 5,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 24, height: 24, minWidth: 24, minHeight: 'auto', padding: 0,
+        borderRadius: 6, fontSize: 12
+    },
     // 行 = 本体ボタン（開く）+ 「Finder で表示」ボタン（task 2026-08-09-reveal-in-finder）。
     // button の入れ子は無効な HTML のため、行を div にして両ボタンを兄弟にする。
     projectRow: { display: 'flex', alignItems: 'stretch', gap: 6 },
     projectRevealButton: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flex: '0 0 auto', minHeight: 'auto', height: 'auto', padding: '0 12px', borderRadius: 9
+        flex: '0 0 auto', minHeight: 'auto', height: 'auto', padding: '0 12px',
+        borderRadius: AKARI_RADIUS.panel
     },
+    // リスト項目は spec §2 の「原則 枠を持たず背景（raised）で分ける」。
     projectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
-        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
+        border: '1px solid transparent', background: AKARI_SURFACE.raised,
+        color: AKARI_INK, cursor: 'pointer', textAlign: 'left'
     },
     projectItemBody: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
     projectItemName: { fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -2662,15 +2842,16 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     chipIcon: { fontSize: 14, color: 'var(--theia-focusBorder)' },
     // U3: 現在開いている行の ▶ マークと「開いています」/「単体」バッジ。
     projectCurrentArrow: { color: 'var(--theia-focusBorder)', fontSize: 11, flex: '0 0 auto' },
+    // チップは枠を持たず、1 段上の面（elevated）で親のリスト項目から分ける。
     projectBadge: {
-        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
-        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
-        background: 'var(--theia-editorWidget-background)'
+        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px',
+        borderRadius: AKARI_RADIUS.chip, border: '1px solid transparent',
+        color: 'var(--theia-descriptionForeground)', background: AKARI_SURFACE.elevated
     },
 
     // F5「+ 新しい動画を始める」（プロジェクト一覧の先頭）。
     newProjectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 12.5, minHeight: 'auto', height: 'auto', width: '100%',
         justifyContent: 'flex-start', textAlign: 'left'
     },
@@ -2678,8 +2859,8 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     // U2 状態バッジ（旧 F6 現在地 1 行を置換）。
     statusBadge: {
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-        marginTop: 8, marginBottom: 4, padding: '9px 13px', borderRadius: 10,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        marginTop: 8, marginBottom: 4, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         fontSize: 13
     },
     statusBadgeIn: { borderColor: 'var(--theia-focusBorder)' },
@@ -2688,14 +2869,14 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         flexBasis: '100%', color: 'var(--theia-descriptionForeground)', fontSize: 11.5, paddingLeft: 2
     },
     joinButton: {
-        flex: '0 0 auto', padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+        flex: '0 0 auto', padding: '5px 14px', borderRadius: AKARI_RADIUS.chip, fontSize: 12, fontWeight: 700,
         minHeight: 'auto', height: 'auto'
     },
 
     // dashboard 内に展開する進め方フォーム（ステージではない）。
     intakeSection: {
-        marginBottom: 22, padding: '16px 18px', borderRadius: 12,
-        border: '1px solid var(--theia-focusBorder)', background: 'var(--theia-editorWidget-background)'
+        marginBottom: 22, padding: '16px 18px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.accent, background: AKARI_SURFACE.raised
     },
     formWrap: { marginTop: 22, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 560 },
     glabel: { fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.16em', color: 'var(--theia-focusBorder)', textTransform: 'uppercase', marginBottom: 10 },
@@ -2709,16 +2890,20 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         fontSize: 12.5, cursor: 'pointer', minHeight: 'auto', height: 'auto'
     },
     reviewNotice: {
-        marginBottom: 16, padding: '9px 13px', borderRadius: 9, fontSize: 12.5,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        marginBottom: 16, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel, fontSize: 12.5,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         color: 'var(--theia-descriptionForeground)'
+    },
+    importedNotice: {
+        marginBottom: 16, padding: '10px 14px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised
     },
 
     // 更新ホームバナー（U2 v0・D5 裁定）。新版がある時だけ出る・常時領域を専有しない。
     updateBanner: {
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, padding: '11px 16px',
-        borderRadius: 10, border: '1px solid var(--theia-focusBorder)',
-        background: 'var(--theia-editorWidget-background)'
+        borderRadius: AKARI_RADIUS.panel, border: AKARI_BORDER.accent,
+        background: AKARI_SURFACE.raised
     },
     updateBannerIcon: { fontSize: 16, color: 'var(--theia-focusBorder)', flex: '0 0 auto' },
     updateBannerText: { fontSize: 13, flex: '1 1 auto' },
@@ -2726,7 +2911,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     updateBannerFallbackText: { fontSize: 11.5, color: 'var(--theia-descriptionForeground)', lineHeight: 1.5 },
     updateBannerActions: { display: 'flex', gap: 8, flex: '0 0 auto' },
     updateBannerButton: {
-        fontSize: 12, padding: '6px 12px', borderRadius: 8, minHeight: 'auto', height: 'auto'
+        fontSize: 12, padding: '6px 12px', borderRadius: AKARI_RADIUS.chip, minHeight: 'auto', height: 'auto'
     },
 
     // D&D 復活: dragover 中だけ面全体に重なるオーバーレイ（静的レイアウトには何も足さない）。
@@ -2734,8 +2919,8 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
         background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
-        border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
-        color: 'var(--theia-editorWidget-foreground)'
+        border: '2px dashed var(--theia-focusBorder)', borderRadius: AKARI_RADIUS.card,
+        color: AKARI_INK
     },
 
     // F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
@@ -2745,32 +2930,35 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
     },
     welcomeStack: { width: 'min(480px, 92%)', display: 'flex', flexDirection: 'column', gap: 14 },
+    // ウェルカムは「カード面の上に置く 1 枚のパネル」。外殻カードと同じ 12px にすると
+    // 二重の 12px が入れ子になって見えるので、内側のパネル階層 = 8px に揃える。
     welcomeCard: {
-        width: '100%', boxSizing: 'border-box', padding: '28px 28px 22px', borderRadius: 14,
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        width: '100%', boxSizing: 'border-box', padding: '28px 28px 22px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         display: 'flex', flexDirection: 'column', alignItems: 'stretch'
     },
     welcomeLogo: { fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 4 },
     welcomeSub: { color: 'var(--theia-descriptionForeground)', fontSize: 13, textAlign: 'center', marginBottom: 20 },
     welcomeNewButton: {
-        width: '100%', padding: '13px', borderRadius: 9, fontSize: 15, fontWeight: 800,
+        width: '100%', padding: '13px', borderRadius: AKARI_RADIUS.panel, fontSize: 15, fontWeight: 800,
         minHeight: 'auto', height: 'auto', marginBottom: 16
     },
     welcomeListHeading: {
         fontFamily: 'monospace', fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase',
         color: 'var(--theia-descriptionForeground)', margin: '0 0 8px'
     },
-    welcomeList: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 },
+    welcomeList: { display: 'grid', gridTemplateColumns: PROJECT_CARD_GRID_COLUMNS, gap: PROJECT_CARD_GRID_GAP, marginBottom: 4 },
+    // ウェルカムカード（raised）の中の項目。同じ面だと沈むので 1 段上の elevated で分ける。
     welcomeProjectItem: {
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 8,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: AKARI_RADIUS.panel,
         fontSize: 13, minHeight: 'auto', height: 'auto', width: '100%',
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
-        color: 'var(--theia-editorWidget-foreground)', cursor: 'pointer', textAlign: 'left'
+        border: '1px solid transparent', background: AKARI_SURFACE.elevated,
+        color: AKARI_INK, cursor: 'pointer', textAlign: 'left'
     },
     welcomeProjectBadge: {
-        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
-        border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
-        background: 'var(--theia-editorWidget-background)'
+        marginLeft: 'auto', flex: '0 0 auto', fontSize: 10.5, padding: '2px 9px',
+        borderRadius: AKARI_RADIUS.chip, border: AKARI_BORDER.hairline,
+        color: 'var(--theia-descriptionForeground)', background: 'transparent'
     },
     welcomeOpenFolder: {
         display: 'block', margin: '14px auto 0', background: 'transparent', border: 'none',
@@ -2787,17 +2975,17 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
 
 function homeFlowCheckStyle(checked: boolean): React.CSSProperties {
     return {
-        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px', borderRadius: 11,
-        background: checked ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
-        border: `1px solid ${checked ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`, cursor: 'pointer'
+        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 13px', borderRadius: AKARI_RADIUS.panel,
+        background: checked ? 'var(--theia-list-activeSelectionBackground)' : AKARI_SURFACE.elevated,
+        border: `1px solid ${checked ? AKARI_LINE.accent : 'transparent'}`, cursor: 'pointer'
     };
 }
 
 function homeFlowPillStyle(selected: boolean): React.CSSProperties {
     return {
-        position: 'relative', display: 'inline-block', padding: '7px 15px', borderRadius: 999, fontSize: 12.5,
-        border: `1px solid ${selected ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-        background: selected ? 'var(--theia-list-activeSelectionBackground)' : 'var(--theia-editorWidget-background)',
+        position: 'relative', display: 'inline-block', padding: '7px 15px', borderRadius: AKARI_RADIUS.chip, fontSize: 12.5,
+        border: `1px solid ${selected ? AKARI_LINE.accent : 'transparent'}`,
+        background: selected ? 'var(--theia-list-activeSelectionBackground)' : AKARI_SURFACE.elevated,
         cursor: 'pointer'
     };
 }

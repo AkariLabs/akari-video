@@ -1,5 +1,6 @@
 import * as React from '@theia/core/shared/react';
 import { japaneseLintSummary } from 'akari-annotations/lib/common/lint-message-ja';
+import { lintRecheckHint } from '../../common/export-lint-recheck';
 import { QuickExportLintFinding } from '../../common/quick-export-protocol';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportFrame, VideoFacts } from './export-view-shared';
@@ -14,9 +15,16 @@ function findingTitle(finding: QuickExportLintFinding): string {
 export function ExportLintFailedView(props: {
     session: AkariExportSessionService;
     snapshot: ExportSessionSnapshot;
+    close: () => void;
 }): React.ReactNode {
     const { session, snapshot } = props;
     const status = snapshot.status;
+    // ExportDoneView と同じ理由: このダイアログはモーダルなので、開いたレポートのタブは
+    // ダイアログを閉じるまで見えない。開く操作は閉じるところまでで 1 つ。
+    const openAndClose = (path: string | undefined): void => {
+        props.close();
+        void session.openArtifact(path);
+    };
     const findings = [...(status.lintFindings ?? [])].sort((left, right) =>
         (left.severity === 'error' ? 0 : 1) - (right.severity === 'error' ? 0 : 1));
     const warningOnly = (status.lintErrorCount ?? findings.filter(finding => finding.severity === 'error').length) === 0;
@@ -28,6 +36,10 @@ export function ExportLintFailedView(props: {
                     <ExportFrame video={snapshot.video} />
                     <VideoFacts video={snapshot.video} />
                     <p className='fine'>問題を直したあと、同じ設定からもう一度書き出せます。</p>
+                    <p className='fine'>{lintRecheckHint({
+                        rechecking: snapshot.lintRechecking,
+                        checkedAt: status.lintCheckedAt
+                    })}</p>
                 </div>
                 <div className='rwrap'>
                     <div className='right'>
@@ -40,7 +52,13 @@ export function ExportLintFailedView(props: {
                         ))}
                         <div className='acts'>
                             <button type='button' className='btn primary' onClick={() => void session.handOffLintFailure()}>パートナーに直してもらう</button>
-                            <button type='button' className='btn' disabled={!status.reportPath} onClick={() => void session.openArtifact(status.reportPath)}>lint レポートを開く</button>
+                            <button
+                                type='button'
+                                className='btn'
+                                disabled={snapshot.lintRechecking}
+                                onClick={() => void session.recheckLint()}
+                            >{snapshot.lintRechecking ? '検査中…' : 'もう一度検査する'}</button>
+                            <button type='button' className='btn' disabled={!status.reportPath} onClick={() => openAndClose(status.reportPath)}>lint レポートを開く</button>
                             {warningOnly && <button type='button' className='btn ghost' onClick={() => void session.start({ rerunLint: false })}>そのまま書き出す</button>}
                         </div>
                         <p className='fine'>パートナーに直してもらうと、この所見を AI チャットへ渡します。</p>

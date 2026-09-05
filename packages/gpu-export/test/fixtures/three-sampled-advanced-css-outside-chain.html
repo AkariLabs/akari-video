@@ -1,0 +1,37 @@
+<div class="s1-title">
+  <style>
+    .s1-title { position: absolute; inset: 0; }
+    .s1-title__motion { position: absolute; left: 40px; top: 40px; width: 320px; height: 280px; }
+    [data-akari-active] .s1-title__motion, [data-no-timeline] .s1-title__motion {
+      animation: s1-title__enter .9s ease-out both;
+    }
+    .s1-title__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .s1-title__glow {
+      position: absolute;
+      right: 40px;
+      top: 60px;
+      width: 200px;
+      height: 160px;
+      background: linear-gradient(135deg, #7c3aed, #22d3ee);
+      clip-path: polygon(12% 0, 100% 18%, 84% 100%, 0 76%);
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,.45));
+    }
+    @keyframes s1-title__enter {
+      from { opacity: 0; transform: translateY(48px) scale(.72); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes s1-title__spare-1 { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes s1-title__spare-2 { from { transform: translateX(-20px); } to { transform: translateX(0); } }
+    @keyframes s1-title__spare-3 { from { opacity: .2; } to { opacity: 1; } }
+    @keyframes s1-title__spare-4 { from { transform: translateY(20px); } to { transform: translateY(0); } }
+    @keyframes s1-title__spare-5 { from { opacity: .4; } to { opacity: 1; } }
+    @keyframes s1-title__spare-6 { from { transform: translateX(20px); } to { transform: translateX(0); } }
+    @keyframes s1-title__spare-7 { from { opacity: .6; } to { opacity: 1; } }
+  </style>
+  <div class="s1-title__motion">
+    <canvas class="s1-title__canvas"></canvas>
+    <div class="s1-title__fallback" data-akari-3d-fallback>3D fallback</div>
+  </div>
+  <div class="s1-title__glow" aria-hidden="true"></div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

@@ -1,0 +1,19 @@
+<div class="fx fx-d">
+  <style>
+    .fx-d, .fx-d *, .fx-d *::before, .fx-d *::after { box-sizing: border-box; }
+    .fx-d { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: system-ui, sans-serif; }
+    .d-stage { position: absolute; inset: 0; perspective: 1200px; }
+    .d-band { position: absolute; left: 480px; top: 225px; width: 960px; height: 116px; display: flex; align-items: center; padding: 0 48px; color: #ffffff; font-size: 40px; font-weight: 800; letter-spacing: 0.08em; background: var(--color); transform: translate3d(0px, var(--y), var(--z)); clip-path: inset(0 0 0 0); opacity: 1; }
+    [data-akari-active] .d-band, [data-no-timeline] .d-band { animation: d-reveal 1.60s linear both; animation-delay: calc(0.30s + var(--d)); animation-iteration-count: 1; }
+    @keyframes d-reveal {
+      0% { transform: translate3d(-72px, var(--y), var(--z)); clip-path: inset(0 100% 0 0); opacity: 1; }
+      100% { transform: translate3d(0px, var(--y), var(--z)); clip-path: inset(0 0 0 0); opacity: 1; }
+    }
+  </style>
+  <div class="d-stage">
+    <div class="d-band" style="--y:0px;--z:0px;--d:0s;--color:#30638e">LAYER 01</div>
+    <div class="d-band" style="--y:155px;--z:60px;--d:0.06s;--color:#d1495b">LAYER 02</div>
+    <div class="d-band" style="--y:310px;--z:120px;--d:0.12s;--color:#2a9d8f">LAYER 03</div>
+    <div class="d-band" style="--y:465px;--z:-80px;--d:0.18s;--color:#8f3985">LAYER 04</div>
+  </div>
+</div>

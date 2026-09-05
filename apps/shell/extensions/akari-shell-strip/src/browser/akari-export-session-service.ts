@@ -11,7 +11,8 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import {
     DEFAULT_EXPORT_OUTPUT_NAME,
-    composeExportRequestPacket
+    composeExportRequestPacket,
+    defaultExportOutputNameForCodec
 } from '../common/export-request-packet';
 import {
     composeExportHandOffPacket,
@@ -31,9 +32,11 @@ import {
 } from '../common/quick-export-cli';
 import {
     AkariQuickExportService,
+    QuickExportRecheckResult,
     QuickExportStartOutcome,
     QuickExportStatus
 } from '../common/quick-export-protocol';
+import { shouldRecheckLintForPath, shouldWatchForLintRecheck } from '../common/export-lint-recheck';
 import { quickExportErrorNotification } from '../common/quick-export-ui';
 import { parseRenderProgress, RenderProgressState } from '../common/render-progress';
 import {
@@ -51,6 +54,8 @@ import {
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LAST_RUN_STORAGE_KEY = 'akari.export.lastRun';
 const POLL_INTERVAL_MS = 500;
+/** 編集ドキュメントの変更をまとめてから再検査するまでの待ち（保存の連打を 1 本にする）。 */
+const LINT_RECHECK_DEBOUNCE_MS = 700;
 const CAPTIONS_RELATIVE_PATH = 'captions.json';
 const RENDER_JSON_RELATIVE_PATH = '.akari/render.json';
 
@@ -68,6 +73,8 @@ export interface ExportSessionSnapshot {
     readonly setupRequested: boolean;
     readonly lastRun?: StoredExportLastRun;
     readonly renderProgress?: RenderProgressState;
+    /** lint の再検査が走っている間だけ true（ボタンの二度押し防止と「検査中…」表示）。 */
+    readonly lintRechecking: boolean;
 }
 
 const DEFAULT_SETTINGS: ExportSettings = {
@@ -88,7 +95,7 @@ const ENCODERS: readonly QuickExportEncoder[] = [
 ];
 
 const QUALITIES: readonly QuickExportQuality[] = ['master', 'high', 'standard', 'light'];
-const CODECS: readonly QuickExportCodec[] = ['h264', 'hevc'];
+const CODECS: readonly QuickExportCodec[] = ['h264', 'hevc', 'prores422', 'png'];
 
 @injectable()
 export class AkariExportSessionService implements Disposable {
@@ -131,6 +138,12 @@ export class AkariExportSessionService implements Disposable {
     protected setupRequested = false;
     protected pollHandle: number | undefined;
     protected failureNotified = false;
+    protected dialogVisible = false;
+    protected lintRechecking = false;
+    protected lintWatch = new DisposableCollection();
+    /** 現在 watch しているプロジェクト（未 watch は undefined）。付け外しの冪等判定に使う。 */
+    protected lintWatchRoot: string | undefined;
+    protected lintRecheckTimer: number | undefined;
 
     @postConstruct()
     protected init(): void {
@@ -142,6 +155,7 @@ export class AkariExportSessionService implements Disposable {
         }));
         void this.preferences.ready.then(() => {
             this.settings = this.readPreferences();
+            this.refreshOutputNameForCodec();
             this.fireChanged();
         });
         void this.refreshProject();
@@ -150,6 +164,8 @@ export class AkariExportSessionService implements Disposable {
 
     dispose(): void {
         this.stopPolling();
+        this.cancelPendingLintRecheck();
+        this.lintWatch.dispose();
         this.toDispose.dispose();
     }
 
@@ -163,7 +179,8 @@ export class AkariExportSessionService implements Disposable {
             projectLabel: this.projectLabel,
             setupRequested: this.setupRequested,
             lastRun: this.lastRun,
-            renderProgress: this.renderProgress
+            renderProgress: this.renderProgress,
+            lintRechecking: this.lintRechecking
         };
     }
 
@@ -176,12 +193,77 @@ export class AkariExportSessionService implements Disposable {
         await this.syncStatus();
     }
 
+    /**
+     * 書き出しダイアログの表示・非表示（AkariExportDialog の attach / detach）。
+     *
+     * 出自（2026-09-03 オーナー実機報告）: lint 停止画面はバックエンドが保持している
+     * 検査結果をそのまま出すため、パートナーが edit.json を直しても古い所見が残り、
+     * 閉じて開き直しても同じ画面が出ていた。開いた瞬間に 1 回検査し直し、
+     * 開いている間は編集ドキュメントの変更を見て自動で検査し直す。
+     */
+    setDialogVisible(visible: boolean): void {
+        if (this.dialogVisible === visible) {
+            return;
+        }
+        this.dialogVisible = visible;
+        if (visible && this.status.phase === 'lint-failed') {
+            void this.recheckLint({ auto: true });
+        }
+        void this.updateLintWatch();
+    }
+
+    /**
+     * edit-lint だけを走らせ直して、保持している lint 結果を最新へ差し替える。
+     * 書き出しは開始しない（phase も 'linting' にしない）ので、画面は lint 停止のまま更新される。
+     */
+    async recheckLint(options: { auto?: boolean } = {}): Promise<void> {
+        if (this.lintRechecking || this.running || !this.projectRoot) {
+            return;
+        }
+        this.lintRechecking = true;
+        this.fireChanged();
+        let result: QuickExportRecheckResult | undefined;
+        try {
+            result = await this.quickExportService.recheckLint({ projectRootUri: this.projectRoot.toString() });
+        } catch (error) {
+            if (!options.auto) {
+                void this.messages.error(
+                    describeUnexpectedQuickExportFailure(error, 'lint をもう一度検査できませんでした')
+                );
+            }
+        } finally {
+            this.lintRechecking = false;
+        }
+        if (!result) {
+            this.fireChanged();
+            return;
+        }
+        const wasLintFailed = this.status.phase === 'lint-failed';
+        // 再検査の結果で通知は出さない（画面がそのまま最新の所見を出しているため、
+        // 保存のたびにトーストが積み上がる方が邪魔になる）。
+        this.applyStatus(result.status, { notify: false });
+        if (result.outcome === 'pass' && wasLintFailed) {
+            this.setupRequested = true;
+            this.failureNotified = false;
+            void this.messages.info('lint の問題は解消しました。そのまま書き出せます');
+            this.fireChanged();
+            return;
+        }
+        if (result.outcome === 'unavailable' && !options.auto) {
+            void this.messages.warn(result.reason ?? 'lint をもう一度検査できませんでした');
+        }
+    }
+
     updateSettings(patch: Partial<ExportSettings>): void {
+        const previousCodec = this.settings.codec;
         let next = { ...this.settings, ...patch };
         if (next.quality === 'master' && !isMasterSelectable(next.encoder)) {
             next = { ...next, quality: 'standard' };
         }
         this.settings = next;
+        if (next.codec !== previousCodec) {
+            this.refreshOutputNameForCodec(next.codec);
+        }
         this.fireChanged();
     }
 
@@ -219,7 +301,7 @@ export class AkariExportSessionService implements Disposable {
         }
         this.settings = { ...this.settings, outputDirectoryUri: destination.toString() };
         try {
-            this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return;
@@ -242,7 +324,7 @@ export class AkariExportSessionService implements Disposable {
             await this.savePreferences(settings);
         }
         try {
-            this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+            this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(settings.codec));
         } catch (error) {
             this.fail(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
             return false;
@@ -328,7 +410,7 @@ export class AkariExportSessionService implements Disposable {
     }
 
     async handOffToPartner(): Promise<void> {
-        const outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+        const outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
         const packet = composeExportRequestPacket({
             resolutionLabel: 'edit.json のまま',
             outputName,
@@ -390,7 +472,7 @@ export class AkariExportSessionService implements Disposable {
         if (!this.projectRoot) {
             this.editJson = {};
             this.video = { orientation: 'landscape', width: undefined, height: undefined, fps: undefined };
-            this.outputName = DEFAULT_EXPORT_OUTPUT_NAME;
+            this.outputName = defaultExportOutputNameForCodec(this.settings.codec);
             this.renderProgress = undefined;
             this.fireChanged();
             return;
@@ -407,7 +489,8 @@ export class AkariExportSessionService implements Disposable {
             this.video = { ...this.video, durationSeconds: fallbackDuration };
         }
         this.renderProgress = renderJson ? parseRenderProgress(renderJson) : undefined;
-        this.outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME);
+        this.outputName = await this.chooseAvailableOutputName(defaultExportOutputNameForCodec(this.settings.codec));
+        void this.updateLintWatch();
         this.fireChanged();
     }
 
@@ -438,6 +521,7 @@ export class AkariExportSessionService implements Disposable {
                 break;
             case AKARI_EXPORT_CODEC:
                 this.settings = { ...this.settings, codec: preferences.codec };
+                this.refreshOutputNameForCodec(preferences.codec);
                 break;
             case AKARI_EXPORT_FPS:
                 this.settings = { ...this.settings, fps: preferences.fps };
@@ -498,10 +582,19 @@ export class AkariExportSessionService implements Disposable {
             }
             throw error;
         }
-        const existingNames = (stat.children ?? [])
-            .filter(child => !child.isDirectory)
-            .map(child => child.resource.path.base);
+        const existingNames = (stat.children ?? []).map(child => child.resource.path.base);
         return nextAvailableOutputName(baseName, existingNames);
+    }
+
+    protected refreshOutputNameForCodec(codec: QuickExportCodec = this.settings.codec): void {
+        const defaultName = defaultExportOutputNameForCodec(codec);
+        this.outputName = defaultName;
+        void this.chooseAvailableOutputName(defaultName).then(name => {
+            if (this.settings.codec === codec) {
+                this.outputName = name;
+                this.fireChanged();
+            }
+        }).catch(error => console.info('[akari-shell-strip] export output name unavailable:', error));
     }
 
     protected async syncStatus(): Promise<void> {
@@ -535,7 +628,7 @@ export class AkariExportSessionService implements Disposable {
         }
     }
 
-    protected applyStatus(status: QuickExportStatus): void {
+    protected applyStatus(status: QuickExportStatus, options: { notify?: boolean } = {}): void {
         const wasDone = this.status.phase === 'done';
         this.status = status;
         if (status.phase === 'linting' || status.phase === 'rendering') {
@@ -546,12 +639,64 @@ export class AkariExportSessionService implements Disposable {
         if (status.phase === 'done' && !wasDone) {
             void this.rememberLastRun(status);
         }
-        const notification = quickExportErrorNotification(status, this.failureNotified);
-        if (notification !== undefined) {
-            this.failureNotified = true;
-            void this.messages.error(notification);
+        if (options.notify ?? true) {
+            const notification = quickExportErrorNotification(status, this.failureNotified);
+            if (notification !== undefined) {
+                this.failureNotified = true;
+                void this.messages.error(notification);
+            }
         }
+        void this.updateLintWatch();
         this.fireChanged();
+    }
+
+    /**
+     * lint 停止画面を開いている間だけ、編集ドキュメント（edit.json / captions.json）の
+     * 変更を見張って自動再検査を仕掛ける。閉じている間・停止していない間は外す
+     * （保存のたびに edit-lint を余分に 1 本起こさないため）。
+     */
+    protected async updateLintWatch(): Promise<void> {
+        const root = this.projectRoot;
+        const wanted = shouldWatchForLintRecheck(this.status.phase, this.dialogVisible) && root
+            ? root.toString()
+            : undefined;
+        if (wanted === this.lintWatchRoot) {
+            return;
+        }
+        this.lintWatchRoot = wanted;
+        this.lintWatch.dispose();
+        this.lintWatch = new DisposableCollection();
+        if (!wanted || !root) {
+            this.cancelPendingLintRecheck();
+            return;
+        }
+        try {
+            this.lintWatch.push(await this.files.watch(root));
+        } catch (error) {
+            console.info('[akari-shell-strip] lint 再検査の watch を張れませんでした:', error);
+        }
+        this.lintWatch.push(this.files.onDidFilesChange(event => {
+            const relevant = event.changes.some(change =>
+                root.isEqualOrParent(change.resource) && shouldRecheckLintForPath(change.resource.path.toString()));
+            if (relevant) {
+                this.scheduleLintRecheck();
+            }
+        }));
+    }
+
+    protected scheduleLintRecheck(): void {
+        this.cancelPendingLintRecheck();
+        this.lintRecheckTimer = window.setTimeout(() => {
+            this.lintRecheckTimer = undefined;
+            void this.recheckLint({ auto: true });
+        }, LINT_RECHECK_DEBOUNCE_MS);
+    }
+
+    protected cancelPendingLintRecheck(): void {
+        if (this.lintRecheckTimer !== undefined) {
+            window.clearTimeout(this.lintRecheckTimer);
+            this.lintRecheckTimer = undefined;
+        }
     }
 
     protected async rememberLastRun(status: QuickExportStatus): Promise<void> {

@@ -89,10 +89,17 @@ test("writer rejects invalid sample order and removes aborted output", async (t)
       await assert.rejects(writer.write({ bytes: deltaSample, type: "delta", timestamp: 9 }), /timestamp must increase/u);
     });
   });
-  await t.test("finish requires the declared sample count", async () => {
+  await t.test("finish requires the declared sample count and names the missing frames", async () => {
     await expectWriterFailure(2, async (writer) => {
       await writer.write({ bytes: keySample, type: "key", timestamp: 0 });
-      await assert.rejects(writer.finish(), /expected 2, got 1/u);
+      await assert.rejects(writer.finish({ encoderFrames: 2 }), /expected 2, got 1; encoder submitted 2 \(missing frames: 1\)/u);
+    });
+  });
+  await t.test("finish without the encoder count still reports the missing frames", async () => {
+    await expectWriterFailure(3, async (writer) => {
+      await writer.write({ bytes: keySample, type: "key", timestamp: 0 });
+      await writer.write({ bytes: deltaSample, type: "delta", timestamp: 66_667 });
+      await assert.rejects(writer.finish(), /expected 3, got 2 \(missing frames: 1\)/u);
     });
   });
   await t.test("write refuses samples beyond the declaration", async () => {

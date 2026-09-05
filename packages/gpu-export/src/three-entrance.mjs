@@ -1,3 +1,5 @@
+import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
+
 const TIMING_KEYWORDS = new Map([
   ["linear", "linear"],
   ["ease", { x1: 0.25, y1: 0.1, x2: 0.25, y2: 1 }],
@@ -7,9 +9,247 @@ const TIMING_KEYWORDS = new Map([
 ]);
 
 const fail = (reason) => ({ ok: false, reason });
+const SAMPLED_CHAIN_CSS_PROPERTIES = ["filter", "clip-path", "mask", "backdrop-filter", "mix-blend-mode"];
+const CSS_3D_TRANSFORM_PATTERN = /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(/iu;
+const TRANSLATE_FUNCTION_PATTERN = /\b(translateZ|translate3d)\s*\(/giu;
+const ZERO_LENGTH_PATTERN = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?$/iu;
+const PRESERVE_3D_DECLARATION_PATTERN = /transform-style\s*:\s*preserve-3d/iu;
+const PRESERVE_3D_SIBLINGS_REASON = "three-composite-preserve-3d-siblings";
+
+function isZeroLength(value) {
+  return ZERO_LENGTH_PATTERN.test(String(value ?? "").trim());
+}
+
+/**
+ * `name(` の直後から対応する `)` までを、入れ子の括弧（`var()` / `calc()` 等）を数えながら切り出し、
+ * 最上位のカンマで引数へ分ける。`translate3d(var(--x), var(--y), 0)` のように X / Y が CSS 変数駆動でも
+ * Z のリテラル 0 を読めるようにする（オーバーレイ規約は調整値を CSS 変数に出すので自然に現れる形）。
+ * 閉じ括弧が見つからなければ null（= 読めないので 3D 扱い）。
+ */
+function readTopLevelArguments(html, openIndex) {
+  const parts = [];
+  let depth = 0;
+  let start = openIndex;
+  for (let index = openIndex; index < html.length; index += 1) {
+    const character = html[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") {
+      if (depth === 0) {
+        parts.push(html.slice(start, index));
+        return parts;
+      }
+      depth -= 1;
+    } else if (character === "," && depth === 0) {
+      parts.push(html.slice(start, index));
+      start = index + 1;
+    }
+  }
+  return null;
+}
+
+// Z がリテラル 0 の translateZ / translate3d は 2D と同値なので除外し、それ以外の
+// CSS 3D 語彙は eligibility と composite の兄弟対走査で共有する。
+export function hasDepthTransform(html) {
+  if (CSS_3D_TRANSFORM_PATTERN.test(html)) return true;
+  for (const match of html.matchAll(TRANSLATE_FUNCTION_PATTERN)) {
+    const parts = readTopLevelArguments(html, match.index + match[0].length);
+    if (parts === null) return true;
+    const expectedArity = match[1].toLowerCase() === "translatez" ? 1 : 3;
+    if (parts.length !== expectedArity || !isZeroLength(parts[parts.length - 1])) return true;
+  }
+  return false;
+}
+
+export function scanThreeSampled(html) {
+  const source = stripComments(stripHtmlComments(html));
+  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const declarations = scripts.filter((tag) =>
+    /\btype\s*=\s*["']application\/json["']/iu.test(tag)
+    && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
+  if (scripts.length !== 1 || declarations.length !== 1) return fail("three-entrance-script-count");
+
+  const parsedElements = sampledElements(source);
+  if (!parsedElements.ok) return fail("three-sampled-outside-chain");
+  const { elements } = parsedElements;
+  const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
+  if (!root) return fail("three-entrance-root-missing");
+  const canvas = elements.find((element) => element.tag === "canvas");
+  const chain = sampledAncestorChain(root, canvas);
+  if (chain === null) return fail("three-entrance-canvas-missing");
+  const chainSet = new Set(chain);
+
+  // advanced-css は方式 A の入口条件に含まれないため、この検査は eligibility 経由では到達しない。
+  // canvas 単独合成へ条件を広げる場合のガードとして、scanThreeSampled の単体テストで維持する。
+  let inlineChainCssProperty = null;
+  for (const element of elements) {
+    if (!chainSet.has(element) || !element.attributes.has("style")) continue;
+    const parsed = parseDeclarations(element.attributes.get("style"));
+    if (!parsed.ok) return fail("three-sampled-outside-chain");
+    inlineChainCssProperty = firstSampledChainCssProperty(parsed.values);
+    if (inlineChainCssProperty !== null) break;
+  }
+
+  for (const element of elements) {
+    const inlineStyle = element.attributes.get("style") ?? "";
+    if (/\b(?:animation|transition)(?:-[a-z-]+)?\s*:/iu.test(inlineStyle) && !chainSet.has(element)) {
+      return fail("three-sampled-outside-chain");
+    }
+  }
+
+  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
+    .map((match) => match[1]).join("\n");
+  const withoutKeyframes = extractKeyframes(styleText);
+  if (!withoutKeyframes.ok) return fail("three-sampled-outside-chain");
+  const withoutProperties = removeSampledAtRules(withoutKeyframes.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
+  if (!withoutProperties.ok || /@[a-z_-]+\b/iu.test(withoutProperties.css)) {
+    return fail("three-sampled-outside-chain");
+  }
+  const parsedRules = parseRules(withoutProperties.css);
+  if (!parsedRules.ok) return fail("three-sampled-outside-chain");
+  for (const rule of parsedRules.rules) {
+    if (!hasDeclaration(rule.declarations, "animation") && !hasDeclaration(rule.declarations, "transition")) continue;
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) return fail("three-sampled-outside-chain");
+      const matches = elements.filter((element) => sampledCompoundMatches(compound, element));
+      if (matches.length === 0 || matches.some((element) => !chainSet.has(element))) {
+        return fail("three-sampled-outside-chain");
+      }
+    }
+  }
+  if (inlineChainCssProperty !== null) return fail(`three-sampled-chain-css:${inlineChainCssProperty}`);
+  for (const rule of parsedRules.rules) {
+    const property = firstSampledChainCssProperty(rule.declarations);
+    if (property === null) continue;
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) return fail(`three-sampled-chain-css:${property}`);
+      if (elements.some((element) => chainSet.has(element) && sampledCompoundMatches(compound, element))) {
+        return fail(`three-sampled-chain-css:${property}`);
+      }
+    }
+  }
+  const inlineChainStyles = chain
+    .map((element) => element.attributes.get("style") ?? "")
+    .join("\n");
+  for (const keyframe of withoutKeyframes.keyframes) {
+    if (!sampledCssNameAppears(withoutKeyframes.css, keyframe.name)
+      && !sampledCssNameAppears(inlineChainStyles, keyframe.name)) continue;
+    const parsedKeyframe = parseRules(keyframe.body);
+    if (!parsedKeyframe.ok) return fail("three-sampled-outside-chain");
+    for (const rule of parsedKeyframe.rules) {
+      const property = firstSampledChainCssProperty(rule.declarations);
+      if (property !== null) return fail(`three-sampled-chain-css:${property}`);
+    }
+  }
+  return { ok: true };
+}
+
+export function scanThreeComposite(html) {
+  const source = stripComments(stripHtmlComments(html));
+  const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
+  const declarations = scripts.filter((tag) =>
+    /\btype\s*=\s*["']application\/json["']/iu.test(tag)
+    && /\bdata-akari-3d-scene(?:\s|=|>)/iu.test(tag));
+  if (scripts.length !== 1 || declarations.length !== 1) return fail("three-entrance-script-count");
+
+  const parsedElements = sampledElements(source);
+  if (!parsedElements.ok) return fail("three-entrance-canvas-missing");
+  const { elements } = parsedElements;
+  const root = elements.find((element) => !["script", "style", "link", "meta"].includes(element.tag));
+  if (!root) return fail("three-entrance-root-missing");
+  const canvas = elements.find((element) => element.tag === "canvas");
+  const chain = sampledAncestorChain(root, canvas);
+  if (chain === null) return fail("three-entrance-canvas-missing");
+  if (/@property\b/iu.test(source)) return fail("three-composite-property");
+  const preserve3dSiblings = scanCompositePreserve3dSiblings(source, elements, chain);
+  if (!preserve3dSiblings.ok) return preserve3dSiblings;
+  return { ok: true };
+}
+
+function scanCompositePreserve3dSiblings(source, elements, chain) {
+  if (!PRESERVE_3D_DECLARATION_PATTERN.test(source)) return { ok: true };
+
+  const styleText = [...source.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)]
+    .map((match) => match[1]).join("\n");
+  const extracted = extractKeyframes(styleText);
+  if (!extracted.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+  const withoutProperties = removeSampledAtRules(extracted.css, /@property\s+--[a-z0-9_-]+\s*\{/gimu);
+  if (!withoutProperties.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+  const parsedRules = parseRules(withoutProperties.css);
+  if (!parsedRules.ok) return fail(PRESERVE_3D_SIBLINGS_REASON);
+
+  const declaredStyles = new Map(elements.map((element) => [element, []]));
+  const animationDeclarations = new Map(elements.map((element) => [element, []]));
+  const preserveElements = new Set();
+
+  for (const element of elements) {
+    const inlineStyle = element.attributes.get("style");
+    if (inlineStyle === undefined) continue;
+    declaredStyles.get(element).push(inlineStyle);
+    const parsed = parseDeclarations(inlineStyle);
+    if (!parsed.ok) {
+      if (PRESERVE_3D_DECLARATION_PATTERN.test(inlineStyle)) return fail(PRESERVE_3D_SIBLINGS_REASON);
+      continue;
+    }
+    if (parsed.values.get("transform-style")?.trim().toLowerCase() === "preserve-3d") {
+      preserveElements.add(element);
+    }
+    collectAnimationDeclarations(parsed.values, animationDeclarations.get(element));
+  }
+
+  for (const rule of parsedRules.rules) {
+    const declaresPreserve = rule.declarations.get("transform-style")?.trim().toLowerCase() === "preserve-3d";
+    const ruleText = serializeDeclarations(rule.declarations);
+    for (const selector of splitTopLevel(rule.selector, ",")) {
+      const compound = rightmostSampledCompound(selector);
+      if (compound === null) {
+        if (declaresPreserve) return fail(PRESERVE_3D_SIBLINGS_REASON);
+        continue;
+      }
+      const matches = elements.filter((element) => sampledCompoundMatches(compound, element));
+      if (matches.length === 0 && declaresPreserve) return fail(PRESERVE_3D_SIBLINGS_REASON);
+      for (const element of matches) {
+        declaredStyles.get(element).push(ruleText);
+        collectAnimationDeclarations(rule.declarations, animationDeclarations.get(element));
+        if (declaresPreserve) preserveElements.add(element);
+      }
+    }
+  }
+
+  for (const element of elements) {
+    const namedAnimations = animationDeclarations.get(element).join("\n");
+    for (const keyframe of extracted.keyframes) {
+      if (sampledCssNameAppears(namedAnimations, keyframe.name)) {
+        declaredStyles.get(element).push(keyframe.body);
+      }
+    }
+  }
+
+  const chainSet = new Set(chain);
+  for (const element of preserveElements) {
+    const children = elements.filter((candidate) => candidate.parent === element);
+    if (!children.some((child) => chainSet.has(child))) continue;
+    const outsideChildren = children.filter((child) => !chainSet.has(child));
+    if (outsideChildren.some((child) => hasDepthTransform(declaredStyles.get(child).join("\n")))) {
+      return fail(PRESERVE_3D_SIBLINGS_REASON);
+    }
+  }
+  return { ok: true };
+}
+
+function collectAnimationDeclarations(declarations, output) {
+  for (const [property, value] of declarations) {
+    if (property === "animation" || property === "animation-name") output.push(value);
+  }
+}
+
+function serializeDeclarations(declarations) {
+  return [...declarations].map(([property, value]) => `${property}:${value}`).join(";");
+}
 
 export function parseThreeEntrance(html, { vars = {}, transform = {}, role = null } = {}) {
-  const source = stripComments(String(html ?? ""));
+  const source = stripComments(stripHtmlComments(html));
   const scripts = source.match(/<script\b[^>]*>/giu) ?? [];
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)
@@ -70,6 +310,152 @@ export function parseThreeEntrance(html, { vars = {}, transform = {}, role = nul
 
 function stripComments(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, "");
+}
+
+function sampledElements(html) {
+  const withoutRawText = html.replace(
+    /<(style|script)\b([^>]*)>([\s\S]*?)<\/\1\s*>/giu,
+    (_match, tag, attributes, body) => `<${tag}${attributes}>${" ".repeat(body.length)}</${tag}>`,
+  );
+  const voidElements = new Set([
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
+  ]);
+  const elements = [];
+  const stack = [];
+  for (const token of sampledHtmlTags(withoutRawText)) {
+    const closing = token.match(/^<\s*\/\s*([a-z][a-z0-9-]*)\s*>$/iu);
+    if (closing) {
+      const tag = closing[1].toLowerCase();
+      if (stack.length === 0 || stack.at(-1).tag !== tag) return { ok: false, elements: [] };
+      stack.pop();
+      continue;
+    }
+    if (/^<\s*[!?]/u.test(token)) continue;
+    const match = token.match(/^<\s*([a-z][a-z0-9-]*)\b([\s\S]*?)>$/iu);
+    if (!match) return { ok: false, elements: [] };
+    const attributes = new Map();
+    const body = match[2].replace(/\/\s*$/u, "");
+    const pattern = /([^\s=/>]+)(?:\s*=\s*(?:(["'])([\s\S]*?)\2|([^\s>]+)))?/gu;
+    for (const attribute of body.matchAll(pattern)) {
+      attributes.set(attribute[1].toLowerCase(), attribute[3] ?? attribute[4] ?? "");
+    }
+    const tag = match[1].toLowerCase();
+    const element = { tag, attributes, parent: stack.at(-1) ?? null };
+    elements.push(element);
+    if (!voidElements.has(tag) && !/\/\s*>$/u.test(token)) stack.push(element);
+  }
+  return stack.length === 0 ? { ok: true, elements } : { ok: false, elements: [] };
+}
+
+function sampledHtmlTags(html) {
+  const tags = [];
+  let cursor = 0;
+  while (cursor < html.length) {
+    const open = html.indexOf("<", cursor);
+    if (open < 0) break;
+    let quote = null;
+    let close = -1;
+    for (let index = open + 1; index < html.length; index += 1) {
+      const character = html[index];
+      if (quote) {
+        if (character === "\\") index += 1;
+        else if (character === quote) quote = null;
+      } else if (character === '"' || character === "'") quote = character;
+      else if (character === ">") {
+        close = index;
+        break;
+      }
+    }
+    if (close < 0) return ["<invalid>"];
+    tags.push(html.slice(open, close + 1));
+    cursor = close + 1;
+  }
+  return tags;
+}
+
+function sampledAncestorChain(root, canvas) {
+  if (!canvas) return null;
+  const reverse = [];
+  for (let element = canvas; element; element = element.parent) {
+    reverse.push(element);
+    if (element === root) return reverse.reverse();
+  }
+  return null;
+}
+
+function removeSampledAtRules(css, pattern) {
+  const spans = [];
+  for (const match of css.matchAll(pattern)) {
+    const open = match.index + match[0].lastIndexOf("{");
+    const close = matchingBrace(css, open);
+    if (close < 0) return { ok: false, css: "" };
+    spans.push([match.index, close + 1]);
+    pattern.lastIndex = close + 1;
+  }
+  let output = "";
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    output += css.slice(cursor, start);
+    cursor = end;
+  }
+  return { ok: true, css: output + css.slice(cursor) };
+}
+
+function rightmostSampledCompound(selector) {
+  const value = selector.trim();
+  let bracketDepth = 0;
+  let quote = null;
+  let start = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (character === "[") bracketDepth += 1;
+    else if (character === "]") bracketDepth -= 1;
+    else if (bracketDepth === 0 && (/\s/u.test(character) || ">+~".includes(character))) start = index + 1;
+  }
+  const compound = value.slice(start).trim();
+  return compound === "" || bracketDepth !== 0 || /[:*\s>+~]/u.test(compound) ? null : compound;
+}
+
+function sampledCompoundMatches(compound, element) {
+  let cursor = 0;
+  const tag = compound.match(/^[a-z][a-z0-9-]*/iu);
+  if (tag) {
+    if (tag[0].toLowerCase() !== element.tag) return false;
+    cursor = tag[0].length;
+  }
+  while (cursor < compound.length) {
+    const rest = compound.slice(cursor);
+    const className = rest.match(/^\.([a-z_][a-z0-9_-]*)/iu);
+    if (className) {
+      const classes = (element.attributes.get("class") ?? "").split(/\s+/u).filter(Boolean);
+      if (!classes.includes(className[1])) return false;
+      cursor += className[0].length;
+      continue;
+    }
+    const id = rest.match(/^#([a-z_][a-z0-9_-]*)/iu);
+    if (id) {
+      if (element.attributes.get("id") !== id[1]) return false;
+      cursor += id[0].length;
+      continue;
+    }
+    const attribute = rest.match(/^\[\s*([a-z_][a-z0-9_-]*)(?:\s*=\s*(?:(["'])(.*?)\2|([^\]\s]+)))?\s*\]/iu);
+    if (attribute) {
+      const name = attribute[1].toLowerCase();
+      if (!element.attributes.has(name)) return false;
+      const expected = attribute[3] ?? attribute[4];
+      if (expected !== undefined && element.attributes.get(name) !== expected) return false;
+      cursor += attribute[0].length;
+      continue;
+    }
+    return false;
+  }
+  return true;
 }
 
 function rootElement(html) {
@@ -161,6 +547,20 @@ function parseDeclarations(body) {
 
 function hasDeclaration(declarations, prefix) {
   return [...declarations.keys()].some((property) => property === prefix || property.startsWith(`${prefix}-`));
+}
+
+function firstSampledChainCssProperty(declarations) {
+  for (const prefix of SAMPLED_CHAIN_CSS_PROPERTIES) {
+    const property = [...declarations.keys()]
+      .find((name) => name === prefix || name.startsWith(`${prefix}-`));
+    if (property !== undefined) return property;
+  }
+  return null;
+}
+
+function sampledCssNameAppears(css, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "iu").test(css);
 }
 
 function parseEntranceSelector(value, rootClasses) {

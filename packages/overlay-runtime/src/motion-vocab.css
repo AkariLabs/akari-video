@@ -1,0 +1,47 @@
+/*
+ * モーション語彙 — イージングと対象別の既定尺の単一定義（正本）。
+ *
+ * 断片は cubic-bezier を直書きせず、ここで定義する名前で呼ぶ:
+ *
+ *   [data-akari-active] .foo .akari-u{
+ *     animation: foo__in var(--anim-duration, 500ms) var(--anim-easing) both paused;
+ *   }
+ *   .foo{ --anim-easing: var(--ease-overshoot); }   // 質感の差し替えは 1 行
+ *
+ * 値を変えるときはこのファイル 1 箇所を変える（参照している全断片が追随する）。
+ * 語彙の意図と使い分けは skills/overlay-authoring/motion.md「イージング語彙」。
+ * 数値は小数第 2 位までで管理する（それ以下の桁に意味を持たせない）。
+ *
+ * ホストは interaction.css と同時に本ファイルを読み込む（overlay-runtime/README.md 手順 5）。
+ * 書き出し側は packages/render-cut/src/rasterize.mjs が、語彙を参照するシートにだけ
+ * 同じ内容を埋め込む（プレビューと書き出しのパリティ）。
+ */
+:root {
+  /* ── 基本 7 語 ─────────────────────────────────────────── */
+  --ease-linear: linear;                                  /* 等速。進捗・連続回転 */
+  --ease-smooth: cubic-bezier(0.38, 0, 0.1, 1.1);         /* 既定。すっと出て長く減速 */
+  --ease-natural: cubic-bezier(0.6, 0.2, 0, 1.03);        /* 中庸の立ち上がり + 長い減速の尾 */
+  --ease-slowdown: cubic-bezier(0.11, 0.86, 0.98, 0.9);   /* 初速最大 → 匍匐して止まる */
+  --ease-accelerate: cubic-bezier(1, 0, 0.98, 0.8);       /* 深い溜め → 加速して去る（直後にカットが来る前提） */
+  --ease-overshoot: cubic-bezier(0.17, 3.75, 0, 0.74);    /* バネ。目標を大きく越えてから戻る（最強・約 +90%） */
+  --ease-impulse: cubic-bezier(0.43, 1.41, 0.02, 1.01);   /* 突進して小さく上振れ */
+
+  /* overshoot の控えめ段（越え量は移動量に比例するので、移動が大きいときはこちらへ落とす。
+     そもそも overshoot 系は小さい移動・スケールのポップ向け — motion.md「イージング語彙」） */
+  --ease-overshoot-mid: cubic-bezier(0.18, 3.16, 0.07, 0.83);   /* 約 +66% */
+  --ease-overshoot-soft: cubic-bezier(0.17, 2.21, 0.17, 0.97);  /* 約 +32% */
+
+  /* ── 切れ味系（テロップ向けの補助語彙） ───────────────────── */
+  --ease-snap-out: cubic-bezier(0.89, 0, 0.08, 1);        /* 溜めて一気に置く */
+  --ease-hard-out: cubic-bezier(0, 0.61, 0, 1);           /* 出た瞬間ほぼ着地 */
+  --ease-deep-inout: cubic-bezier(0.86, 0, 0.33, 1);      /* 深い加減速の往復 */
+  --ease-snappy: cubic-bezier(0.6, 0, 0.2, 1);            /* 軽い歯切れ */
+
+  /* ── 対象別の既定尺（--anim-duration に入れる値の相場） ────────── */
+  --anim-duration-telop: 500ms;   /* テロップ（1 文字 / 1 文節あたり） */
+  --anim-duration-shape: 800ms;   /* 図形・帯・カード */
+  --anim-duration-group: 1000ms;  /* ラッパ <div> ごと動かすとき */
+
+  /* 受け口の既定値: 断片が何も指定しなければ smooth で動く */
+  --anim-easing: var(--ease-smooth);
+}
