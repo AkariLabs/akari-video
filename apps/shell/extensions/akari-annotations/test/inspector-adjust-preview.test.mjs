@@ -55,20 +55,19 @@ function buildSection(id) {
   return section.build();
 }
 
-test('調整プレビューは既存ラベルと一致する 6 セクションを定義する', () => {
-  assert.equal(ADJUST_PREVIEW_SECTIONS.length, 6);
+test('調整プレビューは近日扱いの 4 セクションだけを定義する', () => {
+  assert.equal(ADJUST_PREVIEW_SECTIONS.length, 4);
   assert.deepEqual(
     ADJUST_PREVIEW_SECTIONS.map(section => section.label),
     [...COMING_SOON_ADJUST_SECTIONS]
   );
 });
 
-test('基本補正は 10 行、エフェクトは 6 行を表示する', () => withFakeDocument(() => {
-  const basicRows = descendants(buildSection('basic'))
-    .filter(element => hasClass(element, 'akari-adjust-preview-row'));
+test('基本補正と LUT のダミーを除き、エフェクトは 6 行を表示する', () => withFakeDocument(() => {
+  assert.equal(ADJUST_PREVIEW_SECTIONS.some(section => section.id === 'basic'), false);
+  assert.equal(ADJUST_PREVIEW_SECTIONS.some(section => section.id === 'lut'), false);
   const effectRows = descendants(buildSection('effects'))
     .filter(element => hasClass(element, 'akari-adjust-preview-row'));
-  assert.equal(basicRows.length, 10);
   assert.equal(effectRows.length, 6);
 }));
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ACTIVE_ADJUST_SECTIONS,
   assignSectionToTab,
   COMING_SOON_ADJUST_SECTIONS,
   InspectorTabState,
@@ -39,6 +40,8 @@ test('既存セクションを kind に応じたタブへ振り分ける', () =>
   assert.equal(assignSectionToTab('caption', 'timing'), 'text');
   assert.equal(assignSectionToTab('audio', 'time'), 'audio');
   assert.equal(assignSectionToTab('audio', 'audio:fades'), 'audio');
+  assert.equal(assignSectionToTab('cut', 'adjust:basic'), 'adjust');
+  assert.equal(assignSectionToTab('item', 'adjust:lut'), 'adjust');
 });
 
 test('アクティブタブは kind ごとに永続し disabled 保存値をフォールバックする', () => {
@@ -62,8 +65,9 @@ test('アクティブタブは kind ごとに永続し disabled 保存値をフ�
   assert.equal(state.activeTab('layer', layerTabs), 'video');
 });
 
-test('調整の Coming soon 見出しは裁定どおりの 6 件', () => {
+test('調整タブは実働 2 件と Coming soon 4 件を裁定どおり分ける', () => {
+  assert.deepEqual([...ACTIVE_ADJUST_SECTIONS], ['基本補正', 'LUT']);
   assert.deepEqual([...COMING_SOON_ADJUST_SECTIONS], [
-    '基本補正', 'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'LUT', 'エフェクト'
+    'RGB カーブ', 'カラーホイール', 'Hue カーブ', 'エフェクト'
   ]);
 });

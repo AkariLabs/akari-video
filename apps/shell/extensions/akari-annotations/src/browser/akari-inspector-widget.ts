@@ -60,11 +60,19 @@ import {
     AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP
 } from './inspector/audio-master';
 import {
+    createInspectorAdjustWriteRequest,
+    formatInspectorAdjustValue,
+    INSPECTOR_ADJUST_BASIC_FIELDS,
+    INSPECTOR_LUT_PRESET_IDS,
+    readInspectorAdjustSnapshot
+} from './inspector/adjust-fields';
+import {
     composeInspectorSections,
     InspectorSectionDef,
     InspectorSectionState
 } from './inspector/section-model';
 import {
+    ACTIVE_ADJUST_SECTIONS,
     assignSectionToTab,
     type InspectorTabDef,
     InspectorTabState,
@@ -108,6 +116,9 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     max?: number;
     unit?: string;
     displayScale?: number;
+    displayOffset?: number;
+    displayPrecision?: number;
+    keyframeDisabled?: boolean;
     removable?: boolean;
     disabled?: boolean;
     title?: string;
@@ -143,7 +154,16 @@ const KEYFRAME_EASING_OPTIONS = [
     'cubic-bezier(0.42,0,0.58,1)', 'hold'
 ] as const;
 
-type InspectorSection<TSnapshot = InspectorSnapshot> = InspectorSectionDef<InspectorFieldDef<TSnapshot>>;
+interface InspectorSectionEnable {
+    name: string;
+    label: string;
+    checked: boolean;
+    write: (enabled: boolean) => Promise<InspectorWriteResult>;
+}
+
+type InspectorSection<TSnapshot = InspectorSnapshot> = InspectorSectionDef<InspectorFieldDef<TSnapshot>> & {
+    enable?: InspectorSectionEnable;
+};
 
 function formatTimestamp(value: number): string {
     const milliseconds = Math.max(0, Math.round(value * 1000));
@@ -1582,6 +1602,132 @@ function TREE_ITEM_SECTIONS(
     ]);
 }
 
+function ADJUST_SECTIONS(
+    snapshot: InspectorSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection[] {
+    if (snapshot.kind === 'caption' || snapshot.kind === 'audio') return [];
+    const itemId = snapshot.kind === 'cut' ? snapshot.itemId ?? `cut:${snapshot.index}` : snapshot.id;
+    const adjust = readInspectorAdjustSnapshot(snapshot.adjust);
+    const basicEnabled = adjust.sections.basic;
+    const lutEnabled = adjust.sections.lut;
+    const disabledTitle = 'セクションがオフのため変更できません。';
+    const basicFields: InspectorFieldDef[] = INSPECTOR_ADJUST_BASIC_FIELDS.map(field => ({
+        name: `adjust-basic-${field.key}`,
+        label: field.label,
+        getValue: () => formatInspectorAdjustValue(field.key, adjust.basic[field.key]),
+        getEditValue: () => String(adjust.basic[field.key]),
+        inputKind: 'scrub-number',
+        scrubStep: field.scrubStep,
+        min: field.minimum,
+        max: field.maximum,
+        unit: field.unit,
+        displayScale: field.displayScale,
+        displayOffset: field.displayOffset,
+        displayPrecision: field.displayPrecision,
+        keyframeDisabled: true,
+        disabled: !basicEnabled,
+        title: basicEnabled ? undefined : disabledTitle,
+        write: async (_snapshot, value) => basicEnabled
+            ? requestWrite(createInspectorAdjustWriteRequest(
+                itemId,
+                `adjust.basic.${field.key}`,
+                Number(value)
+            ))
+            : { ok: false, message: disabledTitle },
+        reset: () => requestWrite(createInspectorAdjustWriteRequest(
+            itemId,
+            `adjust.basic.${field.key}`,
+            null
+        ))
+    }));
+    const lutId = adjust.lut?.lut ?? 'なし';
+    const lutFields: InspectorFieldDef[] = [{
+        name: 'adjust-lut-preset',
+        label: 'プリセット',
+        getValue: () => lutId,
+        getEditValue: () => lutId,
+        inputKind: 'select',
+        options: ['なし', ...INSPECTOR_LUT_PRESET_IDS],
+        disabled: !lutEnabled,
+        title: lutEnabled ? undefined : disabledTitle,
+        write: async (_snapshot, value) => {
+            if (!lutEnabled) return { ok: false, message: disabledTitle };
+            if (value !== 'なし' && !INSPECTOR_LUT_PRESET_IDS.includes(
+                value as typeof INSPECTOR_LUT_PRESET_IDS[number]
+            )) {
+                return { ok: false, message: '一覧から LUT プリセットを選択してください。' };
+            }
+            return requestWrite(createInspectorAdjustWriteRequest(
+                itemId,
+                'adjust.lut.lut',
+                value === 'なし' ? null : value
+            ));
+        },
+        reset: () => requestWrite(createInspectorAdjustWriteRequest(
+            itemId,
+            'adjust.lut.lut',
+            null
+        ))
+    }, {
+        name: 'adjust-lut-intensity',
+        label: '強度',
+        getValue: () => `${Math.round((adjust.lut?.intensity ?? 1) * 100)}%`,
+        getEditValue: () => String(adjust.lut?.intensity ?? 1),
+        inputKind: 'scrub-number',
+        scrubStep: 0.01,
+        min: 0,
+        max: 1,
+        unit: '%',
+        displayScale: 100,
+        keyframeDisabled: true,
+        disabled: !lutEnabled || !adjust.lut,
+        title: !lutEnabled ? disabledTitle
+            : !adjust.lut ? 'LUT を選択すると変更できます。' : undefined,
+        write: async (_snapshot, value) => lutEnabled && adjust.lut
+            ? requestWrite(createInspectorAdjustWriteRequest(
+                itemId,
+                'adjust.lut.intensity',
+                Number(value)
+            ))
+            : { ok: false, message: !lutEnabled ? disabledTitle : 'LUT を選択してください。' },
+        reset: () => requestWrite(createInspectorAdjustWriteRequest(
+            itemId,
+            'adjust.lut.intensity',
+            null
+        ))
+    }];
+    return [{
+        id: 'adjust:basic',
+        label: ACTIVE_ADJUST_SECTIONS[0],
+        fields: basicFields,
+        enable: {
+            name: 'adjust-basic-enabled',
+            label: '基本補正を有効化',
+            checked: basicEnabled,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId,
+                'adjust.sections.basic',
+                enabled ? null : false
+            ))
+        }
+    }, {
+        id: 'adjust:lut',
+        label: ACTIVE_ADJUST_SECTIONS[1],
+        fields: lutFields,
+        enable: {
+            name: 'adjust-lut-enabled',
+            label: 'LUT を有効化',
+            checked: lutEnabled,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId,
+                'adjust.sections.lut',
+                enabled ? null : false
+            ))
+        }
+    }];
+}
+
 /**
  * タイムラインの選択内容を表示し、安全なフィールドを編集できるパネル。
  * 一度開けば常駐し、TimelineSelectionModel の変化に追従して内容を更新する。
@@ -1798,6 +1944,14 @@ export class AkariInspectorWidget extends BaseWidget {
         font: inherit;
         font-weight: 600;
         cursor: pointer;
+    }
+    .akari-inspector-widget .akari-inspector-section-enable {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        color: var(--theia-descriptionForeground);
+        font-size: 10px;
+        white-space: nowrap;
     }
     .akari-inspector-widget .akari-inspector-section-body {
         display: grid;
@@ -2167,6 +2321,9 @@ export class AkariInspectorWidget extends BaseWidget {
             this.appendSection(keyframeSection, rowSnapshot, sectionKind);
         }
         if (activeTab === 'adjust') {
+            ADJUST_SECTIONS(rowSnapshot, requestWrite)
+                .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
+                .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
             ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
             return;
         }
@@ -2316,6 +2473,32 @@ export class AkariInspectorWidget extends BaseWidget {
             this.sectionState.setCollapsed(kind, section.id, next);
         });
         header.appendChild(toggle);
+        if (section.enable) {
+            const enable = section.enable;
+            const enableLabel = document.createElement('label');
+            enableLabel.className = 'akari-inspector-section-enable';
+            enableLabel.title = enable.label;
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = enable.checked;
+            checkbox.setAttribute('aria-label', enable.label);
+            checkbox.setAttribute('data-akari-ui', `field:inspector-${enable.name}`);
+            const caption = document.createElement('span');
+            caption.textContent = '有効';
+            checkbox.addEventListener('change', () => {
+                const next = checkbox.checked;
+                checkbox.disabled = true;
+                void enable.write(next).then(result => {
+                    checkbox.disabled = false;
+                    if (!result.ok) {
+                        checkbox.checked = !next;
+                        this.showFieldNotice(result.message ?? '有効状態を変更できませんでした。');
+                    }
+                });
+            });
+            enableLabel.append(checkbox, caption);
+            header.appendChild(enableLabel);
+        }
         if (section.caption) {
             const caption = document.createElement('p');
             caption.className = 'akari-inspector-section-caption';
@@ -2549,6 +2732,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
                     displayScale: field.displayScale,
+                    displayOffset: field.displayOffset,
+                    displayPrecision: field.displayPrecision,
                     onPreview: sendLive,
                     onCommit: value => commitValue(String(value), () => undefined),
                     keyframe
@@ -2558,6 +2743,13 @@ export class AkariInspectorWidget extends BaseWidget {
                         (control as HTMLButtonElement | HTMLInputElement).disabled = true;
                     }
                     if (field.title) numberField.title = field.title;
+                }
+                if (field.keyframeDisabled) {
+                    for (const control of Array.from(
+                        numberField.querySelectorAll('.akari-inspector-kf-controls button')
+                    )) {
+                        (control as HTMLButtonElement).disabled = true;
+                    }
                 }
                 row.appendChild(numberField);
                 if (keyframe?.hasKeyframes) {

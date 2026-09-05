@@ -45,6 +45,7 @@ export function tabsForKind(
 export function assignSectionToTab(kind: InspectorTabKind, sectionId: string): string {
     const rootId = sectionId.split(':')[0];
     if (rootId === 'info') return 'info';
+    if (rootId === 'adjust') return 'adjust';
     if (kind === 'caption') return 'text';
     if (kind === 'audio') return 'audio';
     return 'video';
@@ -68,10 +69,10 @@ export class InspectorTabState {
 }
 
 export const COMING_SOON_ADJUST_SECTIONS = [
-    '基本補正',
     'RGB カーブ',
     'カラーホイール',
     'Hue カーブ',
-    'LUT',
     'エフェクト'
 ] as const;
+
+export const ACTIVE_ADJUST_SECTIONS = ['基本補正', 'LUT'] as const;
