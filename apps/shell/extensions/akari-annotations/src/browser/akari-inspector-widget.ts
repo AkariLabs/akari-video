@@ -64,6 +64,7 @@ import {
     AUDIO_MASTER_DEFAULT_LOUDNORM,
     AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP
 } from './inspector/audio-master';
+import { createAudioClipFxWriteRequest, type AudioClipFxRow } from './inspector/audio-clip-fx';
 import {
     createInspectorAdjustWriteRequest,
     formatInspectorAdjustValue,
@@ -186,6 +187,10 @@ function formatDurationSeconds(value: number): string {
 
 function formatDecimal1(value: number): string {
     return value.toFixed(1);
+}
+
+function formatDecimal2(value: number): string {
+    return value.toFixed(2);
 }
 
 function withDefaultNumber(
@@ -1356,7 +1361,86 @@ function AUDIO_SECTIONS(
                 : [])
         ]
     });
-    return composeInspectorSections(tabs);
+    tabs.push(...AUDIO_CLIP_FX_SECTIONS(snapshot, requestWrite));
+    return [
+        tabs.find(section => section.id === 'audio')!,
+        ...composeInspectorSections(tabs.filter(section => section.id !== 'audio'))
+    ];
+}
+
+function AUDIO_CLIP_FX_SECTIONS(
+    snapshot: TimelineAudioSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection[] {
+    const write = async (row: AudioClipFxRow, value: string | null): Promise<InspectorWriteResult> => {
+        try {
+            return await requestWrite(createAudioClipFxWriteRequest(snapshot, row, value));
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    };
+    const sections: InspectorSection[] = [];
+    if (snapshot.audioKind !== 'narration') {
+        const formantLabel = snapshot.formant === 'shift' ? '移動' : '保持';
+        sections.push({
+            id: 'audio:pitch-time', label: 'ピッチ・タイム',
+            caption: '速度はピッチを保ったまま変わります（タイムライン上の開始位置は不変・実効尺 = 素材尺 ÷ 速度）',
+            fields: [{
+                name: 'audio-speed', label: '速度', unit: '×',
+                getValue: () => formatDecimal2(snapshot.speed ?? 1),
+                getEditValue: () => String(snapshot.speed ?? 1),
+                inputKind: 'scrub-number', min: 0.25, max: 4, scrubStep: 0.05, displayPrecision: 2,
+                reset: () => write('speed', null),
+                write: async (_rowSnapshot, value) => write('speed', value)
+            }, {
+                name: 'audio-pitch', label: 'ピッチ', unit: 'st',
+                getValue: () => String(snapshot.pitchSemitones ?? 0),
+                getEditValue: () => String(snapshot.pitchSemitones ?? 0),
+                inputKind: 'scrub-number', min: -24, max: 24, scrubStep: 1,
+                reset: () => write('pitch_semitones', null),
+                write: async (_rowSnapshot, value) => write('pitch_semitones', value)
+            }, {
+                name: 'audio-formant', label: 'フォルマント',
+                getValue: () => formantLabel, getEditValue: () => formantLabel,
+                inputKind: 'select', options: ['保持', '移動'],
+                reset: () => write('formant', null),
+                write: async (_rowSnapshot, value) => write('formant', value)
+            }]
+        });
+    }
+    const denoiseLabel = snapshot.denoise?.method === 'fft' ? 'FFT'
+        : snapshot.denoise?.method === 'nlm' ? 'NLM' : 'オフ';
+    sections.push({
+        id: 'audio:enhancement', label: '音声強調',
+        fields: [{
+            name: 'audio-denoise-method', label: 'ノイズ除去',
+            getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
+            inputKind: 'select', options: ['オフ', 'FFT', 'NLM'],
+            reset: () => write('denoise-method', null),
+            write: async (_rowSnapshot, value) => write('denoise-method', value)
+        }, {
+            name: 'audio-denoise-strength', label: '強さ', unit: '%',
+            getValue: () => String(Math.round((snapshot.denoise?.strength ?? 0.5) * 100)),
+            getEditValue: () => String(snapshot.denoise?.strength ?? 0.5),
+            inputKind: 'scrub-number', min: 0, max: 1, scrubStep: 0.05,
+            displayScale: 100, displayPrecision: 0,
+            disabled: snapshot.denoise === undefined,
+            title: snapshot.denoise === undefined ? 'ノイズ除去をオンにすると変更できます。' : undefined,
+            reset: () => write('denoise-strength', null),
+            write: async (_rowSnapshot, value) => write('denoise-strength', value)
+        }, {
+            name: 'audio-lowcut', label: 'ローカット', unit: 'Hz',
+            getValue: () => String(snapshot.lowcutHz ?? 0),
+            getEditValue: () => String(snapshot.lowcutHz ?? 0),
+            inputKind: 'scrub-number', min: 0, max: 400, scrubStep: 5,
+            reset: () => write('lowcut_hz', null),
+            write: async (_rowSnapshot, value) => write('lowcut_hz', value)
+        }, {
+            name: 'audio-voice-isolation', label: 'ボイス分離',
+            getValue: () => '近日', disabled: true
+        }]
+    });
+    return sections;
 }
 
 function AUDIO_MASTER_SECTION(
@@ -2871,6 +2955,10 @@ export class AkariInspectorWidget extends BaseWidget {
             const valueElement = document.createElement('div');
             valueElement.className = 'akari-inspector-row-value';
             valueElement.textContent = field.getValue(snapshot);
+            if (field.disabled) {
+                row.setAttribute('aria-disabled', 'true');
+                row.style.color = 'var(--theia-disabledForeground)';
+            }
             row.appendChild(valueElement);
             parent.appendChild(row);
             return;

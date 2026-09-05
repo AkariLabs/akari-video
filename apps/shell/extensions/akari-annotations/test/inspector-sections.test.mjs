@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
+import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 
 test('調整タブの A/B ボタンはイージング節より前に追加し、イージング節を隠さない', () => {
   const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -505,6 +507,52 @@ test('default change 2026-09-02: inspector displays attack 0.3 / release 0.8 wit
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.3, duckRelease: 0\.8 \}/u);
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckAttack, 0, 2, 0\.01, 's'/u);
   assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckRelease, 0, 5, 0\.05, 's'/u);
+});
+
+test('sfx / bgm 音声タブはピッチ・タイム→音声強調、narration は音声強調だけを追加する', () => {
+    for (const kind of ['sfx', 'bgm', 'narration']) {
+        const sections = audioSections(audioSnapshot(kind), async () => ({ ok: true }))
+            .filter(section => assignSectionToTab('audio', section.id) === 'audio');
+        assert.deepEqual(sections.map(section => section.label), [
+            '音声', '時間', ...(kind === 'narration' ? [] : ['フェード・ダッキング']), '音量キーフレーム',
+            ...(kind === 'narration' ? [] : ['ピッチ・タイム']), '音声強調'
+        ]);
+        assert.ok(sections.find(section => section.id === 'audio:enhancement').fields[0].write);
+    }
+});
+
+test('cut の音声タブはグレー 6 枚のまま、実働 clip FX は audio factory だけに属する', () => {
+    assert.equal(AUDIO_PREVIEW_SECTIONS.length, 6);
+    const render = sourceBetween('protected render(): void', 'protected tabSourceHint(');
+    assert.match(render, /activeTab === 'audio' && sectionKind !== 'audio'[\s\S]*AUDIO_PREVIEW_SECTIONS[\s\S]*return;/u);
+    assert.match(sourceBetween('function AUDIO_SECTIONS(', 'function AUDIO_CLIP_FX_SECTIONS('),
+        /tabs.push\(\.\.\.AUDIO_CLIP_FX_SECTIONS\(snapshot, requestWrite\)\)/u);
+});
+
+test('ノイズ除去の実働強さ行は 60% 入力を 0.6 として書き、5% 刻みで操作する', async () => {
+    const snapshot = audioSnapshot('sfx', { denoise: { method: 'nlm', strength: 0.5 } });
+    const requests = [];
+    const row = fxSections(snapshot, async request => { requests.push(request); return { ok: true }; })
+        .flatMap(section => section.fields).find(field => field.name === 'audio-denoise-strength');
+    assert.equal(row.getValue(snapshot), '50');
+    assert.equal(row.disabled, false);
+    assert.equal(row.scrubStep * row.displayScale, 5);
+    const field = withFakeDocument(() => createNumberField({
+        name: row.name, label: row.label, value: Number(row.getEditValue(snapshot)),
+        min: row.min, max: row.max, step: row.scrubStep, unit: row.unit,
+        displayScale: row.displayScale, displayPrecision: row.displayPrecision,
+        onCommit: async value => (await row.write(snapshot, String(value))).ok
+    }));
+    const input = field.children[1];
+    assert.equal(input.value, '50');
+    input.value = '60';
+    input.emit('blur');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(input.value, '60');
+    assert.deepEqual(requests[0], {
+        kind: 'audio-clip-fx', id: 'clip', audioKind: 'sfx', field: 'denoise',
+        value: { method: 'nlm', strength: 0.6 }
+    });
 });
 
 test('ダッキング数値 UI は契約範囲と step を固定する', () => {

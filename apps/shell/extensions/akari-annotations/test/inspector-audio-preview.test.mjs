@@ -56,13 +56,11 @@ function buildSection(id) {
   return section.build();
 }
 
-test('音声プレビューは裁定どおりの 6 セクションと audio アイテム用 2 セクションを定義する', () => {
+test('音声プレビューは 6 セクションを保ち、audio アイテム用グレー節は空にする', () => {
   assert.deepEqual(AUDIO_PREVIEW_SECTIONS.map(section => section.label), [
     '音量', 'フェード', '音声強調', 'ダッキング', 'A/V リンク', 'ピッチ・タイム'
   ]);
-  assert.deepEqual(AUDIO_ITEM_PREVIEW_SECTIONS.map(section => section.label), [
-    '音声強調', 'ピッチ・タイム'
-  ]);
+  assert.deepEqual(AUDIO_ITEM_PREVIEW_SECTIONS, []);
 });
 
 test('各音声プレビューは裁定どおりの行数を表示する', () => withFakeDocument(() => {

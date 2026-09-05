@@ -250,6 +250,11 @@ import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
+    audioClipFxFieldsForSnapshot,
+    updateAudioClipFxDocument,
+    type AudioClipFxWriteRequest
+} from './inspector/audio-clip-fx';
+import {
     readInspectorAdjustSnapshot,
     updateInspectorAdjust,
     type InspectorAdjustPath
@@ -2554,6 +2559,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const v2Result = await this.handleInspectorWriteV2(request);
         if (v2Result) return v2Result;
+        if (request.kind === 'audio-clip-fx') return this.handleAudioClipFxWrite(request);
         try {
             switch (request.kind) {
                 case 'caption-text':
@@ -3045,6 +3051,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected async handleAudioClipFxWrite(request: AudioClipFxWriteRequest): Promise<InspectorWriteResult> {
+        if (this.legacyReadOnly) {
+            return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
+        }
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        const label = '音声クリップのエフェクトを変更';
+        try {
+            if (this.editDocument?.version === 2) {
+                await this.commitEditMutation(label, doc => updateAudioClipFxDocument(doc, request));
+            } else {
+                const before = (await this.fileService.readFile(editUri)).value.toString();
+                const updated = updateAudioClipFxDocument(JSON.parse(before), request);
+                const after = `${JSON.stringify(updated, null, 2)}\n`;
+                if (after !== before) {
+                    await this.writeEditSnapshotGuarded(after);
+                    this.pushHistory({
+                        label,
+                        undo: async () => {
+                            await this.writeEditSnapshotGuarded(before);
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.writeEditSnapshotGuarded(after);
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                }
+            }
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
     protected async handleAudioMasterWrite(request: AudioMasterWriteRequest): Promise<InspectorWriteResult> {
         const editUri = this.location?.editUri;
         if (!editUri) return { ok: false, message: 'edit.json がありません。' };
@@ -3081,6 +3127,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async handleInspectorWriteV2(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
+        if (request.kind === 'audio-clip-fx') {
+            return this.editDocument?.version === 2 ? this.handleAudioClipFxWrite(request) : undefined;
+        }
         if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
@@ -3657,6 +3706,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(sfx.fadeIn !== undefined ? { fadeIn: sfx.fadeIn } : {}),
                 ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {}),
                 ...this.audioEnvelopeFieldsForSnapshot(sfx),
+                ...audioClipFxFieldsForSnapshot(sfx),
                 keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
                 fps: this.fps,
                 playheadSeconds: this.playheadT
@@ -3675,6 +3725,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(narration.gainDb !== undefined ? { gainDb: narration.gainDb } : {}),
                 ...(narration.script !== undefined ? { script: narration.script } : {}),
                 ...this.audioEnvelopeFieldsForSnapshot(narration),
+                ...audioClipFxFieldsForSnapshot(narration),
                 keyframeFrames: this.rawV2Item(narration.id) !== undefined,
                 fps: this.fps,
                 playheadSeconds: this.playheadT
@@ -3692,6 +3743,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
                 ...this.audioEnvelopeFieldsForSnapshot(this.audioBgm),
+                ...audioClipFxFieldsForSnapshot(this.audioBgm),
                 keyframeFrames: bgmItemId !== undefined,
                 fps: this.fps,
                 playheadSeconds: this.playheadT
