@@ -25507,6 +25507,7 @@ function createPreviewAudioSupply(options) {
   let bufferedUntil = {};
   let generation = 0;
   let starting = false;
+  let replanPending = false;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -25523,11 +25524,13 @@ function createPreviewAudioSupply(options) {
   let workletReady = false;
   let workletWarningEmitted = false;
   let stretcher = "none";
-  const sidecarValues = [
-    ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
-    ...speech.map((item) => item.sidecar)
-  ].filter((item) => Boolean(item));
-  const uniqueSidecars = [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  const uniqueSidecars = () => {
+    const sidecarValues = [
+      ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
+      ...speech.map((item) => item.sidecar)
+    ].filter((item) => Boolean(item));
+    return [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  };
   const crossfades = speech.filter((item) => finitePositive2(item.crossfadeOutSec)).map((item) => ({
     id: item.id,
     startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
@@ -25871,7 +25874,10 @@ function createPreviewAudioSupply(options) {
     });
   };
   const replanIfNeeded = () => {
-    if (starting) return;
+    if (starting) {
+      replanPending = true;
+      return;
+    }
     const decodedCount = decodedRevision;
     if (!playing) {
       if (lastStartOutcome === "empty" && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
@@ -26189,6 +26195,7 @@ function createPreviewAudioSupply(options) {
           materialDurationSec: resolved.durationSec
         }];
       });
+      const planDecodedCount = decodedRevision;
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
@@ -26216,7 +26223,7 @@ function createPreviewAudioSupply(options) {
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = decodedRevision;
+      scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
       const skipped = [];
       for (const item of lastSchedule) {
@@ -26235,6 +26242,10 @@ function createPreviewAudioSupply(options) {
       if (thisGeneration === generation) {
         starting = false;
         lastStartOutcome = outcome;
+        if (replanPending) {
+          replanPending = false;
+          replanIfNeeded();
+        }
       }
     }
   };
@@ -26250,6 +26261,7 @@ function createPreviewAudioSupply(options) {
     generation += 1;
     playing = false;
     starting = false;
+    replanPending = false;
     lastStartOutcome = null;
     stopSources();
   };
@@ -26259,6 +26271,7 @@ function createPreviewAudioSupply(options) {
     pauseTimer = setTimeout(pause, watchdogMs);
   };
   const debug = () => {
+    const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap((src) => {
       const metric = speechMetrics.get(src);
@@ -26290,7 +26303,7 @@ function createPreviewAudioSupply(options) {
       return true;
     });
     const required = requiredTasks.map((task) => task.key);
-    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (bufferedUntil[task.key] ?? -Infinity) > positionSec)).map((task) => task.key);
+    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!playing || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
     const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
     const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
     const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
@@ -26329,9 +26342,9 @@ function createPreviewAudioSupply(options) {
         }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 })
       },
       sidecars: {
-        generated: uniqueSidecars.filter((item) => item.skipped === false).length,
-        skipped: uniqueSidecars.filter((item) => item.skipped === true).length,
-        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
+        generated: sidecars.filter((item) => item.skipped === false).length,
+        skipped: sidecars.filter((item) => item.skipped === true).length,
+        bytes: sidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
       },
       crossfades,
       speechDecode: {
@@ -26439,6 +26452,7 @@ function createPreviewAudioSupply(options) {
       generation += 1;
       playing = false;
       starting = false;
+      replanPending = false;
       lastStartOutcome = null;
       stopSources();
       if (continuePlaying && context) launch(latestRequestedSec);
@@ -26457,6 +26471,7 @@ function createPreviewAudioSupply(options) {
         generation += 1;
         playing = false;
         starting = false;
+        replanPending = false;
         lastStartOutcome = null;
         stopSources();
         launch(latestRequestedSec);

@@ -338,6 +338,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let bufferedUntil: Record<string, number> = {};
   let generation = 0;
   let starting = false;
+  let replanPending = false;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -355,11 +356,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let workletWarningEmitted = false;
   let stretcher: 'worklet' | 'none' = 'none';
 
-  const sidecarValues = [
-    ...declarations.map(item => validSidecar(item.spec.sidecar) ? item.spec.sidecar : undefined),
-    ...speech.map(item => item.sidecar),
-  ].filter((item): item is PreviewAudioSidecar => Boolean(item));
-  const uniqueSidecars = [...new Map(sidecarValues.map(item => [item.path, item])).values()];
+  const uniqueSidecars = (): PreviewAudioSidecar[] => {
+    const sidecarValues = [
+      ...declarations.map(item => validSidecar(item.spec.sidecar) ? item.spec.sidecar : undefined),
+      ...speech.map(item => item.sidecar),
+    ].filter((item): item is PreviewAudioSidecar => Boolean(item));
+    return [...new Map(sidecarValues.map(item => [item.path, item])).values()];
+  };
   const crossfades = speech.filter(item => finitePositive(item.crossfadeOutSec)).map(item => ({
     id: item.id,
     startSec: item.atSec + item.durationSec - (item.crossfadeOutSec as number),
@@ -727,7 +730,10 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   const replanIfNeeded = (): void => {
-    if (starting) return;
+    if (starting) {
+      replanPending = true;
+      return;
+    }
     const decodedCount = decodedRevision;
     if (!playing) {
       // 失敗 task を開始待ちから外したぶん、「その位置に鳴らせる音源がまだ無い」（outcome=empty）で
@@ -1058,6 +1064,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       // rAF ごとに壁時計の fallback を latestRequestedSec に書き戻すので、ここで
       // latestRequestedSec を優先すると音声時計から壁時計へ黙って乗り換えてしまう
       // （gpt-6-astra の指摘 P0）。`||` は 0 秒を落とすので使わない。
+      // 窓待ち中に届く更新は、この予定表にはまだ含まれない。
+      const planDecodedCount = decodedRevision;
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp(options.pinStart ? seconds : latestRequestedSec),
@@ -1087,7 +1095,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = decodedRevision;
+      scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule
         .filter(item => item.sidecar || item.atempo).map(item => item.id));
       const skipped: string[] = [];
@@ -1110,6 +1118,10 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (thisGeneration === generation) {
         starting = false;
         lastStartOutcome = outcome;
+        if (replanPending) {
+          replanPending = false;
+          replanIfNeeded();
+        }
       }
     }
   };
@@ -1133,6 +1145,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     generation += 1;
     playing = false;
     starting = false;
+    replanPending = false;
     lastStartOutcome = null;
     stopSources();
   };
@@ -1144,6 +1157,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   const debug = (): PreviewAudioSupplyDebug => {
+    const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap(src => {
       const metric = speechMetrics.get(src);
@@ -1172,7 +1186,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     const required = requiredTasks.map(task => task.key);
     const ready = tasks.filter(task => !windowFailures.has(task.key) && task.resolved()
       && (task.state === 'decode' || (task.state === 'windowed'
-        && (bufferedUntil[task.key] ?? -Infinity) > positionSec)))
+        && (!playing || (bufferedUntil[task.key] ?? -Infinity) > positionSec))))
       .map(task => task.key);
     const pendingSidecar = tasks.filter(task => task.state === 'pending-sidecar').map(task => task.key);
     const failed = tasks.filter(task => windowFailures.has(task.key)
@@ -1217,9 +1231,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 }),
       },
       sidecars: {
-        generated: uniqueSidecars.filter(item => item.skipped === false).length,
-        skipped: uniqueSidecars.filter(item => item.skipped === true).length,
-        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes! : 0), 0),
+        generated: sidecars.filter(item => item.skipped === false).length,
+        skipped: sidecars.filter(item => item.skipped === true).length,
+        bytes: sidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes! : 0), 0),
       },
       crossfades,
       speechDecode: {
@@ -1329,6 +1343,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       generation += 1;
       playing = false;
       starting = false;
+      replanPending = false;
       lastStartOutcome = null;
       stopSources();
       if (continuePlaying && context) launch(latestRequestedSec);
@@ -1347,6 +1362,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         generation += 1;
         playing = false;
         starting = false;
+        replanPending = false;
         lastStartOutcome = null;
         stopSources();
         launch(latestRequestedSec);

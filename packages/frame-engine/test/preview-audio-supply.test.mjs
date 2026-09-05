@@ -42,6 +42,183 @@ function assertPcmNode(source, startFrame) {
   assert.deepEqual(source.buffer.getChannelData(0), expectedSamples(startFrame, source.buffer.length));
 }
 
+test('再生中の組み直しが最初の窓を待つ間に届いた次の ready も拾い、組み直しは 2 回だけ行う', async t => {
+  const secondWindow = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: request => {
+    if (request.url === '/voice.pcm' && request.start === sampleRate) {
+      return new Promise(resolve => setTimeout(resolve, 800));
+    }
+    if (request.url === '/bed.pcm') return secondWindow.promise;
+  } });
+  const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } };
+  const voice = pcmDeclaration('voice', 120, 'narration', { t: 0 });
+  const bed = pcmDeclaration();
+  const queuedVoice = { ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } };
+  const queuedBed = { ...bed, spec: { ...bed.spec, sidecarState: 'generating', sidecar: undefined } };
+  const { supply, context, clock, requests, warnings } = pcmSupply(t, {
+    server, declarations: [marker, queuedVoice, queuedBed],
+    fetchImpl: (url, options) => url.endsWith('.pcm') ? server.fetchImpl(url, options) : Promise.resolve(response(1)),
+  });
+  const resume = t.mock.method(context, 'resume');
+  const markerSources = () => context.sources.filter(source => source.buffer === context.buffers.get(1));
+  const stops = () => markerSources().reduce((sum, source) => sum + source.stops.length, 0);
+  supply.playFrom(0);
+  await flush();
+  assert.equal(supply.debug().scheduled.itemCount, 1);
+  context.currentTime = 0.52;
+  supply.updateAudio({ declarations: [marker, voice, queuedBed] });
+  await flush();
+  assert.equal(requests[0].start, sampleRate, '音声時計の 0.5 秒から最初の窓を待つ');
+  supply.updateAudio({ declarations: [marker, voice, bed] });
+  await flush();
+  supply.playbackTime(50);
+  await clock.advance(799);
+  assert.equal(stops(), 0, '窓待ち中も旧音源を鳴らし続ける');
+  assert.equal(supply.debug().scheduled.itemCount, 1);
+  await clock.advance(1);
+  assert.equal(stops(), 1);
+  assert.equal(supply.debug().scheduled.itemCount, 2);
+  assert.ok(requests.some(request => request.url === '/bed.pcm'), '保留した更新で次の組み直しが始まる');
+  assert.equal(markerSources().at(-1).stops.length, 0, '次の窓待ち中も直前の音源は止めない');
+  secondWindow.resolve();
+  await flush();
+  const debug = supply.debug();
+  assert.equal(debug.scheduled.itemCount, 3);
+  assert.equal(debug.scheduled.bgm, 1);
+  assert.equal(debug.scheduled.narration, 1);
+  assert.equal(debug.scheduled.startAtSec, 0.5, '壁時計の fallback へ乗り換えない');
+  assert.deepEqual(new Set(debug.supply.ready), new Set(['sfx:marker', 'narration:voice', 'bgm:bed']));
+  assert.ok(debug.supply.bufferedUntil['bgm:bed'] > supply.position(50));
+  assert.equal(debug.supply.phase, 'ready');
+  assert.deepEqual(debug.scheduled.skipped, []);
+  assert.equal(stops(), 2, '常時鳴る marker の stop は組み直しごとに 1 回だけ');
+  assert.equal(markerSources().length, 3);
+  assert.equal(resume.mock.callCount(), 3, '初回開始と組み直し 2 回だけ launch する');
+  assert.deepEqual(warnings, []);
+});
+
+for (const action of ['pause', 'seek', 'dispose']) {
+  test(`組み直し中の ready を保留しても ${action} 後に古い世代から再開しない`, async t => {
+    const gate = deferred();
+    const bed = pcmDeclaration();
+    const voice = pcmDeclaration('voice', 120, 'narration', { t: 0 });
+    const queued = { ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } };
+    const server = rangeServer({ requireRange: true, beforeResponse: request =>
+      request.url === '/voice.pcm' ? gate.promise : undefined });
+    const { supply, context, clock, requests } = pcmSupply(t, { server, declarations: [bed, queued] });
+    const resume = t.mock.method(context, 'resume');
+    supply.playFrom(0);
+    await flush();
+    supply.updateAudio({ declarations: [bed, voice] });
+    await flush();
+    const replacement = { ...voice, url: '/new-voice.pcm', spec: { ...voice.spec,
+      sidecar: { ...voice.spec.sidecar, path: '/new-voice.pcm' },
+    } };
+    supply.updateAudio({ declarations: [bed, replacement] });
+    await flush();
+    assert.equal(resume.mock.callCount(), 2);
+    if (action === 'seek') supply.seek(30);
+    else supply[action]();
+    assert.ok(requests.find(request => request.url === '/voice.pcm').signal.aborted);
+    const count = context.sources.length;
+    gate.resolve();
+    await flush();
+    await clock.advance(10000);
+    assert.equal(supply.debug().playing, false);
+    assert.equal(context.sources.length, count);
+    assert.ok(context.sources.every(source => source.stops.length === 1));
+    assert.equal(resume.mock.callCount(), 2, '保留していた更新で launch しない');
+    assert.equal(clock.pending(), 0);
+  });
+}
+
+test('同じ tick の updateAudio は prefetch に合流し、finally と then が重なっても組み直しは 1 回だけ行う', async t => {
+  const marker = { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } };
+  const voice = { kind: 'narration', id: 'voice', url: '/voice.flac', spec: { t: 0, sidecarState: 'ready' } };
+  const bed = pcmDeclaration();
+  const queuedVoice = { ...voice, spec: { ...voice.spec, sidecarState: 'queued' } };
+  const queuedBed = { ...bed, spec: { ...bed.spec, sidecarState: 'queued', sidecar: undefined } };
+  const gate = deferred();
+  const server = rangeServer({ requireRange: true });
+  const { supply, context, warnings } = pcmSupply(t, {
+    server, declarations: [marker, queuedVoice, queuedBed],
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('.pcm')) return server.fetchImpl(url, options);
+      if (url === '/voice.flac') await gate.promise;
+      return response(1);
+    },
+  });
+  const resume = t.mock.method(context, 'resume');
+  supply.playFrom(0);
+  await flush();
+  const original = context.sources[0];
+  supply.updateAudio({ declarations: [marker, voice, queuedBed] });
+  supply.updateAudio({ declarations: [marker, voice, bed] });
+  await flush();
+  assert.equal(supply.debug().prefetch.pending, 1);
+  assert.equal(original.stops.length, 0);
+  gate.resolve();
+  await flush();
+  assert.equal(supply.debug().scheduled.itemCount, 3);
+  assert.deepEqual(new Set(supply.debug().supply.ready), new Set(['sfx:marker', 'narration:voice', 'bgm:bed']));
+  assert.equal(supply.debug().supply.phase, 'ready');
+  assert.equal(original.stops.length, 1);
+  assert.ok(context.sources.slice(1).every(source => source.stops.length === 0));
+  assert.equal(resume.mock.callCount(), 2, '初回開始と組み直し 1 回だけ launch する');
+  assert.equal(context.decodeCalls, 2);
+  assert.deepEqual(warnings, []);
+});
+
+test('再生前は PCM メタデータだけで ready になり、再生中は最初の窓が届くまで preparing に戻る', async t => {
+  const gate = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: () => gate.promise });
+  const bed = pcmDeclaration();
+  const queued = { ...bed, spec: { ...bed.spec, sidecarState: 'generating', sidecar: undefined } };
+  const { supply, clock, requests } = pcmSupply(t, { server, declarations: [queued] });
+  assert.equal(supply.debug().supply.phase, 'preparing');
+  supply.updateAudio({ declarations: [bed] });
+  await flush();
+  assert.deepEqual(supply.debug().supply.bufferedUntil, {});
+  assert.deepEqual(supply.debug().supply.ready, ['bgm:bed']);
+  assert.equal(supply.debug().supply.phase, 'ready');
+  assert.equal(requests.length, 0, '再生前に窓を取得しない');
+  supply.playFrom(0);
+  await flush();
+  await clock.advance(1500);
+  assert.equal(supply.debug().playing, true);
+  assert.deepEqual(supply.debug().supply.ready, []);
+  assert.equal(supply.debug().supply.phase, 'preparing');
+  gate.resolve();
+  await flush();
+  assert.ok(supply.debug().supply.bufferedUntil['bgm:bed'] > supply.position(0));
+  assert.deepEqual(supply.debug().supply.ready, ['bgm:bed']);
+  assert.equal(supply.debug().supply.phase, 'ready');
+  supply.pause();
+  assert.deepEqual(supply.debug().supply.bufferedUntil, {});
+  assert.equal(supply.debug().supply.phase, 'ready');
+});
+
+test('updateAudio 後の sidecar 集計は現在の declarations と speech を重複排除して映す', async t => {
+  const bed = pcmDeclaration();
+  bed.spec.sidecar = { ...bed.spec.sidecar, skipped: true, bytes: 100 };
+  const spoken = speech('spoken', 'video', '/video.mp4', { sidecar: bed.spec.sidecar, sidecarState: 'ready' });
+  const { supply, requests } = pcmSupply(t, { declarations: [bed], speech: [spoken] });
+  const before = supply.debug().sidecars;
+  assert.deepEqual(before, { generated: 0, skipped: 1, bytes: 100 });
+  const replacement = { ...bed, url: '/new-bed.pcm', spec: { ...bed.spec,
+    sidecar: { ...bed.spec.sidecar, path: '/new-bed.pcm', skipped: false, bytes: 200 },
+  } };
+  supply.updateAudio({ declarations: [replacement] });
+  assert.deepEqual(supply.debug().sidecars, { generated: 1, skipped: 1, bytes: 300 });
+  supply.updateAudio({ speech: [{ ...spoken,
+    sidecar: { ...spoken.sidecar, path: '/new-speech.pcm', skipped: false, bytes: 400 },
+  }] });
+  await flush();
+  assert.deepEqual(supply.debug().sidecars, { generated: 2, skipped: 0, bytes: 600 });
+  assert.deepEqual(before, { generated: 0, skipped: 1, bytes: 100 }, '以前の debug は書き換えない');
+  assert.equal(requests.length, 0);
+});
+
 test('windowed PCM uses only bounded Ranges and replenishes per-item bufferedUntil without decode bytes', async t => {
   const { supply, context, clock, requests } = pcmSupply(t, {
     declarations: [pcmDeclaration(), pcmDeclaration('voice', 120, 'narration', { t: 4 })],
