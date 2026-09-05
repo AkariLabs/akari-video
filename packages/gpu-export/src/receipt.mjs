@@ -42,6 +42,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       preview: normalizePreview(run?.preview),
       domLayer: run?.domLayer ?? null,
       three: normalizeThreeSummary(run?.three),
+      ...(run?.vgpu ? { vgpu: normalizeVgpuSummary(run.vgpu) } : {}),
       viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
       forced: normalizeForcedEligibility(forced),
@@ -293,4 +294,15 @@ function nonNegativeInteger(value) {
   if (value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function normalizeVgpuSummary(value) {
+  return {
+    overlays: Math.floor(finiteNonNegative(value.overlays) ?? 0),
+    adapter: { vendor: typeof value.adapter?.vendor === "string" ? value.adapter.vendor : "",
+      architecture: typeof value.adapter?.architecture === "string" ? value.adapter.architecture : "" },
+    previewScale: Number.isFinite(value.previewScale) ? value.previewScale : null,
+    deviceLost: value.deviceLost === true,
+    probeMs: finiteNonNegative(value.probeMs),
+  };
 }

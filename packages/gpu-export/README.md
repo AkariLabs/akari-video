@@ -258,3 +258,5 @@ The frame-engine bundle is generated. Do not edit `generated/frame-engine.js` di
 Frame hashing is available only through the isolated verification module and cannot be combined
 with the runtime readback trap. DOM frame verification uses an isolated texture sentinel and
 records the selected settle policy (`raf2-paint-event` or `sync-layout`) in the receipt.
+
+Declarative `data-akari-vgpu-scene` overlays use the vendored vgpu 0.4.0 WebGPU runtime and transfer each freshly drawn canvas into the GPU compositor. v0 supports pure fragment passes, earlier-pass texture inputs, and CSS `--vgpu-*` uniforms. Live preview defaults to half resolution per edge; GPU export uses full resolution with the same placement and time. WebGPU probe/device failures are fatal, including in `auto` (no OSR fallback); `gpu.vgpu` is present in receipts only when used. See the [vgpu v0 contract](../../docs/contract-2026-09-06-vgpu-layer-v0.md) (Japanese).

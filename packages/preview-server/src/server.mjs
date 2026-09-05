@@ -98,6 +98,8 @@ const DEFAULT_THREE_FONT_ROUTE = '/__akari/fonts/zen-kaku-gothic-new-black.ttf';
 const THREE_ROUTES = {
   '/three-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/three-bundle.js', import.meta.url)),
   '/vendor-3d-text-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js', import.meta.url)),
+  '/vgpu-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/vgpu-bundle.js', import.meta.url)),
+  '/vgpu-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/vgpu-runtime.js', import.meta.url)),
   '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
   '/video-fx.js': fileURLToPath(new URL('../../overlay-runtime/src/video-fx.js', import.meta.url)),
   // ビューポート単位（vw/vh 系）のステージ基準化。プレビューはステージを scale() で縮めるので
