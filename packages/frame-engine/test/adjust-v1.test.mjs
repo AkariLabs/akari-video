@@ -91,9 +91,9 @@ test('effective identity truth table and memo keys include each new section and 
 });
 
 // Read-only live oracle. Set AKARI_LEGACY_ROOT on machines with the legacy checkout.
-const legacyRoot = process.env.AKARI_LEGACY_ROOT ?? 'C:/Users/kyach/akari-wt/video-on-os-ref';
-const legacyPath = join(legacyRoot, 'src/lib/color-grade.ts');
-const legacy = existsSync(legacyPath)
+const legacyRoot = process.env.AKARI_LEGACY_ROOT;
+const legacyPath = legacyRoot ? join(legacyRoot, 'src/lib/color-grade.ts') : undefined;
+const legacy = legacyPath && existsSync(legacyPath)
   ? await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync(legacyPath, 'utf8'))).toString('base64'))
   : undefined;
 for (const [name, adjust] of Object.entries({ wheels: { wheels }, curves: { curves }, hue: { hue }, combined: { basic, wheels, curves, hue } })) {
