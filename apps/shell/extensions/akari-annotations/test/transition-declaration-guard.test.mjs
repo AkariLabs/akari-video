@@ -13,7 +13,7 @@ test('宣言前ガードは edit.json 書き込みより先に return する', (
   const method = source.slice(start, end);
   const guard = method.indexOf('if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined');
   const adjacency = method.indexOf('this.nonAdjacentTransitionTarget(cutIndex) !== undefined', guard);
-  const noWriteReturn = method.indexOf('return;', guard);
+  const noWriteReturn = method.indexOf('return { ok: false, message };', guard);
   const write = method.indexOf("commitEditMutation('トランジションを変更'");
   assert.ok(guard >= 0 && adjacency > guard && noWriteReturn > adjacency && write > noWriteReturn, method);
 });

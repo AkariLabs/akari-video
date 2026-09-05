@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import ts from 'typescript';
 import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
+import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
+import { keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
 test('調整タブの A/B ボタンはイージング節より前に追加し、イージング節を隠さない', () => {
   const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -44,6 +47,69 @@ import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 
+// Theia の DOM / DI を起動せず、実ソースの行描画・KF 判定・メニューを実行する。
+const inspectorAst = ts.createSourceFile('akari-inspector-widget.ts', inspectorWidgetSource,
+  ts.ScriptTarget.Latest, true);
+const inspectorClass = inspectorAst.statements.find(statement => ts.isClassDeclaration(statement)
+  && statement.name?.text === 'AkariInspectorWidget');
+const rowMethods = ['appendRow', 'keyframeSeatOptions', 'attachRowMenu'].map(name => {
+  const method = inspectorClass.members.find(member => member.name?.getText(inspectorAst) === name);
+  assert.ok(method, name);
+  return method.getText(inspectorAst);
+});
+const rowCode = ts.transpileModule(`class InspectorRows { ${rowMethods.join('\n')} }`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2021 }
+}).outputText;
+const InspectorRows = new Function('createNumberField', 'keyframeValueAt',
+  `${rowCode}\nreturn InspectorRows;`)(createNumberField, keyframeValueAt);
+
+test('layer / item の動画タブにクロップ直後のパース（4 隅）8行 + 解除が出る', () => {
+  for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
+    const snapshot = visualSnapshot(kind);
+    const sections = factory(snapshot, async () => ({ ok: true }))
+      .filter(section => assignSectionToTab(kind, section.id) === 'video');
+    const index = sections.findIndex(section => section.id === 'perspective');
+    assert.ok(index > 0);
+    assert.equal(sections[index - 1].id, 'crop');
+    assert.equal(sections[index].label, 'パース（4 隅）');
+    assert.equal(sections[index].collapsedByDefault, true);
+    assert.deepEqual(sections[index].fields.map(field => field.label), [
+      '左上 X', '左上 Y', '右上 X', '右上 Y', '左下 X', '左下 Y', '右下 X', '右下 Y', '解除'
+    ]);
+  }
+});
+
+test('cut の時間セクションに実働のトランジション選択・尺が一度だけ出る', () => {
+  const sections = cutSections(cutSnapshot(), async () => ({ ok: true }));
+  const time = sections.find(section => section.id === 'time');
+  const rows = time.fields.filter(field => field.name.startsWith('transition-'));
+  assert.deepEqual(rows.map(field => [field.label, field.inputKind]), [
+    ['トランジション', 'select'], ['トランジション尺', 'scrub-number']
+  ]);
+  assert.ok(rows.every(field => typeof field.write === 'function'));
+  assert.equal(sections.flatMap(section => section.fields).filter(field => field.name?.startsWith('transition-')).length, 2);
+});
+
+test('パース左上Xの25%入力は数値部品を通り corners[0][0] = 0.25 を書く', async () => {
+  const snapshot = visualSnapshot();
+  const requests = [];
+  const row = layerSections(snapshot, async request => { requests.push(request); return { ok: true }; })
+    .find(section => section.id === 'perspective').fields[0];
+  const field = withFakeDocument(() => createNumberField({
+    name: row.name, label: row.label, value: Number(row.getEditValue(snapshot)),
+    min: row.min, max: row.max, step: row.scrubStep, unit: row.unit, displayScale: row.displayScale,
+    onCommit: async value => (await row.write(snapshot, String(value))).ok
+  }));
+  const input = field.children[1];
+  assert.equal(input.attributes.get('aria-valuemax'), '100');
+  input.value = '25';
+  input.emit('blur');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(input.value, '25');
+  assert.deepEqual(requests, [{ kind: 'item-field', id: snapshot.id, path: 'perspective',
+    value: { corners: [[0.25, 0], [1, 0], [0, 1], [1, 1]] } }]);
+});
+
 class FakeElement {
   constructor(tagName) {
     this.tagName = tagName.toUpperCase();
@@ -69,6 +135,7 @@ class FakeElement {
 
   emit(type, event = {}) {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
+    if (event.bubbles) this.parentElement?.emit(type, event);
   }
 
   append(...children) {
@@ -79,6 +146,21 @@ class FakeElement {
     child.parentElement = this;
     this.children.push(child);
     return child;
+  }
+
+  remove() {
+    if (this.parentElement) {
+      this.parentElement.children = this.parentElement.children.filter(child => child !== this);
+      this.parentElement = null;
+    }
+  }
+
+  querySelectorAll(selector) {
+    return this.children.flatMap(child => [
+      ...(selector.startsWith('.') && (child.className ?? '').split(' ').includes(selector.slice(1))
+        ? [child] : []),
+      ...child.querySelectorAll(selector)
+    ]);
   }
 
   blur() {}
@@ -120,7 +202,7 @@ function withFakeDocument(callback) {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { createElement: tagName => new FakeElement(tagName) }
+    value: { createElement: tagName => new FakeElement(tagName), body: new FakeElement('body') }
   });
   try {
     return callback();
@@ -284,6 +366,90 @@ test('数値部品は step・Shift 10倍・min/max clamp を適用する', () =>
   assert.equal(clampNumber(-2, 0, 1), 0);
 });
 
+test('keyframe オプションが無い数値行には KF 席を append しない', () => withFakeDocument(() => {
+  const field = createNumberField({
+    name: 'gain-db', label: 'gain_db', value: 0, step: 0.5,
+    onCommit: async () => true
+  });
+  assert.equal(field.children.length, 4);
+  assert.equal(field.querySelectorAll('.akari-inspector-kf-controls').length, 0);
+}));
+
+function renderInspectorRow(field, snapshot) {
+  const inspector = new InspectorRows();
+  inspector.model = {};
+  const parent = document.createElement('div');
+  inspector.appendRow(parent, field, snapshot, snapshot.kind);
+  assert.equal(parent.children.length, 1);
+  return parent.children[0];
+}
+
+test('audio の gain・fade・速度・ピッチ・ローカット行には KF 席が無い', () => withFakeDocument(() => {
+  const snapshot = audioSnapshot();
+  const fields = audioSections(snapshot, async () => ({ ok: true })).flatMap(section => section.fields);
+  for (const name of ['gain-db', 'audio-fade-in', 'audio-fade-out', 'audio-speed', 'audio-pitch', 'audio-lowcut']) {
+    const field = fields.find(candidate => candidate.name === name);
+    assert.ok(field, name);
+    const row = renderInspectorRow(field, snapshot);
+    assert.equal(row.querySelectorAll('.akari-inspector-number-field').length, 1, name);
+    assert.equal(row.querySelectorAll('.akari-inspector-kf-controls').length, 0, name);
+  }
+}));
+
+test('cut の transform-x 行には KF 席がある', () => withFakeDocument(() => {
+  const row = renderInspectorRow({
+    name: 'transform-x', label: 'X', inputKind: 'scrub-number',
+    getValue: () => '0', write: async () => ({ ok: true })
+  }, { kind: 'cut', index: 0 });
+  assert.equal(row.querySelectorAll('.akari-inspector-number-field').length, 1);
+  assert.equal(row.querySelectorAll('.akari-inspector-kf-controls').length, 1);
+}));
+
+test('audio の formant select 上の右クリックから既定値に戻すと field.reset を呼ぶ', () => withFakeDocument(() => {
+  const snapshot = audioSnapshot('sfx', { formant: 'shift' });
+  const requests = [];
+  const fields = audioSections(snapshot, async request => {
+    requests.push(request);
+    return { ok: true };
+  }).flatMap(section => section.fields);
+  const field = fields.find(candidate => candidate.name === 'audio-formant');
+  assert.ok(field);
+  const resetSnapshots = [];
+  const reset = field.reset;
+  const row = renderInspectorRow({ ...field, reset: value => {
+    resetSnapshots.push(value);
+    return reset(value);
+  } }, snapshot);
+  const select = row.children[1];
+  assert.equal(select.tagName, 'SELECT');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const fakeWindow = new FakeWindow();
+  fakeWindow.setTimeout = callback => callback();
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
+  try {
+    let prevented = false;
+    select.emit('contextmenu', {
+      bubbles: true, target: select, clientX: 20, clientY: 30,
+      preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, true);
+    const menus = document.body.querySelectorAll('.akari-inspector-row-menu');
+    assert.equal(menus.length, 1);
+    const button = menus[0].children.find(child => child.textContent === '既定値に戻す');
+    assert.ok(button);
+    assert.equal(resetSnapshots.length, 0);
+    button.emit('click');
+    assert.deepEqual(resetSnapshots, [snapshot]);
+    assert.deepEqual(requests, [{
+      kind: 'audio-clip-fx', id: 'clip', audioKind: 'sfx', field: 'formant', value: null
+    }]);
+    assert.equal(document.body.querySelectorAll('.akari-inspector-row-menu').length, 0);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+}));
+
 test('KF 席の前後ナビは ‹ / › で、席本体の ◇ / ◆ と区別する', () => withFakeDocument(() => {
   const inactive = createKeyframeSeat('opacity');
   assert.deepEqual(inactive.children.map(child => child.textContent), ['‹', '◇', '›']);
@@ -304,6 +470,7 @@ test('不透明度は表示 0..100% のドラッグ数値行と KF 席を使う'
   const field = withFakeDocument(() => createNumberField({
     name: 'opacity', label: '不透明度', value: 1,
     min: 0, max: 1, step: 0.01, unit: '%', displayScale: 100,
+    keyframe: { active: false, onToggle() {}, onPrevious() {}, onNext() {} },
     onPreview: value => previews.push(value),
     onCommit: async value => {
       commits.push(value);
