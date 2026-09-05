@@ -120,6 +120,7 @@
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | ページ全体 Electron OSR 書き出し v0 — 4層ページ、seek/paint検証、器のフォールバック、メモリ上限 |
 | [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU 直結書き出し v0 — 適格性、読み戻しゼロの WebCodecs 経路、逐次 MP4 mux（moov 予約枠・仮ファイル無し・ffmpeg プロセス無し）、fallback、決定論 gate |
 | [contract-2026-08-28-v2-approximation-ledger.md](./contract-2026-08-28-v2-approximation-ledger.md) | エンジン v2 恒久近似清算表 — golden / 実測で解消した項目、残す近似、別票を一件ずつ記録する正本 |
+| [contract-2026-09-06-vgpu-layer-v0.md](./contract-2026-09-06-vgpu-layer-v0.md) | vgpu レイヤー v0 — pure WebGPU fragment パス・共有 overlay sheet・プレビュー解像度・GPU 直結書き出し・適格性・失敗時の扱い |
 
 ### 素材・個人層
 

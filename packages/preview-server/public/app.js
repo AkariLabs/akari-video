@@ -3499,6 +3499,28 @@ const loadThreeScript = (src) => new Promise((resolve, reject) => {
   el.onerror = () => reject(new Error(`${src} を読み込めませんでした`));
   document.head.appendChild(el);
 });
+let vgpuRuntimeReady = null;
+let vgpuWarningShown = false;
+function warnVgpu(error) {
+  if (vgpuWarningShown) return;
+  vgpuWarningShown = true;
+  console.warn('[preview] WebGPU overlay unavailable', error);
+}
+function ensureVgpuRuntime() {
+  if (!vgpuRuntimeReady) {
+    vgpuRuntimeReady = (async () => {
+      await loadThreeScript('/vgpu-bundle.js');
+      await loadThreeScript('/vgpu-runtime.js');
+      await window.akari.vgpuRuntime.probe();
+      return true;
+    })().catch(error => { warnVgpu(error); return false; });
+  }
+  return vgpuRuntimeReady;
+}
+function showVgpuFallback(container) {
+  const fallback = container.querySelector('[data-akari-vgpu-fallback]');
+  if (fallback) fallback.style.display = '';
+}
 function ensureThreeBundle() {
   if (!threeBundleReady) threeBundleReady = loadThreeScript('/three-bundle.js');
   return threeBundleReady;
@@ -3551,6 +3573,8 @@ function ensureItemKeyframesRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
+// 辺あたり半分。座標・時刻・ツマミ値は等倍の書き出しと共有する。
+const PREVIEW_VGPU_SCALE = 0.5;
 
 // --- Overlay runtime ---
 function createOverlayRuntime() {
@@ -3560,12 +3584,23 @@ function createOverlayRuntime() {
     mountGeneration++;
     for (const o of overlays) {
       if (o.is3d) window.akari?.threeRuntime?.dispose(o.el);
+      if (o.isVgpu) window.akari?.vgpuRuntime?.dispose(o.el);
     }
     stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove());
     overlays.length = 0;
   }
   // 断片の HTML が入った後に判定する（html はファイル参照で非同期に届くため）
   function markThreeOverlay(rec) {
+    rec.isVgpu = Boolean(rec.el.querySelector('script[type="application/json"][data-akari-vgpu-scene]'));
+    if (rec.isVgpu) {
+      const generation = mountGeneration;
+      ensureVgpuRuntime().then(ready => {
+        if (generation !== mountGeneration) return;
+        rec.vgpuReady = ready;
+        if (!ready) showVgpuFallback(rec.el);
+        else updateOverlays();
+      });
+    }
     const scene = rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]');
     rec.is3d = Boolean(scene);
     rec.needsThreeText = Boolean(scene?.textContent?.includes('"texts"'));
@@ -3701,6 +3736,7 @@ function createOverlayRuntime() {
         o._anims = null;
         // 見えなくなったら GPU リソースを返す（shell の overlay-runtime と同じ）
         if (!v && o.is3d) window.akari?.threeRuntime?.dispose(o.el);
+        if (!v && o.isVgpu) window.akari?.vgpuRuntime?.dispose(o.el);
         o.visible = v;
       }
       if (!v) continue;
@@ -3733,6 +3769,15 @@ function createOverlayRuntime() {
         o._animsAt = nowMs;
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
+      if (o.isVgpu && o.vgpuReady) {
+        try {
+          window.akari?.vgpuRuntime?.render(o.el, ms / 1000, { previewScale: PREVIEW_VGPU_SCALE });
+        } catch (error) {
+          o.vgpuReady = false;
+          showVgpuFallback(o.el);
+          warnVgpu(error);
+        }
+      }
       if (o.is3d) {
         // three の描画だけはランタイム読み込み後に始まる。CSS 側は上で同期済みなので、
         // 読み込み待ちの間も断片の見た目はタイムラインに追従する。

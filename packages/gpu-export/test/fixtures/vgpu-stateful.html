@@ -1,0 +1,20 @@
+<div class="vgpu-fx" style="position:absolute;inset:0">
+<!-- AKARI original neon triangle shader. -->
+<canvas></canvas>
+<script type="application/json" data-akari-vgpu-scene>
+{
+  "version": 0,
+  "mode": "stateful",
+  "alphaMode": "premultiplied",
+  "uniforms": {},
+  "passes": [
+    {
+      "id": "main",
+      "wgsl": "\nfn segment(q: vec2f, a: vec2f, b: vec2f) -> f32 {\n  let v = b-a; return length(q-a-v*clamp(dot(q-a,v)/dot(v,v),0.,1.));\n}\n@fragment fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {\n  let q = (uv-0.5)*vec2f(akari.aspect,1.);\n  let a = vec2f(0.,-0.32); let b = vec2f(-0.32,0.24); let c = vec2f(0.32,0.24);\n  let d = min(segment(q,a,b),min(segment(q,b,c),segment(q,c,a)));\n  let pulse = 0.7+0.3*sin(akari.time*2.);\n  let glow = exp(-d*28.)*0.6*pulse + exp(-d*220.);\n  let hue = 0.5+0.5*cos(vec3f(0.,2.,4.)+akari.time*0.8+q.x*3.);\n  let floorGlow = exp(-abs(q.y-0.31)*28.-q.x*q.x*7.)*0.24*pulse;\n  let alpha = clamp(glow+floorGlow,0.,1.);\n  let color = mix(hue,vec3f(1.),exp(-d*400.))*alpha;\n  return vec4f(color,alpha);\n}",
+      "inputs": [],
+      "scale": 1
+    }
+  ]
+}
+</script>
+</div>

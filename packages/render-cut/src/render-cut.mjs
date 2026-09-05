@@ -45,7 +45,7 @@ import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
 import { FALLBACK_REASONS, exportWithGpu, gpuRuntimeFallbackReason } from "../../gpu-export/src/index.mjs";
 import { evaluateGpuEligibility } from "../../gpu-export/src/eligibility.mjs";
-import { resolveGpuLauncher } from "../../gpu-export/src/runner.mjs";
+import { resolveGpuLauncher, isVgpuFailure } from "../../gpu-export/src/runner.mjs";
 import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
@@ -106,6 +106,7 @@ export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOs
   try {
     return { engine: "gpu", result: await runGpu() };
   } catch (error) {
+    if (isVgpuFailure(error)) throw error;
     const reason = gpuRuntimeFallbackReason(error, FALLBACK_REASONS);
     if (engineRequested === "gpu" && reason === "hevc-unsupported") {
       throw new RefusalError("この GPU の WebCodecs は HEVC 圧縮に対応していません。--engine osr を使用してください");
@@ -186,7 +187,7 @@ export async function renderProject(input, options = {}, io = console) {
   const container = containerForCodec(codec);
   let resolvedEngine = container.kind === "directory" || container.ext === "mov"
     ? "osr"
-    : resolveEngineChoice(engineRequested, process.platform);
+    : engineRequested === RETIRED_ENGINE ? RETIRED_ENGINE : resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, options.editPath ?? "edit.json");
@@ -198,6 +199,15 @@ export async function renderProject(input, options = {}, io = console) {
   let edit = renderRead.edit;
   const internalEdit = renderRead.internal;
   validateEditShape(edit, internalEdit);
+  // CLI legacy is retired. API callers still receive the vgpu-specific refusal before
+  // capability probing or any render setup; other retired-engine calls keep their refusal.
+  if (!["gpu", "osr"].includes(resolvedEngine)) {
+    const overlays = await loadOverlays(projectRoot, edit);
+    if (overlays.some(overlay => /data-akari-vgpu-scene/u.test(overlay.html))) {
+      throw new RefusalError("vgpu overlays require --engine gpu");
+    }
+    resolveEngineChoice(engineRequested, process.platform);
+  }
 
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(

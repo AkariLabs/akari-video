@@ -236,3 +236,5 @@ frame-engine bundle は生成物です。`generated/frame-engine.js` を直接�
 生フレーム hash は隔離した検証専用 module からだけ利用でき、実行時 readback trap とは同時に
 有効化できません。DOM frame 検証は隔離した texture sentinel を使い、選択した settle policy
 （`raf2-paint-event` または `sync-layout`）を receipt に記録します。
+
+宣言型 `data-akari-vgpu-scene` は同梱 vgpu 0.4.0 の WebGPU ランタイムで描き、描画直後の canvas を GPU 合成へ渡す。v0 は pure な fragment パス、先行パスの texture 入力、CSS `--vgpu-*` ツマミに対応する。ライブプレビューは辺あたり半解像度、GPU 書き出しは等倍で、配置と時刻を共有する。WebGPU の probe・device 障害は `auto` でも失敗として伝播し OSR へ落とさない。receipt の `gpu.vgpu` は使用時だけ追加する。詳しくは [vgpu v0 契約](../../docs/contract-2026-09-06-vgpu-layer-v0.md)。

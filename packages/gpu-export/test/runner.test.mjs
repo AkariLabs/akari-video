@@ -194,3 +194,15 @@ test("launchGpuExport passes exit: \"gpu\" to launchElectronExport (observed thr
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("auto preserves VGPU failure instead of falling back to OSR", async () => {
+  const { runGpuWithRuntimeFallback } = await import('../../render-cut/src/render-cut.mjs');
+  let osrCalls = 0;
+  for (const prefix of ['VGPU-UNAVAILABLE:', 'VGPU-DEVICE-LOST:', 'VGPU-RENDER:']) {
+    const error = new Error(`${prefix} caption-measure-unstable`);
+    await assert.rejects(runGpuWithRuntimeFallback({ engineRequested: 'auto',
+      runGpu: async () => { throw error; }, runOsr: async () => { osrCalls++; },
+    }), value => value === error);
+  }
+  assert.equal(osrCalls, 0);
+});

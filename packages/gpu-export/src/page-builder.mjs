@@ -89,6 +89,7 @@ export function buildGpuPage({
   const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
+  const vgpu = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "vgpu");
   const compositeIds = new Set(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
     .map((entry) => entry.id));
@@ -153,10 +154,14 @@ export function buildGpuPage({
         ...(parsed?.ok ? { entrance: parsed.entrance } : {}),
       };
     }),
+    vgpu: vgpu.map(({ overlay, index }) => ({
+      id: String(overlay.id), ...overlayWindow(overlay, "vgpu"), index,
+      z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
+    })),
     dom,
   };
-  const overlaySheetHtml = three.length > 0
-    ? renderOverlaySheet({ overlays: three.map(({ overlay }) => overlay), edit: projectedEdit, projectRoot, duration })
+  const overlaySheetHtml = three.length + vgpu.length > 0
+    ? renderOverlaySheet({ overlays: [...three, ...vgpu].map(({ overlay }) => overlay), edit: projectedEdit, projectRoot, duration })
     : null;
   const lookDeclaration = lutCubeText === null ? null : {
     cubeText: lutCubeText,
@@ -174,7 +179,7 @@ export function buildGpuPage({
     spriteManifest,
     eligibility: resultEligibility,
   };
-  const iframe = three.length > 0
+  const iframe = three.length + vgpu.length > 0
     ? '<iframe id="akari-overlays" src="/overlay-sheet.html" title="AKARI 3D overlays"></iframe>'
     : "";
   const html = `<!doctype html>

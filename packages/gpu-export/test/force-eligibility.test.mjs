@@ -35,6 +35,10 @@ const EXPECTED_FIXTURES = new Map([
   ["three-sampled-property.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-root-without-class.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
   ["three-sampled-transition.html", ["three", "three-scene-entrance-sampled", ["three-or-canvas-runtime", "animation-timing"]]],
+  ["vgpu-gradient.html", ["vgpu", "vgpu-scene-canvas-direct", ["vgpu-runtime", "three-or-canvas-runtime"]]],
+  ["vgpu-neon.html", ["vgpu", "vgpu-scene-canvas-direct", ["vgpu-runtime", "three-or-canvas-runtime"]]],
+  ["vgpu-stateful.html", ["degraded", "vgpu-stateful-unsupported", ["vgpu-runtime", "three-or-canvas-runtime"]]],
+  ["vgpu-with-three.html", ["degraded", "vgpu-condition:three-or-canvas-runtime(data-akari-3d-scene)", ["vgpu-runtime", "three-or-canvas-runtime"]]],
 ]);
 
 test("forceDegraded routes backface-hidden fixtures through DOM while preserving eligibility truth", async () => {

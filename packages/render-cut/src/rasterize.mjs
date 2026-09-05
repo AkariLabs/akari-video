@@ -25,6 +25,8 @@ const THREE_RUNTIME_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/three-runtime.js",
 );
+const VGPU_BUNDLE_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/vendor/vgpu-bundle.js");
+const VGPU_RUNTIME_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/vgpu-runtime.js");
 const SLOT_PARAMS_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/slot-params.js",
@@ -89,6 +91,7 @@ const FONT_MIME_TYPES = new Map([
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
+  const hasVgpuOverlay = strippedOverlayHtml.some(html => /data-akari-vgpu-scene/u.test(html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
       && Object.keys(overlay.params).length > 0,
@@ -163,6 +166,23 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const threeRuntimeScripts = hasThreeDimensionalOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>${threeTextBundleScript}\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
     : "";
+  const vgpuRuntimeScripts = hasVgpuOverlay
+    ? `\n  <script>${inlineScript(readFileSync(VGPU_BUNDLE_PATH, "utf8"))}</script>\n  <script>${inlineScript(readFileSync(VGPU_RUNTIME_PATH, "utf8"))}</script>`
+    : "";
+  const vgpuSeekCollector = hasVgpuOverlay ? `\n      const pendingVgpuDraws = [];` : "";
+  const vgpuSeekBranch = hasVgpuOverlay ? `
+        const vgpuContainer = container.querySelector(':scope > .scene-content');
+        if (active && vgpuContainer?.querySelector('script[type="application/json"][data-akari-vgpu-scene]')) {
+          pendingVgpuDraws.push([vgpuContainer, seconds - start]);
+        }` : "";
+  const vgpuDrawStep = hasVgpuOverlay ? `
+      await window.akari.vgpuRuntime.probe();
+      for (const [vgpuContainer, localSeconds] of pendingVgpuDraws) {
+        window.akari.vgpuRuntime.render(vgpuContainer, localSeconds);
+        if (window.akari.vgpuRuntime.inspect(vgpuContainer).status !== 'ready') {
+          throw new Error('VGPU-RENDER: overlay is not ready');
+        }
+      }` : "";
   const slotRuntimeScripts = hasTextSlotParams
     ? `\n  <script>${inlineScript(readFileSync(SLOT_PARAMS_PATH, "utf8"))}</script>`
       + `\n  <script>(function(){for(const content of document.querySelectorAll('.akari-overlay-container[data-akari-params] > .scene-content')){const params=JSON.parse(content.parentElement.dataset.akariParams);content.replaceWith(window.akari.slotParams.renderTextSlots(content,params));}})();</script>`
@@ -205,7 +225,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}
+  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}${vgpuRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -362,16 +382,16 @@ ${nodes}${slotRuntimeScripts}
         Array.from(document.querySelectorAll('video'), waitForVideo),
       )).filter(Boolean);
     };
-    window.__akariSeek = async function(seconds) {${threeSeekCollector}
+    window.__akariSeek = async function(seconds) {${threeSeekCollector}${vgpuSeekCollector}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
         const active = seconds >= start && seconds < start + duration;
         container.style.visibility = active ? 'visible' : 'hidden';
-        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
+        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}${vgpuSeekBranch}
       }
       window.__akariSyncAnimations(seconds);
-      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}
+      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}${vgpuDrawStep}
       await Promise.resolve();
       return { warnings };
     };${threeReadySetup}
