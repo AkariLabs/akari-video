@@ -1,0 +1,11 @@
+<div class="static-scene">
+  <style>
+    .static-scene { position: absolute; inset: 0; perspective: 800px; }
+    .static-scene__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .static-scene__decoration { width: 120px; height: 120px; background: #ffa840; transform: rotateY(20deg); }
+  </style>
+  <canvas class="static-scene__canvas"></canvas>
+  <div class="static-scene__decoration"></div>
+  <div data-akari-3d-fallback>3D fallback</div>
+  <script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+</div>

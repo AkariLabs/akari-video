@@ -87,7 +87,7 @@ Extending `preserve3dOrderConflicts` to sibling pairs can re-enable this shape i
 continue to pass with a warning (measured parity 0.6374).
 Manifests record `entranceMode`, and receipts record
 `curve` / `sampled` / `composite`, sampling cost, plus composite DOM-element and p50/p95 copy/DOM-layer costs.
-Scenes without CSS animation remain `three-scene-canvas-direct`.
+Scenes without CSS animation remain `three-scene-canvas-direct` when no other conditions are present; scenes with `advanced-css` or CSS 3D geometry transfer the entire fragment through the composite path (`three-scene-sampled-composite`).
 
 `render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
 project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is
