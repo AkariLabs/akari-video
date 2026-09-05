@@ -76,6 +76,11 @@ const MIME = {
   '.flac': 'audio/flac',
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
+  // shell 側（akari-preview-service）の表と揃える。ここに無いと application/octet-stream で
+  // 配られ、<audio> / <video> 経路がデコードを断る（実機 2026-09-05: BGM の .m4a）。
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.opus': 'audio/ogg',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
   '.ttf': 'font/ttf',
@@ -119,23 +124,8 @@ const ffprobePath = tryResolve(resolveFfprobe);
 const ffmpegPath = tryResolve(resolveFfmpeg);
 const hasFfprobe = ffprobePath !== null;
 const hasFfmpeg = ffmpegPath !== null;
-const codecCache = new Map();
 const frameRateCache = new Map();
 const autoProxyJobs = new Map();
-
-function detectCodec(filePath) {
-  if (!hasFfprobe || codecCache.has(filePath)) return codecCache.get(filePath);
-  try {
-    const r = spawnSync(ffprobePath, [
-      '-v', 'error', '-select_streams', 'v:0',
-      '-show_entries', 'stream=codec_name',
-      '-of', 'csv=p=0', filePath,
-    ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
-    const codec = r.stdout.toString().trim().split(/[\r\n,]+/)[0]?.trim().toLowerCase() || null;
-    codecCache.set(filePath, codec);
-    return codec;
-  } catch { codecCache.set(filePath, null); return null; }
-}
 
 function detectFrameRate(filePath) {
   if (!hasFfprobe || frameRateCache.has(filePath)) return frameRateCache.get(filePath);
@@ -156,24 +146,64 @@ function proxyPathFor(filePath) {
   return path.join(PROXY_DIR, rel + `.h264-${PROXY_RECIPE_VERSION}.mp4`);
 }
 
-function ensureProxy(filePath) {
-  if (!hasFfmpeg) return null;
-  const proxy = proxyPathFor(filePath);
-  if (fs.existsSync(proxy)) return proxy;
-  const dir = path.dirname(proxy);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const fps = detectFrameRate(filePath);
-  const r = spawnSync(ffmpegPath, [
-    '-i', filePath,
-    ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
-    '-c:a', 'aac',
-    '-movflags', '+faststart',
-    '-y', proxy,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 300000 });
-  if (r.status === 0) { console.log(`[proxy] generated ${proxy}`); return proxy; }
-  console.error(`[proxy] ffmpeg failed for ${filePath}`);
-  try { fs.unlinkSync(proxy); } catch {}
-  return null;
+// HEVC の Range 要求で proxy が無いときに、その場で ffmpeg を同期実行してはいけない。
+// このサーバは単スレッドなので、生成中は API も素材配信も一切返らない（実機 2026-09-05:
+// 9〜10GB の HEVC 4 本の案件で 1 本あたり数分の全停止。frame-engine の音声先読みは
+// 同時 2 本 = 巨大な sidecar 2 件を掴んだまま固まり、予定表が組めず全編無音になった）。
+// 生成は startAutoProxy のバックグラウンド job に任せ、出来上がるまでは原本をそのまま返す
+// （ffmpeg 不在時と同じ退避）。同期版にあった 300 秒 timeout も外れるため、
+// 10GB 級で毎回 timeout → 失敗 → 次の再生でまた数分停止、という詰みも解ける。
+// 旧同期経路は ffmpeg の出力を最終パスへ直接書いていたため、timeout / プロセス kill の残骸が
+// 「ftyp + free + サイズ 0 の mdat・moov 無し」の mp4 として最終パスに残り、以後ずっと配られていた
+// （実機 2026-09-05: 885 / 886 の proxy がこれで、frame-engine が該当カットを 1 フレームも描けず
+//  "moov box not found while scanning top-level MP4 boxes" を出し、再生が冒頭で止まっていた）。
+// startAutoProxy は tmp + rename なので新規には出ないが、既に disk にある残骸は掃除しないと直らない。
+// 初回参照のときだけ moov の有無を見て、無ければ捨てて作り直しへ回す。
+const MAX_PROXY_BOX_SCAN = 64;
+function hasMoovBox(filePath) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const total = fs.fstatSync(fd).size;
+    const head = Buffer.alloc(16);
+    let cursor = 0;
+    for (let box = 0; box < MAX_PROXY_BOX_SCAN && cursor < total; box += 1) {
+      if (fs.readSync(fd, head, 0, 16, cursor) < 8) return false;
+      const type = head.toString('latin1', 4, 8);
+      if (type === 'moov') return true;
+      let size = head.readUInt32BE(0);
+      if (size === 1) {
+        const large = head.readBigUInt64BE(8);
+        if (large > BigInt(Number.MAX_SAFE_INTEGER)) return false;
+        size = Number(large);
+      } else if (size === 0) {
+        // 「ファイル末尾まで」= この後ろに moov は無い。書きかけの mdat がこの形。
+        return false;
+      }
+      if (size <= 0) return false;
+      cursor += size;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
+  }
+}
+
+const proxyHealth = new Map();
+function usableProxy(sourcePath, proxyPath) {
+  const known = proxyHealth.get(proxyPath);
+  if (known !== undefined) return known;
+  const ok = hasMoovBox(proxyPath);
+  proxyHealth.set(proxyPath, ok);
+  if (!ok) {
+    console.warn(`[proxy] discarding unusable proxy ${path.basename(proxyPath)} (no moov box); rebuilding`);
+    try { fs.unlinkSync(proxyPath); } catch {}
+    autoProxyJobs.delete(sourcePath);
+    proxyHealth.delete(proxyPath);
+  }
+  return ok;
 }
 
 function proxyUrlFor(proxyPath) {
@@ -199,13 +229,25 @@ function startAutoProxy(filePath) {
   const fps = detectFrameRate(filePath);
   const pending = { status: 'pending' };
   autoProxyJobs.set(filePath, pending);
-  const child = spawn(ffmpegPath, [
-    '-i', filePath,
-    ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
-    '-c:a', 'aac',
-    '-movflags', '+faststart',
-    '-y', temporaryProxy,
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let child;
+  try {
+    child = spawn(ffmpegPath, [
+      '-i', filePath,
+      ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
+      '-y', temporaryProxy,
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (error) {
+    // Windows は spawn 不能な実行ファイル（拡張子が実行形式でない等）で EFTYPE を
+    // 同期 throw する。'error' イベントは届かないので、ここで受けないとルート越しに
+    // 抜けてサーバごと落ちる（実機 2026-09-05 に踏んだ）。
+    const reason = error instanceof Error ? error.message : String(error);
+    const failed = { status: 'failed', reason };
+    autoProxyJobs.set(filePath, failed);
+    console.error(`[proxy] could not start ffmpeg for ${path.basename(filePath)}: ${reason}`);
+    return failed;
+  }
   let stderr = '';
   let settled = false;
   const fail = reason => {
@@ -621,7 +663,15 @@ const router = {
     }
   },
   'GET /api/summary': async (req, res) => {
-    const r = await readFrameEnginePreviewEdit(path.join(projectRoot, 'edit.json'));
+    // 準備段（sidecar 生成・掃除・probe）の例外は 1 リクエストの 500 で済ませる。
+    // 以前は unhandled rejection でプロセスが落ち、プレビュー全体が消えていた。
+    let r;
+    try {
+      r = await readFrameEnginePreviewEdit(path.join(projectRoot, 'edit.json'));
+    } catch (e) {
+      console.error('[preview] summary preparation failed:', e);
+      return respond(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
     if (r.error) return respondPreviewReadError(res, r.error);
     respond(res, 200, r.data);
   },
@@ -876,22 +926,21 @@ function servePublicFile(res, pathname, reqHeaders = null) {
   return false;
 }
 
-function serveProjectFile(res, pathname, reqHeaders = null, options = {}) {
+function serveProjectFile(res, pathname, reqHeaders = null) {
   const rangeHeader = reqHeaders?.range;
   const safe = resolveSafe(projectRoot, pathname);
   if (!safe || !fs.existsSync(safe) || !fs.statSync(safe).isFile()) return false;
   const ext = path.extname(safe).toLowerCase();
   const mime = MIME[ext] ?? 'application/octet-stream';
   if (rangeHeader && mime.startsWith('video/')) {
-    const codec = detectCodec(safe);
-    if (codec === 'hevc' && options.noProxy !== true) {
-      const proxy = ensureProxy(safe);
-      if (proxy) {
-        console.log(`[proxy] serving ${path.basename(proxy)} for HEVC ${path.basename(safe)}`);
-        serveRange(res, proxy, 'video/mp4', rangeHeader);
-        return true;
-      }
-    }
+    // 要求された素材をそのまま返す。以前はここで HEVC を見たら問答無用で .proxy/ へ
+    // 差し替えていたが、原本 / proxy の選択は frame-engine 側の chooseSource が唯一の正で、
+    // それは WebCodecs の実力（isConfigSupported）を測って決めている。サーバが黙って差し替えると
+    // (a) client の判断を無視して H.264 を掴ませ、(b) HW デコードできる器でも素材 1 本あたり
+    // 数十分・数 GB の変換を焼き、(c) client は「原本を読んでいるつもり」で別ファイルのバイトを
+    // 受け取る（実機 2026-09-05: 4K HEVC が prefer-hardware:true の機で、全カット
+    // chosen=original と判定されているのに proxy だけが作られ続けていた）。
+    // proxy が要る器は /api/auto-proxy で明示的に要求し、返った .proxy/… の URL を直接読む。
     serveRange(res, safe, mime, rangeHeader);
   } else if (rangeHeader && mime.startsWith('audio/')) {
     serveRange(res, safe, mime, rangeHeader);
@@ -979,16 +1028,12 @@ const server = http.createServer(async (req, res) => {
   const prefixMatch = pathname.match(/^\/api\/asset\/(.+)/);
   if (prefixMatch) {
     const assetPath = prefixMatch[1];
-    if (serveProjectFile(res, assetPath, req.headers, {
-      noProxy: url.searchParams.get('akariNoProxy') === '1',
-    })) return;
+    if (serveProjectFile(res, assetPath, req.headers)) return;
     return respond(res, 404, { error: 'Asset not found' });
   }
 
   if (servePublicFile(res, pathname, req.headers)) return;
-  if (serveProjectFile(res, pathname, req.headers, {
-    noProxy: url.searchParams.get('akariNoProxy') === '1',
-  })) return;
+  if (serveProjectFile(res, pathname, req.headers)) return;
 
   respond(res, 404, { error: 'Not found' });
 });

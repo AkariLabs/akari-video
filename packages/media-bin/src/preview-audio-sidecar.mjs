@@ -567,12 +567,21 @@ export function sweepPreviewAudioSidecars({ cacheDir, keepKeys }) {
   try {
     for (const entry of fs.readdirSync(outputDirectory, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith('.flac')) continue;
+      // 生成途中の一時ファイル（`.<key>.flac.<pid>.<ms>.tmp.flac`）も `.flac` で終わる。
+      // ffmpeg が開いている最中に rm すると Windows は EPERM を投げ、以前はそれが
+      // /api/summary まで抜けてサーバごと落ちた（実機 2026-09-05 14:25）。掃除の対象外にする。
+      if (entry.name.startsWith('.') || entry.name.endsWith('.tmp.flac')) continue;
       const key = entry.name.slice(0, -'.flac'.length);
       if (kept.has(key)) continue;
       const target = path.join(outputDirectory, entry.name);
-      bytes += fs.statSync(target).size;
-      fs.rmSync(target, { force: true });
-      removed += 1;
+      // 1 本消せないだけで掃除全体（ましてサーバ）を止めない。ロック中・消えた直後は次回に回す。
+      try {
+        bytes += fs.statSync(target).size;
+        fs.rmSync(target, { force: true });
+        removed += 1;
+      } catch (error) {
+        if (!['ENOENT', 'EPERM', 'EBUSY', 'EACCES'].includes(error?.code)) throw error;
+      }
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;

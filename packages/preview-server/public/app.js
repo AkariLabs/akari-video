@@ -3924,7 +3924,7 @@ function captionZoneVars(zone) {
 // 字幕ごとに設定しうる CSS 変数。前の字幕の指定が残ると次の字幕に持ち越されるため
 // （実害: top-right の直後に出る既定 bottom の字幕が上段に出ていた）、毎回消してから積む。
 const CAPTION_STYLE_VARS = [
-  '--caption-color', '--caption-font-size', '--caption-text-shadow',
+  '--caption-color', '--caption-font-size', '--caption-text-shadow', '--caption-stroke',
   '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
   '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
   '--caption-translate',
@@ -3946,12 +3946,41 @@ function captionColorWithOpacity(color, explicitOpacity) {
   return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
     + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
 }
-function captionStrokeShadow(color, width) {
-  const negative = width === 0 ? '0' : `-${width}px`;
-  const positive = width === 0 ? '0' : `${width}px`;
-  return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
-    + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
-    + '0 0 8px rgba(0,0,0,.6)';
+// text_style.stroke → --caption-stroke。render-cut captions.mjs（書き出し = 正）と同じ規則:
+// -webkit-text-stroke はグリフ輪郭の中心に乗るので、外側に width_px 見えるよう 2 倍を指定する
+// （.akari-caption は paint-order: stroke fill で塗りが上に乗り、内側半分は隠れる）。
+// 以前はここで縁取りを 4 方向の text-shadow に化かしていたが、行の CSS は既に書き出しと同じ
+// `-webkit-text-stroke: var(--caption-stroke, 0.14em rgba(0,0,0,.9))` を持つため、字幕ごとの
+// 縁取り色が変数に渡らず **既定の黒 0.14em の縁取り + 字幕色の影** の二重輪郭になっていた
+// （実機 2026-09-05: 白文字・青縁 3px の字幕が、青みがかった文字に太い黒縁で出た）。
+function captionStrokeValue(stroke) {
+  const width = typeof stroke?.width_px === 'number' && Number.isFinite(stroke.width_px) ? stroke.width_px : 1.5;
+  const color = typeof stroke?.color === 'string' ? stroke.color : 'rgba(0,0,0,.9)';
+  return `${width * 2}px ${color}`;
+}
+// shadow（角度 + 距離 → オフセット）と glow（発光 = ぼかしのみの多重影）を 1 本の text-shadow へ。
+// render-cut captionTextShadowValue のポート（scale は Web UI では 1）。どちらも無ければ null で
+// 行 CSS の既定の薄影に任せる。
+function captionTextShadowValue(shadow, glow) {
+  const parts = [];
+  if (shadow && typeof shadow.color === 'string') {
+    const angle = ((shadow.angle_deg ?? 90) * Math.PI) / 180;
+    const distance = shadow.distance_px ?? 0;
+    const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
+    const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
+    parts.push(`${dx}px ${dy}px ${shadow.blur_px ?? 0}px ${captionColorWithOpacity(shadow.color, shadow.opacity)}`);
+  }
+  if (glow && typeof glow.color === 'string') {
+    const spread = glow.spread === undefined ? 40 : glow.spread;
+    const alpha = Math.min(1, (glow.density ?? 50) / 60);
+    const offsetX = glow.offset_x ?? 0;
+    const offsetY = glow.offset_y ?? 0;
+    parts.push(
+      `${offsetX}px ${offsetY}px ${spread}px ${captionColorWithOpacity(glow.color, alpha)}`,
+      `${offsetX}px ${offsetY}px ${spread * 2}px ${captionColorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`,
+    );
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 function applyCaptionStyle(caption) {
@@ -3981,10 +4010,15 @@ function applyCaptionStyle(caption) {
     const radiusVar = bg.mode === 'block' ? '--plate-block-radius' : '--plate-radius';
     vars[radiusVar] = bg.radius_px + 'px';
   }
-  const stroke = ts?.stroke ?? dts?.stroke;
+  // stroke / shadow / glow は書き出し（render-cut）と同じ合成規則: 字幕個別が既定を上書きする
+  const stroke = (ts?.stroke || dts?.stroke) ? { ...dts?.stroke, ...ts?.stroke } : undefined;
   if (stroke && (stroke.color !== undefined || stroke.width_px !== undefined)) {
-    vars['--caption-text-shadow'] = captionStrokeShadow(stroke.color ?? 'rgba(0,0,0,.85)', stroke.width_px ?? 1.5);
+    vars['--caption-stroke'] = captionStrokeValue(stroke);
   }
+  const shadow = (ts?.shadow || dts?.shadow) ? { ...dts?.shadow, ...ts?.shadow } : undefined;
+  const glow = (ts?.glow || dts?.glow) ? { ...dts?.glow, ...ts?.glow } : undefined;
+  const textShadow = captionTextShadowValue(shadow, glow);
+  if (textShadow !== null) vars['--caption-text-shadow'] = textShadow;
   const zone = ts?.zone || dts?.zone || 'bottom';
   Object.assign(vars, captionZoneVars(zone));
   const textAnchor = ts?.text_anchor ?? dts?.text_anchor;

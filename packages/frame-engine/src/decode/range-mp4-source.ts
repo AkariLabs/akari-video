@@ -14,6 +14,16 @@ export const DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 const INITIAL_HEADER_BYTES = 16;
 const MAX_TOP_LEVEL_BOXES = 64;
 const OUTPUT_GRACE_MS = 250;
+// 詰まったデコーダの flush は返らないことがあるので上限を置く。健全な flush はキュー済み
+// フレーム（GOP 1 本ぶん・4K でも十数枚）を吐くだけで数百 ms に収まる。実機 2026-09-05 では
+// 黙ったデコーダの flush が返らず、ここが 5 s だと凍結が 4〜5 秒になった。
+// decodeTimeoutMs を小さくしたテストではそちらに合わせる（min を取る）。
+const DECODER_FLUSH_TIMEOUT_MS = 1_000;
+// 入力を受け取ったのに dequeue が 1 回も来ない時間の上限。デコーダは 1 チャンク処理するごとに
+// dequeue を発火するので、健全なら 4K HEVC でも数十 ms 間隔。これが 2 秒途切れたら死んでいる
+// （実機 2026-09-05: queue=2 のまま dequeue も出力も無く、10 秒の全体 timeout まで待っていた）。
+// 「遅れて出す」正当なデコーダは dequeue はすぐ発火するので、この上限には掛からない。
+const DECODER_DEQUEUE_TIMEOUT_MS = 2_000;
 
 export interface ByteRange {
   start: number;
@@ -891,7 +901,17 @@ export class RangeMp4Source {
           }
         })(), this.options.decodeTimeoutMs ?? 10_000, `Range decode ${this.id} at ${targetUs}us`);
         if (!waiter.isSettled() && outputGraceExpired) {
-          await decoder.flush();
+          // ここは「出力が止まったデコーダを立て直す」入口。その flush() 自体が
+          // 永久に settle しないことがある（実機 2026-09-05: 4K HEVC のカットで
+          // flush enter のまま返らず、renderFrame も返らないので再生が完全停止し、
+          // 以後どこへシークしても最後に描けた秒へ引き戻される）。復旧が固まると
+          // 二度と戻れないので必ず時間で切り、DecoderExecutionError にして
+          // decodeWithRecovery のデコーダ作り直しへ落とす。
+          await withTimeout(
+            decoder.flush(),
+            Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_FLUSH_TIMEOUT_MS),
+            `Range flush ${this.id} at ${targetUs}us`,
+          );
           this.flushedSinceSeek = true;
         }
       } catch (error) {
@@ -1004,7 +1024,7 @@ export class RangeMp4Source {
           dequeued,
           this.decoderFailure ?? new Promise<never>(() => undefined),
         ]),
-        this.options.decodeTimeoutMs ?? 10_000,
+        Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder progress ${this.id}`,
       );
       return 'target-or-dequeue';
@@ -1039,7 +1059,7 @@ export class RangeMp4Source {
           waiter?.promise ?? new Promise<never>(() => undefined),
           this.decoderFailure ?? new Promise<never>(() => undefined),
         ]),
-        this.options.decodeTimeoutMs ?? 10_000,
+        Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_DEQUEUE_TIMEOUT_MS),
         `Range decoder queue ${this.id}`,
       );
     } catch (error) {

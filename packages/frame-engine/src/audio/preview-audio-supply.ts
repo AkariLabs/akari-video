@@ -280,6 +280,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let lastStartAttemptMs = 0;
   let lastStartOutcome: 'started' | 'empty' | 'failed' | null = null;
   let skippedAtSchedule: string[] = [];
+  let scheduledDecodedCount = 0;
+  /** 「鳴らせる音源が無い」(outcome=empty) で終わった時点の decode 済み件数。増えたときだけ拾い直す。 */
+  let emptyPlanDecodedCount = 0;
   let regularDecoded: DecodedRegular[] = [];
   let speechDecoded = new Map<string, ResolvedSpeechBuffer>();
   let active: ActiveSource[] = [];
@@ -378,8 +381,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         }
         let buffer: AudioBuffer | null = null;
         if (estimateDecodedBytes(encoded, context!.sampleRate) > compactThreshold) {
+          // decodeAudioData は渡した ArrayBuffer を detach する。compact が失敗したとき
+          // 同じ encoded で等倍 decode へ退避すると DataCloneError（detached）で必ず落ち、
+          // 「decoding at full rate」は嘘になっていた（実機 2026-09-05: 88 分の BGM が
+          // compact の EncodingError → 退避も失敗 → 丸ごと無音）。退避用に複製を渡す。
+          // 複製は encoded と同じ大きさ（BGM で 129MB）だが、成功時は即 GC される一時物。
           try {
-            buffer = await decodeCompact(encoded);
+            buffer = await decodeCompact(encoded.slice(0));
             entry.compact = buffer !== null;
           } catch (reason) {
             warn(`[frame-engine] ${label}: compact decode failed; decoding at full rate`, reason);
@@ -483,10 +491,17 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
           warn(`[frame-engine] ${task.key} prefetch failed`, reason);
         } finally {
           prefetchPending -= 1;
+          notifyTaskSettled();
         }
       }
     };
     await Promise.all([worker(), worker()]);
+  };
+
+  // 「その時刻までに鳴り始めているはずの音源」だけ待つための待ち合わせ口。
+  const taskWaiters = new Set<() => void>();
+  const notifyTaskSettled = (): void => {
+    for (const waiter of [...taskWaiters]) waiter();
   };
 
   // 未解決の task だけを同時 2 本で decode する。以前は毎回 regularDecoded / speechDecoded を空にして
@@ -504,8 +519,61 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
       prefetchInFlight = null;
+      // 先に鳴り始めた予定表は、遅れて decode が揃った音源を知らない。全件揃ったこの 1 回だけ
+      // 組み直して取りこぼしを拾う（毎件やると stopSources のたびにクリックが乗る）。
+      replanIfNeeded();
     });
     return prefetchInFlight;
+  };
+
+  // 再生開始に要るのは「その時刻までに鳴り始めているはずの音源」だけ。全件の decode を待つと、
+  // 長尺案件では最初の一音までが総量に比例して伸び、1 件でも詰まれば永久に無音になる
+  // （実機 2026-09-05: 先読み 23 件 / sidecar 合計 1.1GB で 5 分経っても pending 23・予定表 0 件）。
+  // task は first-use 昇順に並んでいて worker もその順に消化するので、待ちは先頭側だけで解ける。
+  // 先の音源は背景で decode を続け、揃った時点で replanIfNeeded が組み直す。
+  const ensureDecodedUpTo = (seconds: number): Promise<void> => {
+    const full = ensureDecoded();
+    // 一度失敗した task は開始待ちの対象から外す（背景の 5 秒後再試行は pendingTasks 側で続く）。
+    // 外さないと、音声ストリームの無い素材や decode に失敗し続ける BGM が「未解決」として
+    // 5 秒ごとに戻ってきて、シークのたびに再 fetch → 再失敗を待たされる（実機 2026-09-05:
+    // シーク後に無音が続く主因。gpt-6-astra の指摘 P0）。
+    const due = (): PrefetchTask[] => pendingTasks()
+      .filter(task => task.at <= seconds && task.failedAtMs === null);
+    if (due().length === 0) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      let settled = false;
+      const finish = (): void => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        resolve();
+      };
+      const check = (): void => {
+        if (due().length === 0) finish();
+      };
+      taskWaiters.add(check);
+      // 全件終われば当然抜ける（失敗して resolved にならない task があっても止まらない）。
+      void full.finally(finish);
+      check();
+    });
+  };
+
+  const replanIfNeeded = (): void => {
+    if (starting) return;
+    const decodedCount = regularDecoded.length + speechDecoded.size;
+    if (!playing) {
+      // 失敗 task を開始待ちから外したぶん、「その位置に鳴らせる音源がまだ無い」（outcome=empty）で
+      // 終わった開始意図は、decode が届いた時点でここで拾い直す。5 秒後の背景再試行が成功したら
+      // 鳴り始める、という従来の契約（test: 5 秒空けた次の再生で再試行する）はこれで維持される。
+      // pause / seek は outcome を null に戻すので、止めた再生を勝手に再開することはない。
+      // 空の予定表を組んだ後に decode 済みが増えたときだけ。組んだ時点で揃っていた分では
+      // 何度組み直しても空のままなので、playbackTime 側の 500 ms backoff に任せる
+      // （test: 空の予定表の直後は 500 ms 空けて再試行する）。
+      if (lastStartOutcome === 'empty' && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
+      return;
+    }
+    if (decodedCount <= scheduledDecodedCount) return;
+    launch(audioPosition(), { pinStart: true });
   };
 
   const applyGainEvents = (param: AudioParam, events: PreviewGainEvent[], startTime: number): void => {
@@ -581,14 +649,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   // 途中で seek / pause が世代を進めたら黙って降りる（新しい startFrom が starting を持っている）。
   // 自分が最新世代のときだけ starting を戻す。以前は superseded な呼び出しも starting=false を
   // 書いていたため、進行中の新しい startFrom と並んで 3 本目が走れた。
-  const startFrom = async (seconds: number): Promise<void> => {
+  const startFrom = async (seconds: number, options: { pinStart?: boolean } = {}): Promise<void> => {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
     lastStartAttemptMs = now();
     let outcome: 'started' | 'empty' | 'failed' = 'failed';
     try {
-      await ensureDecoded();
+      await ensureDecodedUpTo(clamp(options.pinStart ? seconds : latestRequestedSec));
       if (thisGeneration !== generation) return;
       try {
         await context.resume();
@@ -606,14 +674,20 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
           materialDurationSec: resolved.buffer.duration,
         }];
       });
+      // 通常の開始は「最新の要求位置」（decode 待ちの間にシークされていれば追従する）。
+      // 再生中の組み直し（replanIfNeeded）は音声時計の現在位置で固定する: playbackTime() が
+      // rAF ごとに壁時計の fallback を latestRequestedSec に書き戻すので、ここで
+      // latestRequestedSec を優先すると音声時計から壁時計へ黙って乗り換えてしまう
+      // （gpt-6-astra の指摘 P0）。`||` は 0 秒を落とすので使わない。
       const plan = scheduleBuilder({
         timelineDurationSec,
-        startAtSec: clamp(latestRequestedSec || seconds),
+        startAtSec: clamp(options.pinStart ? seconds : latestRequestedSec),
         audio: { ...regularScheduleDeclaration(), speech: speechForSchedule },
       });
       for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
       if (plan.items.length === 0) {
         outcome = 'empty';
+        emptyPlanDecodedCount = regularDecoded.length + speechDecoded.size;
         return;
       }
       stopSources();
@@ -621,6 +695,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
+      scheduledDecodedCount = regularDecoded.length + speechDecoded.size;
       lastSidecarSpeechIds = new Set(speechForSchedule
         .filter(item => item.sidecar || item.atempo).map(item => item.id));
       const skipped: string[] = [];
@@ -644,9 +719,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
 
   // startFrom の例外で starting が立ったままになると、以後の playFrom / playbackTime が
   // 全部捨てられて document を作り直すまで無音になる。必ず catch して警告にする。
-  const launch = (seconds: number): void => {
+  const launch = (seconds: number, options: { pinStart?: boolean } = {}): void => {
     lastStartOutcome = null;
-    startFrom(seconds).catch(reason => {
+    startFrom(seconds, options).catch(reason => {
       warn('[frame-engine] audio start failed', reason);
     });
   };
