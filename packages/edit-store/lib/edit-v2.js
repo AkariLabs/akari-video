@@ -9,7 +9,7 @@ const SHAPE_KINDS = new Set([
     'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
@@ -265,6 +265,8 @@ function validateItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'crop'))
         validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'adjust'))
+        validateAdjust(value.adjust, `${path}.adjust`);
     if (hasOwn(value, 'perspective'))
         requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'motion'))
@@ -455,6 +457,41 @@ function validateCrop(value, path) {
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0)
             throw invalid(`${path}.${key}`, '0 より大きい必要があります');
+    }
+}
+function validateAdjust(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['basic', 'lut', 'sections']), path);
+    if (hasOwn(value, 'basic')) {
+        requireRecord(value.basic, `${path}.basic`);
+        const basicKeys = new Set([
+            'exposure', 'contrast', 'highlights', 'shadows', 'blacks', 'whites',
+            'temperature', 'tint', 'vibrance', 'saturation'
+        ]);
+        requireExactKeys(value.basic, basicKeys, `${path}.basic`);
+        for (const key of basicKeys) {
+            if (!hasOwn(value.basic, key))
+                continue;
+            const [minimum, maximum] = key === 'exposure' ? [-3, 3] : [-1, 1];
+            requireRange(value.basic[key], minimum, maximum, `${path}.basic.${key}`);
+        }
+    }
+    if (hasOwn(value, 'lut') && value.lut !== null) {
+        requireRecord(value.lut, `${path}.lut`);
+        requireExactKeys(value.lut, new Set(['lut', 'intensity']), `${path}.lut`);
+        requireText(value.lut.lut, `${path}.lut.lut`);
+        if (hasOwn(value.lut, 'intensity'))
+            requireRange(value.lut.intensity, 0, 1, `${path}.lut.intensity`);
+    }
+    if (hasOwn(value, 'sections')) {
+        requireRecord(value.sections, `${path}.sections`);
+        const sectionKeys = new Set(['basic', 'lut']);
+        requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
+        for (const key of sectionKeys) {
+            if (hasOwn(value.sections, key) && typeof value.sections[key] !== 'boolean') {
+                throw invalid(`${path}.sections.${key}`, 'boolean である必要があります');
+            }
+        }
     }
 }
 const EASINGS = new Set([

@@ -1243,6 +1243,98 @@
       finalResizeFixture,
       finalResizeFixture.querySelector(".resize-inset-plate")
     );
+    // ---- 7) テキスト分割（data-akari-split）----
+    // 契約: akari-video-internal contract-2026-08-15-telop-motion-grammar-v0
+    assert(
+      typeof window.akari?.textSplit?.applyAll === "function",
+      "text-split.js が window.akari.textSplit.applyAll を公開している"
+    );
+    assert(
+      window.akari.runtime.version === "0.5.0",
+      `runtime.version が 0.5.0（分割対応版）である（実際: ${window.akari.runtime.version}）`
+    );
+
+    // 7a) 分割そのもの
+    assert(
+      typeof window.akari._budoux?.parse === "function",
+      "budoux-ja-bundle.js が window.akari._budoux.parse を公開している"
+    );
+    const seg = window.akari.textSplit.segment("今日はとてもいい天気ですね", "bunsetsu");
+    assert(
+      seg.join("|") === "今日は|とても|いい|天気ですね",
+      `bunsetsu 分割が期待どおり（実際: ${seg.join("|")}）`
+    );
+    assert(
+      window.akari.textSplit.segment("あいう", "chars").length === 3,
+      "chars 分割が 1 文字ずつになる"
+    );
+    assert(
+      window.akari.textSplit.segment("a\nb", "lines").length === 2,
+      "lines 分割が改行で割れる"
+    );
+
+    // 7b) mount() が未分割の断片を分割し、--i を振る
+    window.akari.runtime.tick(125, true); // cap-text-split の可視区間（120〜140s）
+    const splitContainer = stage.querySelector('[data-overlay-id="cap-text-split"]');
+    const lineEl = splitContainer.querySelector(".line");
+    const units = Array.from(lineEl.querySelectorAll(".akari-u"));
+    assert(
+      units.length === 4,
+      `mount(): 未分割で出荷された断片が 4 単位へ分割された（実際: ${units.length}）`
+    );
+    assert(
+      units.map((el) => el.style.getPropertyValue("--i").trim()).join(",") === "0,1,2,3",
+      "mount(): 各単位へ通し番号 --i が振られている"
+    );
+    assert(
+      lineEl.textContent === "今日はとてもいい天気ですね",
+      "分割してもテキスト内容は変わらない"
+    );
+
+    // 7c) stagger が CSS だけで効いている（--i × --anim-stagger）
+    const delays = units.map((el) => getComputedStyle(el).animationDelay);
+    assert(
+      delays.join(",") === "0s,0.15s,0.3s,0.45s",
+      `animation-delay が calc(--i * 150ms) で段階的（実際: ${delays.join(",")}）`
+    );
+
+    // 6d) シーク安全: 同じ時刻へ 2 回シークすると同じ状態になる
+    window.akari.runtime.tick(120.4, false);
+    const at04 = units.map((el) => Number(getComputedStyle(el).opacity).toFixed(3)).join(",");
+    window.akari.runtime.tick(120.9, false);
+    window.akari.runtime.tick(120.4, false);
+    const at04again = units.map((el) => Number(getComputedStyle(el).opacity).toFixed(3)).join(",");
+    assert(at04 === at04again, `シーク決定性: 0.4s→0.9s→0.4s で同一状態（${at04}）`);
+    const opacities = at04.split(",").map(Number);
+    assert(
+      opacities[0] > opacities[1] && opacities[1] > opacities[3],
+      `stagger が時間差として現れている（t=0.4s の不透明度: ${at04}）`
+    );
+
+    // 6e) 冪等性: 同じ内容へ再適用しても DOM 参照が壊れない
+    const firstUnit = units[0];
+    window.akari.textSplit.applyAll(splitContainer);
+    assert(
+      lineEl.querySelector(".akari-u") === firstUnit,
+      "applyAll() は同じ分割結果なら DOM を作り直さない（冪等）"
+    );
+
+    // 6f) 編集中は畳み、確定で分割し直す
+    window.akari.textSplit.collapse(lineEl);
+    assert(
+      lineEl.querySelectorAll(".akari-u").length === 0 &&
+        lineEl.textContent === "今日はとてもいい天気ですね",
+      "collapse(): 素のテキストへ畳まれる（contenteditable と span 分割の衝突回避）"
+    );
+    lineEl.textContent = "明日は雨が降ります";
+    window.akari.textSplit.apply(lineEl);
+    const reUnits = Array.from(lineEl.querySelectorAll(".akari-u"));
+    assert(
+      reUnits.length > 1 &&
+        reUnits.map((el) => el.style.getPropertyValue("--i").trim()).join(",") ===
+          reUnits.map((_, i) => String(i)).join(","),
+      `打ち替え後に再分割され --i が振り直される（${reUnits.map((e) => e.textContent).join("|")}）`
+    );
 
     print("");
     print("ALL PASS");

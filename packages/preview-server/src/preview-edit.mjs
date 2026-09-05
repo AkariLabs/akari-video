@@ -122,6 +122,21 @@ export function projectPreviewEdit(source, temporaryDirectory, projectRoot = pat
       throw new Error(`filter layer LUT ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
+  const adjustLutCubeTexts = {};
+  const adjustItems = [
+    ...(edit.cuts ?? []).map((item, index) => ({ item, id: String(item?.id ?? `cut-${index}`) })),
+    ...(edit.layers ?? []).map((item, index) => ({ item, id: String(item?.id ?? `layer-${index}`) })),
+  ];
+  for (const { item, id } of adjustItems) {
+    const ref = item?.adjust?.sections?.lut === false ? null : item?.adjust?.lut?.lut;
+    if (typeof ref !== 'string' || ref === '') continue;
+    try {
+      adjustLutCubeTexts[id] = resolveVideoFxLut(projectRoot, ref);
+    } catch {
+      indicators.push('LUT');
+      console.warn(`[preview] item adjust LUT could not be resolved for ${id}; continuing without that LUT`);
+    }
+  }
   const hasVideoFx = Boolean(look || Object.keys(sourceVideoFx).length > 0 || hasLayerChroma);
 
   return {
@@ -138,6 +153,7 @@ export function projectPreviewEdit(source, temporaryDirectory, projectRoot = pat
       ...(bgm !== undefined ? { bgm } : {}),
     },
     indicators: [...new Set(indicators)],
+    ...(Object.keys(adjustLutCubeTexts).length > 0 ? { adjustLutCubeTexts } : {}),
     ...(hasVideoFx ? {
       videoFx: {
         ...(look ? { look } : {}),

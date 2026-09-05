@@ -122,7 +122,24 @@
     return "/media/" + String(value).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function normalizedCuts(edit) {
+  function resolvedItemAdjust(item, adjustLutCubeTexts) {
+    const adjust = item?.adjust;
+    if (!adjust || typeof adjust !== "object" || adjust.lut == null || adjust.sections?.lut === false) return item;
+    const ref = adjust.lut?.lut;
+    if (typeof ref !== "string") return item;
+    const cubeText = adjustLutCubeTexts?.[String(item.id)];
+    return {
+      ...item,
+      adjust: {
+        ...adjust,
+        lut: typeof cubeText === "string"
+          ? { ...adjust.lut, lut: FE.parseCube(cubeText) }
+          : null,
+      },
+    };
+  }
+
+  function normalizedCuts(edit, adjustLutCubeTexts = {}) {
     return (Array.isArray(edit.cuts) ? edit.cuts : []).map((cut, index) => {
       const copy = Object.assign({}, cut);
       // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
@@ -142,7 +159,7 @@
       copy.out = Number(cut.out ?? cut.in ?? 0);
       copy.transition_out = cut.transition_out || cut.transitionOut;
       copy.id = cut.id || "cut-" + index;
-      return copy;
+      return resolvedItemAdjust(copy, adjustLutCubeTexts);
     });
   }
 
@@ -163,7 +180,9 @@
       } else if (config.edit.source && config.edit.source.path) {
         urls.set("default", mediaUrl(config.edit.source.path));
       }
-      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : []).map((layer) => {
+      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : [])
+        .map((layer) => resolvedItemAdjust(layer, config.adjustLutCubeTexts))
+        .map((layer) => {
         if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return layer;
         if (typeof layer.filter.cubeText !== "string") return layer;
         return {
@@ -204,7 +223,7 @@
       this.fps = Number(config.fps) > 0 ? Number(config.fps) : 30;
       this.reaper = new FE.StreamReaper(lookahead.values(), { graceFrames: Math.max(1, Math.round(this.fps)) });
       this.decoderSessions = { live: 0, released: 0 };
-      this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit), {
+      this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit, config.adjustLutCubeTexts), {
         fps: config.fps,
         layers: engineLayers,
         onWarning: warn,
@@ -2041,6 +2060,7 @@
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
+    let rateControlResolution = null;
     let encodeCanvas = null;
     let supported = false;
     let hashFrame = null;
@@ -2181,9 +2201,7 @@
         const encodeWidth = config.outputWidth ?? config.width;
         const encodeHeight = config.outputHeight ?? config.height;
         await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames, codec: config.codec ?? "h264" });
-        encoder = new FE.WebCodecsH264Encoder({
-          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
-        }, {
+        const encoderOptions = {
           width: encodeWidth,
           height: encodeHeight,
           fps: config.fps,
@@ -2191,7 +2209,26 @@
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
           codec: config.codec ?? "h264",
-        });
+          ...(Number.isInteger(config.quantizer) ? { quantizer: config.quantizer } : {}),
+        };
+        // quantizer 対応の可否をエンコーダ 1 本につき 1 回だけ確認する（frame-engine 側の実装）。
+        rateControlResolution = await FE.WebCodecsH264Encoder.resolveRateControl(encoderOptions);
+        if (config.forceFixedBitrate && rateControlResolution.rateControl === "quantizer") {
+          rateControlResolution = {
+            options: { ...encoderOptions, quantizer: undefined },
+            rateControl: "bitrate",
+            fallbackReason: "forced-fixed-bitrate",
+          };
+        }
+        // 無言のフォールバック禁止（裁定 3）: stderr に 1 行（WARN 接頭辞が main で stderr へ回る）。
+        if (rateControlResolution.fallbackReason !== null) {
+          try {
+            await bridge.log(`WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（${config.bitrate}bps）へ切り替えました（quality=${config.quality} codec=${config.codec ?? "h264"} reason=${rateControlResolution.fallbackReason}）`);
+          } catch {}
+        }
+        encoder = new FE.WebCodecsH264Encoder({
+          write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
+        }, rateControlResolution.options, rateControlResolution);
       } else if (!captureMode && !config.verifyFrames) {
         // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
         // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
@@ -2410,6 +2447,10 @@
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
+              bitrateSource: config.bitrateSource ?? null,
+              rateControl: rateControlResolution?.rateControl ?? null,
+              rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+              quantizer: rateControlResolution?.options?.quantizer ?? null,
               codec: config.codec ?? "h264",
               queueDepth: config.queueDepth,
               queueWaits,
@@ -2461,6 +2502,10 @@
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
+          bitrateSource: config.bitrateSource ?? null,
+          rateControl: rateControlResolution?.rateControl ?? null,
+          rateControlFallbackReason: rateControlResolution?.fallbackReason ?? null,
+          quantizer: rateControlResolution?.options?.quantizer ?? null,
           codec: config.codec ?? "h264",
           queueDepth: config.queueDepth,
           queueWaits,

@@ -10,6 +10,7 @@ import test from 'node:test';
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(packageRoot, '../..');
 const expectedSources = [
+  'adjust-css-approx.ts',
   'audio-schedule.ts',
   'canonical.ts',
   'caption-clock.ts',

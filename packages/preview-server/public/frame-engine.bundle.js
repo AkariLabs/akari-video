@@ -4312,6 +4312,7 @@ var require_edit_v2 = __commonJS({
       "opacity",
       "blend",
       "crop",
+      "adjust",
       "perspective",
       "motion",
       "animator",
@@ -4584,6 +4585,8 @@ var require_edit_v2 = __commonJS({
       }
       if (hasOwn(value, "crop"))
         validateCrop(value.crop, `${path}.crop`);
+      if (hasOwn(value, "adjust"))
+        validateAdjust(value.adjust, `${path}.adjust`);
       if (hasOwn(value, "perspective"))
         requireRecord(value.perspective, `${path}.perspective`);
       if (hasOwn(value, "motion"))
@@ -4788,6 +4791,49 @@ var require_edit_v2 = __commonJS({
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0)
           throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+    }
+    function validateAdjust(value, path) {
+      requireRecord(value, path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections"]), path);
+      if (hasOwn(value, "basic")) {
+        requireRecord(value.basic, `${path}.basic`);
+        const basicKeys = /* @__PURE__ */ new Set([
+          "exposure",
+          "contrast",
+          "highlights",
+          "shadows",
+          "blacks",
+          "whites",
+          "temperature",
+          "tint",
+          "vibrance",
+          "saturation"
+        ]);
+        requireExactKeys(value.basic, basicKeys, `${path}.basic`);
+        for (const key of basicKeys) {
+          if (!hasOwn(value.basic, key))
+            continue;
+          const [minimum, maximum] = key === "exposure" ? [-3, 3] : [-1, 1];
+          requireRange(value.basic[key], minimum, maximum, `${path}.basic.${key}`);
+        }
+      }
+      if (hasOwn(value, "lut") && value.lut !== null) {
+        requireRecord(value.lut, `${path}.lut`);
+        requireExactKeys(value.lut, /* @__PURE__ */ new Set(["lut", "intensity"]), `${path}.lut`);
+        requireText(value.lut.lut, `${path}.lut.lut`);
+        if (hasOwn(value.lut, "intensity"))
+          requireRange(value.lut.intensity, 0, 1, `${path}.lut.intensity`);
+      }
+      if (hasOwn(value, "sections")) {
+        requireRecord(value.sections, `${path}.sections`);
+        const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut"]);
+        requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
+        for (const key of sectionKeys) {
+          if (hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
+            throw invalid(`${path}.sections.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+        }
       }
     }
     var EASINGS = /* @__PURE__ */ new Set([
@@ -5782,6 +5828,7 @@ var require_internal_model = __commonJS({
         ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
         ...item.blend !== void 0 ? { blend: item.blend } : {},
         ...item.crop !== void 0 ? { crop: item.crop } : {},
+        ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
         ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
         ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
         ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
@@ -6789,8 +6836,8 @@ var require_transition_visual = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeTransitionVisual = computeTransitionVisual;
     function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
-      const clamp01 = (value) => Math.max(0, Math.min(1, value));
-      const progress = clamp01(Number.isFinite(rawProgress) ? rawProgress : 0);
+      const clamp012 = (value) => Math.max(0, Math.min(1, value));
+      const progress = clamp012(Number.isFinite(rawProgress) ? rawProgress : 0);
       const mid = 1 - Math.abs(2 * progress - 1);
       const percent = (value) => `${value * 100}%`;
       const translateX = (value) => `translateX(${percent(value)})`;
@@ -6834,7 +6881,7 @@ var require_transition_visual = __commonJS({
       if (previewKind === "fade-black" || previewKind === "fade-white") {
         return {
           ...cross(),
-          plateOpacity: clamp01(Math.min(progress / 0.18, (1 - progress) / 0.7)),
+          plateOpacity: clamp012(Math.min(progress / 0.18, (1 - progress) / 0.7)),
           plateColor: previewKind === "fade-white" ? "#fff" : "#000"
         };
       }
@@ -6948,7 +6995,7 @@ var require_envelope = __commonJS({
     var MIN_LINEAR_GAIN = 1e-4;
     var CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
     function easingProgress(easing, progress) {
-      const value = clamp3(progress);
+      const value = clamp5(progress);
       switch (easing ?? "linear") {
         case "hold":
           return 0;
@@ -7191,7 +7238,7 @@ var require_envelope = __commonJS({
     function finiteInRange(value, minimum, maximum, fallback) {
       return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
     }
-    function clamp3(value, minimum = 0, maximum = 1) {
+    function clamp5(value, minimum = 0, maximum = 1) {
       return Math.min(maximum, Math.max(minimum, value));
     }
     function cubicCoordinateAt(parameter, first, second) {
@@ -7807,7 +7854,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -7827,6 +7874,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7847,6 +7895,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7885,6 +7934,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7904,6 +7954,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7923,6 +7974,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7941,6 +7993,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -7959,6 +8012,7 @@ var require_edit_v2_keys = __commonJS({
         "opacity",
         "blend",
         "crop",
+        "adjust",
         "perspective",
         "motion",
         "animator",
@@ -9224,6 +9278,38 @@ var require_cut_ranges = __commonJS({
   }
 });
 
+// ../edit-store/lib/adjust-css-approx.js
+var require_adjust_css_approx = __commonJS({
+  "../edit-store/lib/adjust-css-approx.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.adjustBasicToCssApprox = adjustBasicToCssApprox;
+    function adjustBasicToCssApprox(basic) {
+      const source = basic ?? {};
+      const exposure = Number.isFinite(source.exposure) ? source.exposure : 0;
+      const contrast = Number.isFinite(source.contrast) ? source.contrast : 0;
+      const saturation = Number.isFinite(source.saturation) ? source.saturation : 0;
+      const temperature = Number.isFinite(source.temperature) ? source.temperature : 0;
+      const parts = [];
+      if (Math.abs(exposure) > 5e-3) {
+        parts.push(`brightness(${Math.pow(2, exposure).toFixed(2)})`);
+      }
+      if (Math.abs(contrast) > 5e-3) {
+        parts.push(`contrast(${(1 + contrast).toFixed(2)})`);
+      }
+      if (Math.abs(saturation) > 5e-3) {
+        parts.push(`saturate(${(1 + saturation).toFixed(2)})`);
+      }
+      if (temperature > 5e-3) {
+        parts.push(`sepia(${(temperature * 0.3).toFixed(2)})`);
+      } else if (temperature < -5e-3) {
+        parts.push(`hue-rotate(${(-temperature * 20).toFixed(0)}deg)`);
+      }
+      return parts.join(" ");
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
   "../edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -9749,6 +9835,7 @@ var require_lib = __commonJS({
     __exportStar(require_item_anchor(), exports);
     __exportStar(require_shape_markup(), exports);
     __exportStar(require_cut_ranges(), exports);
+    __exportStar(require_adjust_css_approx(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;
@@ -17153,6 +17240,7 @@ vec3 yuv709(float y, vec2 chroma) {
 var baseFragmentPrefix = (type) => `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler3D;
 in vec2 uv;
 out vec4 color;
 uniform sampler2D y0;
@@ -17182,6 +17270,18 @@ uniform vec4 crop0;
 uniform vec4 crop1;
 uniform vec2 box0;
 uniform vec2 box1;
+uniform sampler3D adjustLut0;
+uniform sampler3D adjustLut1;
+uniform int hasAdjustLut0;
+uniform int hasAdjustLut1;
+uniform vec3 adjustLutDomainMin0;
+uniform vec3 adjustLutDomainMin1;
+uniform vec3 adjustLutDomainMax0;
+uniform vec3 adjustLutDomainMax1;
+uniform float adjustLutSize0;
+uniform float adjustLutSize1;
+uniform float adjustLutIntensity0;
+uniform float adjustLutIntensity1;
 uniform float transitionProgress;
 ${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
@@ -17213,6 +17313,18 @@ vec2 unrotate(vec2 q, int rotation) {
   if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
   return vec2(q.y, 1.0 - q.x);
 }
+vec3 applyAdjust0(vec3 rgb) {
+  if (hasAdjustLut0 == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin0) / (adjustLutDomainMax0 - adjustLutDomainMin0), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize0 - 1.0) + 0.5) / adjustLutSize0;
+  return mix(rgb, texture(adjustLut0, coord).rgb, adjustLutIntensity0);
+}
+vec3 applyAdjust1(vec3 rgb) {
+  if (hasAdjustLut1 == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin1) / (adjustLutDomainMax1 - adjustLutDomainMin1), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize1 - 1.0) + 0.5) / adjustLutSize1;
+  return mix(rgb, texture(adjustLut1, coord).rgb, adjustLutIntensity1);
+}
 vec4 sample0(vec2 p) {
   vec2 q;
   if (layerStyle0 == 1) {
@@ -17226,9 +17338,9 @@ vec4 sample0(vec2 p) {
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
   q = unrotate(q, rotation0);
-  if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
+  if (format0 == 2) return vec4(applyAdjust0(texture(rgba0, q).rgb), opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
+  return vec4(applyAdjust0(yuv709(texture(y0, q).r, chroma)), opacity0);
 }
 vec4 sample1(vec2 p) {
   vec2 q;
@@ -17243,9 +17355,9 @@ vec4 sample1(vec2 p) {
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
   q = unrotate(q, rotation1);
-  if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
+  if (format1 == 2) return vec4(applyAdjust1(texture(rgba1, q).rgb), opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
+  return vec4(applyAdjust1(yuv709(texture(y1, q).r, chroma)), opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
 vec3 A(vec2 p) { return overBlack(sample0(p)); }
@@ -17416,6 +17528,7 @@ function buildBaseFragment(type) {
 var LAYER_FRAGMENT = `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler3D;
 in vec2 uv;
 out vec4 color;
 uniform sampler2D backdrop;
@@ -17437,6 +17550,12 @@ uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
 uniform int blendMode;
+uniform sampler3D adjustLut;
+uniform int hasAdjustLut;
+uniform vec3 adjustLutDomainMin;
+uniform vec3 adjustLutDomainMax;
+uniform float adjustLutSize;
+uniform float adjustLutIntensity;
 ${YUV_GLSL}
 vec2 unrotate(vec2 q, int rotation) {
   if (rotation == 0) return q;
@@ -17462,6 +17581,12 @@ vec3 blend(vec3 dst, vec3 src) {
     );
   }
   return src;
+}
+vec3 applyAdjust(vec3 rgb) {
+  if (hasAdjustLut == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin) / (adjustLutDomainMax - adjustLutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
+  return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
 void main() {
   vec4 dst = texture(backdrop, uv);
@@ -17490,6 +17615,7 @@ void main() {
       : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
     src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
+  src.rgb = applyAdjust(src.rgb);
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
@@ -17579,7 +17705,8 @@ var LAYER_RGBA_UNIT = 8;
 var MASK_RGBA_UNIT = 10;
 var LUT_UNIT = 11;
 var DISSOLVE_NOISE_UNIT = 12;
-var REQUIRED_TEXTURE_UNITS = DISSOLVE_NOISE_UNIT + 1;
+var BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13];
+var REQUIRED_TEXTURE_UNITS = BASE_ADJUST_LUT_UNITS[1] + 1;
 function isVideoFrame(value) {
   return "displayWidth" in value && "displayHeight" in value && "close" in value;
 }
@@ -17751,7 +17878,8 @@ var WebGL2Compositor = class {
       ["image", 4],
       ["maskY", 5],
       ["lrgba", LAYER_RGBA_UNIT],
-      ["maskRgba", MASK_RGBA_UNIT]
+      ["maskRgba", MASK_RGBA_UNIT],
+      ["adjustLut", LUT_UNIT]
     ].forEach(
       ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
     );
@@ -17821,8 +17949,15 @@ var WebGL2Compositor = class {
       rotation: gl.getUniformLocation(program, `rotation${index}`),
       layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
       crop: gl.getUniformLocation(program, `crop${index}`),
-      box: gl.getUniformLocation(program, `box${index}`)
+      box: gl.getUniformLocation(program, `box${index}`),
+      adjustLut: gl.getUniformLocation(program, `adjustLut${index}`),
+      hasAdjustLut: gl.getUniformLocation(program, `hasAdjustLut${index}`),
+      adjustLutDomainMin: gl.getUniformLocation(program, `adjustLutDomainMin${index}`),
+      adjustLutDomainMax: gl.getUniformLocation(program, `adjustLutDomainMax${index}`),
+      adjustLutSize: gl.getUniformLocation(program, `adjustLutSize${index}`),
+      adjustLutIntensity: gl.getUniformLocation(program, `adjustLutIntensity${index}`)
     }));
+    cutUniforms.forEach((cut, index) => gl.uniform1i(cut.adjustLut, BASE_ADJUST_LUT_UNITS[index]));
     const state = {
       program,
       cutUniforms,
@@ -17842,13 +17977,13 @@ var WebGL2Compositor = class {
     this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
   }
-  lookTexture(lut) {
+  lookTexture(lut, allocationUnit = LUT_UNIT) {
     const cached = this.lookTextures.get(lut);
     if (cached) return cached;
     const texture = this.gl.createTexture();
     if (!texture) throw new Error("WebGL2 could not allocate a 3D LUT texture");
     const gl = this.gl;
-    this.bind3d(LUT_UNIT, texture);
+    this.bind3d(allocationUnit, texture);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -18022,7 +18157,7 @@ var WebGL2Compositor = class {
     for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
     return logical;
   }
-  setCut(u2, v2, source) {
+  setCut(u2, v2, source, adjustLutUnit) {
     this.gl.uniform4f(
       u2.framing,
       v2.framing.x,
@@ -18038,6 +18173,7 @@ var WebGL2Compositor = class {
       v2.transform.rotateDegrees * Math.PI / 180
     );
     this.gl.uniform1f(u2.opacity, v2.opacity);
+    this.configureAdjustLut(v2.adjustLut, adjustLutUnit, u2);
     if (v2.layerStyle) {
       const box2 = cutLayerStyleBox(v2, source.width, source.height);
       this.gl.uniform1i(u2.layerStyle, 1);
@@ -18054,6 +18190,22 @@ var WebGL2Compositor = class {
       this.gl.uniform4f(u2.crop, 0, 0, 1, 1);
       this.gl.uniform2f(u2.box, 1, 1);
     }
+  }
+  configureAdjustLut(lut, unit, uniforms) {
+    const gl = this.gl;
+    gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
+    if (!lut) {
+      gl.uniform3f(uniforms.adjustLutDomainMin, 0, 0, 0);
+      gl.uniform3f(uniforms.adjustLutDomainMax, 1, 1, 1);
+      gl.uniform1f(uniforms.adjustLutSize, 2);
+      gl.uniform1f(uniforms.adjustLutIntensity, 0);
+      return;
+    }
+    this.bind3d(unit, this.lookTexture(lut, unit));
+    gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
+    gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
+    gl.uniform1f(uniforms.adjustLutSize, lut.size);
+    gl.uniform1f(uniforms.adjustLutIntensity, 1);
   }
   ensureFbos(w, h) {
     const shape = `${w}x${h}`;
@@ -18185,10 +18337,20 @@ var WebGL2Compositor = class {
     }
     const elapsed = performance.now() - started;
     frames.forEach(
-      (_frame, index) => this.setCut(baseProgram.cutUniforms[index], plan.base[index].visual, sizes[index])
+      (_frame, index) => this.setCut(
+        baseProgram.cutUniforms[index],
+        plan.base[index].visual,
+        sizes[index],
+        BASE_ADJUST_LUT_UNITS[index]
+      )
     );
     if (frames.length === 1)
-      this.setCut(baseProgram.cutUniforms[1], plan.base[0].visual, sizes[0]);
+      this.setCut(
+        baseProgram.cutUniforms[1],
+        plan.base[0].visual,
+        sizes[0],
+        BASE_ADJUST_LUT_UNITS[1]
+      );
     return elapsed;
   }
   configureBaseDraw(plan, target, baseProgram) {
@@ -18283,6 +18445,13 @@ var WebGL2Compositor = class {
     const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
     const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
     const blendLoc = uniform(gl, this.layerProgram, "blendMode");
+    const layerAdjustUniforms = {
+      hasAdjustLut: uniform(gl, this.layerProgram, "hasAdjustLut"),
+      adjustLutDomainMin: uniform(gl, this.layerProgram, "adjustLutDomainMin"),
+      adjustLutDomainMax: uniform(gl, this.layerProgram, "adjustLutDomainMax"),
+      adjustLutSize: uniform(gl, this.layerProgram, "adjustLutSize"),
+      adjustLutIntensity: uniform(gl, this.layerProgram, "adjustLutIntensity")
+    };
     const blendModes = [
       "normal",
       "screen",
@@ -18390,6 +18559,7 @@ var WebGL2Compositor = class {
       );
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
+      this.configureAdjustLut(layer.adjustLut, LUT_UNIT, layerAdjustUniforms);
       draw();
       this.recordGlErrors(synchronization);
       current = next;
@@ -18668,6 +18838,301 @@ async function evaluateFrame(plan, context) {
 // ../frame-engine/src/timeline/plan.ts
 var import_edit_store2 = __toESM(require_lib(), 1);
 var import_edit_store3 = __toESM(require_lib(), 1);
+
+// ../frame-engine/src/look/cube.ts
+function finite2(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+function clamp(value, low = 0, high = 1) {
+  return Math.min(high, Math.max(low, value));
+}
+function parseCube(text) {
+  if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
+  let size = 0;
+  let domainMin = [0, 0, 0];
+  let domainMax = [1, 1, 1];
+  const values = [];
+  const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    const line = lines[lineNumber].replace(/#.*$/u, "").trim();
+    if (!line) continue;
+    const parts = line.split(/\s+/u);
+    const keyword = parts[0].toUpperCase();
+    if (keyword === "TITLE") continue;
+    if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
+    if (keyword === "LUT_3D_SIZE") {
+      size = Number(parts[1]);
+      if (!Number.isInteger(size) || size < 2 || size > 256) {
+        throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
+      }
+      continue;
+    }
+    if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
+      const parsed = parts.slice(1, 4).map(Number);
+      if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
+        throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
+      }
+      const tuple = parsed;
+      if (keyword === "DOMAIN_MIN") domainMin = tuple;
+      else domainMax = tuple;
+      continue;
+    }
+    const row = parts.slice(0, 3).map(Number);
+    if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
+      throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
+    }
+    values.push(...row);
+  }
+  if (!size) throw new TypeError("LUT_3D_SIZE is missing");
+  if (domainMax.some((value, index) => !(value > domainMin[index]))) {
+    throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
+  }
+  const expected = size * size * size * 3;
+  if (values.length !== expected) {
+    throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
+  }
+  return Object.freeze({
+    size,
+    domainMin: Object.freeze([...domainMin]),
+    domainMax: Object.freeze([...domainMax]),
+    data: new Float32Array(values)
+  });
+}
+function lutValue(lut, r, g2, b, channel) {
+  return lut.data[(b * lut.size * lut.size + g2 * lut.size + r) * 3 + channel];
+}
+function sampleLutTrilinear(lut, rgb) {
+  if (!lut || !Number.isInteger(lut.size) || !(lut.data instanceof Float32Array)) {
+    throw new TypeError("a parsed 3D LUT is required");
+  }
+  if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
+  const p2 = [0, 1, 2].map((index) => {
+    const unit = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+    return clamp(unit) * (lut.size - 1);
+  });
+  const lo = p2.map(Math.floor);
+  const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
+  const f2 = p2.map((value, index) => value - lo[index]);
+  const out = [0, 0, 0];
+  for (let channel = 0; channel < 3; channel += 1) {
+    const c000 = lutValue(lut, lo[0], lo[1], lo[2], channel);
+    const c100 = lutValue(lut, hi[0], lo[1], lo[2], channel);
+    const c010 = lutValue(lut, lo[0], hi[1], lo[2], channel);
+    const c110 = lutValue(lut, hi[0], hi[1], lo[2], channel);
+    const c001 = lutValue(lut, lo[0], lo[1], hi[2], channel);
+    const c101 = lutValue(lut, hi[0], lo[1], hi[2], channel);
+    const c011 = lutValue(lut, lo[0], hi[1], hi[2], channel);
+    const c111 = lutValue(lut, hi[0], hi[1], hi[2], channel);
+    const x00 = c000 + (c100 - c000) * f2[0];
+    const x10 = c010 + (c110 - c010) * f2[0];
+    const x01 = c001 + (c101 - c001) * f2[0];
+    const x11 = c011 + (c111 - c011) * f2[0];
+    const y0 = x00 + (x10 - x00) * f2[1];
+    const y1 = x01 + (x11 - x01) * f2[1];
+    out[channel] = y0 + (y1 - y0) * f2[2];
+  }
+  return out;
+}
+
+// ../frame-engine/src/adjust/kernel.ts
+var ADJUST_CONSTANTS = Object.freeze({
+  REC709_R: 0.2126,
+  REC709_G: 0.7152,
+  REC709_B: 0.0722,
+  TEMP_COEF: 0.18,
+  TINT_COEF: 0.12,
+  CONTRAST_PIVOT: 0.5,
+  HIGHLIGHTS_LOW: 0.5,
+  HIGHLIGHTS_HIGH: 0.9,
+  SHADOWS_LOW: 0.1,
+  SHADOWS_HIGH: 0.5,
+  WHITES_LOW: 0.7,
+  WHITES_HIGH: 1,
+  BLACKS_LOW: 0,
+  BLACKS_HIGH: 0.3,
+  TONE_ADD_COEF: 0.3,
+  VIBRANCE_EPSILON: 1e-6,
+  IDENTITY_EPSILON: 1e-6,
+  EXPOSURE_MIN: -3,
+  EXPOSURE_MAX: 3,
+  BASIC_MIN: -1,
+  BASIC_MAX: 1
+});
+function clamp2(value, low, high) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(low, Math.min(high, value));
+}
+function clamp01(value) {
+  return clamp2(value, 0, 1);
+}
+function smoothstep(edge0, edge1, value) {
+  const t = clamp01((value - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+function luma(r, g2, b) {
+  return r * ADJUST_CONSTANTS.REC709_R + g2 * ADJUST_CONSTANTS.REC709_G + b * ADJUST_CONSTANTS.REC709_B;
+}
+function normalizeAdjustBasic(basic) {
+  const source = basic ?? {};
+  return {
+    exposure: clamp2(source.exposure ?? 0, ADJUST_CONSTANTS.EXPOSURE_MIN, ADJUST_CONSTANTS.EXPOSURE_MAX),
+    contrast: clamp2(source.contrast ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    highlights: clamp2(source.highlights ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    shadows: clamp2(source.shadows ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    blacks: clamp2(source.blacks ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    whites: clamp2(source.whites ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    temperature: clamp2(source.temperature ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    tint: clamp2(source.tint ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    vibrance: clamp2(source.vibrance ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX),
+    saturation: clamp2(source.saturation ?? 0, ADJUST_CONSTANTS.BASIC_MIN, ADJUST_CONSTANTS.BASIC_MAX)
+  };
+}
+function isAdjustBasicIdentity(basic) {
+  const normalized = normalizeAdjustBasic(basic);
+  return Object.values(normalized).every((value) => Math.abs(value) <= ADJUST_CONSTANTS.IDENTITY_EPSILON);
+}
+function applyAdjustBasic(r, g2, b, basic) {
+  const p2 = normalizeAdjustBasic(basic);
+  let cr = r;
+  let cg = g2;
+  let cb = b;
+  if (p2.exposure !== 0) {
+    const gain = Math.pow(2, p2.exposure);
+    cr *= gain;
+    cg *= gain;
+    cb *= gain;
+  }
+  cr = clamp01(cr * (1 + p2.temperature * ADJUST_CONSTANTS.TEMP_COEF));
+  cg = clamp01(cg * (1 - p2.tint * ADJUST_CONSTANTS.TINT_COEF));
+  cb = clamp01(cb * (1 - p2.temperature * ADJUST_CONSTANTS.TEMP_COEF));
+  if (p2.highlights !== 0) {
+    const mask = smoothstep(
+      ADJUST_CONSTANTS.HIGHLIGHTS_LOW,
+      ADJUST_CONSTANTS.HIGHLIGHTS_HIGH,
+      luma(cr, cg, cb)
+    );
+    const gain = 1 + p2.highlights * mask;
+    cr = clamp01(cr * gain);
+    cg = clamp01(cg * gain);
+    cb = clamp01(cb * gain);
+  }
+  if (p2.shadows !== 0) {
+    const mask = 1 - smoothstep(
+      ADJUST_CONSTANTS.SHADOWS_LOW,
+      ADJUST_CONSTANTS.SHADOWS_HIGH,
+      luma(cr, cg, cb)
+    );
+    const gain = 1 + p2.shadows * mask;
+    cr = clamp01(cr * gain);
+    cg = clamp01(cg * gain);
+    cb = clamp01(cb * gain);
+  }
+  if (p2.whites !== 0) {
+    const mask = smoothstep(
+      ADJUST_CONSTANTS.WHITES_LOW,
+      ADJUST_CONSTANTS.WHITES_HIGH,
+      luma(cr, cg, cb)
+    );
+    const add = p2.whites * mask * ADJUST_CONSTANTS.TONE_ADD_COEF;
+    cr = clamp01(cr + add);
+    cg = clamp01(cg + add);
+    cb = clamp01(cb + add);
+  }
+  if (p2.blacks !== 0) {
+    const mask = 1 - smoothstep(
+      ADJUST_CONSTANTS.BLACKS_LOW,
+      ADJUST_CONSTANTS.BLACKS_HIGH,
+      luma(cr, cg, cb)
+    );
+    const add = p2.blacks * mask * ADJUST_CONSTANTS.TONE_ADD_COEF;
+    cr = clamp01(cr + add);
+    cg = clamp01(cg + add);
+    cb = clamp01(cb + add);
+  }
+  if (p2.contrast !== 0) {
+    const gain = 1 + p2.contrast;
+    cr = clamp01((cr - ADJUST_CONSTANTS.CONTRAST_PIVOT) * gain + ADJUST_CONSTANTS.CONTRAST_PIVOT);
+    cg = clamp01((cg - ADJUST_CONSTANTS.CONTRAST_PIVOT) * gain + ADJUST_CONSTANTS.CONTRAST_PIVOT);
+    cb = clamp01((cb - ADJUST_CONSTANTS.CONTRAST_PIVOT) * gain + ADJUST_CONSTANTS.CONTRAST_PIVOT);
+  }
+  if (p2.saturation !== 0) {
+    const currentLuma = luma(cr, cg, cb);
+    const gain = 1 + p2.saturation;
+    cr = clamp01(currentLuma + (cr - currentLuma) * gain);
+    cg = clamp01(currentLuma + (cg - currentLuma) * gain);
+    cb = clamp01(currentLuma + (cb - currentLuma) * gain);
+  }
+  if (p2.vibrance !== 0) {
+    const currentLuma = luma(cr, cg, cb);
+    const maximum = Math.max(cr, cg, cb);
+    const minimum = Math.min(cr, cg, cb);
+    const hsvSaturation = maximum > ADJUST_CONSTANTS.VIBRANCE_EPSILON ? (maximum - minimum) / maximum : 0;
+    const amount = p2.vibrance * (1 - hsvSaturation);
+    cr = clamp01(currentLuma + (cr - currentLuma) * (1 + amount));
+    cg = clamp01(currentLuma + (cg - currentLuma) * (1 + amount));
+    cb = clamp01(currentLuma + (cb - currentLuma) * (1 + amount));
+  }
+  return [cr, cg, cb];
+}
+
+// ../frame-engine/src/adjust/bake.ts
+var ADJUST_LUT_SIZE = 33;
+var lastBakeKey = "";
+var lastBakeResult;
+var lutIdMap = /* @__PURE__ */ new WeakMap();
+var nextLutId = 1;
+function lutMemoId(lut) {
+  if (!lut) return 0;
+  let id = lutIdMap.get(lut);
+  if (id === void 0) {
+    id = nextLutId;
+    nextLutId += 1;
+    lutIdMap.set(lut, id);
+  }
+  return id;
+}
+function normalizedIntensity(value) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(0, Math.min(1, value));
+}
+function cubeComponent(value) {
+  return Number(value.toFixed(6));
+}
+function bakeAdjustLut(basic, userLut, intensity = 1, size = ADJUST_LUT_SIZE) {
+  if (!Number.isInteger(size) || size < 2 || size > 256) {
+    throw new RangeError("size must be an integer between 2 and 256");
+  }
+  const normalizedBasic = normalizeAdjustBasic(basic);
+  const mixAmount = normalizedIntensity(intensity);
+  const key = `${JSON.stringify(normalizedBasic)}|${size}|${lutMemoId(userLut)}|${mixAmount}`;
+  if (key === lastBakeKey && lastBakeResult) return lastBakeResult;
+  const data = new Float32Array(size * size * size * 3);
+  const last = size - 1;
+  for (let bz = 0; bz < size; bz += 1) {
+    for (let gy = 0; gy < size; gy += 1) {
+      for (let rx = 0; rx < size; rx += 1) {
+        const adjusted = applyAdjustBasic(rx / last, gy / last, bz / last, normalizedBasic);
+        const lutted = userLut ? sampleLutTrilinear(userLut, adjusted) : adjusted;
+        const index = ((bz * size + gy) * size + rx) * 3;
+        data[index] = cubeComponent(adjusted[0] + (lutted[0] - adjusted[0]) * mixAmount);
+        data[index + 1] = cubeComponent(adjusted[1] + (lutted[1] - adjusted[1]) * mixAmount);
+        data[index + 2] = cubeComponent(adjusted[2] + (lutted[2] - adjusted[2]) * mixAmount);
+      }
+    }
+  }
+  const result = Object.freeze({
+    size,
+    domainMin: Object.freeze([0, 0, 0]),
+    domainMax: Object.freeze([1, 1, 1]),
+    data
+  });
+  lastBakeKey = key;
+  lastBakeResult = result;
+  return result;
+}
+
+// ../frame-engine/src/timeline/plan.ts
 var KNOWN_CUT_KEY_LIST = [
   "in",
   "out",
@@ -18684,7 +19149,8 @@ var KNOWN_CUT_KEY_LIST = [
   "id",
   "crop",
   "keyframes",
-  "perspective"
+  "perspective",
+  "adjust"
 ];
 var KNOWN_LAYER_KEY_LIST = [
   "id",
@@ -18699,7 +19165,8 @@ var KNOWN_LAYER_KEY_LIST = [
   "keyframes",
   "opacity",
   "blend",
-  "filter"
+  "filter",
+  "adjust"
 ];
 var KNOWN_KEYFRAME_KEY_LIST = [
   "t",
@@ -18718,11 +19185,19 @@ var DEFAULT_VISUAL = {
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
   opacity: 1
 };
-function finite2(value, fallback) {
+function finite3(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
-function clamp(value, minimum, maximum) {
+function clamp3(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
+}
+function resolveAdjustLut(adjust) {
+  if (!adjust) return void 0;
+  const basic = adjust.sections?.basic === false ? void 0 : adjust.basic;
+  const userLut = adjust.sections?.lut === false ? void 0 : adjust.lut?.lut;
+  const intensity = userLut ? clamp3(finite3(adjust.lut?.intensity, 1), 0, 1) : 0;
+  if (isAdjustBasicIdentity(basic) && (!userLut || intensity <= 0)) return void 0;
+  return bakeAdjustLut(basic, userLut, intensity);
 }
 function normalizeTransition(cut) {
   return cut.transition_out ?? cut.transitionOut;
@@ -18774,8 +19249,8 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
   }
   const virtualCuts = cuts.map((cut) => {
-    const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
-    const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
+    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
     return {
       ...cut,
       out: cut.out + freezeDuration * speed,
@@ -18787,20 +19262,23 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
     if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-    const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
+    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
     const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-    const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
-    const freezeAt = cut.freeze ? clamp(finite2(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
+    const freezeAt = cut.freeze ? clamp3(finite3(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+    const adjustLut = resolveAdjustLut(cut.adjust);
     return {
       cut,
       at: segment.at,
       end: segment.end,
       playbackDuration,
       freezeAt,
-      freezeDuration
+      freezeDuration,
+      ...adjustLut ? { adjustLut } : {}
     };
   });
   const visibleLayers = layers;
+  const layerAdjustLuts = visibleLayers.map((layer) => resolveAdjustLut(layer.adjust));
   cuts.forEach((cut, index) => {
     if (!cutDeclaresPerspective(cut)) return;
     warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
@@ -18824,25 +19302,26 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       maskSources.set(layer.src, null);
     }
   }
-  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite2(layer.t, 0) + Math.max(0, finite2(layer.duration, 0))), 0);
+  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
   return {
     map,
     cuts: placements,
     totalDuration: Math.max(map.totalDuration, layersEnd),
     layers: visibleLayers,
+    layerAdjustLuts,
     maskSources,
     warn,
-    fps: finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+    fps: finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
   const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
-  const startFrame = Math.max(0, Math.ceil(finite2(layer.t, 0) * fps - 1e-6));
-  const endFrame = Math.max(startFrame, Math.ceil((finite2(layer.t, 0) + Math.max(0, finite2(layer.duration, 0))) * fps - 1e-6));
+  const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
+  const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
 }
 function playbackSecondsAt(placement, outputSeconds) {
-  const local = clamp(outputSeconds - placement.at, 0, placement.playbackDuration + placement.freezeDuration);
+  const local = clamp3(outputSeconds - placement.at, 0, placement.playbackDuration + placement.freezeDuration);
   if (placement.freezeAt == null || placement.freezeDuration <= 0) {
     return Math.min(local, placement.playbackDuration);
   }
@@ -18870,30 +19349,30 @@ function interpolateFraming(keyframes, playbackSeconds) {
       }
     }
   }
-  const amount = right.t > left.t ? clamp((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
+  const amount = right.t > left.t ? clamp3((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
   const lerp = (a, b) => a + (b - a) * amount;
   return {
-    scale: Math.max(1, lerp(finite2(left.scale, 1), finite2(right.scale, 1))),
-    centerX: clamp(lerp(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
-    centerY: clamp(lerp(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
+    scale: Math.max(1, lerp(finite3(left.scale, 1), finite3(right.scale, 1))),
+    centerX: clamp3(lerp(finite3(left.cx, 0.5), finite3(right.cx, 0.5)), 0, 1),
+    centerY: clamp3(lerp(finite3(left.cy, 0.5), finite3(right.cy, 0.5)), 0, 1)
   };
 }
 function layerStyleVisualAt(cut, localSeconds) {
   const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
-    x: finite2(staticCrop.x, 0),
-    y: finite2(staticCrop.y, 0),
-    width: finite2(staticCrop.w, 1),
-    height: finite2(staticCrop.h, 1)
+    x: finite3(staticCrop.x, 0),
+    y: finite3(staticCrop.y, 0),
+    width: finite3(staticCrop.w, 1),
+    height: finite3(staticCrop.h, 1)
   };
-  const width = clamp(crop.width, Number.EPSILON, 1);
-  const height = clamp(crop.height, Number.EPSILON, 1);
+  const width = clamp3(crop.width, Number.EPSILON, 1);
+  const height = clamp3(crop.height, Number.EPSILON, 1);
   const transform = animated?.transform ?? {
-    x: finite2(cut.transform?.x, 0),
-    y: finite2(cut.transform?.y, 0),
-    scale: finite2(cut.transform?.scale, 1),
-    rotateDegrees: finite2(cut.transform?.rotate, 0)
+    x: finite3(cut.transform?.x, 0),
+    y: finite3(cut.transform?.y, 0),
+    scale: finite3(cut.transform?.scale, 1),
+    rotateDegrees: finite3(cut.transform?.rotate, 0)
   };
   return {
     framing: DEFAULT_VISUAL.framing,
@@ -18903,14 +19382,17 @@ function layerStyleVisualAt(cut, localSeconds) {
       scale: Math.max(Number.EPSILON, transform.scale),
       rotateDegrees: transform.rotateDegrees
     },
-    opacity: clamp(animated?.opacity ?? finite2(cut.opacity, 1), 0, 1),
+    opacity: clamp3(animated?.opacity ?? finite3(cut.opacity, 1), 0, 1),
     layerStyle: {
-      crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height }
+      crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
     }
   };
 }
-function visualAt(cut, playbackSeconds, localSeconds) {
-  if (hasCutLayerStyleVisual(cut)) return layerStyleVisualAt(cut, localSeconds);
+function visualAt(cut, playbackSeconds, localSeconds, adjustLut) {
+  if (hasCutLayerStyleVisual(cut)) {
+    const visual2 = layerStyleVisualAt(cut, localSeconds);
+    return adjustLut ? { ...visual2, adjustLut } : visual2;
+  }
   let framing = DEFAULT_VISUAL.framing;
   const keyframes = cut.framing?.keyframes;
   if (keyframes && keyframes.length > 0) {
@@ -18918,36 +19400,37 @@ function visualAt(cut, playbackSeconds, localSeconds) {
     const width = 1 / zoom.scale;
     const height = 1 / zoom.scale;
     framing = {
-      x: clamp(zoom.centerX - width / 2, 0, 1 - width),
-      y: clamp(zoom.centerY - height / 2, 0, 1 - height),
+      x: clamp3(zoom.centerX - width / 2, 0, 1 - width),
+      y: clamp3(zoom.centerY - height / 2, 0, 1 - height),
       width,
       height,
       ...zoom
     };
   } else if (cut.framing?.crop) {
     const crop = cut.framing.crop;
-    const width = clamp(finite2(crop.w, 1), Number.EPSILON, 1);
-    const height = clamp(finite2(crop.h, 1), Number.EPSILON, 1);
+    const width = clamp3(finite3(crop.w, 1), Number.EPSILON, 1);
+    const height = clamp3(finite3(crop.h, 1), Number.EPSILON, 1);
     framing = {
-      x: clamp(finite2(crop.x, 0), 0, 1 - width),
-      y: clamp(finite2(crop.y, 0), 0, 1 - height),
+      x: clamp3(finite3(crop.x, 0), 0, 1 - width),
+      y: clamp3(finite3(crop.y, 0), 0, 1 - height),
       width,
       height,
       scale: Math.max(1 / width, 1 / height),
-      centerX: clamp(finite2(crop.x, 0) + width / 2, 0, 1),
-      centerY: clamp(finite2(crop.y, 0) + height / 2, 0, 1)
+      centerX: clamp3(finite3(crop.x, 0) + width / 2, 0, 1),
+      centerY: clamp3(finite3(crop.y, 0) + height / 2, 0, 1)
     };
   }
-  return {
+  const visual = {
     framing,
     transform: {
-      x: finite2(cut.transform?.x, 0),
-      y: finite2(cut.transform?.y, 0),
-      scale: Math.max(Number.EPSILON, finite2(cut.transform?.scale, 1)),
-      rotateDegrees: finite2(cut.transform?.rotate, 0)
+      x: finite3(cut.transform?.x, 0),
+      y: finite3(cut.transform?.y, 0),
+      scale: Math.max(Number.EPSILON, finite3(cut.transform?.scale, 1)),
+      rotateDegrees: finite3(cut.transform?.rotate, 0)
     },
-    opacity: clamp(finite2(cut.opacity, 1), 0, 1)
+    opacity: clamp3(finite3(cut.opacity, 1), 0, 1)
   };
+  return adjustLut ? { ...visual, adjustLut } : visual;
 }
 function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
   const cut = placement.cut;
@@ -18955,11 +19438,11 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
   const source = sources.get(cut.src);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
-  const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
+  const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
     source,
@@ -19030,7 +19513,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
   const resolved = [];
   timeline.layers.forEach((layer, index) => {
     if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
-    const localSeconds = Math.max(0, seconds - finite2(layer.t, 0));
+    const localSeconds = Math.max(0, seconds - finite3(layer.t, 0));
     const id = String(layer.id ?? `layer-${index}`);
     if (layer.kind === "filter") {
       if (!validFilter(layer.filter)) {
@@ -19042,7 +19525,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
         kind: "filter",
         filter: layer.filter,
         corners: filterQuadCornersAt(layer, localSeconds),
-        opacity: clamp(finite2(layer.opacity, 1), 0, 1)
+        opacity: clamp3(finite3(layer.opacity, 1), 0, 1)
       });
       return;
     }
@@ -19057,29 +19540,31 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     const staticTransform = layer.transform ?? {};
     const visual = {
       crop: animated?.crop ?? {
-        x: clamp(finite2(staticCrop.x, 0), 0, 1),
-        y: clamp(finite2(staticCrop.y, 0), 0, 1),
-        width: clamp(finite2(staticCrop.w, 1), Number.EPSILON, 1),
-        height: clamp(finite2(staticCrop.h, 1), Number.EPSILON, 1)
+        x: clamp3(finite3(staticCrop.x, 0), 0, 1),
+        y: clamp3(finite3(staticCrop.y, 0), 0, 1),
+        width: clamp3(finite3(staticCrop.w, 1), Number.EPSILON, 1),
+        height: clamp3(finite3(staticCrop.h, 1), Number.EPSILON, 1)
       },
       perspective: animated?.perspective ?? (layer.perspective ?? null),
       transform: animated?.transform ?? {
-        x: finite2(staticTransform.x, 0),
-        y: finite2(staticTransform.y, 0),
-        scale: Math.max(Number.EPSILON, finite2(staticTransform.scale, 1)),
-        rotateDegrees: finite2(staticTransform.rotate, 0)
+        x: finite3(staticTransform.x, 0),
+        y: finite3(staticTransform.y, 0),
+        scale: Math.max(Number.EPSILON, finite3(staticTransform.scale, 1)),
+        rotateDegrees: finite3(staticTransform.rotate, 0)
       }
     };
-    visual.crop.width = clamp(visual.crop.width, Number.EPSILON, 1);
-    visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
-    visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
-    visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
+    visual.crop.width = clamp3(visual.crop.width, Number.EPSILON, 1);
+    visual.crop.height = clamp3(visual.crop.height, Number.EPSILON, 1);
+    visual.crop.x = clamp3(visual.crop.x, 0, 1 - visual.crop.width);
+    visual.crop.y = clamp3(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
+    const adjustLut = timeline.layerAdjustLuts[index];
     const common = {
       id,
       visual,
       blend,
-      opacity: clamp(animated?.opacity ?? finite2(layer.opacity, 1), 0, 1)
+      opacity: clamp3(animated?.opacity ?? finite3(layer.opacity, 1), 0, 1),
+      ...adjustLut ? { adjustLut } : {}
     };
     if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
       if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
@@ -24172,7 +24657,7 @@ function percentile90(values) {
   const sorted = [...values].sort((left, right) => left - right);
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.9) - 1)] ?? 0;
 }
-function clamp2(value, minimum, maximum) {
+function clamp4(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 function createPreviewScheduler({
@@ -24192,7 +24677,7 @@ function createPreviewScheduler({
     minLeadInSeconds,
     finitePositive(options.maxLeadInSeconds, DEFAULT_MAX_LEAD_IN_SECONDS)
   );
-  const initialLeadInSeconds = clamp2(
+  const initialLeadInSeconds = clamp4(
     finitePositive(options.initialLeadInSeconds, DEFAULT_INITIAL_LEAD_IN_SECONDS),
     minLeadInSeconds,
     maxLeadInSeconds
@@ -24301,7 +24786,7 @@ function createPreviewScheduler({
   const leadInSeconds = () => {
     if (metrics.warmupMs.length === 0) return initialLeadInSeconds;
     const recentWarmups = metrics.warmupMs.slice(-20);
-    return clamp2(
+    return clamp4(
       percentile90(recentWarmups) * 1.5 / 1e3 + percentile90(headerMs) / 1e3,
       minLeadInSeconds,
       maxLeadInSeconds
@@ -24609,6 +25094,13 @@ function createPreviewAudioSupply(options) {
   let lastAudioPositionAtRenderSec = null;
   let lastSchedule = [];
   let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
+  let rate = 1;
+  const masterGain = context?.createGain() ?? null;
+  let analyser = null;
+  let pitchShiftNode = null;
+  let workletReady = false;
+  let workletWarningEmitted = false;
+  let stretcher = "none";
   const sidecarValues = [
     ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
     ...speech.map((item) => item.sidecar)
@@ -24619,11 +25111,64 @@ function createPreviewAudioSupply(options) {
     startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
     durationSec: item.crossfadeOutSec
   }));
-  const clamp3 = (seconds) => Math.max(
+  const clamp5 = (seconds) => Math.max(
     0,
     Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
   );
-  const audioPosition = () => context && playing ? clamp3(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec)) : latestRequestedSec;
+  const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+  const warnPitchUnavailable = (reason) => {
+    if (workletWarningEmitted) return;
+    workletWarningEmitted = true;
+    warn("[frame-engine] pitch-preserving playback unavailable; using native playback rate", reason);
+  };
+  const outputNode = () => analyser ?? context?.destination ?? null;
+  const disconnectPitchShiftNode = () => {
+    if (!pitchShiftNode) return;
+    try {
+      pitchShiftNode.disconnect();
+    } catch {
+    }
+  };
+  const routeMasterBus = () => {
+    if (!context || !masterGain) return;
+    try {
+      masterGain.disconnect();
+    } catch {
+    }
+    disconnectPitchShiftNode();
+    stretcher = "none";
+    const output = outputNode();
+    if (!output) return;
+    if (rate !== 1 && workletReady) {
+      try {
+        const WorkletNode = globalThis.AudioWorkletNode;
+        if (typeof WorkletNode !== "function") throw new Error("AudioWorkletNode is unavailable");
+        pitchShiftNode ??= new WorkletNode(context, "akari-pitch-shift", {
+          parameterData: { ratio: 1 / rate }
+        });
+        const ratio = pitchShiftNode.parameters.get("ratio");
+        if (ratio) ratio.value = 1 / rate;
+        masterGain.connect(pitchShiftNode);
+        pitchShiftNode.connect(output);
+        stretcher = "worklet";
+        return;
+      } catch (reason) {
+        warnPitchUnavailable(reason);
+      }
+    }
+    masterGain.connect(output);
+  };
+  if (masterGain) routeMasterBus();
+  if (context && options.pitchShiftWorkletUrl) {
+    if (context.audioWorklet?.addModule) {
+      void context.audioWorklet.addModule(options.pitchShiftWorkletUrl).then(() => {
+        workletReady = true;
+        routeMasterBus();
+      }).catch((reason) => warnPitchUnavailable(reason));
+    } else {
+      warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
+    }
+  }
   const stopSources = () => {
     const sources = active;
     active = [];
@@ -24843,14 +25388,14 @@ function createPreviewAudioSupply(options) {
     if (decodedCount <= scheduledDecodedCount) return;
     launch(audioPosition(), { pinStart: true });
   };
-  const applyGainEvents = (param, events, startTime) => {
+  const applyGainEvents = (param, events, startTime, playbackRate) => {
     if (events.length === 0) {
       param.setValueAtTime(1, startTime);
       return;
     }
     param.cancelScheduledValues(startTime);
     for (const event of events) {
-      const at2 = startTime + event.offsetSec;
+      const at2 = startTime + event.offsetSec / playbackRate;
       if (event.method === "linear") param.linearRampToValueAtTime(event.value, at2);
       else if (event.method === "exponential") param.exponentialRampToValueAtTime(event.value, at2);
       else param.setValueAtTime(event.value, at2);
@@ -24867,7 +25412,7 @@ function createPreviewAudioSupply(options) {
       const gains = [baseGain];
       source.buffer = buffer;
       source.loop = item.loop;
-      source.playbackRate.value = item.playbackRate;
+      source.playbackRate.value = item.playbackRate * rate;
       source.connect(baseGain);
       let tail = baseGain;
       if (item.envelopeEvents.length > 0) {
@@ -24875,11 +25420,16 @@ function createPreviewAudioSupply(options) {
         baseGain.connect(envelopeGain);
         tail = envelopeGain;
         gains.push(envelopeGain);
-        applyGainEvents(envelopeGain.gain, item.envelopeEvents, contextStart + item.delaySec);
+        applyGainEvents(
+          envelopeGain.gain,
+          item.envelopeEvents,
+          contextStart + item.delaySec / rate,
+          rate
+        );
       }
-      tail.connect(context.destination);
-      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
+      tail.connect(masterGain ?? context.destination);
+      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
+      source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
       const activeItem = { source, gains };
       active.push(activeItem);
       source.onended = () => {
@@ -24920,7 +25470,7 @@ function createPreviewAudioSupply(options) {
     lastStartAttemptMs = now();
     let outcome = "failed";
     try {
-      await ensureDecodedUpTo(clamp3(options2.pinStart ? seconds : latestRequestedSec));
+      await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
       if (thisGeneration !== generation) return;
       try {
         await context.resume();
@@ -24940,7 +25490,7 @@ function createPreviewAudioSupply(options) {
       });
       const plan = scheduleBuilder({
         timelineDurationSec,
-        startAtSec: clamp3(options2.pinStart ? seconds : latestRequestedSec),
+        startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
         audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
       });
       for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
@@ -25005,6 +25555,9 @@ function createPreviewAudioSupply(options) {
       audioPositionSec,
       driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
       playing,
+      rate,
+      pitchPreserved: rate === 1 || stretcher === "worklet",
+      stretcher,
       scheduled: {
         startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
         itemCount: lastSchedule.length,
@@ -25052,22 +25605,22 @@ function createPreviewAudioSupply(options) {
       });
     },
     playFrom(seconds) {
-      latestRequestedSec = clamp3(seconds);
+      latestRequestedSec = clamp5(seconds);
       if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
-      latestRequestedSec = clamp3(fallbackSeconds);
+      latestRequestedSec = clamp5(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
-      latestRequestedSec = clamp3(fallbackSeconds);
+      latestRequestedSec = clamp5(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
       if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
       return playing ? audioPosition() : latestRequestedSec;
     },
     seek(seconds, continuePlaying = false) {
-      latestRequestedSec = clamp3(seconds);
+      latestRequestedSec = clamp5(seconds);
       generation += 1;
       playing = false;
       starting = false;
@@ -25076,8 +25629,34 @@ function createPreviewAudioSupply(options) {
       if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
+    setRate(value) {
+      const nextRate = clampPlaybackRate(value);
+      if (nextRate === rate) return;
+      const wasPlaying = playing;
+      const position = wasPlaying ? audioPosition() : latestRequestedSec;
+      rate = nextRate;
+      latestRequestedSec = position;
+      routeMasterBus();
+      if (wasPlaying) {
+        generation += 1;
+        playing = false;
+        starting = false;
+        lastStartOutcome = null;
+        stopSources();
+        launch(latestRequestedSec);
+      }
+    },
+    attachAnalyser() {
+      if (!context || !masterGain) return null;
+      if (!analyser) {
+        analyser = context.createAnalyser();
+        analyser.connect(context.destination);
+        routeMasterBus();
+      }
+      return analyser;
+    },
     noteRendered(seconds) {
-      lastRenderedTimelineSec = clamp3(seconds);
+      lastRenderedTimelineSec = clamp5(seconds);
       lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
     },
     debug,
@@ -25085,6 +25664,15 @@ function createPreviewAudioSupply(options) {
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
+      try {
+        masterGain?.disconnect();
+      } catch {
+      }
+      disconnectPitchShiftNode();
+      try {
+        analyser?.disconnect();
+      } catch {
+      }
       decoded.clear();
       decodedBytes = 0;
       void context?.close().catch(() => void 0);
@@ -25112,6 +25700,9 @@ function finitePositive2(value) {
 }
 function finiteNonNegative(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+function clampPlaybackRate(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.min(3, value)) : 1;
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -25267,60 +25858,6 @@ var FrameMetrics = class {
     };
   }
 };
-
-// ../frame-engine/src/look/cube.ts
-function parseCube(text) {
-  if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
-  let size = 0;
-  let domainMin = [0, 0, 0];
-  let domainMax = [1, 1, 1];
-  const values = [];
-  const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    const line = lines[lineNumber].replace(/#.*$/u, "").trim();
-    if (!line) continue;
-    const parts = line.split(/\s+/u);
-    const keyword = parts[0].toUpperCase();
-    if (keyword === "TITLE") continue;
-    if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
-    if (keyword === "LUT_3D_SIZE") {
-      size = Number(parts[1]);
-      if (!Number.isInteger(size) || size < 2 || size > 256) {
-        throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
-      }
-      continue;
-    }
-    if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
-      const parsed = parts.slice(1, 4).map(Number);
-      if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
-        throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
-      }
-      const tuple = parsed;
-      if (keyword === "DOMAIN_MIN") domainMin = tuple;
-      else domainMax = tuple;
-      continue;
-    }
-    const row = parts.slice(0, 3).map(Number);
-    if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
-      throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
-    }
-    values.push(...row);
-  }
-  if (!size) throw new TypeError("LUT_3D_SIZE is missing");
-  if (domainMax.some((value, index) => !(value > domainMin[index]))) {
-    throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
-  }
-  const expected = size * size * size * 3;
-  if (values.length !== expected) {
-    throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
-  }
-  return Object.freeze({
-    size,
-    domainMin: Object.freeze([...domainMin]),
-    domainMax: Object.freeze([...domainMax]),
-    data: new Float32Array(values)
-  });
-}
 
 // ../frame-engine/src/exits/sprite-compositor.ts
 var TILE_INSTANCE_FLOATS = 30;
@@ -25498,6 +26035,19 @@ function audioDeclarations(edit) {
   }
   return declarations;
 }
+function resolvedItemAdjust(item, adjustLutCubeTexts) {
+  const adjust = item?.adjust;
+  if (!adjust || typeof adjust !== "object" || adjust.lut == null || adjust.sections?.lut === false) return item;
+  if (typeof adjust.lut?.lut !== "string") return item;
+  const cubeText = adjustLutCubeTexts?.[String(item.id)];
+  return {
+    ...item,
+    adjust: {
+      ...adjust,
+      lut: typeof cubeText === "string" ? { ...adjust.lut, lut: parseCube(cubeText) } : null
+    }
+  };
+}
 function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   const declaredTracks = cuts.map((cut) => cut?.track).filter((value) => Number.isInteger(value) && value >= 0);
@@ -25506,7 +26056,7 @@ function normalizedCuts(edit) {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
     const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
     const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
-    return {
+    return resolvedItemAdjust({
       ...sequential,
       ...placement,
       src: cut.src ?? (Array.isArray(edit?.sources) ? edit.sources[0]?.id : "default"),
@@ -25514,7 +26064,7 @@ function normalizedCuts(edit) {
       out: Number(cut.out ?? cut.in ?? 0),
       transition_out: cut.transition_out ?? cut.transitionOut,
       id: cut.id ?? `cut-${index}`
-    };
+    }, edit?.adjustLutCubeTexts);
   });
 }
 function resolvedEngineLayers(edit) {
@@ -25524,7 +26074,8 @@ function resolvedEngineLayers(edit) {
     const key = String(layer?.id ?? layer?.src ?? index);
     if (skippedLayers.has(key)) return null;
     const prepared = frameEngineIntake[key];
-    const resolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+    const intakeResolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+    const resolved = resolvedItemAdjust(intakeResolved, edit?.adjustLutCubeTexts);
     if (resolved?.kind !== "filter" || resolved?.filter?.type !== "lut" || typeof resolved.filter.cubeText !== "string") return resolved;
     return {
       ...resolved,

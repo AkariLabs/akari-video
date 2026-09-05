@@ -134,6 +134,26 @@ test("minimum v2 fixture is valid", () => {
   assert.equal(validate(fixture("edit-v2-minimal-valid")), true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("clip adjust v0 is closed, typed, and available on the seven contracted visual item definitions", () => {
+  assert.equal(validate(fixture("edit-v2-adjust-valid")), true, JSON.stringify(validate.errors, null, 2));
+  for (const name of [
+    "itemV2Media", "itemV2Html", "itemV2Telop", "itemV2Filter",
+    "itemV2Group", "itemV2Captions", "itemV2Caption",
+  ]) {
+    assert.deepEqual(schema.$defs[name].properties.adjust, { $ref: "#/$defs/adjustV0" }, name);
+  }
+  assert.equal(Object.hasOwn(schema.$defs.itemV2Shape.properties, "adjust"), false);
+  assert.equal(Object.hasOwn(schema.$defs.itemV2AudioMedia.properties, "adjust"), false);
+  for (const name of [
+    "edit-v2-adjust-range-invalid",
+    "edit-v2-adjust-unknown-key-invalid",
+    "edit-v2-adjust-lut-empty-invalid",
+  ]) {
+    assert.equal(validate(fixture(name)), false, name);
+    assert.ok(validate.errors?.length > 0, name);
+  }
+});
+
 test("shape source accepts the minimal and fully parameterized v0 vocabulary", () => {
   for (const name of ["edit-v2-shape-minimal-valid", "edit-v2-shape-params-valid"]) {
     assert.equal(validate(fixture(name)), true, `${name}: ${JSON.stringify(validate.errors, null, 2)}`);

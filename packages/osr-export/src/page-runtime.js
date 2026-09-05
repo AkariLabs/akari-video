@@ -17,7 +17,24 @@
     return "/media/" + String(value).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function normalizedCuts(edit) {
+  function resolvedItemAdjust(item, adjustLutCubeTexts) {
+    const adjust = item?.adjust;
+    if (!adjust || typeof adjust !== "object" || adjust.lut == null || adjust.sections?.lut === false) return item;
+    const ref = adjust.lut?.lut;
+    if (typeof ref !== "string") return item;
+    const cubeText = adjustLutCubeTexts?.[String(item.id)];
+    return {
+      ...item,
+      adjust: {
+        ...adjust,
+        lut: typeof cubeText === "string"
+          ? { ...adjust.lut, lut: FE.parseCube(cubeText) }
+          : null,
+      },
+    };
+  }
+
+  function normalizedCuts(edit, adjustLutCubeTexts = {}) {
     const cuts = Array.isArray(edit.cuts) ? edit.cuts : [];
     return cuts.map((cut, index) => {
       const copy = Object.assign({}, cut);
@@ -38,7 +55,7 @@
       copy.out = Number(cut.out ?? cut.in ?? 0);
       copy.transition_out = cut.transition_out || cut.transitionOut;
       copy.id = cut.id || "cut-" + index;
-      return copy;
+      return resolvedItemAdjust(copy, adjustLutCubeTexts);
     });
   }
 
@@ -51,7 +68,7 @@
       this.canvas = document.getElementById("akari-engine");
       this.compositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
       this.metrics = new FE.FrameMetrics();
-      const cuts = normalizedCuts(config.edit);
+      const cuts = normalizedCuts(config.edit, config.adjustLutCubeTexts);
       const urls = new Map();
       if (Array.isArray(config.edit.sources)) {
         for (const source of config.edit.sources) {
@@ -60,7 +77,9 @@
       } else if (config.edit.source && config.edit.source.path) {
         urls.set("default", mediaUrl(config.edit.source.path));
       }
-      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : []).map((layer) => {
+      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : [])
+        .map((layer) => resolvedItemAdjust(layer, config.adjustLutCubeTexts))
+        .map((layer) => {
         if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return layer;
         if (typeof layer.filter.cubeText !== "string") return layer;
         return {

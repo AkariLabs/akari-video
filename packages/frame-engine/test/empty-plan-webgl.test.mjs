@@ -114,5 +114,6 @@ test('layer compositor path remains byte-identical to its pre-change source gold
     '// FBO 0 starts as the base.',
     '    // Copy, or apply the optional final 3D LUT',
   );
-  assert.equal(sha256(section), '35254bbfd9b3ebbf78dcda84c9acf011a386b30aab3077b5fd6662189bf6d954');
+  // clip adjust v0（docs/contract-2026-09-03-clip-adjust-v0.md）で layer quad に per-quad LUT を足した後の区間。
+  assert.equal(sha256(section), '4f7de9a64dd9dfd6e9c1eaacb1aa86cd613a8d244da55293b5de7104b1f3fae0');
 });

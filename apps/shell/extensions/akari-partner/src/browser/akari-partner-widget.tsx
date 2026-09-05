@@ -715,6 +715,18 @@ export class AkariPartnerWidget extends ReactWidget {
         };
         this.toDispose.push(terminal.onTerminalDidClose(clear));
         this.toDispose.push(terminal.onDidOpenFailure(clear));
+        this.toDispose.push(terminal.onDidChangeVisibility(visible => {
+            if (visible) {
+                // 非表示中 (display:none) は xterm の viewport 同期が壊れ、再表示後に
+                // 数行ずれて CLI の入力欄が隠れる。Theia の resizeTerminal は 50ms
+                // debounce なので、それより後に最下部へ寄せ直す必要がある
+                setTimeout(() => {
+                    if (!terminal.isDisposed) {
+                        terminal.scrollToBottom();
+                    }
+                }, 120);
+            }
+        }));
     }
 
     protected syncTerminalState(terminal: TerminalWidget, entry: PartnerCliCatalogEntry, restored: boolean): void {

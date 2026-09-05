@@ -171,6 +171,20 @@ interface CutUniforms {
   layerStyle: WebGLUniformLocation | null;
   crop: WebGLUniformLocation | null;
   box: WebGLUniformLocation | null;
+  adjustLut: WebGLUniformLocation | null;
+  hasAdjustLut: WebGLUniformLocation | null;
+  adjustLutDomainMin: WebGLUniformLocation | null;
+  adjustLutDomainMax: WebGLUniformLocation | null;
+  adjustLutSize: WebGLUniformLocation | null;
+  adjustLutIntensity: WebGLUniformLocation | null;
+}
+
+interface AdjustLutUniforms {
+  hasAdjustLut: WebGLUniformLocation | null;
+  adjustLutDomainMin: WebGLUniformLocation | null;
+  adjustLutDomainMax: WebGLUniformLocation | null;
+  adjustLutSize: WebGLUniformLocation | null;
+  adjustLutIntensity: WebGLUniformLocation | null;
 }
 
 interface BaseProgramState {
@@ -244,6 +258,7 @@ vec3 yuv709(float y, vec2 chroma) {
 const baseFragmentPrefix = (type: ResolvedTransition['type']) => `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler3D;
 in vec2 uv;
 out vec4 color;
 uniform sampler2D y0;
@@ -273,6 +288,18 @@ uniform vec4 crop0;
 uniform vec4 crop1;
 uniform vec2 box0;
 uniform vec2 box1;
+uniform sampler3D adjustLut0;
+uniform sampler3D adjustLut1;
+uniform int hasAdjustLut0;
+uniform int hasAdjustLut1;
+uniform vec3 adjustLutDomainMin0;
+uniform vec3 adjustLutDomainMin1;
+uniform vec3 adjustLutDomainMax0;
+uniform vec3 adjustLutDomainMax1;
+uniform float adjustLutSize0;
+uniform float adjustLutSize1;
+uniform float adjustLutIntensity0;
+uniform float adjustLutIntensity1;
 uniform float transitionProgress;
 ${type === 'dissolve' ? 'uniform sampler2D dissolveNoise;' : ''}
 ${YUV_GLSL}
@@ -304,6 +331,18 @@ vec2 unrotate(vec2 q, int rotation) {
   if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
   return vec2(q.y, 1.0 - q.x);
 }
+vec3 applyAdjust0(vec3 rgb) {
+  if (hasAdjustLut0 == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin0) / (adjustLutDomainMax0 - adjustLutDomainMin0), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize0 - 1.0) + 0.5) / adjustLutSize0;
+  return mix(rgb, texture(adjustLut0, coord).rgb, adjustLutIntensity0);
+}
+vec3 applyAdjust1(vec3 rgb) {
+  if (hasAdjustLut1 == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin1) / (adjustLutDomainMax1 - adjustLutDomainMin1), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize1 - 1.0) + 0.5) / adjustLutSize1;
+  return mix(rgb, texture(adjustLut1, coord).rgb, adjustLutIntensity1);
+}
 vec4 sample0(vec2 p) {
   vec2 q;
   if (layerStyle0 == 1) {
@@ -317,9 +356,9 @@ vec4 sample0(vec2 p) {
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
   q = unrotate(q, rotation0);
-  if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
+  if (format0 == 2) return vec4(applyAdjust0(texture(rgba0, q).rgb), opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
+  return vec4(applyAdjust0(yuv709(texture(y0, q).r, chroma)), opacity0);
 }
 vec4 sample1(vec2 p) {
   vec2 q;
@@ -334,9 +373,9 @@ vec4 sample1(vec2 p) {
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
   q = unrotate(q, rotation1);
-  if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
+  if (format1 == 2) return vec4(applyAdjust1(texture(rgba1, q).rgb), opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
+  return vec4(applyAdjust1(yuv709(texture(y1, q).r, chroma)), opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
 vec3 A(vec2 p) { return overBlack(sample0(p)); }
@@ -526,6 +565,7 @@ export function buildBaseFragment(type: ResolvedTransition['type']): string {
 const LAYER_FRAGMENT = `#version 300 es
 precision highp float;
 precision highp int;
+precision highp sampler3D;
 in vec2 uv;
 out vec4 color;
 uniform sampler2D backdrop;
@@ -547,6 +587,12 @@ uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
 uniform int blendMode;
+uniform sampler3D adjustLut;
+uniform int hasAdjustLut;
+uniform vec3 adjustLutDomainMin;
+uniform vec3 adjustLutDomainMax;
+uniform float adjustLutSize;
+uniform float adjustLutIntensity;
 ${YUV_GLSL}
 vec2 unrotate(vec2 q, int rotation) {
   if (rotation == 0) return q;
@@ -572,6 +618,12 @@ vec3 blend(vec3 dst, vec3 src) {
     );
   }
   return src;
+}
+vec3 applyAdjust(vec3 rgb) {
+  if (hasAdjustLut == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin) / (adjustLutDomainMax - adjustLutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
+  return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
 void main() {
   vec4 dst = texture(backdrop, uv);
@@ -600,6 +652,7 @@ void main() {
       : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
     src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
+  src.rgb = applyAdjust(src.rgb);
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
@@ -690,7 +743,8 @@ const LAYER_RGBA_UNIT = 8;
 const MASK_RGBA_UNIT = 10;
 const LUT_UNIT = 11;
 const DISSOLVE_NOISE_UNIT = 12;
-const REQUIRED_TEXTURE_UNITS = DISSOLVE_NOISE_UNIT + 1;
+const BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13] as const;
+const REQUIRED_TEXTURE_UNITS = BASE_ADJUST_LUT_UNITS[1] + 1;
 
 function isVideoFrame(value: NativeYuvFrame | StillImageBitmap | VideoFrame): value is VideoFrame {
   return 'displayWidth' in value && 'displayHeight' in value && 'close' in value;
@@ -988,6 +1042,7 @@ export class WebGL2Compositor implements CompositorBackend {
       ['maskY', 5],
       ['lrgba', LAYER_RGBA_UNIT],
       ['maskRgba', MASK_RGBA_UNIT],
+      ['adjustLut', LUT_UNIT],
     ].forEach(([n, u]) =>
       gl.uniform1i(uniform(gl, this.layerProgram, n as string), u as number),
     );
@@ -1028,7 +1083,14 @@ export class WebGL2Compositor implements CompositorBackend {
       layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
       crop: gl.getUniformLocation(program, `crop${index}`),
       box: gl.getUniformLocation(program, `box${index}`),
+      adjustLut: gl.getUniformLocation(program, `adjustLut${index}`),
+      hasAdjustLut: gl.getUniformLocation(program, `hasAdjustLut${index}`),
+      adjustLutDomainMin: gl.getUniformLocation(program, `adjustLutDomainMin${index}`),
+      adjustLutDomainMax: gl.getUniformLocation(program, `adjustLutDomainMax${index}`),
+      adjustLutSize: gl.getUniformLocation(program, `adjustLutSize${index}`),
+      adjustLutIntensity: gl.getUniformLocation(program, `adjustLutIntensity${index}`),
     }));
+    cutUniforms.forEach((cut, index) => gl.uniform1i(cut.adjustLut, BASE_ADJUST_LUT_UNITS[index]!));
     const state: BaseProgramState = {
       program,
       cutUniforms,
@@ -1050,13 +1112,13 @@ export class WebGL2Compositor implements CompositorBackend {
     this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
   }
 
-  private lookTexture(lut: ParsedCubeLut): WebGLTexture {
+  private lookTexture(lut: ParsedCubeLut, allocationUnit = LUT_UNIT): WebGLTexture {
     const cached = this.lookTextures.get(lut);
     if (cached) return cached;
     const texture = this.gl.createTexture();
     if (!texture) throw new Error('WebGL2 could not allocate a 3D LUT texture');
     const gl = this.gl;
-    this.bind3d(LUT_UNIT, texture);
+    this.bind3d(allocationUnit, texture);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -1256,6 +1318,7 @@ export class WebGL2Compositor implements CompositorBackend {
     u: CutUniforms,
     v: ResolvedCutVisual,
     source: { width: number; height: number },
+    adjustLutUnit: number,
   ) {
     this.gl.uniform4f(
       u.framing,
@@ -1272,6 +1335,7 @@ export class WebGL2Compositor implements CompositorBackend {
       (v.transform.rotateDegrees * Math.PI) / 180,
     );
     this.gl.uniform1f(u.opacity, v.opacity);
+    this.configureAdjustLut(v.adjustLut, adjustLutUnit, u);
     // issue #39: layer-style cuts sample through crop / box (layer program geometry); others keep
     // framing / fit untouched. The extra uniforms are inert when layerStyle is 0.
     if (v.layerStyle) {
@@ -1290,6 +1354,26 @@ export class WebGL2Compositor implements CompositorBackend {
       this.gl.uniform4f(u.crop, 0, 0, 1, 1);
       this.gl.uniform2f(u.box, 1, 1);
     }
+  }
+  private configureAdjustLut(
+    lut: ParsedCubeLut | undefined,
+    unit: number,
+    uniforms: AdjustLutUniforms,
+  ): void {
+    const gl = this.gl;
+    gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
+    if (!lut) {
+      gl.uniform3f(uniforms.adjustLutDomainMin, 0, 0, 0);
+      gl.uniform3f(uniforms.adjustLutDomainMax, 1, 1, 1);
+      gl.uniform1f(uniforms.adjustLutSize, 2);
+      gl.uniform1f(uniforms.adjustLutIntensity, 0);
+      return;
+    }
+    this.bind3d(unit, this.lookTexture(lut, unit));
+    gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
+    gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
+    gl.uniform1f(uniforms.adjustLutSize, lut.size);
+    gl.uniform1f(uniforms.adjustLutIntensity, 1);
   }
   private ensureFbos(w: number, h: number) {
     const shape = `${w}x${h}`;
@@ -1434,10 +1518,15 @@ export class WebGL2Compositor implements CompositorBackend {
     }
     const elapsed = performance.now() - started;
     frames.forEach((_frame, index) =>
-      this.setCut(baseProgram.cutUniforms[index]!, plan.base[index]!.visual, sizes[index]!),
+      this.setCut(
+        baseProgram.cutUniforms[index]!, plan.base[index]!.visual, sizes[index]!,
+        BASE_ADJUST_LUT_UNITS[index]!,
+      ),
     );
     if (frames.length === 1)
-      this.setCut(baseProgram.cutUniforms[1]!, plan.base[0]!.visual, sizes[0]!);
+      this.setCut(
+        baseProgram.cutUniforms[1]!, plan.base[0]!.visual, sizes[0]!, BASE_ADJUST_LUT_UNITS[1],
+      );
     return elapsed;
   }
 
@@ -1563,6 +1652,13 @@ export class WebGL2Compositor implements CompositorBackend {
     const layerRotationLoc = uniform(gl, this.layerProgram, 'layerRotation');
     const maskRotationLoc = uniform(gl, this.layerProgram, 'maskRotation');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
+    const layerAdjustUniforms: AdjustLutUniforms = {
+      hasAdjustLut: uniform(gl, this.layerProgram, 'hasAdjustLut'),
+      adjustLutDomainMin: uniform(gl, this.layerProgram, 'adjustLutDomainMin'),
+      adjustLutDomainMax: uniform(gl, this.layerProgram, 'adjustLutDomainMax'),
+      adjustLutSize: uniform(gl, this.layerProgram, 'adjustLutSize'),
+      adjustLutIntensity: uniform(gl, this.layerProgram, 'adjustLutIntensity'),
+    };
     const blendModes = [
       'normal',
       'screen',
@@ -1674,6 +1770,7 @@ export class WebGL2Compositor implements CompositorBackend {
       );
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
+      this.configureAdjustLut(layer.adjustLut, LUT_UNIT, layerAdjustUniforms);
       draw();
       this.recordGlErrors(synchronization);
       current = next;

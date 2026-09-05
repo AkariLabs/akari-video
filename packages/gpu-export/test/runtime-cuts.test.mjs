@@ -7,12 +7,13 @@ import vm from "node:vm";
 // 切り出して node:vm で評価する。関数の形が変わったらここで気づく（issue #31 の回帰検知）。
 async function loadNormalizedCuts(url) {
   const source = await readFile(url, "utf8");
-  const start = source.indexOf("  function normalizedCuts(edit) {");
-  assert.ok(start >= 0, `${url}: normalizedCuts not found`);
-  const end = source.indexOf("\n  }\n", start);
+  const start = source.indexOf("  function resolvedItemAdjust(item, adjustLutCubeTexts) {");
+  const normalizedStart = source.indexOf("  function normalizedCuts(edit, adjustLutCubeTexts = {}) {", start);
+  assert.ok(start >= 0 && normalizedStart >= start, `${url}: normalizedCuts not found`);
+  const end = source.indexOf("\n  }\n", normalizedStart);
   assert.ok(end > start, `${url}: normalizedCuts end not found`);
   const body = source.slice(start, end + "\n  }\n".length);
-  return vm.runInNewContext(`${body}; normalizedCuts`, {});
+  return vm.runInNewContext(`${body}; normalizedCuts`, { FE: { parseCube: value => value } });
 }
 
 const RUNTIMES = [

@@ -210,12 +210,19 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     '/lib/schemas/analysis.schema.json',
     // フラグ on の frame-engine 評価台へ注入する正本。欠けると canvas 面を起動できない。
     '/lib/overlay-runtime/frame-engine.js',
+    '/lib/overlay-runtime/preview-audio-worklet.js',
     '/lib/overlay-runtime/osr-frame-engine.js',
     // F5「新しい動画を始める」/ U5「チャンネルに入れる」の実処理本体（動的 import）。
     // 同梱が漏れると .app をリポの外へ置いた瞬間に上方探索が空振りして
     // 「新しい動画の作成に失敗しました。」で必ず失敗する（実機で再現済み）。
     '/lib/packages/project-scaffold/src/index.mjs',
-    '/lib/packages/creator-root/src/index.mjs'
+    '/lib/packages/creator-root/src/index.mjs',
+    // 上の 2 本がパッケージの外を import している先。issue #48 の対応で
+    // project-scaffold が読むようになり、v0.1.39 では写しが漏れて
+    // 「新しい動画の作成に失敗しました（Cannot find module …history-policy.mjs）」を出した。
+    // copy-native-helpers.mjs が相対 import を辿って写すので通常は自動で入るが、
+    // 実際に配布物へ入ったかはここで必ず見る。
+    '/lib/packages/akari-launcher/src/history-policy.mjs'
   ];
   for (const required of requiredFiles) {
     if (entries.includes(required)) {

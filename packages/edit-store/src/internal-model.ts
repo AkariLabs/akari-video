@@ -812,6 +812,7 @@ function buildV2VisualItem(
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
+        ...(item.adjust !== undefined ? { adjust: structuredClone(item.adjust) } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
         ...(item.motion !== undefined ? { motion: structuredClone(item.motion) } : {}),
         ...(item.animator !== undefined ? { animator: structuredClone(item.animator) } : {}),

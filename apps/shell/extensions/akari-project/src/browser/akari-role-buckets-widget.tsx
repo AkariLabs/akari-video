@@ -14,6 +14,13 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat, FileStatWithMetadata } from '@theia/filesystem/lib/common/files';
 import { TRANSITION_VOCABULARY, TransitionType } from '@akari-video/edit-store';
 import {
+    AKARI_BORDER,
+    AKARI_FAINT,
+    AKARI_INK,
+    AKARI_RADIUS,
+    AKARI_SURFACE
+} from '../common/akari-surface-tokens';
+import {
     AkariProjectService,
     AssetCatalogResolverStatus,
     AssetCatalogViewItem,
@@ -1853,7 +1860,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    borderBottom: libraryOnly ? undefined : '1px solid var(--theia-sideBar-border)'
+                    borderBottom: libraryOnly ? undefined : AKARI_BORDER.hairline
                 }}>
                     {this.renderMaterialsPane()}
                 </div>
@@ -1885,7 +1892,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
                     background: 'var(--theia-list-dropBackground, rgba(127,127,127,0.12))',
                     border: '2px dashed var(--theia-focusBorder)', borderRadius: 8,
-                    color: 'var(--theia-editorWidget-foreground)', textAlign: 'center', padding: '0 8px'
+                    color: AKARI_INK, textAlign: 'center', padding: '0 8px'
                 }}
             >
                 <span className='codicon codicon-cloud-upload' aria-hidden='true' style={{ fontSize: 22 }} />
@@ -1914,7 +1921,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div
                 data-akari-catalog-controls={this.topView === 'catalog' ? 'true' : undefined}
-                style={{ flex: '0 0 auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '7px', borderBottom: '1px solid var(--theia-sideBar-border)' }}
+                style={{ flex: '0 0 auto', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '7px', borderBottom: AKARI_BORDER.hairline }}
             >
                 <div role='tablist' aria-label='素材パネルの表示' style={{ display: 'flex', gap: '4px' }}>
                     {([
@@ -1933,13 +1940,29 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 data-akari-back-to-materials={item.view === 'materials' ? 'true' : undefined}
                                 className='theia-button secondary'
                                 onClick={() => this.selectTopView(item.view)}
+                                // spec §4: アクティブだけを線で浮かせる。面と文字色は
+                                // akari-theme の `.theia-button.secondary`（!important）が
+                                // raised / ink に固定するのでここでは争わず、枠と字の太さで
+                                // 差をつける。`border` は shorthand で書くこと —
+                                // Theia の `.theia-button { border: none }` があるため
+                                // `borderColor` だけ指定しても線は描かれない（実機で確認）。
+                                // パネル幅 164px でも「プロジェクト」が 2 行に折れないよう詰める。
                                 style={{
                                     flex: '1 1 0',
-                                    padding: '4px 8px',
+                                    minWidth: 0,
+                                    // `.theia-button` の margin-left: 12px を打ち消す。
+                                    // 残すとパネル幅 164px で 1 枚 60px まで痩せ、
+                                    // 「プロジェクト」が枠からはみ出す（実機で確認）。
+                                    marginLeft: 0,
+                                    padding: '4px 5px',
+                                    fontSize: '0.75em',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    borderRadius: `${AKARI_RADIUS.chip}px`,
                                     fontWeight: active ? 700 : 400,
-                                    background: active ? 'var(--theia-button-background)' : 'var(--theia-sideBar-background)',
-                                    color: active ? 'var(--theia-button-foreground)' : 'var(--theia-sideBar-foreground)',
-                                    borderColor: active ? 'var(--theia-focusBorder)' : 'var(--theia-sideBar-border)'
+                                    opacity: active ? 1 : 0.66,
+                                    border: active ? AKARI_BORDER.accent : AKARI_BORDER.ghost
                                 }}
                             >
                                 {item.label}
@@ -1961,10 +1984,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         width: '100%',
                         boxSizing: 'border-box',
                         padding: '5px 8px',
-                        background: 'var(--theia-input-background)',
-                        color: 'var(--theia-input-foreground)',
-                        border: '1px solid var(--theia-input-border)',
-                        borderRadius: '4px'
+                        background: AKARI_SURFACE.raised,
+                        color: AKARI_INK,
+                        border: AKARI_BORDER.hairline,
+                        borderRadius: `${AKARI_RADIUS.panel}px`
                     }}
                 />
             </div>
@@ -2009,7 +2032,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderUnorganizedSection(entries: readonly MaterialCardEntry[]): React.ReactNode {
         return (
-            <div style={{ borderTop: '1px solid var(--theia-sideBar-border)', marginTop: '8px' }}>
+            <div style={{ borderTop: AKARI_BORDER.hairline, marginTop: '8px' }}>
                 <div style={{ padding: '10px 10px 0', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '0.85em', fontWeight: 600 }}>未整理</span>
                     <span style={{ opacity: 0.7, fontSize: '0.78em' }}>
@@ -2070,17 +2093,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
-                    borderRadius: '6px',
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
                     overflow: 'hidden',
-                    background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <div
                     style={{
                         position: 'relative',
                         aspectRatio: '1 / 1',
-                        background: 'var(--theia-editorWidget-background)',
+                        background: AKARI_SURFACE.card,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -2105,7 +2128,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 top: '4px',
                                 left: '4px',
                                 padding: '0 6px',
-                                borderRadius: '8px',
+                                borderRadius: `${AKARI_RADIUS.chip}px`,
                                 fontSize: '0.68em',
                                 lineHeight: '16px',
                                 background: 'var(--theia-editorWarning-foreground)',
@@ -2125,7 +2148,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 top: '4px',
                                 left: '4px',
                                 padding: '0 6px',
-                                borderRadius: '8px',
+                                borderRadius: `${AKARI_RADIUS.chip}px`,
                                 fontSize: '0.68em',
                                 lineHeight: '16px',
                                 background: 'var(--theia-badge-background)',
@@ -2145,7 +2168,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             width: '9px',
                             height: '9px',
                             borderRadius: '50%',
-                            background: entry.analyzed ? 'var(--theia-badge-background)' : 'var(--theia-descriptionForeground)'
+                            // 未分析の灰点は「まだ何もしていない」印。カードより目立つと
+                            // 面の階層が壊れるので、分析済み（アクセント）だけを前に出す。
+                            opacity: entry.analyzed ? 1 : 0.45,
+                            background: entry.analyzed ? 'var(--theia-badge-background)' : AKARI_FAINT
                         }}
                     />
                     <button
@@ -2237,9 +2263,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                         onClick={event => { event.stopPropagation(); this.selectLibraryCategory(hit.categoryKey); }}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 9px',
-                                            textAlign: 'left', cursor: 'pointer', borderRadius: '6px',
-                                            background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
-                                            border: '1px solid var(--theia-sideBar-border)'
+                                            textAlign: 'left', cursor: 'pointer', borderRadius: `${AKARI_RADIUS.panel}px`,
+                                            background: AKARI_SURFACE.raised, color: AKARI_INK,
+                                            border: AKARI_BORDER.ghost
                                         }}
                                     >
                                         <span style={{ width: '24px', textAlign: 'center', color: 'var(--theia-button-background)', fontWeight: 700 }}>{category.icon}</span>
@@ -2259,7 +2285,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     <section key={group.label} style={{ marginTop: '10px' }}>
                         <div style={{
                             position: 'sticky', top: 0, zIndex: 4, margin: '0 -10px 6px', padding: '6px 10px 4px',
-                            background: 'var(--theia-sideBar-background)', fontSize: '0.75em', fontWeight: 700,
+                            background: AKARI_SURFACE.card, fontSize: '0.75em', fontWeight: 700,
                             letterSpacing: '0.08em', opacity: 0.78
                         }}>
                             {group.label}
@@ -2289,9 +2315,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 title={`${category.label} — ${category.hint}`}
                 style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', minWidth: 0,
-                    padding: '7px 4px', borderRadius: '6px', opacity: 0.48,
-                    background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    padding: '7px 4px', borderRadius: `${AKARI_RADIUS.panel}px`, opacity: 0.48,
+                    background: AKARI_SURFACE.raised, color: AKARI_INK,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <span style={{ fontSize: '1.15em' }}>{category.icon}</span>
@@ -2315,10 +2341,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 onClick={soon ? undefined : event => { event.stopPropagation(); this.selectLibraryCategory(category.key as LibraryCategoryKey); }}
                 style={{
                     display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr) auto', alignItems: 'center', gap: '8px',
-                    width: '100%', padding: '7px 9px', textAlign: 'left', borderRadius: '6px',
+                    width: '100%', padding: '7px 9px', textAlign: 'left', borderRadius: `${AKARI_RADIUS.panel}px`,
                     cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.46 : 1,
-                    background: 'var(--theia-sideBar-background)', color: 'var(--theia-sideBar-foreground)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: AKARI_SURFACE.raised, color: AKARI_INK,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <span style={{ gridRow: '1 / span 2', textAlign: 'center', color: soon ? 'inherit' : 'var(--theia-button-background)', fontSize: '1.1em', fontWeight: 700 }}>{category.icon}</span>
@@ -2336,7 +2362,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div data-akari-library-category={key} style={{ minHeight: '100%' }}>
                 <div style={{
                     position: 'sticky', top: 0, zIndex: 6, padding: '8px 10px 7px',
-                    background: 'var(--theia-sideBar-background)', borderBottom: '1px solid var(--theia-sideBar-border)',
+                    background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
                     boxShadow: '0 8px 14px -12px var(--theia-widget-shadow)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
@@ -2361,7 +2387,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                     event.stopPropagation();
                                     this.setCatalogViewMode(this.catalogViewMode === 'grid' ? 'list' : 'grid');
                                 }}
-                                style={{ padding: '2px 5px', border: '1px solid var(--theia-sideBar-border)', borderRadius: '4px', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                                style={{ padding: '2px 5px', border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.chip}px`, background: 'transparent', color: 'inherit', cursor: 'pointer' }}
                             >
                                 <span className={this.catalogViewMode === 'grid' ? 'codicon codicon-list-flat' : 'codicon codicon-layout'} aria-hidden='true' />
                             </button>
@@ -2449,7 +2475,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {(kinds.length > 1 || index > 0) && (
                             <div style={{
                                 position: 'sticky', top: '62px', zIndex: 4, padding: '7px 10px 5px',
-                                background: 'var(--theia-sideBar-background)', borderBottom: '1px solid var(--theia-sideBar-border)',
+                                background: AKARI_SURFACE.card, borderBottom: AKARI_BORDER.hairline,
                                 fontSize: '0.76em', fontWeight: 700, letterSpacing: '0.04em'
                             }}>
                                 {labels[kind]}
@@ -2537,13 +2563,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                                         style={{
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
-                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: '6px',
-                                            background: 'var(--theia-sideBar-background)', border: '1px solid var(--theia-sideBar-border)'
+                                            padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
+                                            background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
                                         }}
                                     >
                                         <span aria-hidden='true' style={{
                                             display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '25px',
-                                            borderRadius: '4px', background: 'var(--theia-editorWidget-background)',
+                                            borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card,
                                             color: 'var(--theia-button-background)', fontWeight: 700
                                         }}>
                                             {transition.glyph}
@@ -2605,7 +2631,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={`pack:${group.pack.id}`}
                 data-akari-catalog-pack={group.pack.id}
-                style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 10px 10px', borderBottom: '1px solid var(--theia-sideBar-border)' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 10px 10px', borderBottom: AKARI_BORDER.hairline }}
             >
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
@@ -2755,9 +2781,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid var(--theia-sideBar-border)',
-                    background: 'var(--theia-editorWidget-background)',
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
+                    border: AKARI_BORDER.hairline,
+                    background: AKARI_SURFACE.raised,
                     fontSize: '0.8em'
                 }}
             >
@@ -2792,12 +2818,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     top: '4px',
                     left: '4px',
                     padding: '1px 5px',
-                    borderRadius: '10px',
+                    borderRadius: `${AKARI_RADIUS.chip}px`,
                     fontSize: '0.72em',
                     fontWeight: 600,
-                    background: item.state === 'locked' ? 'var(--theia-badge-background)' : 'var(--theia-editorWidget-background)',
-                    color: item.state === 'locked' ? 'var(--theia-badge-foreground)' : 'var(--theia-sideBar-foreground)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: item.state === 'locked' ? 'var(--theia-badge-background)' : AKARI_SURFACE.raised,
+                    color: item.state === 'locked' ? 'var(--theia-badge-foreground)' : AKARI_INK,
+                    border: AKARI_BORDER.hairline
                 }}
             >
                 {label}
@@ -2826,12 +2852,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     top: '4px',
                     left: '4px',
                     padding: '1px 5px',
-                    borderRadius: '10px',
+                    borderRadius: `${AKARI_RADIUS.chip}px`,
                     fontSize: '0.72em',
                     fontWeight: 600,
-                    background: 'var(--theia-editorWidget-background)',
-                    color: 'var(--theia-sideBar-foreground)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: AKARI_SURFACE.raised,
+                    color: AKARI_INK,
+                    border: AKARI_BORDER.hairline
                 }}
             >
                 {label}
@@ -3048,12 +3074,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     gap: '7px',
                     minWidth: 0,
                     padding: '5px 6px',
-                    borderRadius: '6px',
-                    background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
+                    background: AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
-                <div style={{ width: '54px', height: '32px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px', background: 'var(--theia-editorWidget-background)' }}>
+                <div style={{ width: '54px', height: '32px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card }}>
                     {item.sampleText
                         ? <span style={{ maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em', fontWeight: 700 }}>{item.sampleText}</span>
                         : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />}
@@ -3074,9 +3100,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 key={`${item.kind}/${item.id}`}
                 title={this.presetShowcaseTitle(item)}
                 data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
-                style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: '6px', background: 'var(--theia-sideBar-background)', border: '1px solid var(--theia-sideBar-border)' }}
+                style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost }}
             >
-                <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--theia-editorWidget-background)' }}>
+                <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: AKARI_SURFACE.card }}>
                     {item.sampleText
                         ? <span style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', fontSize: '0.8em', fontWeight: 700 }}>{item.sampleText}</span>
                         : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />}
@@ -3087,7 +3113,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.67em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', overflow: 'hidden' }}>
                         {item.tags.slice(0, 3).map(tag => (
-                            <span key={tag} style={{ padding: '0 4px', borderRadius: '8px', background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
+                            <span key={tag} style={{ padding: '0 4px', borderRadius: `${AKARI_RADIUS.chip}px`, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
                         ))}
                     </div>
                 </div>
@@ -3117,9 +3143,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     gap: '7px',
                     minWidth: 0,
                     padding: '5px 6px',
-                    borderRadius: '6px',
-                    background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
+                    background: AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <div style={{
@@ -3128,8 +3154,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     height: '28px',
                     flex: '0 0 auto',
                     overflow: 'hidden',
-                    borderRadius: '4px',
-                    background: 'var(--theia-editorWidget-background)',
+                    borderRadius: `${AKARI_RADIUS.chip}px`,
+                    background: AKARI_SURFACE.card,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -3191,17 +3217,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     display: 'flex',
                     flexDirection: 'column',
                     minWidth: 0,
-                    borderRadius: '6px',
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
                     overflow: 'hidden',
-                    background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <div
                     style={{
                         position: 'relative',
                         aspectRatio: '16 / 9',
-                        background: 'var(--theia-editorWidget-background)',
+                        background: AKARI_SURFACE.card,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -3234,7 +3260,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 key={tag}
                                 style={{
                                     padding: '0 4px',
-                                    borderRadius: '8px',
+                                    borderRadius: `${AKARI_RADIUS.chip}px`,
                                     background: 'var(--theia-badge-background)',
                                     color: 'var(--theia-badge-foreground)'
                                 }}
@@ -3243,7 +3269,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             </span>
                         ))}
                         {item.licenseSpdx && (
-                            <span style={{ padding: '0 4px', borderRadius: '8px', border: '1px solid var(--theia-sideBar-border)' }}>
+                            <span style={{ padding: '0 4px', borderRadius: `${AKARI_RADIUS.chip}px`, border: AKARI_BORDER.hairline }}>
                                 {item.licenseSpdx}
                             </span>
                         )}
@@ -3348,19 +3374,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     alignItems: 'center',
                     gap: '8px',
                     cursor: 'pointer',
-                    borderRadius: '6px',
+                    borderRadius: `${AKARI_RADIUS.panel}px`,
                     padding: '6px 8px',
-                    background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    background: AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <div style={{
                     width: '34px',
                     height: '22px',
                     flex: 'none',
-                    borderRadius: '4px',
+                    borderRadius: `${AKARI_RADIUS.chip}px`,
                     overflow: 'hidden',
-                    background: 'var(--theia-editorWidget-background)',
+                    background: AKARI_SURFACE.card,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -3479,7 +3505,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const label = this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
         return (
-            <div style={{ flex: '0 0 auto', borderTop: '1px solid var(--theia-sideBar-border)', padding: '6px' }}>
+            <div style={{ flex: '0 0 auto', borderTop: AKARI_BORDER.hairline, padding: '6px' }}>
                 <button
                     className='theia-button secondary'
                     title='クリックして再実行'

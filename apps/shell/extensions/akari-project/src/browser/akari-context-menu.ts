@@ -1,4 +1,5 @@
 import { MaterialContextMenuItem } from '../common/material-context-menu-items';
+import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 /**
  * 素材パネルの右クリックメニュー実装（task 2026-08-09-material-context-menu-mvp 指示1）。
@@ -35,9 +36,9 @@ export function openAkariContextMenu(options: OpenAkariContextMenuOptions): void
         flexDirection: 'column',
         minWidth: '176px',
         padding: '4px',
-        borderRadius: '4px',
-        border: '1px solid var(--theia-widget-border)',
-        background: 'var(--theia-menu-background)',
+        borderRadius: `${AKARI_RADIUS.panel}px`,
+        border: AKARI_BORDER.hairline,
+        background: AKARI_SURFACE.raised,
         boxShadow: '0 3px 12px rgba(0,0,0,.35)'
     });
     for (const item of options.items) {

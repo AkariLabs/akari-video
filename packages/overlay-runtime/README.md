@@ -53,8 +53,12 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    自動でこの順に埋め込む — 同じ順序をホストの `<script>` タグでも守ること）。ランタイム読込後、
    `font` 省略を許すホストは mount より前に
    `window.akari.threeRuntime.configure({ defaultFontUrl })` を 1 回呼ぶ
-4. `src/interaction.css` と `src/minimap.css` を `<link>` する
-5. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
+4. テキスト分割断片（`data-akari-split`）を扱うホストは、`src/interaction.js` より前に
+   `src/vendor/budoux-ja-bundle.js` → `src/text-split.js` の順で読み込む。
+   未読込でも他機能は動くが、日本語の文節分割が精度の落ちる近似になり
+   （実測 85% → 65%）、編集時の畳み／再分割も働かない
+5. `src/motion-vocab.css`（イージング語彙 + 対象別既定尺の単一定義。断片の `var(--ease-*)` / `var(--anim-duration-*)` の解決先）と `src/interaction.css`・`src/minimap.css` を `<link>` する
+6. edit.json ロード後、`window.akari.runtime.mount(summary)` を呼ぶ
    （`summary` = `EditSummary`。下記参照）。以降はタイムライン更新のたびに
    `window.akari.runtime.tick(t, playing)` を呼ぶ
 
@@ -238,11 +242,15 @@ src/
   vendor/opentype.js-LICENSE.txt        opentype.js の MIT License
   vendor/matter-js-LICENSE.txt          matter-js の MIT License
   vendor/poly-decomp-LICENSE.txt        poly-decomp の MIT License
+  vendor/budoux-ja-bundle.js  BudouX（日本語の表示単位分割）の単一 IIFE
+  vendor/budoux-LICENSE.txt   BudouX の Apache License 2.0
+  text-split.js        data-akari-split の分割 / 畳み / 再分割（v0.5.0〜）
   three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
   viewport-units.js    断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準へ書き換え
   overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
   interaction.js       legacy ui/interaction.js を無改変移送
   interaction.css       legacy ui/interaction.css を無改変移送
+  motion-vocab.css      イージング語彙 + 対象別既定尺（正典。skills/overlay-authoring/motion.md 参照）
   minimap.js            legacy ui/minimap.js を無改変移送
   minimap.css           legacy ui/style.css 206〜234 行（#minimap ブロック）を抽出
 docs/

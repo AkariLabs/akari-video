@@ -7,7 +7,7 @@ import {
   transitionProgressAt
 } from '@akari-video/edit-store';
 import { isTransitionType } from '@akari-video/edit-store';
-import type { EditCut, TimelineMapResult, TimelineSegment } from '@akari-video/edit-store';
+import type { AdjustBasicV0, EditCut, TimelineMapResult, TimelineSegment } from '@akari-video/edit-store';
 import type {
   EvaluationPlan,
   NativeFrameSource,
@@ -17,6 +17,9 @@ import type {
   StillImageSource,
   TimelineTimeUs
 } from '../types.js';
+import type { ParsedCubeLut } from '../look/cube.js';
+import { bakeAdjustLut } from '../adjust/bake.js';
+import { isAdjustBasicIdentity } from '../adjust/kernel.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
 
 export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
@@ -28,7 +31,13 @@ export interface CutFramingKeyframe {
   cy?: number;
 }
 
-export interface FrameEngineCut extends Omit<EditCut, 'transitionOut'> {
+export interface FrameEngineAdjust {
+  basic?: AdjustBasicV0;
+  lut?: { lut: ParsedCubeLut; intensity?: number } | null;
+  sections?: { basic?: boolean; lut?: boolean };
+}
+
+export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'> {
   transitionOut?: EditCut['transitionOut'];
   transition_out?: EditCut['transitionOut'];
   framing?: {
@@ -46,6 +55,7 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut'> {
   crop?: { x: number; y: number; w: number; h: number };
   keyframes?: readonly LayerKeyframe[];
   perspective?: { corners: readonly (readonly [number, number])[] };
+  adjust?: FrameEngineAdjust;
 }
 
 export interface FrameEngineLayer {
@@ -61,6 +71,7 @@ export interface FrameEngineLayer {
   keyframes?: readonly LayerKeyframe[];
   opacity?: number;
   blend?: ResolvedLayerBlendMode;
+  adjust?: FrameEngineAdjust;
   filter?:
     | { type: 'invert' }
     | { type: 'saturation'; value: number }
@@ -69,12 +80,12 @@ export interface FrameEngineLayer {
 
 const KNOWN_CUT_KEY_LIST = [
   'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
-  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective'
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust'
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
-  'keyframes', 'opacity', 'blend', 'filter'
+  'keyframes', 'opacity', 'blend', 'filter', 'adjust'
 ] as const;
 
 const KNOWN_KEYFRAME_KEY_LIST = [
@@ -108,6 +119,7 @@ interface ResolvedCutPlacement {
   playbackDuration: number;
   freezeAt: number | null;
   freezeDuration: number;
+  adjustLut?: ParsedCubeLut;
 }
 
 export interface ResolvedTimelinePlan {
@@ -115,6 +127,7 @@ export interface ResolvedTimelinePlan {
   readonly cuts: readonly ResolvedCutPlacement[];
   readonly totalDuration: number;
   readonly layers: readonly FrameEngineLayer[];
+  readonly layerAdjustLuts: readonly (ParsedCubeLut | undefined)[];
   readonly maskSources: ReadonlyMap<string, string | null>;
   readonly warn: (message: string) => void;
   readonly fps: number;
@@ -143,6 +156,18 @@ function finite(value: unknown, fallback: number): number {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
+}
+
+/** Resolve the effective item adjustment and bake it once for the timeline plan. */
+export function resolveAdjustLut(adjust: FrameEngineAdjust | null | undefined): ParsedCubeLut | undefined {
+  if (!adjust) return undefined;
+  const basic = adjust.sections?.basic === false ? undefined : adjust.basic;
+  const userLut = adjust.sections?.lut === false ? undefined : adjust.lut?.lut;
+  const intensity = userLut
+    ? clamp(finite(adjust.lut?.intensity, 1), 0, 1)
+    : 0;
+  if (isAdjustBasicIdentity(basic) && (!userLut || intensity <= 0)) return undefined;
+  return bakeAdjustLut(basic, userLut, intensity);
 }
 
 function normalizeTransition(cut: FrameEngineCut): EditCut['transitionOut'] {
@@ -247,16 +272,19 @@ export function buildResolvedTimelinePlan(
     const freezeAt = cut.freeze
       ? clamp(finite(cut.freeze.at_sec, 0), 0, playbackDuration)
       : null;
+    const adjustLut = resolveAdjustLut(cut.adjust);
     return {
       cut,
       at: segment.at,
       end: segment.end,
       playbackDuration,
       freezeAt,
-      freezeDuration
+      freezeDuration,
+      ...(adjustLut ? { adjustLut } : {})
     };
   });
   const visibleLayers = layers;
+  const layerAdjustLuts = visibleLayers.map(layer => resolveAdjustLut(layer.adjust));
   // issue #39: perspective is out of scope for the base path; never drop it silently.
   cuts.forEach((cut, index) => {
     if (!cutDeclaresPerspective(cut)) return;
@@ -289,6 +317,7 @@ export function buildResolvedTimelinePlan(
   return {
     map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd),
     layers: visibleLayers,
+    layerAdjustLuts,
     maskSources,
     warn,
     fps: finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) > 0
@@ -384,8 +413,16 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
   };
 }
 
-function visualAt(cut: FrameEngineCut, playbackSeconds: number, localSeconds: number): ResolvedCutVisual {
-  if (hasCutLayerStyleVisual(cut)) return layerStyleVisualAt(cut, localSeconds);
+function visualAt(
+  cut: FrameEngineCut,
+  playbackSeconds: number,
+  localSeconds: number,
+  adjustLut?: ParsedCubeLut
+): ResolvedCutVisual {
+  if (hasCutLayerStyleVisual(cut)) {
+    const visual = layerStyleVisualAt(cut, localSeconds);
+    return adjustLut ? { ...visual, adjustLut } : visual;
+  }
   let framing = DEFAULT_VISUAL.framing;
   const keyframes = cut.framing?.keyframes;
   if (keyframes && keyframes.length > 0) {
@@ -413,7 +450,7 @@ function visualAt(cut: FrameEngineCut, playbackSeconds: number, localSeconds: nu
       centerY: clamp(finite(crop.y, 0) + height / 2, 0, 1)
     };
   }
-  return {
+  const visual: ResolvedCutVisual = {
     framing,
     transform: {
       x: finite(cut.transform?.x, 0),
@@ -423,6 +460,7 @@ function visualAt(cut: FrameEngineCut, playbackSeconds: number, localSeconds: nu
     },
     opacity: clamp(finite(cut.opacity, 1), 0, 1)
   };
+  return adjustLut ? { ...visual, adjustLut } : visual;
 }
 
 function layerFromPlacement(
@@ -437,7 +475,7 @@ function layerFromPlacement(
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   // 出力ローカル秒: freeze で絵が止まっている間も進む（layer-style keyframes の時計）。
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
@@ -584,9 +622,11 @@ function resolvedCompositeLayers(
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
+    const adjustLut = timeline.layerAdjustLuts[index];
     const common = {
       id, visual,
-      blend, opacity: clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1)
+      blend, opacity: clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1),
+      ...(adjustLut ? { adjustLut } : {})
     };
     if (isStillImageSourcePath(layer.src)) {
       if (layer.mask || layer.kind === 'matte') timeline.warn(`mask ignored for still image layer ${id}`);

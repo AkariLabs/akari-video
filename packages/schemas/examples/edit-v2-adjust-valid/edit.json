@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "main", "path": "main.mp4" }],
+  "tracks": [{
+    "id": "visual",
+    "lane": "visual",
+    "items": [{
+      "id": "clip-1",
+      "at": 0,
+      "duration": 30,
+      "crop": { "x": 0, "y": 0, "w": 1, "h": 1 },
+      "adjust": {
+        "basic": {
+          "exposure": 0.5,
+          "contrast": 0.1,
+          "highlights": -0.2,
+          "shadows": 0.2,
+          "blacks": -0.1,
+          "whites": 0.1,
+          "temperature": 0.05,
+          "tint": -0.05,
+          "vibrance": 0.25,
+          "saturation": -0.15
+        },
+        "lut": { "lut": "cinematic-warm", "intensity": 0.75 },
+        "sections": { "basic": true, "lut": false }
+      },
+      "source": { "kind": "media", "src": "main", "in": 0, "out": 1 }
+    }]
+  }]
+}

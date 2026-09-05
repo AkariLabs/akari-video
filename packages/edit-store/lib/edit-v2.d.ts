@@ -164,6 +164,30 @@ export interface CaptionSourceV2 {
     id: string;
 }
 export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | ShapeSourceV2 | TelopSourceV2 | FilterSourceV2 | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
+export interface AdjustBasicV0 {
+    exposure?: number;
+    contrast?: number;
+    highlights?: number;
+    shadows?: number;
+    blacks?: number;
+    whites?: number;
+    temperature?: number;
+    tint?: number;
+    vibrance?: number;
+    saturation?: number;
+}
+export interface AdjustLutV0 {
+    lut: string;
+    intensity?: number;
+}
+export interface AdjustV0 {
+    basic?: AdjustBasicV0;
+    lut?: AdjustLutV0 | null;
+    sections?: {
+        basic?: boolean;
+        lut?: boolean;
+    };
+}
 export interface ItemV2Base {
     id: string;
     name?: string;
@@ -186,6 +210,7 @@ export interface ItemV2Base {
     opacity?: number;
     blend?: BlendModeV2;
     crop?: CropV2;
+    adjust?: AdjustV0;
     perspective?: Record<string, unknown>;
     motion?: MotionV0;
     animator?: AnimatorV0[];

@@ -129,10 +129,76 @@ function validateV2Tracks(value) {
 
 function validateV2Item(item, label) {
   if (!isPlainObject(item)) return;
+  if (hasOwn(item, "adjust")) validateAdjust(item.adjust, `${label}.adjust`);
   if (hasOwn(item, "keyframes")) validateV2Keyframes(item.keyframes, `${label}.keyframes`);
   if (!Array.isArray(item.items)) return;
   for (const [index, child] of item.items.entries()) {
     validateV2Item(child, `${label}.items[${index}]`);
+  }
+}
+
+function validateAdjust(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  const allowedKeys = new Set(["basic", "lut", "sections"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  }
+  if (hasOwn(value, "basic")) {
+    const basic = value.basic;
+    if (!isPlainObject(basic)) {
+      fail(`${label}.basic は object である必要があります`);
+    } else {
+      const basicKeys = new Set([
+        "exposure", "contrast", "highlights", "shadows", "blacks", "whites",
+        "temperature", "tint", "vibrance", "saturation",
+      ]);
+      for (const key of Object.keys(basic)) {
+        if (!basicKeys.has(key)) fail(`${label}.basic に未知のキーがあります: ${key}`);
+      }
+      for (const key of basicKeys) {
+        if (!hasOwn(basic, key)) continue;
+        const minimum = key === "exposure" ? -3 : -1;
+        const maximum = key === "exposure" ? 3 : 1;
+        if (!isFiniteNumber(basic[key]) || basic[key] < minimum || basic[key] > maximum) {
+          fail(`${label}.basic.${key} は ${minimum} から ${maximum} の範囲の有限数である必要があります`);
+        }
+      }
+    }
+  }
+  if (hasOwn(value, "lut") && value.lut !== null) {
+    const lut = value.lut;
+    if (!isPlainObject(lut)) {
+      fail(`${label}.lut は null または object である必要があります`);
+    } else {
+      const lutKeys = new Set(["lut", "intensity"]);
+      for (const key of Object.keys(lut)) {
+        if (!lutKeys.has(key)) fail(`${label}.lut に未知のキーがあります: ${key}`);
+      }
+      validateNonEmptyString(lut.lut, `${label}.lut.lut`);
+      if (hasOwn(lut, "intensity")
+          && (!isFiniteNumber(lut.intensity) || lut.intensity < 0 || lut.intensity > 1)) {
+        fail(`${label}.lut.intensity は 0 から 1 の範囲の有限数である必要があります`);
+      }
+    }
+  }
+  if (hasOwn(value, "sections")) {
+    const sections = value.sections;
+    if (!isPlainObject(sections)) {
+      fail(`${label}.sections は object である必要があります`);
+    } else {
+      const sectionKeys = new Set(["basic", "lut"]);
+      for (const key of Object.keys(sections)) {
+        if (!sectionKeys.has(key)) fail(`${label}.sections に未知のキーがあります: ${key}`);
+      }
+      for (const key of sectionKeys) {
+        if (hasOwn(sections, key) && typeof sections[key] !== "boolean") {
+          fail(`${label}.sections.${key} は boolean である必要があります`);
+        }
+      }
+    }
   }
 }
 

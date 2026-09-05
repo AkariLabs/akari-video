@@ -31,5 +31,6 @@ export * from './tree-ops';
 export * from './item-anchor';
 export * from './shape-markup';
 export * from './cut-ranges';
+export * from './adjust-css-approx';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
