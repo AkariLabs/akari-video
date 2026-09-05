@@ -93,7 +93,4 @@ export const AUDIO_PREVIEW_SECTIONS: readonly AudioPreviewSection[] = [
     { id: 'pitch-time', label: AUDIO_PREVIEW_LABELS[5], build: buildPitchTime }
 ];
 
-export const AUDIO_ITEM_PREVIEW_SECTIONS: readonly AudioPreviewSection[] = [
-    AUDIO_PREVIEW_SECTIONS[2],
-    AUDIO_PREVIEW_SECTIONS[5]
-];
+export const AUDIO_ITEM_PREVIEW_SECTIONS: readonly AudioPreviewSection[] = [];

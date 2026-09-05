@@ -58,7 +58,7 @@ export function updateAudioSfx(
     doc: EditV2Document,
     options: { sfxId: string; patch: UnknownRecord }
 ): EditV2Document {
-    const value = cloneDocument(doc);
+    const value = cloneAudioDocument(doc);
     const sfx = audioSfxOf(value);
     const index = findAudioSfxIndex(sfx, options.sfxId);
     const patch = normalizeLegacyAudioPatch(options.patch);
@@ -350,7 +350,7 @@ export function updateAudioSfxPreferV2(
     doc: EditV2Document,
     options: { sfxId: string; itemPatch: UnknownRecord; legacyPatch: UnknownRecord }
 ): EditV2Document {
-    return indexEditV2Items(doc).has(options.sfxId)
+    return Array.isArray(doc.tracks) && indexEditV2Items(doc).has(options.sfxId)
         ? updateAudioItemEnvelope(doc, { itemId: options.sfxId, patch: options.itemPatch })
         : updateAudioSfx(doc, { sfxId: options.sfxId, patch: normalizeLegacyAudioPatch(options.legacyPatch) });
 }
@@ -425,10 +425,10 @@ export function updateAudioNarrationPreferV2(
     doc: EditV2Document,
     options: { narrationId: string; itemPatch: UnknownRecord; legacyPatch: UnknownRecord }
 ): EditV2Document {
-    if (indexEditV2Items(doc).has(options.narrationId)) {
+    if (Array.isArray(doc.tracks) && indexEditV2Items(doc).has(options.narrationId)) {
         return updateAudioItemEnvelope(doc, { itemId: options.narrationId, patch: options.itemPatch });
     }
-    const value = cloneDocument(doc);
+    const value = cloneAudioDocument(doc);
     if (!isRecord(value.audio) || !Array.isArray(value.audio.narration)
         || !value.audio.narration.every(isRecord)) {
         throw new Error('edit.json.audio.narration が見つかりません。');
@@ -800,6 +800,13 @@ export function setTrackFlag(
     const value = cloneDocument(doc);
     trackById(value, options.trackId);
     return value;
+}
+
+/** legacy audio.* の更新では tracks が存在しない文書も保持する。 */
+function cloneAudioDocument(doc: EditV2Document): EditV2Document {
+    if (!isRecord(doc)) throw new Error('edit.json は object である必要があります。');
+    if (doc.tracks !== undefined) return cloneDocument(doc);
+    return cloneValue(doc);
 }
 
 function cloneDocument(doc: EditV2Document): EditV2Document {

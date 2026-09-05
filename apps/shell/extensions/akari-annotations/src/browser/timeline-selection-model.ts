@@ -172,6 +172,11 @@ export interface TimelineAudioSelection {
     outputStart: number;
     duration: number;
     gainDb?: number;
+    speed?: number;
+    pitchSemitones?: number;
+    formant?: 'preserve' | 'shift';
+    denoise?: { method: 'fft' | 'nlm'; strength: number };
+    lowcutHz?: number;
     script?: string;
     fadeIn?: number;
     fadeOut?: number;
@@ -214,6 +219,13 @@ export interface TimelineAudioMasterSnapshot {
 }
 
 type InspectorWriteOperation =
+    | {
+        kind: 'audio-clip-fx';
+        id: string;
+        audioKind: 'sfx' | 'bgm' | 'narration';
+        field: 'speed' | 'pitch_semitones' | 'formant' | 'denoise' | 'lowcut_hz';
+        value: number | string | { method: 'fft' | 'nlm'; strength: number } | null;
+    }
     | {
         kind: 'item-field';
         id: string;
