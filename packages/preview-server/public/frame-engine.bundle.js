@@ -4631,7 +4631,9 @@ var require_edit_v2 = __commonJS({
             "freeze",
             "fx",
             "speed",
-            "chroma_key"
+            "chroma_key",
+            "gain_db",
+            "mute"
           ]), path);
           requireText(value.src, `${path}.src`);
           if (!sourceIds.has(value.src))
@@ -4648,6 +4650,10 @@ var require_edit_v2 = __commonJS({
             throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           if (hasOwn(value, "speed"))
             requirePositiveNumber(value.speed, `${path}.speed`);
+          if (hasOwn(value, "gain_db"))
+            requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+          if (hasOwn(value, "mute") && typeof value.mute !== "boolean")
+            throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           return;
         case "html":
           requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
@@ -6335,6 +6341,8 @@ var require_internal_model = __commonJS({
         ...source.freeze !== void 0 ? { freeze: source.freeze } : {},
         ...source.fx !== void 0 ? { fx: source.fx } : {},
         ...source.speed !== void 0 ? { speed: source.speed } : {},
+        ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
+        ...source.mute !== void 0 ? { mute: source.mute } : {},
         ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
       };
     }
@@ -7600,6 +7608,8 @@ var require_audio_schedule = __commonJS({
         const cut = normalizedCuts2[segment.cutIndex];
         if (!cut || typeof cut.src !== "string" || !cut.src)
           continue;
+        if (cut.mute === true)
+          continue;
         const speed = finitePositive3(cut.speed) ? cut.speed : 1;
         const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
         const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
@@ -7895,7 +7905,7 @@ var require_edit_v2_keys = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
     exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -8095,6 +8105,8 @@ var require_edit_v2_keys = __commonJS({
         "freeze",
         "fx",
         "speed",
+        "gain_db",
+        "mute",
         "chroma_key"
       ],
       "itemSourceAudioMediaV2": [
@@ -22078,6 +22090,7 @@ function at() {
 }
 
 // ../frame-engine/src/decode/codec-probe.ts
+var DEFAULT_MOOV_BUDGET_BYTES = 32 * 1024 * 1024;
 var supportCache = /* @__PURE__ */ new Map();
 var sourceCache = /* @__PURE__ */ new Map();
 var forceSoftwareDecode = false;
@@ -22293,7 +22306,7 @@ function responseTotal(response) {
 async function doProbeSourceCodec(url, options) {
   try {
     const fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
-    const maxProbeBytes = options.maxProbeBytes ?? 8 * 1024 * 1024;
+    const maxProbeBytes = options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES;
     const requestUrl = queryUrl(url, options.query);
     const initialLimit = Math.min(1024 * 1024, maxProbeBytes);
     const initialResponse = await fetchImpl(requestUrl, { headers: { Range: `bytes=0-${initialLimit - 1}` } });
@@ -22316,7 +22329,7 @@ async function doProbeSourceCodec(url, options) {
       if (!box2) throw new Error(`invalid MP4 box header at ${cursor}`);
       const boxSize = box2.size;
       if (box2.type === "moov") {
-        if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B)`);
+        if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B > ${maxProbeBytes} B)`);
         if (cursor + boxSize <= initial.byteLength) {
           moovBytes = initial.slice(cursor, cursor + boxSize);
         } else {
@@ -22342,7 +22355,7 @@ async function doProbeSourceCodec(url, options) {
   }
 }
 function probeSourceCodec(url, options = {}) {
-  const key = `${queryUrl(url, options.query)}\0${options.maxProbeBytes ?? 8 * 1024 * 1024}`;
+  const key = `${queryUrl(url, options.query)}\0${options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES}`;
   let cached = sourceCache.get(key);
   if (!cached) {
     cached = doProbeSourceCodec(url, options);
@@ -25161,6 +25174,19 @@ function createPreviewScheduler({
     }
     metrics.onChanged?.();
   };
+  const warmupNextBoundary = (fromSeconds = latestTimeSeconds) => {
+    if (disposed) return;
+    const boundary = boundaries.find((value) => value > fromSeconds);
+    if (boundary === void 0) return;
+    const currentKeys = new Set(requirementsAtTime(
+      Math.round(fromSeconds * 1e6),
+      `preview current plan failed at ${fromSeconds}s`
+    ).map((requirement) => requirement.key));
+    for (const requirement of requirementsAtBoundary(boundary)) {
+      startWarmup(requirement, boundary, currentKeys);
+    }
+    metrics.onChanged?.();
+  };
   const state = () => {
     const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -25221,6 +25247,7 @@ function createPreviewScheduler({
   return {
     notePresented,
     primeHeaders,
+    warmupNextBoundary,
     isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
     state,
     reset,
@@ -25282,6 +25309,170 @@ var ScrubController = class {
 // ../frame-engine/src/audio/preview-audio-supply.ts
 var import_edit_store4 = __toESM(require_lib(), 1);
 var EditStoreKernel = __toESM(require_lib(), 1);
+
+// ../frame-engine/src/audio/pcm-window-source.ts
+var DEFAULT_PCM_WINDOW_CACHE_BYTES = 64 * 1024 * 1024;
+function pcmWindowByteRange({ sampleRate, channels, bytesPerSample, frames }, startSec, endSec) {
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0 || !Number.isSafeInteger(channels) || channels <= 0 || !Number.isSafeInteger(bytesPerSample) || bytesPerSample <= 0 || !Number.isSafeInteger(frames) || frames < 0 || !Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) return null;
+  const startFrame = Math.min(frames, Math.max(0, Math.floor(startSec * sampleRate)));
+  const endFrame = Math.min(frames, Math.max(0, Math.ceil(endSec * sampleRate)));
+  if (endFrame <= startFrame) return null;
+  const stride = channels * bytesPerSample;
+  return {
+    startByte: startFrame * stride,
+    endByte: endFrame * stride - 1,
+    startFrame,
+    frameCount: endFrame - startFrame
+  };
+}
+var abortError = () => new DOMException("PCM window cancelled", "AbortError");
+var PcmWindowSource = class {
+  constructor(metadata, fetchImpl, context, options = {}) {
+    this.metadata = metadata;
+    this.fetchImpl = fetchImpl;
+    this.context = context;
+    if (!Number.isFinite(metadata.sampleRate) || metadata.sampleRate <= 0 || !Number.isSafeInteger(metadata.channels) || metadata.channels <= 0 || metadata.bytesPerSample !== 2 || !Number.isSafeInteger(metadata.frames) || metadata.frames < 0 || !Number.isFinite(metadata.durationSec) || metadata.durationSec < 0) {
+      throw new Error("Invalid s16le sidecar metadata");
+    }
+    this.cacheLimit = Number.isFinite(options.cacheBytes) && options.cacheBytes >= 0 ? options.cacheBytes : DEFAULT_PCM_WINDOW_CACHE_BYTES;
+  }
+  cache = /* @__PURE__ */ new Map();
+  pins = /* @__PURE__ */ new Map();
+  pending = /* @__PURE__ */ new Map();
+  stats = { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 };
+  cacheLimit;
+  debug() {
+    return { ...this.stats };
+  }
+  noteLate() {
+    this.stats.late += 1;
+  }
+  key(startSec, endSec) {
+    const range = pcmWindowByteRange(this.metadata, startSec, endSec);
+    return range ? `${range.startFrame}:${range.startFrame + range.frameCount}` : "empty";
+  }
+  pin(startSec, endSec) {
+    const key = this.key(startSec, endSec);
+    this.pins.set(key, (this.pins.get(key) ?? 0) + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const count = (this.pins.get(key) ?? 1) - 1;
+      if (count > 0) this.pins.set(key, count);
+      else this.pins.delete(key);
+      this.evict();
+    };
+  }
+  evict() {
+    for (const [key, entry] of this.cache) {
+      if (this.stats.cacheBytes <= this.cacheLimit) break;
+      if (this.pins.has(key)) continue;
+      this.cache.delete(key);
+      this.stats.cacheBytes -= entry.bytes;
+      this.stats.evicted += 1;
+    }
+  }
+  window(startSec, endSec, signal) {
+    if (signal?.aborted) return Promise.reject(abortError());
+    const range = pcmWindowByteRange(this.metadata, startSec, endSec);
+    if (!range) return Promise.resolve(this.context.createBuffer(this.metadata.channels, 1, this.metadata.sampleRate));
+    const key = this.key(startSec, endSec);
+    const cached = this.cache.get(key);
+    if (cached) {
+      this.cache.delete(key);
+      this.cache.set(key, cached);
+      return Promise.resolve(cached.buffer);
+    }
+    let pending = this.pending.get(key);
+    if (!pending || pending.controller.signal.aborted) {
+      const controller = new AbortController();
+      const entry = { controller, users: 0, promise: Promise.resolve(null) };
+      this.pending.set(key, entry);
+      entry.promise = this.fetchWindow(range, key, controller.signal).finally(() => {
+        if (this.pending.get(key) === entry) this.pending.delete(key);
+      });
+      pending = entry;
+    }
+    const request = pending;
+    request.users += 1;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (buffer, reason) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener("abort", cancel);
+        request.users -= 1;
+        if (request.users === 0 && !buffer) request.controller.abort();
+        if (buffer) resolve(buffer);
+        else reject(reason);
+      };
+      const cancel = () => finish(void 0, abortError());
+      signal?.addEventListener("abort", cancel, { once: true });
+      request.promise.then((buffer) => finish(buffer), (reason) => finish(void 0, reason));
+      if (signal?.aborted) cancel();
+    });
+  }
+  async fetchWindow(range, key, signal) {
+    try {
+      const response = await this.fetchImpl(this.metadata.url, {
+        headers: { Range: `bytes=${range.startByte}-${range.endByte}` },
+        signal
+      });
+      if (signal.aborted || response.status !== 206) {
+        try {
+          await response.body?.cancel?.();
+        } catch {
+        }
+        if (signal.aborted) throw abortError();
+        throw new Error(`PCM Range status=${response.status}; expected 206`);
+      }
+      const contentRange = /^bytes (\d+)-(\d+)\/(\d+|\*)$/i.exec(response.headers.get("content-range") ?? "");
+      if (!contentRange || Number(contentRange[1]) !== range.startByte || Number(contentRange[2]) !== range.endByte) {
+        try {
+          await response.body?.cancel?.();
+        } catch {
+        }
+        throw new Error("PCM Content-Range does not match request");
+      }
+      const encoded = await response.arrayBuffer();
+      if (signal.aborted) throw abortError();
+      const { channels, sampleRate, bytesPerSample } = this.metadata;
+      const stride = channels * bytesPerSample;
+      if (encoded.byteLength % stride !== 0 || encoded.byteLength !== range.frameCount * stride) {
+        throw new Error("PCM Range body has an invalid frame count");
+      }
+      const buffer = this.context.createBuffer(channels, range.frameCount, sampleRate);
+      const view = new DataView(encoded);
+      for (let channel = 0; channel < channels; channel += 1) {
+        const output = buffer.getChannelData(channel);
+        for (let frame = 0; frame < range.frameCount; frame += 1) {
+          output[frame] = view.getInt16(frame * stride + channel * bytesPerSample, true) / 32768;
+        }
+      }
+      if (signal.aborted) throw abortError();
+      const bytes = range.frameCount * channels * 4;
+      this.cache.set(key, { buffer, bytes });
+      this.stats.fetched += 1;
+      this.stats.bytes += encoded.byteLength;
+      this.stats.cacheBytes += bytes;
+      this.evict();
+      return buffer;
+    } catch (reason) {
+      if (!signal.aborted) this.stats.failed += 1;
+      throw reason;
+    }
+  }
+  dispose() {
+    for (const request of this.pending.values()) request.controller.abort();
+    this.pending.clear();
+    this.cache.clear();
+    this.pins.clear();
+    this.stats.cacheBytes = 0;
+  }
+};
+
+// ../frame-engine/src/audio/preview-audio-supply.ts
 var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
 var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
 var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
@@ -25289,6 +25480,9 @@ var DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
 var DEFAULT_COMPACT_SAMPLE_RATE = 24e3;
 var FAILED_DECODE_RETRY_MS = 5e3;
 var RESTART_BACKOFF_MS = 500;
+var WINDOW_LOOKAHEAD_SEC = 12;
+var WINDOW_REFILL_MS = 500;
+var PLAY_GATE_MAX_HOLD_SEC = 3;
 var MIB = 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
@@ -25318,6 +25512,9 @@ function createPreviewAudioSupply(options) {
   let decodedBytes = 0;
   let overBudgetWarned = false;
   let prefetchInFlight = null;
+  let activePrefetchQueue = null;
+  let disposed = false;
+  let decodedRevision = 0;
   let prefetchEverRan = false;
   let prefetchStartedAt = 0;
   let prefetchElapsedMs = 0;
@@ -25330,8 +25527,23 @@ function createPreviewAudioSupply(options) {
   let regularDecoded = [];
   let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
+  const windowSources = /* @__PURE__ */ new Map();
+  const windowStops = /* @__PURE__ */ new Set();
+  const windowFailures = /* @__PURE__ */ new Set();
+  let windowController = null;
+  let startingWindowController = null;
+  let bufferedUntil = {};
   let generation = 0;
   let starting = false;
+  let replanPending = false;
+  let gate = {
+    holding: false,
+    startSec: 0,
+    sinceMs: 0,
+    reason: null
+  };
+  let gateGeneration = -1;
+  let gateIntent = null;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -25348,11 +25560,13 @@ function createPreviewAudioSupply(options) {
   let workletReady = false;
   let workletWarningEmitted = false;
   let stretcher = "none";
-  const sidecarValues = [
-    ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
-    ...speech.map((item) => item.sidecar)
-  ].filter((item) => Boolean(item));
-  const uniqueSidecars = [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  const uniqueSidecars = () => {
+    const sidecarValues = [
+      ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
+      ...speech.map((item) => item.sidecar)
+    ].filter((item) => Boolean(item));
+    return [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  };
   const crossfades = speech.filter((item) => finitePositive2(item.crossfadeOutSec)).map((item) => ({
     id: item.id,
     startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
@@ -25417,6 +25631,13 @@ function createPreviewAudioSupply(options) {
     }
   }
   const stopSources = () => {
+    startingWindowController?.abort();
+    startingWindowController = null;
+    windowController?.abort();
+    windowController = null;
+    for (const stop of [...windowStops]) stop();
+    windowStops.clear();
+    bufferedUntil = {};
     const sources = active;
     active = [];
     for (const item of sources) {
@@ -25492,8 +25713,37 @@ function createPreviewAudioSupply(options) {
     decoded.set(cacheKey, entry);
     return entry.promise;
   };
+  const pcmSource = (url, sidecar) => {
+    if (!context || !fetchImpl) throw new Error("PCM window supply unavailable");
+    const metadata = {
+      url,
+      sampleRate: sidecar.sampleRate,
+      channels: sidecar.channels,
+      bytesPerSample: sidecar.bytesPerSample,
+      frames: sidecar.frames,
+      durationSec: sidecar.durationSec
+    };
+    const key = JSON.stringify(metadata);
+    let source = windowSources.get(key);
+    if (!source) {
+      source = new PcmWindowSource(metadata, fetchImpl, context, { cacheBytes: options.windowCacheBytes });
+      windowSources.set(key, source);
+    }
+    return source;
+  };
   const resolveRegular = async (declaration) => {
     const sidecar = validSidecar(declaration.spec.sidecar);
+    if (sidecar?.format === "pcm-s16le") {
+      regularDecoded.push({
+        ...declaration,
+        windowed: pcmSource(declaration.url, sidecar),
+        durationSec: sidecar.durationSec,
+        sidecar: true,
+        cacheKey: declaration.url
+      });
+      decodedRevision += 1;
+      return;
+    }
     let buffer = await decodeUrl(
       declaration.url,
       `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
@@ -25503,7 +25753,7 @@ function createPreviewAudioSupply(options) {
       buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
-    if (!buffer) return;
+    if (!buffer || disposed || !declarations.includes(declaration)) return;
     const usedUrl = usedSidecar ? declaration.url : declaration.sourceUrl ?? declaration.url;
     regularDecoded.push({
       ...declaration,
@@ -25512,11 +25762,22 @@ function createPreviewAudioSupply(options) {
       sidecar: usedSidecar,
       cacheKey: decodeCacheKey(usedUrl, false)
     });
+    decodedRevision += 1;
   };
   const resolveSpeech = async (declaration) => {
     const started = nowMs();
     const sidecar = declaration.sidecar;
     const legacy = declaration.atempo;
+    if (sidecar?.format === "pcm-s16le") {
+      speechDecoded.set(declaration.id, {
+        windowed: pcmSource(sidecar.path, sidecar),
+        durationSec: sidecar.durationSec,
+        sidecar: true,
+        cacheKey: sidecar.path
+      });
+      decodedRevision += 1;
+      return;
+    }
     const bakedPath = sidecar?.path ?? legacy?.path;
     let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
     let usedSidecar = Boolean(bakedPath && buffer);
@@ -25529,11 +25790,14 @@ function createPreviewAudioSupply(options) {
       );
       usedSidecar = false;
     }
+    if (disposed || !speech.includes(declaration)) return;
     if (buffer) speechDecoded.set(declaration.id, {
       buffer,
+      durationSec: buffer.duration,
       sidecar: usedSidecar,
       cacheKey: decodeCacheKey(usedSidecar ? bakedPath : declaration.url, !usedSidecar)
     });
+    if (buffer) decodedRevision += 1;
     const bytes = buffer ? buffer.length * buffer.numberOfChannels * 4 : 0;
     const previous = speechMetrics.get(declaration.src);
     speechMetrics.set(declaration.src, {
@@ -25545,27 +25809,43 @@ function createPreviewAudioSupply(options) {
     });
   };
   const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
+  const taskState = (state) => state === "queued" || state === "generating" ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
+  const prepareWindowedTask = (task, pcm) => {
+    if (pcm && task.state === "decode") {
+      task.state = "windowed";
+      void task.run().catch((reason) => {
+        task.failedAtMs = now();
+        warn(`[frame-engine] ${task.key} PCM metadata unavailable`, reason);
+      });
+    }
+    return task;
+  };
+  const regularTask = (item) => prepareWindowedTask({
+    key: `${item.kind}:${item.id}`,
+    at: firstUseRegular(item),
+    failedAtMs: null,
+    state: taskState(item.spec.sidecarState),
+    run: () => resolveRegular(item),
+    resolved: () => regularResolved(item)
+  }, validSidecar(item.spec.sidecar)?.format === "pcm-s16le");
+  const speechTask = (item) => prepareWindowedTask({
+    key: `speech:${item.id}`,
+    at: firstUseSpeech(item),
+    failedAtMs: null,
+    state: taskState(item.sidecarState),
+    run: () => resolveSpeech(item),
+    resolved: () => speechDecoded.has(item.id)
+  }, item.sidecar?.format === "pcm-s16le");
   const tasks = [
-    ...declarations.map((item) => ({
-      key: `${item.kind}:${item.id}`,
-      at: firstUseRegular(item),
-      failedAtMs: null,
-      run: () => resolveRegular(item),
-      resolved: () => regularResolved(item)
-    })),
-    ...speech.map((item) => ({
-      key: `speech:${item.id}`,
-      at: firstUseSpeech(item),
-      failedAtMs: null,
-      run: () => resolveSpeech(item),
-      resolved: () => speechDecoded.has(item.id)
-    }))
+    ...declarations.map(regularTask),
+    ...speech.map(speechTask)
   ].sort((left, right) => left.at - right.at);
   const pendingTasks = () => {
     const at2 = now();
-    return tasks.filter((task) => !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+    return tasks.filter((task) => task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
   };
   const runPrefetch = async (queue) => {
+    activePrefetchQueue = queue;
     prefetchPending = queue.length;
     let cursor = 0;
     const worker = async () => {
@@ -25573,6 +25853,7 @@ function createPreviewAudioSupply(options) {
         const task = queue[cursor++];
         if (!task) break;
         try {
+          if (disposed || !tasks.includes(task)) continue;
           await task.run();
           task.failedAtMs = task.resolved() ? null : now();
         } catch (reason) {
@@ -25581,6 +25862,7 @@ function createPreviewAudioSupply(options) {
         } finally {
           prefetchPending -= 1;
           notifyTaskSettled();
+          if (task.updated && !disposed) replanIfNeeded();
         }
       }
     };
@@ -25591,6 +25873,7 @@ function createPreviewAudioSupply(options) {
     for (const waiter of [...taskWaiters]) waiter();
   };
   const ensureDecoded = () => {
+    if (disposed) return Promise.resolve();
     if (prefetchInFlight) return prefetchInFlight;
     const queue = pendingTasks();
     if (queue.length === 0) return Promise.resolve();
@@ -25601,6 +25884,7 @@ function createPreviewAudioSupply(options) {
       if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
       prefetchInFlight = null;
+      activePrefetchQueue = null;
       replanIfNeeded();
     });
     return prefetchInFlight;
@@ -25625,9 +25909,33 @@ function createPreviewAudioSupply(options) {
       check();
     });
   };
+  const waitForGateStart = (positionSec, thisGeneration) => {
+    if (gateMissingKeys(positionSec, false).length === 0) return Promise.resolve();
+    const remaining = gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now();
+    if (!(remaining > 0)) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        taskWaiters.delete(check);
+        clearTimeout(timer);
+        resolve();
+      };
+      const check = () => {
+        if (thisGeneration !== generation || gateMissingKeys(positionSec, false).length === 0) finish();
+      };
+      const timer = setTimeout(finish, remaining);
+      taskWaiters.add(check);
+      check();
+    });
+  };
   const replanIfNeeded = () => {
-    if (starting) return;
-    const decodedCount = regularDecoded.length + speechDecoded.size;
+    if (starting) {
+      replanPending = true;
+      return;
+    }
+    const decodedCount = decodedRevision;
     if (!playing) {
       if (lastStartOutcome === "empty" && decodedCount > emptyPlanDecodedCount) launch(latestRequestedSec);
       return;
@@ -25696,6 +26004,212 @@ function createPreviewAudioSupply(options) {
       return false;
     }
   };
+  const windowedFor = (item) => item.kind === "speech" ? speechDecoded.get(item.id)?.windowed : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind)?.windowed;
+  const frameSeconds = (frame, sampleRate, end) => {
+    const seconds = frame / sampleRate;
+    const adjustment = Number.EPSILON * Math.max(1, Math.abs(seconds));
+    return end ? Math.ceil(seconds * sampleRate) > frame ? seconds - adjustment : seconds : Math.floor(seconds * sampleRate) < frame ? seconds + adjustment : seconds;
+  };
+  const windowSlice = (item, source, consumed) => {
+    const { sampleRate, frames, durationSec: materialDurationSec } = source.metadata;
+    const materialFrames = Math.min(frames, Math.round(materialDurationSec * sampleRate));
+    const remaining = item.sourceDurationSec - consumed / sampleRate;
+    if (!(remaining > 0) || materialFrames <= 0) return null;
+    let startFrame = Math.floor(item.sourceOffsetSec * sampleRate) + consumed;
+    if (item.loop) startFrame = (startFrame % materialFrames + materialFrames) % materialFrames;
+    if (startFrame >= materialFrames) return null;
+    const count = Math.min(
+      Math.round((consumed === 0 ? 1 : 3) * sampleRate),
+      Math.ceil(remaining * sampleRate),
+      materialFrames - startFrame
+    );
+    if (count <= 0) return null;
+    return {
+      startSec: frameSeconds(startFrame, sampleRate, false),
+      endSec: frameSeconds(startFrame + count, sampleRate, true),
+      frames: count,
+      durationSec: Math.min(count / sampleRate, remaining),
+      elapsedSec: consumed / sampleRate
+    };
+  };
+  const prepareWindow = (source, slice, signal) => {
+    const unpin = source.pin(slice.startSec, slice.endSec);
+    const release = () => {
+      signal.removeEventListener("abort", release);
+      unpin();
+    };
+    signal.addEventListener("abort", release, { once: true });
+    if (signal.aborted) release();
+    return {
+      result: source.window(slice.startSec, slice.endSec, signal).then((buffer) => ({ buffer }), (reason) => ({ reason, failedAtMs: now() })),
+      release
+    };
+  };
+  const waitForFirstWindows = (windows, signal) => {
+    if (windows.length === 0 || signal.aborted) return Promise.resolve();
+    const waitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs : 1500;
+    return new Promise((resolve) => {
+      const finish = () => {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", finish);
+        resolve();
+      };
+      const timer = setTimeout(finish, waitMs);
+      signal.addEventListener("abort", finish, { once: true });
+      void Promise.all(windows.map((window2) => window2.result)).then(finish);
+    });
+  };
+  const startWindowedItem = (item, contextStart, itemGeneration, prepared) => {
+    const windowed = windowedFor(item);
+    if (!context || !windowed || !windowController) return false;
+    const audioContext = context;
+    const signal = windowController.signal;
+    const key = `${item.kind}:${item.id}`;
+    if (windowFailures.has(key)) {
+      prepared?.release();
+      return false;
+    }
+    const transportRate = rate;
+    const playbackRate = item.playbackRate * transportRate;
+    const itemStart = contextStart + item.delaySec / transportRate;
+    const baseGain = audioContext.createGain();
+    const gains = [baseGain];
+    let tail = baseGain;
+    if (item.envelopeEvents.length > 0) {
+      const envelopeGain = audioContext.createGain();
+      baseGain.connect(envelopeGain);
+      tail = envelopeGain;
+      gains.push(envelopeGain);
+      applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate);
+    }
+    tail.connect(masterGain ?? audioContext.destination);
+    applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate);
+    let consumed = 0;
+    let failures = 0;
+    let timer = null;
+    let stopped = false;
+    let filling = false;
+    const nodes = /* @__PURE__ */ new Map();
+    const current = () => !stopped && !signal.aborted && generation === itemGeneration;
+    const disconnectGains = () => {
+      for (const gain of gains) try {
+        gain.disconnect();
+      } catch {
+      }
+    };
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      if (timer !== null) clearTimeout(timer);
+      prepared?.release();
+      for (const [source, release] of nodes) {
+        source.onended = null;
+        try {
+          source.stop();
+        } catch {
+        }
+        try {
+          source.disconnect();
+        } catch {
+        }
+        release();
+      }
+      nodes.clear();
+      disconnectGains();
+      windowStops.delete(stop);
+    };
+    windowStops.add(stop);
+    const arm = (delay) => {
+      if (current()) timer = setTimeout(() => {
+        timer = null;
+        void fill();
+      }, delay);
+    };
+    const fill = async () => {
+      if (!current() || filling) return;
+      filling = true;
+      let retryDelay = null;
+      try {
+        while (current()) {
+          const slice = windowSlice(item, windowed, consumed);
+          if (!slice) {
+            if (nodes.size === 0) stop();
+            break;
+          }
+          const when = itemStart + slice.elapsedSec / playbackRate;
+          if (when >= audioContext.currentTime + WINDOW_LOOKAHEAD_SEC) break;
+          const request = prepared ?? prepareWindow(windowed, slice, signal);
+          prepared = void 0;
+          const result = await request.result;
+          if (!current()) {
+            request.release();
+            return;
+          }
+          if ("reason" in result) {
+            request.release();
+            failures += 1;
+            if (failures >= 3) {
+              windowFailures.add(key);
+              warn(`[frame-engine] ${key} PCM windows failed after 3 consecutive attempts`);
+              break;
+            }
+            retryDelay = Math.max(0, result.failedAtMs + FAILED_DECODE_RETRY_MS - now());
+            break;
+          }
+          failures = 0;
+          const lateness = Math.max(0, audioContext.currentTime - when);
+          if (lateness > 0) windowed.noteLate();
+          const skipFrames = Math.min(slice.frames, Math.ceil(lateness * playbackRate * windowed.metadata.sampleRate));
+          const skippedSec = skipFrames / windowed.metadata.sampleRate;
+          const duration = slice.durationSec - skippedSec;
+          consumed += slice.frames;
+          if (!(duration > 0)) {
+            request.release();
+            continue;
+          }
+          let buffer = result.buffer;
+          if (skipFrames > 0) {
+            buffer = audioContext.createBuffer(buffer.numberOfChannels, slice.frames - skipFrames, buffer.sampleRate);
+            for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+              buffer.getChannelData(channel).set(result.buffer.getChannelData(channel).subarray(skipFrames));
+            }
+          }
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.loop = false;
+          source.playbackRate.value = item.playbackRate * transportRate;
+          source.connect(baseGain);
+          nodes.set(source, request.release);
+          source.onended = () => {
+            nodes.delete(source);
+            try {
+              source.disconnect();
+            } catch {
+            }
+            request.release();
+            if (!windowSlice(item, windowed, consumed) && nodes.size === 0) stop();
+          };
+          source.start(when + skippedSec / playbackRate, 0, duration);
+          bufferedUntil[key] = Math.min(
+            item.timelineEndSec,
+            item.timelineStartSec + (slice.elapsedSec + slice.durationSec) / item.playbackRate
+          );
+        }
+      } catch (reason) {
+        if (current()) {
+          windowFailures.add(key);
+          warn(`[frame-engine] ${key} PCM window could not be scheduled`, reason);
+        }
+      } finally {
+        filling = false;
+        if (current() && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
+          arm(retryDelay ?? WINDOW_REFILL_MS);
+        }
+      }
+    };
+    void fill();
+    return true;
+  };
   const regularScheduleDeclaration = () => {
     const normalized = regularDecoded.map((item) => ({
       ...item.spec,
@@ -25710,11 +26224,105 @@ function createPreviewAudioSupply(options) {
       narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
+  const supplyKeysAt = (positionSec, asPlaying) => {
+    const requiredTasks = tasks.filter((task) => {
+      if (task.at > positionSec || task.state === "no-audio") return false;
+      const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
+      if (regular) {
+        if (regular.kind === "bgm") return positionSec < timelineDurationSec;
+        const durationSec = [
+          regular.spec.durationSec,
+          validSidecar(regular.spec.sidecar)?.durationSec,
+          regularDecoded.find((item) => item.kind === regular.kind && item.id === regular.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        return positionSec < firstUseRegular(regular) + durationSec;
+      }
+      const spoken = speech.find((item) => `speech:${item.id}` === task.key);
+      if (spoken) {
+        const durationSec = [
+          spoken.durationSec,
+          spoken.sidecar?.durationSec,
+          speechDecoded.get(spoken.id)?.durationSec
+        ].find(finitePositive2) ?? Infinity;
+        const crossfadeOutSec = finitePositive2(spoken.crossfadeOutSec) ? spoken.crossfadeOutSec : 0;
+        return positionSec < spoken.atSec + durationSec + crossfadeOutSec;
+      }
+      return true;
+    });
+    const required = requiredTasks.map((task) => task.key);
+    const ready = tasks.filter((task) => !windowFailures.has(task.key) && task.resolved() && (task.state === "decode" || task.state === "windowed" && (!asPlaying || (bufferedUntil[task.key] ?? -Infinity) > positionSec))).map((task) => task.key);
+    const pendingSidecar = tasks.filter((task) => task.state === "pending-sidecar").map((task) => task.key);
+    const failed = tasks.filter((task) => windowFailures.has(task.key) || task.failedAtMs !== null && !task.resolved()).map((task) => task.key);
+    const noAudio = tasks.filter((task) => task.state === "no-audio").map((task) => task.key);
+    return { required, ready, pendingSidecar, failed, noAudio };
+  };
+  const gateMissingKeys = (positionSec, asPlaying) => {
+    const keys = supplyKeysAt(positionSec, asPlaying);
+    return keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+  };
+  const gateReasonAt = (positionSec) => {
+    const keys = supplyKeysAt(positionSec, true);
+    const missing = keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+    if (missing.length === 0) return null;
+    return missing.some((key) => keys.pendingSidecar.includes(key)) ? "sidecar" : "first-window";
+  };
+  const releaseGate = () => {
+    if (!gate.holding) return;
+    gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
+    gateGeneration = -1;
+  };
+  const gateHolding = () => {
+    if (!gate.holding) return false;
+    if (gateGeneration !== generation || now() - gate.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3 || gateMissingKeys(gate.startSec, true).length === 0) {
+      releaseGate();
+      return false;
+    }
+    return true;
+  };
+  const gateIntentHolding = () => {
+    if (!gateIntent || playing) return false;
+    if (lastStartOutcome !== "empty") return false;
+    if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) return false;
+    return gateMissingKeys(gateIntent.startSec, true).length > 0;
+  };
+  const gateView = () => {
+    if (gateHolding()) return { holding: true, gate };
+    const intent = gateIntent;
+    if (intent && gateIntentHolding()) {
+      return { holding: true, gate: { startSec: intent.startSec, sinceMs: intent.sinceMs, reason: gateReasonAt(intent.startSec) } };
+    }
+    return { holding: false, gate };
+  };
   const startFrom = async (seconds, options2 = {}) => {
     if (!context) return;
     const thisGeneration = ++generation;
+    startingWindowController?.abort();
+    const controller = new AbortController();
+    startingWindowController = controller;
     starting = true;
     lastStartAttemptMs = now();
+    const gateStartSec = clamp5(options2.pinStart ? seconds : latestRequestedSec);
+    if (playing) {
+      releaseGate();
+    } else {
+      const reason = gateReasonAt(gateStartSec);
+      if (reason === null) {
+        releaseGate();
+      } else {
+        gateIntent ??= { startSec: gateStartSec, sinceMs: now() };
+        if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) {
+          releaseGate();
+        } else {
+          gate = {
+            holding: true,
+            startSec: gateIntent.startSec,
+            sinceMs: gateIntent.sinceMs,
+            reason
+          };
+          gateGeneration = thisGeneration;
+        }
+      }
+    }
     let outcome = "failed";
     try {
       await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
@@ -25726,15 +26334,20 @@ function createPreviewAudioSupply(options) {
         return;
       }
       if (thisGeneration !== generation) return;
+      if (gateHolding()) {
+        await waitForGateStart(gateStartSec, thisGeneration);
+        if (thisGeneration !== generation) return;
+      }
       const speechForSchedule = speech.flatMap((item) => {
         const resolved = speechDecoded.get(item.id);
         if (!resolved) return [];
         return [{
           ...item,
           ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
-          materialDurationSec: resolved.buffer.duration
+          materialDurationSec: resolved.durationSec
         }];
       });
+      const planDecodedCount = decodedRevision;
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
@@ -25743,19 +26356,31 @@ function createPreviewAudioSupply(options) {
       for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
       if (plan.items.length === 0) {
         outcome = "empty";
-        emptyPlanDecodedCount = regularDecoded.length + speechDecoded.size;
+        emptyPlanDecodedCount = decodedRevision;
         return;
       }
+      const firstWindows = /* @__PURE__ */ new Map();
+      for (const item of plan.items) {
+        const windowed = windowedFor(item);
+        if (!windowed || item.delaySec > 0 || windowFailures.has(`${item.kind}:${item.id}`)) continue;
+        const slice = windowSlice(item, windowed, 0);
+        if (slice) firstWindows.set(item, prepareWindow(windowed, slice, controller.signal));
+      }
+      await waitForFirstWindows([...firstWindows.values()], controller.signal);
+      if (thisGeneration !== generation) return;
+      startingWindowController = null;
       stopSources();
+      windowController = controller;
       const contextStart = context.currentTime + 0.02;
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
-      scheduledDecodedCount = regularDecoded.length + speechDecoded.size;
+      scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
       const skipped = [];
       for (const item of lastSchedule) {
-        if (!startItem(item, contextStart)) skipped.push(`${item.kind}:${item.id}`);
+        const started = windowedFor(item) ? startWindowedItem(item, contextStart, thisGeneration, firstWindows.get(item)) : startItem(item, contextStart);
+        if (!started) skipped.push(`${item.kind}:${item.id}`);
       }
       skippedAtSchedule = skipped;
       if (skipped.length > 0) {
@@ -25764,9 +26389,17 @@ function createPreviewAudioSupply(options) {
       playing = true;
       outcome = "started";
     } finally {
+      if (startingWindowController === controller) startingWindowController = null;
+      if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
+        if (outcome !== "started") releaseGate();
+        if (outcome === "failed") gateIntent = null;
         starting = false;
         lastStartOutcome = outcome;
+        if (replanPending) {
+          replanPending = false;
+          replanIfNeeded();
+        }
       }
     }
   };
@@ -25780,8 +26413,11 @@ function createPreviewAudioSupply(options) {
   const pause = () => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
+    releaseGate();
+    gateIntent = null;
     playing = false;
     starting = false;
+    replanPending = false;
     lastStartOutcome = null;
     stopSources();
   };
@@ -25791,12 +26427,27 @@ function createPreviewAudioSupply(options) {
     pauseTimer = setTimeout(pause, watchdogMs);
   };
   const debug = () => {
+    const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap((src) => {
       const metric = speechMetrics.get(src);
       return metric ? [metric] : [];
     });
+    const positionSec = playing ? audioPosition() : latestRequestedSec;
+    const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
+    const phase = required.length === 0 ? "idle" : required.some((key) => pendingSidecar.includes(key)) ? "preparing" : required.some((key) => failed.includes(key)) ? "degraded" : required.every((key) => ready.includes(key)) ? "ready" : "preparing";
+    const { holding, gate: gate2 } = gateView();
     return {
+      supply: {
+        phase,
+        required,
+        ready,
+        pendingSidecar,
+        failed,
+        noAudio,
+        bufferedUntil: { ...bufferedUntil },
+        gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
+      },
       contextState: context?.state ?? "unavailable",
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
@@ -25819,14 +26470,19 @@ function createPreviewAudioSupply(options) {
         decodedBytes,
         elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
         pending: prefetchPending,
-        failed: tasks.filter((task) => task.failedAtMs !== null && !task.resolved()).map((task) => task.key),
+        failed,
         compact: [...decoded.values()].filter((entry) => entry.compact).length,
-        overBudget: decodedBytes > cacheLimit
+        overBudget: decodedBytes > cacheLimit,
+        windows: [...windowSources.values()].reduce((sum, source) => {
+          const stats = source.debug();
+          for (const name of Object.keys(sum)) sum[name] += stats[name];
+          return sum;
+        }, { fetched: 0, bytes: 0, cacheBytes: 0, evicted: 0, late: 0, failed: 0 })
       },
       sidecars: {
-        generated: uniqueSidecars.filter((item) => item.skipped === false).length,
-        skipped: uniqueSidecars.filter((item) => item.skipped === true).length,
-        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
+        generated: sidecars.filter((item) => item.skipped === false).length,
+        skipped: sidecars.filter((item) => item.skipped === true).length,
+        bytes: sidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
       },
       crossfades,
       speechDecode: {
@@ -25845,7 +26501,70 @@ function createPreviewAudioSupply(options) {
       }
     };
   };
+  const replaceTask = (key, replacement) => {
+    const index = tasks.findIndex((task) => task.key === key);
+    if (index < 0) return;
+    replacement.updated = true;
+    tasks[index] = replacement;
+    if (activePrefetchQueue && replacement.state === "decode") {
+      activePrefetchQueue.push(replacement);
+      prefetchPending += 1;
+    }
+  };
+  const updateAudio = (next) => {
+    if (disposed) return;
+    let changed = false;
+    if (next.declarations) {
+      const incoming = new Map(next.declarations.map((item) => [`${item.kind}:${item.id}`, item]));
+      const existing = new Set(declarations.map((item) => `${item.kind}:${item.id}`));
+      for (const key of incoming.keys()) {
+        if (!existing.has(key)) warn(`[frame-engine] audio ${key} added; rebuild required`);
+      }
+      declarations.forEach((item, index) => {
+        const key = `${item.kind}:${item.id}`;
+        const replacement = incoming.get(key);
+        if (!replacement) {
+          warn(`[frame-engine] audio ${key} removed; rebuild required`);
+          return;
+        }
+        if (item.spec.sidecarState === replacement.spec.sidecarState && item.url === replacement.url && item.sourceUrl === replacement.sourceUrl) return;
+        declarations[index] = replacement;
+        regularDecoded = regularDecoded.filter((value) => `${value.kind}:${value.id}` !== key);
+        windowFailures.delete(key);
+        replaceTask(key, regularTask(replacement));
+        changed = true;
+      });
+    }
+    if (next.speech) {
+      const incoming = new Map(next.speech.map((item) => [item.id, item]));
+      const existing = new Set(speech.map((item) => item.id));
+      for (const id of incoming.keys()) {
+        if (!existing.has(id)) warn(`[frame-engine] audio speech:${id} added; rebuild required`);
+      }
+      speech.forEach((item, index) => {
+        const replacement = incoming.get(item.id);
+        if (!replacement) {
+          warn(`[frame-engine] audio speech:${item.id} removed; rebuild required`);
+          return;
+        }
+        if (item.sidecarState === replacement.sidecarState && item.url === replacement.url && item.sidecar?.path === replacement.sidecar?.path && item.atempo?.path === replacement.atempo?.path) return;
+        speech[index] = replacement;
+        speechDecoded.delete(item.id);
+        windowFailures.delete(`speech:${item.id}`);
+        replaceTask(`speech:${item.id}`, speechTask(replacement));
+        changed = true;
+      });
+    }
+    if (!changed) return;
+    decodedRevision += 1;
+    tasks.sort((left, right) => left.at - right.at);
+    notifyTaskSettled();
+    void ensureDecoded().then(() => replanIfNeeded()).catch((reason) => {
+      warn("[frame-engine] audio update failed", reason);
+    });
+  };
   return {
+    updateAudio,
     prime() {
       ensureDecoded().catch((reason) => {
         warn("[frame-engine] audio prefetch failed", reason);
@@ -25853,14 +26572,31 @@ function createPreviewAudioSupply(options) {
     },
     playFrom(seconds) {
       latestRequestedSec = clamp5(seconds);
-      if (context && !playing && !starting) launch(latestRequestedSec);
+      if (context && !playing && !starting) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     position(fallbackSeconds) {
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        return gate.startSec;
+      }
+      if (gateIntentHolding()) {
+        latestRequestedSec = gateIntent.startSec;
+        return gateIntent.startSec;
+      }
       latestRequestedSec = clamp5(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
     playbackTime(fallbackSeconds) {
-      latestRequestedSec = clamp5(fallbackSeconds);
+      if (gateHolding()) {
+        latestRequestedSec = gate.startSec;
+        armPauseWatchdog();
+        return gate.startSec;
+      }
+      if (gateIntentHolding()) latestRequestedSec = gateIntent.startSec;
+      else latestRequestedSec = clamp5(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
       if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
@@ -25869,27 +26605,37 @@ function createPreviewAudioSupply(options) {
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp5(seconds);
       generation += 1;
+      releaseGate();
       playing = false;
       starting = false;
+      replanPending = false;
       lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) launch(latestRequestedSec);
+      gateIntent = null;
+      if (continuePlaying && context) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     pause,
     setRate(value) {
       const nextRate = clampPlaybackRate(value);
       if (nextRate === rate) return;
       const wasPlaying = playing;
+      const wasStarting = starting;
       const position = wasPlaying ? audioPosition() : latestRequestedSec;
       rate = nextRate;
       latestRequestedSec = position;
       routeMasterBus();
-      if (wasPlaying) {
+      if (wasPlaying || wasStarting) {
         generation += 1;
+        releaseGate();
         playing = false;
         starting = false;
+        replanPending = false;
         lastStartOutcome = null;
         stopSources();
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
         launch(latestRequestedSec);
       }
     },
@@ -25908,6 +26654,7 @@ function createPreviewAudioSupply(options) {
     },
     debug,
     dispose() {
+      disposed = true;
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
@@ -25921,6 +26668,8 @@ function createPreviewAudioSupply(options) {
       } catch {
       }
       decoded.clear();
+      for (const source of windowSources.values()) source.dispose();
+      windowSources.clear();
       decodedBytes = 0;
       void context?.close().catch(() => void 0);
     }
@@ -26264,13 +27013,13 @@ function audioDeclarations(edit) {
     const source = raw.src || raw.path;
     if (typeof source !== "string" || !source) return;
     const id = typeof raw.id === "string" && raw.id ? raw.id : fallbackId;
-    const sidecar = raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : void 0;
+    const sidecar = (raw.sidecarState === "ready" || raw.sidecarState === void 0) && raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : void 0;
     declarations.push({
       kind,
       id,
       url: sidecar?.path ?? mediaUrl(source),
       ...sidecar ? { sourceUrl: mediaUrl(source) } : {},
-      spec: { ...raw, ...sidecar ? { sidecar } : {}, id, durationSec: 0 }
+      spec: { ...raw, sidecar, sidecarState: raw.sidecarState, id, durationSec: 0 }
     });
   };
   append("bgm", audio.bgm, "bgm");
@@ -26281,6 +27030,22 @@ function audioDeclarations(edit) {
     audio.narration.forEach((item, index) => append("narration", item, `narration-${index + 1}`));
   }
   return declarations;
+}
+function speechDeclarations(edit, fps, choices) {
+  const cuts = normalizedCuts(edit);
+  const projected = Array.isArray(edit?.audio?.speech) ? edit.audio.speech : projectSpeechDeclarations2(cuts, { fps });
+  return projected.flatMap((declaration) => {
+    const url = choices.get(declaration.src)?.url;
+    if (!url) return [];
+    const canUseSidecar = declaration.sidecarState === "ready" || declaration.sidecarState === void 0;
+    return [{
+      ...declaration,
+      url,
+      sidecarState: declaration.sidecarState,
+      sidecar: canUseSidecar && declaration.sidecar?.path ? { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) } : void 0,
+      atempo: canUseSidecar && !declaration.sidecar?.path && declaration.atempo?.path ? { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) } : void 0
+    }];
+  });
 }
 function resolvedItemAdjust(item, adjustLutCubeTexts) {
   const adjust = item?.adjust;
@@ -26377,7 +27142,8 @@ function autoProxyPath(url) {
   const parsed = new URL(url, window.location.href);
   return decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
 }
-async function requestAutoProxy(candidate, ui) {
+async function requestAutoProxy(candidate, ui, isCurrent) {
+  if (!isCurrent()) return null;
   const path = autoProxyPath(candidate.originalUrl);
   ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${candidate.id}\uFF09`);
   try {
@@ -26388,7 +27154,7 @@ async function requestAutoProxy(candidate, ui) {
     });
     if (!start.ok) return null;
     const deadline = Date.now() + 3e5;
-    while (Date.now() < deadline) {
+    while (isCurrent() && Date.now() < deadline) {
       const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
       if (!response.ok) return null;
       const result = await response.json();
@@ -26401,79 +27167,183 @@ async function requestAutoProxy(candidate, ui) {
     return null;
   }
 }
+function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
+  const ids = /* @__PURE__ */ new Set();
+  if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
+  const finite4 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const cursors = /* @__PURE__ */ new Map();
+  const overlaps = /* @__PURE__ */ new Map();
+  for (const cut of cuts) {
+    const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
+    const at2 = Number.isFinite(cut.at) && Number(cut.at) >= 0 ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
+    const end = at2 + duration;
+    cursors.set(track, end);
+    overlaps.set(track, (cut.transition_out ?? cut.transitionOut)?.duration ?? 0);
+    if (atSeconds >= at2 && atSeconds < end) {
+      const id = cut.src ?? edit?.sources?.[0]?.id ?? "default";
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  const fps = finite4(timelineData?.fps, 30) > 0 ? finite4(timelineData?.fps, 30) : 30;
+  const frame = Math.floor(atSeconds * fps + 1e-9);
+  for (const layer of layers) {
+    const start = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
+    if (frame < start || frame >= end || layer.kind === "filter") continue;
+    for (const id of [layer.src, layer.mask]) {
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  return ids;
+}
 async function resolveSourceChoices(candidates, context) {
   const choices = /* @__PURE__ */ new Map();
-  for (const candidate of candidates.values()) {
+  const completedProxies = /* @__PURE__ */ new Map();
+  const pendingProxies = /* @__PURE__ */ new Set();
+  const failedProxies = /* @__PURE__ */ new Set();
+  let target = null;
+  const apply = async (choice) => {
+    if (!context.isCurrent() || !target) return;
+    await target.applySourceChoice(choice.id, choice);
+    if (context.isCurrent()) choices.set(choice.id, choice);
+  };
+  const updateNotice = () => {
+    if (!context.isCurrent()) return;
+    const failed = failedProxies.values().next().value;
+    const pending = pendingProxies.values().next().value;
+    if (failed) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${failed}\uFF09`);
+    else if (pending) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${pending}\uFF09`);
+    else context.ui.clearNotice();
+  };
+  const resolveCandidate = async (candidate) => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "not-a-cut-source",
         support: null
-      });
-      continue;
+      };
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "image",
         reason: "still-image"
-      });
-      continue;
+      };
     }
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision2 = chooseSource({ mode: context.mode, hasProxy, support: null });
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: decision2.chosen === "proxy" ? candidate.proxyUrl : candidate.originalUrl,
         chosen: decision2.chosen,
         reason: decision2.reason,
         support: null
-      });
-      continue;
+      };
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === "original") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: probe.support
-      });
+      };
     } else if (decision.chosen === "proxy") {
-      choices.set(candidate.id, {
+      return {
         id: candidate.id,
         url: candidate.proxyUrl,
         chosen: "proxy",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: null
-      });
+      };
     } else {
-      const proxyUrl = await requestAutoProxy(candidate, context.ui);
+      const provisional = {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "auto-proxy-pending",
+        ...codec ? { codec } : {},
+        support: probe.support
+      };
+      if (context.isCurrent()) {
+        pendingProxies.add(candidate.id);
+        void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async (proxyUrl) => {
+          if (!context.isCurrent()) return;
+          pendingProxies.delete(candidate.id);
+          if (!proxyUrl) failedProxies.add(candidate.id);
+          const choice = {
+            ...provisional,
+            url: proxyUrl ?? candidate.originalUrl,
+            chosen: proxyUrl ? "auto-proxy" : "original",
+            reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
+            support: proxyUrl ? null : probe.support
+          };
+          completedProxies.set(candidate.id, choice);
+          updateNotice();
+          await apply(choice);
+        }).catch((error) => {
+          if (context.isCurrent()) console.warn("[frame-engine] source replacement failed", error);
+        });
+      }
+      return provisional;
+    }
+  };
+  const remaining = [];
+  for (const candidate of candidates.values()) {
+    const immediate = !context.cutSourceIds.has(candidate.id) || /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (immediate || context.initialIds.has(candidate.id)) {
+      choices.set(candidate.id, await resolveCandidate(candidate));
+      if (!context.isCurrent()) break;
+    } else {
       choices.set(candidate.id, {
         id: candidate.id,
-        url: proxyUrl ?? candidate.originalUrl,
-        chosen: proxyUrl ? "auto-proxy" : "original",
-        reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
-        codec: probe.support.codec,
-        support: proxyUrl ? null : probe.support
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "pending-probe",
+        support: null
       });
-      if (!proxyUrl) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${candidate.id}\uFF09`);
+      remaining.push(candidate);
     }
   }
-  if (![...choices.values()].some((choice) => choice.reason === "auto-proxy-failed")) {
-    context.ui.clearNotice();
-  }
-  return choices;
+  remaining.sort((left, right) => (context.firstUses.get(left.id) ?? Infinity) - (context.firstUses.get(right.id) ?? Infinity));
+  return {
+    choices,
+    startBackground(runtime) {
+      if (!context.isCurrent() || target) return;
+      target = runtime;
+      for (const choice of completedProxies.values()) {
+        void apply(choice).catch((error) => console.warn("[frame-engine] source replacement failed", error));
+      }
+      let cursor = 0;
+      const worker = async () => {
+        while (context.isCurrent()) {
+          const candidate = remaining[cursor++];
+          if (!candidate) return;
+          try {
+            const choice = await resolveCandidate(candidate);
+            await apply(completedProxies.get(candidate.id) ?? choice);
+          } catch (error) {
+            if (context.isCurrent()) console.warn(`[frame-engine] source ${candidate.id}:`, error);
+          }
+        }
+      };
+      void worker();
+      void worker();
+    }
+  };
 }
 function createUi(stage) {
   const root = document.createElement("div");
@@ -26560,7 +27430,6 @@ var FrameEngineRuntime = class {
     });
     const cuts = normalizedCuts(edit);
     const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
-    const videoSources = /* @__PURE__ */ new Map();
     const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
@@ -26576,60 +27445,19 @@ var FrameEngineRuntime = class {
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
-        this.images.set(id, new CachedStillImageSource(url));
+        const image = new CachedStillImageSource(url);
+        this.images.set(id, image);
+        this.sources.set(id, image);
         continue;
       }
-      const choice = sourceChoices.get(id);
-      const pool = new ClipSessionPool(id, url, {
-        codecSupport: choice?.support,
-        onWarning: (message) => this.showError(message, false),
-        onSoftwareFallbackDenied: (support) => {
-          if (!(choice?.support?.hw || choice?.support?.any)) {
-            this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
-          }
-        }
-      });
-      const source = new LookaheadFrameSource(pool, {
-        fps,
-        capacity: 6,
-        onAccess: (access) => this.currentAccesses?.push(access)
-      });
-      const observedSource = {
-        decode: async (timeUs, metrics, request) => {
-          const frame = await source.decode(timeUs, metrics, request);
-          this.currentDecodedFrames?.push({
-            streamId: request?.streamId ?? "default",
-            requestedUs: timeUs,
-            timestampUs: frame.timestamp,
-            durationUs: frame.duration ?? null
-          });
-          return frame;
-        }
-      };
-      this.pools.set(id, pool);
-      this.lookahead.set(id, source);
-      videoSources.set(id, observedSource);
+      this.sources.set(id, this.createVideoSource(id, url));
     }
-    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: engineLayers
     });
     this.totalDuration = this.timeline.totalDuration;
-    const projectedSpeech = Array.isArray(edit?.audio?.speech) ? edit.audio.speech : projectSpeechDeclarations2(cuts, { fps });
-    const speech = projectedSpeech.flatMap((declaration) => {
-      const url = urls.get(declaration.src);
-      if (!url) return [];
-      return [{
-        ...declaration,
-        url,
-        ...declaration.sidecar?.path ? {
-          sidecar: { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) }
-        } : declaration.atempo?.path ? {
-          atempo: { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) }
-        } : {}
-      }];
-    });
+    const speech = speechDeclarations(edit, fps, sourceChoices);
     this.audio = createPreviewAudioSupply({
       timelineDurationSec: this.totalDuration,
       declarations: audioDeclarations(edit),
@@ -26700,7 +27528,7 @@ var FrameEngineRuntime = class {
   pools = /* @__PURE__ */ new Map();
   lookahead = /* @__PURE__ */ new Map();
   images = /* @__PURE__ */ new Map();
-  sources;
+  sources = /* @__PURE__ */ new Map();
   timeline;
   compositor;
   frameMetrics = new FrameMetrics();
@@ -26727,14 +27555,72 @@ var FrameEngineRuntime = class {
   lastRequestedTimeUs = null;
   lastBaseFrame = null;
   disposed = false;
-  async prime() {
+  createVideoSource(id, url) {
+    const choice = this.sourceChoices.get(id);
+    const pool = new ClipSessionPool(id, url, {
+      codecSupport: choice?.support,
+      onWarning: (message) => this.showError(message, false),
+      onSoftwareFallbackDenied: (support) => {
+        if (!(choice?.support?.hw || choice?.support?.any)) {
+          this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
+        }
+      }
+    });
+    const source = new LookaheadFrameSource(pool, {
+      fps: this.fps,
+      capacity: 6,
+      onAccess: (access) => this.currentAccesses?.push(access)
+    });
+    const observedSource = {
+      decode: async (timeUs, metrics, request) => {
+        const frame = await source.decode(timeUs, metrics, request);
+        this.currentDecodedFrames?.push({
+          streamId: request?.streamId ?? "default",
+          requestedUs: timeUs,
+          timestampUs: frame.timestamp,
+          durationUs: frame.duration ?? null
+        });
+        return frame;
+      }
+    };
+    this.pools.set(id, pool);
+    this.lookahead.set(id, source);
+    return observedSource;
+  }
+  async prime(start = 0) {
     this.audio.prime();
     const first = performance.now();
-    await this.renderFrame(0, "seek", first);
-    const second = performance.now();
-    await this.renderFrame(0, "seek", second);
+    await this.renderFrame(start, "seek", first);
+    if (this.disposed) return;
     this.ui.root.dataset.frameEngineReady = "true";
     this.scheduler.primeHeaders();
+    this.scheduler.warmupNextBoundary(start);
+  }
+  currentTime() {
+    return this.lastPresentedSec;
+  }
+  async applySourceChoice(id, choice) {
+    if (this.disposed) return;
+    const current = this.sourceChoices.get(id);
+    const sameSupport = (current?.support ?? null) === (choice.support ?? null) || current?.support != null && choice.support != null && current.support.codec === choice.support.codec && current.support.hw === choice.support.hw && current.support.sw === choice.support.sw && current.support.any === choice.support.any;
+    if (current?.url === choice.url && sameSupport) return;
+    while (this.rendering && !this.disposed) await this.waitForRender();
+    if (this.disposed) return;
+    this.lookahead.get(id)?.clear();
+    this.pools.get(id)?.destroy();
+    this.images.get(id)?.destroy();
+    this.sourceChoices.set(id, choice);
+    if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(choice.url)) {
+      this.pools.delete(id);
+      this.lookahead.delete(id);
+      const image = new CachedStillImageSource(choice.url);
+      this.images.set(id, image);
+      this.sources.set(id, image);
+    } else {
+      this.images.delete(id);
+      this.sources.set(id, this.createVideoSource(id, choice.url));
+    }
+    this.updateMetrics();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
@@ -26767,10 +27653,23 @@ var FrameEngineRuntime = class {
       sources: [...this.sourceChoices.values()].map(({ support: _support, ...choice }) => choice)
     };
   }
+  updateAudio(edit) {
+    if (this.disposed) return;
+    this.audio.updateAudio({
+      declarations: audioDeclarations(edit),
+      speech: speechDeclarations(edit, this.fps, this.sourceChoices)
+    });
+  }
   audioDebug() {
     return this.audio.debug();
   }
+  /** ゲートで共通時計を据え置いている間の開始位置。据え置いていなければ null。 */
+  heldStartSec() {
+    const gate = this.audio.debug().supply.gate;
+    return gate.holding ? gate.startSec : null;
+  }
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
@@ -26802,6 +27701,7 @@ var FrameEngineRuntime = class {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
     this.lastBaseFrame = this.currentDecodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
@@ -26884,7 +27784,12 @@ var FrameEngineRuntime = class {
 };
 async function createFrameEnginePreview(options) {
   const ui = createUi(options.stage);
-  const prepareRuntime = async (edit, timelineData, fps) => {
+  let generation = 0;
+  let disposed = false;
+  let preparingRuntime = null;
+  const prepareRuntime = async (edit, timelineData, fps, start) => {
+    const token = ++generation;
+    const isCurrent = () => !disposed && token === generation;
     ui.clearNotice();
     const params = new URLSearchParams(window.location.search);
     let forceSoftware = params.get("frameEngineForceSw") === "1";
@@ -26893,36 +27798,76 @@ async function createFrameEnginePreview(options) {
       if (response.ok) forceSoftware ||= (await response.json()).forceSoftwareDecode === true;
     } catch {
     }
+    if (!isCurrent()) return null;
     setForceSoftwareDecode(forceSoftware);
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const choices = await resolveSourceChoices(candidates, {
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    const firstUses = /* @__PURE__ */ new Map();
+    const noteUse = (id, seconds) => {
+      if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
+    };
+    for (const placement of timeline.cuts) noteUse(placement.cut.src, placement.at);
+    for (const layer of layers) {
+      noteUse(layer.src, layer.t);
+      noteUse(layer.mask, layer.t);
+    }
+    const resolution = await resolveSourceChoices(candidates, {
       mode: parseSourceSelectionMode(params.get("frameEngineSource")),
       ui,
-      cutSourceIds: new Set(cuts.map((cut) => String(cut.src)))
+      cutSourceIds: new Set(cuts.map((cut) => String(cut.src))),
+      initialIds: initialSourceIds(edit, { ...timelineData, fps }, cuts, layers, start),
+      firstUses,
+      isCurrent
     });
-    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+    if (!isCurrent()) return null;
+    const prepared = new FrameEngineRuntime(ui, edit, timelineData, fps, resolution.choices);
+    preparingRuntime = prepared;
+    try {
+      await prepared.prime(start);
+      if (!isCurrent()) {
+        prepared.dispose();
+        return null;
+      }
+      resolution.startBackground(prepared);
+      return prepared;
+    } catch (error) {
+      prepared.dispose();
+      if (!isCurrent()) return null;
+      throw error;
+    } finally {
+      if (preparingRuntime === prepared) preparingRuntime = null;
+    }
   };
-  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
-  await runtime.prime();
+  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps, 0);
   const preview = {
     snapshot: () => runtime.snapshot(),
     seek: (seconds) => runtime.seek(seconds),
     renderPlayback: (seconds) => runtime.renderPlayback(seconds),
     async rebuild(edit, timelineData, fps) {
+      if (disposed) return;
+      const start = runtime.currentTime();
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = "false";
-      runtime = await prepareRuntime(edit, timelineData, fps);
-      await runtime.prime();
+      const prepared = await prepareRuntime(edit, timelineData, fps, start);
+      if (prepared) runtime = prepared;
     },
     dispose() {
+      disposed = true;
+      generation += 1;
+      preparingRuntime?.dispose();
       runtime.dispose();
       ui.root.remove();
     },
-    audioDebug: () => runtime.audioDebug()
+    updateAudio: (edit) => runtime.updateAudio(edit),
+    audioDebug: () => runtime.audioDebug(),
+    heldStartSec: () => runtime.heldStartSec()
   };
   window.akariFrameEngineAudioDebug = () => runtime.audioDebug();
   return preview;

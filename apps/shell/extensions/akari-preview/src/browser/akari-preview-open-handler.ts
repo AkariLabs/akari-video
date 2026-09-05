@@ -1,4 +1,8 @@
 import URI from '@theia/core/lib/common/uri';
+import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
+import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
+import { FileUri } from '@theia/core/lib/common/file-uri';
+import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -41,7 +45,7 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
-import { AudioClipFx, audioClipFxOf, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
+import { AudioClipFx, audioClipFxOf, hasAudioClipFx, previewAudioSidecarRequestFor } from '../common/audio-clip-fx';
 import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
@@ -106,7 +110,9 @@ import {
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
+import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
+import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
     clampPreviewPlaybackRate,
     effectiveMediaRate,
@@ -370,6 +376,64 @@ interface EditSummaryCut {
     adjust?: EditSummaryAdjust;
 }
 
+type PreviewAudioSidecarState = 'ready' | 'queued' | 'generating' | 'no-audio' | 'failed' | 'unavailable';
+
+interface PreviewAudioSidecarRequest {
+    sourceUri: string;
+    projectRootUri: string;
+    inSec: number;
+    outSec?: number;
+    speed: number;
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    heavyWavOnly?: boolean;
+    clipFx?: AudioClipFx;
+    format?: 'flac' | 'pcm-s16le';
+    decodedBytesThreshold?: number;
+}
+
+interface PreviewAudioSidecarRequestResult {
+    state: PreviewAudioSidecarState | 'not-eligible' | 'not-needed';
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
+    key?: string;
+    probe?: { fingerprint: string };
+    bytes?: number;
+    durationSec?: number;
+    reason?: string;
+    stream?: VideoStreamReference;
+}
+
+interface PreviewAudioService {
+    requestPreviewAudioSidecar(request: PreviewAudioSidecarRequest): Promise<PreviewAudioSidecarRequestResult>;
+    sweepPreviewAudioSidecars(request: {
+        projectRootUri: string; keepKeys: string[]; keepProbes?: string[]; minAgeMs?: number;
+    }): Promise<{ removed: number; bytes: number }>;
+}
+
+interface PreviewAudioPendingRequest {
+    at?: number;
+    durationSec?: number;
+    key?: string;
+    state?: PreviewAudioSidecarRequestResult['state'];
+    kind: 'speech' | 'bgm' | 'sfx' | 'narration';
+    id: string;
+    label: string;
+    request: PreviewAudioSidecarRequest;
+}
+
+interface PreviewAudioSidecarEntry {
+    at: number;
+    kind: PreviewAudioPendingRequest['kind'];
+    item?: PreviewAudioPendingRequest;
+    resolve?: () => Promise<PreviewAudioSidecarFields | undefined>;
+}
+
+type PreviewAudioSidecarFields = Pick<EditSummarySpeech, 'sidecar' | 'sidecarState' | 'sidecarWarningEmitted'>;
+
 interface EditSummarySpeech {
     id: string;
     src: string;
@@ -382,6 +446,7 @@ interface EditSummarySpeech {
     track?: number;
     materialDurationSec: number;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarState?: PreviewAudioSidecarState;
     atempo?: { path: string; durationSec: number; generatedMs?: number };
     padBeforeSec?: number;
     padAfterSec?: number;
@@ -391,6 +456,11 @@ interface EditSummarySpeech {
 }
 
 interface PreviewAudioSidecarSummary {
+    format?: 'flac' | 'pcm-s16le';
+    sampleRate?: number;
+    channels?: number;
+    frames?: number;
+    bytesPerSample?: number;
     path: string;
     durationSec: number;
     padBeforeSec: number;
@@ -424,6 +494,7 @@ interface EditSummaryAudioSource {
     gainDb: number;
     keyframes?: Array<{ t: number; gainDb: number; easing?: string }>;
     sidecar?: PreviewAudioSidecarSummary;
+    sidecarState?: PreviewAudioSidecarState;
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
@@ -514,6 +585,10 @@ interface EditSummary {
 }
 
 interface PreviewModel {
+    previewAudioKeepKeys?: Set<string>;
+    previewAudioKeepProbes?: Set<string>;
+    previewAudioPendingRequests?: PreviewAudioPendingRequest[];
+    previewAudioStreams?: Map<string, VideoStreamReference>;
     summary: EditSummary;
     editUri?: URI;
     relatedEditUri?: URI;
@@ -686,6 +761,14 @@ interface ReviewAnnotationStrokeRequest {
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
+    akariPreviewAudioKeepKeys?: Set<string>;
+    akariPreviewAudioKeepProbes?: Set<string>;
+    akariPreviewAudioProjectRootUri?: string;
+    akariPreviewAudioPendingRequests?: PreviewAudioPendingRequest[];
+    akariPreviewAudioPollTimer?: ReturnType<typeof setTimeout>;
+    akariPreviewAudioPollGeneration?: object;
+    akariPreviewAudioSweepTimer?: ReturnType<typeof setTimeout>;
+    akariPreviewAudioDisposeConnected?: boolean;
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
@@ -1837,6 +1920,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 新規作成時（プレビューがまだ無い状態からの open）だけ activate し、既存 widget への
     // 再 open は revealWidget に留める。options.mode（Theia の WidgetOpenMode 相当）の明示指定が
     // あれば常にそれを優先する（resolveOutputOpenFocusMode 参照）。
+    protected audioMeterDismissedThisSession = false;
+    protected readonly observedAudioMeters = new WeakSet<AkariAudioMeterWidget>();
+
+    protected async attachAudioMeterPassively(): Promise<void> {
+        if (this.audioMeterDismissedThisSession) return;
+        const meter = await this.widgetManager.getOrCreateWidget<AkariAudioMeterWidget>(
+            AkariAudioMeterWidget.FACTORY_ID
+        );
+        if (this.audioMeterDismissedThisSession || meter.isDisposed) return;
+        if (!this.observedAudioMeters.has(meter)) {
+            this.observedAudioMeters.add(meter);
+            meter.onDidDispose(() => { this.audioMeterDismissedThisSession = true; });
+        }
+        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
+    }
+
     async openOutput(uri: URI, options?: any): Promise<WebviewWidget> {
         const editUri = uri.normalizePath();
         try {
@@ -1854,6 +1953,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } else if (mode === 'reveal') {
                 this.shell.revealWidget(widget.id);
             }
+            await this.attachAudioMeterPassively().catch(error =>
+                console.warn('[akari-preview] failed to auto-attach audio meter', error));
             return widget;
         } catch (error) {
             this.reportOpenFailure(editUri, error);
@@ -2186,7 +2287,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
+        let lastAudioMeterFrame: AudioMeterFrame | undefined;
+        widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
+            type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
+            playing: false, channels: lastAudioMeterFrame?.channels ?? 2,
+            engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
+        }));
         disposables.push(widget.onMessage(message => {
+            if (isAudioMeterFrame(message)) {
+                lastAudioMeterFrame = message;
+                this.forwardAudioMeterFrame(widget, message);
+            }
+            if (message && message.type === 'akari-preview-audio-priority') {
+                void this.handlePreviewAudioPriority(widget, message.time);
+            }
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
@@ -2388,6 +2502,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && Number.isFinite(message.rate)
             && message.rate >= 0.5
             && message.rate <= 3;
+    }
+
+    protected forwardAudioMeterFrame(widget: PreviewWidgetMarker, frame: AudioMeterFrame): void {
+        const editUri = widget.akariPreviewEditUri;
+        const videoUri = (editUri ?? widget.akariPreviewVideoUri)?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent('akari.preview.audioMeter', {
+            detail: {
+                videoUri, kind: editUri ? 'output' : 'raw',
+                type: frame.type, peak: [...frame.peak], rms: [...frame.rms], clip: frame.clip,
+                playing: frame.playing, channels: frame.channels, engine: frame.engine, t: frame.t
+            }
+        }));
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
@@ -2859,6 +2985,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (widget.isDisposed) {
             return;
         }
+        this.stopPreviewAudioPolling(widget);
         // raw は edit タイムラインを持たない素材単体プレビューなので、cuts 評価台の対象にしない。
         const frameEngineEnabled = kind === 'output'
             && widget.akariPreviewFrameEngineOptOut !== true
@@ -2870,10 +2997,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
+        if (widget.isDisposed) {
+            await this.disposeAssetStreams(model.assetStreamIds);
+            return;
+        }
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
             if (updateAction === 'none') {
+                if (frameEngineEnabled) {
+                    const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                    widget.akariPreviewSummary = summary;
+                    widget.akariPreviewModelSnapshot = nextSnapshot;
+                    this.retainPreviewAudioStreams(widget, model, summary);
+                    widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+                }
+                this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.sendMessage({
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
@@ -2885,6 +3024,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
+                this.retainPreviewAudioStreams(widget, model, summary);
+                this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
                 widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
                 // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
@@ -3192,6 +3333,174 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
         widget.akariPreviewSummary = model.summary;
+        this.startPreviewAudioTracking(widget, model, frameEngineEnabled);
+    }
+
+    protected async handlePreviewAudioPriority(widget: PreviewWidgetMarker, time: unknown): Promise<void> {
+        const projectRootUri = widget.akariPreviewAudioProjectRootUri;
+        if (!projectRootUri || typeof time !== 'number' || !Number.isFinite(time)) return;
+        try {
+            const items = selectPreviewAudioItemsAt((widget.akariPreviewAudioPendingRequests ?? [])
+                .map(item => ({ ...item, state: item.state ?? 'queued' })), time);
+            // A single call processes keys before sources; separate calls retain mixed first-use order.
+            for (const item of items.reverse()) {
+                await this.previewService.promotePreviewAudioSidecars({
+                    projectRootUri, keys: item.key ? [item.key] : [],
+                    sourcePaths: item.key ? [] : [FileUri.fsPath(item.request.sourceUri)]
+                });
+            }
+        } catch (error) {
+            console.warn('[akari-preview] preview audio priority failed', error);
+        }
+    }
+
+    protected previewAudioSidecarFields(
+        item: PreviewAudioPendingRequest,
+        result: PreviewAudioSidecarRequestResult
+    ): PreviewAudioSidecarFields {
+        item.key = result.key ?? item.key;
+        item.state = result.state;
+        if (result.state === 'not-eligible' || result.state === 'not-needed') return {};
+        if (result.state === 'ready' && result.stream) {
+            return {
+                sidecarState: 'ready',
+                sidecar: {
+                    path: result.stream.url,
+                    durationSec: result.durationSec ?? 0,
+                    padBeforeSec: item.request.padBeforeSec ?? 0,
+                    padAfterSec: item.request.padAfterSec ?? 0,
+                    skipped: true,
+                    bytes: result.bytes,
+                    ...(result.format !== undefined ? { format: result.format } : {}),
+                    ...(result.sampleRate !== undefined ? { sampleRate: result.sampleRate } : {}),
+                    ...(result.channels !== undefined ? { channels: result.channels } : {}),
+                    ...(result.frames !== undefined ? { frames: result.frames } : {}),
+                    ...(result.bytesPerSample !== undefined ? { bytesPerSample: result.bytesPerSample } : {})
+                }
+            };
+        }
+        if (result.state === 'queued' || result.state === 'generating') return { sidecarState: result.state };
+        if (result.state === 'no-audio') {
+            console.warn(`[akari-preview] ${item.label}: no audio stream: ${result.reason ?? 'no-audio'}`);
+            return { sidecarState: 'no-audio' };
+        }
+        console.warn(`[akari-preview] ${item.label} unavailable; using ${
+            item.kind === 'speech' ? 'source fallback' : 'source'}: ${result.reason ?? 'generation failed'}`);
+        return {
+            sidecarState: 'unavailable',
+            ...(item.kind === 'speech' ? { sidecarWarningEmitted: true } : {})
+        };
+    }
+
+    // Incremental refresh discards duplicate asset streams. Newly ready sidecars must survive it.
+    protected retainPreviewAudioStreams(widget: PreviewWidgetMarker, model: PreviewModel, summary: EditSummary): void {
+        const audio = summary.audio;
+        const urls = new Set([audio?.bgm, ...(audio?.sfx ?? []), ...(audio?.narration ?? []), ...(audio?.speech ?? [])]
+            .flatMap(item => item?.sidecar?.path ? [item.sidecar.path] : []));
+        const kept = new Set<string>();
+        for (const [key, stream] of model.previewAudioStreams ?? []) {
+            if (!urls.has(stream.url)) continue;
+            kept.add(stream.id);
+            (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key, stream.url);
+        }
+        (widget.akariPreviewAssetStreamIds ??= []).push(...kept);
+        model.assetStreamIds = model.assetStreamIds.filter(id => !kept.has(id));
+    }
+
+    protected stopPreviewAudioPolling(widget: PreviewWidgetMarker): void {
+        clearTimeout(widget.akariPreviewAudioPollTimer);
+        widget.akariPreviewAudioPollTimer = undefined;
+        widget.akariPreviewAudioPollGeneration = undefined;
+        widget.akariPreviewAudioPendingRequests = [];
+    }
+
+    protected startPreviewAudioTracking(widget: PreviewWidgetMarker, model: PreviewModel, frameEngineEnabled: boolean): void {
+        this.stopPreviewAudioPolling(widget);
+        if (widget.isDisposed) return;
+        widget.akariPreviewAudioKeepKeys = model.previewAudioKeepKeys ?? new Set();
+        widget.akariPreviewAudioKeepProbes = model.previewAudioKeepProbes ?? new Set();
+        widget.akariPreviewAudioProjectRootUri = model.editUri?.parent.toString();
+        const service = this.previewService as AkariPreviewService & PreviewAudioService;
+        if (!widget.akariPreviewAudioDisposeConnected) {
+            widget.akariPreviewAudioDisposeConnected = true;
+            widget.disposed.connect(() => {
+                this.stopPreviewAudioPolling(widget);
+                clearTimeout(widget.akariPreviewAudioSweepTimer);
+                widget.akariPreviewAudioSweepTimer = undefined;
+            });
+        }
+        if (widget.akariPreviewAudioSweepTimer === undefined && model.editUri) {
+            const sweep = async (): Promise<void> => {
+                if (widget.isDisposed) return;
+                try {
+                    const projectRootUri = widget.akariPreviewAudioProjectRootUri;
+                    if (projectRootUri) await service.sweepPreviewAudioSidecars({
+                        projectRootUri,
+                        keepKeys: [...(widget.akariPreviewAudioKeepKeys ?? [])],
+                        keepProbes: [...(widget.akariPreviewAudioKeepProbes ?? [])],
+                        minAgeMs: 60 * 60 * 1000
+                    });
+                } catch (error) {
+                    console.warn('[akari-preview] preview audio cache sweep failed', error);
+                } finally {
+                    if (!widget.isDisposed) widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 10 * 60 * 1000);
+                }
+            };
+            widget.akariPreviewAudioSweepTimer = setTimeout(() => void sweep(), 60 * 1000);
+        }
+        if (!frameEngineEnabled) return;
+        const requests = model.previewAudioPendingRequests ?? [];
+        // loadPreviewModel は要求を first-use 昇順で積むので、この並べ替えは再確認。first-use を持たない
+        // 合成の列（common/ の import を持たない vm ハーネスから呼ぶ既存テストの fixture 等）はそのままの順で回す。
+        const pending = requests.length > 0 && requests.every((item): item is PreviewAudioPendingRequest & { at: number } => item.at !== undefined)
+            ? sortSidecarRequestsByFirstUse(requests) : [...requests];
+        widget.akariPreviewAudioPendingRequests = pending;
+        if (pending.length === 0) return;
+        const generation = {};
+        widget.akariPreviewAudioPollGeneration = generation;
+        const current = (): boolean => !widget.isDisposed && widget.akariPreviewAudioPollGeneration === generation;
+        const poll = async (): Promise<void> => {
+            if (!current()) return;
+            await Promise.all([...pending].map(async item => {
+                let result: PreviewAudioSidecarRequestResult;
+                try {
+                    result = await service.requestPreviewAudioSidecar(item.request);
+                } catch (error) {
+                    result = { state: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+                }
+                if (!current()) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                if (result.key) widget.akariPreviewAudioKeepKeys!.add(result.key);
+                item.key = result.key ?? item.key;
+                item.state = result.state;
+                if (result.probe?.fingerprint) widget.akariPreviewAudioKeepProbes!.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') return;
+                pending.splice(pending.indexOf(item), 1);
+                const summary = widget.akariPreviewSummary;
+                const audio = summary?.audio;
+                const target = item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                if (!target || !summary) {
+                    if (result.stream) await this.disposeAssetStreams([result.stream.id]);
+                    return;
+                }
+                delete target.sidecar;
+                delete target.sidecarState;
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.state === 'ready' && result.stream) {
+                    (widget.akariPreviewAssetStreamIds ??= []).push(result.stream.id);
+                    const key = item.kind === 'speech' ? 'preview-audio:speech:' + item.id
+                        : 'preview-audio:' + item.label.replace(/ sidecar$/u, '');
+                    (widget.akariPreviewAssetUrlByUri ??= new Map()).set(key + ':' + result.key, result.stream.url);
+                }
+                widget.sendMessage({ type: 'akari-preview-audio-update', audio: summary.audio });
+            }));
+            if (!current()) return;
+            if (pending.length > 0) widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
+            else this.stopPreviewAudioPolling(widget);
+        };
+        widget.akariPreviewAudioPollTimer = setTimeout(() => void poll(), 1000);
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -3288,6 +3597,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // ストリームが二重生成されない）。assetUris への登録は要求時に行う（task/2026-09-02-preview-perf）。
         const assetStreamTasks = new Map<string, Promise<{ id: string; url: string }>>();
         const previewAudioKeepKeys = new Set<string>();
+        const previewAudioKeepProbes = new Set<string>();
+        const previewAudioPendingRequests: PreviewAudioPendingRequest[] = [];
+        const sidecarRequests: PreviewAudioSidecarEntry[] = [];
         const assetUris: URI[] = [];
         const ensureAssetStream = (key: string, assetUri?: URI): Promise<{ id: string; url: string }> => {
             const known = assetStreams.get(key);
@@ -3552,66 +3864,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (const cut of cutResults) {
                 if (cut) cuts.push(cut);
             }
-            const previewAudioService = this.previewService as AkariPreviewService & {
-                preparePreviewAudioSidecar(request: {
-                    sourceUri: string;
-                    projectRootUri: string;
-                    inSec: number;
-                    outSec?: number;
-                    speed: number;
-                    padBeforeSec?: number;
-                    padAfterSec?: number;
-                    heavyWavOnly?: boolean;
-                }): Promise<{
-                    ok: boolean;
-                    skipped: boolean;
-                    eligible?: boolean;
-                    key?: string;
-                    bytes?: number;
-                    durationSec: number;
-                    generatedMs: number;
-                    reason?: string;
-                    stream?: VideoStreamReference;
-                }>;
-                sweepPreviewAudioSidecars(request: {
-                    projectRootUri: string;
-                    keepKeys: string[];
-                }): Promise<{ removed: number; bytes: number }>;
-            };
+            const previewAudioService = this.previewService as AkariPreviewService & PreviewAudioService;
             const speech = await Promise.all(projectSpeechDeclarations(cuts, {
                 fps: this.positiveNumber(internal.output.fps, 30)
             }).map(async declaration => {
                 const source = sourcesById.get(declaration.src);
                 if (!source) return declaration;
-                const result = await previewAudioService.preparePreviewAudioSidecar({
+                const request: PreviewAudioSidecarRequest = {
                     sourceUri: source.uri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: declaration.inSec,
                     outSec: declaration.outSec,
                     speed: declaration.speed,
+                    format: resolveSpeechSidecarFormat(declaration),
                     padBeforeSec: declaration.padBeforeSec ?? 0,
                     padAfterSec: declaration.padAfterSec ?? 0
-                });
-                if (!result.ok || !result.stream) {
-                    console.warn(`[akari-preview] speech sidecar ${declaration.id} unavailable; using source fallback: ${
-                        result.reason ?? 'generation failed'
-                    }`);
-                    return { ...declaration, sidecarWarningEmitted: true };
-                }
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                assetStreams.set(`preview-audio:speech:${declaration.id}`, result.stream);
-                return {
-                    ...declaration,
-                    sidecar: {
-                        path: result.stream.url,
-                        durationSec: result.durationSec,
-                        padBeforeSec: declaration.padBeforeSec ?? 0,
-                        padAfterSec: declaration.padAfterSec ?? 0,
-                        generatedMs: result.generatedMs,
-                        skipped: result.skipped,
-                        bytes: result.bytes
-                    }
                 };
+                const item: PreviewAudioPendingRequest = {
+                    at: declaration.atSec,
+                    durationSec: declaration.durationSec ?? (declaration.outSec - declaration.inSec) / declaration.speed,
+                    kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
+                };
+                sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
+                return declaration;
             }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
@@ -3935,12 +4210,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
+                previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
                 previewAudioService, previewAudioKeepKeys, ensureAssetStream
             );
-            await previewAudioService.sweepPreviewAudioSidecars({
-                projectRootUri: editUri.parent.toString(),
-                keepKeys: [...previewAudioKeepKeys]
-            });
+            for (const entry of sortSidecarRequestsByFirstUse(sidecarRequests)) {
+                const item = entry.item;
+                if (!item) continue;
+                const target = item.kind === 'speech' ? speech.find(value => value.id === item.id)
+                    : item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                if (!target) continue;
+                if (entry.resolve) {
+                    const fields = await entry.resolve();
+                    if (fields) Object.assign(target, fields);
+                    else if (audio && item.kind === 'bgm') delete audio.bgm;
+                    else if (audio && (item.kind === 'sfx' || item.kind === 'narration')) {
+                        audio[item.kind] = audio[item.kind].filter(value => value !== target);
+                    }
+                    continue;
+                }
+                const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                Object.assign(target, this.previewAudioSidecarFields(item, result));
+                if (result.key) previewAudioKeepKeys.add(result.key);
+                if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                if (result.state === 'ready' && result.stream) {
+                    assetStreams.set('preview-audio:speech:' + item.id + ':' + result.key, result.stream);
+                }
+            }
             const indicators: string[] = [];
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
@@ -3971,6 +4267,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
+                previewAudioKeepKeys,
+                previewAudioKeepProbes,
+                previewAudioPendingRequests,
+                previewAudioStreams: new Map([...assetStreams].filter(([key]) => key.startsWith('preview-audio:'))),
                 captionsUri,
                 captions: outputCaptions,
                 excludedCaptionIds: [...excludedCaptionIds],
@@ -4032,35 +4332,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         editUri: URI,
         assetStreams: Map<string, { id: string; url: string }>,
         assetUris: URI[],
-        previewAudioService: AkariPreviewService & {
-            preparePreviewAudioSidecar(request: {
-                sourceUri: string;
-                projectRootUri: string;
-                inSec: number;
-                outSec?: number;
-                speed: number;
-                padBeforeSec?: number;
-                padAfterSec?: number;
-                heavyWavOnly?: boolean;
-                clipFx?: {
-                    speed?: number;
-                    pitch_semitones?: number;
-                    formant?: 'preserve' | 'shift';
-                    denoise?: { method: 'fft' | 'nlm'; strength: number };
-                    lowcut_hz?: number;
-                };
-            }): Promise<{
-                ok: boolean;
-                skipped: boolean;
-                eligible?: boolean;
-                key?: string;
-                bytes?: number;
-                durationSec: number;
-                generatedMs: number;
-                reason?: string;
-                stream?: VideoStreamReference;
-            }>;
-        },
+        previewAudioKeepProbes: Set<string>,
+        previewAudioPendingRequests: PreviewAudioPendingRequest[],
+        sidecarRequests: PreviewAudioSidecarEntry[],
+        previewAudioService: PreviewAudioService,
         previewAudioKeepKeys: Set<string>,
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
     ): Promise<EditSummaryAudio | undefined> {
@@ -4086,18 +4361,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             pathValue: unknown,
             label: string,
             trim: { inSec: number; outSec?: number },
-            clipFx: AudioClipFx
-        ): Promise<{ src: string; sidecar?: PreviewAudioSidecarSummary } | undefined> => {
+            kind: PreviewAudioPendingRequest['kind'],
+            id: string,
+            at = 0,
+            clipFx: AudioClipFx = {}
+        ): Promise<({ src: string } & PreviewAudioSidecarFields) | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
                 return undefined;
             }
             const assetUri = this.resolveEditAssetUri(pathValue, editUri);
             const key = assetUri.toString();
+            // Reserve declaration order before concurrent stream resolution completes.
+            const entry: PreviewAudioSidecarEntry = { at, kind };
+            sidecarRequests.push(entry);
             try {
                 const stream = await ensure(key, assetUri);
+                const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
                 const sidecarRequest = previewAudioSidecarRequestFor(clipFx);
-                const result = await previewAudioService.preparePreviewAudioSidecar({
+                if (!plan.request) return { src: stream.url };
+                const request: PreviewAudioSidecarRequest = {
                     sourceUri: assetUri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: trim.inSec,
@@ -4105,30 +4388,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...sidecarRequest,
                     padBeforeSec: 0,
                     padAfterSec: 0,
-                    heavyWavOnly: true
-                });
-                if (!result.ok || !result.stream) {
-                    if (sidecarRequest.clipFx !== undefined || result.eligible !== false) {
-                        console.warn(`[akari-preview] ${label} sidecar unavailable; using source: ${
-                            result.reason ?? 'generation failed'
-                        }`);
-                    }
-                    return { src: stream.url };
-                }
-                if (result.key) previewAudioKeepKeys.add(result.key);
-                assetStreams.set(`preview-audio:${label}`, result.stream);
-                return {
-                    src: stream.url,
-                    sidecar: {
-                        path: result.stream.url,
-                        durationSec: result.durationSec,
-                        padBeforeSec: 0,
-                        padAfterSec: 0,
-                        generatedMs: result.generatedMs,
-                        skipped: result.skipped,
-                        bytes: result.bytes
+                    format: plan.format,
+                    ...(plan.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: plan.decodedBytesThreshold } : {})
+                };
+                const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
+                item.at = at;
+                item.durationSec = kind === 'bgm' || trim.outSec === undefined ? undefined : trim.outSec - trim.inSec;
+                entry.item = item;
+                // The shared first-use loop invokes this only after both kinds are collected.
+                entry.resolve = async () => {
+                    try {
+                        const result = await previewAudioService.requestPreviewAudioSidecar(item.request);
+                        if (result.key) previewAudioKeepKeys.add(result.key);
+                        if (result.probe?.fingerprint) previewAudioKeepProbes.add(result.probe.fingerprint);
+                        if (result.state === 'queued' || result.state === 'generating') previewAudioPendingRequests.push(item);
+                        if (result.state === 'ready' && result.stream) {
+                            assetStreams.set('preview-audio:' + label + ':' + result.key, result.stream);
+                        }
+                        return this.previewAudioSidecarFields(item, result);
+                    } catch (error) {
+                        console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
+                        return undefined;
                     }
                 };
+                return { src: stream.url };
             } catch (error) {
                 console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
                 return undefined;
@@ -4279,7 +4562,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
-                }, audioClipFxOf(item, kind));
+                }, kind, kind === 'narration' ? String(item.id) : `sfx-${index + 1}`, item.t, audioClipFxOf(item, kind));
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
@@ -4308,6 +4591,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
                     src: source.src,
                     ...(source.sidecar ? { sidecar: source.sidecar } : {}),
+                    ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
                     t: item.t,
                     gainDb: normalizedGain,
                     ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
@@ -4375,12 +4659,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
                         }
                     }
-                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, audioClipFxOf(rawBgm, 'bgm'));
+                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, 'bgm', 'bgm', 0, audioClipFxOf(rawBgm, 'bgm'));
                     const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
                         bgm = {
                             src: source.src,
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
+                            ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
                             gainDb: normalizedGain,
                             ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                             track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
@@ -5430,6 +5715,17 @@ ${captionFontFaceCss(assets.captionFontUrl)}
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
   --akari-preview-pasteboard: #2b2d30;
+  --akari-accent: #4da3ff;
+  --akari-transport-bg: #121212;
+  --akari-transport-fg: #fff;
+  --akari-seek-track: #383838;
+  --akari-control-hover: rgba(255,255,255,0.08);
+  --akari-control-active: rgba(255,255,255,0.14);
+  --akari-control-pressed: rgba(77,163,255,0.22);
+  --akari-time-fg: rgba(255,255,255,0.72);
+  --akari-seek-thumb: #fff;
+  --akari-badge-bg: rgba(20,20,20,0.78);
+  --akari-badge-fg: #f1f1f1;
 }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
@@ -5437,10 +5733,21 @@ body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-light {
   color-scheme: light;
   --akari-preview-pasteboard: #d5d7da;
+  --akari-accent: #4da3ff;
+  --akari-transport-bg: #f2f2f2;
+  --akari-transport-fg: #242424;
+  --akari-seek-track: #c4c4c4;
+  --akari-control-hover: rgba(0,0,0,0.08);
+  --akari-control-active: rgba(0,0,0,0.14);
+  --akari-control-pressed: rgba(77,163,255,0.22);
+  --akari-time-fg: rgba(0,0,0,0.72);
+  --akari-seek-thumb: #fff;
+  --akari-badge-bg: rgba(20,20,20,0.78);
+  --akari-badge-fg: #f1f1f1;
 }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 16px; overflow: hidden; background: var(--akari-preview-pasteboard); }
+.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 8px; overflow: hidden; background: var(--akari-preview-pasteboard); }
 /* ペインがズーム/パンの唯一のビューポート。wrapper は UI の固定基準、zoom-layer は
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
@@ -5582,7 +5889,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
-#zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
+#zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; outline: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap-viewport { position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.55); }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
@@ -5605,6 +5912,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .reload-error-card strong { min-width: 0; }
 #reload-error-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #reload-error-retry { grid-column: 2; grid-row: 1 / span 2; border: 1px solid rgba(255,255,255,0.55); border-radius: 4px; padding: 6px 12px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; pointer-events: auto; }
+.audio-status { color: var(--theia-descriptionForeground); font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-status[hidden] { display: none; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
@@ -5612,42 +5921,59 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .write-error-banner[hidden] { display: none; }
 .write-error-banner span { flex: 1; overflow-wrap: anywhere; }
 .write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
-.transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
-.transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
+.transport { display: grid; gap: 0; padding: 0 10px 6px; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
+.transport-waveform { position: relative; width: 100%; height: 48px; overflow: hidden; background: var(--akari-transport-bg); cursor: pointer; touch-action: none; }
 .transport-waveform[hidden] { display: none; }
 #waveform-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: rgba(255, 255, 255, 0.9); pointer-events: none; }
-.transport-seek { display: flex; width: 100%; }
-.transport-seek input { width: 100%; }
-.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; }
-.transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
+.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--akari-transport-fg); pointer-events: none; }
+.transport-seek { display: flex; width: 100%; margin: 0; order: -1; }
+.transport-seek #seek { width: 100%; margin-top: -6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]) { appearance: none; -webkit-appearance: none; height: 16px; min-width: 0; margin: 0; padding: 0; border: none; background: transparent; outline: none; box-shadow: none; cursor: pointer; --seek-progress: 0%; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus { outline: none; box-shadow: none; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; border-radius: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--akari-accent) var(--seek-progress), var(--akari-seek-track) 0); }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-runnable-track { height: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid transparent; border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; border-color: var(--akari-accent); }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { border-color: var(--akari-accent); transform: scale(1.15); }
+.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; height: 40px; gap: 6px; }
+.transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 6px; }
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
-.icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
+.icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); box-shadow: none; cursor: pointer; }
 .icon-button[hidden] { display: none; }
-.icon-button[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.48); }
-.icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.45; cursor: default; }
-.icon-button svg { width: 18px; height: 18px; fill: currentColor; stroke: currentColor; }
+.icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.4; cursor: default; }
+.icon-button svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; }
+#play-toggle { width: 32px; height: 32px; }
 .rate-button { width: auto; min-width: 36px; padding: 0 6px; font-variant-numeric: tabular-nums; }
-#time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; }
-.zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+#time-label { min-width: 104px; color: var(--akari-time-fg); font-size: 12px; font-variant-numeric: tabular-nums; text-align: left; }
+.zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: none; border-radius: 6px; padding: 10px; background: var(--akari-transport-bg); color: var(--akari-transport-fg); box-shadow: none; }
 .zoom-popup[hidden] { display: none; }
-.zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d8d8d8; font-size: 12px; }
-#zoom-value { color: #fff; font-variant-numeric: tabular-nums; }
-#rate-value { color: #fff; font-variant-numeric: tabular-nums; }
+.zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: var(--akari-time-fg); font-size: 12px; }
+#zoom-value { color: var(--akari-transport-fg); font-variant-numeric: tabular-nums; }
+#rate-value { color: var(--akari-transport-fg); font-variant-numeric: tabular-nums; }
 #zoom-slider { width: 100%; }
-.zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
-.zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
+.zoom-presets { display: grid; grid-template-columns: repeat(4, 28px); justify-content: space-between; gap: 5px; margin-top: 8px; }
+.zoom-preset { width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); font-size: 10px; box-shadow: none; cursor: pointer; }
 .rate-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.rate-preset { height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0 4px; background: #303030; color: #fff; font-size: 11px; cursor: pointer; }
-.rate-preset[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.35); }
+.rate-preset { height: 28px; border: none; border-radius: 6px; padding: 0 4px; background: transparent; color: var(--akari-transport-fg); font-size: 11px; box-shadow: none; cursor: pointer; }
+:is(.icon-button, .zoom-preset, .rate-preset):hover:not(:disabled) { background: var(--akari-control-hover); }
+:is(.icon-button, .zoom-preset, .rate-preset)[aria-pressed="true"]:not(:disabled) { background: var(--akari-control-pressed); color: var(--akari-accent); box-shadow: none; }
+:is(.icon-button, .zoom-preset, .rate-preset):active:not(:disabled) { background: var(--akari-control-active); }
+:is(.icon-button, .zoom-preset, .rate-preset):focus { outline: none; box-shadow: none; }
+:is(.icon-button, .zoom-preset, .rate-preset):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; }
+#indicator-toggle { display: inline-flex; align-items: center; position: absolute; top: 8px; right: 8px; z-index: 20; width: auto; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--akari-badge-bg); color: var(--akari-badge-fg); font-size: 11px; white-space: nowrap; }
+#indicator-toggle[hidden] { display: none; }
+#indicator-popup { top: 36px; right: 8px; bottom: auto; max-width: calc(100% - 16px); font-size: 11px; line-height: 1.5; }
 </style>
 </head>
 <body>
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
+      <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
+      <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
@@ -5724,9 +6050,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <div class="transport-controls">
     <div class="transport-left">
       <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button id="indicator-toggle" class="icon-button" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
-      <div id="indicator-popup" class="zoom-popup" hidden></div>
       <span id="time-label">0:00 / 0:00</span>
+      <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
     <div class="transport-center">
       <button id="skip-back" class="icon-button" type="button" aria-label="10秒戻る" title="10秒戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5V2L6.5 6 11 10V7a6 6 0 1 1-5.65 8H3.26A8 8 0 1 0 11 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
@@ -5944,6 +6269,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     pitchShiftWarningEmitted = true;
                     console.warn('[akari-preview] pitch-preserving playback unavailable; using native playback rate', error);
                 };
+                const meterAnalyser = context.createAnalyser();
+                meterAnalyser.connect(context.destination);
+                window.akari.legacyAudioMeterAnalyser = meterAnalyser;
                 const routeMasterBus = () => {
                     try { masterGain.disconnect(); } catch (_error) { /* already detached */ }
                     if (pitchShiftNode) {
@@ -5958,14 +6286,14 @@ body { display: grid; place-items: center; padding: 32px; }
                             const ratio = pitchShiftNode.parameters.get('ratio');
                             if (ratio) ratio.value = 1 / playbackRate;
                             masterGain.connect(pitchShiftNode);
-                            pitchShiftNode.connect(context.destination);
+                            pitchShiftNode.connect(meterAnalyser);
                             stretcher = 'worklet';
                             return;
                         } catch (error) {
                             warnPitchShiftUnavailable(error);
                         }
                     }
-                    masterGain.connect(context.destination);
+                    masterGain.connect(meterAnalyser);
                 };
                 routeMasterBus();
                 if (initial.previewAudioWorkletUrl) {
@@ -6410,7 +6738,89 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
             window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
+            window.akari.requestAudioPriority = time => vscode.postMessage({ type: 'akari-preview-audio-priority', time });
             window.akari.stageScale = () => frameScale;
+            const measureAudioMeterBlock = (${measureBlock.toString()});
+            const audioMeterDb = (${linearToDbfs.toString()});
+            const audioMeterClip = (${latchClip.toString()});
+            let audioMeterTap = null;
+            let lastAudioMeterAt = -Infinity;
+            let audioMeterWasPlaying = false;
+            let lastAudioMeterZeroTime = null;
+            window.akari.attachAudioMeter = (analyser, engine) => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+                if (!analyser) return;
+                const context = analyser.context;
+                const splitter = context.createChannelSplitter(2);
+                const left = context.createAnalyser();
+                const right = context.createAnalyser();
+                left.fftSize = right.fftSize = 2048;
+                // Only the extra analysis branch is detached. The analyser's existing
+                // destination connection belongs to the audio supply and stays intact.
+                const dispose = () => {
+                    try { analyser.disconnect(splitter); } catch (_error) { /* detached */ }
+                    splitter.disconnect();
+                    left.disconnect();
+                    right.disconnect();
+                };
+                try {
+                    analyser.connect(splitter);
+                    splitter.connect(left, 0);
+                    splitter.connect(right, 1);
+                    // L/R outputs intentionally remain unconnected (no audible second path).
+                    audioMeterTap = {
+                        analyser, left, right, engine, dispose,
+                        leftSamples: new Float32Array(2048), rightSamples: new Float32Array(2048)
+                    };
+                } catch (_error) {
+                    dispose();
+                }
+            };
+            window.akari.audioMeterTick = (time, playing, immediate = false) => {
+                const now = performance.now();
+                const tap = audioMeterTap;
+                const channels = tap && tap.analyser.channelCount === 1 ? 1 : 2;
+                const engine = tap ? tap.engine : initial.frameEngineEnabled === true ? 'frame-engine' : 'legacy';
+                const t = Number.isFinite(time) ? Math.max(0, time) : 0;
+                const clock = engine === 'frame-engine' && window.akari.frameEngineClock;
+                const ended = clock && t >= clock.totalDuration;
+                if (!playing || ended || immediate) {
+                    if (!audioMeterWasPlaying && lastAudioMeterZeroTime === t) return;
+                    audioMeterWasPlaying = false;
+                    lastAudioMeterZeroTime = t;
+                    lastAudioMeterAt = now;
+                    vscode.postMessage({ type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0],
+                        clip: false, playing: false, channels, engine, t });
+                    return;
+                }
+                audioMeterWasPlaying = true;
+                lastAudioMeterZeroTime = null;
+                let left = { peak: 0, rms: 0 };
+                let right = left;
+                if (tap && tap.analyser.context.state === 'running') {
+                    tap.left.getFloatTimeDomainData(tap.leftSamples);
+                    left = measureAudioMeterBlock(tap.leftSamples);
+                    if (channels === 1) right = left;
+                    else {
+                        tap.right.getFloatTimeDomainData(tap.rightSamples);
+                        right = measureAudioMeterBlock(tap.rightSamples);
+                    }
+                }
+                if (now - lastAudioMeterAt < 33) return;
+                lastAudioMeterAt = now;
+                vscode.postMessage({ type: 'akari-preview-audio-meter',
+                    peak: [left.peak, right.peak], rms: [left.rms, right.rms],
+                    clip: audioMeterClip(false, audioMeterDb(Math.max(left.peak, right.peak))),
+                    playing: true, channels, engine, t });
+            };
+            if (window.akari.legacyAudioMeterAnalyser) {
+                window.akari.attachAudioMeter(window.akari.legacyAudioMeterAnalyser, 'legacy');
+            }
+            window.addEventListener('pagehide', () => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+            }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
@@ -7107,79 +7517,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 const fps = Number(engineSummary.output && engineSummary.output.fps) > 0
                     ? Number(engineSummary.output.fps) : 30;
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
+                const declaredSourceUrls = new Map(sourceUrls);
                 const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
                 const sourceSupports = new Map();
                 const sourceSelections = [];
-                const cutSourceIds = new Set(normalizedCuts.map(cut => String(cut.src || 'default')));
+                let disposed = false;
+                let sourceGeneration = 0;
+                let backgroundSources = null;
+                // Invalidate probes even if the webview unloads during the first-stage await.
+                window.addEventListener('beforeunload', () => {
+                    disposed = true;
+                    sourceGeneration += 1;
+                }, { once: true });
                 const mode = engine.parseSourceSelectionMode(initial.frameEngineSourceMode);
                 if (initial.frameEngineForceSoftware === true) {
                     engine.setForceSoftwareDecode(true);
                 }
-                // コーデックプローブ（isConfigSupported + ヘッダ読み）はソースごとに独立なので並列に
-                // 走らせ、判定と通知は宣言順に適用する（task/2026-09-02-preview-perf）。
-                const probeTargets = [];
-                for (const [id, selectedUrl] of sourceUrls) {
-                    const originalUrl = sourceOriginals.get(id) || selectedUrl;
-                    if (!cutSourceIds.has(String(id))) {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: 'original', reason: 'not-a-cut-source' });
-                        continue;
-                    }
-                    const hasProxy = sourceOriginals.has(id);
-                    if (!engine.needsCodecProbe(mode, hasProxy)) {
-                        const decision = engine.chooseSource({ mode, hasProxy, support: null });
-                        if (decision.chosen === 'original') sourceUrls.set(id, originalUrl);
-                        sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
-                        continue;
-                    }
-                    probeTargets.push({ id, originalUrl, hasProxy });
-                }
-                const probes = await Promise.all(probeTargets.map(target => engine.probeSourceCodec(target.originalUrl)));
-                for (let index = 0; index < probeTargets.length; index += 1) {
-                    const { id, originalUrl, hasProxy } = probeTargets[index];
-                    const probe = probes[index];
-                    const support = probe && probe.support;
-                    const codec = probe && probe.info && probe.info.codec;
-                    const decision = engine.chooseSource({ mode, hasProxy, support });
-                    if (decision.chosen === 'original') {
-                        sourceUrls.set(id, originalUrl);
-                        sourceSupports.set(id, support || null);
-                        sourceSelections.push({
-                            id,
-                            chosen: 'original',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    if (decision.chosen === 'proxy') {
-                        sourceSelections.push({
-                            id,
-                            chosen: 'proxy',
-                            reason: decision.reason,
-                            ...(codec ? { codec } : {})
-                        });
-                        continue;
-                    }
-                    showNotice('プロキシ生成中…（' + id + '）');
-                    console.warn('[frame-engine] codec unsupported; requesting proxy', id, codec);
-                    sourceSelections.push({
-                        id,
-                        chosen: 'auto-proxy',
-                        reason: decision.reason,
-                        ...(codec ? { codec } : {})
-                    });
-                    const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
-                    if (window.akari && window.akari.engine && videoUri) {
-                        void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
-                            console.warn('[frame-engine] proxy request failed', reason);
-                            showNotice('プロキシを生成できませんでした（' + id + '）');
-                        });
-                    }
-                
-                }
                 window.akariFrameEngineSources = sourceSelections;
-                if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
                 const pools = new Map();
                 const lookahead = new Map();
                 const images = new Map();
@@ -7208,14 +7562,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
                     return layer;
                 });
-                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
-                for (const layer of engineLayers) {
-                    const maskUrl = layer && layer.mask;
-                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
-                        sourceUrls.set(maskUrl, maskUrl);
-                    }
-                }
-                for (const [id, url] of sourceUrls) {
+                const createVideoSource = (id, url) => {
                     const pool = new engine.ClipSessionPool(id, url, {
                         codecSupport: sourceSupports.get(id) || null,
                         onWarning: message => showError(message, false),
@@ -7239,26 +7586,176 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     pools.set(id, pool);
                     lookahead.set(id, source);
-                }
+                    return source;
+                };
                 const sources = new Map([...lookahead, ...images]);
 
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
+                for (const layer of engineLayers) {
+                    const maskUrl = layer && layer.mask;
+                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                        sourceUrls.set(maskUrl, maskUrl);
+                    }
+                }
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
                 }))({ layers: engineLayers });
                 let totalDuration = timeline.totalDuration;
-                const createAudioSupplyForSummary = (value, cuts, duration) => {
+                const sourceRequirements = (value, atSeconds) => {
+                    const initialIds = new Set();
+                    const firstUses = new Map();
+                    const note = (id, start, active) => {
+                        if (typeof id !== 'string' || !id) return;
+                        firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, start));
+                        if (active) initialIds.add(id);
+                    };
+                    for (const placement of value.cuts) {
+                        note(placement.cut.src || 'default', placement.at,
+                            atSeconds >= placement.at && atSeconds < placement.end);
+                    }
+                    const frame = Math.floor(atSeconds * value.fps + 1e-9);
+                    for (const layer of value.layers) {
+                        if (!layer || layer.kind === 'filter') continue;
+                        const start = Number(layer.t) || 0;
+                        const end = start + Math.max(0, Number(layer.duration) || 0);
+                        const active = frame >= Math.max(0, Math.ceil(start * value.fps - 1e-6))
+                            && frame < Math.max(0, Math.ceil(end * value.fps - 1e-6));
+                        note(layer.src, start, active);
+                        note(layer.mask, start, active);
+                    }
+                    return { initialIds, firstUses };
+                };
+                const recordSourceSelection = selection => {
+                    const index = sourceSelections.findIndex(value => value.id === selection.id);
+                    if (index < 0) sourceSelections.push(selection);
+                    else sourceSelections[index] = selection;
+                    // Keep the array used by evidence readers alive as well as the scheduler's Maps.
+                    window.akariFrameEngineSources = sourceSelections;
+                };
+                const sameCodecSupport = (left, right) => left === right || (left && right
+                    && left.codec === right.codec && left.hw === right.hw
+                    && left.sw === right.sw && left.any === right.any);
+                const applySourceChoice = async (id, choice, generation) => {
+                    if (disposed || generation !== sourceGeneration) return;
+                    const pool = pools.get(id);
+                    const support = choice.support || null;
+                    const isUnchanged = () => sourceUrls.get(id) === choice.url && sameCodecSupport(
+                        pool ? pool.codecSupport() : sourceSupports.get(id) || null, support);
+                    let unchanged = isUnchanged();
+                    if (pool && !unchanged) {
+                        while (rendering && !disposed && generation === sourceGeneration) await waitForRender();
+                        if (disposed || generation !== sourceGeneration) return;
+                        // Header warmup or the completed render may already have learned this support.
+                        unchanged = isUnchanged();
+                    }
+                    if (pool && !unchanged) {
+                        lookahead.get(id).clear();
+                        pools.get(id).destroy();
+                    }
+                    sourceUrls.set(id, choice.url);
+                    if (support) sourceSupports.set(id, support);
+                    else sourceSupports.delete(id);
+                    recordSourceSelection(choice.selection);
+                    if (pool && !unchanged) sources.set(id, createVideoSource(id, choice.url));
+                };
+                const resolveSource = async (target, generation) => {
+                    const { id, originalUrl, selectedUrl, hasProxy, cutSource } = target;
+                    const probe = engine.needsCodecProbe(mode, hasProxy)
+                        ? await engine.probeSourceCodec(originalUrl) : null;
+                    if (disposed || generation !== sourceGeneration) return;
+                    const support = probe && probe.support;
+                    const codec = probe && probe.info && probe.info.codec;
+                    // Layers and masks keep their original URLs; declared proxies belong to cuts.
+                    const decision = cutSource ? engine.chooseSource({ mode, hasProxy, support })
+                        : { chosen: 'original', reason: 'not-a-cut-source' };
+                    await applySourceChoice(id, {
+                        url: decision.chosen === 'proxy' ? selectedUrl : originalUrl,
+                        support: decision.chosen === 'proxy' ? null : support,
+                        selection: { id, chosen: decision.chosen, reason: decision.reason,
+                            ...(codec ? { codec } : {}) }
+                    }, generation);
+                    if (disposed || generation !== sourceGeneration) return;
+                    if (decision.chosen === 'auto-proxy') {
+                        showNotice('プロキシ生成中…（' + id + '）');
+                        const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
+                        if (window.akari && window.akari.engine && videoUri) {
+                            void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
+                                if (disposed || generation !== sourceGeneration) return;
+                                console.warn('[frame-engine] proxy request failed', reason);
+                                showNotice('プロキシを生成できませんでした（' + id + '）');
+                            });
+                        }
+                    } else if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
+                };
+                const prepareSources = async (value, atSeconds, generation) => {
+                    const { initialIds, firstUses } = sourceRequirements(value, atSeconds);
+                    const cutSourceIds = new Set(value.cuts.map(placement => String(placement.cut.src || 'default')));
+                    for (const id of firstUses.keys()) {
+                        if (!images.has(id) && !sourceUrls.has(id)) sourceUrls.set(id, id);
+                    }
+                    const targets = [];
+                    for (const [id, url] of sourceUrls) {
+                        if (images.has(id)) continue;
+                        const selectedUrl = declaredSourceUrls.get(id) || url;
+                        const originalUrl = sourceOriginals.get(id) || selectedUrl;
+                        const selection = sourceSelections.find(entry => entry.id === id);
+                        // Retain completed decisions across a model rebuild; retry unfinished probes.
+                        if (selection && selection.reason !== 'pending-probe') continue;
+                        sourceUrls.set(id, originalUrl);
+                        sourceSupports.delete(id);
+                        recordSourceSelection({ id, chosen: 'original', reason: 'pending-probe' });
+                        targets.push({ id, originalUrl, selectedUrl, hasProxy: sourceOriginals.has(id),
+                            cutSource: cutSourceIds.has(String(id)) });
+                    }
+                    const initialTargets = targets.filter(target => initialIds.has(target.id));
+                    await Promise.all(initialTargets.map(target => resolveSource(target, generation)));
+                    if (disposed || generation !== sourceGeneration) return;
+                    for (const [id, url] of sourceUrls) {
+                        if (!pools.has(id) && !images.has(id)) sources.set(id, createVideoSource(id, url));
+                    }
+                    for (const [id, image] of images) sources.set(id, image);
+                    backgroundSources = { generation, started: false, remaining: targets
+                        .filter(target => !initialIds.has(target.id))
+                        .sort((left, right) => (firstUses.get(left.id) ?? Infinity)
+                            - (firstUses.get(right.id) ?? Infinity)) };
+                };
+                const startBackgroundSources = () => {
+                    const batch = backgroundSources;
+                    if (!batch || batch.started || disposed || batch.generation !== sourceGeneration) return;
+                    batch.started = true;
+                    let cursor = 0;
+                    const worker = async () => {
+                        while (!disposed && batch.generation === sourceGeneration) {
+                            const target = batch.remaining[cursor++];
+                            if (!target) return;
+                            try {
+                                await resolveSource(target, batch.generation);
+                            } catch (reason) {
+                                if (!disposed && batch.generation === sourceGeneration) showError(reason, false);
+                            }
+                        }
+                    };
+                    // Two workers share the first-use ordered queue.
+                    void worker();
+                    void worker();
+                };
+                await prepareSources(timeline,
+                    Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, sourceGeneration);
+                if (disposed) return;
+                const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
                     const appendAudio = (kind, raw, fallbackId) => {
                         if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
                         const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-                        const sidecar = raw.sidecar && raw.sidecar.path ? raw.sidecar : null;
+                        const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined)
+                            && raw.sidecar && raw.sidecar.path ? raw.sidecar : undefined;
                         declarations.push({
                             kind,
                             id,
                             url: sidecar ? sidecar.path : raw.src,
                             ...(sidecar ? { sourceUrl: raw.src } : {}),
-                            spec: { ...raw, id, durationSec: 0 }
+                            spec: { ...raw, sidecar, sidecarState: raw.sidecarState, id, durationSec: 0 }
                         });
                     };
                     const audio = value && value.audio;
@@ -7277,12 +7774,19 @@ body { display: grid; place-items: center; padding: 32px; }
                         ? audio.speech : engine.projectSpeechDeclarations(cuts, { fps });
                     const speech = projectedSpeech.flatMap(declaration => {
                         const url = sourceUrls.get(declaration.src);
-                        return url ? [{ ...declaration, url }] : [];
+                        const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;
+                        return url ? [{
+                            ...declaration, url, sidecarState: declaration.sidecarState,
+                            sidecar: canUseSidecar && declaration.sidecar?.path ? declaration.sidecar : undefined,
+                            atempo: canUseSidecar && !declaration.sidecar?.path ? declaration.atempo : undefined
+                        }] : [];
                     });
+                    return { declarations, speech };
+                };
+                const createAudioSupplyForSummary = (value, cuts, duration) => {
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
-                        declarations,
-                        speech,
+                        ...audioDeclarationsForSummary(value, cuts),
                         pauseWatchdogMs: false,
                         pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
@@ -7290,8 +7794,53 @@ body { display: grid; place-items: center; padding: 32px; }
                     return supply;
                 };
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
+                const audioStatus = document.getElementById('audio-status');
+                const updateAudioStatus = () => {
+                    if (!audioStatus || disposed) return;
+                    const supply = audioSupply.debug().supply;
+                    let message = '';
+                    if (supply?.phase === 'degraded') {
+                        message = '一部の音声を再生できません: ' + supply.failed.join(', ');
+                    } else if (supply && supply.gate && supply.gate.holding) {
+                        message = '音声を待っています（' + (supply.gate.heldMs / 1000).toFixed(1) + ' 秒）';
+                    } else if (supply?.phase === 'preparing') {
+                        const ready = supply.ready.filter(key => supply.required.includes(key)).length;
+                        message = '音声を準備中 ' + ready + '/' + supply.required.length;
+                    }
+                    if (audioStatus.textContent !== message) audioStatus.textContent = message;
+                    audioStatus.hidden = !message;
+                };
+                const updateAudio = message => {
+                    if (disposed) return;
+                    engineSummary.audio = message.audio;
+                    audioSupply.updateAudio(audioDeclarationsForSummary({ audio: message.audio }, normalizedCuts));
+                    updateAudioStatus();
+                };
+                window.akari.frameEngineUpdateAudio = updateAudio;
+                const pendingAudio = window.akari.frameEnginePendingAudio;
+                if (pendingAudio) {
+                    delete window.akari.frameEnginePendingAudio;
+                    updateAudio(pendingAudio);
+                }
+                const audioStatusTimer = setInterval(updateAudioStatus, 250);
+                const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
+                const AUDIO_PRIORITY_INTERVAL_MS = 10_000;
+                let audioPriorityTimer;
+                const requestAudioPriority = time => {
+                    clearTimeout(audioPriorityTimer);
+                    if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                    audioPriorityTimer = setTimeout(() => {
+                        if (disposed || audioSupply.debug().supply?.phase !== 'preparing') return;
+                        window.akari.requestAudioPriority(time);
+                    }, AUDIO_PRIORITY_DEBOUNCE_MS);
+                };
+                const audioPriorityInterval = setInterval(() => {
+                    if (playing) requestAudioPriority(position);
+                }, AUDIO_PRIORITY_INTERVAL_MS);
+                updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
+                window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                 const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
                 let look = null;
                 if (projectedLook && typeof projectedLook.cubeText === 'string') {
@@ -7334,7 +7883,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 let lastPlaybackFrame = -1;
                 let lastPresentedSec = 0;
                 let lastCutIndex = null;
-                let disposed = false;
                 let scrub;
 
                 const waitForRender = async () => {
@@ -7438,6 +7986,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
                     if (playing) audioSupply.playFrom(position);
+                    updateAudioStatus();
                 };
                 const clock = {
                     get totalDuration() {
@@ -7459,6 +8008,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     seek(seconds, continuePlaying = playing) {
                         position = requestSeek(seconds);
                         audioSupply.seek(position, continuePlaying);
+                        updateAudioStatus();
+                        requestAudioPriority(position);
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
@@ -7483,6 +8034,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         // 読むだけの position() だったため、startFrom が黙って降りた後は映像だけ
                         // 進み、タブを作り直すまで無音だった。watchdog は pauseWatchdogMs:false で無効のまま。
                         position = audioSupply.playbackTime(fallbackPosition);
+                        // ゲートで据え置かれている間は壁時計のアンカーを今の位置に張り直し、
+                        // hold が解けた瞬間から開始位置基準で進むようにする。
+                        if (audioSupply.debug().supply.gate.holding) {
+                            playAnchorPosition = position;
+                            playAnchorMs = performance.now();
+                        }
                         position = renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false, totalDuration);
                         return position;
@@ -7532,6 +8089,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const applyEngineSummary = async (nextSummary, rebuildServices) => {
                     if (!nextSummary || typeof nextSummary !== 'object' || disposed) return;
+                    if (rebuildServices) {
+                        sourceGeneration += 1;
+                        backgroundSources = null;
+                    }
                     runtimeUpdating = true;
                     try {
                         await waitForRender();
@@ -7549,10 +8110,15 @@ body { display: grid; place-items: center; padding: 32px; }
                             if (resume) position = audioSupply.position(position);
                             playing = false;
                             audioSupply.pause();
+                            await prepareSources(nextTimeline,
+                                Math.round(Math.max(0, Math.min(position, nextDuration)) * fps) / fps,
+                                sourceGeneration);
+                            if (disposed) return;
                             const previousScheduler = scheduler;
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
                             audioSupply = createAudioSupplyForSummary(nextSummary, nextCuts, nextDuration);
+                            window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                             previousScheduler.dispose();
                             previousAudioSupply.dispose();
                         }
@@ -7569,6 +8135,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             audioSupply.seek(position, false);
                             scheduler.primeHeaders();
                             audioSupply.prime();
+                            scheduler.warmupNextBoundary(position);
                         }
                         const operation = renderFrame(position, 'seek', performance.now())
                             .catch(reason => showError(reason, true));
@@ -7578,7 +8145,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         } finally {
                             if (rendering === operation) rendering = null;
                         }
-                        if (rebuildServices) setPlaying(resume, position);
+                        if (rebuildServices) {
+                            setPlaying(resume, position);
+                            if (root.dataset.frameEngineReady === 'true') startBackgroundSources();
+                        }
                         root.dataset.frameEngineModelUpdates = String(
                             Number(root.dataset.frameEngineModelUpdates || 0) + 1
                         );
@@ -7600,9 +8170,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
                 if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();
                 updateMetrics();
-                await renderFrame(0, 'seek', performance.now());
-                await renderFrame(0, 'seek', performance.now());
-                scheduler.primeHeaders();
                 audioSupply.prime();
                 const restoredPosition = clock.seek(
                     Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0,
@@ -7620,13 +8187,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 root.dataset.frameEngineReady = 'true';
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
+                scheduler.primeHeaders();
+                scheduler.warmupNextBoundary(restoredPosition);
+                startBackgroundSources();
 
                 window.addEventListener('beforeunload', () => {
                     if (window.akari && window.akari.frameEngineClock === clock) {
                         delete window.akari.frameEngineClock;
                     }
                     delete window.akariFrameEngineAudioAnalyser;
+                    if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
+                    clearInterval(audioStatusTimer);
+                    window.akari.attachAudioMeter(null, 'frame-engine');
+                    clearInterval(audioPriorityInterval);
+                    clearTimeout(audioPriorityTimer);
                     disposed = true;
+                    sourceGeneration += 1;
                     scrub.dispose();
                     scheduler.dispose();
                     for (const source of lookahead.values()) source.clear();
@@ -7702,6 +8278,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     indicatorPopup.textContent = '';
                     return;
                 }
+                indicatorToggle.textContent = 'ⓘ 未対応 ' + indicators.length;
                 const items = indicators.map(item => INDICATOR_GLOSSARY[item]
                     ? item + ' = ' + INDICATOR_GLOSSARY[item]
                     : item).join(' / ');
@@ -11357,6 +11934,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     y: clamp(value.y, -limits.y, limits.y)
                 };
             };
+            const computeMinimapLayout = (${computeZoomMinimapLayout.toString()});
             const renderZoom = () => {
                 zoomLayer.style.transform = 'translate(' + pan.x.toFixed(3) + 'px, '
                     + pan.y.toFixed(3) + 'px) scale(' + zoom + ')';
@@ -11367,24 +11945,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!isZoomed) previewPane.classList.remove('is-dragging');
                 zoomMinimap.hidden = !isZoomed;
                 if (!isZoomed) return;
-                const width = Number(summary.output && summary.output.width) || 1280;
-                const height = Number(summary.output && summary.output.height) || 720;
-                const aspectRatio = width / height;
-                zoomMinimap.style.width = (aspectRatio >= 1 ? 64 : 64 * aspectRatio) + 'px';
-                zoomMinimap.style.height = (aspectRatio >= 1 ? 64 / aspectRatio : 64) + 'px';
-                const scaledStageWidth = previewStage.offsetWidth * zoom;
-                const scaledStageHeight = previewStage.offsetHeight * zoom;
-                if (!(scaledStageWidth > 0) || !(scaledStageHeight > 0)) return;
-                const stageLeft = (previewPane.clientWidth - scaledStageWidth) / 2 + pan.x;
-                const stageTop = (previewPane.clientHeight - scaledStageHeight) / 2 + pan.y;
-                const left = clamp(-stageLeft / scaledStageWidth, 0, 1);
-                const top = clamp(-stageTop / scaledStageHeight, 0, 1);
-                const right = clamp((previewPane.clientWidth - stageLeft) / scaledStageWidth, 0, 1);
-                const bottom = clamp((previewPane.clientHeight - stageTop) / scaledStageHeight, 0, 1);
-                zoomMinimapViewport.style.left = (left * 100) + '%';
-                zoomMinimapViewport.style.top = (top * 100) + '%';
-                zoomMinimapViewport.style.width = ((right - left) * 100) + '%';
-                zoomMinimapViewport.style.height = ((bottom - top) * 100) + '%';
+                const stageRect = previewStage.getBoundingClientRect();
+                const layout = computeMinimapLayout({
+                    paneWidth: previewPane.clientWidth,
+                    paneHeight: previewPane.clientHeight,
+                    stageWidth: stageRect.width / zoom,
+                    stageHeight: stageRect.height / zoom,
+                    zoom,
+                    pan,
+                    outputWidth: stageRect.width,
+                    outputHeight: stageRect.height
+                });
+                zoomMinimap.style.width = layout.box.width + 'px';
+                zoomMinimap.style.height = layout.box.height + 'px';
+                zoomMinimapViewport.style.left = (layout.viewport.left * 100) + '%';
+                zoomMinimapViewport.style.top = (layout.viewport.top * 100) + '%';
+                zoomMinimapViewport.style.width = (layout.viewport.width * 100) + '%';
+                zoomMinimapViewport.style.height = (layout.viewport.height * 100) + '%';
             };
             const setZoom = value => {
                 zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
@@ -11408,6 +11985,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const timelinePosition = segments.length > 0 ? outputTime : (video.currentTime || 0);
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
+                seek.style.setProperty('--seek-progress', (timelineDuration > 0 ? Number(seek.value) / timelineDuration * 100 : 0) + '%');
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
                 penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
@@ -11462,7 +12040,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const context = waveformCanvas.getContext('2d');
                 if (!context) return null;
                 context.setTransform(dpr, 0, 0, dpr, 0, 0);
-                context.fillStyle = '#181818';
+                context.fillStyle = getComputedStyle(waveformRow).getPropertyValue('--akari-transport-bg').trim();
                 context.fillRect(0, 0, width, height);
                 context.fillStyle = 'rgba(255,255,255,0.06)';
                 context.fillRect(0, height / 2 - 0.5, width, 1);
@@ -12692,6 +13270,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateLayerSelectBox();
                     window.akari.runtime.tick(outputTime, isPlaying);
                     window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                    window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
                     updateTransport();
                     updateWaveformPlayhead();
@@ -12793,6 +13372,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 // タイムライン横軸と同じ出力秒（cuts ギャップレス連結後の秒）を送る（音声側も timelineTime で駆動済み）。
                 window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -13483,6 +14063,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
                     window.akari.playbackTick(outputTime, isPlaying, true);
+                    window.akari.audioMeterTick(outputTime, isPlaying, true);
                     return;
                 }
                 // Every intentional pause call site (togglePlayback's stop branch,
@@ -13500,11 +14081,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[activeSegmentIndex];
                 if (isPlaying && segment && segment.kind === 'src' && !isStillSegment(segment) && !video.ended) {
                     window.akari.playbackTick(outputTime, true, true);
+                    window.akari.audioMeterTick(outputTime, true, true);
                     void video.play().catch(error => {
                         console.error('[akari-preview] unexpected pause auto-resume failed', error);
                         window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
                         window.akari.playbackTick(outputTime, false, true);
+                        window.akari.audioMeterTick(outputTime, false, true);
                         if (window.akari.previewAudio) window.akari.previewAudio.pause();
                         stopAnimation();
                     });
@@ -13515,6 +14098,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 isPlaying = false;
                 window.akari.playbackTick(outputTime, false, true);
+                window.akari.audioMeterTick(outputTime, false, true);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
             };
@@ -13722,6 +14306,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionPlate.style.translate = '';
                     }
                     updateCaptionSelectBox();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-audio-update') {
+                    if (!initial.frameEngineEnabled) return;
+                    summary.audio = message.audio;
+                    window.akari.state.summary.audio = message.audio;
+                    if (window.akari.frameEnginePendingSummary) {
+                        window.akari.frameEnginePendingSummary.audio = message.audio;
+                    }
+                    if (window.akari.frameEngineUpdateAudio) window.akari.frameEngineUpdateAudio(message);
+                    else window.akari.frameEnginePendingAudio = { audio: message.audio };
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {

@@ -28,6 +28,15 @@ const stableJson = (value: unknown): string => JSON.stringify(value) ?? 'undefin
 
 const sameJson = (left: unknown, right: unknown): boolean => stableJson(left) === stableJson(right);
 
+// Sidecar completion is delivered by audio-update, independently of the visual model.
+const withoutAudioSidecars = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(withoutAudioSidecars);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value)
+        .filter(([key]) => key !== 'sidecar' && key !== 'sidecarState' && key !== 'sidecarWarningEmitted')
+        .map(([key, item]) => [key, withoutAudioSidecars(item)]));
+};
+
 const withoutIncrementalFields = (summary: PreviewModelDiffInput['summary']): Record<string, unknown> => {
     const incrementalKeys = new Set(['cuts', 'layers', 'overlays', 'audio', 'tracks', 'timelineTracks']);
     const stable: Record<string, unknown> = {};
@@ -94,7 +103,7 @@ export const classifyPreviewModelUpdate = (
         cuts: value.cuts,
         layers: value.layers,
         overlays: value.overlays,
-        audio: value.audio,
+        audio: withoutAudioSidecars(value.audio),
         tracks: value.tracks,
         timelineTracks: value.timelineTracks
     });

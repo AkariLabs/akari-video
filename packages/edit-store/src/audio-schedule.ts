@@ -89,6 +89,7 @@ export interface WebAudioSpeechCut extends EditCut {
     id?: string;
     freeze?: { at_sec?: unknown; duration_sec?: unknown } | null;
     gain_db?: unknown;
+    mute?: unknown;
     gainDb?: unknown;
     volume_db?: unknown;
     transition_out?: EditCut['transitionOut'] | null;
@@ -508,6 +509,7 @@ export function projectSpeechDeclarations(
         if (segment.kind !== 'src' || segment.cutIndex === null) continue;
         const cut = normalizedCuts[segment.cutIndex];
         if (!cut || typeof cut.src !== 'string' || !cut.src) continue;
+        if (cut.mute === true) continue;
         const speed = finitePositive(cut.speed) ? cut.speed as number : 1;
         const segmentIn = typeof segment.in === 'number' ? segment.in : cut.in;
         const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;

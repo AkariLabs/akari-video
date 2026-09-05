@@ -248,6 +248,7 @@ import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
+import { validateInspectorPerspective } from './inspector/perspective-fields';
 import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
     audioClipFxFieldsForSnapshot,
@@ -257,7 +258,8 @@ import {
 import {
     readInspectorAdjustSnapshot,
     updateInspectorAdjust,
-    type InspectorAdjustPath
+    type InspectorAdjustPath,
+    type InspectorAdjustValue
 } from './inspector/adjust-fields';
 import {
     isCutFramingWriteRequest,
@@ -2544,6 +2546,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
+        if (request.kind === 'cut-transition-out') {
+            if (this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks)) {
+                return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
+            }
+            try {
+                return await this.applyTransitionOut(request.index, request.value);
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        }
         if (request.kind === 'audio-master-enabled' || request.kind === 'audio-master-denoise'
             || request.kind === 'audio-master-loudnorm' || request.kind === 'audio-master-true-peak') {
             return this.handleAudioMasterWrite(request);
@@ -3132,7 +3144,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
-            'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
+            'cut-speed', 'cut-audio-gain', 'cut-audio-mute', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
             'cut-opacity', 'cut-source-in', 'cut-source-out',
             'cut-framing-crop-x', 'cut-framing-crop-y',
             'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes',
@@ -3225,12 +3237,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
+                } else if (request.path === 'perspective') {
+                    const value = request.value;
+                    if (value !== null) {
+                        validateInspectorPerspective(
+                            typeof value === 'object' && 'corners' in value ? value.corners : undefined
+                        );
+                    }
+                    patch = { perspective: value };
+                    label = 'クリップのパースを変更';
                 } else if (request.path === 'adjust' || request.path.startsWith('adjust.')) {
                     patch = {
                         adjust: updateInspectorAdjust(
                             raw.adjust,
                             request.path as InspectorAdjustPath,
-                            request.value
+                            request.value as InspectorAdjustValue
                         )
                     };
                     label = 'クリップの調整を変更';
@@ -3272,6 +3293,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         source: { speed: request.value }
                     };
                     label = 'クリップの速度を変更';
+                } else if (request.kind === 'cut-audio-gain') {
+                    if (request.value !== null && (!Number.isFinite(request.value) || request.value < -60 || request.value > 12)) {
+                        return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                    }
+                    patch = { source: { gain_db: request.value } };
+                    label = '埋め込み音声の音量を変更';
+                } else if (request.kind === 'cut-audio-mute') {
+                    patch = { source: { mute: request.value ? true : null } };
+                    label = request.value ? '埋め込み音声をミュート' : '埋め込み音声のミュートを解除';
                 } else if (request.kind === 'cut-opacity') {
                     patch = { opacity: request.value };
                     label = 'クリップの不透明度を変更';
@@ -3604,6 +3634,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const itemId = this.cutItemId(selection.index);
             const rawItem = this.rawKeyframeItem(itemId);
             const rawKeyframes = rawItem?.keyframes;
+            const mediaSource = this.rawV2Item(itemId)?.source;
             return {
                 kind: 'cut', index: selection.index, itemId, label: `C${selection.index + 1}`,
                 trackName: this.trackDisplayNameForItem(itemId),
@@ -3623,7 +3654,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 adjust: readInspectorAdjustSnapshot(rawItem?.adjust),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
+                ...(typeof mediaSource?.gain_db === 'number' ? { audioGainDb: mediaSource.gain_db } : {}),
+                ...(typeof mediaSource?.mute === 'boolean' ? { audioMute: mediaSource.mute } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),
+                ...(this.unsupportedTransitionTrack(selection.index) !== undefined
+                    || this.nonAdjacentTransitionTarget(selection.index) !== undefined
+                    ? { transitionOutBlocked: this.unsupportedTransitionMessage(selection.index) } : {}),
                 ...(cut.track !== undefined ? { track: cut.track } : {})
             };
         }
@@ -3671,7 +3707,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return undefined;
             }
             const raw = this.rawV2Item(layer.id);
-            const rawKeyframes = this.rawKeyframeItem(layer.id)?.keyframes;
+            const rawItem = this.rawKeyframeItem(layer.id);
+            const rawKeyframes = rawItem?.keyframes;
             const params = raw?.source?.kind === 'telop' && raw.source.params
                 && typeof raw.source.params === 'object' && !Array.isArray(raw.source.params)
                 ? raw.source.params as Record<string, unknown> : undefined;
@@ -3689,6 +3726,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(crop !== undefined ? { crop } : {}),
                 adjust: readInspectorAdjustSnapshot(raw?.adjust),
+                ...(rawItem?.perspective && typeof rawItem.perspective === 'object' && !Array.isArray(rawItem.perspective)
+                    ? { perspective: rawItem.perspective } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
                 ...(Array.isArray(rawKeyframes) ? { keyframes: rawKeyframes } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
@@ -7168,10 +7207,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async applyTransitionOut(
         cutIndex: number,
         next: { type: TransitionType; duration: number } | null
-    ): Promise<void> {
+    ): Promise<{ ok: boolean; message?: string }> {
         const location = this.location;
         if (!location?.editUri) {
-            return;
+            return { ok: false, message: 'プロジェクトの場所を特定できません。' };
         }
         if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined
             || this.nonAdjacentTransitionTarget(cutIndex) !== undefined)) {
@@ -7179,7 +7218,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showNotice(message);
             this.footer.textContent = message;
             this.messages.warn(message);
-            return;
+            return { ok: false, message };
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
@@ -7193,7 +7232,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 );
                 this.hideNotice();
                 this.footer.textContent = 'トランジションを削除しました（のりしろも戻しました）。';
-                return;
+                return { ok: true };
             }
         }
         let handle: ReturnType<typeof planTransitionHandleWindow> | undefined;
@@ -7219,22 +7258,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showNotice(message);
             this.footer.textContent = message;
             this.messages.warn(message);
-            return;
+            return { ok: true, message };
         }
         if (handle?.outcome === 'none') {
             this.showNotice(ZERO_OVERLAP_TRANSITION_MESSAGE);
             this.footer.textContent = ZERO_OVERLAP_TRANSITION_MESSAGE;
             this.messages.warn(ZERO_OVERLAP_TRANSITION_MESSAGE);
-            return;
+            return { ok: true, message: ZERO_OVERLAP_TRANSITION_MESSAGE };
         }
         if (!next && earlier && later && cutOverlapFrames(earlier, later, this.fps) > 0) {
             const message = 'トランジションを削除しました。クリップの重なりが残っています。';
             this.showNotice(message);
             this.footer.textContent = message;
-            return;
+            return { ok: true, message };
         }
         this.hideNotice();
         this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
+        return { ok: true };
     }
 
     protected nextSameTrackSegment(cutIndex: number): OutputSegment | undefined {

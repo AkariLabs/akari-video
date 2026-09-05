@@ -252,6 +252,9 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         window.addEventListener('keydown', keydown, true);
     });
 
-    container.append(handle, input, unit, buttons, createKeyframeSeat(options.name, options.keyframe));
+    container.append(handle, input, unit, buttons);
+    if (options.keyframe !== undefined) {
+        container.appendChild(createKeyframeSeat(options.name, options.keyframe));
+    }
     return container;
 }

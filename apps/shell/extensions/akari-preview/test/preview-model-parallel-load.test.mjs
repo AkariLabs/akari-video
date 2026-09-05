@@ -50,8 +50,9 @@ test('GLB の拡張検査はヘッダ + JSON チャンクだけ読む', () => {
 });
 
 test('webview: コーデックプローブは並列、legacy AudioContext は frame-engine 経路で作らず、引き継ぎ時は close する', () => {
-  assert.match(handler, /const probes = await Promise\.all\(probeTargets\.map\(target => engine\.probeSourceCodec\(target\.originalUrl\)\)\);/u);
-  assert.match(handler, /for \(let index = 0; index < probeTargets\.length; index \+= 1\) \{\n\s+const \{ id, originalUrl, hasProxy \} = probeTargets\[index\];\n\s+const probe = probes\[index\];/u);
+  assert.match(handler, /await Promise\.all\(initialTargets\.map\(target => resolveSource\(target, generation\)\)\);/u);
+  assert.match(handler, /const worker = async \(\) => \{\s+while \(!disposed && batch\.generation === sourceGeneration\) \{\s+const target = batch\.remaining\[cursor\+\+\];\s+if \(!target\) return;\s+try \{\s+await resolveSource\(target, batch\.generation\);[\s\S]*?void worker\(\);\s+void worker\(\);\s+\};/u);
+  assert.doesNotMatch(handler, /await Promise\.all\(probeTargets\.map\(|for \(let index = 0; index < probeTargets\.length; index \+= 1\)/u);
   assert.match(handler, /window\.akari\.previewAudio = initial\.frameEngineEnabled === true \? null : createPreviewAudio\(\);/u);
   assert.match(handler, /controller\.dispose = \(\) => \{\n\s+controller\.pause\(\);\n\s+void context\.close\(\)/u);
   assert.match(handler, /if \(typeof window\.akari\.previewAudio\.dispose === 'function'\) window\.akari\.previewAudio\.dispose\(\);/u);

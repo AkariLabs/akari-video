@@ -1,0 +1,470 @@
+{
+  "label": "after",
+  "fixture": "raw",
+  "window": {
+    "width": 1440,
+    "height": 900
+  },
+  "windowActual": {
+    "w": 1440,
+    "h": 900,
+    "dpr": 1
+  },
+  "iframeOffset": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 717,
+    "h": 501.890625
+  },
+  "geometry": {
+    "panePadding": {
+      "top": 8,
+      "right": 8,
+      "bottom": 8,
+      "left": 8
+    },
+    "paneBorder": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "paneRect": {
+      "left": 20,
+      "top": 0,
+      "right": 697,
+      "bottom": 446,
+      "width": 677,
+      "height": 446
+    },
+    "paneContent": {
+      "left": 28,
+      "top": 8,
+      "right": 689,
+      "bottom": 438,
+      "width": 661,
+      "height": 430
+    },
+    "panePaddingBox": {
+      "left": 20,
+      "top": 0,
+      "right": 697,
+      "bottom": 446,
+      "width": 677,
+      "height": 446
+    },
+    "paneClient": {
+      "width": 677,
+      "height": 446
+    },
+    "wrapperRect": {
+      "left": 28,
+      "top": 37.09375,
+      "right": 689,
+      "bottom": 408.90625,
+      "width": 661,
+      "height": 371.8125
+    },
+    "zoomLayerRect": {
+      "left": 28,
+      "top": 37.09375,
+      "right": 689,
+      "bottom": 408.90625,
+      "width": 661,
+      "height": 371.8125
+    },
+    "stageRect": {
+      "left": 28,
+      "top": 37.09375,
+      "right": 689,
+      "bottom": 408.90625,
+      "width": 661,
+      "height": 371.8125
+    },
+    "stageOffset": {
+      "width": 661,
+      "height": 372
+    },
+    "surfaceId": "preview-video",
+    "surfaceRect": {
+      "left": 28,
+      "top": 37.09375,
+      "right": 689,
+      "bottom": 408.90625,
+      "width": 661,
+      "height": 371.8125
+    },
+    "frameEngineActive": false,
+    "summaryOutput": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "declaredIndicators": []
+  },
+  "fit": {
+    "constrainedAxis": "width",
+    "stageTopMinusContentTop": 29.09375,
+    "stageBottomMinusContentBottom": -29.09375,
+    "stageLeftMinusContentLeft": 0,
+    "stageRightMinusContentRight": 0,
+    "surfaceMinusStage": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0
+    },
+    "constrainedTouchesWithin1px": true,
+    "surfaceMatchesStageWithin1px": true
+  },
+  "transport": {
+    "transportRect": {
+      "left": 20,
+      "top": 446,
+      "right": 697,
+      "bottom": 502,
+      "width": 677,
+      "height": 56
+    },
+    "transportHeight": 56,
+    "transportPadding": "0px 10px 6px",
+    "transportGap": "0px",
+    "transportBorderTop": "0px none rgb(255, 255, 255)",
+    "transportBackground": "rgb(18, 18, 18)",
+    "seekRowRect": {
+      "left": 30,
+      "top": 446,
+      "right": 687,
+      "bottom": 456,
+      "width": 657,
+      "height": 10
+    },
+    "seekRect": {
+      "left": 30,
+      "top": 440,
+      "right": 687,
+      "bottom": 456,
+      "width": 657,
+      "height": 16
+    },
+    "seekHeight": 16,
+    "seekAppearance": "none",
+    "controlsRect": {
+      "left": 30,
+      "top": 456,
+      "right": 687,
+      "bottom": 496,
+      "width": 657,
+      "height": 40
+    },
+    "controlsHeight": 40,
+    "waveformHidden": true,
+    "waveformRect": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "stageBottom": 408.90625,
+    "paneBottom": 446
+  },
+  "seekTrack": {
+    "inputTop": 440,
+    "inputHeight": 16,
+    "authoredTrackHeight": 4,
+    "trackHeight": 4,
+    "trackBackground": "rgba(0, 0, 0, 0)",
+    "trackBorderRadius": "0px",
+    "thumb": {
+      "width": "657px",
+      "height": "16px",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "appearance": "none"
+    },
+    "trackTop": 446
+  },
+  "gap": {
+    "stageBottomToSeekInputTop": 31.09375,
+    "stageBottomToSeekTrackTop": 37.09375,
+    "stageBottomToSeekRowTop": 37.09375,
+    "stageBottomToTransportTop": 37.09375,
+    "paneBottomToTransportTop": 0
+  },
+  "screenshots": {
+    "00-raw": "after-00-raw.png",
+    "00-raw-crop2x": "after-00-raw-crop2x.png",
+    "04-seek-grabbed-raw": "after-04-seek-grabbed-raw.png",
+    "04-seek-grabbed-raw-crop2x": "after-04-seek-grabbed-raw-crop2x.png"
+  },
+  "transportCropClip": {
+    "x": 241.9140625,
+    "y": 477,
+    "width": 677,
+    "height": 68,
+    "scale": 2
+  },
+  "seekGrabbedStyles": {
+    "isActiveElement": true,
+    "matchesFocus": true,
+    "matchesFocusVisible": false,
+    "appearance": "none",
+    "outlineStyle": "none",
+    "outlineWidth": "0px",
+    "outlineColor": "rgb(255, 255, 255)",
+    "boxShadow": "none",
+    "height": "16px"
+  },
+  "styles": {
+    "pressed": {
+      "pressedAttr": "true",
+      "pressedBorderStyle": "none",
+      "pressedBoxShadow": "none",
+      "pressedBackground": "rgba(77, 163, 255, 0.22)",
+      "pressedColor": "rgb(77, 163, 255)",
+      "waveformHidden": false,
+      "waveformRect": {
+        "left": 30,
+        "top": 408,
+        "right": 687,
+        "bottom": 456,
+        "width": 657,
+        "height": 48
+      },
+      "waveformBackground": "rgb(18, 18, 18)",
+      "transportHeightWithWaveform": 104
+    },
+    "pressedNoHover": {
+      "pressedAttr": "true",
+      "hovered": false,
+      "backgroundColor": "rgba(77, 163, 255, 0.22)",
+      "color": "rgb(77, 163, 255)",
+      "boxShadow": "none",
+      "borderTopStyle": "none"
+    },
+    "tokens": {
+      "accent": "#4da3ff",
+      "transportBg": "#121212",
+      "transportFg": "#fff",
+      "seekTrack": "#383838",
+      "pasteboard": "#2b2d30"
+    },
+    "bodyClass": "vscode-dark",
+    "transportBackground": "rgb(18, 18, 18)",
+    "transportBorderTop": "0px none",
+    "transportPadding": "0px 10px 6px",
+    "transportGap": "0px",
+    "seek": {
+      "appearance": "none",
+      "outlineStyle": "none",
+      "boxShadow": "none",
+      "height": "16px",
+      "seekProgress": "50%"
+    },
+    "timeLabel": {
+      "fontSize": "12px",
+      "color": "rgba(255, 255, 255, 0.72)",
+      "fontVariantNumeric": "tabular-nums"
+    },
+    "playToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "6px"
+    },
+    "waveformToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(255, 255, 255, 0.08)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomPreset": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "ratePreset": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "auto",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomPopup": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgb(18, 18, 18)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "224px",
+      "height": "auto",
+      "borderRadius": "6px"
+    }
+  },
+  "indicator": {
+    "before": {
+      "exists": true,
+      "hidden": true,
+      "visible": false,
+      "rect": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "parentId": "preview-wrapper",
+      "text": "ⓘ",
+      "ariaLabel": "プレビュー未対応の項目",
+      "ariaExpanded": "false",
+      "popupHidden": true,
+      "popupParentId": "preview-wrapper",
+      "wrapperRect": {
+        "left": 28,
+        "top": 37.09375,
+        "right": 689,
+        "bottom": 408.90625,
+        "width": 661,
+        "height": 371.8125
+      },
+      "stageRect": {
+        "left": 28,
+        "top": 37.09375,
+        "right": 689,
+        "bottom": 408.90625,
+        "width": 661,
+        "height": 371.8125
+      }
+    },
+    "afterHover": null,
+    "afterClick": null
+  },
+  "log": [
+    {
+      "t": "2026-09-05T23:12:32.445Z",
+      "step": "window",
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    {
+      "t": "2026-09-05T23:12:38.591Z",
+      "step": "opened-attempt",
+      "leaf": "base-black.mp4",
+      "attempt": 0,
+      "card": {
+        "found": true,
+        "text": "base-black.mp4--:--",
+        "x": 88.4765625,
+        "y": 136.23046875,
+        "w": 60.953125,
+        "h": 92.4609375
+      },
+      "tab": false
+    },
+    {
+      "t": "2026-09-05T23:12:38.594Z",
+      "step": "opened",
+      "leaf": "base-black.mp4",
+      "card": {
+        "found": true,
+        "text": "base-black.mp4--:--",
+        "x": 88.4765625,
+        "y": 136.23046875,
+        "w": 60.953125,
+        "h": 92.4609375
+      }
+    },
+    {
+      "t": "2026-09-05T23:12:43.311Z",
+      "step": "fit",
+      "constrainedAxis": "width",
+      "stageTopMinusContentTop": 29.09375,
+      "stageBottomMinusContentBottom": -29.09375,
+      "stageLeftMinusContentLeft": 0,
+      "stageRightMinusContentRight": 0,
+      "surfaceMinusStage": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "constrainedTouchesWithin1px": true,
+      "surfaceMatchesStageWithin1px": true
+    },
+    {
+      "t": "2026-09-05T23:12:43.316Z",
+      "step": "transport",
+      "height": 56,
+      "gap": {
+        "stageBottomToSeekInputTop": 31.09375,
+        "stageBottomToSeekTrackTop": 37.09375,
+        "stageBottomToSeekRowTop": 37.09375,
+        "stageBottomToTransportTop": 37.09375,
+        "paneBottomToTransportTop": 0
+      }
+    },
+    {
+      "t": "2026-09-05T23:12:44.244Z",
+      "step": "seek-grabbed",
+      "isActiveElement": true,
+      "matchesFocus": true,
+      "matchesFocusVisible": false,
+      "appearance": "none",
+      "outlineStyle": "none",
+      "outlineWidth": "0px",
+      "outlineColor": "rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "height": "16px"
+    },
+    {
+      "t": "2026-09-05T23:12:46.931Z",
+      "step": "styles",
+      "transportBackground": "rgb(18, 18, 18)",
+      "tokens": {
+        "accent": "#4da3ff",
+        "transportBg": "#121212",
+        "transportFg": "#fff",
+        "seekTrack": "#383838",
+        "pasteboard": "#2b2d30"
+      }
+    },
+    {
+      "t": "2026-09-05T23:12:46.933Z",
+      "step": "indicator",
+      "hidden": true,
+      "visible": false,
+      "text": "ⓘ"
+    }
+  ]
+}

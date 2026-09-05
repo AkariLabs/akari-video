@@ -8,6 +8,18 @@ import { readEditV2 } from "../lib/edit-v2.js";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "edit-v2.json");
 
+test("visual media source accepts embedded speech gain and mute with closed types and ranges", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+  const source = value.tracks[3].items[0].source;
+  Object.assign(source, { gain_db: -12, mute: true });
+  assert.deepEqual(readEditV2(value).tracks[3].items[0].source, source);
+  for (const [key, invalid] of [['gain_db', -61], ['gain_db', 13], ['gain_db', Infinity], ['mute', 'true']]) {
+    const rejected = structuredClone(value);
+    rejected.tracks[3].items[0].source[key] = invalid;
+    assert.throws(() => readEditV2(rejected), new RegExp(`tracks\\[3\\]\\.items\\[0\\]\\.source\\.${key}`));
+  }
+});
+
 test("readEditV2 reads all source kinds and preserves bottom-to-top track order", async () => {
   const text = await readFile(fixturePath, "utf8");
   const edit = readEditV2(text);

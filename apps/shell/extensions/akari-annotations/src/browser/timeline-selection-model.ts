@@ -1,6 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
-import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
+import type { EditAudioKeyframe, ReadableTransitionType, TransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
@@ -26,10 +26,13 @@ export interface TimelineCutSelection {
     adjust?: InspectorAdjustSnapshot;
     keyframes?: readonly Record<string, unknown>[];
     speed?: number;
+    audioGainDb?: number;
+    audioMute?: boolean;
     transitionOut?: {
         type: ReadableTransitionType;
         duration: number;
     };
+    transitionOutBlocked?: string;
     track?: number;
     trackName: string;
     clipName: string;
@@ -76,6 +79,7 @@ export interface TimelineLayerSelection {
     kind: 'layer';
     id: string;
     layerKind: 'baked' | 'video';
+    perspective?: Record<string, unknown>;
     outputStart: number;
     duration: number;
     src?: string;
@@ -232,11 +236,14 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
+            | 'opacity' | 'blend' | 'perspective' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
-        value: InspectorAdjustValue;
+        value: InspectorAdjustValue | { corners: [number, number][] } | null;
     }
+    | { kind: 'cut-transition-out'; index: number; value: { type: TransitionType; duration: number } | null }
     | { kind: 'cut-speed'; index: number; value: number | null }
+    | { kind: 'cut-audio-gain'; index: number; value: number | null }
+    | { kind: 'cut-audio-mute'; index: number; value: boolean }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
     | { kind: 'cut-transform-y'; index: number; value: number | null }
     | { kind: 'cut-scale'; index: number; value: number | null }

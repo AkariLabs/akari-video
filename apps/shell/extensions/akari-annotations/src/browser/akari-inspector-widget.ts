@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -37,6 +38,14 @@ import {
     normalizeInspectorCrop,
     type InspectorCropAxis
 } from './inspector/crop-fields';
+import {
+    normalizeInspectorPerspective,
+    updateInspectorPerspective,
+    validateInspectorPerspective,
+    type InspectorPerspectiveCorner,
+    type InspectorPerspectiveAxis
+} from './inspector/perspective-fields';
+import { createCutTransitionWriteRequest, transitionOptionLabel } from './inspector/transition-fields';
 import {
     addCutFramingKeyframe,
     createCutFramingCropWriteRequest,
@@ -325,6 +334,84 @@ function CROP_FIELDS<TSnapshot extends { id: string; crop?: unknown }>(
     }));
 }
 
+function PERSPECTIVE_FIELDS<TSnapshot extends {
+    id: string; perspective?: Record<string, unknown>; keyframes?: readonly Record<string, unknown>[];
+}>(
+    snapshot: TSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TSnapshot>[] {
+    const corners = normalizeInspectorPerspective(snapshot.perspective);
+    const disabled = snapshot.keyframes?.some(point => Object.prototype.hasOwnProperty.call(point, 'perspective')) ?? false;
+    const title = disabled ? 'キーフレームがあるため数値行では編集できません' : undefined;
+    const rows: ReadonlyArray<{ corner: InspectorPerspectiveCorner; label: string }> = [
+        { corner: 'tl', label: '左上' }, { corner: 'tr', label: '右上' },
+        { corner: 'bl', label: '左下' }, { corner: 'br', label: '右下' }
+    ];
+    const write = async (
+        current: TSnapshot, corner: InspectorPerspectiveCorner, axis: InspectorPerspectiveAxis, input: number | null
+    ): Promise<InspectorWriteResult> => {
+        if (disabled) return { ok: false, message: title };
+        try {
+            const value = updateInspectorPerspective(current.perspective, corner, axis, input);
+            if (value) validateInspectorPerspective(value.corners);
+            return await requestWrite({ kind: 'item-field', id: current.id, path: 'perspective', value });
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    };
+    const fields = rows.flatMap(({ corner, label }, index) => (['x', 'y'] as const)
+        .map((axis, coordinate): InspectorFieldDef<TSnapshot> => ({
+            name: `perspective-${corner}-${axis}`, label: `${label} ${axis.toUpperCase()}`,
+            unit: '%', displayScale: 100, inputKind: 'scrub-number',
+            scrubStep: 0.005, min: 0, max: 1,
+            getValue: () => String(corners[index][coordinate]),
+            getEditValue: () => String(corners[index][coordinate]),
+            disabled, title,
+            write: (current, input) => write(current, corner, axis, Number(input)),
+            reset: current => write(current, corner, axis, null)
+        })));
+    fields.push({
+        name: 'perspective-clear', label: '解除', actionLabel: '解除', getValue: () => '',
+        disabled: snapshot.perspective === undefined,
+        action: current => requestWrite({ kind: 'item-field', id: current.id, path: 'perspective', value: null })
+    });
+    return fields;
+}
+
+function cutTransitionFields(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TimelineCutSelection>[] {
+    const options: string[] = ['なし', ...TRANSITION_VOCABULARY.map(entry => entry.labelJa)];
+    const selected = transitionOptionLabel(snapshot.transitionOut?.type);
+    if (!options.includes(selected)) options.push(selected);
+    const blocked = snapshot.transitionOutBlocked !== undefined;
+    const write = async (
+        current: TimelineCutSelection, row: 'transition-type' | 'transition-duration', input: string | null
+    ): Promise<InspectorWriteResult> => {
+        try {
+            return await requestWrite(createCutTransitionWriteRequest(current, row, input));
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    };
+    return [{
+        name: 'transition-type', label: 'トランジション', inputKind: 'select', options,
+        getValue: () => selected, getEditValue: () => selected,
+        disabled: blocked, title: snapshot.transitionOutBlocked,
+        write: (current, input) => write(current, 'transition-type', input)
+    }, {
+        name: 'transition-duration', label: 'トランジション尺', inputKind: 'scrub-number',
+        unit: 's', min: 0.1, max: 3, scrubStep: 0.05, displayPrecision: 2,
+        getValue: () => String(snapshot.transitionOut?.duration ?? 0.5),
+        getEditValue: () => String(snapshot.transitionOut?.duration ?? 0.5),
+        disabled: blocked || !snapshot.transitionOut,
+        title: snapshot.transitionOutBlocked ?? (!snapshot.transitionOut ? 'トランジションを選ぶと変更できます' : undefined),
+        write: (current, input) => write(current, 'transition-duration', input),
+        reset: current => write(current, 'transition-duration', null)
+    }];
+}
+
 const CUT_FRAMING_CROP_DISABLED_TITLE = 'ズーム KF があるときは窓は無視されます';
 
 function cutFramingFields(
@@ -542,7 +629,8 @@ function CUT_SECTIONS(
         {
             id: 'time', label: '時間', fields: [
                 { name: 'output-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-                { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) }
+                { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
+                ...cutTransitionFields(snapshot, requestWrite)
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
@@ -575,9 +663,34 @@ function CUT_SECTIONS(
                         if (!Number.isFinite(parsed) || parsed <= 0) return { ok: false, message: 'speed は正の数で入力してください。' };
                         return requestWrite({ kind: 'cut-speed', index: snapshot.index, value: parsed });
                     }
+                }
+            ]
+        },
+        {
+            id: 'audio', label: '埋め込み音声', fields: [
+                {
+                    name: 'gain-db', label: '音量', unit: 'dB', removable: true,
+                    getValue: () => String(snapshot.audioGainDb ?? 0) + (snapshot.audioMute === true ? '（ミュート中）' : ''),
+                    getEditValue: () => String(snapshot.audioGainDb ?? 0),
+                    inputKind: 'scrub-number', scrubStep: 0.5, min: -60, max: 12,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
+                            return { ok: false, message: '埋め込み音声の音量は -60〜12 dB の範囲で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: parsed });
+                    },
+                    reset: () => requestWrite({ kind: 'cut-audio-gain', index: snapshot.index, value: null })
                 },
-                { name: 'transition-type', label: 'transition_out 種別', getValue: () => orDash(snapshot.transitionOut?.type, value => value) },
-                { name: 'transition-duration', label: 'transition_out 尺', getValue: () => orDash(snapshot.transitionOut?.duration, formatDurationSeconds) }
+                {
+                    name: 'mute', label: 'ミュート',
+                    getValue: () => String(snapshot.audioMute === true),
+                    getEditValue: () => String(snapshot.audioMute === true),
+                    inputKind: 'boolean-select',
+                    write: async (_snapshot, nextValue) => requestWrite({
+                        kind: 'cut-audio-mute', index: snapshot.index, value: nextValue === 'true'
+                    })
+                }
             ]
         },
         {
@@ -603,6 +716,10 @@ function LAYER_SECTIONS(
     const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
     const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
     const cropFields = CROP_FIELDS(snapshot, 'layer', requestWrite);
+    const perspectiveSection = {
+        id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
+        fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
+    };
     const transformFields: InspectorFieldDef<TimelineLayerSelection>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(snapshot.transform?.x ?? 0),
@@ -659,6 +776,7 @@ function LAYER_SECTIONS(
         },
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
+        perspectiveSection,
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -1635,6 +1753,10 @@ function TREE_ITEM_SECTIONS(
     const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
+    const perspectiveSection = {
+        id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
+        fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
+    };
     const transformFields: InspectorFieldDef<TimelineTreeItemSnapshot>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(number('x', 0)),
@@ -1675,6 +1797,7 @@ function TREE_ITEM_SECTIONS(
         ] },
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
+        perspectiveSection,
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),
@@ -3143,6 +3266,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         row.appendChild(input);
+        this.attachRowMenu(row, field, snapshot, kind);
         input.disabled = field.disabled === true;
         if (field.title) input.title = field.title;
         input.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);

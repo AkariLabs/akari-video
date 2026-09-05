@@ -91,6 +91,10 @@ export interface MediaSourceV2 {
     freeze?: Record<string, unknown> | null;
     fx?: unknown[];
     speed?: number;
+    /** 埋め込み音声（speech）の音量 dB。-60〜12・省略時 0。 */
+    gain_db?: number;
+    /** 埋め込み音声（speech）のミュート。省略時 false。 */
+    mute?: boolean;
     chroma_key?: Record<string, unknown> | null;
 }
 export interface AudioMediaSourceV2 {

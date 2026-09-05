@@ -77,6 +77,7 @@ export interface WebAudioSpeechCut extends EditCut {
         duration_sec?: unknown;
     } | null;
     gain_db?: unknown;
+    mute?: unknown;
     gainDb?: unknown;
     volume_db?: unknown;
     transition_out?: EditCut['transitionOut'] | null;

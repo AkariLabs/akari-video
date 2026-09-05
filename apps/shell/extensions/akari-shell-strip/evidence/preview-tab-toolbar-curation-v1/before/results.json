@@ -1,0 +1,436 @@
+{
+  "label": "before",
+  "status": "PASS",
+  "startedAt": "2026-09-05T18:38:18.420Z",
+  "build": {
+    "electron": "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+    "shell": "apps/shell"
+  },
+  "pluginsDir": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1",
+  "projectDir": "/tmp/akari-l1-preview-tab/project",
+  "stubCommandId": "akari-stub.previewToolbarProbe",
+  "toolbarSelector": ".lm-TabBar-toolbar, .p-TabBar-toolbar",
+  "steps": [
+    {
+      "step": "electron-spawn",
+      "pid": 1233,
+      "log": "/tmp/akari-l1-preview-tab/electron-before.log"
+    },
+    {
+      "step": "bootstrap",
+      "ok": true,
+      "registryCtor": "YB",
+      "registrySubclass": false
+    },
+    {
+      "step": "stub-plugin",
+      "command": "akari-stub.previewToolbarProbe",
+      "menuNodeIds": [
+        "plugin_editor/title",
+        "navigation",
+        "akari-stub.previewToolbarProbe"
+      ]
+    },
+    {
+      "step": "open:output-preview",
+      "id": "plugin-webview:akari-output-preview-bvy8ds",
+      "handler": "akari-output-preview-open-handler",
+      "ctor": "gg"
+    },
+    {
+      "step": "tab:output-preview",
+      "widgetId": "plugin-webview:akari-output-preview-bvy8ds",
+      "ctor": "gg",
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "step": "open:raw-preview",
+      "id": "plugin-webview:akari-preview-1szc6o0",
+      "handler": "akari-preview-open-handler",
+      "ctor": "gg"
+    },
+    {
+      "step": "tab:raw-preview",
+      "widgetId": "plugin-webview:akari-preview-1szc6o0",
+      "ctor": "gg",
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "step": "developer-mode",
+      "before": false,
+      "after": true
+    },
+    {
+      "step": "open:monaco-editor",
+      "id": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+      "handler": "editor-preview-widget",
+      "ctor": "Tnn"
+    },
+    {
+      "step": "tab:monaco-editor",
+      "widgetId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+      "ctor": "Tnn",
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "step": "developer-mode-log",
+      "hidLogs": [],
+      "allAkariLines": 25
+    }
+  ],
+  "tabs": {
+    "output-preview": {
+      "widgetId": "plugin-webview:akari-output-preview-bvy8ds",
+      "currentTitleId": "plugin-webview:akari-output-preview-bvy8ds",
+      "widgetCtor": "gg",
+      "widgetViewType": "akari.preview",
+      "widgetIdentifier": {
+        "id": "akari-output-preview-bvy8ds"
+      },
+      "visibleToolbars": 1,
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domItems": [
+        {
+          "ids": [],
+          "className": "theia-button secondary",
+          "title": "変更を見る",
+          "ariaLabel": "変更を見る",
+          "tag": "button"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-x",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-y",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "className": "item enabled menu",
+          "title": "AKARI Stub Preview Toolbar Probe",
+          "ariaLabel": null,
+          "tag": "div"
+        }
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "tabBarRect": {
+        "x": 314,
+        "y": 4,
+        "w": 574,
+        "h": 35
+      },
+      "opened": {
+        "id": "plugin-webview:akari-output-preview-bvy8ds",
+        "handler": "akari-output-preview-open-handler",
+        "ctor": "gg"
+      },
+      "screenshots": {
+        "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-01-output-preview.png",
+        "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-01-output-preview-tabbar.png"
+      },
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    "raw-preview": {
+      "widgetId": "plugin-webview:akari-preview-1szc6o0",
+      "currentTitleId": "plugin-webview:akari-preview-1szc6o0",
+      "widgetCtor": "gg",
+      "widgetViewType": "akari.preview",
+      "widgetIdentifier": {
+        "id": "akari-preview-1szc6o0"
+      },
+      "visibleToolbars": 1,
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domItems": [
+        {
+          "ids": [],
+          "className": "theia-button secondary",
+          "title": "変更を見る",
+          "ariaLabel": "変更を見る",
+          "tag": "button"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-x",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-y",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "className": "item enabled menu",
+          "title": "AKARI Stub Preview Toolbar Probe",
+          "ariaLabel": null,
+          "tag": "div"
+        }
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "tabBarRect": {
+        "x": 314,
+        "y": 4,
+        "w": 574,
+        "h": 35
+      },
+      "opened": {
+        "id": "plugin-webview:akari-preview-1szc6o0",
+        "handler": "akari-preview-open-handler",
+        "ctor": "gg"
+      },
+      "screenshots": {
+        "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-02-raw-preview.png",
+        "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-02-raw-preview-tabbar.png"
+      },
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    "monaco-editor": {
+      "widgetId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+      "currentTitleId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+      "widgetCtor": "Tnn",
+      "widgetViewType": null,
+      "widgetIdentifier": null,
+      "visibleToolbars": 1,
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domItems": [
+        {
+          "ids": [],
+          "className": "theia-button secondary",
+          "title": "変更を見る",
+          "ariaLabel": "変更を見る",
+          "tag": "button"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-x",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [],
+          "className": "ps__rail-y",
+          "title": null,
+          "ariaLabel": null,
+          "tag": "div"
+        },
+        {
+          "ids": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "className": "item enabled menu",
+          "title": "AKARI Stub Preview Toolbar Probe",
+          "ariaLabel": null,
+          "tag": "div"
+        }
+      ],
+      "registryIds": [
+        "akari.project.showChanges.toolbar",
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "tabBarRect": {
+        "x": 314,
+        "y": 4,
+        "w": 574,
+        "h": 57
+      },
+      "opened": {
+        "id": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+        "handler": "editor-preview-widget",
+        "ctor": "Tnn"
+      },
+      "screenshots": {
+        "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-03-monaco-editor.png",
+        "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-03-monaco-editor-tabbar.png"
+      },
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    }
+  },
+  "checks": [
+    {
+      "ok": true,
+      "message": "TabBarToolbarRegistry の rebind が 無い（分岐点ビルド）",
+      "registryCtor": "YB",
+      "registrySubclass": false
+    },
+    {
+      "ok": true,
+      "message": "スタブ拡張の editor/title 貢献が配備されている",
+      "command": "akari-stub.previewToolbarProbe",
+      "menuNodeIds": [
+        "plugin_editor/title",
+        "navigation",
+        "akari-stub.previewToolbarProbe"
+      ]
+    },
+    {
+      "ok": true,
+      "message": "出力プレビューが WebviewWidget として開いている",
+      "widgetId": "plugin-webview:akari-output-preview-bvy8ds",
+      "ctor": "gg"
+    },
+    {
+      "ok": true,
+      "message": "素材プレビューが WebviewWidget として開いている",
+      "widgetId": "plugin-webview:akari-preview-1szc6o0",
+      "ctor": "gg"
+    },
+    {
+      "ok": true,
+      "message": "開発者モードで Monaco エディタタブが開いている",
+      "widgetId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+      "ctor": "Tnn"
+    },
+    {
+      "ok": true,
+      "message": "output-preview: スタブ拡張のツールバー項目が 出る（再現成立）",
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "ok": true,
+      "message": "raw-preview: スタブ拡張のツールバー項目が 出る（再現成立）",
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "stubRegistryItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "ok": true,
+      "message": "Monaco エディタでは BEFORE / AFTER とも スタブ拡張の項目が出る（残す側の保証）",
+      "stubItems": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "domIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ]
+    },
+    {
+      "ok": true,
+      "message": "開発者モードの除外ログが 出ない（分岐点ビルド）",
+      "hidLogs": []
+    }
+  ],
+  "failures": [],
+  "consoleLines": [
+    "[info] 2026-09-05T18:38:28.888Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"3_selection\",\"label\":\"Selection\"},{\"id\":\"4_view\",\"label\":\"View\"},{\"id\":\"5_go\",\"label\":\"Go\"},{\"id\":\"6_debug\",\"label\":\"Run\"},{\"id\":\"7_terminal\",\"label\":\"Terminal\"},{\"id\":\"9_help\",\"label\":\"Help\"}]",
+    "[info] 2026-09-05T18:38:28.888Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): [\"core.undo\",\"core.redo\",\"core.cut\",\"core.copy\",\"core.paste\",\"core.selectAll\",\"file.copyDownloadLink\"]",
+    "[info] 2026-09-05T18:38:28.888Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"9_help\",\"label\":\"Help\"}]",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"search-view-container\",\"label\":\"Search\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"vsx-extensions-view-container\",\"label\":\"パートナー / 拡張\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"scm-view-container\",\"label\":\"Source Control\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-settings-widget\",\"label\":\"設定\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"debug\",\"label\":\"Debug\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-menu-widget\",\"label\":\"メニュー\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {\"id\":\"test-view-container\",\"label\":\"Testing\"}",
+    "[info] 2026-09-05T18:38:29.422Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container",
+    "[info] 2026-09-05T18:38:29.431Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"outline-view\",\"label\":\"Outline\"}",
+    "[info] 2026-09-05T18:38:29.431Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-partner-onboarding\",\"label\":\"パートナーを追加\"}",
+    "[info] 2026-09-05T18:38:29.431Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {\"id\":\"akari-review-panel-widget\",\"label\":\"注釈\"}",
+    "[info] 2026-09-05T18:38:29.431Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view",
+    "[info] 2026-09-05T18:38:29.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {\"id\":\"akari-role-buckets-widget\",\"label\":\"素材\"}",
+    "[info] 2026-09-05T18:38:35.089Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {\"id\":\"akari-daihon-widget\",\"label\":\"台本\"}",
+    "[info] 2026-09-05T18:38:41.344Z root INFO [akari-shell-strip] developer mode changed: true",
+    "[info] 2026-09-05T18:38:41.344Z root INFO [akari-shell-strip] developer terminal menu item shown: terminal:new",
+    "[info] 2026-09-05T18:38:41.344Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidAddWidget:outline-view): akari-role-buckets-widget",
+    "[info] 2026-09-05T18:38:41.344Z root INFO [akari-shell-strip] restored right panel widget (trigger=developerMode:true): outline-view",
+    "[info] 2026-09-05T18:38:41.372Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:explorer-view-container): {\"id\":\"explorer-view-container\",\"label\":\"Explorer\"}"
+  ],
+  "registryCtor": "YB",
+  "registrySubclass": false,
+  "hidLogs": [],
+  "finishedAt": "2026-09-05T18:38:50.440Z"
+}

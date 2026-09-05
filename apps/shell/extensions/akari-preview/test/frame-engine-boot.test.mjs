@@ -52,6 +52,31 @@ function extractTemplate(methodName) {
 
 const watchdog = extractTemplate('frameEngineWatchdogScript');
 
+test('startup primes audio then presents the restored frame once before ready and background warmup', () => {
+    const bootstrap = extractTemplate('frameEngineBootstrapScript');
+    const startup = bootstrap.slice(bootstrap.indexOf('// 非同期 mount 中'));
+    assert.doesNotMatch(bootstrap, /renderFrame\(0, 'seek'/u);
+    assert.equal([...startup.matchAll(/renderFrame\(restoredPosition/gu)].length, 1);
+    const ordered = [
+        'audioSupply.prime()',
+        'const restoredPosition = clock.seek(',
+        'await waitForRender()',
+        "await renderFrame(restoredPosition, 'seek', performance.now())",
+        'await clock.updateModel(pendingSummary)',
+        "root.dataset.frameEngineReady = 'true'",
+        "window.dispatchEvent(new Event('akari-frame-engine-ready'))",
+        'scheduler.primeHeaders()',
+        'scheduler.warmupNextBoundary(restoredPosition)',
+        'startBackgroundSources()'
+    ];
+    let previous = -1;
+    for (const token of ordered) {
+        const at = startup.indexOf(token);
+        assert.ok(at > previous, `${token} must follow the previous startup step`);
+        previous = at;
+    }
+});
+
 function executeWatchdog({ error, rejection, engine = {}, root = null, engineErrorText = '' } = {}) {
     const listeners = new Map();
     let timeoutCallback;

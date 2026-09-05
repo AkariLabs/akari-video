@@ -1,3 +1,7 @@
+// GB 級の丸読みを防ぎつつ、1 時間級 4K の moov（10〜20 MB）を通す上限。
+// 8 MiB では 24 分の 4K HEVC 原本が上限を超えたため、32 MiB とする。
+export const DEFAULT_MOOV_BUDGET_BYTES = 32 * 1024 * 1024;
+
 export interface VideoCodecInfo {
   fourcc: string;
   codec: string;
@@ -270,7 +274,7 @@ async function doProbeSourceCodec(
   try {
     const fetchImpl = options.fetchImpl
       ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
-    const maxProbeBytes = options.maxProbeBytes ?? 8 * 1024 * 1024;
+    const maxProbeBytes = options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES;
     const requestUrl = queryUrl(url, options.query);
     const initialLimit = Math.min(1024 * 1024, maxProbeBytes);
     const initialResponse = await fetchImpl(requestUrl, { headers: { Range: `bytes=0-${initialLimit - 1}` } });
@@ -293,7 +297,7 @@ async function doProbeSourceCodec(
       if (!box) throw new Error(`invalid MP4 box header at ${cursor}`);
       const boxSize = box.size;
       if (box.type === 'moov') {
-        if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B)`);
+        if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B > ${maxProbeBytes} B)`);
         if (cursor + boxSize <= initial.byteLength) {
           moovBytes = initial.slice(cursor, cursor + boxSize);
         } else {
@@ -323,7 +327,7 @@ export function probeSourceCodec(
   url: string,
   options: { fetchImpl?: typeof fetch; query?: Record<string, string>; maxProbeBytes?: number } = {},
 ): Promise<{ info: VideoCodecInfo | null; support: CodecSupport | null; error?: string }> {
-  const key = `${queryUrl(url, options.query)}\u0000${options.maxProbeBytes ?? 8 * 1024 * 1024}`;
+  const key = `${queryUrl(url, options.query)}\u0000${options.maxProbeBytes ?? DEFAULT_MOOV_BUDGET_BYTES}`;
   let cached = sourceCache.get(key);
   if (!cached) {
     cached = doProbeSourceCodec(url, options);

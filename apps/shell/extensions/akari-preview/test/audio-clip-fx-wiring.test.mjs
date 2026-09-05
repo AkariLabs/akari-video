@@ -6,22 +6,27 @@ const handlerSource = await readFile(new URL('../src/browser/akari-preview-open-
 const audioSource = handlerSource.slice(handlerSource.indexOf('    protected async resolveAudioAssets('));
 const resolveSource = audioSource.slice(audioSource.indexOf('        const resolveSource = async ('), audioSource.indexOf('        const gainDb ='));
 
-test('resolveSource sends the shared clip FX request while retaining heavy WAV eligibility', () => {
-    assert.match(handlerSource, /import \{ AudioClipFx, audioClipFxOf, previewAudioSidecarRequestFor \} from '\.\.\/common\/audio-clip-fx';/);
-    assert.match(resolveSource, /trim: \{ inSec: number; outSec\?: number \},\s*clipFx:/);
+// main 合流（2026-09-06）: クリップ FX の配線は、非ブロッキングの sidecar 要求
+// （requestPreviewAudioSidecar + resolveRegularSidecarPlan）に載せる。heavyWavOnly は読み込み経路から消えた。
+test('resolveSource sends the shared clip FX request on the non-blocking sidecar path', () => {
+    assert.match(handlerSource, /import \{ AudioClipFx, audioClipFxOf, hasAudioClipFx, previewAudioSidecarRequestFor \} from '\.\.\/common\/audio-clip-fx';/);
+    assert.match(resolveSource, /at = 0,\s*clipFx: AudioClipFx = \{\}/);
+    assert.match(resolveSource, /resolveRegularSidecarPlan\(\{ \.\.\.trim, hasClipFx: hasAudioClipFx\(clipFx\) \}\)/);
     assert.match(resolveSource, /const sidecarRequest = previewAudioSidecarRequestFor\(clipFx\)/);
-    assert.match(resolveSource, /preparePreviewAudioSidecar\(\{[^]*?\.\.\.sidecarRequest,[^]*?heavyWavOnly: true\s*\}\)/);
-    assert.match(audioSource, /clipFx\?: \{\s*speed\?: number;\s*pitch_semitones\?: number;\s*formant\?: 'preserve' \| 'shift';\s*denoise\?: \{ method: 'fft' \| 'nlm'; strength: number \};\s*lowcut_hz\?: number;\s*\}/);
+    assert.match(resolveSource, /const request: PreviewAudioSidecarRequest = \{[^]*?\.\.\.sidecarRequest,[^]*?format: plan\.format/);
+    assert.doesNotMatch(resolveSource, /heavyWavOnly/);
+    assert.match(handlerSource, /interface PreviewAudioSidecarRequest \{[^]*?clipFx\?: AudioClipFx;/);
 });
 
 test('sfx, narration and bgm requests all adopt clip FX with the corresponding kind', () => {
-    assert.match(audioSource, /resolveSource\(item\.path, label, \{[^]*?\}, audioClipFxOf\(item, kind\)\)/);
+    assert.match(audioSource, /resolveSource\(item\.path, label, \{[^]*?\}, kind, [^]*?, item\.t, audioClipFxOf\(item, kind\)\)/);
     assert.match(audioSource, /timed\(audio\.sfx, 'sfx'\)/);
     assert.match(audioSource, /timed\(audio\.narration, 'narration'\)/);
-    assert.match(audioSource, /resolveSource\(rawBgm\.path, 'audio\.bgm', \{ inSec: bgmIn \?\? 0 \}, audioClipFxOf\(rawBgm, 'bgm'\)\)/);
+    assert.match(audioSource, /resolveSource\(rawBgm\.path, 'audio\.bgm', \{ inSec: bgmIn \?\? 0 \}, 'bgm', 'bgm', 0, audioClipFxOf\(rawBgm, 'bgm'\)\)/);
 });
 
-test('failed FX requests warn even when ineligible and preserve source fallback and cache keys', () => {
-    assert.match(resolveSource, /if \(!result\.ok \|\| !result\.stream\) \{\s*if \(sidecarRequest\.clipFx !== undefined \|\| result\.eligible !== false\) \{\s*console\.warn\([^]*?\);\s*\}\s*return \{ src: stream\.url \};/);
+test('FX requests keep source fallback and cache keys on the shared request path', () => {
+    assert.match(resolveSource, /if \(!plan\.request\) return \{ src: stream\.url \};/);
     assert.match(resolveSource, /if \(result\.key\) previewAudioKeepKeys\.add\(result\.key\)/);
+    assert.match(resolveSource, /return this\.previewAudioSidecarFields\(item, result\)/);
 });

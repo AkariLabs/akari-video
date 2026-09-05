@@ -1,0 +1,284 @@
+{
+  "evidence": "apps/shell/extensions/akari-preview/evidence/preview-audio-meter-v1",
+  "branch": "task/2026-09-06-preview-audio-meter-tab",
+  "base": "f15440dc",
+  "captured": "2026-09-06",
+  "environment": {
+    "platform": "darwin arm64",
+    "electron": "tier 2 (node_modules/electron, stock libffmpeg 2160944 B / \"H264 Decoder\" x1)",
+    "flags": [
+      "--remote-debugging-port",
+      "--user-data-dir",
+      "--no-sandbox",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding"
+    ],
+    "workspace": "/tmp/akari-l1-audio-meter/tomosu-pv-remake (内部 fieldtest プロジェクト tomosu-pv-remake のスクラッチ複製・edit.json version 1・cuts 2・bgm あり)",
+    "note": "edit.json は version 1 のためタイムラインの移行プロンプトで「読み取り専用で開く」を選択して検証した。speech サイドカーは本機 ffmpeg で生成できず（cut-1/cut-2 とも ok:false）master は bgm 1 本。これは分岐点でも同一（下の audible_path_invariance 参照）"
+  },
+  "L0": {
+    "apps/shell npm run build:ext": "exit 0",
+    "apps/shell npm run lint": "exit 0",
+    "node --test extensions/akari-preview/test/*.test.mjs": {
+      "tests": 639,
+      "pass": 638,
+      "fail": 0,
+      "cancelled": 1,
+      "duration_ms": 762196,
+      "new_file": {
+        "file": "test/audio-meter-model.test.mjs",
+        "tests": 15,
+        "pass": 15,
+        "fail": 0
+      },
+      "baseline_at_branch_point": {
+        "tests": 624,
+        "note": "639 - 15（新規ファイルのみ追加・既存ファイルは無改変）"
+      },
+      "cancelled_detail": "test/preview-captions.test.mjs:458 「caption and edit retarget races never return outside content across 10k RPC calls each」が 180s timeout。単独再実行でも同じ。分岐点側の作業ツリー（本票の変更なし）でも同一テストが同一 timeout で cancelled = 本票と無関係な既存・環境依存"
+    },
+    "boundary": {
+      "git diff <base> --name-only": [
+        "apps/shell/extensions/akari-preview/src/browser/akari-preview-frontend-module.ts",
+        "apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts"
+      ],
+      "untracked_new": [
+        "src/browser/akari-audio-meter-widget.ts",
+        "src/browser/akari-audio-meter-contribution.ts",
+        "src/common/audio-meter-model.ts",
+        "test/audio-meter-model.test.mjs",
+        "evidence/preview-audio-meter-v1/"
+      ],
+      "packages/** diff": 0,
+      "generated bundles diff": 0,
+      "open-handler.ts -U0 hunks (旧行番号)": [
+        1,
+        1839,
+        1856,
+        2188,
+        2189,
+        2392,
+        5946,
+        5961,
+        5968,
+        6413,
+        7294,
+        7555,
+        7628,
+        12694,
+        12795,
+        13485,
+        13502,
+        13507,
+        13517
+      ],
+      "forbidden_regions_touched": {
+        "style block 5426-5645": 0,
+        "HTML template 5646-5787": 0,
+        "transport/zoom/stage-fit/indicator/waveform": 0
+      }
+    }
+  },
+  "L1": {
+    "1_tab_added": {
+      "verdict": "PASS",
+      "how": "OpenerService.getOpener(edit.json) -> akari-output-preview-open-handler -> openOutput()（実ユーザー経路）",
+      "right_tabs_before": [
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "インスペクター"
+      ],
+      "right_tabs_after": [
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "インスペクター",
+        "音声メーター"
+      ],
+      "active_tab_before": "インスペクター",
+      "active_tab_after": "インスペクター",
+      "note": "2 セッション（別 user-data-dir）で再現。音声メーターはインスペクター（rank 200）の右隣（rank 220）",
+      "shot": "00-tab-added.png"
+    },
+    "2_playing": {
+      "verdict": "PASS",
+      "frames": 73,
+      "span_sec": 2.917,
+      "hz": 24.68,
+      "engine": "frame-engine",
+      "channels": 2,
+      "peak_L_dBFS": 0.368,
+      "peak_R_dBFS": 0.394,
+      "requirement": ">= 20 Hz / L,R とも peak > -40 dBFS / engine=frame-engine",
+      "note": "bgm gain_db 0（素の fixture）。別セッションの 3 秒走でも 24.72 Hz / 85 frames",
+      "shot": "01-playing.png"
+    },
+    "3_paused": {
+      "verdict": "PASS",
+      "zero_frames_after_pause": 1,
+      "frames_after_that_within_1500ms": 0,
+      "widget_peak_dBFS_at_250ms": [
+        "-Infinity",
+        "-Infinity"
+      ],
+      "widget_peak_dBFS_at_1750ms": [
+        "-Infinity",
+        "-Infinity"
+      ],
+      "requirement": "ゼロ frame 1 回 / 以後 frame 停止 / 1.5 s 以内にバーが床(-60)",
+      "shot": "03-paused.png"
+    },
+    "4_global_mute": {
+      "verdict": "NOT MET (契約前提の不成立・境界外)",
+      "measured_muted": {
+        "peak_L_dBFS": 12.11,
+        "peak_R_dBFS": 12.39
+      },
+      "measured_unmuted": {
+        "peak_L_dBFS": 12.63,
+        "peak_R_dBFS": 12.4
+      },
+      "also_measured_at_gain0": {
+        "muted": {
+          "peak_L_dBFS": 0.18,
+          "peak_R_dBFS": 0.24
+        },
+        "unmuted": {
+          "peak_L_dBFS": 0.33,
+          "peak_R_dBFS": 0.39
+        }
+      },
+      "proof_the_message_arrived": "ホスト側 widget.akariPreviewMuted === true。akari.timeline.setMuted 経路と widget.sendMessage({type:\"akari-preview-set-muted\"}) 直送の両方で確認",
+      "root_cause": "webview の globalMuted は <video>.muted しか変えない（open-handler の globalMuted 参照箇所は 3 か所とも video/transitionVideo）。frame-engine 面の可聴音は engine の AudioContext master バス（bgm/sfx/narration/speech）であり、mute 経路が繋がっていない。よって「ミュートすると master が無音になる」という前提自体が製品側で成立していない",
+      "why_not_fixed": "修正には再生経路の変更（webview の音声グラフ / frame-engine パッケージ）が要り、本票の非ゴールに明記された領域。契約どおり実装せず逸脱として報告する",
+      "side_finding": "メーターは master を正しく映しているだけで、露見したのは「frame-engine 面ではタイムラインのスピーカーで音が止まらない」という既存の製品欠落。後続票の候補"
+    },
+    "5_clip_latch": {
+      "verdict": "PASS",
+      "fixture_change": "スクラッチ複製の edit.json audio.bgm.gain_db = 12",
+      "contract_said": "+18 だが edit.schema.json の gain_db は minimum -60 / maximum 12。18 は「このプロジェクトは変換できません」で弾かれるため上限の +12 を使用",
+      "peak_L_dBFS": 12.178,
+      "peak_R_dBFS": 12.394,
+      "cross_check": "gain 0 の同一区間が +0.178/+0.394 dBFS → +12 dB ちょうど上昇。メーターが master gain を忠実に追っている",
+      "frame_clip_flag": true,
+      "widget_clipped": true,
+      "led_aria_pressed": "true",
+      "after_pause_still_latched": true,
+      "after_click": {
+        "clipped": false,
+        "aria_pressed": "false"
+      },
+      "shot": "02-clip-latched.png"
+    },
+    "6_dismiss_and_command": {
+      "verdict": "PASS",
+      "after_closing_meter_tab": [
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "インスペクター"
+      ],
+      "after_reopening_output_preview": [
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "インスペクター"
+      ],
+      "reopen_result": "openOutput ok（プレビューは開いた）・音声メーターは再追加されない",
+      "after_command_akari_preview_openAudioMeter": [
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "インスペクター",
+        "音声メーター"
+      ],
+      "active_after_command": "音声メーター"
+    },
+    "7_audible_path_invariance": {
+      "verdict": "PASS",
+      "method": "分岐点側のアプリ（本票の変更なし）を同一の stock-libffmpeg Electron 実体・同一スクラッチ・同一フラグで起動し、再生中の window.akariFrameEngineAudioDebug() を突き合わせた",
+      "baseline": {
+        "playing": true,
+        "rate": 1,
+        "pitchPreserved": true,
+        "stretcher": "none",
+        "scheduled": {
+          "itemCount": 1,
+          "bgm": 1,
+          "sfx": 0,
+          "narration": 0,
+          "speech": 0,
+          "skipped": []
+        },
+        "prefetch": {
+          "items": 3,
+          "decodedBytes": 38768776,
+          "pending": 0,
+          "failed": [
+            "speech:cut-1-speech",
+            "speech:cut-2-speech"
+          ],
+          "compact": 0,
+          "overBudget": false
+        },
+        "sidecars": {
+          "generated": 0,
+          "skipped": 0,
+          "bytes": 0
+        },
+        "crossfades": []
+      },
+      "with_meter": {
+        "playing": true,
+        "rate": 1,
+        "pitchPreserved": true,
+        "stretcher": "none",
+        "scheduled": {
+          "itemCount": 1,
+          "bgm": 1,
+          "sfx": 0,
+          "narration": 0,
+          "speech": 0,
+          "skipped": []
+        },
+        "prefetch": {
+          "items": 3,
+          "decodedBytes": 38768776,
+          "pending": 0,
+          "failed": [
+            "speech:cut-1-speech",
+            "speech:cut-2-speech"
+          ],
+          "compact": 0,
+          "overBudget": false
+        },
+        "sidecars": {
+          "generated": 0,
+          "skipped": 0,
+          "bytes": 0
+        },
+        "crossfades": []
+      },
+      "diff": "キー集合・scheduled・prefetch.failed・skipped は完全一致。差は時刻依存のスカラーのみ（renderedTimelineSec / audioPositionSec / driftMs / elapsedMs / startAtSec）",
+      "analyser_identity": {
+        "baseline": {
+          "sameNodeOnRepeatCall": true,
+          "ctor": "AnalyserNode",
+          "channelCount": 2,
+          "fftSize": 2048
+        },
+        "with_meter": {
+          "sameNodeOnRepeatCall": true,
+          "ctor": "AnalyserNode",
+          "channelCount": 2,
+          "fftSize": 2048
+        }
+      },
+      "analyser_note": "attachAnalyser() は分岐点でも同じ 1 本の AnalyserNode を返す（メーターは既存の analyser から splitter へ枝を伸ばすだけで master の routeMasterBus を触らない）",
+      "new_warnings_during_playback": "なし（scheduled.skipped は両者 []・prefetch.failed も同一集合）"
+    }
+  },
+  "ui_note": "メーターの基調色は契約どおり var(--theia-focusBorder) を使っている。AKARI のテーマではこのトークンが橙のため、画面上のバーは青ではなく橙で出る（-12 dB 以上は警告色・-3 dB 以上はエラー色に切り替わるのはスクリーンショット 02 のとおり）"
+}
