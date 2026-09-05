@@ -348,6 +348,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
   /** gate を張った startFrom の世代。seek / pause / setRate / 新しい startFrom で無効になる。 */
   let gateGeneration = -1;
+  /** 1 回の再生意図（play / シーク後の再開 / レート変更後の再開）の起点。内部の再試行では更新しない。 */
+  let gateIntent: { startSec: number; sinceMs: number } | null = null;
   let playing = false;
   let anchorTimelineSec = 0;
   let anchorContextSec = 0;
@@ -1102,6 +1104,15 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       && !keys.failed.includes(key) && !keys.noAudio.includes(key));
   };
 
+  /** 開始位置の required がまだ揃っていないときの hold の理由。揃っていれば null。 */
+  const gateReasonAt = (positionSec: number): 'first-window' | 'sidecar' | null => {
+    const keys = supplyKeysAt(positionSec, true);
+    const missing = keys.required.filter(key => !keys.ready.includes(key)
+      && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+    if (missing.length === 0) return null;
+    return missing.some(key => keys.pendingSidecar.includes(key)) ? 'sidecar' : 'first-window';
+  };
+
   const releaseGate = (): void => {
     if (!gate.holding) return;
     gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
@@ -1117,6 +1128,33 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       return false;
     }
     return true;
+  };
+
+  /**
+   * 空の予定表で gate が降りた後の backoff（500 ms）の隙間。意図の予算内は開始位置に据え置く。
+   * 再試行が hold の起点を作り直さないので、絵は 0 へ戻らず先へも進まない。
+   */
+  const gateIntentHolding = (): boolean => {
+    if (!gateIntent || playing) return false;
+    if (lastStartOutcome !== 'empty') return false;
+    if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) return false;
+    return gateMissingKeys(gateIntent.startSec, true).length > 0;
+  };
+
+  /**
+   * 表示上の gate は「張られている gate 本体」か「backoff の隙間を埋める再生意図」のどちらか。
+   * 呼び手（Web UI / webview）は 1 つの gate として読むので、ここで 1 つに畳んでから返す。
+   */
+  const gateView = (): {
+    holding: boolean;
+    gate: { startSec: number; sinceMs: number; reason: 'first-window' | 'sidecar' | null };
+  } => {
+    if (gateHolding()) return { holding: true, gate };
+    const intent = gateIntent;
+    if (intent && gateIntentHolding()) {
+      return { holding: true, gate: { startSec: intent.startSec, sinceMs: intent.sinceMs, reason: gateReasonAt(intent.startSec) } };
+    }
+    return { holding: false, gate };
   };
 
   // 途中で seek / pause が世代を進めたら黙って降りる（新しい startFrom が starting を持っている）。
@@ -1136,17 +1174,19 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       releaseGate();
     } else {
       // 「その窓が実際に取れているか」で見るため readiness は再生中と同じ規則（bufferedUntil）で評価する。
-      const keys = supplyKeysAt(gateStartSec, true);
-      const missing = keys.required.filter(key => !keys.ready.includes(key)
-        && !keys.failed.includes(key) && !keys.noAudio.includes(key));
-      if (missing.length === 0) {
+      const reason = gateReasonAt(gateStartSec);
+      if (reason === null) {
         releaseGate();
       } else {
-        gate = {
-          holding: true, startSec: gateStartSec, sinceMs: now(),
-          reason: missing.some(key => keys.pendingSidecar.includes(key)) ? 'sidecar' : 'first-window',
-        };
-        gateGeneration = thisGeneration;
+        gateIntent ??= { startSec: gateStartSec, sinceMs: now() };
+        if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1000) {
+          releaseGate();
+        } else {
+          gate = {
+            holding: true, startSec: gateIntent.startSec, sinceMs: gateIntent.sinceMs, reason,
+          };
+          gateGeneration = thisGeneration;
+        }
       }
     }
     let outcome: 'started' | 'empty' | 'failed' = 'failed';
@@ -1231,9 +1271,10 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (startingWindowController === controller) startingWindowController = null;
       if (windowController !== controller) controller.abort();
       if (thisGeneration === generation) {
-        // 開始できなかった（例外・resume 失敗・空の予定表）ときは待っても届かないので解く。
+        // 開始できなかったときは gate を解く。空の予定表なら再生意図の予算は再試行へ引き継ぐ。
         // 開始できたときは readiness（最初の窓）と上限だけが hold を解く。
         if (outcome !== 'started') releaseGate();
+        if (outcome === 'failed') gateIntent = null;
         starting = false;
         lastStartOutcome = outcome;
         if (replanPending) {
@@ -1262,6 +1303,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
     releaseGate();
+    gateIntent = null;
     playing = false;
     starting = false;
     replanPending = false;
@@ -1288,7 +1330,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       : required.some(key => pendingSidecar.includes(key)) ? 'preparing'
         : required.some(key => failed.includes(key)) ? 'degraded'
           : required.every(key => ready.includes(key)) ? 'ready' : 'preparing';
-    const holding = gateHolding();
+    // gate 本体と再生意図を畳んだ 1 つの gate として読む（`gate` はこのスコープの実効値）。
+    const { holding, gate } = gateView();
     return {
       supply: { phase, required, ready, pendingSidecar, failed, noAudio, bufferedUntil: { ...bufferedUntil },
         gate: { holding, startSec: holding ? gate.startSec : 0, heldMs: holding ? now() - gate.sinceMs : 0, reason: holding ? gate.reason : null } },
@@ -1419,10 +1462,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     },
     playFrom(seconds) {
       latestRequestedSec = clamp(seconds);
-      if (context && !playing && !starting) launch(latestRequestedSec);
+      if (context && !playing && !starting) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     position(fallbackSeconds) {
       if (gateHolding()) { latestRequestedSec = gate.startSec; return gate.startSec; }
+      if (gateIntentHolding()) { latestRequestedSec = gateIntent!.startSec; return gateIntent!.startSec; }
       latestRequestedSec = clamp(fallbackSeconds);
       return playing ? audioPosition() : latestRequestedSec;
     },
@@ -1432,7 +1479,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         armPauseWatchdog();
         return gate.startSec;
       }
-      latestRequestedSec = clamp(fallbackSeconds);
+      // 隙間でも開始位置を据え置いたまま、backoff 明けの再 launch は従来どおり行う。
+      if (gateIntentHolding()) latestRequestedSec = gateIntent!.startSec;
+      else latestRequestedSec = clamp(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
       if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
@@ -1447,7 +1496,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       replanPending = false;
       lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) launch(latestRequestedSec);
+      // 実際に再開するときだけ新しい再生意図を作る（止めるだけのシークは意図を捨てる）。
+      gateIntent = null;
+      if (continuePlaying && context) {
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+        launch(latestRequestedSec);
+      }
     },
     pause,
     setRate(value) {
@@ -1467,6 +1521,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         replanPending = false;
         lastStartOutcome = null;
         stopSources();
+        gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
         launch(latestRequestedSec);
       }
     },

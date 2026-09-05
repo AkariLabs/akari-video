@@ -25853,6 +25853,7 @@ void main() {
       reason: null
     };
     let gateGeneration = -1;
+    let gateIntent = null;
     let playing = false;
     let anchorTimelineSec = 0;
     let anchorContextSec = 0;
@@ -26569,6 +26570,12 @@ void main() {
       const keys = supplyKeysAt(positionSec, asPlaying);
       return keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
     };
+    const gateReasonAt = (positionSec) => {
+      const keys = supplyKeysAt(positionSec, true);
+      const missing = keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
+      if (missing.length === 0) return null;
+      return missing.some((key) => keys.pendingSidecar.includes(key)) ? "sidecar" : "first-window";
+    };
     const releaseGate = () => {
       if (!gate.holding) return;
       gate = { holding: false, startSec: 0, sinceMs: 0, reason: null };
@@ -26582,6 +26589,20 @@ void main() {
       }
       return true;
     };
+    const gateIntentHolding = () => {
+      if (!gateIntent || playing) return false;
+      if (lastStartOutcome !== "empty") return false;
+      if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) return false;
+      return gateMissingKeys(gateIntent.startSec, true).length > 0;
+    };
+    const gateView = () => {
+      if (gateHolding()) return { holding: true, gate };
+      const intent = gateIntent;
+      if (intent && gateIntentHolding()) {
+        return { holding: true, gate: { startSec: intent.startSec, sinceMs: intent.sinceMs, reason: gateReasonAt(intent.startSec) } };
+      }
+      return { holding: false, gate };
+    };
     const startFrom = async (seconds, options2 = {}) => {
       if (!context) return;
       const thisGeneration = ++generation;
@@ -26594,18 +26615,22 @@ void main() {
       if (playing) {
         releaseGate();
       } else {
-        const keys = supplyKeysAt(gateStartSec, true);
-        const missing = keys.required.filter((key) => !keys.ready.includes(key) && !keys.failed.includes(key) && !keys.noAudio.includes(key));
-        if (missing.length === 0) {
+        const reason = gateReasonAt(gateStartSec);
+        if (reason === null) {
           releaseGate();
         } else {
-          gate = {
-            holding: true,
-            startSec: gateStartSec,
-            sinceMs: now(),
-            reason: missing.some((key) => keys.pendingSidecar.includes(key)) ? "sidecar" : "first-window"
-          };
-          gateGeneration = thisGeneration;
+          gateIntent ??= { startSec: gateStartSec, sinceMs: now() };
+          if (now() - gateIntent.sinceMs >= PLAY_GATE_MAX_HOLD_SEC * 1e3) {
+            releaseGate();
+          } else {
+            gate = {
+              holding: true,
+              startSec: gateIntent.startSec,
+              sinceMs: gateIntent.sinceMs,
+              reason
+            };
+            gateGeneration = thisGeneration;
+          }
         }
       }
       let outcome = "failed";
@@ -26678,6 +26703,7 @@ void main() {
         if (windowController !== controller) controller.abort();
         if (thisGeneration === generation) {
           if (outcome !== "started") releaseGate();
+          if (outcome === "failed") gateIntent = null;
           starting = false;
           lastStartOutcome = outcome;
           if (replanPending) {
@@ -26698,6 +26724,7 @@ void main() {
       if (playing) latestRequestedSec = audioPosition();
       generation += 1;
       releaseGate();
+      gateIntent = null;
       playing = false;
       starting = false;
       replanPending = false;
@@ -26719,7 +26746,7 @@ void main() {
       const positionSec = playing ? audioPosition() : latestRequestedSec;
       const { required, ready, pendingSidecar, failed, noAudio } = supplyKeysAt(positionSec, playing);
       const phase = required.length === 0 ? "idle" : required.some((key) => pendingSidecar.includes(key)) ? "preparing" : required.some((key) => failed.includes(key)) ? "degraded" : required.every((key) => ready.includes(key)) ? "ready" : "preparing";
-      const holding = gateHolding();
+      const { holding, gate: gate2 } = gateView();
       return {
         supply: {
           phase,
@@ -26729,7 +26756,7 @@ void main() {
           failed,
           noAudio,
           bufferedUntil: { ...bufferedUntil },
-          gate: { holding, startSec: holding ? gate.startSec : 0, heldMs: holding ? now() - gate.sinceMs : 0, reason: holding ? gate.reason : null }
+          gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
         },
         contextState: context?.state ?? "unavailable",
         renderedTimelineSec: lastRenderedTimelineSec,
@@ -26855,12 +26882,19 @@ void main() {
       },
       playFrom(seconds) {
         latestRequestedSec = clamp5(seconds);
-        if (context && !playing && !starting) launch(latestRequestedSec);
+        if (context && !playing && !starting) {
+          gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+          launch(latestRequestedSec);
+        }
       },
       position(fallbackSeconds) {
         if (gateHolding()) {
           latestRequestedSec = gate.startSec;
           return gate.startSec;
+        }
+        if (gateIntentHolding()) {
+          latestRequestedSec = gateIntent.startSec;
+          return gateIntent.startSec;
         }
         latestRequestedSec = clamp5(fallbackSeconds);
         return playing ? audioPosition() : latestRequestedSec;
@@ -26871,7 +26905,8 @@ void main() {
           armPauseWatchdog();
           return gate.startSec;
         }
-        latestRequestedSec = clamp5(fallbackSeconds);
+        if (gateIntentHolding()) latestRequestedSec = gateIntent.startSec;
+        else latestRequestedSec = clamp5(fallbackSeconds);
         if (!context) return latestRequestedSec;
         armPauseWatchdog();
         if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
@@ -26886,7 +26921,11 @@ void main() {
         replanPending = false;
         lastStartOutcome = null;
         stopSources();
-        if (continuePlaying && context) launch(latestRequestedSec);
+        gateIntent = null;
+        if (continuePlaying && context) {
+          gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
+          launch(latestRequestedSec);
+        }
       },
       pause,
       setRate(value) {
@@ -26906,6 +26945,7 @@ void main() {
           replanPending = false;
           lastStartOutcome = null;
           stopSources();
+          gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
           launch(latestRequestedSec);
         }
       },

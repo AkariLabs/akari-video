@@ -1807,3 +1807,127 @@ test('resume 失敗でも finally がゲートを解き、3 秒を待たず fall
   assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
   assert.equal(supply.playbackTime(10.5), 10.5);
 });
+
+test('(h) 空の予定表で gate が降りても hold の起点は最初の playFrom のままで、通算 3 秒で解ける', async t => {
+  const firstWindow = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: () => firstWindow.promise });
+  const starts = [];
+  const { supply, clock, requests } = pcmSupply(t, {
+    server, declarations: [pcmDeclaration('voice', 120, 'narration', { t: 0 })],
+    scheduleBuilder: ({ startAtSec }) => {
+      starts.push(startAtSec);
+      return { startAtSec, warnings: [], items: [] };
+    },
+  });
+  supply.prime();
+  await flush();
+  assert.deepEqual(supply.debug().supply.ready, ['narration:voice']);
+  assert.equal(requests.length, 0, 'メタデータだけが ready で、最初の窓はまだ無い');
+  supply.playFrom(10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 0, reason: 'first-window' });
+  await flush();
+  assert.deepEqual(starts, [10], '1 本目の予定表は空で終了している');
+  assert.equal(supply.debug().supply.gate.holding, true);
+  assert.equal(supply.debug().playing, false);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+
+  await clock.advance(400);
+  assert.equal(supply.position(12), 10);
+  assert.equal(supply.playbackTime(12), 10);
+  assert.equal(supply.debug().supply.gate.heldMs, 400);
+  assert.deepEqual(starts, [10], 'backoff 中は予定表を組み直さない');
+  await clock.advance(200);
+  assert.equal(supply.playbackTime(12), 10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 600, reason: 'first-window' });
+  await flush();
+  assert.deepEqual(starts, [10, 10], 'backoff 明けは開始位置を保って再 launch する');
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 600, reason: 'first-window' });
+
+  await clock.advance(2399);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 2999, reason: 'first-window' });
+  assert.equal(supply.playbackTime(12), 10);
+  await flush();
+  assert.deepEqual(starts, [10, 10, 10]);
+  assert.equal(supply.debug().supply.gate.heldMs, 2999);
+  await clock.advance(1);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.playbackTime(13), 13);
+});
+
+test('(i) 通算 3 秒を過ぎた後の再 launch は gate を張らず fallback を返す', async t => {
+  const firstWindow = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: () => firstWindow.promise });
+  const starts = [];
+  const { supply, clock, requests } = pcmSupply(t, {
+    server, declarations: [pcmDeclaration('voice', 120, 'narration', { t: 0 })],
+    scheduleBuilder: ({ startAtSec }) => {
+      starts.push(startAtSec);
+      return { startAtSec, warnings: [], items: [] };
+    },
+  });
+  supply.prime();
+  await flush();
+  assert.deepEqual(supply.debug().supply.ready, ['narration:voice']);
+  assert.equal(requests.length, 0, 'メタデータだけが ready で、最初の窓はまだ無い');
+  supply.playFrom(10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 0, reason: 'first-window' });
+  await flush();
+  assert.deepEqual(starts, [10]);
+  assert.equal(supply.debug().supply.gate.holding, true);
+  await clock.advance(3000);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.playbackTime(13), 13);
+  assert.equal(supply.debug().supply.gate.holding, false, '期限到達時の再 launch でも hold しない');
+  await flush();
+  assert.deepEqual(starts, [10, 13]);
+
+  await clock.advance(600);
+  assert.equal(supply.playbackTime(14), 14);
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  await flush();
+  assert.deepEqual(starts, [10, 13, 14], '期限後も再試行自体は続ける');
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.debug().playing, false);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+});
+
+test('(j) hold 途中の seek は新しい再生意図として起点を更新し、そこから 3 秒で解ける', async t => {
+  const firstWindow = deferred();
+  const server = rangeServer({ requireRange: true, beforeResponse: () => firstWindow.promise });
+  const starts = [];
+  const { supply, clock, requests } = pcmSupply(t, {
+    server, declarations: [pcmDeclaration('voice', 120, 'narration', { t: 0 })],
+    scheduleBuilder: ({ startAtSec }) => {
+      starts.push(startAtSec);
+      return { startAtSec, warnings: [], items: [] };
+    },
+  });
+  supply.prime();
+  await flush();
+  assert.deepEqual(supply.debug().supply.ready, ['narration:voice']);
+  assert.equal(requests.length, 0, 'メタデータだけが ready で、最初の窓はまだ無い');
+  supply.playFrom(10);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 0, reason: 'first-window' });
+  await flush();
+  assert.deepEqual(starts, [10]);
+  await clock.advance(1001);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 10, heldMs: 1001, reason: 'first-window' });
+
+  supply.seek(20, true);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 20, heldMs: 0, reason: 'first-window' });
+  assert.equal(supply.playbackTime(25), 20);
+  await flush();
+  assert.deepEqual(starts, [10, 20]);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 20, heldMs: 0, reason: 'first-window' });
+  await clock.advance(2999);
+  assert.deepEqual(supply.debug().supply.gate, { holding: true, startSec: 20, heldMs: 2999, reason: 'first-window' });
+  assert.equal(supply.position(25), 20);
+  assert.equal(supply.playbackTime(25), 20);
+  await flush();
+  assert.deepEqual(starts, [10, 20, 20]);
+  assert.equal(supply.debug().supply.gate.heldMs, 2999);
+  await clock.advance(1);
+  assert.equal(clock.now(), 4001, '最初の playFrom ではなく seek から 3 秒で解ける');
+  assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
+  assert.equal(supply.playbackTime(26), 26);
+});
