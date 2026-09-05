@@ -2089,7 +2089,44 @@ function validateCrop(value, path) {
 }
 function validateAdjust(value, path) {
   requireRecord(value, path);
-  requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections"]), path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
+  for (const section of ["curves", "hue"]) {
+    if (!hasOwn(value, section)) continue;
+    const channels = value[section];
+    const sectionPath = `${path}.${section}`;
+    requireRecord(channels, sectionPath);
+    const axis = section === "curves" ? "in" : "hue";
+    const output = section === "curves" ? "out" : "value";
+    const minimum = section === "curves" ? 2 : 1;
+    requireExactKeys(channels, new Set(section === "curves" ? ["master", "r", "g", "b"] : ["hue", "sat", "luma"]), sectionPath);
+    for (const [channel, points] of Object.entries(channels)) {
+      const channelPath = `${sectionPath}.${channel}`;
+      if (!Array.isArray(points) || points.length < minimum || points.length > 16) {
+        throw invalid(channelPath, `${minimum} \u304B\u3089 16 \u70B9\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`);
+      }
+      let previous = -Infinity;
+      for (const [index, point] of points.entries()) {
+        const pointPath = `${channelPath}[${index}]`;
+        requireRecord(point, pointPath);
+        requireExactKeys(point, /* @__PURE__ */ new Set([axis, output]), pointPath);
+        requireRange(point[axis], 0, 1, `${pointPath}.${axis}`);
+        requireRange(point[output], 0, 1, `${pointPath}.${output}`);
+        if (point[axis] <= previous) throw invalid(`${pointPath}.${axis}`, "\u72ED\u7FA9\u5358\u8ABF\u5897\u52A0\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        previous = point[axis];
+      }
+    }
+  }
+  if (hasOwn(value, "wheels")) {
+    requireRecord(value.wheels, `${path}.wheels`);
+    const ranges = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
+    requireExactKeys(value.wheels, new Set(Object.keys(ranges)), `${path}.wheels`);
+    for (const [wheel, channels] of Object.entries(value.wheels)) {
+      const wheelPath = `${path}.wheels.${wheel}`;
+      requireRecord(channels, wheelPath);
+      requireExactKeys(channels, /* @__PURE__ */ new Set(["r", "g", "b"]), wheelPath);
+      for (const [channel, amount] of Object.entries(channels)) requireRange(amount, -ranges[wheel], ranges[wheel], `${wheelPath}.${channel}`);
+    }
+  }
   if (hasOwn(value, "basic")) {
     requireRecord(value.basic, `${path}.basic`);
     const basicKeys = /* @__PURE__ */ new Set([
@@ -2119,7 +2156,7 @@ function validateAdjust(value, path) {
   }
   if (hasOwn(value, "sections")) {
     requireRecord(value.sections, `${path}.sections`);
-    const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut"]);
+    const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut", "curves", "wheels", "hue"]);
     requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
     for (const key of sectionKeys) {
       if (hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {

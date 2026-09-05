@@ -4795,7 +4795,47 @@ var require_edit_v2 = __commonJS({
     }
     function validateAdjust(value, path) {
       requireRecord(value, path);
-      requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections"]), path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
+      for (const section of ["curves", "hue"]) {
+        if (!hasOwn(value, section))
+          continue;
+        const channels = value[section];
+        const sectionPath = `${path}.${section}`;
+        requireRecord(channels, sectionPath);
+        const axis = section === "curves" ? "in" : "hue";
+        const output = section === "curves" ? "out" : "value";
+        const minimum = section === "curves" ? 2 : 1;
+        requireExactKeys(channels, new Set(section === "curves" ? ["master", "r", "g", "b"] : ["hue", "sat", "luma"]), sectionPath);
+        for (const [channel, points] of Object.entries(channels)) {
+          const channelPath = `${sectionPath}.${channel}`;
+          if (!Array.isArray(points) || points.length < minimum || points.length > 16) {
+            throw invalid(channelPath, `${minimum} \u304B\u3089 16 \u70B9\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`);
+          }
+          let previous = -Infinity;
+          for (const [index, point] of points.entries()) {
+            const pointPath = `${channelPath}[${index}]`;
+            requireRecord(point, pointPath);
+            requireExactKeys(point, /* @__PURE__ */ new Set([axis, output]), pointPath);
+            requireRange(point[axis], 0, 1, `${pointPath}.${axis}`);
+            requireRange(point[output], 0, 1, `${pointPath}.${output}`);
+            if (point[axis] <= previous)
+              throw invalid(`${pointPath}.${axis}`, "\u72ED\u7FA9\u5358\u8ABF\u5897\u52A0\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            previous = point[axis];
+          }
+        }
+      }
+      if (hasOwn(value, "wheels")) {
+        requireRecord(value.wheels, `${path}.wheels`);
+        const ranges = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
+        requireExactKeys(value.wheels, new Set(Object.keys(ranges)), `${path}.wheels`);
+        for (const [wheel, channels] of Object.entries(value.wheels)) {
+          const wheelPath = `${path}.wheels.${wheel}`;
+          requireRecord(channels, wheelPath);
+          requireExactKeys(channels, /* @__PURE__ */ new Set(["r", "g", "b"]), wheelPath);
+          for (const [channel, amount] of Object.entries(channels))
+            requireRange(amount, -ranges[wheel], ranges[wheel], `${wheelPath}.${channel}`);
+        }
+      }
       if (hasOwn(value, "basic")) {
         requireRecord(value.basic, `${path}.basic`);
         const basicKeys = /* @__PURE__ */ new Set([
@@ -4827,7 +4867,7 @@ var require_edit_v2 = __commonJS({
       }
       if (hasOwn(value, "sections")) {
         requireRecord(value.sections, `${path}.sections`);
-        const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut"]);
+        const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut", "curves", "wheels", "hue"]);
         requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
         for (const key of sectionKeys) {
           if (hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
@@ -19000,11 +19040,145 @@ var ADJUST_CONSTANTS = Object.freeze({
   TONE_ADD_COEF: 0.3,
   VIBRANCE_EPSILON: 1e-6,
   IDENTITY_EPSILON: 1e-6,
+  HUE_EPSILON: 1e-4,
+  CURVES_IDENTITY_EPSILON: 1e-5,
+  CURVE_SPAN_EPSILON: 1e-9,
   EXPOSURE_MIN: -3,
   EXPOSURE_MAX: 3,
   BASIC_MIN: -1,
   BASIC_MAX: 1
 });
+var RGB_CHANNELS = ["r", "g", "b"];
+var CURVE_CHANNELS = ["master", "r", "g", "b"];
+var HUE_CHANNELS = ["hue", "sat", "luma"];
+var WHEEL_RANGES = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
+function normalizeAdjustWheels(wheels) {
+  const result = {};
+  for (const wheel of Object.keys(WHEEL_RANGES)) {
+    result[wheel] = { r: 0, g: 0, b: 0 };
+    for (const channel of RGB_CHANNELS) result[wheel][channel] = clamp2(wheels?.[wheel]?.[channel] ?? 0, -WHEEL_RANGES[wheel], WHEEL_RANGES[wheel]);
+  }
+  return result;
+}
+function normalizeAdjustCurves(curves) {
+  const result = {};
+  for (const channel of CURVE_CHANNELS) result[channel] = (curves?.[channel] ?? [{ in: 0, out: 0 }, { in: 1, out: 1 }]).map((point) => ({ in: clamp01(point.in), out: clamp01(point.out) })).sort((a, b) => a.in - b.in);
+  return result;
+}
+function normalizeAdjustHue(hue) {
+  const result = {};
+  for (const channel of HUE_CHANNELS) result[channel] = (hue?.[channel] ?? []).map((point) => ({ hue: clamp01(point.hue), value: Number.isFinite(point.value) ? clamp01(point.value) : 0.5 })).sort((a, b) => a.hue - b.hue);
+  return result;
+}
+function isAdjustCurvesIdentity(curves) {
+  return Object.values(normalizeAdjustCurves(curves)).every((points) => points.length === 2 && Math.abs(points[0].in) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[0].out) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].in - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON && Math.abs(points[1].out - 1) < ADJUST_CONSTANTS.CURVES_IDENTITY_EPSILON);
+}
+function isAdjustHueIdentity(hue) {
+  return Object.values(normalizeAdjustHue(hue)).every((points) => points.every((point) => Math.abs(point.value - 0.5) <= ADJUST_CONSTANTS.HUE_EPSILON));
+}
+function applyAdjustWheels(r, g2, b, wheels) {
+  const p2 = normalizeAdjustWheels(wheels);
+  return RGB_CHANNELS.map((channel, index) => {
+    let c = [r, g2, b][index] * (1 - p2.lift[channel]) + p2.lift[channel];
+    c = Math.pow(Math.max(0, c), 1 / (1 + p2.gamma[channel]));
+    c *= 1 + p2.gain[channel];
+    return clamp01(c + p2.offset[channel]);
+  });
+}
+function evalCurve(points, x3) {
+  if (!points.length) return x3;
+  if (x3 <= points[0].in) return clamp01(points[0].out);
+  const last = points[points.length - 1];
+  if (x3 >= last.in) return clamp01(last.out);
+  for (let i2 = 1; i2 < points.length; i2 += 1) {
+    const p0 = points[i2 - 1], p1 = points[i2];
+    if (x3 >= p0.in && x3 <= p1.in) {
+      const span = p1.in - p0.in;
+      if (span < ADJUST_CONSTANTS.CURVE_SPAN_EPSILON) return clamp01(p0.out);
+      const t = (x3 - p0.in) / span;
+      return clamp01(p0.out + (p1.out - p0.out) * t);
+    }
+  }
+  return clamp01(last.out);
+}
+function applyAdjustCurves(r, g2, b, curves) {
+  if (isAdjustCurvesIdentity(curves)) return [r, g2, b];
+  const p2 = normalizeAdjustCurves(curves);
+  return [evalCurve(p2.r, evalCurve(p2.master, r)), evalCurve(p2.g, evalCurve(p2.master, g2)), evalCurve(p2.b, evalCurve(p2.master, b))];
+}
+function sampleHue(points, x3) {
+  if (!points.length) return 0.5;
+  if (points.length === 1 || x3 <= points[0].hue) return points[0].value;
+  const last = points[points.length - 1];
+  if (x3 >= last.hue) return last.value;
+  for (let i2 = 1; i2 < points.length; i2 += 1) {
+    const p0 = points[i2 - 1], p1 = points[i2];
+    if (x3 >= p0.hue && x3 <= p1.hue) {
+      const span = p1.hue - p0.hue;
+      if (span < ADJUST_CONSTANTS.CURVE_SPAN_EPSILON) return p0.value;
+      const t = (x3 - p0.hue) / span;
+      return p0.value + (p1.value - p0.value) * t;
+    }
+  }
+  return last.value;
+}
+function applyAdjustHue(r, g2, b, hue) {
+  if (isAdjustHueIdentity(hue)) return [r, g2, b];
+  const p2 = normalizeAdjustHue(hue);
+  const cmax = Math.max(r, g2, b), cmin = Math.min(r, g2, b), d2 = cmax - cmin;
+  let h = 0;
+  if (d2 > ADJUST_CONSTANTS.HUE_EPSILON) {
+    if (cmax === r) h = ((g2 - b) / d2 + 6) % 6;
+    else if (cmax === g2) h = (b - r) / d2 + 2;
+    else h = (r - g2) / d2 + 4;
+    h /= 6;
+  }
+  const s = cmax > ADJUST_CONSTANTS.HUE_EPSILON ? d2 / cmax : 0;
+  const shift = (sampleHue(p2.hue, h) - 0.5) * 2;
+  const newH = (h + shift + 1) % 1;
+  const satGain = sampleHue(p2.sat, h) * 2;
+  const newS = clamp01(s * satGain);
+  const lumaGain = sampleHue(p2.luma, h) * 2;
+  const newV = clamp01(cmax * lumaGain);
+  const c = newS * newV, hh = newH * 6;
+  const x3 = c * (1 - Math.abs(hh % 2 - 1)), m2 = newV - c;
+  let cr = 0, cg = 0, cb = 0;
+  const sector = Math.floor(hh);
+  if (sector === 0) {
+    cr = c;
+    cg = x3;
+  } else if (sector === 1) {
+    cr = x3;
+    cg = c;
+  } else if (sector === 2) {
+    cg = c;
+    cb = x3;
+  } else if (sector === 3) {
+    cg = x3;
+    cb = c;
+  } else if (sector === 4) {
+    cr = x3;
+    cb = c;
+  } else {
+    cr = c;
+    cb = x3;
+  }
+  return [clamp01(cr + m2), clamp01(cg + m2), clamp01(cb + m2)];
+}
+function applyItemAdjust(r, g2, b, adjust, lutSampler) {
+  let rgb = [r, g2, b];
+  if (adjust?.sections?.basic !== false) rgb = applyAdjustBasic(...rgb, adjust?.basic);
+  if (adjust?.sections?.lut !== false && adjust?.lut && lutSampler) {
+    const sampled = lutSampler(...rgb);
+    const raw = adjust.lut.intensity ?? 1;
+    const intensity = Number.isFinite(raw) ? clamp01(raw) : 1;
+    rgb = rgb.map((value, index) => value + (sampled[index] - value) * intensity);
+  }
+  if (adjust?.sections?.wheels !== false) rgb = applyAdjustWheels(...rgb, adjust?.wheels);
+  if (adjust?.sections?.curves !== false) rgb = applyAdjustCurves(...rgb, adjust?.curves);
+  if (adjust?.sections?.hue !== false) rgb = applyAdjustHue(...rgb, adjust?.hue);
+  return rgb;
+}
 function clamp2(value, low, high) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(low, Math.min(high, value));
@@ -19146,24 +19320,33 @@ function cubeComponent(value) {
   return Number(value.toFixed(6));
 }
 function bakeAdjustLut(basic, userLut, intensity = 1, size = ADJUST_LUT_SIZE) {
+  return bakeItemAdjustLut({ basic: basic ?? void 0, lut: userLut ? { lut: "", intensity } : void 0 }, userLut, size);
+}
+function bakeItemAdjustLut(adjust, userLut, size = ADJUST_LUT_SIZE) {
   if (!Number.isInteger(size) || size < 2 || size > 256) {
     throw new RangeError("size must be an integer between 2 and 256");
   }
-  const normalizedBasic = normalizeAdjustBasic(basic);
-  const mixAmount = normalizedIntensity(intensity);
-  const key = `${JSON.stringify(normalizedBasic)}|${size}|${lutMemoId(userLut)}|${mixAmount}`;
+  const normalized = {
+    basic: normalizeAdjustBasic(adjust?.basic),
+    lut: adjust?.lut ? { ...adjust.lut, intensity: normalizedIntensity(adjust.lut.intensity ?? 1) } : null,
+    wheels: normalizeAdjustWheels(adjust?.wheels),
+    curves: normalizeAdjustCurves(adjust?.curves),
+    hue: normalizeAdjustHue(adjust?.hue),
+    sections: adjust?.sections
+  };
+  const key = `${JSON.stringify(normalized)}|${size}|${lutMemoId(userLut)}`;
   if (key === lastBakeKey && lastBakeResult) return lastBakeResult;
   const data = new Float32Array(size * size * size * 3);
   const last = size - 1;
+  const sampler = userLut ? (r, g2, b) => sampleLutTrilinear(userLut, [r, g2, b]) : void 0;
   for (let bz = 0; bz < size; bz += 1) {
     for (let gy = 0; gy < size; gy += 1) {
       for (let rx = 0; rx < size; rx += 1) {
-        const adjusted = applyAdjustBasic(rx / last, gy / last, bz / last, normalizedBasic);
-        const lutted = userLut ? sampleLutTrilinear(userLut, adjusted) : adjusted;
+        const adjusted = applyItemAdjust(rx / last, gy / last, bz / last, normalized, sampler);
         const index = ((bz * size + gy) * size + rx) * 3;
-        data[index] = cubeComponent(adjusted[0] + (lutted[0] - adjusted[0]) * mixAmount);
-        data[index + 1] = cubeComponent(adjusted[1] + (lutted[1] - adjusted[1]) * mixAmount);
-        data[index + 2] = cubeComponent(adjusted[2] + (lutted[2] - adjusted[2]) * mixAmount);
+        data[index] = cubeComponent(adjusted[0]);
+        data[index + 1] = cubeComponent(adjusted[1]);
+        data[index + 2] = cubeComponent(adjusted[2]);
       }
     }
   }
