@@ -518,9 +518,9 @@ function buildSegments() {
 }
 
 // --- B-roll layers ---
-// baked レイヤー（bake-layer が焼いた .mov）は ProRes 4444 でブラウザがデコードできない。
-// bake-layer は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
-// 併せて出すので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
+// baked レイヤーの実体（アルファ付き .mov）は ProRes 4444 でブラウザがデコードできない。
+// baked は同じ場所へプレビュー用サイドカー（.preview.webm / VP9 + アルファ）を必ず
+// 併せて持つ規約なので、そちらを再生する。shell の previewProxyUri と同じ命名規約。
 function layerPlaybackPath(layer) {
   if (layer.kind !== 'baked') return layer.src;
   return /\.mov$/i.test(layer.src)

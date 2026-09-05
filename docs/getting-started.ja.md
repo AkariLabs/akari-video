@@ -240,21 +240,13 @@ plugin/skills:       （同様）
 
 #### npm 依存をインストールする
 
-取得直後は `node_modules/` がありません。外部 npm パッケージに依存する CLI は、
-インストールするまで最初の実行で失敗します。例えば `template-render` は次を返します。
+取得直後は `node_modules/` がありません。CLI を使う前に依存をインストールしてください。
+ATF 描画は退役しました。HTML 素材版テロップは Lab で入手できます。既存の baked 項目は引き続き再生できます。
 
-```
-Error: puppeteer-core を読み込めませんでした。パッケージの依存が入っていない可能性があります。
-  npm install    をこのパッケージのディレクトリで実行してください。
-```
-
-外部依存を持つパッケージは以下です。`packages/` 配下のそれ以外のパッケージは Node 標準
-ライブラリだけで動きます（ビルド・テスト専用の devDependencies を持つものはあります）。
+実行時依存やツール準備が必要なパッケージは以下です。
 
 | パッケージ | 外部依存 | 何に必要か |
 |---|---|---|
-| `packages/template-render` | `puppeteer-core` | オーバーレイ HTML の連番フレーム焼き |
-| `packages/bake-layer` | `puppeteer`・`esbuild` | オーバーレイのベイク |
 | `packages/preview-server` | `esbuild` | ブラウザプレビューサーバー |
 | `packages/media-bin` | なし — ただし `postinstall` が ffmpeg/ffprobe を取得（sha256 検証付き） | すべてのメディア処理で使う ffmpeg |
 | `packages/akari-tools` | `puppeteer-core` + モノレポ内パッケージ `@akari-video/render-cut` | ルートからの一括インストールのみ（後述） |
@@ -278,14 +270,14 @@ npm install
 
 ```powershell
 # PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
+foreach ($p in 'render-cut','preview-server','media-bin') {
   Push-Location "packages\$p"; npm install; Pop-Location
 }
 ```
 
 ```sh
 # bash
-for p in template-render render-cut bake-layer preview-server media-bin; do
+for p in render-cut preview-server media-bin; do
   (cd "packages/$p" && npm install)
 done
 ```

@@ -31,5 +31,5 @@
 どちらも実体を持ち、人が選んでコピーするのではなく**コードが id でファイルを引く参照表**であり、
 「実体を持たない取得先の索引」というこのディレクトリの契約に合わなかったためです。
 
-- テロップテンプレート → [presets/telop/](../presets/telop/INDEX.md)（`bake-layer --preset <id>`）
+- テロップ → ATF 描画は退役。HTML 素材版を Lab で取得してください。
 - LUT → [presets/luts/](../presets/luts/INDEX.md)（`edit.json` の `output.look.lut`）

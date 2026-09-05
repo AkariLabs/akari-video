@@ -1,6 +1,6 @@
 # presets/textstyle — プレーンテキストスタイル（v0・2026-08-03 新設）
 
-「テキストをポンと置きたい」ための**軽量スタイルプリセット**。ATF（presets/telop）と違い
+「テキストをポンと置きたい」ための**軽量スタイルプリセット**。退役した ATF 描画とは独立しており、
 レイヤー構造を持たず、見た目パラメータと任意の textanim 既定を持つ JSON。旧 AKARI Video
 （akari-video-on-os `src/lib/text-templates.ts` の 141 件）からオーナー選別の 11 件を移植し、
 標準字幕 1 件を加えた。

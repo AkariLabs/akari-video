@@ -335,13 +335,12 @@ export class AkariProjectServiceImpl implements AkariProjectService {
     }
 
     async getPresetShowcase(): Promise<PresetShowcase> {
-        const [telop, lut, textanim, textstyle] = await Promise.all([
-            this.loadPresetShowcaseIndex('telop'),
+        const [lut, textanim, textstyle] = await Promise.all([
             this.loadPresetShowcaseIndex('lut'),
             this.loadPresetShowcaseIndex('textanim'),
             this.loadPresetShowcaseIndex('textstyle')
         ]);
-        return { telop, lut, textanim, textstyle };
+        return { lut, textanim, textstyle };
     }
 
     protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind): Promise<PresetShowcase[PresetShowcaseKind]> {

@@ -366,9 +366,6 @@ export async function renderProject(input, options = {}, io = console) {
     assertOsrLauncherAvailable(osrLauncher);
 
     reporter.stageStart("prepare");
-    for (const command of plan.commands.telops ?? []) {
-      runChecked(command.command, command.args, { cwd: projectRoot });
-    }
     reporter.stageEnd("prepare");
     reporter.stageStart("audio-cut");
     const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");

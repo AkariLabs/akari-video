@@ -155,7 +155,7 @@ jobs:
           PYTHON: /usr/bin/python3
         run: |
           npm install --no-workspaces
-          npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" electron-winstaller
+          npm approve-scripts --no-workspaces electron esbuild node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" electron-winstaller
           npm rebuild --no-workspaces
           # electron 本体は公式リリース zip を直接取得して配置する（windows-build.yml と同じ
           # rationale: npm rebuild は electron の postinstall〔本体 DL〕を実行しない実測が
@@ -176,7 +176,7 @@ jobs:
 
       - name: Install bundled-CLI runtime deps (repo root)
         # bundle-cli-node-modules.mjs は root node_modules から同梱 CLI の入口
-        # （puppeteer-core / puppeteer / esbuild）を解決する。apps/shell の
+        # （@webav/mp4box.js）を解決する。apps/shell の
         # --no-workspaces install では入らないため、ここで root へ導入する
         # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
         run: node scripts/release/install-bundled-cli-deps.mjs
@@ -420,7 +420,7 @@ jobs:
           npm_config_enable_thin_lto: 'false'
         run: |
           npm install --no-workspaces
-          npm approve-scripts --no-workspaces electron esbuild puppeteer node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
+          npm approve-scripts --no-workspaces electron esbuild node-pty native-keymap keytar drivelist "@parcel/watcher" msgpackr-extract "@theia/ffmpeg" "@vscode/windows-ca-certs" electron-winstaller
           npm rebuild --no-workspaces
           $v = node -p "require('./node_modules/electron/package.json').version"
           Write-Host "=== electron $v direct download"
@@ -434,7 +434,7 @@ jobs:
 
       - name: Install bundled-CLI runtime deps (repo root)
         # bundle-cli-node-modules.mjs は root node_modules から同梱 CLI の入口
-        # （puppeteer-core / puppeteer / esbuild）を解決する。apps/shell の
+        # （@webav/mp4box.js）を解決する。apps/shell の
         # --no-workspaces install では入らないため、ここで root へ導入する
         # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
         run: node scripts/release/install-bundled-cli-deps.mjs

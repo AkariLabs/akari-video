@@ -3,7 +3,7 @@
 // モノレポ **root** の node_modules へ導入する（CI 用）。
 //
 // なぜ必要か: リリース CI は apps/shell でしか `npm install --no-workspaces` を回さず、
-// workspace パッケージ（render-cut / bake-layer）の依存は root node_modules に存在しない。
+// workspace パッケージ（render-cut / gpu-export）の依存は root node_modules に存在しない。
 // 一方 bundle-cli-node-modules.mjs は root からの上方探索で入口パッケージを解決するため、
 // CI では「同梱対象の npm パッケージが見つかりません」で package が落ちる（v0.1.13 で実測）。
 // 開発機ではフル workspace install が root にあるため露見しなかった。
@@ -12,9 +12,8 @@
 // - 入口: apps/shell/resources/scripts/bundled-cli-npm-entries.mjs
 // - 版:   各 CLI パッケージの package.json dependencies
 //
-// --ignore-scripts で入れる: puppeteer のブラウザ DL は不要（配布先はシステム Chrome へ
-// フォールバックする）。esbuild のプラットフォームバイナリは optionalDependencies の
-// パッケージとして script なしで入る。--no-save で root の package.json / lock を汚さない。
+// --ignore-scripts: runtime dependencies need no install scripts.
+// --no-save avoids changing the root manifest / lock.
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -27,7 +26,6 @@ const { BUNDLED_CLI_NPM_ENTRIES } = await import(
 
 const manifestPaths = [
     'packages/render-cut/package.json',
-    'packages/bake-layer/package.json',
     'packages/frame-engine/package.json', // @webav/mp4box.js の版（gpu-export が直接 import・宣言は frame-engine）
 ];
 const manifests = manifestPaths.map(p => JSON.parse(readFileSync(join(REPO_ROOT, p), 'utf8')));

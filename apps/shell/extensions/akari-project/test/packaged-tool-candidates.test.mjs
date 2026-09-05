@@ -45,9 +45,9 @@ test('resourcesPath 空文字は未指定と同様に扱う（ガードが偽値
 });
 
 test('presetShowcaseIndexCandidates: 開発時はリポルート候補を列挙する', () => {
-    const candidates = presetShowcaseIndexCandidates('/repo/apps/shell/extensions/akari-project/lib/node', '/repo/apps/shell', 'telop');
-    assert.equal(candidates[0], resolve('/repo/presets/telop/index.jsonl'));
-    assert.ok(candidates.includes(resolve('/repo/apps/shell/extensions/akari-project/lib/node', '../../../../../../../presets/telop/index.jsonl')));
+    const candidates = presetShowcaseIndexCandidates('/repo/apps/shell/extensions/akari-project/lib/node', '/repo/apps/shell', 'textstyle');
+    assert.equal(candidates[0], resolve('/repo/presets/textstyle/index.jsonl'));
+    assert.ok(candidates.includes(resolve('/repo/apps/shell/extensions/akari-project/lib/node', '../../../../../../../presets/textstyle/index.jsonl')));
 });
 
 test('presetShowcaseIndexCandidates: パッケージ時は resourcesPath の index を先頭にする', () => {
@@ -59,4 +59,8 @@ test('presetShowcaseIndexCandidates: パッケージ時は resourcesPath の ind
 test('presetShowcaseIndexCandidates: textanim / textstyle も同じ探索規則を使う', () => {
     assert.match(presetShowcaseIndexCandidates(DIRNAME, CWD, 'textanim')[0], /presets[\\/]textanim[\\/]index\.jsonl$/u);
     assert.match(presetShowcaseIndexCandidates(DIRNAME, CWD, 'textstyle')[0], /presets[\\/]textstyle[\\/]index\.jsonl$/u);
+});
+
+test('retired ATF preset kinds have no lookup candidates', () => {
+    assert.deepEqual(presetShowcaseIndexCandidates('/repo/lib/node', '/repo', 'telop'), []);
 });
