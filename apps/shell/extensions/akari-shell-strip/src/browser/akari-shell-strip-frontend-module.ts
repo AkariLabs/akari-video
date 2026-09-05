@@ -1,4 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
+import { AkariTabBarToolbarRegistry } from './akari-tab-bar-toolbar-registry';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
@@ -86,4 +88,5 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // FrontendConfigPreferenceContribution 経由、Theia 標準の「製品側で
     // 既定プリファレンスを差し替える」正規の拡張点）。
     rebind(FrontendApplication).to(AkariFrontendApplication).inSingletonScope();
+    rebind(TabBarToolbarRegistry).to(AkariTabBarToolbarRegistry).inSingletonScope();
 });

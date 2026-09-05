@@ -1,0 +1,21 @@
+{
+  "name": "preview-toolbar-probe",
+  "publisher": "akari-stub",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.94.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onCommand:akari-stub.previewToolbarProbe"],
+  "contributes": {
+    "commands": [{
+      "command": "akari-stub.previewToolbarProbe",
+      "title": "AKARI Stub Preview Toolbar Probe",
+      "icon": "$(beaker)"
+    }],
+    "menus": {
+      "editor/title": [{
+        "command": "akari-stub.previewToolbarProbe",
+        "group": "navigation"
+      }]
+    }
+  }
+}
