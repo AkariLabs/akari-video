@@ -48,6 +48,7 @@ export const SHELL_CARD_LAYOUT_CSS = `
 :root {
     --akari-shell-gap: ${SHELL_GAP_PX}px;
     --akari-card-radius: 12px;
+    --akari-shell-inset: 3px;
 }
 
 /* ── 地（カードの隙間から覗く面）────────────────────────────── */
@@ -55,6 +56,22 @@ export const SHELL_CARD_LAYOUT_CSS = `
 #theia-left-right-split-panel,
 #theia-bottom-split-panel {
     background-color: var(--akari-ground, #050505);
+}
+
+/* 上下に地の帯を一本通す（左右は 0 のまま = カードは画面外へ逃がす）。
+ *
+ * これが無いと上端でカードの角丸が窓の縁に切られる。隙間は 7px でも、上端では
+ * 両側の角丸 12px が削り合って約 31px の黒い口が開き、ヘアラインはそこで曲がって
+ * 視界から外れる（実測: y=0 で css 928→948 が地色べた）。「線が出ていない・黒く
+ * 上塗りされている」ように見えるのはこれで、線自体は rgb(42,42,42) で出ている。
+ *
+ * モックは上に 32px のタイトルバー帯があり地が連続していたので成立していた。実機は
+ * 窓の縁で切れるため、角丸が丸まりきる分の帯をこちらで用意する（オーナー指示 2026-09-05）。
+ * Lumino の SplitLayout は ElementExt.boxSizing() で padding を勘定するので、
+ * 親に padding を置けば子の配置は自動で内側へ寄る。 */
+#theia-left-right-split-panel {
+    padding-top: var(--akari-shell-inset);
+    padding-bottom: var(--akari-shell-inset);
 }
 
 /* ── カード本体 ─────────────────────────────────────────── */
@@ -65,6 +82,15 @@ export const SHELL_CARD_LAYOUT_CSS = `
     background-color: var(--akari-bg, #0a0a0a);
     border: 1px solid var(--akari-line, rgba(255, 255, 255, 0.13));
     border-radius: var(--akari-card-radius);
+    /* 角丸で中身を切る。これが無いと「線だけ丸くて面は四角」になる。
+     *
+     * Lumino の .lm-Widget は overflow:hidden を持たない（実測: 4 枚とも visible）。
+     * カードの子（タブ帯・ドックの中身・サイドパネル）はどれも角丸 0 の不透明な
+     * 背景を持つので、丸めた角の上に四角い面が乗り、地が覗くはずの角が塗り潰される。
+     * 実測では上端 y=4 の時点でカード面が css 933 まで来ていた（角丸どおりなら 927）。
+     * 見た目は「黒で上塗りされている・四角い角が出っ張っている」になる
+     * （オーナー指摘 2026-09-05）。 */
+    overflow: hidden;
 }
 
 /* 左右のカードは外側の辺を画面外へ逃がす（= 線と角丸を出さない）。

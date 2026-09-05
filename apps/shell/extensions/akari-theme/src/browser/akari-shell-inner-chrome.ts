@@ -194,6 +194,64 @@ export const SHELL_INNER_CHROME_CSS = `
     background: var(--akari-card, #141414);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
+
+/* ── スクロールバー（オーナー指示 2026-09-05）────────────────────────
+ *
+ * 既定は幅 10px・角丸 0・カードの縁にべた付き。カード言語の中で刃物のように
+ * 見えるので、次の 4 点へ寄せる:
+ *   1. 半分の太さ（見えている刃は 5px）
+ *   2. 縁から離す（左右 5px の余白を挟む）
+ *   3. 丸める
+ *   4. 矢印は出さない / 操作していなくても消えない
+ *
+ * 余白は margin では作れない（::-webkit-scrollbar-thumb に margin は効かない）。
+ * 透明な border と background-clip: padding-box で「軌道は 15px、塗るのは内側 5px」
+ * にするのが定石。overlay scrollbar（自動で消えるやつ）は ::-webkit-scrollbar を
+ * 明示指定した時点で無効になるので、常時表示は自動的に満たされる。 */
+::-webkit-scrollbar {
+    width: 15px;
+    height: 15px;
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: var(--theia-scrollbarSlider-background);
+    background-clip: padding-box;
+    border: 5px solid transparent;
+    border-radius: 999px;
+    min-height: 28px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--theia-scrollbarSlider-hoverBackground);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--theia-scrollbarSlider-activeBackground);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+/* 上下の矢印は出さない。 */
+::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* perfect-scrollbar（サイドパネル等が使う自前レール）も同じ姿に揃える。 */
+#theia-app-shell .ps__rail-y > .ps__thumb-y,
+#theia-dialog-shell .ps__rail-y > .ps__thumb-y {
+    width: 5px;
+    right: 5px;
+    border-radius: 999px;
+}
+#theia-app-shell .ps__rail-x > .ps__thumb-x,
+#theia-dialog-shell .ps__rail-x > .ps__thumb-x {
+    height: 5px;
+    bottom: 5px;
+    border-radius: 999px;
+}
 `;
 
 @injectable()
