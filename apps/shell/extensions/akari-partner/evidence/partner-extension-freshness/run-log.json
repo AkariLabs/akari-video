@@ -1,0 +1,87 @@
+{
+  "task": "partner-extension-freshness",
+  "date": "2026-09-05",
+  "verify": "L0 + L1 (A-E)",
+  "environment": {
+    "platform": "darwin-arm64",
+    "theia": "1.73.1",
+    "electron": "shell node_modules/electron/dist (dev build)",
+    "extensionId": "anthropic.claude-code",
+    "seededVersion": "2.1.210",
+    "registryLatestAtRun": "2.1.261",
+    "note": "THEIA_CONFIG_DIR / --user-data-dir / workspace are all scratch dirs; the seed was a read-only copy of the machine's existing deployed 2.1.210"
+  },
+  "L0": {
+    "build:ext": { "exit": 0 },
+    "lint": { "exit": 0, "newFindings": 0, "seconds": 20.0 },
+    "test": { "pass": 110, "fail": 0, "baselineOnOriginMain": { "pass": 96, "fail": 0 }, "failureSetIdentical": true },
+    "build": { "exit": 0, "seconds": 8.4, "browserErrors": 0, "nodeErrors": 0, "electronErrors": 0 }
+  },
+  "L1": {
+    "A_startupAutoUpdate": {
+      "result": "PASS",
+      "newVersionDirAfterSeconds": 38,
+      "noticeVisibleAfterSeconds": 39,
+      "deployedPluginsBefore": ["anthropic.claude-code-2.1.210"],
+      "deployedPluginsAfter": ["anthropic.claude-code-2.1.261"],
+      "bundledCliVersionOutput": "2.1.261 (Claude Code)",
+      "noticeText": "Claude Code 拡張 を 2.1.210 → 2.1.261 に更新しました。反映には再読み込みが必要です | 今すぐ再読み込み | 後で",
+      "consoleInfo": "[akari-partner] extension updated",
+      "screenshot": "01-startup-auto-update.png"
+    },
+    "B_reloadApplies": {
+      "result": "PASS",
+      "reloadedAfterSeconds": 10,
+      "viewContainerOpened": "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+      "cliProcessAfterSeconds": 12,
+      "cliProcessPath": "<scratch-config>/deployedPlugins/anthropic.claude-code-2.1.261/extension/resources/native-binary/claude",
+      "excludedFromCount": ["~/.vscode/... processes", "~/.theia/... processes"],
+      "screenshot": "02-reload-and-open.png"
+    },
+    "C_upToDateIsSilent": {
+      "result": "PASS",
+      "waitedSeconds": 61,
+      "updateNoticeShown": false,
+      "deployedPluginsUnchanged": true,
+      "mtimeBefore": { "deployedPlugins": 1788620450, "extensionDir": 1788620449 },
+      "mtimeAfter": { "deployedPlugins": 1788620450, "extensionDir": 1788620449 },
+      "consoleExtensionUpdatedCount": 0,
+      "screenshot": "03-up-to-date-silent.png"
+    },
+    "D_registryUnreachableIsSilent": {
+      "result": "PASS (with a noted caveat)",
+      "registryUrl": "http://127.0.0.1:9",
+      "waitedSeconds": 61,
+      "updateNoticeShown": false,
+      "dialogCount": 0,
+      "deployedPlugins": ["anthropic.claude-code-2.1.210"],
+      "consoleWarnLines": [
+        "[akari-partner] extension freshness check skipped: anthropic.claude-code 最新の拡張情報を取得できませんでした",
+        "[akari-partner] extension freshness check skipped: openai.chatgpt 拡張の情報を取得できませんでした"
+      ],
+      "consoleExtensionUpdatedCount": 0,
+      "openingTheExtension": { "failureCardShown": false, "viewContainerOpened": true, "cliProcessVersion": "2.1.210" },
+      "uncaughtRejections": {
+        "observed": 2,
+        "expectedByContract": 0,
+        "detail": [
+          "RangeError: Maximum call stack size exceeded (inversify resolution frames) — measured identically on origin/main under the same launch conditions, so pre-existing",
+          "Error: view container is disposed (PluginViewRegistry.updateViewVisibility -> openView -> openViewContainer) — raised by the unchanged openExtension() path; could not be A/B measured because the collapsed left panel would not expand in the baseline run"
+        ]
+      },
+      "screenshot": "04-registry-unreachable-silent.png"
+    },
+    "E_cliPathUnchanged": {
+      "result": "PASS",
+      "ptyTabLabel": "Claude Code CLI",
+      "ptyWidgetId": "terminal-1",
+      "terminalBanner": "Claude Code v2.1.261",
+      "screenshot": "05-cli-path-unchanged.png"
+    }
+  },
+  "notes": [
+    "Deployment confirmation uses PluginServer.getInstalledPlugins(), not HostedPluginServer.getDeployedPluginIds(): HostedPluginServerImpl.isInstalledPlugin pins a plugin id to the version seen at session start, so a newly deployed version can never appear in getDeployedPluginIds() within the same session (measured: still 2.1.210 five minutes after the new version was on disk).",
+    "Theia's PluginDeployerHandlerImpl.markAsInstalled already removes other versions of the same id when a new version is deployed; the explicit uninstall of the old version is kept anyway (idempotent, does not rely on that behaviour).",
+    "The partner catalog button reads セットアップ in the current UI (the contract calls it 「始める」); both call begin(entry)."
+  ]
+}

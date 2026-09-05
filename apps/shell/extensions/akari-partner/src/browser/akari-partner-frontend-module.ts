@@ -11,9 +11,11 @@ import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
 import { AkariPartnerCommandContribution } from './akari-partner-command-contribution';
 import { PartnerSessionService } from './partner-session-service';
+import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { PartnerTurnNotifier } from './partner-turn-notifier';
 
 export default new ContainerModule(bind => {
+    bind(PartnerExtensionUpdater).toSelf().inSingletonScope();
     bind(AkariPartnerServer).toDynamicValue(ctx =>
         ServiceConnectionProvider.createProxy(ctx.container, AKARI_PARTNER_SERVICE_PATH)
     ).inSingletonScope();

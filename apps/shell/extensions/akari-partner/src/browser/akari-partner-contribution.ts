@@ -9,6 +9,7 @@ import { StorageService } from '@theia/core/lib/browser/storage-service';
 import { VSXExtensionsViewContainer } from '@theia/vsx-registry/lib/browser/vsx-extensions-view-container';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
+import { PartnerExtensionUpdater } from './partner-extension-updater';
 import { installPartnerTerminalStyle } from './partner-terminal-style';
 
 // パートナーペイン既定幅（契約 §2「パートナーペインは全状態で右側既定 44%」、
@@ -33,6 +34,9 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
     @inject(StorageService)
     protected readonly storageService!: StorageService;
 
+    @inject(PartnerExtensionUpdater)
+    protected readonly extensionUpdater!: PartnerExtensionUpdater;
+
     async onStart(app: FrontendApplication): Promise<void> {
         installPartnerTerminalStyle();
         this.applyDefaultPaneWidth(app);
@@ -49,6 +53,7 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
         if (!catalog.isAttached) {
             await this.shell.addWidget(catalog, { area: 'left', rank: 300 });
         }
+        void this.extensionUpdater.checkOnStartup();
     }
 
     /**
