@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { extractGlassSceneAssetReferences, resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
@@ -25,6 +26,7 @@ const THREE_RUNTIME_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/three-runtime.js",
 );
+const GLASS_RUNTIME_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/glass-runtime.js");
 const SLOT_PARAMS_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/slot-params.js",
@@ -102,12 +104,16 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     && strippedOverlayHtml.some((html) =>
       /data-akari-3d-scene/u.test(html) && html.includes('"texts"'),
     );
-  const sheetOverlays = hasThreeDimensionalOverlay
+  const hasGlassOverlay = strippedOverlayHtml.some((html) => /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>/iu.test(html));
+  let sheetOverlays = hasThreeDimensionalOverlay
     ? orderedOverlays.map((overlay) => ({
         ...overlay,
         html: embedThreeModels(overlay.html, projectRoot, overlay.id, overlay.vars ?? {}),
       }))
     : orderedOverlays;
+  if (hasGlassOverlay) sheetOverlays = sheetOverlays.map((overlay) => ({
+    ...overlay, html: embedGlassBackdrop(overlay, projectRoot),
+  }));
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
     overlay.html.includes("akari-caption--single-line"),
   );
@@ -163,6 +169,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const threeRuntimeScripts = hasThreeDimensionalOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>${threeTextBundleScript}\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
     : "";
+  const glassRuntimeScripts = hasGlassOverlay
+    ? `\n  <script>${inlineScript(readFileSync(GLASS_RUNTIME_PATH, "utf8"))}</script>`
+    : "";
   const slotRuntimeScripts = hasTextSlotParams
     ? `\n  <script>${inlineScript(readFileSync(SLOT_PARAMS_PATH, "utf8"))}</script>`
       + `\n  <script>(function(){for(const content of document.querySelectorAll('.akari-overlay-container[data-akari-params] > .scene-content')){const params=JSON.parse(content.parentElement.dataset.akariParams);content.replaceWith(window.akari.slotParams.renderTextSlots(content,params));}})();</script>`
@@ -173,11 +182,20 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const threeSeekCollector = hasThreeDimensionalOverlay
     ? `\n      const pendingThreeDraws = [];`
     : "";
+  const glassSeekCollector = hasGlassOverlay
+    ? `\n      const pendingGlassDraws = [];`
+    : "";
   const threeSeekBranch = hasThreeDimensionalOverlay
     ? `\n        const threeContainer = container.querySelector(':scope > .scene-content');\n        if (active && threeContainer?.querySelector('script[type="application/json"][data-akari-3d-scene]')) {\n          pendingThreeDraws.push([threeContainer, seconds - start]);\n        }`
     : "";
+  const glassSeekBranch = hasGlassOverlay
+    ? `\n        const glassContainer = container.querySelector(':scope > .scene-content');\n        if (active && glassContainer?.querySelector('script[type="application/json"][data-akari-glass-scene]')) {\n          pendingGlassDraws.push([glassContainer, seconds - start]);\n        }`
+    : "";
   const threeDrawStep = hasThreeDimensionalOverlay
     ? `\n      for (const [threeContainer, localSeconds] of pendingThreeDraws) {\n        window.akari.threeRuntime.render(threeContainer, localSeconds);\n      }`
+    : "";
+  const glassDrawStep = hasGlassOverlay
+    ? `\n      for (const [glassContainer, localSeconds] of pendingGlassDraws) {\n        window.akari.glassRuntime.render(glassContainer, localSeconds, {});\n      }`
     : "";
   // 3D の動画テクスチャはランタイムが loop を立てて作るので、素材の尺より合成が長いときは
   // 畳んで回す（畳まないと末尾のフレームで静止する）。2D だけのシートは従来どおり
@@ -189,8 +207,14 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const threeReadySetup = hasThreeDimensionalOverlay
     ? `\n    const threeContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-3d-scene]')\n    );\n    for (const container of threeContainers) {\n      window.akari.threeRuntime.render(container, 0);\n    }\n    async function waitForThreeContainer(container) {\n      while (true) {\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-three] 3D scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-three] 3D scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
     : "";
+  const glassReadySetup = hasGlassOverlay
+    ? `\n    const glassContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-glass-scene]')\n    );\n    for (const container of glassContainers) {\n      window.akari.glassRuntime.render(container, 0);\n    }\n    async function waitForGlassContainer(container) {\n      while (true) {\n        const status = window.akari.glassRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-glass] glass scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-glass] glass scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
+    : "";
   const threeReadyWait = hasThreeDimensionalOverlay
     ? `\n      await Promise.all(threeContainers.map(waitForThreeContainer));`
+    : "";
+  const glassReadyWait = hasGlassOverlay
+    ? `\n      await Promise.all(glassContainers.map(waitForGlassContainer));`
     : "";
   const captionFontReadyWait = hasResolvedSingleLineCaption
     ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans JP"');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {\n        throw new Error('AKARI caption font did not load');\n      }`
@@ -205,7 +229,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}
+  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}${glassRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -362,22 +386,22 @@ ${nodes}${slotRuntimeScripts}
         Array.from(document.querySelectorAll('video'), waitForVideo),
       )).filter(Boolean);
     };
-    window.__akariSeek = async function(seconds) {${threeSeekCollector}
+    window.__akariSeek = async function(seconds) {${threeSeekCollector}${glassSeekCollector}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
         const active = seconds >= start && seconds < start + duration;
         container.style.visibility = active ? 'visible' : 'hidden';
-        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}
+        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}${glassSeekBranch}
       }
       window.__akariSyncAnimations(seconds);
-      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}
+      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}${glassDrawStep}
       await Promise.resolve();
       return { warnings };
-    };${threeReadySetup}
+    };${threeReadySetup}${glassReadySetup}
     window.__akariReady = (async function() {
       await document.fonts.ready;${captionFontReadyWait}
-      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}
+      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}${glassReadyWait}
       await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
         video.readyState >= 2
           ? Promise.resolve()
@@ -522,6 +546,26 @@ function renderOverlayNode(overlay, index, fps) {
     ? ` data-akari-keyframes="${escapeAttribute(JSON.stringify(overlay.keyframes))}" data-akari-fps="${formatNumber(fps)}" data-akari-opacity="${formatNumber(overlay.opacity ?? 1)}" data-akari-background="${isBackground}"`
     : "";
   return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params}${keyframes} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
+}
+
+function embedGlassBackdrop(overlay, projectRoot) {
+  const references = extractGlassSceneAssetReferences(overlay.html, overlay.htmlPath, overlay.id);
+  let index = 0;
+  return overlay.html.replace(
+    /<!--[\s\S]*?-->|(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu,
+    (match, opening, json, closing) => {
+      if (!opening) return match; // Preserve commented declarations byte for byte.
+      const descriptor = JSON.parse(json);
+      if (descriptor.backdrop !== undefined) {
+        const reference = references[index++];
+        const binding = resolveDeclaredProjectInput(projectRoot, reference.path, `overlay:${overlay.id}:glass-backdrop`);
+        const mime = textureMimeType(reference.path);
+        if (!mime.startsWith("image/")) throw new TypeError("glass backdrop must be a still image");
+        descriptor.backdrop = `data:${mime};base64,${readFileSync(binding).toString("base64")}`;
+      }
+      return opening + JSON.stringify(descriptor).replace(/</gu, "\\u003c") + closing;
+    },
+  );
 }
 
 function embedThreeModels(html, projectRoot, overlayId, overlayVars) {

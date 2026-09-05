@@ -3536,6 +3536,23 @@ function ensureThreeRuntime(needsText = false) {
     return false;
   });
 }
+let glassRuntimeReady = null;
+function ensureGlassRuntime(fragmentUrl) {
+  if (window.akari?.glassRuntime) return Promise.resolve(true);
+  if (!glassRuntimeReady) {
+    // Packs carry this runtime; variants live one directory below the pack root.
+    const base = new URL(fragmentUrl || '/', document.baseURI);
+    const runtimeUrl = new URL(base.pathname.includes('/variants/')
+      ? '../runtime/glass-runtime.js' : 'runtime/glass-runtime.js', base).href;
+    glassRuntimeReady = loadThreeScript(runtimeUrl).then(() => Boolean(window.akari?.glassRuntime))
+      .catch((error) => {
+        console.error('[akari-glass] ランタイムを読み込めませんでした', error);
+        glassRuntimeReady = null;
+        return false;
+      });
+  }
+  return glassRuntimeReady;
+}
 let itemKeyframesRuntimeReady;
 function ensureItemKeyframesRuntime() {
   if (!itemKeyframesRuntimeReady) {
@@ -3560,6 +3577,7 @@ function createOverlayRuntime() {
     mountGeneration++;
     for (const o of overlays) {
       if (o.is3d) window.akari?.threeRuntime?.dispose(o.el);
+      if (o.isGlass) window.akari?.glassRuntime?.dispose(o.el);
     }
     stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove());
     overlays.length = 0;
@@ -3568,6 +3586,17 @@ function createOverlayRuntime() {
   function markThreeOverlay(rec) {
     const scene = rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]');
     rec.is3d = Boolean(scene);
+    const glassScene = rec.el.querySelector('script[type="application/json"][data-akari-glass-scene]');
+    rec.isGlass = Boolean(glassScene);
+    if (glassScene && rec.fragmentUrl) {
+      try {
+        const descriptor = JSON.parse(glassScene.textContent);
+        if (typeof descriptor.backdrop === 'string') {
+          descriptor.backdrop = new URL(descriptor.backdrop, rec.fragmentUrl).href;
+          glassScene.textContent = JSON.stringify(descriptor);
+        }
+      } catch (error) { console.error('[akari-glass] 宣言を読めません', error); }
+    }
     rec.needsThreeText = Boolean(scene?.textContent?.includes('"texts"'));
   }
   // 断片の vw/vh 系単位をステージ基準へ（viewport-units.js。shell の overlay-runtime と同じ）。
@@ -3630,6 +3659,10 @@ function createOverlayRuntime() {
         start: o.start,
         duration: o.duration,
         visible: false,
+        isGlass: false,
+        glassReady: false,
+        fragmentUrl: rawHtml && !rawHtml.trimStart().startsWith('<')
+          ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href : null,
         is3d: false,
         needsThreeText: false,
         threeReady: false,
@@ -3672,6 +3705,13 @@ function createOverlayRuntime() {
     stage.appendChild(frag);
     Promise.all(fragmentLoads).then(async () => {
       if (generation !== mountGeneration) return;
+      const glassOverlays = overlays.filter(o => o.isGlass);
+      if (glassOverlays.length) {
+        const ready = await ensureGlassRuntime(glassOverlays[0].fragmentUrl);
+        if (generation !== mountGeneration) return;
+        for (const rec of glassOverlays) rec.glassReady = ready;
+        if (ready) updateOverlays();
+      }
       const threeOverlays = overlays.filter(o => o.is3d);
       if (threeOverlays.length === 0) return;
       const ready = await ensureThreeRuntime(threeOverlays.some(o => o.needsThreeText));
@@ -3700,6 +3740,7 @@ function createOverlayRuntime() {
         // ゲート属性の付け外しでアニメの顔ぶれが変わるのでキャッシュを捨てる
         o._anims = null;
         // 見えなくなったら GPU リソースを返す（shell の overlay-runtime と同じ）
+        if (!v && o.isGlass) window.akari?.glassRuntime?.dispose(o.el);
         if (!v && o.is3d) window.akari?.threeRuntime?.dispose(o.el);
         o.visible = v;
       }
@@ -3733,6 +3774,7 @@ function createOverlayRuntime() {
         o._animsAt = nowMs;
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
+      if (o.isGlass && o.glassReady) window.akari?.glassRuntime?.render(o.el, ms / 1000, {});
       if (o.is3d) {
         // three の描画だけはランタイム読み込み後に始まる。CSS 側は上で同期済みなので、
         // 読み込み待ちの間も断片の見た目はタイムラインに追従する。

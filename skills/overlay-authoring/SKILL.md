@@ -38,6 +38,7 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 - 字幕・テロップの日本語組版、可読性、配置: [telop.md](telop.md)
 - 表・グラフの HTML/CSS 構成とアニメーション: [table.md](table.md)
 - Three.js + glTF、動画テクスチャ、3D 性能: [3d.md](3d.md)
+- ガラス屈折の宣言、入れ子、ツマミ、静止背景: [glass.md](glass.md)
 - 決定的モーション、イージング、compositor 制約: [motion.md](motion.md)
 - サムネイルの型、デザイン語彙、生成経路、HTML スクショ: [thumbnail.md](thumbnail.md)
 - 人物切り抜き、HEVC alpha、text-behind-person: [text-behind-person.md](text-behind-person.md)

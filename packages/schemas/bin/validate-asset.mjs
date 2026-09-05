@@ -416,9 +416,39 @@ function validateFiles() {
     }
   }
 
+  if (Array.isArray(meta?.requires) && meta.requires.includes("glass-runtime")) {
+    for (const filePath of payloadFiles) {
+      const name = relativeToAsset(filePath).replaceAll("\\", "/");
+      if (name === "fragment.html" || /^variants\/[^/]+\.html$/i.test(name)) validateGlassDeclaration(filePath);
+    }
+  }
   for (const filePath of payloadFiles) {
     if (/\.(?:html?|css|svg|m?js|cjs)$/i.test(filePath)) validateLocalReferences(filePath);
     else if (/\.gltf$/i.test(filePath)) validateGltfReferences(filePath);
+  }
+}
+
+function validateGlassDeclaration(filePath) {
+  const source = fs.readFileSync(filePath, "utf8").replace(/<!--[\s\S]*?-->/gu, "");
+  const pattern = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
+  const declarations = [...source.matchAll(pattern)];
+  if (!declarations.length) fail(`${relativeToAsset(filePath)} に data-akari-glass-scene 宣言が見つかりません`);
+  const elements = source.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/giu, "").replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/giu, "");
+  if (declarations.length && !/<[a-z][^>]*\sdata-akari-glass(?=\s|=|\/?>)/iu.test(elements)) {
+    fail(`${relativeToAsset(filePath)}: 宣言があるのにガラス面が無い`);
+  }
+  for (const match of declarations) {
+    let descriptor;
+    try { descriptor = JSON.parse(match[1]); }
+    catch (error) { fail(`data-akari-glass-scene の JSON を読めません: ${messageOf(error)}`); continue; }
+    if (!isPlainObject(descriptor)) { fail("data-akari-glass-scene は JSON object である必要があります"); continue; }
+    if (descriptor.backdrop === undefined) continue;
+    const backdrop = descriptor.backdrop;
+    if (typeof backdrop !== "string" || !backdrop.trim() || /^[a-z][a-z\d+.-]*:|^[\/\\]/iu.test(backdrop) || backdrop.includes("\\")) {
+      fail("data-akari-glass-scene.backdrop は相対パスである必要があります");
+      continue;
+    }
+    validateReference(filePath, backdrop);
   }
 }
 
@@ -496,7 +526,14 @@ function validateLocalReferences(filePath) {
     /\.load(?:Async)?\s*\(\s*["']([^"']+)["']/gi,
   ];
   for (const pattern of patterns) {
-    for (const match of source.matchAll(pattern)) references.add(match[1].trim());
+    for (const match of source.matchAll(pattern)) {
+      // new URL(url, base) is a dynamic JS constructor, not CSS url().
+      // Limit this correction to glass packs; keep literal CSS and JS loaders checked.
+      if (pattern === patterns[1] && meta?.requires?.includes("glass-runtime")
+          && /\.(?:m?js|cjs)$/i.test(filePath) && match[0].startsWith("URL(")
+          && /\bnew\s*$/u.test(source.slice(0, match.index))) continue;
+      references.add(match[1].trim());
+    }
   }
 
   for (const match of source.matchAll(/\bimport\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gi)) {

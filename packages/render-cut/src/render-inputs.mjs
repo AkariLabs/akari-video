@@ -63,6 +63,9 @@ export async function enumerateDeclaredRenderInputs({
     for (const reference of extractThreeSceneAssetReferences(html, role)) {
       addInput(`${role}:${reference.role}`, reference.path);
     }
+    for (const reference of extractGlassSceneAssetReferences(html, overlaySourcePath(overlay), role)) {
+      addInput(`${role}:${reference.role}`, reference.path);
+    }
     assertNoUndeclaredHtmlAssets(html, role);
   }
 
@@ -206,6 +209,24 @@ export function resolveLutPath(projectRoot, lutRef) {
     return join(PRESETS_LUTS_ROOT, lutRef, `${lutRef}.cube`);
   }
   return resolve(projectRoot, lutRef);
+}
+
+// Glass pack paths are relative to the fragment, then bound as project inputs.
+export function extractGlassSceneAssetReferences(html, htmlPath = "fragment.html", overlayLabel = "overlay") {
+  const pattern = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
+  const references = [];
+  for (const match of html.replace(/<!--[\s\S]*?-->/gu, "").matchAll(pattern)) {
+    let descriptor;
+    try { descriptor = JSON.parse(match[1]); }
+    catch (error) { throw new RenderInputError(`${overlayLabel} has invalid data-akari-glass-scene JSON: ${messageOf(error)}`); }
+    if (!isRecord(descriptor)) throw new RenderInputError(`${overlayLabel} glass scene must be a JSON object`);
+    if (descriptor.backdrop === undefined) continue;
+    if (!isRelativeReference(descriptor.backdrop) || descriptor.backdrop.includes("\\")) {
+      throw new RenderInputError(`${overlayLabel} glass backdrop must be a relative path`);
+    }
+    references.push({ role: "glass-backdrop", path: join(dirname(htmlPath), descriptor.backdrop) });
+  }
+  return references;
 }
 
 export function extractThreeSceneAssetReferences(html, overlayLabel = "overlay") {
