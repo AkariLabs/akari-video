@@ -29,6 +29,7 @@ __exportStar(require("./caption-window"), exports);
 __exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
+// Includes AdjustV1 and its curve/wheel/hue types; AdjustV0 remains an alias.
 __exportStar(require("./edit-v2"), exports);
 __exportStar(require("./edit-v2-item-write"), exports);
 __exportStar(require("./internal-model"), exports);

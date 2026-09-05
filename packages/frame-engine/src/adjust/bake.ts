@@ -1,8 +1,8 @@
-import type { AdjustBasicV0 } from '@akari-video/edit-store';
+import type { AdjustBasicV0, AdjustV1 } from '@akari-video/edit-store';
 
 import type { ParsedCubeLut } from '../look/cube.js';
 import { sampleLutTrilinear } from '../look/cube.js';
-import { applyAdjustBasic, normalizeAdjustBasic } from './kernel.js';
+import { applyItemAdjust, normalizeAdjustBasic, normalizeAdjustWheels, normalizeAdjustCurves, normalizeAdjustHue, isAdjustBasicIdentity, isAdjustWheelsIdentity, isAdjustCurvesIdentity, isAdjustHueIdentity } from './kernel.js';
 
 export const ADJUST_LUT_SIZE = 33;
 
@@ -37,25 +37,48 @@ export function bakeAdjustLut(
   intensity = 1,
   size = ADJUST_LUT_SIZE,
 ): ParsedCubeLut {
+  return bakeItemAdjustLut({ basic: basic ?? undefined, lut: userLut ? { lut: '', intensity } : undefined }, userLut, size);
+}
+
+/** Effective identity respects section bypass without deleting stored values. */
+export function isItemAdjustIdentity(adjust: AdjustV1 | null | undefined): boolean {
+  return (adjust?.sections?.basic === false || isAdjustBasicIdentity(adjust?.basic))
+    && (adjust?.sections?.lut === false || !adjust?.lut || adjust.lut.intensity === 0)
+    && (adjust?.sections?.wheels === false || isAdjustWheelsIdentity(adjust?.wheels))
+    && (adjust?.sections?.curves === false || isAdjustCurvesIdentity(adjust?.curves))
+    && (adjust?.sections?.hue === false || isAdjustHueIdentity(adjust?.hue));
+}
+
+export function bakeItemAdjustLut(
+  adjust: AdjustV1 | null | undefined,
+  userLut?: ParsedCubeLut,
+  size = ADJUST_LUT_SIZE,
+): ParsedCubeLut {
   if (!Number.isInteger(size) || size < 2 || size > 256) {
     throw new RangeError('size must be an integer between 2 and 256');
   }
-  const normalizedBasic = normalizeAdjustBasic(basic);
-  const mixAmount = normalizedIntensity(intensity);
-  const key = `${JSON.stringify(normalizedBasic)}|${size}|${lutMemoId(userLut)}|${mixAmount}`;
+  const normalized: AdjustV1 = {
+    basic: normalizeAdjustBasic(adjust?.basic),
+    lut: adjust?.lut ? { ...adjust.lut, intensity: normalizedIntensity(adjust.lut.intensity ?? 1) } : null,
+    wheels: normalizeAdjustWheels(adjust?.wheels),
+    curves: normalizeAdjustCurves(adjust?.curves),
+    hue: normalizeAdjustHue(adjust?.hue),
+    sections: adjust?.sections,
+  };
+  const key = `${JSON.stringify(normalized)}|${size}|${lutMemoId(userLut)}`;
   if (key === lastBakeKey && lastBakeResult) return lastBakeResult;
 
   const data = new Float32Array(size * size * size * 3);
   const last = size - 1;
+  const sampler = userLut ? (r: number, g: number, b: number) => sampleLutTrilinear(userLut, [r, g, b]) : undefined;
   for (let bz = 0; bz < size; bz += 1) {
     for (let gy = 0; gy < size; gy += 1) {
       for (let rx = 0; rx < size; rx += 1) {
-        const adjusted = applyAdjustBasic(rx / last, gy / last, bz / last, normalizedBasic);
-        const lutted = userLut ? sampleLutTrilinear(userLut, adjusted) : adjusted;
+        const adjusted = applyItemAdjust(rx / last, gy / last, bz / last, normalized, sampler);
         const index = ((bz * size + gy) * size + rx) * 3;
-        data[index] = cubeComponent(adjusted[0] + (lutted[0] - adjusted[0]) * mixAmount);
-        data[index + 1] = cubeComponent(adjusted[1] + (lutted[1] - adjusted[1]) * mixAmount);
-        data[index + 2] = cubeComponent(adjusted[2] + (lutted[2] - adjusted[2]) * mixAmount);
+        data[index] = cubeComponent(adjusted[0]);
+        data[index + 1] = cubeComponent(adjusted[1]);
+        data[index + 2] = cubeComponent(adjusted[2]);
       }
     }
   }

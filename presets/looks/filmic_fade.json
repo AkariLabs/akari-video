@@ -1,0 +1,27 @@
+{
+  "id": "filmic_fade",
+  "adjust": {
+    "basic": {
+      "exposure": -0.15,
+      "contrast": 0.05,
+      "saturation": -0.1
+    },
+    "wheels": {
+      "lift": {
+        "r": 0.05,
+        "g": 0.03,
+        "b": 0.02
+      },
+      "gain": {
+        "r": -0.05,
+        "g": -0.03,
+        "b": -0.02
+      },
+      "offset": {
+        "r": 0.03,
+        "g": 0.02,
+        "b": 0.01
+      }
+    }
+  }
+}

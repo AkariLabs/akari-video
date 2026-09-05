@@ -14,6 +14,8 @@
 
 ## エントリ
 
+- [looks](./looks/INDEX.md) — ルック 8 種。id から basic / wheels の初期値セットを解決する
+
 - [telop](./telop/INDEX.md) — ATF テロップテンプレート 36 件。`bake-layer --preset <id>` が
   `presets/telop/<id>/template.json` を読む
 - [luts](./luts/INDEX.md) — 3D LUT 2 件（自前生成）。`edit.json` の `output.look.lut` に id を書くと

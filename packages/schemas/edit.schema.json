@@ -85,22 +85,294 @@
         "intensity": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
-    "adjustV0": {
+    "adjustCurvePointV1": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "basic": { "$ref": "#/$defs/adjustBasicV0" },
-        "lut": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/adjustLutV0" }] },
+        "in": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "out": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "in",
+        "out"
+      ]
+    },
+    "adjustHuePointV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hue": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "hue",
+        "value"
+      ]
+    },
+    "adjustCurvesV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "master": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustCurvePointV1"
+          }
+        },
+        "r": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustCurvePointV1"
+          }
+        },
+        "g": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustCurvePointV1"
+          }
+        },
+        "b": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustCurvePointV1"
+          }
+        }
+      }
+    },
+    "adjustHueCurvesV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hue": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustHuePointV1"
+          }
+        },
+        "sat": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustHuePointV1"
+          }
+        },
+        "luma": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/adjustHuePointV1"
+          }
+        }
+      }
+    },
+    "adjustWheelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "r": {
+          "type": "number",
+          "minimum": -0.5,
+          "maximum": 0.5
+        },
+        "g": {
+          "type": "number",
+          "minimum": -0.5,
+          "maximum": 0.5
+        },
+        "b": {
+          "type": "number",
+          "minimum": -0.5,
+          "maximum": 0.5
+        }
+      }
+    },
+    "adjustWheelsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lift": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/adjustWheelV1"
+            },
+            {
+              "properties": {
+                "r": {
+                  "type": "number",
+                  "minimum": -0.25,
+                  "maximum": 0.25
+                },
+                "g": {
+                  "type": "number",
+                  "minimum": -0.25,
+                  "maximum": 0.25
+                },
+                "b": {
+                  "type": "number",
+                  "minimum": -0.25,
+                  "maximum": 0.25
+                }
+              }
+            }
+          ]
+        },
+        "gamma": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/adjustWheelV1"
+            },
+            {
+              "properties": {
+                "r": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                },
+                "g": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                },
+                "b": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                }
+              }
+            }
+          ]
+        },
+        "gain": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/adjustWheelV1"
+            },
+            {
+              "properties": {
+                "r": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                },
+                "g": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                },
+                "b": {
+                  "type": "number",
+                  "minimum": -0.5,
+                  "maximum": 0.5
+                }
+              }
+            }
+          ]
+        },
+        "offset": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/adjustWheelV1"
+            },
+            {
+              "properties": {
+                "r": {
+                  "type": "number",
+                  "minimum": -0.1,
+                  "maximum": 0.1
+                },
+                "g": {
+                  "type": "number",
+                  "minimum": -0.1,
+                  "maximum": 0.1
+                },
+                "b": {
+                  "type": "number",
+                  "minimum": -0.1,
+                  "maximum": 0.1
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "adjustV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "basic": {
+          "$ref": "#/$defs/adjustBasicV0"
+        },
+        "lut": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/adjustLutV0"
+            }
+          ]
+        },
         "sections": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "basic": { "type": "boolean" },
-            "lut": { "type": "boolean" }
+            "basic": {
+              "type": "boolean"
+            },
+            "lut": {
+              "type": "boolean"
+            },
+            "curves": {
+              "type": "boolean"
+            },
+            "wheels": {
+              "type": "boolean"
+            },
+            "hue": {
+              "type": "boolean"
+            }
           }
+        },
+        "curves": {
+          "$ref": "#/$defs/adjustCurvesV1"
+        },
+        "wheels": {
+          "$ref": "#/$defs/adjustWheelsV1"
+        },
+        "hue": {
+          "$ref": "#/$defs/adjustHueCurvesV1"
         }
       },
-      "$comment": "正本は docs/contract-2026-09-03-clip-adjust-v0.md。v2 visual item の per-clip 補正で、未指定の値は中立、sections は false のときだけ該当段をバイパスする。"
+      "$comment": "正本は docs/contract-2026-09-05-clip-adjust-v1.md。v2 visual item の per-clip 補正で、未指定の値は中立、sections は false のときだけ該当段をバイパスする。"
     },
     "output": {
       "type": "object",
@@ -1013,7 +1285,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1040,7 +1312,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1089,7 +1361,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1114,7 +1386,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1139,7 +1411,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1163,7 +1435,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1187,7 +1459,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "adjust": { "$ref": "#/$defs/adjustV0" },
+        "adjust": { "$ref": "#/$defs/adjustV1" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },

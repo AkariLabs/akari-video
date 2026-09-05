@@ -33,3 +33,7 @@ export * from './exits/readback.js';
 export * from './exits/webcodecs.js';
 export * from './exits/sprite-compositor.js';
 export * from './timeline/caption-motion.js';
+
+export { applyItemAdjust, applyAdjustWheels, applyAdjustCurves, applyAdjustHue, normalizeAdjustWheels, normalizeAdjustCurves, normalizeAdjustHue, isAdjustWheelsIdentity, isAdjustCurvesIdentity, isAdjustHueIdentity } from "./adjust/kernel.js";
+export type { AdjustLutSampler } from "./adjust/kernel.js";
+export { bakeItemAdjustLut, isItemAdjustIdentity } from "./adjust/bake.js";

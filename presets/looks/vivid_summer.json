@@ -1,0 +1,19 @@
+{
+  "id": "vivid_summer",
+  "adjust": {
+    "basic": {
+      "exposure": 0.15,
+      "contrast": 0.1,
+      "saturation": 0.3,
+      "temperature": 0.1,
+      "tint": -0.05
+    },
+    "wheels": {
+      "gain": {
+        "r": 0.05,
+        "g": 0.05,
+        "b": -0.05
+      }
+    }
+  }
+}

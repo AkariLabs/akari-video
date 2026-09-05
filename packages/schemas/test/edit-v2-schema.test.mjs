@@ -140,7 +140,7 @@ test("clip adjust v0 is closed, typed, and available on the seven contracted vis
     "itemV2Media", "itemV2Html", "itemV2Telop", "itemV2Filter",
     "itemV2Group", "itemV2Captions", "itemV2Caption",
   ]) {
-    assert.deepEqual(schema.$defs[name].properties.adjust, { $ref: "#/$defs/adjustV0" }, name);
+    assert.deepEqual(schema.$defs[name].properties.adjust, { $ref: "#/$defs/adjustV1" }, name);
   }
   assert.equal(Object.hasOwn(schema.$defs.itemV2Shape.properties, "adjust"), false);
   assert.equal(Object.hasOwn(schema.$defs.itemV2AudioMedia.properties, "adjust"), false);

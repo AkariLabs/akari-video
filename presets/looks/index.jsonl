@@ -1,0 +1,8 @@
+{"id":"teal_orange","kind":"look","name":"ティール＆オレンジ","description":"映画的 補色コントラスト","when_to_use":"映画的 補色コントラストを加えたいとき"}
+{"id":"golden_hour","kind":"look","name":"ゴールデンアワー","description":"黄金時間帯の温かみ","when_to_use":"黄金時間帯の温かみを加えたいとき"}
+{"id":"filmic_fade","kind":"look","name":"フィルミックフェード","description":"フィルム質感のフェード","when_to_use":"フィルム質感のフェードを加えたいとき"}
+{"id":"clean_punch","kind":"look","name":"クリーンパンチ","description":"シャープなコントラスト","when_to_use":"シャープなコントラストを加えたいとき"}
+{"id":"bleach","kind":"look","name":"ブリーチバイパス","description":"漂白バイパス・高コントラスト低彩度","when_to_use":"漂白バイパス・高コントラスト低彩度を加えたいとき"}
+{"id":"noir_soft","kind":"look","name":"ソフトノワール","description":"ソフトモノクロ","when_to_use":"ソフトモノクロを加えたいとき"}
+{"id":"cool_matte","kind":"look","name":"クールマット","description":"クールなマット","when_to_use":"クールなマットを加えたいとき"}
+{"id":"vivid_summer","kind":"look","name":"ビビッドサマー","description":"彩度高め・夏らしい","when_to_use":"彩度高め・夏らしいを加えたいとき"}
