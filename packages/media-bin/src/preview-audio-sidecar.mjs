@@ -407,7 +407,9 @@ export async function probePreviewAudioSourceAsync(sourcePath, options = {}) {
     const resolved = path.resolve(sourcePath);
     const stat = await fs.promises.stat(resolved);
     if (!stat.isFile()) throw new Error(`source is not a regular file: ${resolved}`);
-    const metadata = await probeAudioAsync(resolved, options.ffprobe ?? defaultFfprobe(), settingsFrom(options));
+    const metadata = await (typeof options.probeAudio === 'function'
+      ? options.probeAudio(resolved, options.ffprobe ?? defaultFfprobe())
+      : probeAudioAsync(resolved, options.ffprobe ?? defaultFfprobe(), settingsFrom(options)));
     return { ok: true, path: resolved, bytes: stat.size, ...metadata };
   } catch (error) {
     return probeFailure(sourcePath, error);
@@ -615,20 +617,21 @@ function requestOptions(options) {
   if (cached?.error && (cached.error.class === 'no-audio' || retryRemaining(cached.error) > 0)) {
     return { probePath, status: {
       state: cached.error.class === 'no-audio' ? 'no-audio' : 'failed', key: null,
-      reason: cached.error.reason,
+      reason: cached.error.reason, probe: { fingerprint },
       ...(cached.error.class === 'transient' ? { retryAfterMs: retryRemaining(cached.error) } : {}),
     } };
   }
   if (finitePositive(cached?.durationSec)) {
-    return { probePath, options: { ...options, outSec: cached.durationSec } };
+    return { probePath, probe: { fingerprint }, options: { ...options, outSec: cached.durationSec } };
   }
-  return { probePath, status: { state: 'queued', key: null, probe: 'pending' } };
+  return { probePath, status: { state: 'queued', key: null, probe: { fingerprint, pending: true } } };
 }
 
 export function previewAudioSidecarStatus(options) {
   try {
     const resolved = requestOptions(options);
     if (resolved.status) return resolved.status;
+    if (resolved.probe) return { ...previewAudioSidecarStatus(resolved.options), probe: resolved.probe };
     const prepared = prepare(resolved.options, {}, false);
     const { key, outputPath, outputDirectory } = prepared;
     if (requested.has(outputPath) || generating.has(outputPath)) return { state: 'generating', key };
@@ -665,13 +668,18 @@ export function requestPreviewAudioSidecar(options) {
   if (status.state === 'invalid') return status;
   const resolved = requestOptions(options);
   if (resolved.status) {
-    if (status.probe !== 'pending' || probing.has(resolved.probePath)) return status;
+    if (!status.probe?.pending || probing.has(resolved.probePath)) return status;
     // Start after returning the declaration. The map is populated before any work runs.
     const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
       const probe = await probePreviewAudioSourceAsync(options.sourcePath, options);
       if (probe.ok) {
         writeCacheJson(resolved.probePath, probe);
-        requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec });
+        const result = requestPreviewAudioSidecar({ ...options, outSec: probe.durationSec });
+        if (['ready', 'no-audio', 'failed'].includes(result.state)) {
+          emitSidecarEvent({ key: result.key, state: result.state, sourcePath: path.resolve(options.sourcePath),
+            ...(result.state === 'ready'
+              ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) });
+        }
       } else {
         const failureClass = classifyPreviewAudioFailure(probe.reason);
         writeCacheJson(resolved.probePath, {
@@ -708,7 +716,7 @@ export function requestPreviewAudioSidecar(options) {
       emitSidecarEvent(event);
     });
   requested.set(prepared.outputPath, pending);
-  return { state: 'queued', key: prepared.key };
+  return { state: 'queued', key: prepared.key, ...(status.probe ? { probe: status.probe } : {}) };
 }
 
 export function ensurePreviewAudioSidecar(options) {
@@ -728,8 +736,10 @@ export function ensurePreviewAudioSidecar(options) {
   return pending;
 }
 
-export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0 }) {
+export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0, keepProbes }) {
   const kept = new Set(Array.from(keepKeys ?? [], value => String(value).replace(/\.flac$/u, '')));
+  const keptProbes = new Set(Array.from(keepProbes ?? [], value =>
+    String(value).replace(/^probe-/u, '').replace(/\.json$/u, '')));
   const outputDirectory = path.resolve(cacheDir, 'preview-audio');
   let removed = 0;
   let bytes = 0;
@@ -746,6 +756,7 @@ export function sweepPreviewAudioSidecars({ cacheDir, keepKeys, minAgeMs = 0 }) 
       const probingFile = key.startsWith('probe-');
       const outputPath = path.join(outputDirectory, `${key}.flac`);
       if ((!probingFile && kept.has(key)) || generating.has(outputPath)
+        || (probingFile && keptProbes.has(key.slice('probe-'.length)))
         || requested.has(outputPath) || probing.has(path.join(outputDirectory, entry.name))) continue;
       const target = path.join(outputDirectory, entry.name);
       // 1 本消せないだけで掃除全体（ましてサーバ）を止めない。ロック中・消えた直後は次回に回す。

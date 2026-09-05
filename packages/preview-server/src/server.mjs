@@ -952,7 +952,8 @@ const sweepAudio = () => {
   if (!latestPreviewAudioSummary) return;
   try {
     sweepPreviewAudioSidecars({ cacheDir: previewAudioCacheDir,
-      keepKeys: latestPreviewAudioSummary.keepKeys, minAgeMs: 60 * 60 * 1000 });
+      keepKeys: latestPreviewAudioSummary.keepKeys,
+      keepProbes: latestPreviewAudioSummary.keepProbes ?? [], minAgeMs: 60 * 60 * 1000 });
   } catch (error) { console.warn('[preview] audio cache sweep failed', error); }
 };
 let audioSweepInterval;

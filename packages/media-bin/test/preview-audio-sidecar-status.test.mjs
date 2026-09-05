@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import childProcess from 'node:child_process';
 import crypto from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import {
   PREVIEW_AUDIO_RECIPE, classifyPreviewAudioFailure, ensurePreviewAudioSidecar,
@@ -121,9 +125,11 @@ test('legacy の背景 probe は即返し・重複抑止・in-flight 保護・JS
 test('outSec 省略は fingerprint probe JSON の尺・無音・再試行期限を読む', t => {
   const f = fixture(t);
   const { outSec, ...options } = f.options;
-  assert.deepEqual(previewAudioSidecarStatus(options), { state: 'queued', key: null, probe: 'pending' });
   const stat = fs.statSync(options.sourcePath);
   const hash = crypto.createHash('sha1').update([options.sourcePath, stat.size, stat.mtimeMs].join('|')).digest('hex');
+  assert.deepEqual(previewAudioSidecarStatus(options), {
+    state: 'queued', key: null, probe: { fingerprint: hash, pending: true },
+  });
   const probeFile = path.join(f.directory, `probe-${hash}.json`);
   const write = data => fs.writeFileSync(probeFile, JSON.stringify(data));
   write({ durationSec: 1, sampleRate: 48000, channels: 1 });
@@ -135,7 +141,77 @@ test('outSec 省略は fingerprint probe JSON の尺・無音・再試行期限�
   write({ error: { class: 'transient', reason: 'busy', createdAt: Date.now() } });
   assert.equal(requestPreviewAudioSidecar(options).state, 'failed');
   write({ error: { class: 'transient', reason: 'busy', createdAt: 0 } });
-  assert.equal(previewAudioSidecarStatus(options).probe, 'pending');
+  assert.deepEqual(previewAudioSidecarStatus(options).probe, { fingerprint: hash, pending: true });
+});
+
+test('probe JSON を削除した再要求で settled イベントが出る', { timeout: 10000 }, async t => {
+  const f = fixture(t);
+  const ffmpeg = path.join(f.root, 'fake-ffmpeg');
+  // Fake ffmpeg output without requiring a shell or executable on Windows.
+  let generations = 0;
+  const mockedSpawn = t.mock.method(childProcess, 'spawn', (command, args) => {
+    assert.equal(command, ffmpeg, 'probeAudio injection must avoid spawning ffprobe');
+    generations += 1;
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    setImmediate(() => {
+      fs.writeFileSync(args.at(-1), Buffer.alloc(64));
+      child.emit('close', 0, null);
+    });
+    return child;
+  });
+  syncBuiltinESMExports();
+  t.after(() => { mockedSpawn.mock.restore(); syncBuiltinESMExports(); });
+  const { outSec, ...request } = f.options;
+  let sourceProbes = 0;
+  const options = { ...request, ffmpeg, probeAudio: sourcePath => {
+    if (sourcePath === path.resolve(request.sourcePath)) sourceProbes += 1;
+    return { durationSec: 1, sampleRate: 48000, channels: 1 };
+  } };
+  const events = [];
+  let finishEvent;
+  t.after(subscribePreviewAudioSidecarEvents(event => {
+    events.push(event);
+    finishEvent?.(event);
+  }));
+  const nextEvent = () => new Promise(resolve => { finishEvent = resolve; });
+  const firstEvent = nextEvent();
+  const pending = requestPreviewAudioSidecar(options);
+  assert.equal(pending.state, 'queued');
+  assert.equal(pending.probe.pending, true);
+  const expected = { key: f.key, state: 'ready', sourcePath: path.resolve(options.sourcePath),
+    path: f.file('.flac'), durationSec: 1 };
+  assert.deepEqual(await firstEvent, expected);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events, [expected], 'new generation must emit only once');
+  assert.deepEqual(previewAudioSidecarStatus(options).probe, { fingerprint: pending.probe.fingerprint });
+  assert.deepEqual(requestPreviewAudioSidecar(options).probe, { fingerprint: pending.probe.fingerprint });
+  const probeFiles = fs.readdirSync(f.directory).filter(name => /^probe-.*\.json$/u.test(name));
+  assert.equal(probeFiles.length, 1);
+  for (const name of probeFiles) fs.rmSync(path.join(f.directory, name));
+  events.length = 0;
+  const secondEvent = nextEvent();
+  assert.deepEqual(requestPreviewAudioSidecar(options), pending);
+  assert.deepEqual(await secondEvent, expected);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events, [expected], 'cached ready must emit exactly once after re-probing');
+  assert.equal(previewAudioSidecarStatus(options).state, 'ready');
+  assert.equal(sourceProbes, 2);
+  assert.equal(generations, 1, 'existing sidecar must be reused');
+});
+
+test('keepProbes は fingerprint とファイル名で指定した probe JSON を掃除から保護する', t => {
+  const f = fixture(t);
+  const fingerprints = ['a'.repeat(40), 'b'.repeat(40), 'c'.repeat(40)];
+  for (const fingerprint of fingerprints) {
+    fs.writeFileSync(path.join(f.directory, `probe-${fingerprint}.json`), '{}');
+  }
+  const result = sweepPreviewAudioSidecars({ cacheDir: f.root, keepKeys: [],
+    keepProbes: [fingerprints[0], `probe-${fingerprints[1]}.json`] });
+  assert.equal(result.removed, 1);
+  assert.deepEqual(fs.readdirSync(f.directory).sort(),
+    fingerprints.slice(0, 2).map(fingerprint => `probe-${fingerprint}.json`));
 });
 
 test('背景生成は JSON を書きイベントを一度配る', { skip: process.platform === 'win32' }, async t => {

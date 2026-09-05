@@ -10,6 +10,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
   const sourcePathOf = deps.sourcePathOf ?? (value => path.resolve(projectRoot, value));
   const warnings = [];
   const keepKeys = new Set();
+  const keepProbes = new Set();
   const items = [];
   const requests = [];
   const warn = message => { warnings.push(message); deps.warn?.(message); };
@@ -81,6 +82,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       ? result.state : 'unavailable';
     target.sidecarState = state;
     if (result.key) keepKeys.add(result.key);
+    if (result.probe?.fingerprint) keepProbes.add(result.probe.fingerprint);
     items.push({ kind, id, key: result.key ?? null, state });
     if (state === 'ready') {
       target.sidecar = {
@@ -95,5 +97,5 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       warn(`${fallback}: ${result.reason ?? result.state}`);
     }
   }
-  return { audio: { ...audio, speech }, warnings, keepKeys: [...keepKeys], items };
+  return { audio: { ...audio, speech }, warnings, keepKeys: [...keepKeys], keepProbes: [...keepProbes], items };
 }

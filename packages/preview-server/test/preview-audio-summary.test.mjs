@@ -69,6 +69,18 @@ test('summary は同期で first-use 順に要求し ready / queued / no-audio /
   assert.deepEqual(data, original);
 });
 
+test('summary は要求結果の probe fingerprint を keepProbes に重複なく集める', t => {
+  const { data, deps } = fixture(t);
+  delete data.audio.narration[0].out;
+  const result = prepareFrameEngineAudioSummary(data, { ...deps, requestSidecar: options => (
+    options.outSec === undefined
+      ? { state: 'queued', key: null, probe: { fingerprint: 'shared-source', pending: true } }
+      : { state: 'queued', key: 'sidecar-key' }
+  ) });
+  assert.deepEqual(result.keepProbes, ['shared-source']);
+  assert.deepEqual(result.keepKeys, ['sidecar-key']);
+});
+
 test('generating・invalid・ffmpeg 不在も即時の状態で返す', t => {
   const { data, deps } = fixture(t);
   const result = prepareFrameEngineAudioSummary(data, { ...deps, requestSidecar: () => ({ state: 'generating', key: 'key' }) });
