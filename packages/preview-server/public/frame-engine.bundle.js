@@ -24601,6 +24601,13 @@ function createPreviewAudioSupply(options) {
   let lastAudioPositionAtRenderSec = null;
   let lastSchedule = [];
   let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
+  let rate = 1;
+  const masterGain = context?.createGain() ?? null;
+  let analyser = null;
+  let pitchShiftNode = null;
+  let workletReady = false;
+  let workletWarningEmitted = false;
+  let stretcher = "none";
   const sidecarValues = [
     ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
     ...speech.map((item) => item.sidecar)
@@ -24615,7 +24622,60 @@ function createPreviewAudioSupply(options) {
     0,
     Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
   );
-  const audioPosition = () => context && playing ? clamp3(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec)) : latestRequestedSec;
+  const audioPosition = () => context && playing ? clamp3(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+  const warnPitchUnavailable = (reason) => {
+    if (workletWarningEmitted) return;
+    workletWarningEmitted = true;
+    warn("[frame-engine] pitch-preserving playback unavailable; using native playback rate", reason);
+  };
+  const outputNode = () => analyser ?? context?.destination ?? null;
+  const disconnectPitchShiftNode = () => {
+    if (!pitchShiftNode) return;
+    try {
+      pitchShiftNode.disconnect();
+    } catch {
+    }
+  };
+  const routeMasterBus = () => {
+    if (!context || !masterGain) return;
+    try {
+      masterGain.disconnect();
+    } catch {
+    }
+    disconnectPitchShiftNode();
+    stretcher = "none";
+    const output = outputNode();
+    if (!output) return;
+    if (rate !== 1 && workletReady) {
+      try {
+        const WorkletNode = globalThis.AudioWorkletNode;
+        if (typeof WorkletNode !== "function") throw new Error("AudioWorkletNode is unavailable");
+        pitchShiftNode ??= new WorkletNode(context, "akari-pitch-shift", {
+          parameterData: { ratio: 1 / rate }
+        });
+        const ratio = pitchShiftNode.parameters.get("ratio");
+        if (ratio) ratio.value = 1 / rate;
+        masterGain.connect(pitchShiftNode);
+        pitchShiftNode.connect(output);
+        stretcher = "worklet";
+        return;
+      } catch (reason) {
+        warnPitchUnavailable(reason);
+      }
+    }
+    masterGain.connect(output);
+  };
+  if (masterGain) routeMasterBus();
+  if (context && options.pitchShiftWorkletUrl) {
+    if (context.audioWorklet?.addModule) {
+      void context.audioWorklet.addModule(options.pitchShiftWorkletUrl).then(() => {
+        workletReady = true;
+        routeMasterBus();
+      }).catch((reason) => warnPitchUnavailable(reason));
+    } else {
+      warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
+    }
+  }
   const stopSources = () => {
     const sources = active;
     active = [];
@@ -24799,14 +24859,14 @@ function createPreviewAudioSupply(options) {
     });
     return prefetchInFlight;
   };
-  const applyGainEvents = (param, events, startTime) => {
+  const applyGainEvents = (param, events, startTime, playbackRate) => {
     if (events.length === 0) {
       param.setValueAtTime(1, startTime);
       return;
     }
     param.cancelScheduledValues(startTime);
     for (const event of events) {
-      const at2 = startTime + event.offsetSec;
+      const at2 = startTime + event.offsetSec / playbackRate;
       if (event.method === "linear") param.linearRampToValueAtTime(event.value, at2);
       else if (event.method === "exponential") param.exponentialRampToValueAtTime(event.value, at2);
       else param.setValueAtTime(event.value, at2);
@@ -24823,7 +24883,7 @@ function createPreviewAudioSupply(options) {
       const gains = [baseGain];
       source.buffer = buffer;
       source.loop = item.loop;
-      source.playbackRate.value = item.playbackRate;
+      source.playbackRate.value = item.playbackRate * rate;
       source.connect(baseGain);
       let tail = baseGain;
       if (item.envelopeEvents.length > 0) {
@@ -24831,11 +24891,16 @@ function createPreviewAudioSupply(options) {
         baseGain.connect(envelopeGain);
         tail = envelopeGain;
         gains.push(envelopeGain);
-        applyGainEvents(envelopeGain.gain, item.envelopeEvents, contextStart + item.delaySec);
+        applyGainEvents(
+          envelopeGain.gain,
+          item.envelopeEvents,
+          contextStart + item.delaySec / rate,
+          rate
+        );
       }
-      tail.connect(context.destination);
-      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
+      tail.connect(masterGain ?? context.destination);
+      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
+      source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
       const activeItem = { source, gains };
       active.push(activeItem);
       source.onended = () => {
@@ -24959,6 +25024,9 @@ function createPreviewAudioSupply(options) {
       audioPositionSec,
       driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
       playing,
+      rate,
+      pitchPreserved: rate === 1 || stretcher === "worklet",
+      stretcher,
       scheduled: {
         startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
         itemCount: lastSchedule.length,
@@ -25030,6 +25098,32 @@ function createPreviewAudioSupply(options) {
       if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
+    setRate(value) {
+      const nextRate = clampPlaybackRate(value);
+      if (nextRate === rate) return;
+      const wasPlaying = playing;
+      const position = wasPlaying ? audioPosition() : latestRequestedSec;
+      rate = nextRate;
+      latestRequestedSec = position;
+      routeMasterBus();
+      if (wasPlaying) {
+        generation += 1;
+        playing = false;
+        starting = false;
+        lastStartOutcome = null;
+        stopSources();
+        launch(latestRequestedSec);
+      }
+    },
+    attachAnalyser() {
+      if (!context || !masterGain) return null;
+      if (!analyser) {
+        analyser = context.createAnalyser();
+        analyser.connect(context.destination);
+        routeMasterBus();
+      }
+      return analyser;
+    },
     noteRendered(seconds) {
       lastRenderedTimelineSec = clamp3(seconds);
       lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
@@ -25039,6 +25133,15 @@ function createPreviewAudioSupply(options) {
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
+      try {
+        masterGain?.disconnect();
+      } catch {
+      }
+      disconnectPitchShiftNode();
+      try {
+        analyser?.disconnect();
+      } catch {
+      }
       decoded.clear();
       decodedBytes = 0;
       void context?.close().catch(() => void 0);
@@ -25066,6 +25169,9 @@ function finitePositive2(value) {
 }
 function finiteNonNegative(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+function clampPlaybackRate(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.max(0.5, Math.min(3, value)) : 1;
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
