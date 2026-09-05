@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -363,4 +363,47 @@ test('sweep は keepProbes / minAgeMs を透過し、省略時は追加しない
         { cacheDir: join(data.canonical, '.akari', 'cache'), keepKeys: ['key'], keepProbes: ['fingerprint'], minAgeMs: 3600000 },
         { cacheDir: join(data.canonical, '.akari', 'cache'), keepKeys: ['key'] }
     ]);
+});
+
+test('priority validates project root and silently drops outside, missing and non-absolute sources', async t => {
+    const data = await fixture(t);
+    const outside = join(data.base, 'outside.wav');
+    await writeFile(outside, 'outside');
+    const calls = [];
+    const service = serviceFor(data.project, { promotePreviewAudioSidecars(options) {
+        calls.push(options);
+        return { promoted: [...options.keys, ...options.sourcePaths] };
+    } });
+    const request = { projectRootUri: pathToFileURL(data.project).toString(),
+        workspaceRoots: [pathToFileURL(data.project).toString()] };
+    const canonicalSource = await realpath(data.heavy);
+    assert.deepEqual(await service.promotePreviewAudioSidecars({ ...request, keys: ['k.pcm'],
+        sourcePaths: [outside, 'relative.wav', join(data.project, 'missing.wav'), null, data.heavy] }), {
+        promoted: ['k.pcm', canonicalSource]
+    });
+    assert.deepEqual(calls, [{ cacheDir: join(data.canonical, '.akari', 'cache'), keys: ['k.pcm'], sourcePaths: [canonicalSource] }]);
+    await service.promotePreviewAudioSidecars(request);
+    assert.deepEqual(calls[1].keys, []);
+    assert.deepEqual(calls[1].sourcePaths, []);
+    for (const value of [null, {}, { ...request, projectRootUri: 3 },
+        { ...request, projectRootUri: pathToFileURL(data.base).toString() }]) {
+        await assert.rejects(service.promotePreviewAudioSidecars(value), /Invalid preview audio priority|inside an open workspace/u);
+    }
+    assert.equal(calls.length, 2);
+});
+
+test('priority realpath rejects project and source junctions escaping the workspace', async t => {
+    const data = await fixture(t);
+    const outside = join(data.base, 'external');
+    await mkdir(outside);
+    await writeFile(join(outside, 'audio.wav'), 'outside');
+    const link = join(data.project, 'external-link');
+    await symlink(outside, link, 'junction');
+    const calls = [];
+    const service = serviceFor(data.project, { promotePreviewAudioSidecars(options) { calls.push(options); return { promoted: [] }; } });
+    const request = { projectRootUri: pathToFileURL(data.project).toString(),
+        workspaceRoots: [pathToFileURL(data.project).toString()] };
+    await assert.rejects(service.promotePreviewAudioSidecars({ ...request, projectRootUri: pathToFileURL(link).toString() }), /inside an open workspace/u);
+    await service.promotePreviewAudioSidecars({ ...request, sourcePaths: [join(link, 'audio.wav')] });
+    assert.deepEqual(calls[0].sourcePaths, []);
 });

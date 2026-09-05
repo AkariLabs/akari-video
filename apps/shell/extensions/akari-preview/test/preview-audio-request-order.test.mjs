@@ -207,6 +207,22 @@ test('initial not-needed results add no state, keys, probes or polling requests'
     assert.equal(model.previewAudioStreams.size, 0);
 });
 
+test('pending priority metadata preserves timeline duration and learns keys from polling', async () => {
+    let probed = false;
+    const f = harness(name => ({ state: probed ? 'generating' : 'queued', ...(probed ? { key: name } : {}) }));
+    const model = await f.load(fixture({ sfx: [{ path: 'sfx.wav', t: 5, in: 2, out: 8, lowcut_hz: 100 }] }));
+    const pending = model.previewAudioPendingRequests;
+    assert.deepEqual([...pending].map(item => item.durationSec === undefined ? undefined : +item.durationSec.toFixed(6)),
+        [undefined, undefined, 10.4, 6, 10]);
+    assert.ok(pending.every(item => item.key === undefined));
+    const widget = { isDisposed: false, disposed: { connect() {} }, akariPreviewSummary: model.summary, sendMessage() {} };
+    f.host.startPreviewAudioTracking(widget, model, true);
+    probed = true;
+    await f.poll();
+    assert.deepEqual([...widget.akariPreviewAudioPendingRequests].map(item => item.key), expected);
+    assert.ok(widget.akariPreviewAudioPendingRequests.every(item => item.state === 'generating'));
+});
+
 test('concurrent regular stream resolution retains declaration order and issues no early RPCs', async () => {
     const f = harness();
     const entries = [];

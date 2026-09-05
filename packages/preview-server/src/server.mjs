@@ -27,6 +27,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   requestPreviewAudioSidecar,
+  promotePreviewAudioSidecars,
   subscribePreviewAudioSidecarEvents,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
@@ -36,7 +37,7 @@ import {
   PROXY_RECIPE_VERSION,
 } from '../../media-bin/src/proxy-recipe.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
-import { prepareFrameEngineAudioSummary } from './preview-audio-summary.mjs';
+import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 
 const args = process.argv.slice(2);
@@ -569,6 +570,20 @@ const router = {
   },
   'GET /api/preview-audio/status': (req, res) => {
     respond(res, 200, { items: latestPreviewAudioSummary?.items ?? [], ts: Date.now() });
+  },
+  'POST /api/preview-audio/priority': async (req, res) => {
+    let parsed;
+    try { parsed = JSON.parse(await collectBody(req)); }
+    catch { return respond(res, 400, { error: 'Invalid JSON' }); }
+    if (!Number.isFinite(parsed?.t)) return respond(res, 400, { error: 'Invalid preview audio time' });
+    try {
+      return respond(res, 200, promotePreviewAudioSummaryAt(latestPreviewAudioSummary, parsed.t, {
+        cacheDir: previewAudioCacheDir, promoteSidecars: promotePreviewAudioSidecars,
+      }));
+    } catch (error) {
+      console.error('[preview] audio priority failed:', error);
+      return respond(res, 500, { error: 'Preview audio priority failed' });
+    }
   },
   'GET /api/summary': async (req, res) => {
     // 準備段（sidecar 生成・掃除・probe）の例外は 1 リクエストの 500 で済ませる。

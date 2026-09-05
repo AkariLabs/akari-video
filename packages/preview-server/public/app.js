@@ -66,6 +66,7 @@ const api = {
   timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
   summary: isOutputMode ? '/api/output/summary' : '/api/summary',
   edit: '/api/edit.json',
+  audioPriority: '/api/preview-audio/priority',
   captions: isOutputMode ? '/api/output/captions.json' : '/api/captions.json',
 };
 
@@ -359,6 +360,23 @@ function applyFrameEngineSnapshot() {
   updateTimeLabel();
   updateSeekVisual();
 }
+
+const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
+const AUDIO_PRIORITY_INTERVAL_MS = 10_000;
+let audioPriorityTimer;
+function requestAudioPriority(t) {
+  clearTimeout(audioPriorityTimer);
+  if (!frameEngineEnabled || frameEnginePreview?.audioDebug().supply?.phase !== 'preparing') return;
+  audioPriorityTimer = setTimeout(() => {
+    if (frameEnginePreview?.audioDebug().supply?.phase !== 'preparing') return;
+    fetch(api.audioPriority, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t }),
+    }).catch(error => console.debug('[preview] audio priority failed', error));
+  }, AUDIO_PRIORITY_DEBOUNCE_MS);
+}
+if (frameEngineEnabled) setInterval(() => {
+  if (isPlaying) requestAudioPriority(outputTime);
+}, AUDIO_PRIORITY_INTERVAL_MS);
 
 function updateAudioStatus() {
   if (!audioStatus) return;
@@ -2601,6 +2619,7 @@ function seekTo(t) {
     frameEngineRequestedTime = outputTime;
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     updateAudioStatus();
+    requestAudioPriority(outputTime);
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();

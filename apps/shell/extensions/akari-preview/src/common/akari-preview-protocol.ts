@@ -314,6 +314,8 @@ export interface ResolvedCaptionDisplayPayload {
 }
 
 export interface AkariPreviewService {
+    promotePreviewAudioSidecars(request: import('./preview-audio-priority').PromotePreviewAudioSidecarsRequest):
+        Promise<import('./preview-audio-priority').PromotePreviewAudioSidecarsResult>;
     getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;
     getOverlayRuntimeAssetUrls(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssetUrls>;
     readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;

@@ -85,7 +85,8 @@ export function buildAtempoChain(speed) {
 
 // Counting semaphore whose limit is supplied per acquisition: the active count is shared by
 // the whole process while each caller may state the ceiling it accepts. Waiters are woken in
-// FIFO order and the count is bumped synchronously on wake-up, so the ceiling never overshoots.
+// FIFO order unless explicitly promoted or passed while probing. The count is bumped
+// synchronously on wake-up, so the ceiling never overshoots.
 class Semaphore {
   #active = 0;
   #waiters = [];
@@ -121,16 +122,37 @@ class Semaphore {
         waiter.reject?.(new Error('semaphore reservation cancelled'));
         this.#drain();
       },
+      promote: () => {
+        if (waiter.state !== 'waiting') return false;
+        const index = this.#waiters.indexOf(waiter);
+        if (index <= 0) return false;
+        this.#waiters.splice(index, 1);
+        this.#waiters.unshift(waiter);
+        this.#drain();
+        return true;
+      },
+      hold: () => {
+        if (waiter.state !== 'waiting' || waiter.resolve) return;
+        waiter.hold = true;
+        this.#drain();
+      },
     };
   }
 
   #drain() {
     if (this.#waiters.length) {
-      const waiter = this.#waiters[0];
-      // A probe reserves only its FIFO position, not an active ffmpeg slot.
-      // Later requests cannot pass it while it is still preparing to acquire.
-      if (!waiter.resolve || this.#active >= waiter.limit) return;
-      this.#waiters.shift();
+      let index = 0;
+      let held = 0;
+      // Only probing tickets opt in to holding one idle slot. Plain reservations
+      // remain FIFO barriers; several probing tickets together hold just one slot.
+      while (index < this.#waiters.length && !this.#waiters[index].resolve) {
+        if (!this.#waiters[index].hold) return;
+        held = 1;
+        index += 1;
+      }
+      const waiter = this.#waiters[index];
+      if (!waiter || this.#active + held >= waiter.limit) return;
+      this.#waiters.splice(index, 1);
       this.#active += 1;
       waiter.state = 'acquired';
       waiter.resolve();
@@ -635,6 +657,52 @@ async function generate(prepared, options) {
 const generating = new Map();
 const requested = new Map();
 const probing = new Map();
+// Tickets are registered synchronously, then reserved in request order when work
+// starts (or promotion is requested). This also permits immediate promotion after
+// requestPreviewAudioSidecar returns, without starting a probe in that call.
+const tickets = new Set();
+
+function registerTicket(options, prepared) {
+  const ticket = { sourcePath: prepared.sourcePath, outputDirectory: prepared.outputDirectory,
+    key: prepared.key, limit: settingsFrom(options).concurrency.ffmpeg, slot: options.slot };
+  tickets.add(ticket);
+  return ticket;
+}
+
+function reserveTickets() {
+  for (const ticket of tickets) ticket.slot ??= ffmpegSlots.reserve(ticket.limit);
+}
+
+function discardTicket(ticket, cancel = true) {
+  try { if (cancel) ticket.slot?.cancel(); } finally { tickets.delete(ticket); }
+}
+
+// keys are bare sidecar keys (an optional .flac/.pcm suffix is accepted).
+// sourcePaths identify probing requests and remain usable after probe handoff.
+// Each actual move is reported in input order; the last move has highest priority.
+export function promotePreviewAudioSidecars({ cacheDir, keys = [], sourcePaths = [] }) {
+  const outputDirectory = path.resolve(cacheDir, 'preview-audio');
+  const promoted = [];
+  const promote = (value, matches) => {
+    const matching = [...tickets].filter(ticket => ticket.outputDirectory === outputDirectory && matches(ticket));
+    if (!matching.length) return;
+    reserveTickets();
+    let moved = false;
+    for (const ticket of matching) if (ticket.slot.promote?.()) moved = true;
+    if (moved) promoted.push(value);
+  };
+  for (const key of keys) {
+    const bareKey = String(key).replace(/\.(?:flac|pcm)$/u, '');
+    promote(key, ticket => ticket.key === bareKey);
+  }
+  for (const sourcePath of sourcePaths) {
+    if (typeof sourcePath !== 'string' || !path.isAbsolute(sourcePath)) continue;
+    const resolved = path.resolve(sourcePath);
+    promote(sourcePath, ticket => ticket.sourcePath === resolved);
+  }
+  return { promoted };
+}
+
 const listeners = new Set();
 const FAILURE_RETRY_MS = 60000;
 
@@ -793,11 +861,15 @@ function requestSidecar(options) {
   const resolved = requestOptions(options);
   if (resolved.status) {
     if (!status.probe?.pending || probing.has(resolved.probePath)) return status;
+    const ticket = registerTicket(options, { sourcePath: path.resolve(options.sourcePath),
+      outputDirectory: path.dirname(resolved.probePath), key: null });
     // Start after returning the declaration. The map is populated before any work runs.
     const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
-      const slot = ffmpegSlots.reserve(settingsFrom(options).concurrency.ffmpeg);
+      reserveTickets();
+      const { slot } = ticket;
       let handedOff = false;
       try {
+        slot.hold?.();
         const probe = await probePreviewAudioSourceAsync(options.sourcePath, options);
         if (probe.ok) {
           writeCacheJson(resolved.probePath, probe);
@@ -818,18 +890,20 @@ function requestSidecar(options) {
             reason: probe.reason, sourcePath: path.resolve(options.sourcePath) });
         }
       } finally {
-        if (!handedOff) slot.cancel();
+        discardTicket(ticket, !handedOff);
       }
     }).catch(error => console.warn('[preview-audio] probe cache failed', error))
-      .finally(() => probing.delete(resolved.probePath));
+      .finally(() => { tickets.delete(ticket); probing.delete(resolved.probePath); });
     probing.set(resolved.probePath, pending);
     return status;
   }
   if (status.state !== 'missing' && status.state !== 'legacy') return status;
   const prepared = prepare(resolved.options, {}, false);
+  const ticket = registerTicket(resolved.options, prepared);
   const pending = new Promise(resolve => setImmediate(resolve)).then(async () => {
+    reserveTickets();
     fs.rmSync(path.join(prepared.outputDirectory, `${prepared.key}.failed.json`), { force: true });
-    const result = await ensurePreviewAudioSidecar(resolved.options);
+    const result = await ensurePreviewAudioSidecar({ ...resolved.options, slot: ticket.slot });
     let state = 'ready';
     if (!result.ok) {
       state = classifyPreviewAudioFailure(result.reason) === 'no-audio' ? 'no-audio' : 'failed';
@@ -842,9 +916,8 @@ function requestSidecar(options) {
       ...(result.ok ? { path: result.path, durationSec: result.durationSec } : { reason: result.reason }) };
   }).catch(error => ({ key: prepared.key, state: 'failed', sourcePath: prepared.sourcePath,
     reason: summarize(error?.message, 'preview audio cache failed') }))
-    .finally(() => options.slot?.cancel())
+    .finally(() => { discardTicket(ticket); requested.delete(prepared.outputPath); })
     .then(event => {
-      requested.delete(prepared.outputPath);
       emitSidecarEvent(event);
     });
   requested.set(prepared.outputPath, pending);
@@ -865,8 +938,10 @@ export function ensurePreviewAudioSidecar(options) {
     options.slot?.cancel();
     return joined;
   }
-  const pending = generate(prepared, options)
-    .finally(() => options.slot?.cancel())
+  const ticket = options.slot ? null : registerTicket(options, prepared);
+  if (ticket) reserveTickets();
+  const pending = generate(prepared, ticket ? { ...options, slot: ticket.slot } : options)
+    .finally(() => { if (ticket) discardTicket(ticket); else options.slot?.cancel(); })
     .catch(error => failure(prepared.outputPath, prepared.key, error));
   generating.set(prepared.outputPath, pending);
   void pending.finally(() => generating.delete(prepared.outputPath));
