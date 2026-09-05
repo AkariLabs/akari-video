@@ -133,7 +133,17 @@ if (Test-Path "$InstallDir\.git") {
 # ═══ npm install ═══
 
 Write-Host ""; Write-Info "Installing npm dependencies..."
-Push-Location $InstallDir; npm install --no-audit --no-fund; Pop-Location
+Push-Location $InstallDir
+try {
+    # CLI dependencies include browser preview. Opt in to shell dependencies explicitly.
+    if ($env:AKARI_INSTALL_SHELL -ne '1') {
+        & node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to configure CLI workspaces." }
+    }
+    npm install --no-audit --no-fund
+} finally {
+    Pop-Location
+}
 
 # ═══ PATH 登録 ═══
 $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")

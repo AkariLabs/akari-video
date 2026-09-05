@@ -255,33 +255,20 @@ The following packages need runtime dependencies or tool setup:
 | `packages/export-nle` | the monorepo package `@akari-video/media-bin` | root install only — see below |
 | `apps/shell` | Theia / Electron | the desktop app — see [Windows build guide](./dev/windows-build.md) (Japanese) |
 
-**Everything at once (what the installer runs)** — the repository root declares npm
-workspaces for `packages/*` and `apps/*`, so one install at the root covers them all:
+**Install CLI dependencies together (what the installer runs)** — in the extracted install
+directory, restrict npm workspaces to `packages/*`, then install from the root:
 
 ```sh
 cd %USERPROFILE%\.akari\app
+node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
 npm install
 ```
 
-This also installs the desktop shell (`apps/shell`, Theia + Electron), which builds native
-modules on Windows and needs the prerequisites listed in the
-[Windows build guide](./dev/windows-build.md) (Japanese).
-
-**CLI only** — to skip the desktop shell, install the packages above one by one:
-
-```powershell
-# PowerShell
-foreach ($p in 'render-cut','preview-server','media-bin') {
-  Push-Location "packages\$p"; npm install; Pop-Location
-}
-```
-
-```sh
-# bash
-for p in render-cut preview-server media-bin; do
-  (cd "packages/$p" && npm install)
-done
-```
+The installers and `akari update` install CLI dependencies, including browser preview, and
+exclude the desktop shell (`apps/shell`, Theia + Electron) by default. Set
+`AKARI_INSTALL_SHELL=1` to skip the workspace rewrite. For the desktop app, use the release
+DMG / EXE. Developers building the shell should run `npm install --no-workspaces` inside
+`apps/shell`; see the [Windows build guide](./dev/windows-build.md) (Japanese).
 
 `packages/akari-tools` and `packages/export-nle` depend on other packages of this monorepo
 (`@akari-video/render-cut` / `@akari-video/media-bin`), which are not published to npm — a

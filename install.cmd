@@ -89,7 +89,12 @@ if exist "%INSTALL_DIR%\.git" (
 
 echo.
 echo Installing npm dependencies...
-cd /d "%INSTALL_DIR%"
+cd /d "%INSTALL_DIR%" || exit /b 1
+:: CLI dependencies include browser preview. Opt in to shell dependencies explicitly.
+if not "%AKARI_INSTALL_SHELL%"=="1" (
+    node -e "const fs = require('fs'); const p = 'package.json'; const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); pkg.workspaces = ['packages/*']; fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');"
+    if errorlevel 1 exit /b 1
+)
 call npm install --no-audit --no-fund
 
 :: ─── PATH 登録 ───
