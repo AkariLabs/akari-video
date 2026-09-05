@@ -1,0 +1,253 @@
+{
+  "task": "2026-09-06-preview-tab-toolbar-curation",
+  "generatedAt": "2026-09-05T18:51:27.495381Z",
+  "verify": "L1 (Electron tier 2 + CDP + スタブ拡張)",
+  "note": "Theia 1.73.1 は lumino 化済みのため実 DOM のツールバーは .lm-TabBar-toolbar（契約文の .p-TabBar-toolbar は phosphor 時代の綴り）。プローブは両方を query している。パスはすべてリポ相対。",
+  "stubCommandId": "akari-stub.previewToolbarProbe",
+  "stubToolbarItemId": "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item",
+  "akariOwnToolbarItemId": "akari.project.showChanges.toolbar",
+  "probeScript": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/scripts/run-l1.mjs",
+  "stubPlugin": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/stub-plugin",
+  "labels": {
+    "before": {
+      "status": "PASS",
+      "registrySubclassInstalled": false,
+      "developerModeHidLogs": [],
+      "checks": [
+        {
+          "ok": true,
+          "message": "TabBarToolbarRegistry の rebind が 無い（分岐点ビルド）"
+        },
+        {
+          "ok": true,
+          "message": "スタブ拡張の editor/title 貢献が配備されている"
+        },
+        {
+          "ok": true,
+          "message": "出力プレビューが WebviewWidget として開いている"
+        },
+        {
+          "ok": true,
+          "message": "素材プレビューが WebviewWidget として開いている"
+        },
+        {
+          "ok": true,
+          "message": "開発者モードで Monaco エディタタブが開いている"
+        },
+        {
+          "ok": true,
+          "message": "output-preview: スタブ拡張のツールバー項目が 出る（再現成立）"
+        },
+        {
+          "ok": true,
+          "message": "raw-preview: スタブ拡張のツールバー項目が 出る（再現成立）"
+        },
+        {
+          "ok": true,
+          "message": "Monaco エディタでは BEFORE / AFTER とも スタブ拡張の項目が出る（残す側の保証）"
+        },
+        {
+          "ok": true,
+          "message": "開発者モードの除外ログが 出ない（分岐点ビルド）"
+        }
+      ],
+      "resultsJson": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/results.json",
+      "tabs": {
+        "output-preview": {
+          "widgetId": "plugin-webview:akari-output-preview-bvy8ds",
+          "widgetViewType": "akari.preview",
+          "widgetIdentifierId": "akari-output-preview-bvy8ds",
+          "domToolbarItemIds": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar",
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "stubItems": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-01-output-preview.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-01-output-preview-tabbar.png"
+          }
+        },
+        "raw-preview": {
+          "widgetId": "plugin-webview:akari-preview-1szc6o0",
+          "widgetViewType": "akari.preview",
+          "widgetIdentifierId": "akari-preview-1szc6o0",
+          "domToolbarItemIds": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar",
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "stubItems": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-02-raw-preview.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-02-raw-preview-tabbar.png"
+          }
+        },
+        "monaco-editor": {
+          "widgetId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:5799986301238576",
+          "widgetViewType": null,
+          "widgetIdentifierId": null,
+          "domToolbarItemIds": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar",
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "stubItems": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-03-monaco-editor.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/before/before-03-monaco-editor-tabbar.png"
+          }
+        }
+      }
+    },
+    "after": {
+      "status": "PASS",
+      "registrySubclassInstalled": true,
+      "developerModeHidLogs": [
+        "[info] 2026-09-05T18:39:22.232Z root INFO [akari-shell-strip] hid plugin toolbar items: {\"widgetId\":\"plugin-webview:akari-preview-1szc6o0\",\"itemIds\":[\"akari-stub.previewToolbarProbe-as-tabbar-toolbar-item\"]}",
+        "[info] 2026-09-05T18:39:28.154Z root INFO [akari-shell-strip] hid plugin toolbar items: {\"widgetId\":\"plugin-webview:akari-output-preview-bvy8ds\",\"itemIds\":[\"akari-stub.previewToolbarProbe-as-tabbar-toolbar-item\"]}"
+      ],
+      "checks": [
+        {
+          "ok": true,
+          "message": "TabBarToolbarRegistry の rebind が 効いている"
+        },
+        {
+          "ok": true,
+          "message": "スタブ拡張の editor/title 貢献が配備されている"
+        },
+        {
+          "ok": true,
+          "message": "出力プレビューが WebviewWidget として開いている"
+        },
+        {
+          "ok": true,
+          "message": "素材プレビューが WebviewWidget として開いている"
+        },
+        {
+          "ok": true,
+          "message": "開発者モードで Monaco エディタタブが開いている"
+        },
+        {
+          "ok": true,
+          "message": "output-preview: スタブ拡張のツールバー項目が 出ない（0 件）"
+        },
+        {
+          "ok": true,
+          "message": "raw-preview: スタブ拡張のツールバー項目が 出ない（0 件）"
+        },
+        {
+          "ok": true,
+          "message": "Monaco エディタでは BEFORE / AFTER とも スタブ拡張の項目が出る（残す側の保証）"
+        },
+        {
+          "ok": true,
+          "message": "開発者モードの除外ログが 出る"
+        }
+      ],
+      "resultsJson": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/results.json",
+      "tabs": {
+        "output-preview": {
+          "widgetId": "plugin-webview:akari-output-preview-bvy8ds",
+          "widgetViewType": "akari.preview",
+          "widgetIdentifierId": "akari-output-preview-bvy8ds",
+          "domToolbarItemIds": [],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar"
+          ],
+          "stubItems": [],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-01-output-preview.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-01-output-preview-tabbar.png"
+          }
+        },
+        "raw-preview": {
+          "widgetId": "plugin-webview:akari-preview-1szc6o0",
+          "widgetViewType": "akari.preview",
+          "widgetIdentifierId": "akari-preview-1szc6o0",
+          "domToolbarItemIds": [],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar"
+          ],
+          "stubItems": [],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-02-raw-preview.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-02-raw-preview-tabbar.png"
+          }
+        },
+        "monaco-editor": {
+          "widgetId": "code-editor-opener:file:///tmp/akari-l1-preview-tab/project/MEDIA.md:1370362612619891",
+          "widgetViewType": null,
+          "widgetIdentifierId": null,
+          "domToolbarItemIds": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "registryVisibleItemIds": [
+            "akari.project.showChanges.toolbar",
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "stubItems": [
+            "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+          ],
+          "screenshots": {
+            "full": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-03-monaco-editor.png",
+            "tabbar": "apps/shell/extensions/akari-shell-strip/evidence/preview-tab-toolbar-curation-v1/after/after-03-monaco-editor-tabbar.png"
+          }
+        }
+      }
+    }
+  },
+  "comparison": {
+    "output-preview": {
+      "before_domToolbarItemIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "after_domToolbarItemIds": [],
+      "before_stubItemCount": 1,
+      "after_stubItemCount": 0,
+      "akariOwnItemPresent_before": true,
+      "akariOwnItemPresent_after": true
+    },
+    "raw-preview": {
+      "before_domToolbarItemIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "after_domToolbarItemIds": [],
+      "before_stubItemCount": 1,
+      "after_stubItemCount": 0,
+      "akariOwnItemPresent_before": true,
+      "akariOwnItemPresent_after": true
+    },
+    "monaco-editor": {
+      "before_domToolbarItemIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "after_domToolbarItemIds": [
+        "akari-stub.previewToolbarProbe-as-tabbar-toolbar-item"
+      ],
+      "before_stubItemCount": 1,
+      "after_stubItemCount": 1,
+      "akariOwnItemPresent_before": true,
+      "akariOwnItemPresent_after": true
+    }
+  },
+  "verdict": {
+    "reproduced_before": true,
+    "hidden_after_on_previews": true,
+    "kept_on_monaco": true,
+    "akari_own_item_unchanged": true
+  },
+  "status": "PASS"
+}

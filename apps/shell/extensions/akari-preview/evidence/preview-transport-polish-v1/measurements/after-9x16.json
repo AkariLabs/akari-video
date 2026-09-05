@@ -1,0 +1,978 @@
+{
+  "label": "after",
+  "fixture": "9x16",
+  "window": {
+    "width": 1440,
+    "height": 900
+  },
+  "windowActual": {
+    "w": 1440,
+    "h": 900,
+    "dpr": 1
+  },
+  "iframeOffset": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 717,
+    "h": 835
+  },
+  "geometry": {
+    "panePadding": {
+      "top": 8,
+      "right": 8,
+      "bottom": 8,
+      "left": 8
+    },
+    "paneBorder": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "paneRect": {
+      "left": 20,
+      "top": 0,
+      "right": 697,
+      "bottom": 779,
+      "width": 677,
+      "height": 779
+    },
+    "paneContent": {
+      "left": 28,
+      "top": 8,
+      "right": 689,
+      "bottom": 771,
+      "width": 661,
+      "height": 763
+    },
+    "panePaddingBox": {
+      "left": 20,
+      "top": 0,
+      "right": 697,
+      "bottom": 779,
+      "width": 677,
+      "height": 779
+    },
+    "paneClient": {
+      "width": 677,
+      "height": 779
+    },
+    "wrapperRect": {
+      "left": 28,
+      "top": 8,
+      "right": 689,
+      "bottom": 771,
+      "width": 661,
+      "height": 763
+    },
+    "zoomLayerRect": {
+      "left": 28,
+      "top": 8,
+      "right": 689,
+      "bottom": 771,
+      "width": 661,
+      "height": 763
+    },
+    "stageRect": {
+      "left": 143.90625,
+      "top": 8,
+      "right": 573.09375,
+      "bottom": 771,
+      "width": 429.1875,
+      "height": 763
+    },
+    "stageOffset": {
+      "width": 429,
+      "height": 763
+    },
+    "surfaceId": "frame-engine-canvas",
+    "surfaceRect": {
+      "left": 143.90625,
+      "top": 8,
+      "right": 573.09375,
+      "bottom": 771,
+      "width": 429.1875,
+      "height": 763
+    },
+    "frameEngineActive": true,
+    "summaryOutput": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30
+    },
+    "declaredIndicators": []
+  },
+  "fit": {
+    "constrainedAxis": "height",
+    "stageTopMinusContentTop": 0,
+    "stageBottomMinusContentBottom": 0,
+    "stageLeftMinusContentLeft": 115.90625,
+    "stageRightMinusContentRight": -115.90625,
+    "surfaceMinusStage": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0
+    },
+    "constrainedTouchesWithin1px": true,
+    "surfaceMatchesStageWithin1px": true
+  },
+  "transport": {
+    "transportRect": {
+      "left": 20,
+      "top": 779,
+      "right": 697,
+      "bottom": 835,
+      "width": 677,
+      "height": 56
+    },
+    "transportHeight": 56,
+    "transportPadding": "0px 10px 6px",
+    "transportGap": "0px",
+    "transportBorderTop": "0px none rgb(255, 255, 255)",
+    "transportBackground": "rgb(18, 18, 18)",
+    "seekRowRect": {
+      "left": 30,
+      "top": 779,
+      "right": 687,
+      "bottom": 789,
+      "width": 657,
+      "height": 10
+    },
+    "seekRect": {
+      "left": 30,
+      "top": 773,
+      "right": 687,
+      "bottom": 789,
+      "width": 657,
+      "height": 16
+    },
+    "seekHeight": 16,
+    "seekAppearance": "none",
+    "controlsRect": {
+      "left": 30,
+      "top": 789,
+      "right": 687,
+      "bottom": 829,
+      "width": 657,
+      "height": 40
+    },
+    "controlsHeight": 40,
+    "waveformHidden": true,
+    "waveformRect": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "stageBottom": 771,
+    "paneBottom": 779
+  },
+  "seekTrack": {
+    "inputTop": 773,
+    "inputHeight": 16,
+    "authoredTrackHeight": 4,
+    "trackHeight": 4,
+    "trackBackground": "rgba(0, 0, 0, 0)",
+    "trackBorderRadius": "0px",
+    "thumb": {
+      "width": "657px",
+      "height": "16px",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "appearance": "none"
+    },
+    "trackTop": 779
+  },
+  "gap": {
+    "stageBottomToSeekInputTop": 2,
+    "stageBottomToSeekTrackTop": 8,
+    "stageBottomToSeekRowTop": 8,
+    "stageBottomToTransportTop": 8,
+    "paneBottomToTransportTop": 0
+  },
+  "screenshots": {
+    "02-transport-9x16": "after-02-transport-9x16.png",
+    "02-transport-9x16-crop2x": "after-02-transport-9x16-crop2x.png",
+    "04-seek-grabbed-9x16": "after-04-seek-grabbed-9x16.png",
+    "04-seek-grabbed-9x16-crop2x": "after-04-seek-grabbed-9x16-crop2x.png",
+    "03-zoom-200-minimap-9x16": "after-03-zoom-200-minimap-9x16.png"
+  },
+  "transportCropClip": {
+    "x": 241.9140625,
+    "y": 810,
+    "width": 677,
+    "height": 68,
+    "scale": 2
+  },
+  "seekGrabbedStyles": {
+    "isActiveElement": true,
+    "matchesFocus": true,
+    "matchesFocusVisible": false,
+    "appearance": "none",
+    "outlineStyle": "none",
+    "outlineWidth": "0px",
+    "outlineColor": "rgb(255, 255, 255)",
+    "boxShadow": "none",
+    "height": "16px"
+  },
+  "styles": {
+    "pressed": {
+      "pressedAttr": "true",
+      "pressedBorderStyle": "none",
+      "pressedBoxShadow": "none",
+      "pressedBackground": "rgba(77, 163, 255, 0.22)",
+      "pressedColor": "rgb(77, 163, 255)",
+      "waveformHidden": false,
+      "waveformRect": {
+        "left": 30,
+        "top": 741,
+        "right": 687,
+        "bottom": 789,
+        "width": 657,
+        "height": 48
+      },
+      "waveformBackground": "rgb(18, 18, 18)",
+      "transportHeightWithWaveform": 104
+    },
+    "pressedNoHover": {
+      "pressedAttr": "true",
+      "hovered": false,
+      "backgroundColor": "rgba(77, 163, 255, 0.22)",
+      "color": "rgb(77, 163, 255)",
+      "boxShadow": "none",
+      "borderTopStyle": "none"
+    },
+    "tokens": {
+      "accent": "#4da3ff",
+      "transportBg": "#121212",
+      "transportFg": "#fff",
+      "seekTrack": "#383838",
+      "pasteboard": "#2b2d30"
+    },
+    "bodyClass": "vscode-dark",
+    "transportBackground": "rgb(18, 18, 18)",
+    "transportBorderTop": "0px none",
+    "transportPadding": "0px 10px 6px",
+    "transportGap": "0px",
+    "seek": {
+      "appearance": "none",
+      "outlineStyle": "none",
+      "boxShadow": "none",
+      "height": "16px",
+      "seekProgress": "50%"
+    },
+    "timeLabel": {
+      "fontSize": "12px",
+      "color": "rgba(255, 255, 255, 0.72)",
+      "fontVariantNumeric": "tabular-nums"
+    },
+    "playToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "6px"
+    },
+    "waveformToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(255, 255, 255, 0.08)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomToggle": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomPreset": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "28px",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "ratePreset": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "auto",
+      "height": "28px",
+      "borderRadius": "6px"
+    },
+    "zoomPopup": {
+      "borderTopStyle": "none",
+      "borderTopWidth": "0px",
+      "backgroundColor": "rgb(18, 18, 18)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "224px",
+      "height": "auto",
+      "borderRadius": "6px"
+    }
+  },
+  "minimap": [
+    {
+      "zoom": 1.5,
+      "pan": "center",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0,
+        "top": 0.15966796875,
+        "width": 1,
+        "height": 0.6805419921875
+      },
+      "expectedPaddingBox": {
+        "left": 0,
+        "top": 0.1596855712699291,
+        "width": 1,
+        "height": 0.6806288574601418
+      },
+      "expectedContentBox": {
+        "left": 0,
+        "top": 0.1666753413080307,
+        "width": 1,
+        "height": 0.6666493173839386
+      },
+      "deltaPctVsPaddingBox": {
+        "left": 0,
+        "top": -0.001760251992910522,
+        "width": 0,
+        "height": -0.008686527264178956
+      },
+      "deltaPctVsContentBox": {
+        "left": 0,
+        "top": -0.7007372558030689,
+        "width": 0,
+        "height": 1.3892674803561378
+      },
+      "worstDeltaPctVsPaddingBox": 0.008686527264178956,
+      "worstDeltaPctVsContentBox": 1.3892674803561378,
+      "zoomLayerTransform": "matrix(1.50004, 0, 0, 1.50004, 0, 0)"
+    },
+    {
+      "zoom": 1.5,
+      "pan": "top-left",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0,
+        "top": 0,
+        "width": 1,
+        "height": 0.6805419921875
+      },
+      "expectedPaddingBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1,
+        "height": 0.6806287508047152
+      },
+      "expectedContentBox": {
+        "left": 0,
+        "top": 0.006989663382674978,
+        "width": 1,
+        "height": 0.6666493173839386
+      },
+      "deltaPctVsPaddingBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": -0.008675861721518796
+      },
+      "deltaPctVsContentBox": {
+        "left": 0,
+        "top": -0.6989663382674978,
+        "width": 0,
+        "height": 1.3892674803561378
+      },
+      "worstDeltaPctVsPaddingBox": 0.008675861721518796,
+      "worstDeltaPctVsContentBox": 1.3892674803561378,
+      "zoomLayerTransform": "matrix(1.50004, 0, 0, 1.50004, 0, 182.765)"
+    },
+    {
+      "zoom": 1.5,
+      "pan": "bottom-right",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0,
+        "top": 0.3193359375,
+        "width": 1,
+        "height": 0.6805419921875
+      },
+      "expectedPaddingBox": {
+        "left": 0,
+        "top": 0.3193712491952848,
+        "width": 1,
+        "height": 0.6806287508047152
+      },
+      "expectedContentBox": {
+        "left": 0,
+        "top": 0.3263610192333864,
+        "width": 1,
+        "height": 0.6666493173839386
+      },
+      "deltaPctVsPaddingBox": {
+        "left": 0,
+        "top": -0.003531169528481204,
+        "width": 0,
+        "height": -0.008675861721518796
+      },
+      "deltaPctVsContentBox": {
+        "left": 0,
+        "top": -0.7025081733386396,
+        "width": 0,
+        "height": 1.3892674803561378
+      },
+      "worstDeltaPctVsPaddingBox": 0.008675861721518796,
+      "worstDeltaPctVsContentBox": 1.3892674803561378,
+      "zoomLayerTransform": "matrix(1.50004, 0, 0, 1.50004, 0, -182.765)"
+    },
+    {
+      "zoom": 2,
+      "pan": "center",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.10546875,
+        "top": 0.2447509765625,
+        "width": 0.7886284722222222,
+        "height": 0.5103759765625
+      },
+      "expectedPaddingBox": {
+        "left": 0.1056502111547983,
+        "top": 0.2447575360419397,
+        "width": 0.7886995776904033,
+        "height": 0.5104849279161205
+      },
+      "expectedContentBox": {
+        "left": 0.11497014708023882,
+        "top": 0.25,
+        "width": 0.7700597058395223,
+        "height": 0.5
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.018146115479830693,
+        "top": -0.0006559479439699478,
+        "width": -0.0071105468181120735,
+        "height": -0.010895135362054553
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.9501397080238825,
+        "top": -0.52490234375,
+        "width": 1.8568766382699886,
+        "height": 1.03759765625
+      },
+      "worstDeltaPctVsPaddingBox": 0.018146115479830693,
+      "worstDeltaPctVsContentBox": 1.8568766382699886,
+      "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)"
+    },
+    {
+      "zoom": 2,
+      "pan": "top-left",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.00021701388888888888,
+        "top": 0,
+        "width": 0.7886284722222222,
+        "height": 0.5103759765625
+      },
+      "expectedPaddingBox": {
+        "left": 0.00021843599825251202,
+        "top": 0,
+        "width": 0.7886995776904033,
+        "height": 0.5104849279161205
+      },
+      "expectedContentBox": {
+        "left": 0.009538371923693025,
+        "top": 0.005242463958060288,
+        "width": 0.7700597058395223,
+        "height": 0.5
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.0001422109363623139,
+        "top": 0,
+        "width": -0.0071105468181120735,
+        "height": -0.010895135362054553
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.9321358034804137,
+        "top": -0.5242463958060288,
+        "width": 1.8568766382699886,
+        "height": 1.03759765625
+      },
+      "worstDeltaPctVsPaddingBox": 0.010895135362054553,
+      "worstDeltaPctVsContentBox": 1.8568766382699886,
+      "zoomLayerTransform": "matrix(2, 0, 0, 2, 90.5, 373.5)"
+    },
+    {
+      "zoom": 2,
+      "pan": "bottom-right",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.2109375,
+        "top": 0.489501953125,
+        "width": 0.7886284722222222,
+        "height": 0.5103759765625
+      },
+      "expectedPaddingBox": {
+        "left": 0.21108198631134412,
+        "top": 0.4895150720838794,
+        "width": 0.7886995776904033,
+        "height": 0.5104849279161205
+      },
+      "expectedContentBox": {
+        "left": 0.22040192223678462,
+        "top": 0.4947575360419397,
+        "width": 0.7700597058395223,
+        "height": 0.5
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.014448631134411638,
+        "top": -0.0013118958879398956,
+        "width": -0.0071105468181120735,
+        "height": -0.010895135362054553
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.946442223678462,
+        "top": -0.5255582916939727,
+        "width": 1.8568766382699886,
+        "height": 1.03759765625
+      },
+      "worstDeltaPctVsPaddingBox": 0.014448631134411638,
+      "worstDeltaPctVsContentBox": 1.8568766382699886,
+      "zoomLayerTransform": "matrix(2, 0, 0, 2, -90.5, -373.5)"
+    },
+    {
+      "zoom": 4,
+      "pan": "center",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.302734375,
+        "top": 0.372314453125,
+        "width": 0.3943142361111111,
+        "height": 0.255126953125
+      },
+      "expectedPaddingBox": {
+        "left": 0.30282510557739917,
+        "top": 0.37237876802096986,
+        "width": 0.39434978884520167,
+        "height": 0.2552424639580603
+      },
+      "expectedContentBox": {
+        "left": 0.3074850735401194,
+        "top": 0.375,
+        "width": 0.38502985291976116,
+        "height": 0.25
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.009073057739916734,
+        "top": -0.006431489596986362,
+        "width": -0.0035552734090560367,
+        "height": -0.011551083306027277
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.47506985401193913,
+        "top": -0.2685546875,
+        "width": 0.9284383191349943,
+        "height": 0.5126953125
+      },
+      "worstDeltaPctVsPaddingBox": 0.011551083306027277,
+      "worstDeltaPctVsContentBox": 0.9284383191349943,
+      "zoomLayerTransform": "matrix(4, 0, 0, 4, 0, 0)"
+    },
+    {
+      "zoom": 4,
+      "pan": "top-left",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.00021701388888888888,
+        "top": 0,
+        "width": 0.3943142361111111,
+        "height": 0.255126953125
+      },
+      "expectedPaddingBox": {
+        "left": 0.00021843599825251202,
+        "top": 0,
+        "width": 0.39434978884520167,
+        "height": 0.2552424639580603
+      },
+      "expectedContentBox": {
+        "left": 0.004878403960972768,
+        "top": 0.002621231979030144,
+        "width": 0.38502985291976116,
+        "height": 0.25
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.0001422109363623139,
+        "top": 0,
+        "width": -0.0035552734090560367,
+        "height": -0.011551083306027277
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.4661390072083879,
+        "top": -0.2621231979030144,
+        "width": 0.9284383191349943,
+        "height": 0.5126953125
+      },
+      "worstDeltaPctVsPaddingBox": 0.011551083306027277,
+      "worstDeltaPctVsContentBox": 0.9284383191349943,
+      "zoomLayerTransform": "matrix(4, 0, 0, 4, 519.5, 1136.5)"
+    },
+    {
+      "zoom": 4,
+      "pan": "bottom-right",
+      "outputAspect": 0.5625,
+      "hidden": false,
+      "minimapBox": {
+        "width": 36,
+        "height": 64
+      },
+      "minimapBoxAspect": 0.5625,
+      "boxAspectErrorPct": 0,
+      "actualViewport": {
+        "left": 0.6052517361111112,
+        "top": 0.7447509765625,
+        "width": 0.3943142361111111,
+        "height": 0.255126953125
+      },
+      "expectedPaddingBox": {
+        "left": 0.6054317751565458,
+        "top": 0.7447575360419397,
+        "width": 0.39434978884520167,
+        "height": 0.2552424639580603
+      },
+      "expectedContentBox": {
+        "left": 0.6100917431192661,
+        "top": 0.7473787680209698,
+        "width": 0.38502985291976116,
+        "height": 0.25
+      },
+      "deltaPctVsPaddingBox": {
+        "left": -0.018003904543462124,
+        "top": -0.0006559479439727234,
+        "width": -0.0035552734090560367,
+        "height": -0.011551083306027277
+      },
+      "deltaPctVsContentBox": {
+        "left": -0.48400070081549007,
+        "top": -0.2627791458469808,
+        "width": 0.9284383191349943,
+        "height": 0.5126953125
+      },
+      "worstDeltaPctVsPaddingBox": 0.018003904543462124,
+      "worstDeltaPctVsContentBox": 0.9284383191349943,
+      "zoomLayerTransform": "matrix(4, 0, 0, 4, -519.5, -1136.5)"
+    }
+  ],
+  "minimapHiddenAt100": true,
+  "indicator": {
+    "before": {
+      "exists": true,
+      "hidden": false,
+      "visible": true,
+      "rect": {
+        "left": 608.765625,
+        "top": 16,
+        "right": 681,
+        "bottom": 40,
+        "width": 72.234375,
+        "height": 24
+      },
+      "parentId": "preview-wrapper",
+      "text": "ⓘ 未対応 1",
+      "ariaLabel": "プレビュー未対応の項目",
+      "ariaExpanded": "false",
+      "popupHidden": true,
+      "popupParentId": "preview-wrapper",
+      "wrapperRect": {
+        "left": 28,
+        "top": 8,
+        "right": 689,
+        "bottom": 771,
+        "width": 661,
+        "height": 763
+      },
+      "stageRect": {
+        "left": 143.90625,
+        "top": 8,
+        "right": 573.09375,
+        "bottom": 771,
+        "width": 429.1875,
+        "height": 763
+      }
+    },
+    "afterHover": {
+      "popupHidden": false,
+      "popupVisible": true,
+      "popupText": "プレビュー未対応: プレビューは近似・最終音声は書き出しで確認",
+      "ariaExpanded": "true"
+    },
+    "afterClick": {
+      "popupHidden": true,
+      "popupVisible": false,
+      "popupRect": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "popupText": "プレビュー未対応: プレビューは近似・最終音声は書き出しで確認",
+      "ariaExpanded": "false"
+    }
+  },
+  "log": [
+    {
+      "t": "2026-09-05T23:11:22.086Z",
+      "step": "window",
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    {
+      "t": "2026-09-05T23:11:28.158Z",
+      "step": "opened-attempt",
+      "leaf": "edit.json",
+      "attempt": 0,
+      "card": {
+        "found": true,
+        "text": "編集データ2026-09-06 05:18 · edit.json",
+        "x": 122.95703125,
+        "y": 569.75,
+        "w": 129.9140625,
+        "h": 74.5
+      },
+      "tab": true
+    },
+    {
+      "t": "2026-09-05T23:11:28.162Z",
+      "step": "opened",
+      "leaf": "edit.json",
+      "card": {
+        "found": true,
+        "text": "編集データ2026-09-06 05:18 · edit.json",
+        "x": 122.95703125,
+        "y": 569.75,
+        "w": 129.9140625,
+        "h": 74.5
+      }
+    },
+    {
+      "t": "2026-09-05T23:11:32.876Z",
+      "step": "fit",
+      "constrainedAxis": "height",
+      "stageTopMinusContentTop": 0,
+      "stageBottomMinusContentBottom": 0,
+      "stageLeftMinusContentLeft": 115.90625,
+      "stageRightMinusContentRight": -115.90625,
+      "surfaceMinusStage": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "constrainedTouchesWithin1px": true,
+      "surfaceMatchesStageWithin1px": true
+    },
+    {
+      "t": "2026-09-05T23:11:32.882Z",
+      "step": "transport",
+      "height": 56,
+      "gap": {
+        "stageBottomToSeekInputTop": 2,
+        "stageBottomToSeekTrackTop": 8,
+        "stageBottomToSeekRowTop": 8,
+        "stageBottomToTransportTop": 8,
+        "paneBottomToTransportTop": 0
+      }
+    },
+    {
+      "t": "2026-09-05T23:11:33.864Z",
+      "step": "seek-grabbed",
+      "isActiveElement": true,
+      "matchesFocus": true,
+      "matchesFocusVisible": false,
+      "appearance": "none",
+      "outlineStyle": "none",
+      "outlineWidth": "0px",
+      "outlineColor": "rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "height": "16px"
+    },
+    {
+      "t": "2026-09-05T23:11:36.545Z",
+      "step": "styles",
+      "transportBackground": "rgb(18, 18, 18)",
+      "tokens": {
+        "accent": "#4da3ff",
+        "transportBg": "#121212",
+        "transportFg": "#fff",
+        "seekTrack": "#383838",
+        "pasteboard": "#2b2d30"
+      }
+    },
+    {
+      "t": "2026-09-05T23:11:37.612Z",
+      "step": "minimap-sample",
+      "zoom": 1.5,
+      "pan": "center",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.008686527264178956,
+      "worstCon": 1.3892674803561378
+    },
+    {
+      "t": "2026-09-05T23:11:39.058Z",
+      "step": "minimap-sample",
+      "zoom": 1.5,
+      "pan": "top-left",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.008675861721518796,
+      "worstCon": 1.3892674803561378
+    },
+    {
+      "t": "2026-09-05T23:11:40.483Z",
+      "step": "minimap-sample",
+      "zoom": 1.5,
+      "pan": "bottom-right",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.008675861721518796,
+      "worstCon": 1.3892674803561378
+    },
+    {
+      "t": "2026-09-05T23:11:41.563Z",
+      "step": "minimap-sample",
+      "zoom": 2,
+      "pan": "center",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.018146115479830693,
+      "worstCon": 1.8568766382699886
+    },
+    {
+      "t": "2026-09-05T23:11:43.147Z",
+      "step": "minimap-sample",
+      "zoom": 2,
+      "pan": "top-left",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.010895135362054553,
+      "worstCon": 1.8568766382699886
+    },
+    {
+      "t": "2026-09-05T23:11:44.582Z",
+      "step": "minimap-sample",
+      "zoom": 2,
+      "pan": "bottom-right",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.014448631134411638,
+      "worstCon": 1.8568766382699886
+    },
+    {
+      "t": "2026-09-05T23:11:45.640Z",
+      "step": "minimap-sample",
+      "zoom": 4,
+      "pan": "center",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.011551083306027277,
+      "worstCon": 0.9284383191349943
+    },
+    {
+      "t": "2026-09-05T23:11:47.065Z",
+      "step": "minimap-sample",
+      "zoom": 4,
+      "pan": "top-left",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.011551083306027277,
+      "worstCon": 0.9284383191349943
+    },
+    {
+      "t": "2026-09-05T23:11:48.497Z",
+      "step": "minimap-sample",
+      "zoom": 4,
+      "pan": "bottom-right",
+      "boxAspectErrorPct": 0,
+      "worstPad": 0.018003904543462124,
+      "worstCon": 0.9284383191349943
+    },
+    {
+      "t": "2026-09-05T23:11:49.948Z",
+      "step": "indicator",
+      "hidden": false,
+      "visible": true,
+      "text": "ⓘ 未対応 1"
+    }
+  ]
+}

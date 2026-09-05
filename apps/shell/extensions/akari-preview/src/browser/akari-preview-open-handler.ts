@@ -1,4 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
+import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
+import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
@@ -108,6 +110,7 @@ import {
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
+import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
@@ -1917,6 +1920,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 新規作成時（プレビューがまだ無い状態からの open）だけ activate し、既存 widget への
     // 再 open は revealWidget に留める。options.mode（Theia の WidgetOpenMode 相当）の明示指定が
     // あれば常にそれを優先する（resolveOutputOpenFocusMode 参照）。
+    protected audioMeterDismissedThisSession = false;
+    protected readonly observedAudioMeters = new WeakSet<AkariAudioMeterWidget>();
+
+    protected async attachAudioMeterPassively(): Promise<void> {
+        if (this.audioMeterDismissedThisSession) return;
+        const meter = await this.widgetManager.getOrCreateWidget<AkariAudioMeterWidget>(
+            AkariAudioMeterWidget.FACTORY_ID
+        );
+        if (this.audioMeterDismissedThisSession || meter.isDisposed) return;
+        if (!this.observedAudioMeters.has(meter)) {
+            this.observedAudioMeters.add(meter);
+            meter.onDidDispose(() => { this.audioMeterDismissedThisSession = true; });
+        }
+        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
+    }
+
     async openOutput(uri: URI, options?: any): Promise<WebviewWidget> {
         const editUri = uri.normalizePath();
         try {
@@ -1934,6 +1953,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } else if (mode === 'reveal') {
                 this.shell.revealWidget(widget.id);
             }
+            await this.attachAudioMeterPassively().catch(error =>
+                console.warn('[akari-preview] failed to auto-attach audio meter', error));
             return widget;
         } catch (error) {
             this.reportOpenFailure(editUri, error);
@@ -2266,7 +2287,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
+        let lastAudioMeterFrame: AudioMeterFrame | undefined;
+        widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
+            type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
+            playing: false, channels: lastAudioMeterFrame?.channels ?? 2,
+            engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
+        }));
         disposables.push(widget.onMessage(message => {
+            if (isAudioMeterFrame(message)) {
+                lastAudioMeterFrame = message;
+                this.forwardAudioMeterFrame(widget, message);
+            }
             if (message && message.type === 'akari-preview-audio-priority') {
                 void this.handlePreviewAudioPriority(widget, message.time);
             }
@@ -2471,6 +2502,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && Number.isFinite(message.rate)
             && message.rate >= 0.5
             && message.rate <= 3;
+    }
+
+    protected forwardAudioMeterFrame(widget: PreviewWidgetMarker, frame: AudioMeterFrame): void {
+        const editUri = widget.akariPreviewEditUri;
+        const videoUri = (editUri ?? widget.akariPreviewVideoUri)?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent('akari.preview.audioMeter', {
+            detail: {
+                videoUri, kind: editUri ? 'output' : 'raw',
+                type: frame.type, peak: [...frame.peak], rms: [...frame.rms], clip: frame.clip,
+                playing: frame.playing, channels: frame.channels, engine: frame.engine, t: frame.t
+            }
+        }));
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
@@ -5672,6 +5715,17 @@ ${captionFontFaceCss(assets.captionFontUrl)}
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
   --akari-preview-pasteboard: #2b2d30;
+  --akari-accent: #4da3ff;
+  --akari-transport-bg: #121212;
+  --akari-transport-fg: #fff;
+  --akari-seek-track: #383838;
+  --akari-control-hover: rgba(255,255,255,0.08);
+  --akari-control-active: rgba(255,255,255,0.14);
+  --akari-control-pressed: rgba(77,163,255,0.22);
+  --akari-time-fg: rgba(255,255,255,0.72);
+  --akari-seek-thumb: #fff;
+  --akari-badge-bg: rgba(20,20,20,0.78);
+  --akari-badge-fg: #f1f1f1;
 }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
@@ -5679,10 +5733,21 @@ body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-light {
   color-scheme: light;
   --akari-preview-pasteboard: #d5d7da;
+  --akari-accent: #4da3ff;
+  --akari-transport-bg: #f2f2f2;
+  --akari-transport-fg: #242424;
+  --akari-seek-track: #c4c4c4;
+  --akari-control-hover: rgba(0,0,0,0.08);
+  --akari-control-active: rgba(0,0,0,0.14);
+  --akari-control-pressed: rgba(77,163,255,0.22);
+  --akari-time-fg: rgba(0,0,0,0.72);
+  --akari-seek-thumb: #fff;
+  --akari-badge-bg: rgba(20,20,20,0.78);
+  --akari-badge-fg: #f1f1f1;
 }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 16px; overflow: hidden; background: var(--akari-preview-pasteboard); }
+.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 8px; overflow: hidden; background: var(--akari-preview-pasteboard); }
 /* ペインがズーム/パンの唯一のビューポート。wrapper は UI の固定基準、zoom-layer は
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
@@ -5824,7 +5889,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
-#zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; border: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
+#zoom-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 3; overflow: hidden; outline: 1px solid rgba(255,255,255,0.25); border-radius: 2px; background: rgba(0,0,0,0.55); pointer-events: none; }
 #zoom-minimap[hidden] { display: none; }
 #zoom-minimap-viewport { position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.55); }
 .message-card { position: absolute; inset: 0; z-index: 10; display: grid; gap: 16px; place-items: center; padding: 32px; background: #111; }
@@ -5856,42 +5921,59 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .write-error-banner[hidden] { display: none; }
 .write-error-banner span { flex: 1; overflow-wrap: anywhere; }
 .write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
-.transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
-.transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
+.transport { display: grid; gap: 0; padding: 0 10px 6px; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
+.transport-waveform { position: relative; width: 100%; height: 48px; overflow: hidden; background: var(--akari-transport-bg); cursor: pointer; touch-action: none; }
 .transport-waveform[hidden] { display: none; }
 #waveform-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: rgba(255, 255, 255, 0.9); pointer-events: none; }
-.transport-seek { display: flex; width: 100%; }
-.transport-seek input { width: 100%; }
-.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; }
-.transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 8px; }
+.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--akari-transport-fg); pointer-events: none; }
+.transport-seek { display: flex; width: 100%; margin: 0; order: -1; }
+.transport-seek #seek { width: 100%; margin-top: -6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]) { appearance: none; -webkit-appearance: none; height: 16px; min-width: 0; margin: 0; padding: 0; border: none; background: transparent; outline: none; box-shadow: none; cursor: pointer; --seek-progress: 0%; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus { outline: none; box-shadow: none; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; border-radius: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--akari-accent) var(--seek-progress), var(--akari-seek-track) 0); }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-runnable-track { height: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid transparent; border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; border-color: var(--akari-accent); }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { border-color: var(--akari-accent); transform: scale(1.15); }
+.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; height: 40px; gap: 6px; }
+.transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 6px; }
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
-.icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; cursor: pointer; }
+.icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); box-shadow: none; cursor: pointer; }
 .icon-button[hidden] { display: none; }
-.icon-button[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.48); }
-.icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.45; cursor: default; }
-.icon-button svg { width: 18px; height: 18px; fill: currentColor; stroke: currentColor; }
+.icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.4; cursor: default; }
+.icon-button svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; }
+#play-toggle { width: 32px; height: 32px; }
 .rate-button { width: auto; min-width: 36px; padding: 0 6px; font-variant-numeric: tabular-nums; }
-#time-label { min-width: 104px; color: #d0d0d0; font-variant-numeric: tabular-nums; text-align: left; }
-.zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: 1px solid #505050; border-radius: 6px; padding: 10px; background: #202020; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+#time-label { min-width: 104px; color: var(--akari-time-fg); font-size: 12px; font-variant-numeric: tabular-nums; text-align: left; }
+.zoom-popup { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 20; width: 224px; border: none; border-radius: 6px; padding: 10px; background: var(--akari-transport-bg); color: var(--akari-transport-fg); box-shadow: none; }
 .zoom-popup[hidden] { display: none; }
-.zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #d8d8d8; font-size: 12px; }
-#zoom-value { color: #fff; font-variant-numeric: tabular-nums; }
-#rate-value { color: #fff; font-variant-numeric: tabular-nums; }
+.zoom-popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: var(--akari-time-fg); font-size: 12px; }
+#zoom-value { color: var(--akari-transport-fg); font-variant-numeric: tabular-nums; }
+#rate-value { color: var(--akari-transport-fg); font-variant-numeric: tabular-nums; }
 #zoom-slider { width: 100%; }
-.zoom-presets { display: grid; grid-template-columns: repeat(4, 32px); justify-content: space-between; gap: 5px; margin-top: 8px; }
-.zoom-preset { width: 32px; height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0; background: #303030; color: #fff; font-size: 10px; cursor: pointer; }
+.zoom-presets { display: grid; grid-template-columns: repeat(4, 28px); justify-content: space-between; gap: 5px; margin-top: 8px; }
+.zoom-preset { width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); font-size: 10px; box-shadow: none; cursor: pointer; }
 .rate-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.rate-preset { height: 32px; border: 1px solid #505050; border-radius: 4px; padding: 0 4px; background: #303030; color: #fff; font-size: 11px; cursor: pointer; }
-.rate-preset[aria-pressed="true"] { border-color: #f2f4fa; background: #555b67; box-shadow: 0 0 8px rgba(236,242,255,0.35); }
+.rate-preset { height: 28px; border: none; border-radius: 6px; padding: 0 4px; background: transparent; color: var(--akari-transport-fg); font-size: 11px; box-shadow: none; cursor: pointer; }
+:is(.icon-button, .zoom-preset, .rate-preset):hover:not(:disabled) { background: var(--akari-control-hover); }
+:is(.icon-button, .zoom-preset, .rate-preset)[aria-pressed="true"]:not(:disabled) { background: var(--akari-control-pressed); color: var(--akari-accent); box-shadow: none; }
+:is(.icon-button, .zoom-preset, .rate-preset):active:not(:disabled) { background: var(--akari-control-active); }
+:is(.icon-button, .zoom-preset, .rate-preset):focus { outline: none; box-shadow: none; }
+:is(.icon-button, .zoom-preset, .rate-preset):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; }
+#indicator-toggle { display: inline-flex; align-items: center; position: absolute; top: 8px; right: 8px; z-index: 20; width: auto; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--akari-badge-bg); color: var(--akari-badge-fg); font-size: 11px; white-space: nowrap; }
+#indicator-toggle[hidden] { display: none; }
+#indicator-popup { top: 36px; right: 8px; bottom: auto; max-width: calc(100% - 16px); font-size: 11px; line-height: 1.5; }
 </style>
 </head>
 <body>
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
+      <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
+      <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
@@ -5968,8 +6050,6 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <div class="transport-controls">
     <div class="transport-left">
       <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button id="indicator-toggle" class="icon-button" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
-      <div id="indicator-popup" class="zoom-popup" hidden></div>
       <span id="time-label">0:00 / 0:00</span>
       <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
@@ -6189,6 +6269,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     pitchShiftWarningEmitted = true;
                     console.warn('[akari-preview] pitch-preserving playback unavailable; using native playback rate', error);
                 };
+                const meterAnalyser = context.createAnalyser();
+                meterAnalyser.connect(context.destination);
+                window.akari.legacyAudioMeterAnalyser = meterAnalyser;
                 const routeMasterBus = () => {
                     try { masterGain.disconnect(); } catch (_error) { /* already detached */ }
                     if (pitchShiftNode) {
@@ -6203,14 +6286,14 @@ body { display: grid; place-items: center; padding: 32px; }
                             const ratio = pitchShiftNode.parameters.get('ratio');
                             if (ratio) ratio.value = 1 / playbackRate;
                             masterGain.connect(pitchShiftNode);
-                            pitchShiftNode.connect(context.destination);
+                            pitchShiftNode.connect(meterAnalyser);
                             stretcher = 'worklet';
                             return;
                         } catch (error) {
                             warnPitchShiftUnavailable(error);
                         }
                     }
-                    masterGain.connect(context.destination);
+                    masterGain.connect(meterAnalyser);
                 };
                 routeMasterBus();
                 if (initial.previewAudioWorkletUrl) {
@@ -6657,6 +6740,87 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
             window.akari.requestAudioPriority = time => vscode.postMessage({ type: 'akari-preview-audio-priority', time });
             window.akari.stageScale = () => frameScale;
+            const measureAudioMeterBlock = (${measureBlock.toString()});
+            const audioMeterDb = (${linearToDbfs.toString()});
+            const audioMeterClip = (${latchClip.toString()});
+            let audioMeterTap = null;
+            let lastAudioMeterAt = -Infinity;
+            let audioMeterWasPlaying = false;
+            let lastAudioMeterZeroTime = null;
+            window.akari.attachAudioMeter = (analyser, engine) => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+                if (!analyser) return;
+                const context = analyser.context;
+                const splitter = context.createChannelSplitter(2);
+                const left = context.createAnalyser();
+                const right = context.createAnalyser();
+                left.fftSize = right.fftSize = 2048;
+                // Only the extra analysis branch is detached. The analyser's existing
+                // destination connection belongs to the audio supply and stays intact.
+                const dispose = () => {
+                    try { analyser.disconnect(splitter); } catch (_error) { /* detached */ }
+                    splitter.disconnect();
+                    left.disconnect();
+                    right.disconnect();
+                };
+                try {
+                    analyser.connect(splitter);
+                    splitter.connect(left, 0);
+                    splitter.connect(right, 1);
+                    // L/R outputs intentionally remain unconnected (no audible second path).
+                    audioMeterTap = {
+                        analyser, left, right, engine, dispose,
+                        leftSamples: new Float32Array(2048), rightSamples: new Float32Array(2048)
+                    };
+                } catch (_error) {
+                    dispose();
+                }
+            };
+            window.akari.audioMeterTick = (time, playing, immediate = false) => {
+                const now = performance.now();
+                const tap = audioMeterTap;
+                const channels = tap && tap.analyser.channelCount === 1 ? 1 : 2;
+                const engine = tap ? tap.engine : initial.frameEngineEnabled === true ? 'frame-engine' : 'legacy';
+                const t = Number.isFinite(time) ? Math.max(0, time) : 0;
+                const clock = engine === 'frame-engine' && window.akari.frameEngineClock;
+                const ended = clock && t >= clock.totalDuration;
+                if (!playing || ended || immediate) {
+                    if (!audioMeterWasPlaying && lastAudioMeterZeroTime === t) return;
+                    audioMeterWasPlaying = false;
+                    lastAudioMeterZeroTime = t;
+                    lastAudioMeterAt = now;
+                    vscode.postMessage({ type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0],
+                        clip: false, playing: false, channels, engine, t });
+                    return;
+                }
+                audioMeterWasPlaying = true;
+                lastAudioMeterZeroTime = null;
+                let left = { peak: 0, rms: 0 };
+                let right = left;
+                if (tap && tap.analyser.context.state === 'running') {
+                    tap.left.getFloatTimeDomainData(tap.leftSamples);
+                    left = measureAudioMeterBlock(tap.leftSamples);
+                    if (channels === 1) right = left;
+                    else {
+                        tap.right.getFloatTimeDomainData(tap.rightSamples);
+                        right = measureAudioMeterBlock(tap.rightSamples);
+                    }
+                }
+                if (now - lastAudioMeterAt < 33) return;
+                lastAudioMeterAt = now;
+                vscode.postMessage({ type: 'akari-preview-audio-meter',
+                    peak: [left.peak, right.peak], rms: [left.rms, right.rms],
+                    clip: audioMeterClip(false, audioMeterDb(Math.max(left.peak, right.peak))),
+                    playing: true, channels, engine, t });
+            };
+            if (window.akari.legacyAudioMeterAnalyser) {
+                window.akari.attachAudioMeter(window.akari.legacyAudioMeterAnalyser, 'legacy');
+            }
+            window.addEventListener('pagehide', () => {
+                if (audioMeterTap) audioMeterTap.dispose();
+                audioMeterTap = null;
+            }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
@@ -7676,6 +7840,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateAudioStatus();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 window.akariFrameEngineAudioAnalyser = () => audioSupply.attachAnalyser();
+                window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                 const projectedLook = engineSummary.videoFx && engineSummary.videoFx.look;
                 let look = null;
                 if (projectedLook && typeof projectedLook.cubeText === 'string') {
@@ -7953,6 +8118,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const previousAudioSupply = audioSupply;
                             scheduler = createSchedulerForTimeline(nextTimeline);
                             audioSupply = createAudioSupplyForSummary(nextSummary, nextCuts, nextDuration);
+                            window.akari.attachAudioMeter(audioSupply.attachAnalyser(), 'frame-engine');
                             previousScheduler.dispose();
                             previousAudioSupply.dispose();
                         }
@@ -8032,6 +8198,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     delete window.akariFrameEngineAudioAnalyser;
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
                     clearInterval(audioStatusTimer);
+                    window.akari.attachAudioMeter(null, 'frame-engine');
                     clearInterval(audioPriorityInterval);
                     clearTimeout(audioPriorityTimer);
                     disposed = true;
@@ -8111,6 +8278,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     indicatorPopup.textContent = '';
                     return;
                 }
+                indicatorToggle.textContent = 'ⓘ 未対応 ' + indicators.length;
                 const items = indicators.map(item => INDICATOR_GLOSSARY[item]
                     ? item + ' = ' + INDICATOR_GLOSSARY[item]
                     : item).join(' / ');
@@ -11766,6 +11934,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     y: clamp(value.y, -limits.y, limits.y)
                 };
             };
+            const computeMinimapLayout = (${computeZoomMinimapLayout.toString()});
             const renderZoom = () => {
                 zoomLayer.style.transform = 'translate(' + pan.x.toFixed(3) + 'px, '
                     + pan.y.toFixed(3) + 'px) scale(' + zoom + ')';
@@ -11776,24 +11945,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!isZoomed) previewPane.classList.remove('is-dragging');
                 zoomMinimap.hidden = !isZoomed;
                 if (!isZoomed) return;
-                const width = Number(summary.output && summary.output.width) || 1280;
-                const height = Number(summary.output && summary.output.height) || 720;
-                const aspectRatio = width / height;
-                zoomMinimap.style.width = (aspectRatio >= 1 ? 64 : 64 * aspectRatio) + 'px';
-                zoomMinimap.style.height = (aspectRatio >= 1 ? 64 / aspectRatio : 64) + 'px';
-                const scaledStageWidth = previewStage.offsetWidth * zoom;
-                const scaledStageHeight = previewStage.offsetHeight * zoom;
-                if (!(scaledStageWidth > 0) || !(scaledStageHeight > 0)) return;
-                const stageLeft = (previewPane.clientWidth - scaledStageWidth) / 2 + pan.x;
-                const stageTop = (previewPane.clientHeight - scaledStageHeight) / 2 + pan.y;
-                const left = clamp(-stageLeft / scaledStageWidth, 0, 1);
-                const top = clamp(-stageTop / scaledStageHeight, 0, 1);
-                const right = clamp((previewPane.clientWidth - stageLeft) / scaledStageWidth, 0, 1);
-                const bottom = clamp((previewPane.clientHeight - stageTop) / scaledStageHeight, 0, 1);
-                zoomMinimapViewport.style.left = (left * 100) + '%';
-                zoomMinimapViewport.style.top = (top * 100) + '%';
-                zoomMinimapViewport.style.width = ((right - left) * 100) + '%';
-                zoomMinimapViewport.style.height = ((bottom - top) * 100) + '%';
+                const stageRect = previewStage.getBoundingClientRect();
+                const layout = computeMinimapLayout({
+                    paneWidth: previewPane.clientWidth,
+                    paneHeight: previewPane.clientHeight,
+                    stageWidth: stageRect.width / zoom,
+                    stageHeight: stageRect.height / zoom,
+                    zoom,
+                    pan,
+                    outputWidth: stageRect.width,
+                    outputHeight: stageRect.height
+                });
+                zoomMinimap.style.width = layout.box.width + 'px';
+                zoomMinimap.style.height = layout.box.height + 'px';
+                zoomMinimapViewport.style.left = (layout.viewport.left * 100) + '%';
+                zoomMinimapViewport.style.top = (layout.viewport.top * 100) + '%';
+                zoomMinimapViewport.style.width = (layout.viewport.width * 100) + '%';
+                zoomMinimapViewport.style.height = (layout.viewport.height * 100) + '%';
             };
             const setZoom = value => {
                 zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
@@ -11817,6 +11985,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const timelinePosition = segments.length > 0 ? outputTime : (video.currentTime || 0);
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
+                seek.style.setProperty('--seek-progress', (timelineDuration > 0 ? Number(seek.value) / timelineDuration * 100 : 0) + '%');
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
                 penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
@@ -11871,7 +12040,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const context = waveformCanvas.getContext('2d');
                 if (!context) return null;
                 context.setTransform(dpr, 0, 0, dpr, 0, 0);
-                context.fillStyle = '#181818';
+                context.fillStyle = getComputedStyle(waveformRow).getPropertyValue('--akari-transport-bg').trim();
                 context.fillRect(0, 0, width, height);
                 context.fillStyle = 'rgba(255,255,255,0.06)';
                 context.fillRect(0, height / 2 - 0.5, width, 1);
@@ -13101,6 +13270,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateLayerSelectBox();
                     window.akari.runtime.tick(outputTime, isPlaying);
                     window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                    window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
                     updateTransport();
                     updateWaveformPlayhead();
@@ -13202,6 +13372,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 // タイムライン横軸と同じ出力秒（cuts ギャップレス連結後の秒）を送る（音声側も timelineTime で駆動済み）。
                 window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
                 updateWaveformPlayhead();
@@ -13892,6 +14063,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
                     window.akari.playbackTick(outputTime, isPlaying, true);
+                    window.akari.audioMeterTick(outputTime, isPlaying, true);
                     return;
                 }
                 // Every intentional pause call site (togglePlayback's stop branch,
@@ -13909,11 +14081,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[activeSegmentIndex];
                 if (isPlaying && segment && segment.kind === 'src' && !isStillSegment(segment) && !video.ended) {
                     window.akari.playbackTick(outputTime, true, true);
+                    window.akari.audioMeterTick(outputTime, true, true);
                     void video.play().catch(error => {
                         console.error('[akari-preview] unexpected pause auto-resume failed', error);
                         window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                         isPlaying = false;
                         window.akari.playbackTick(outputTime, false, true);
+                        window.akari.audioMeterTick(outputTime, false, true);
                         if (window.akari.previewAudio) window.akari.previewAudio.pause();
                         stopAnimation();
                     });
@@ -13924,6 +14098,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 isPlaying = false;
                 window.akari.playbackTick(outputTime, false, true);
+                window.akari.audioMeterTick(outputTime, false, true);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
             };
