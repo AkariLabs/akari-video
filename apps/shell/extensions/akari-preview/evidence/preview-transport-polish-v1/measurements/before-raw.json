@@ -1,0 +1,475 @@
+{
+  "label": "before",
+  "fixture": "raw",
+  "window": {
+    "width": 1440,
+    "height": 900
+  },
+  "windowActual": {
+    "w": 1440,
+    "h": 900,
+    "dpr": 1
+  },
+  "iframeOffset": {
+    "x": 283.0390625,
+    "y": 39,
+    "w": 515,
+    "h": 501.890625
+  },
+  "geometry": {
+    "panePadding": {
+      "top": 16,
+      "right": 16,
+      "bottom": 16,
+      "left": 16
+    },
+    "paneBorder": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "paneRect": {
+      "left": 20,
+      "top": 0,
+      "right": 495,
+      "bottom": 422,
+      "width": 475,
+      "height": 422
+    },
+    "paneContent": {
+      "left": 36,
+      "top": 16,
+      "right": 479,
+      "bottom": 406,
+      "width": 443,
+      "height": 390
+    },
+    "panePaddingBox": {
+      "left": 20,
+      "top": 0,
+      "right": 495,
+      "bottom": 422,
+      "width": 475,
+      "height": 422
+    },
+    "paneClient": {
+      "width": 475,
+      "height": 422
+    },
+    "wrapperRect": {
+      "left": 36,
+      "top": 86.40625,
+      "right": 479,
+      "bottom": 335.59375,
+      "width": 443,
+      "height": 249.1875
+    },
+    "zoomLayerRect": {
+      "left": 36,
+      "top": 86.40625,
+      "right": 479,
+      "bottom": 335.59375,
+      "width": 443,
+      "height": 249.1875
+    },
+    "stageRect": {
+      "left": 36,
+      "top": 86.40625,
+      "right": 479,
+      "bottom": 335.59375,
+      "width": 443,
+      "height": 249.1875
+    },
+    "stageOffset": {
+      "width": 443,
+      "height": 249
+    },
+    "surfaceId": "preview-video",
+    "surfaceRect": {
+      "left": 36,
+      "top": 86.40625,
+      "right": 479,
+      "bottom": 335.59375,
+      "width": 443,
+      "height": 249.1875
+    },
+    "frameEngineActive": false,
+    "summaryOutput": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "declaredIndicators": []
+  },
+  "fit": {
+    "constrainedAxis": "width",
+    "stageTopMinusContentTop": 70.40625,
+    "stageBottomMinusContentBottom": -70.40625,
+    "stageLeftMinusContentLeft": 0,
+    "stageRightMinusContentRight": 0,
+    "surfaceMinusStage": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0
+    },
+    "constrainedTouchesWithin1px": true,
+    "surfaceMatchesStageWithin1px": true
+  },
+  "transport": {
+    "transportRect": {
+      "left": 20,
+      "top": 422,
+      "right": 495,
+      "bottom": 502,
+      "width": 475,
+      "height": 80
+    },
+    "transportHeight": 80,
+    "transportPadding": "9px 14px 10px",
+    "transportGap": "8px",
+    "transportBorderTop": "1px solid rgb(48, 48, 48)",
+    "transportBackground": "rgb(32, 32, 32)",
+    "seekRowRect": {
+      "left": 34,
+      "top": 432,
+      "right": 481,
+      "bottom": 452,
+      "width": 447,
+      "height": 20
+    },
+    "seekRect": {
+      "left": 36,
+      "top": 434,
+      "right": 479,
+      "bottom": 450,
+      "width": 443,
+      "height": 16
+    },
+    "seekHeight": 16,
+    "seekAppearance": "auto",
+    "controlsRect": {
+      "left": 34,
+      "top": 460,
+      "right": 481,
+      "bottom": 492,
+      "width": 447,
+      "height": 32
+    },
+    "controlsHeight": 32,
+    "waveformHidden": true,
+    "waveformRect": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "stageBottom": 335.59375,
+    "paneBottom": 422
+  },
+  "seekTrack": {
+    "inputTop": 434,
+    "inputHeight": 16,
+    "trackHeight": 16,
+    "trackBackground": "rgb(59, 59, 59)",
+    "trackBorderRadius": "0px",
+    "thumb": {
+      "width": "443px",
+      "height": "16px",
+      "background": "rgb(59, 59, 59)",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "appearance": "auto"
+    },
+    "trackTop": 434
+  },
+  "gap": {
+    "stageBottomToSeekInputTop": 98.40625,
+    "stageBottomToSeekTrackTop": 98.40625,
+    "stageBottomToSeekRowTop": 96.40625,
+    "stageBottomToTransportTop": 86.40625,
+    "paneBottomToTransportTop": 0
+  },
+  "screenshots": {
+    "00-raw": "before-00-raw.png",
+    "00-raw-crop2x": "before-00-raw-crop2x.png",
+    "04-seek-grabbed-raw": "before-04-seek-grabbed-raw.png",
+    "04-seek-grabbed-raw-crop2x": "before-04-seek-grabbed-raw-crop2x.png"
+  },
+  "transportCropClip": {
+    "x": 303.0390625,
+    "y": 453,
+    "width": 475,
+    "height": 92,
+    "scale": 2
+  },
+  "seekGrabbedStyles": {
+    "isActiveElement": true,
+    "matchesFocus": true,
+    "matchesFocusVisible": false,
+    "appearance": "auto",
+    "outlineStyle": "solid",
+    "outlineWidth": "1px",
+    "outlineColor": "rgb(153, 200, 255)",
+    "boxShadow": "none",
+    "height": "16px"
+  },
+  "styles": {
+    "pressed": {
+      "pressedAttr": "true",
+      "pressedBorderStyle": "solid",
+      "pressedBoxShadow": "rgba(236, 242, 255, 0.48) 0px 0px 8px 0px",
+      "pressedBackground": "rgb(85, 91, 103)",
+      "pressedColor": "rgb(255, 255, 255)",
+      "waveformHidden": false,
+      "waveformRect": {
+        "left": 34,
+        "top": 368,
+        "right": 481,
+        "bottom": 424,
+        "width": 447,
+        "height": 56
+      },
+      "waveformBackground": "rgb(24, 24, 24)",
+      "transportHeightWithWaveform": 144
+    },
+    "tokens": {
+      "accent": "",
+      "transportBg": "",
+      "transportFg": "",
+      "seekTrack": "",
+      "pasteboard": "#2b2d30"
+    },
+    "bodyClass": "vscode-dark",
+    "transportBackground": "rgb(32, 32, 32)",
+    "transportBorderTop": "1px solid",
+    "transportPadding": "9px 14px 10px",
+    "transportGap": "8px",
+    "seek": {
+      "appearance": "auto",
+      "outlineStyle": "none",
+      "boxShadow": "none",
+      "height": "16px",
+      "seekProgress": ""
+    },
+    "timeLabel": {
+      "fontSize": "13px",
+      "color": "rgb(208, 208, 208)",
+      "fontVariantNumeric": "tabular-nums"
+    },
+    "playToggle": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(48, 48, 48)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "4px"
+    },
+    "waveformToggle": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(48, 48, 48)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "4px"
+    },
+    "zoomToggle": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(48, 48, 48)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "4px"
+    },
+    "zoomPreset": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(48, 48, 48)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "32px",
+      "height": "32px",
+      "borderRadius": "4px"
+    },
+    "ratePreset": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(48, 48, 48)",
+      "boxShadow": "none",
+      "color": "rgb(255, 255, 255)",
+      "width": "auto",
+      "height": "32px",
+      "borderRadius": "4px"
+    },
+    "zoomPopup": {
+      "borderTopStyle": "solid",
+      "borderTopWidth": "1px",
+      "backgroundColor": "rgb(32, 32, 32)",
+      "boxShadow": "rgba(0, 0, 0, 0.45) 0px 4px 16px 0px",
+      "color": "rgb(238, 238, 238)",
+      "width": "224px",
+      "height": "auto",
+      "borderRadius": "6px"
+    }
+  },
+  "indicator": {
+    "before": {
+      "exists": true,
+      "hidden": true,
+      "visible": false,
+      "rect": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "parentId": "transport-left",
+      "text": "ⓘ",
+      "ariaLabel": "プレビュー未対応の項目",
+      "ariaExpanded": "false",
+      "popupHidden": true,
+      "popupParentId": "transport-left",
+      "wrapperRect": {
+        "left": 36,
+        "top": 86.40625,
+        "right": 479,
+        "bottom": 335.59375,
+        "width": 443,
+        "height": 249.1875
+      },
+      "stageRect": {
+        "left": 36,
+        "top": 86.40625,
+        "right": 479,
+        "bottom": 335.59375,
+        "width": 443,
+        "height": 249.1875
+      }
+    },
+    "afterClick": null
+  },
+  "log": [
+    {
+      "t": "2026-09-05T23:00:39.322Z",
+      "step": "window",
+      "w": 1440,
+      "h": 900,
+      "dpr": 1
+    },
+    {
+      "t": "2026-09-05T23:00:45.523Z",
+      "step": "opened-attempt",
+      "leaf": "base-black.mp4",
+      "attempt": 0,
+      "card": {
+        "found": true,
+        "text": "base-black.mp4--:--",
+        "x": 103.7578125,
+        "y": 151.51171875,
+        "w": 91.515625,
+        "h": 123.0234375
+      },
+      "tab": false
+    },
+    {
+      "t": "2026-09-05T23:01:18.935Z",
+      "step": "opened-attempt",
+      "leaf": "base-black.mp4",
+      "attempt": 1,
+      "card": {
+        "found": true,
+        "text": "base-black.mp4--:--",
+        "x": 103.7578125,
+        "y": 151.51171875,
+        "w": 91.515625,
+        "h": 123.0234375
+      },
+      "tab": false
+    },
+    {
+      "t": "2026-09-05T23:01:18.937Z",
+      "step": "opened",
+      "leaf": "base-black.mp4",
+      "card": {
+        "found": true,
+        "text": "base-black.mp4--:--",
+        "x": 103.7578125,
+        "y": 151.51171875,
+        "w": 91.515625,
+        "h": 123.0234375
+      }
+    },
+    {
+      "t": "2026-09-05T23:01:23.657Z",
+      "step": "fit",
+      "constrainedAxis": "width",
+      "stageTopMinusContentTop": 70.40625,
+      "stageBottomMinusContentBottom": -70.40625,
+      "stageLeftMinusContentLeft": 0,
+      "stageRightMinusContentRight": 0,
+      "surfaceMinusStage": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "constrainedTouchesWithin1px": true,
+      "surfaceMatchesStageWithin1px": true
+    },
+    {
+      "t": "2026-09-05T23:01:23.659Z",
+      "step": "transport",
+      "height": 80,
+      "gap": {
+        "stageBottomToSeekInputTop": 98.40625,
+        "stageBottomToSeekTrackTop": 98.40625,
+        "stageBottomToSeekRowTop": 96.40625,
+        "stageBottomToTransportTop": 86.40625,
+        "paneBottomToTransportTop": 0
+      }
+    },
+    {
+      "t": "2026-09-05T23:01:24.560Z",
+      "step": "seek-grabbed",
+      "isActiveElement": true,
+      "matchesFocus": true,
+      "matchesFocusVisible": false,
+      "appearance": "auto",
+      "outlineStyle": "solid",
+      "outlineWidth": "1px",
+      "outlineColor": "rgb(153, 200, 255)",
+      "boxShadow": "none",
+      "height": "16px"
+    },
+    {
+      "t": "2026-09-05T23:01:26.209Z",
+      "step": "styles",
+      "transportBackground": "rgb(32, 32, 32)",
+      "tokens": {
+        "accent": "",
+        "transportBg": "",
+        "transportFg": "",
+        "seekTrack": "",
+        "pasteboard": "#2b2d30"
+      }
+    },
+    {
+      "t": "2026-09-05T23:01:26.216Z",
+      "step": "indicator",
+      "hidden": true,
+      "visible": false,
+      "text": "ⓘ"
+    }
+  ]
+}
