@@ -10,9 +10,11 @@ through export. The app (the Theia shell) is "a place to review and fix," and it
 currently mid-migration.
 
 **Q. Can I run it fully automatically, start to finish?**
-Setting `autonomy: full-auto` in `intake.json` automates approval at milestones.
-That said, the `connections.json` cost approval policy still takes priority for
-**billing and external sends** alone.
+The default, **With proposals** (`checkpoint`), has no intermediate approvals; export is the
+only stamp. `full-auto` (Straight through) exports without preview review, while
+`collaborative` (Work together) confirms three stages: direction → asset plan → execution.
+Approval for **billing and external sends** is independent of this, and the `connections.json`
+cost approval policy takes priority.
 
 **Q. How far can I get without any external API?**
 You can go a full loop for free, locally — proxy generation, transcription

@@ -394,7 +394,7 @@ Answer three questions and set it to `submitted`, and the agent can start workin
 |---|---|---|
 | `tasks` | What to make | "One short video from this footage" |
 | `target` | Duration & destination | "60 seconds, vertical" |
-| `autonomy` | How much to delegate | `full-auto` / `checkpoint` (default — approve at milestones) / `collaborative` |
+| `autonomy` | How much to delegate | `full-auto` (straight through) / `checkpoint` (default — with proposals) / `collaborative` (work together) |
 
 You can fill the form in chat: say **"let's fill in the intake form"** and the agent asks
 the questions and records your answers.
