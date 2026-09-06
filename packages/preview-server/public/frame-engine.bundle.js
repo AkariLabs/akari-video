@@ -25202,7 +25202,7 @@ function createPreviewScheduler({
   const boundaryRequirements = /* @__PURE__ */ new Map();
   const warned = /* @__PURE__ */ new Set();
   const warmed = /* @__PURE__ */ new Set();
-  const inFlight = /* @__PURE__ */ new Set();
+  const inFlight = /* @__PURE__ */ new Map();
   const live = /* @__PURE__ */ new Map();
   const headerMs = [];
   let latestTimeSeconds = 0;
@@ -25342,16 +25342,17 @@ function createPreviewScheduler({
       streamId: requirement.streamId,
       nextUseSeconds: boundarySeconds
     });
-    inFlight.add(requirement.key);
+    const attempt = Symbol();
+    inFlight.set(requirement.key, attempt);
     metrics.onChanged?.();
     void pool.getSession(requirement.streamId).then((session) => session.warmup(requirement.sourceTimeUs + 1e6 / fps, 1e6 / fps)).then(() => {
-      if (disposed || !live.has(requirement.key)) return;
+      if (disposed || inFlight.get(requirement.key) !== attempt || !live.has(requirement.key)) return;
       return lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, {
         streamId: requirement.streamId,
         pin: true
       });
     }).then(() => {
-      if (disposed) return;
+      if (disposed || inFlight.get(requirement.key) !== attempt) return;
       inFlight.delete(requirement.key);
       if (!live.has(requirement.key)) return;
       warmed.add(requirement.key);
@@ -25360,6 +25361,7 @@ function createPreviewScheduler({
       metrics.onWarmed?.(requirement.streamId, elapsedMs);
       metrics.onChanged?.();
     }, (error) => {
+      if (inFlight.get(requirement.key) !== attempt) return;
       inFlight.delete(requirement.key);
       live.delete(requirement.key);
       warnOnce(`warmup ${requirement.streamId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -25435,6 +25437,15 @@ function createPreviewScheduler({
     }
     metrics.onChanged?.();
   };
+  const invalidateSource = (sourceId) => {
+    for (const entries of [live, warmed, inFlight]) {
+      for (const key of entries.keys()) {
+        if (key.slice(0, key.lastIndexOf("::")) === sourceId) entries.delete(key);
+      }
+    }
+    if (!disposed) warmupNextBoundary(latestTimeSeconds);
+    if (disposed || !boundaries.some((boundary) => boundary > latestTimeSeconds)) metrics.onChanged?.();
+  };
   const state = () => {
     const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -25496,6 +25507,7 @@ function createPreviewScheduler({
     notePresented,
     primeHeaders,
     warmupNextBoundary,
+    invalidateSource,
     isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
     state,
     reset,
@@ -28107,9 +28119,11 @@ var FrameEngineRuntime = class {
       const image = new CachedStillImageSource(choice.url);
       this.images.set(id, image);
       this.sources.set(id, image);
+      this.scheduler.invalidateSource(id);
     } else {
       this.images.delete(id);
       this.sources.set(id, this.createVideoSource(id, choice.url));
+      this.scheduler.invalidateSource(id);
     }
     this.updateMetrics();
   }
