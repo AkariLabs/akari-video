@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "fixture_count": 112,
+  "fixture_count": 116,
   "fixtures": {
     "audio-sfx-track-invalid-value": {
       "exit_code": 0,
@@ -1474,6 +1474,83 @@
       "findings": [],
       "skipped": [],
       "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "edit-v2-cut-audio-link-duplicate-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.audio-link-duplicate",
+          "message": "multiple audio items link to cut (first declared at edit.json#tracks[1].items[0].link)",
+          "path": "edit.json#tracks[2].items[0].link"
+        }
+      ],
+      "skipped": []
+    },
+    "edit-v2-cut-audio-link-missing-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.audio-link-target",
+          "message": "link does not reference an item in this edit: absent",
+          "path": "edit.json#tracks[1].items[0].link"
+        }
+      ],
+      "skipped": []
+    },
+    "edit-v2-cut-audio-link-not-media-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.audio-link-target-kind",
+          "message": "link target must be a visual media item: cut",
+          "path": "edit.json#tracks[1].items[0].link"
+        }
+      ],
+      "skipped": []
+    },
+    "edit-v2-cut-audio-split-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "geometry.fit-compat",
+          "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+          "path": "edit.json#output.geometry"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
     },
     "freeze-extends-timeline-valid": {
       "exit_code": 0,

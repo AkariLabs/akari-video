@@ -323,7 +323,7 @@ test("all existing fixtures keep their normalized default results", async () => 
     "utf8",
   ));
   const actual = await collectFixtureDefaultSnapshot(join(packageRoot, "fixtures"));
-  assert.equal(actual.fixture_count, 112);
+  assert.equal(actual.fixture_count, 116);
   assert.deepEqual(
     Object.keys(actual.fixtures),
     Object.keys(expected.fixtures),
@@ -336,5 +336,5 @@ test("all existing fixtures keep their normalized default results", async () => 
       `default lint result changed for fixture ${fixtureName}\nexpected=${JSON.stringify(expected.fixtures[fixtureName], null, 2)}\nactual=${JSON.stringify(actual.fixtures[fixtureName], null, 2)}`,
     );
   }
-  assert.equal(expected.fixture_count, 112);
+  assert.equal(expected.fixture_count, 116);
 });

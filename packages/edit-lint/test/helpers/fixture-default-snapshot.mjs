@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { lintProject } from "../../src/edit-lint.mjs";
 import { migrateFixtureTree } from "./v2-fixture.mjs";
+import { prepareCutAudioFixtures } from "./cut-audio-fixtures.mjs";
 
 const CHECKED_AT = "2000-01-01T00:00:00.000Z";
 
@@ -23,6 +24,7 @@ export async function collectFixtureDefaultSnapshot(fixtureRoot) {
   try {
     await cp(fixtureRoot, copiedRoot, { recursive: true });
     await migrateFixtureTree(copiedRoot);
+    await prepareCutAudioFixtures(copiedRoot);
     const fixtureNames = (await readdir(copiedRoot, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)

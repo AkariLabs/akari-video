@@ -13,6 +13,8 @@ const {
   ITEM_SOURCE_V2_KEYS,
   KEYFRAME_V2_KEYS,
 } = require("../../edit-store/lib/generated/edit-v2-keys.js");
+const { readInternalEdit } = require("../../edit-store/lib/internal-model.js");
+const { readEditV2 } = require("../../edit-store/lib/edit-v2.js");
 
 const canonicalPaths = new Set([
   ...ITEM_V2_KEYS.map((key) => `tracks[].items[].${key}`),
@@ -29,11 +31,26 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("all 68 generated item, source, and keyframe keys have a capability row", () => {
-  assert.equal(canonicalPaths.size, 68);
+test("generated keys have capability rows or the explicit cut-audio runtime rejection", () => {
+  assert.equal(canonicalPaths.size, 71);
   const covered = new Set(table.fields.map((field) => field.path));
   assert.ok(covered.has('tracks[].items[].adjust.fx'));
-  assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)), []);
+  // contract-2026-09-06-cut-audio-split-v0.md, first task: these three added keys
+  // cannot reach an engine yet. Preserve coverage for all 68 executable keys and
+  // require an actual default-reader rejection for each temporarily uncovered key.
+  const gated = [
+    [0, 'audio', false], [1, 'link', 'cut'], [1, 'mute', false],
+  ];
+  assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)).sort(),
+    gated.map(([, key]) => `tracks[].items[].${key}`).sort());
+  for (const [track, key, value] of gated) {
+    const doc = JSON.parse(readFileSync(join(packageRoot, 'examples/edit-v2-cut-audio-split-valid/edit.json'), 'utf8'));
+    delete doc.tracks[0].items[0].audio;
+    for (const field of ['role', 'link', 'mute']) delete doc.tracks[1].items[0][field];
+    doc.tracks[track].items[0][key] = value;
+    assert.doesNotThrow(() => readEditV2(doc));
+    assert.throws(() => readInternalEdit(doc), /未対応: 本編音声の分離.*次の便/u);
+  }
 });
 
 test("capability rows cannot invent paths outside the generated v2 key inventory", () => {

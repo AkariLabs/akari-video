@@ -1748,7 +1748,8 @@ var AkariEditKernel = (() => {
     "keyframes",
     "items",
     "mask",
-    "source"
+    "source",
+    "audio"
   ]);
   var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
     "id",
@@ -1758,6 +1759,8 @@ var AkariEditKernel = (() => {
     "at",
     "duration",
     "role",
+    "link",
+    "mute",
     "source",
     "gain_db",
     "keyframes",
@@ -1906,8 +1909,12 @@ var AkariEditKernel = (() => {
     validateItemMetadata(value, path);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
-    if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
-      throw invalid(`${path}.role`, "sfx/narration/bgm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm" && value.role !== "speech") {
+      throw invalid(`${path}.role`, "sfx/narration/bgm/speech \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "link")) requireText(value.link, `${path}.link`);
+    if (hasOwn(value, "mute") && typeof value.mute !== "boolean") {
+      throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
     if (hasOwn(value, "gain_db")) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
     if (hasOwn(value, "denoise")) validateAudioClipDenoise(value.denoise, `${path}.denoise`);
@@ -1992,6 +1999,10 @@ var AkariEditKernel = (() => {
     if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, "audio")) {
+      if (value.source.kind !== "media") throw invalid(`${path}.audio`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+      if (value.audio !== false) throw invalid(`${path}.audio`, "false \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
     if (hasOwn(value, "mask")) {
       if (value.source.kind !== "media") throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
       requireText(value.mask, `${path}.mask`);
@@ -2514,6 +2525,16 @@ var AkariEditKernel = (() => {
     const record = raw;
     if (record.version !== 2) {
       throw new LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
+    }
+    if (options?.allowCutAudioSplit !== true) {
+      const hasSplit = (items, lane) => Array.isArray(items) && items.some((item) => {
+        if (!item || typeof item !== "object") return false;
+        const split = lane === "visual" ? item.source?.kind === "media" && item.audio === false : lane === "audio" && (Object.prototype.hasOwnProperty.call(item, "link") || Object.prototype.hasOwnProperty.call(item, "mute") || item.role === "speech");
+        return split || hasSplit(item.items, lane);
+      });
+      if (Array.isArray(record.tracks) && record.tracks.some((track) => track && typeof track === "object" && hasSplit(track.items, track.lane))) {
+        throw new Error("\u672A\u5BFE\u5FDC: \u672C\u7DE8\u97F3\u58F0\u306E\u5206\u96E2\uFF08audio:false / link / mute / role:speech\uFF09\u306F\u6B21\u306E\u4FBF\u3067\u6709\u52B9\u5316\u3055\u308C\u307E\u3059\u3002\u3053\u306E edit.json \u306F\u73FE\u5728\u306E\u30A8\u30F3\u30B8\u30F3\u3067\u306F\u518D\u751F\u30FB\u66F8\u304D\u51FA\u3057\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
     }
     const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
@@ -3136,6 +3157,19 @@ var AkariEditKernel = (() => {
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? "sfx";
+    if (role === "speech") {
+      return { item: {
+        id: item.id,
+        atFrames,
+        durationFrames,
+        at,
+        duration,
+        children: [],
+        source,
+        declaration: structuredClone(item),
+        legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+      } };
+    }
     if (role === "narration") {
       const value2 = {
         id: item.id,

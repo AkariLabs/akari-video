@@ -175,6 +175,8 @@ export interface InternalEdit {
     declaration: InternalEditDeclaration;
 }
 export interface InternalReadOptions {
+    /** 検証用の opt-in。供給経路が対応するまでは新しい音声分離語彙を既定で拒否する。 */
+    allowCutAudioSplit?: boolean;
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
     /** 行アンカーを再解決するときの字幕。省略時はキャッシュ済み at / duration をそのまま読む。 */
