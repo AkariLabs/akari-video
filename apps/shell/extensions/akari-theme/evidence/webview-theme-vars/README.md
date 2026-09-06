@@ -15,7 +15,7 @@ Codex パネル内 x ≥ 1054 とプレビューの 0,0-1200x800 なので、測
 
 ```bash
 # 1. スクラッチ（THEIA_CONFIG_DIR / --user-data-dir / ワークスペース）を作る
-SC=$(scripts/setup-scratch.sh)          # => /private/tmp/akari-wtv.XXXXXX
+SC=$(scripts/setup-scratch.sh)          # => <SCRATCH>（mktemp が作る一時ディレクトリ akari-wtv.XXXXXX）
 # 2. CDP 付きで起動（ポートは他レーンと被らない 9762 系）
 scripts/launch.sh "$SC" 9762
 # 3. 計測（--phase before|after）
