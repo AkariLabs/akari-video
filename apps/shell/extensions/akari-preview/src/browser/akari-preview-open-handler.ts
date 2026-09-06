@@ -252,6 +252,8 @@ interface EditSummaryAdjust {
 // 独立した関数として export しているのは webview 生成 HTML の外（この TS モジュール自身）から
 // node --test で直接叩けるようにするため（test/image-layer-source.test.mjs）。
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
+// ブラウザで decodeAudioData してよい上限。sidecar の decodedBytesThreshold と同じ考え方。
+const WAVEFORM_INLINE_DECODE_LIMIT_BYTES = 64 * 1024 * 1024;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 const PREVIEW_COLOR_KEYWORDS = new Set([
@@ -5398,6 +5400,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!videoUri) {
                 throw new Error('波形を生成する動画がありません');
             }
+            const stat = await this.fileService.resolve(videoUri, { resolveMetadata: true });
+            if (stat.size > WAVEFORM_INLINE_DECODE_LIMIT_BYTES) {
+                const result = await this.previewService.buildWaveformPeaks({
+                    assetUri: videoUri.toString(),
+                    workspaceRoots: await this.currentWorkspaceRoots()
+                });
+                if (result.ok === false) { throw new Error(result.reason); }
+                widget.sendMessage({
+                    type: 'akari-preview-waveform-fetch-response',
+                    requestId: request.requestId,
+                    ok: true,
+                    peaks: result.peaks,
+                    durationSec: result.durationSec
+                });
+                return;
+            }
             const content = await this.fileService.readFile(videoUri);
             widget.sendMessage({
                 type: 'akari-preview-waveform-fetch-response',
@@ -5406,11 +5424,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 dataBase64: this.toBase64(content.value.buffer)
             });
         } catch (error) {
+            const reason = (error instanceof Error ? error.message : String(error)).replace(/[\r\n]+/g, ' ').trim();
             widget.sendMessage({
                 type: 'akari-preview-waveform-fetch-response',
                 requestId: request.requestId,
                 ok: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: reason.startsWith('波形を作れませんでした') ? reason : `波形を作れませんでした（${reason}）`
             });
         }
     }
@@ -6934,12 +6953,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 try {
+                    if (Array.isArray(message.peaks)) {
+                        request.resolve({ peaks: message.peaks, durationSec: Number(message.durationSec) || 0 });
+                        return;
+                    }
                     const binary = atob(String(message.dataBase64 || ''));
                     const bytes = new Uint8Array(binary.length);
                     for (let index = 0; index < binary.length; index += 1) {
                         bytes[index] = binary.charCodeAt(index);
                     }
-                    request.resolve(bytes.buffer);
+                    request.resolve({ bytes: bytes.buffer });
                 } catch (error) {
                     request.reject(error);
                 }
@@ -8515,6 +8538,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let suppressClick = false;
             let waveformState = 'idle';
             let waveformAudioBuffer = null;
+            let waveformSourcePeaks = null;
             let waveformPeaks = null;
             let waveformResizeTimer = 0;
             let waveformDragPointer = null;
@@ -12001,6 +12025,31 @@ body { display: grid; place-items: center; padding: 32px; }
                 return Math.max(96, Math.round(raw / 8) * 8);
             };
             const aggregateWaveform = widthBins => {
+                if (waveformSourcePeaks) {
+                    const total = waveformSourcePeaks.length;
+                    if (total === 0 || widthBins <= 0) return null;
+                    const peaks = new Float32Array(widthBins);
+                    const rms = new Float32Array(widthBins);
+                    let globalMax = 0;
+                    let rmsMax = 0;
+                    for (let bin = 0; bin < widthBins; bin += 1) {
+                        const start = Math.min(total - 1, Math.floor(bin * total / widthBins));
+                        const end = Math.min(total, Math.max(start + 1, Math.floor((bin + 1) * total / widthBins)));
+                        let peak = 0;
+                        let sumSquares = 0;
+                        for (let index = start; index < end; index += 1) {
+                            const value = waveformSourcePeaks[index];
+                            peak = Math.max(peak, value);
+                            sumSquares += value * value;
+                        }
+                        const rootMeanSquare = Math.sqrt(sumSquares / (end - start));
+                        peaks[bin] = peak;
+                        rms[bin] = rootMeanSquare;
+                        globalMax = Math.max(globalMax, peak);
+                        rmsMax = Math.max(rmsMax, rootMeanSquare);
+                    }
+                    return { peaks, rms, globalMax, rmsMax };
+                }
                 if (!waveformAudioBuffer || widthBins <= 0) return null;
                 const total = waveformAudioBuffer.length;
                 const samplesPerBin = total / widthBins;
@@ -12108,11 +12157,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 let context = null;
                 try {
                     await waitForWaveformMetadata();
-                    const bytes = await window.akari.engine.readWaveformBytes();
-                    context = new AudioContext();
-                    waveformAudioBuffer = await context.decodeAudioData(bytes.slice(0));
-                    await context.close().catch(() => undefined);
-                    context = null;
+                    const payload = await window.akari.engine.readWaveformBytes();
+                    if (payload && Array.isArray(payload.peaks)) {
+                        waveformSourcePeaks = Float32Array.from(payload.peaks, value => Math.min(1, Math.max(0, Number(value) || 0)));
+                        waveformAudioBuffer = null;
+                    } else {
+                        context = new AudioContext();
+                        waveformAudioBuffer = await context.decodeAudioData(payload.bytes.slice(0));
+                        await context.close().catch(() => undefined);
+                        context = null;
+                        waveformSourcePeaks = null;
+                    }
                     waveformPeaks = aggregateWaveform(waveformBinCount());
                     if (!waveformPeaks) throw new Error('waveform contains no audio samples');
                     waveformState = 'ready';
@@ -12120,6 +12175,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 } catch (error) {
                     if (context) await context.close().catch(() => undefined);
                     waveformAudioBuffer = null;
+                    waveformSourcePeaks = null;
                     waveformPeaks = null;
                     waveformState = 'error';
                     drawWaveform();
