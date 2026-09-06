@@ -1776,7 +1776,7 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
     const path = audioPath(value);
     if (path) inputs.push(resolve(projectRoot, path));
   }
-  for (const value of edit.audio?.narration ?? []) {
+  for (const value of [...(edit.audio?.narration ?? []), ...(edit.audio?.speech ?? [])]) {
     const path = audioPath(value);
     if (path) inputs.push(resolve(projectRoot, path));
   }

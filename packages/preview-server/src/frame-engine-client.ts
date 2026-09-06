@@ -113,7 +113,7 @@ function audioDeclarations(edit: any): PreviewAudioDeclaration[] {
   const audio = edit?.audio;
   if (!audio || typeof audio !== 'object') return [];
   const declarations: PreviewAudioDeclaration[] = [];
-  const append = (kind: 'bgm' | 'sfx' | 'narration', raw: any, fallbackId: string) => {
+  const append = (kind: 'bgm' | 'sfx' | 'narration', raw: any, fallbackId: string, duckKey = false) => {
     if (!raw || typeof raw !== 'object') return;
     const source = raw.src || raw.path;
     if (typeof source !== 'string' || !source) return;
@@ -121,6 +121,7 @@ function audioDeclarations(edit: any): PreviewAudioDeclaration[] {
     const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined) && raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : undefined;
     declarations.push({
       kind,
+      ...(duckKey ? { duckKey: true } : {}),
       id,
       url: sidecar?.path ?? mediaUrl(source),
       ...(sidecar ? { sourceUrl: mediaUrl(source) } : {}),
@@ -134,14 +135,22 @@ function audioDeclarations(edit: any): PreviewAudioDeclaration[] {
   if (Array.isArray(audio.narration)) {
     audio.narration.forEach((item: any, index: number) => append('narration', item, `narration-${index + 1}`));
   }
+  if (Array.isArray(audio.speech)) {
+    audio.speech.filter((item: any) => item.role === 'speech').forEach((item: any, index: number) =>
+      append('narration', item, `speech-${index + 1}`, true));
+  }
   return declarations;
 }
 
 function speechDeclarations(edit: any, fps: number, choices: Map<string, SourceChoice>): PreviewSpeechDeclaration[] {
   const cuts = normalizedCuts(edit);
-  const projected = Array.isArray(edit?.audio?.speech)
-    ? edit.audio.speech : projectSpeechDeclarations(cuts, { fps });
+  const embedded = edit?.audio?.embeddedSpeech ?? (Array.isArray(edit?.audio?.speech)
+    && !edit.audio.speech.some((item: any) => item.role === 'speech') ? edit.audio.speech : undefined);
+  const projected = Array.isArray(embedded) ? embedded : projectSpeechDeclarations(cuts, { fps });
+  const audibleIds = cuts.length > 0
+    ? new Set(projectSpeechDeclarations(cuts, { fps }).map(item => item.id)) : undefined;
   return projected.flatMap((declaration: any) => {
+    if (audibleIds && !audibleIds.has(declaration.id)) return [];
     const url = choices.get(declaration.src)?.url;
     if (!url) return [];
     const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;

@@ -24,6 +24,8 @@ import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
 const require = createRequire(import.meta.url);
 const {
+  isAudioItemAudible,
+  isCutAudioAudible,
   composeEnvelopesDb,
   computeDuckEnvelope,
   DEFAULT_DUCK_KEYS,
@@ -176,6 +178,12 @@ export function buildAudioMixCommand({
     ffprobeCommand,
     fps: edit.output?.fps,
   });
+  const splitSpeech = resolveNarrationTracks({
+    narration: edit.audio?.speech, projectRoot, duration, ffprobeCommand, fps: edit.output?.fps, kind: "speech",
+  });
+  warnings.push(...splitSpeech.warnings);
+  const speechTracks = splitSpeech.tracks;
+  const hasSpeech = speechTracks.length > 0;
   const hasNarration = narrationTracks.length > 0;
   const master = normalizeMasterPlan(edit.audio?.master);
   const duckKeys = normalizeDuckKeys(edit.audio?.duck_keys);
@@ -190,14 +198,16 @@ export function buildAudioMixCommand({
   })).filter(interval => interval.endSec > interval.startSec);
   const duckIntervals = mergeTimelineIntervals([
     ...(duckKeys.includes("narration") ? narrationIntervals : []),
-    ...(duckKeys.includes("speech") ? speech.intervals : []),
+    ...(duckKeys.includes("speech") ? [...speech.intervals, ...speechTracks.map(track => ({
+      startSec: track.t, endSec: Math.min(duration, track.t + track.durationSec),
+    }))] : []),
   ]);
   const envelopes = [];
   const duckedItems = new Set();
   const keyframedItems = new Set();
   const envelopeProvenance = () => ({
     duck_keys: duckKeys,
-    speech_intervals: speech.intervals.length,
+    speech_intervals: speech.intervals.length + (duckKeys.includes("speech") ? speechTracks.length : 0),
     ducked_items: [...duckedItems],
     keyframed_items: [...keyframedItems],
   });
@@ -219,10 +229,10 @@ export function buildAudioMixCommand({
     return `${clipFilters.join(",")},`;
   };
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master && codec !== "prores422") {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master && codec !== "prores422") {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
-      hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
+      hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
       envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
     };
   }
@@ -236,7 +246,7 @@ export function buildAudioMixCommand({
     "-i",
     inputPath,
   ];
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master) {
     args.push(
       "-map", "0:v:0", "-map", "0:a:0", "-t", formatNumber(duration),
       "-c:v", "copy", ...audioArgsForCodec(codec), outputPath,
@@ -253,14 +263,17 @@ export function buildAudioMixCommand({
   // Build the narration track(s) first so the merged [narration] label exists before bgm decides
   // whether to route ducking's sidechain input through it (contract-2026-07-20 §3).
   let narrationLabel = null;
-  if (hasNarration) {
+  let speechLabel = null;
+  for (const [kind, tracks] of [["narration", narrationTracks], ["speech", speechTracks]]) {
+    if (tracks.length === 0) continue;
+    const prefix = kind === "narration" ? "nar" : "speech";
     const rawLabels = [];
-    for (const [index, track] of narrationTracks.entries()) {
+    for (const [index, track] of tracks.entries()) {
       args.push("-i", track.path);
       const narrationInputIndex = inputIndex++;
       const delay = Math.max(0, Math.round(track.t * 1000));
-      const rawLabel = `nar_raw${index}`;
-      const baseLabel = `nar_base${index}`;
+      const rawLabel = `${prefix}_raw${index}`;
+      const baseLabel = `${prefix}_base${index}`;
       const narrationClipFx = clipFxPrefix(track.declaration, track.id, { narration: true });
       const envelope = createClipEnvelope({
         item: track.declaration,
@@ -270,15 +283,15 @@ export function buildAudioMixCommand({
       });
       if (envelope) {
         const envelopeInput = appendEnvelopeInput({
-          args, workDirectory, label: `narration-${index}`, envelope,
+          args, workDirectory, label: `${kind}-${index}`, envelope,
           durationSec: Math.min(track.durationSec, Math.max(0, duration - track.t)), envelopes,
           inputIndex,
         });
         inputIndex += 1;
         if (envelope.keyframed) keyframedItems.add(track.id);
         filters.push(`[${narrationInputIndex}:a]${track.trimFilter}${narrationClipFx}volume=${formatNumber(track.gain_db)}dB,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[${baseLabel}]`);
-        filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_nar${index}]`);
-        filters.push(`[${baseLabel}][env_nar${index}]amultiply,adelay=${delay}:all=1[${rawLabel}]`);
+        filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_${prefix}${index}]`);
+        filters.push(`[${baseLabel}][env_${prefix}${index}]amultiply,adelay=${delay}:all=1[${rawLabel}]`);
       } else {
         filters.push(
           `[${narrationInputIndex}:a]${track.trimFilter}${narrationClipFx}volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
@@ -287,13 +300,14 @@ export function buildAudioMixCommand({
       rawLabels.push(`[${rawLabel}]`);
     }
     if (rawLabels.length === 1) {
-      filters.push(`${rawLabels[0]}apad=whole_dur=${formatNumber(duration)}[narration]`);
+      filters.push(`${rawLabels[0]}apad=whole_dur=${formatNumber(duration)}[${kind}]`);
     } else {
       filters.push(
-        `${rawLabels.join("")}amix=inputs=${rawLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[narration]`,
+        `${rawLabels.join("")}amix=inputs=${rawLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[${kind}]`,
       );
     }
-    narrationLabel = "[narration]";
+    if (kind === "narration") narrationLabel = "[narration]";
+    else speechLabel = "[speech]";
   }
 
   let bgmLabel = null;
@@ -397,6 +411,7 @@ export function buildAudioMixCommand({
     labels.push(`[sfx${index}]`);
   }
   if (narrationLabel) labels.push(narrationLabel);
+  if (speechLabel) labels.push(speechLabel);
 
   filters.push(`${labels.join("")}amix=inputs=${labels.length}:duration=first:normalize=0[mixed]`);
 
@@ -433,7 +448,7 @@ export function buildAudioMixCommand({
   );
   return {
     operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
-    hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
+    hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
     envelopes,
     envelope: envelopeProvenance(),
     clip_fx: clipFxProvenance(),
@@ -464,50 +479,55 @@ function normalizeMasterPlan(master) {
 // filesystem and its declared values, skipping (with a warning) whatever cannot be rendered safely
 // instead of failing the whole export. Runs during planning so the resulting command is deterministic
 // for a fixed filesystem/edit.json pair.
-function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps }) {
+function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps, kind = "narration" }) {
   const warnings = [];
   const tracks = [];
   if (!Array.isArray(narration)) return { tracks, warnings };
 
   for (const raw of narration) {
+    if (!isAudioItemAudible(undefined, raw)) continue;
     const item = raw && typeof raw === "object" ? raw : {};
     const id = typeof item.id === "string" && item.id !== "" ? item.id : "narration";
     const path = typeof item.path === "string" && item.path !== "" ? item.path : null;
     if (!path) {
-      warnings.push(`narration ${id}: path is missing; skipped`);
+      warnings.push(`${kind} ${id}: path is missing; skipped`);
       continue;
     }
     const resolvedPath = resolve(projectRoot, path);
     if (!existsSync(resolvedPath)) {
-      warnings.push(`narration ${id}: file not found at ${path}; skipped`);
+      warnings.push(`${kind} ${id}: file not found at ${path}; skipped`);
       continue;
     }
     const probe = probeNarrationAudio(ffprobeCommand, resolvedPath);
     if (!probe.hasAudio || !isFiniteNumber(probe.duration) || probe.duration <= 0) {
-      warnings.push(`narration ${id}: file could not be decoded as audio at ${path}; skipped`);
+      warnings.push(`${kind} ${id}: file could not be decoded as audio at ${path}; skipped`);
       continue;
     }
     const t = Number(item.t);
     if (!Number.isFinite(t) || t < 0) {
-      warnings.push(`narration ${id}: t is not a finite non-negative number (${item.t}); skipped`);
+      warnings.push(`${kind} ${id}: t is not a finite non-negative number (${item.t}); skipped`);
       continue;
     }
     if (Number.isFinite(duration) && t >= duration) {
-      warnings.push(`narration ${id}: t (${t}s) is at or beyond the timeline duration (${duration}s); skipped`);
+      warnings.push(`${kind} ${id}: t (${t}s) is at or beyond the timeline duration (${duration}s); skipped`);
       continue;
     }
     const rawGain = item.gain_db === undefined ? 0 : Number(item.gain_db);
     if (!Number.isFinite(rawGain)) {
-      warnings.push(`narration ${id}: gain_db is not a finite number (${item.gain_db}); skipped`);
+      warnings.push(`${kind} ${id}: gain_db is not a finite number (${item.gain_db}); skipped`);
       continue;
     }
     const gain_db = Math.min(GAIN_DB_MAX, Math.max(GAIN_DB_MIN, rawGain));
     if (gain_db !== rawGain) {
-      warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
+      warnings.push(`${kind} ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
     }
-    const trim = resolveNarrationTrim(item, probe.duration, id, fps);
+    const trim = resolveNarrationTrim(item, probe.duration, id, fps, kind);
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
+    if (kind === "speech" && isPositiveNumber(item.duration) && item.duration < trim.effectiveDuration) {
+      trim.effectiveDuration = item.duration;
+      trim.trimFilter += `atrim=duration=${formatNumber(item.duration)},`;
+    }
     tracks.push({
       id, path: resolvedPath, t, gain_db, trimFilter: trim.trimFilter,
       durationSec: trim.effectiveDuration,
@@ -517,7 +537,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
   return { tracks, warnings };
 }
 
-function resolveNarrationTrim(item, actualDuration, id, fps) {
+function resolveNarrationTrim(item, actualDuration, id, fps, kind = "narration") {
   const hasIn = item.in !== undefined;
   const hasOut = item.out !== undefined;
   if (!hasIn && !hasOut) {
@@ -529,21 +549,21 @@ function resolveNarrationTrim(item, actualDuration, id, fps) {
   let outSeconds = hasOut && isFiniteNumber(item.out) && item.out > 0 ? item.out : actualDuration;
   if (inSeconds >= actualDuration) {
     warnings.push(
-      `narration ${id}: in ${formatNumber(inSeconds)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); clamped to 0s`,
+      `${kind} ${id}: in ${formatNumber(inSeconds)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); clamped to 0s`,
     );
     inSeconds = 0;
   }
   if (outSeconds > actualDuration) {
     if (shouldWarnForOutClamp(outSeconds, actualDuration, fps)) {
       warnings.push(
-        `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
+        `${kind} ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
       );
     }
     outSeconds = actualDuration;
   }
   if (outSeconds <= inSeconds) {
     warnings.push(
-      `narration ${id}: out <= in after clamping (in=${formatNumber(inSeconds)}s, out=${formatNumber(outSeconds)}s); skipped (silent)`,
+      `${kind} ${id}: out <= in after clamping (in=${formatNumber(inSeconds)}s, out=${formatNumber(outSeconds)}s); skipped (silent)`,
     );
     return { skip: true, trimFilter: "", effectiveDuration: 0, warnings };
   }
@@ -702,8 +722,8 @@ function normalizeAudioPlan(audio) {
   if (!audio) return { bgm: null, sfx: [] };
   const normalize = (value) => (typeof value === "string" ? { path: value } : value);
   return {
-    bgm: audio.bgm ? normalize(audio.bgm) : null,
-    sfx: Array.isArray(audio.sfx) ? audio.sfx.map(normalize) : [],
+    bgm: audio.bgm && isAudioItemAudible(undefined, audio.bgm) ? normalize(audio.bgm) : null,
+    sfx: Array.isArray(audio.sfx) ? audio.sfx.map(normalize).filter(item => isAudioItemAudible(undefined, item)) : [],
   };
 }
 
@@ -985,7 +1005,7 @@ function appendInputSeekedCutAudioFilter({
   filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
 }) {
   const speed = cutSpeed(cut);
-  if (source.hasAudio === true && cut.mute !== true) {
+  if (source.hasAudio === true && isCutAudioAudible(cut)) {
     appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
     const atempoSuffix = buildAtempoChain(speed)
       .map((factor) => `,atempo=${formatNumber(factor)}`)
@@ -1242,7 +1262,7 @@ function appendInputSeekedGapAwareAudioFilters({
     const { index, cut } = segment;
     const source = sourcesByCutIndex.get(localIndex);
     const speed = cutSpeed(cut);
-    if (source.hasAudio === true && cut.mute !== true) {
+    if (source.hasAudio === true && isCutAudioAudible(cut)) {
       appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
@@ -1287,7 +1307,7 @@ function appendGapAwareAudioFilters({
     const { index, cut } = segment;
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
-    if (source.hasAudio && cut.mute !== true) {
+    if (source.hasAudio && isCutAudioAudible(cut)) {
       appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)

@@ -102,6 +102,7 @@ function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
   for (const segment of map.segments) {
     if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number") continue;
     if (hasExplicitSources && segment.src !== options.sourceId) continue;
+    if (segment.cutIndex !== null && normalizedCuts[segment.cutIndex]?.audio === false) continue;
     const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
     for (const entry of transcript) {
       if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start) continue;
@@ -1079,6 +1080,14 @@ function isWithinDuckInterval(intervals, atSec) {
   return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
 }
 
+// ../edit-store/src/audio-ownership.ts
+function isAudioItemAudible(track, item) {
+  return track?.muted !== true && item?.mute !== true;
+}
+function isCutAudioAudible(cut, track) {
+  return cut.audio !== false && isAudioItemAudible(track, cut);
+}
+
 // ../edit-store/src/audio-schedule.ts
 function buildWebAudioSchedule(input) {
   const warnings = [];
@@ -1093,19 +1102,25 @@ function buildWebAudioSchedule(input) {
   }
   const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings);
   const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings);
-  const narrationIntervals = computeDuckIntervals(narration.map((item) => ({
+  const narrationIntervals = computeDuckIntervals(narration.filter((item) => item.spec.duckKey !== true).map((item) => ({
     t: item.t,
     durationSec: item.itemDurationSec
   })));
   const duckKeys = normalizedDuckKeys(audio.duck_keys);
-  const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+  const speechIntervals = [
+    ...input.duckKeyIntervals ?? input.speechKeyIntervals ?? [],
+    ...computeDuckIntervals(narration.filter((item) => item.spec.duckKey === true).map((item) => ({
+      t: item.t,
+      durationSec: item.itemDurationSec
+    })))
+  ];
   const duckIntervals = mergeDuckIntervals([
     ...duckKeys.includes("narration") ? narrationIntervals : [],
     ...duckKeys.includes("speech") ? speechIntervals : []
   ]);
   const items = [];
   const bgm = audio.bgm;
-  if (bgm) {
+  if (bgm && isAudioItemAudible(void 0, bgm)) {
     const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
     if (scheduled) items.push(scheduled);
   }
@@ -1128,6 +1143,7 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
   const resolved = [];
   for (let index = 0; index < specs.length; index += 1) {
     const spec = specs[index];
+    if (!isAudioItemAudible(void 0, spec)) continue;
     const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
     const label = `${kind} ${id}`;
     if (!spec || !finitePositive(spec.durationSec)) {
@@ -1153,7 +1169,7 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
       track: normalizedTrack(spec.track),
       materialDurationSec: spec.durationSec,
       sourceOffsetSec: trim.sourceOffsetSec,
-      itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+      itemDurationSec: spec.duckKey === true && finitePositive(spec.duration) ? Math.min(spec.duration, trim.durationSec / playbackRate) : sidecar ? trim.durationSec : trim.durationSec / playbackRate,
       playbackRate,
       gainDb
     });
@@ -1372,7 +1388,7 @@ function projectSpeechDeclarations(cuts, options) {
     if (segment.kind !== "src" || segment.cutIndex === null) continue;
     const cut = normalizedCuts[segment.cutIndex];
     if (!cut || typeof cut.src !== "string" || !cut.src) continue;
-    if (cut.mute === true) continue;
+    if (!isCutAudioAudible(cut)) continue;
     const speed = finitePositive(cut.speed) ? cut.speed : 1;
     const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
     const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
@@ -1683,7 +1699,8 @@ var ITEM_KEYS = /* @__PURE__ */ new Set([
   "keyframes",
   "items",
   "mask",
-  "source"
+  "source",
+  "audio"
 ]);
 var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "id",
@@ -1693,6 +1710,8 @@ var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "at",
   "duration",
   "role",
+  "link",
+  "mute",
   "source",
   "gain_db",
   "keyframes",
@@ -1841,8 +1860,12 @@ function validateAudioItem(value, path, ids, sourceIds) {
   validateItemMetadata(value, path);
   requireInteger(value.at, 0, `${path}.at`);
   requireInteger(value.duration, 0, `${path}.duration`);
-  if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
-    throw invalid(`${path}.role`, "sfx/narration/bgm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm" && value.role !== "speech") {
+    throw invalid(`${path}.role`, "sfx/narration/bgm/speech \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  if (hasOwn(value, "link")) requireText(value.link, `${path}.link`);
+  if (hasOwn(value, "mute") && typeof value.mute !== "boolean") {
+    throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
   if (hasOwn(value, "gain_db")) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
   if (hasOwn(value, "denoise")) validateAudioClipDenoise(value.denoise, `${path}.denoise`);
@@ -1927,6 +1950,10 @@ function validateItem(value, path, ids, sourceIds) {
   if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
   if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
   validateItemSource(value.source, `${path}.source`, sourceIds);
+  if (hasOwn(value, "audio")) {
+    if (value.source.kind !== "media") throw invalid(`${path}.audio`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+    if (value.audio !== false) throw invalid(`${path}.audio`, "false \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
   if (hasOwn(value, "mask")) {
     if (value.source.kind !== "media") throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
     requireText(value.mask, `${path}.mask`);
@@ -2819,7 +2846,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
           src: path ?? item.source.src,
           track: ref,
           ...common,
-          ...copyMediaSourceFields(item.source)
+          ...copyMediaSourceFields(item.source),
+          ..."audio" in item && item.audio === false ? { audio: false } : {}
         };
         const value2 = declaration;
         return finish({
@@ -2845,7 +2873,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         ...speed !== void 0 ? { speed } : {},
         ...item.transform !== void 0 ? { transform: item.transform } : {},
         ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-        ...copyMediaSourceFields(item.source)
+        ...copyMediaSourceFields(item.source),
+        ..."audio" in item && item.audio === false ? { audio: false } : {}
       };
       return finish({
         item: {
@@ -2865,6 +2894,7 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
             track: ref,
             ...common,
             ...copyMediaSourceFields(item.source),
+            ..."audio" in item && item.audio === false ? { audio: false } : {},
             ...speed !== void 0 ? { speed } : {}
           },
           legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
@@ -3062,6 +3092,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
   };
   const itemClipFx = {
+    ...item.mute !== void 0 ? { mute: item.mute } : {},
+    ...item.role === "speech" ? { role: "speech", duration, track: ref } : {},
     ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
     ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
   };
@@ -3076,7 +3108,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
   };
   const resolvedPath = path ?? item.source.src;
   const role = item.role ?? "sfx";
-  if (role === "narration") {
+  if (role === "narration" || role === "speech") {
     const value2 = {
       id: item.id,
       t: at,
@@ -3124,8 +3156,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
           ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
         },
         legacy: {
-          collection: "narration",
-          index: nextLegacyIndex(legacyIndexCounters, "narration"),
+          collection: role,
+          index: nextLegacyIndex(legacyIndexCounters, role),
           value: value2
         }
       }
@@ -3357,9 +3389,10 @@ function projectLegacyEdit(internal) {
   const layers = [];
   const audioSfx = [];
   const audioNarration = [];
+  const audioSpeech = [];
   let audioBgm;
   for (const track of internal.tracks) {
-    if (track.lane === "audio" && track.muted === true) continue;
+    if (track.lane === "audio" && !isAudioItemAudible(track, void 0)) continue;
     for (const item of track.items) {
       const value = item.legacy.value;
       if (value === void 0) {
@@ -3376,6 +3409,9 @@ function projectLegacyEdit(internal) {
               break;
             case "narration":
               audioNarration.push({ index: item.legacy.index, value });
+              break;
+            case "speech":
+              audioSpeech.push({ index: item.legacy.index, value });
               break;
             case "bgm":
               audioBgm = value;
@@ -3414,6 +3450,7 @@ function projectLegacyEdit(internal) {
     layers: byDeclarationOrder(layers),
     audioSfx: byDeclarationOrder(audioSfx),
     audioNarration: byDeclarationOrder(audioNarration),
+    ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
     ...audioBgm ? { audioBgm } : {},
     ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
     fps: internal.output.fps,
@@ -3739,6 +3776,8 @@ export {
   evaluateEnvelopeDb,
   findActiveCaption,
   findActiveResolvedCaption,
+  isAudioItemAudible,
+  isCutAudioAudible,
   isTransitionType,
   isWithinDuckInterval,
   mergePresetTextStyle,

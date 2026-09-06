@@ -6,6 +6,7 @@ import { needsGapAwareCutTimeline, resolveCutSegments } from "../src/cut-timelin
 import { cutSpeed, segmentDuration } from "../src/cut-timeline.mjs";
 import { buildMultiSourceAudioCutCommand, buildGapAwareMultiSourceAudioCutCommand } from "../src/plan.mjs";
 import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
+import { isCutAudioAudible } from "../../edit-store/lib/index.js";
 
 // 非 seek helper は現在 private / 呼び出し元なし。公開 API を増やさず実ソースを検査する。
 const planSource = readFileSync(new URL('../src/plan.mjs', import.meta.url), 'utf8');
@@ -14,11 +15,11 @@ function planFunction(name) {
   assert.ok(start >= 0, name);
   return planSource.slice(start, planSource.indexOf('\n}\n', start) + 2);
 }
-const appendNonSeekAudio = new Function('cutSpeed', 'segmentDuration', 'buildAtempoChain', [
+const appendNonSeekAudio = new Function('cutSpeed', 'segmentDuration', 'buildAtempoChain', 'isCutAudioAudible', [
   planFunction('formatNumber'), planFunction('cutSpeechVolumeSuffix'),
   planFunction('appendAudioEndPaddingWarning'), planFunction('appendGapAwareAudioFilters'),
   'return appendGapAwareAudioFilters;'
-].join('\n'))(cutSpeed, segmentDuration, buildAtempoChain);
+].join('\n'))(cutSpeed, segmentDuration, buildAtempoChain, isCutAudioAudible);
 
 function speechCommand(route, fields = {}, hasAudio = true) {
   const cut = { id: 'camera', src: 'main', in: 2, out: 10, speed: 2, ...fields };

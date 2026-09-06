@@ -301,6 +301,8 @@ export interface ItemV2Base {
 }
 export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
+    /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
+    audio?: false;
     /** sources[].id of a gray-h264-fullrange mask video. */
     mask?: string;
 };
@@ -319,7 +321,7 @@ export type ItemV2 = MediaItemV2 | (ItemV2Base & {
 }) | (ItemV2Base & {
     source: CaptionSourceV2;
 });
-export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm';
+export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm' | 'speech';
 export interface NarrationProvenanceV2 {
     provider: string;
     engine?: string;
@@ -339,6 +341,10 @@ export interface AudioMediaItemV2 {
     duration: number;
     /** 省略時は sfx。 */
     role?: AudioRoleV2;
+    /** 同じ edit 内の visual media id。編集上の関連であり時刻・source の正本ではない。 */
+    link?: string;
+    /** item 単位のミュート。省略時は false。 */
+    mute?: boolean;
     source: AudioMediaSourceV2;
     gain_db?: number;
     denoise?: {

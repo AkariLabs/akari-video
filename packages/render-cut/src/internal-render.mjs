@@ -6,7 +6,7 @@ import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 import { generateCaptionOverlays } from "./captions.mjs";
 
 const require = createRequire(import.meta.url);
-const { readInternalEdit, resolveInternalTrackZ } = require("../../edit-store/lib/index.js");
+const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible } = require("../../edit-store/lib/index.js");
 const projectRoots = new WeakMap();
 const hiddenItemIds = new WeakMap();
 const frameNormalizedHtmlItems = new WeakSet();
@@ -45,16 +45,14 @@ export function projectRendererCompatibilityEdit(
   projectRootOverride,
   { expandParts = true, onWarning } = {},
 ) {
-  const mutedAudioItemIds = new Set();
   const mutedVisualItemIds = new Set();
   const collectMutedItemIds = (item, ids) => {
     if (item?.source?.kind === "media") ids.add(String(item.id));
     for (const child of item?.children ?? []) collectMutedItemIds(child, ids);
   };
   for (const track of internal.tracks) {
-    if (track.muted !== true) continue;
-    const ids = track.lane === "audio" ? mutedAudioItemIds : mutedVisualItemIds;
-    for (const item of track.items) collectMutedItemIds(item, ids);
+    if (track.lane !== "visual" || track.muted !== true) continue;
+    for (const item of track.items) collectMutedItemIds(item, mutedVisualItemIds);
   }
   const ordered = internal.tracks.flatMap(track => track.items)
     .sort((left, right) => left.legacy.index - right.legacy.index);
@@ -67,22 +65,11 @@ export function projectRendererCompatibilityEdit(
     ? expandedHtmlOverlays(internal, projectRoot)
     : unexpandedHtmlOverlays(internal, temporaryDirectory);
   const layers = [];
-  const sfx = [];
-  const narration = [];
-  let bgm;
   for (const item of ordered) {
-    if (item.legacy.value !== undefined && !mutedAudioItemIds.has(String(item.id))) {
-      switch (item.legacy.collection) {
-        case "sfx": sfx.push(projectAudioDeclaration(item, internal.output.fps)); break;
-        case "narration": narration.push(projectAudioDeclaration(item, internal.output.fps)); break;
-        case "bgm": bgm = projectAudioDeclaration(item, internal.output.fps); break;
-        default: break;
-      }
-    }
     switch (renderItemKind(item)) {
       case "cut": {
         const declaration = renderItemDeclaration(item, temporaryDirectory);
-        cuts.push(mutedVisualItemIds.has(String(item.id)) ? { ...declaration, mute: true } : declaration);
+        cuts.push(!isCutAudioAudible(declaration, { muted: mutedVisualItemIds.has(String(item.id)) }) ? { ...declaration, mute: true } : declaration);
         break;
       }
       case "html": break;
@@ -110,10 +97,13 @@ export function projectRendererCompatibilityEdit(
     ? raw.audio.master : undefined;
   const duckKeys = isRecord(raw?.audio) && raw.audio.duck_keys !== undefined
     ? raw.audio.duck_keys : undefined;
+  const projectedAudio = projectLegacyAudioView(internal);
   const audio = {
-    sfx,
-    narration,
-    ...(bgm !== undefined ? { bgm } : {}),
+    ...projectedAudio,
+    sfx: projectedAudio.sfx.filter(item => isAudioItemAudible(undefined, item)),
+    narration: projectedAudio.narration.filter(item => isAudioItemAudible(undefined, item)),
+    ...(projectedAudio.speech ? { speech: projectedAudio.speech.filter(item => isAudioItemAudible(undefined, item)) } : {}),
+    ...(projectedAudio.bgm && !isAudioItemAudible(undefined, projectedAudio.bgm) ? { bgm: undefined } : {}),
     ...(master !== undefined ? { master } : {}),
     ...(duckKeys !== undefined ? { duck_keys: duckKeys } : {}),
   };
@@ -345,34 +335,6 @@ function resolveReferencedItemKeyframes(internal, projectRoot, onWarning = conso
   for (const track of internal?.tracks ?? []) {
     for (const item of track.items ?? []) visit(item);
   }
-}
-
-// Internal compatibility values use edit-store's camelCase display model. The renderer compatibility
-// shape retains the historical JSON spelling consumed by plan.mjs for gain_db.
-function projectAudioDeclaration(item, fps) {
-  const value = item.legacy.value;
-  const keyframes = item.source?.sourceId !== undefined && Array.isArray(value.keyframes)
-    ? value.keyframes.map(point => isRecord(point) && typeof point.t === "number"
-      ? { ...point, t: point.t / fps }
-      : point)
-    : undefined;
-  if (item.source?.sourceId === undefined && isRecord(item.declaration)) {
-    // Compatibility top-level audio receives provisional display-only in/out/duration in edit-store.
-    // Rendering must retain the original declaration so an omitted trim still means full material.
-    return {
-      ...item.declaration,
-      ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
-      ...(keyframes ? { keyframes } : {}),
-    };
-  }
-  return {
-    // addV2AudioItems keeps the original top-level entry here. Preserve compatibility-only
-    // fields (for example SFX fade_in/fade_out and BGM in) without making raw.audio authoritative.
-    ...(isRecord(item.declaration) ? item.declaration : {}),
-    ...value,
-    ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
-    ...(keyframes ? { keyframes } : {}),
-  };
 }
 
 /** source.kind だけで既存描画器への経路を決める。 */

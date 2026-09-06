@@ -1586,9 +1586,10 @@
         "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
         "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "mask": { "type": "string", "minLength": 1, "pattern": "\\S" },
-        "source": { "$ref": "#/$defs/itemSourceMediaV2" }
+        "source": { "$ref": "#/$defs/itemSourceMediaV2" },
+        "audio": { "const": false }
       },
-      "$comment": "mask は sources[].id を参照する任意のグレースケール動画（gray-h264-fullrange）。省略時の media item の意味論は従来どおり。"
+      "$comment": "mask は sources[].id を参照する任意のグレースケール動画（gray-h264-fullrange）。省略時の media item の意味論は従来どおり。\ncontract-2026-09-06-cut-audio-split-v0.md: audio は visual media 限定。false は埋め込み音声を停止、省略は従来どおり。"
     },
     "itemV2Html": {
       "type": "object",
@@ -1773,7 +1774,9 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
-        "role": { "enum": ["sfx", "narration", "bgm"] },
+        "role": { "enum": ["sfx", "narration", "bgm", "speech"] },
+        "link": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "mute": { "type": "boolean" },
         "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
         "denoise": { "$ref": "#/$defs/audioClipDenoise" },
@@ -1798,7 +1801,7 @@
         "reading": { "type": "string" },
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       },
-      "$comment": "audio lane 専用 item。role 省略時は sfx。at/duration は整数フレームで、duration 0 は実尺未解決を表す明示的センチネル。素材側 in/out と fade は秒。script/reading/provenance は narration 用の任意メタデータ。"
+      "$comment": "audio lane 専用 item。role 省略時は sfx。at/duration は整数フレームで、duration 0 は実尺未解決を表す明示的センチネル。素材側 in/out と fade は秒。script/reading/provenance は narration 用の任意メタデータ。\ncontract-2026-09-06-cut-audio-split-v0.md: link は編集上の関連（同じ edit 内の visual media id と一対一）で、source や時刻の再計算命令ではない。mute 省略は false。speech は分離した本編音声。"
     },
     "itemV2": {
       "oneOf": [

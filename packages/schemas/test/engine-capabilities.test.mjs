@@ -13,6 +13,8 @@ const {
   ITEM_SOURCE_V2_KEYS,
   KEYFRAME_V2_KEYS,
 } = require("../../edit-store/lib/generated/edit-v2-keys.js");
+const { readInternalEdit } = require("../../edit-store/lib/internal-model.js");
+const { readEditV2 } = require("../../edit-store/lib/edit-v2.js");
 
 const canonicalPaths = new Set([
   ...ITEM_V2_KEYS.map((key) => `tracks[].items[].${key}`),
@@ -29,11 +31,14 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("all 68 generated item, source, and keyframe keys have a capability row", () => {
-  assert.equal(canonicalPaths.size, 68);
-  const covered = new Set(table.fields.map((field) => field.path));
+test("generated keys have capability rows including cut audio ownership", () => {
+  assert.equal(canonicalPaths.size, 71);
+  const covered = new Set(table.fields.map(field => field.path));
   assert.ok(covered.has('tracks[].items[].adjust.fx'));
-  assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)), []);
+  assert.deepEqual([...canonicalPaths].filter(path => !covered.has(path)), []);
+  for (const key of ['audio', 'link', 'mute']) assert.ok(covered.has(`tracks[].items[].${key}`));
+  const doc = JSON.parse(readFileSync(join(packageRoot, 'examples/edit-v2-cut-audio-split-valid/edit.json'), 'utf8'));
+  assert.doesNotThrow(() => readInternalEdit(doc));
 });
 
 test("capability rows cannot invent paths outside the generated v2 key inventory", () => {

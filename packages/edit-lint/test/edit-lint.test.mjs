@@ -15,6 +15,7 @@ import {
 } from "../src/edit-lint.mjs";
 import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
+import { prepareCutAudioFixtures } from "./helpers/cut-audio-fixtures.mjs";
 
 // 幾何の統一 G1: 未移行の v2（output.geometry 未指定）には geometry.fit-compat の warning が
 // 必ず 1 件付く。各検査の「所見ゼロ」判定はこの移行案内を除いて数える
@@ -31,6 +32,7 @@ const preparedFixtureRoot = await mkdtemp(join(tmpdir(), "edit-lint-v2-fixtures-
 const preparedFixtures = join(preparedFixtureRoot, "fixtures");
 await cp(fixtureRoot, preparedFixtures, { recursive: true });
 await migrateFixtureTree(preparedFixtures);
+await prepareCutAudioFixtures(preparedFixtures);
 test.after(() => rm(preparedFixtureRoot, { recursive: true, force: true }));
 const styleParity = JSON.parse(await readFile(join(
   packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
@@ -607,9 +609,21 @@ for (const [fixture, expectedCheck] of [
   ["v2-item-duration-zero-invalid", "v2.item-duration"],
   ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
   ["v2-audio-bgm-items-invalid", "v2.audio-bgm-multiple"],
+  ["edit-v2-cut-audio-split-valid", null],
+  ["edit-v2-cut-audio-link-missing-invalid", "v2.audio-link-target"],
+  ["edit-v2-cut-audio-link-not-media-invalid", "v2.audio-link-target-kind"],
+  ["edit-v2-cut-audio-link-duplicate-invalid", "v2.audio-link-duplicate"],
 ]) {
-  test(`${fixture} reports ${expectedCheck}`, async () => {
+  test(`${fixture} reports ${expectedCheck ?? 'pass'}`, async () => {
     await withFixtures(async (fixtures) => {
+      if (fixture.startsWith('edit-v2-cut-audio-')) {
+        const result = await lintProject(join(fixtures, fixture), { writeReports: false });
+        assert.equal(result.verdict, expectedCheck === null ? 'pass' : 'fail', JSON.stringify(result.findings));
+        const splitFindings = result.findings.filter(finding => finding.check.startsWith('v2.audio-'));
+        assert.deepEqual(splitFindings.map(({ check, severity }) => ({ check, severity })),
+          expectedCheck === null ? [] : [{ check: expectedCheck, severity: 'error' }]);
+        return;
+      }
       const executed = run(join(fixtures, fixture));
       assert.equal(executed.status, 1, executed.stderr);
       const result = parseResult(executed);

@@ -54,7 +54,7 @@ test('narration と SFX の不正 trim はフィールドごとに無視し、�
 });
 
 test('timed の trim は narration でも sidecar 要求とサマリーへ渡り、fade/duck だけ SFX に限定する', () => {
-    const timed = handlerSource.match(/const timed = async \(items: unknown, kind: 'sfx' \| 'narration'\)[\s\S]*?\n        let bgm:/)?.[0];
+    const timed = handlerSource.match(/const timed = async \(items: unknown, kind: 'sfx' \| 'narration' \| 'speech'\)[\s\S]*?\n        let bgm:/)?.[0];
     assert.ok(timed, 'timed audio resolver exists');
     const beforeSource = timed.slice(0, timed.indexOf('const source = await resolveSource'));
     assert.match(beforeSource, /const \{ inSec: trimIn, outSec: trimOut \} = previewAudioTrimOf\(item, label, console\.warn\);/);

@@ -184,7 +184,7 @@ export async function lintProject(input, options = {}) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
   const rawEdit = edit;
-  const internalEdit = readInternalEdit(rawEdit);
+  const internalEdit = readInternalEdit(rawEdit, { allowCutAudioSplit: true });
   const legacyEdit = projectLegacyEdit(internalEdit);
   if (engineCapabilities !== null && rawEdit.version === 2) {
     validateEngineCapabilities(rawEdit, internalEdit, engine, engineCapabilities.value, findings);
@@ -1081,6 +1081,8 @@ function validateEditV2(edit, findings) {
   const sourcePaths = new Map();
   const trackIds = new Map();
   const itemIds = new Map();
+  const itemTargets = new Map();
+  const linkedAudioItems = [];
   const registerId = (ids, id, path, label) => {
     if (!isNonEmptyString(id)) {
       addFinding(findings, {
@@ -1121,6 +1123,21 @@ function validateEditV2(edit, findings) {
         if (!isRecord(item)) continue;
         registerId(itemIds, item.id, `${itemPath}.id`, "item");
         validateAnimators(item, findings, itemPath);
+        if (isNonEmptyString(item.id) && !itemTargets.has(item.id)) {
+          itemTargets.set(item.id, { item, lane: track.lane });
+        }
+        if (track.lane === "audio" && Object.hasOwn(item, "link")) {
+          linkedAudioItems.push({ item, path: `${itemPath}.link` });
+        }
+        if (track.lane === "visual" && item.source?.kind === "media" && item.audio === false
+          && (Object.hasOwn(item.source, "gain_db") || Object.hasOwn(item.source, "mute"))) {
+          addFinding(findings, {
+            severity: "warning",
+            check: "v2.audio-embedded-unused",
+            message: "source.gain_db / source.mute have no effect when the visual media item declares audio: false",
+            path: `${itemPath}.source`,
+          });
+        }
         if (parent && Number.isInteger(item.at) && Number.isInteger(item.duration)
           && (item.at < 0 || item.at + item.duration > parent.duration)) {
           addFinding(findings, {
@@ -1164,6 +1181,37 @@ function validateEditV2(edit, findings) {
       }
     };
     visit(track.items, null, `edit.json#tracks[${trackIndex}].items`);
+  }
+
+  const linkedTargets = new Map();
+  for (const { item, path } of linkedAudioItems) {
+    const target = itemTargets.get(item.link);
+    if (!isNonEmptyString(item.link) || !target) {
+      addFinding(findings, {
+        severity: "error", check: "v2.audio-link-target",
+        message: `link does not reference an item in this edit: ${String(item.link)}`, path,
+      });
+    } else if (target.lane !== "visual" || target.item.source?.kind !== "media") {
+      addFinding(findings, {
+        severity: "error", check: "v2.audio-link-target-kind",
+        message: `link target must be a visual media item: ${item.link}`, path,
+      });
+    } else if (target.item.audio !== false) {
+      addFinding(findings, {
+        severity: "error", check: "v2.audio-link-target",
+        message: `linked visual media item must declare audio: false: ${item.link}`, path,
+      });
+    }
+    if (isNonEmptyString(item.link)) {
+      if (linkedTargets.has(item.link)) {
+        addFinding(findings, {
+          severity: "error", check: "v2.audio-link-duplicate",
+          message: `multiple audio items link to ${item.link} (first declared at ${linkedTargets.get(item.link)})`, path,
+        });
+      } else {
+        linkedTargets.set(item.link, path);
+      }
+    }
   }
 
   const bgmItems = edit.tracks.flatMap((track, trackIndex) =>

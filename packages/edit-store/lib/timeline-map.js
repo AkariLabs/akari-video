@@ -35,6 +35,8 @@ function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
             continue;
         if (hasExplicitSources && segment.src !== options.sourceId)
             continue;
+        if (segment.cutIndex !== null && normalizedCuts[segment.cutIndex]?.audio === false)
+            continue;
         const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
         for (const entry of transcript) {
             if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)

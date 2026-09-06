@@ -636,7 +636,7 @@ test('cuts without motion retain serialized fit-basis and layerStyle visuals', (
 
 test('runtime known-key inventories expose declared shapes plus recognized non-text animator', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'adjust', 'animator', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'opacity', 'out', 'perspective',
+    'adjust', 'animator', 'at', 'audio', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'mute', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWebAudioSchedule = buildWebAudioSchedule;
 exports.projectSpeechDeclarations = projectSpeechDeclarations;
+const audio_ownership_1 = require("./audio-ownership");
 const ducking_1 = require("./ducking");
 const envelope_1 = require("./envelope");
 const timeline_map_1 = require("./timeline-map");
@@ -20,19 +21,24 @@ function buildWebAudioSchedule(input) {
     }
     const narration = resolveTimedItems('narration', audio.narration, timelineDurationSec, warnings);
     const sfx = resolveTimedItems('sfx', audio.sfx, timelineDurationSec, warnings);
-    const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.map(item => ({
+    const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.filter(item => item.spec.duckKey !== true).map(item => ({
         t: item.t,
         durationSec: item.itemDurationSec
     })));
     const duckKeys = normalizedDuckKeys(audio.duck_keys);
-    const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+    const speechIntervals = [
+        ...(input.duckKeyIntervals ?? input.speechKeyIntervals ?? []),
+        ...(0, ducking_1.computeDuckIntervals)(narration.filter(item => item.spec.duckKey === true).map(item => ({
+            t: item.t, durationSec: item.itemDurationSec
+        })))
+    ];
     const duckIntervals = mergeDuckIntervals([
         ...(duckKeys.includes('narration') ? narrationIntervals : []),
         ...(duckKeys.includes('speech') ? speechIntervals : [])
     ]);
     const items = [];
     const bgm = audio.bgm;
-    if (bgm) {
+    if (bgm && (0, audio_ownership_1.isAudioItemAudible)(undefined, bgm)) {
         const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
         if (scheduled)
             items.push(scheduled);
@@ -60,6 +66,8 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
     const resolved = [];
     for (let index = 0; index < specs.length; index += 1) {
         const spec = specs[index];
+        if (!(0, audio_ownership_1.isAudioItemAudible)(undefined, spec))
+            continue;
         const id = typeof spec?.id === 'string' && spec.id
             ? spec.id : `${kind}-${index + 1}`;
         const label = `${kind} ${id}`;
@@ -93,7 +101,9 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
             track: normalizedTrack(spec.track),
             materialDurationSec: spec.durationSec,
             sourceOffsetSec: trim.sourceOffsetSec,
-            itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+            itemDurationSec: spec.duckKey === true && finitePositive(spec.duration)
+                ? Math.min(spec.duration, trim.durationSec / playbackRate)
+                : sidecar ? trim.durationSec : trim.durationSec / playbackRate,
             playbackRate,
             gainDb
         });
@@ -299,7 +309,7 @@ function projectSpeechDeclarations(cuts, options) {
         const cut = normalizedCuts[segment.cutIndex];
         if (!cut || typeof cut.src !== 'string' || !cut.src)
             continue;
-        if (cut.mute === true)
+        if (!(0, audio_ownership_1.isCutAudioAudible)(cut))
             continue;
         const speed = finitePositive(cut.speed) ? cut.speed : 1;
         const segmentIn = typeof segment.in === 'number' ? segment.in : cut.in;

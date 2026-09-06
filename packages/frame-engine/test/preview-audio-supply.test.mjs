@@ -3,7 +3,125 @@ import test from 'node:test';
 const WINDOW_REFILL_MS_FOR_TEST = 1000;
 
 import { createPreviewAudioSupply } from '../dist/index.js';
+import { buildWebAudioSchedule, readInternalEdit, projectLegacyEdit, projectLegacyAudioView } from '../../edit-store/lib/index.js';
+import { splitFixture, unsplitFixture, previewAdapter, baseline, plain } from '../../edit-store/test/helpers/cut-audio-supply.mjs';
 import { deferred, expectedSamples, fakeClock, flush, metadata, rangeServer, sampleRate } from './pcm-window-fixture.mjs';
+
+function ownershipSupply(t, doc) {
+  const internal = readInternalEdit(doc);
+  const edit = { ...projectLegacyEdit(internal), audio: projectLegacyAudioView(internal) };
+  const adapter = previewAdapter();
+  const declarations = plain(adapter.audioDeclarations(edit));
+  const speech = plain(adapter.speechDeclarations(edit, 30,
+    new Map([['main', { url: '/assets/main.mp4' }]])));
+  const context = new FakeContext(new Map([[1, buffer(12)]]));
+  const fetches = [], schedules = [], inputs = [], warnings = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 3, declarations, speech, contextFactory: () => context,
+    fetchImpl: async url => { fetches.push(url); return response(1); },
+    onWarning: message => warnings.push(message),
+    scheduleBuilder: input => {
+      inputs.push(plain(input));
+      const result = buildWebAudioSchedule(input);
+      schedules.push(result);
+      return result;
+    },
+  });
+  t.after(() => supply.dispose());
+  return { supply, context, declarations, speech, fetches, schedules, inputs, warnings };
+}
+
+test('cut audio ownership: unsplit fixture preserves baseline schedule and supplies each item once', async t => {
+  const { supply, context, schedules, speech, fetches, warnings } = ownershipSupply(t, unsplitFixture());
+  assert.equal(speech.length, 1);
+  supply.playFrom(0);
+  await flush();
+  assert.deepEqual(plain(schedules.at(-1)), baseline().schedule);
+  assert.equal(context.sources.length, 3);
+  assert.deepEqual(context.sources.map(source => source.starts), [
+    [[1.02, 0, 1]], [[1.52, 1, 1]], [[0.02, 0, 3]],
+  ]);
+  assert.deepEqual(fetches, ['/assets/main.mp4', '/assets/main.mp4'],
+    'embedded speech and regular audio retain their separate decode caches');
+  assert.deepEqual(warnings, []);
+});
+
+test('cut audio ownership: audio false projects no embedded speech and supplies no source', async t => {
+  const doc = splitFixture();
+  doc.tracks[1].items = [];
+  const { supply, context, speech, fetches } = ownershipSupply(t, doc);
+  assert.deepEqual(speech, []);
+  supply.playFrom(0);
+  await flush();
+  assert.equal(supply.debug().scheduled.speech, 0);
+  assert.equal(context.sources.length, 0);
+  assert.deepEqual(fetches, []);
+});
+
+test('cut audio ownership: independent role speech supplies once at its own timing and keys ducking', async t => {
+  const doc = splitFixture();
+  const voice = doc.tracks[1].items[0];
+  voice.at = 30;
+  voice.duration = 30;
+  voice.source.in = 2;
+  voice.source.out = 3;
+  const { supply, context, speech, declarations, inputs, schedules, fetches, warnings } = ownershipSupply(t, doc);
+  assert.deepEqual(speech, []);
+  assert.equal(declarations.length, 1);
+  assert.equal(declarations[0].kind, 'narration');
+  assert.equal(declarations[0].duckKey, true);
+  supply.playFrom(0);
+  await flush();
+  assert.equal(context.sources.length, 1);
+  assert.deepEqual(context.sources[0].starts, [[1.02, 2, 1]]);
+  assert.deepEqual(fetches, ['/assets/main.mp4']);
+  assert.equal(supply.debug().scheduled.speech, 0);
+  assert.equal(supply.debug().scheduled.narration, 1);
+  assert.equal(inputs.at(-1).audio.narration[0].duckKey, true);
+  assert.deepEqual(schedules.at(-1).duckIntervals, [{ startSec: 1, endSec: 2 }]);
+  assert.deepEqual(warnings, []);
+});
+
+test('cut audio ownership: item mute supplies nothing and contributes no ducking key', async t => {
+  const doc = splitFixture();
+  doc.tracks[1].items[0].mute = true;
+  const { supply, context, declarations, fetches, schedules } = ownershipSupply(t, doc);
+  assert.equal(declarations[0].spec.mute, true);
+  supply.playFrom(0);
+  await flush();
+  assert.equal(context.sources.length, 0);
+  assert.deepEqual(fetches, []);
+  assert.deepEqual(supply.debug().supply.required, []);
+  assert.equal(supply.debug().scheduled.itemCount, 0);
+  assert.deepEqual(schedules.at(-1).duckIntervals, []);
+});
+
+for (const all of [false, true]) {
+  test(`cut audio ownership: ${all ? 'allCuts' : 'cuts track'} mute leaves role speech owned by audio`, async t => {
+    const doc = splitFixture();
+    // An unsplit cut and an unlinked speech item share track ref 0 in separate groups.
+    delete doc.tracks[0].items[0].audio;
+    delete doc.tracks[1].items[0].link;
+    const { supply, context, speech, schedules } = ownershipSupply(t, doc);
+    assert.equal(speech.length, 1);
+    supply.setMutedTracks(all ? { allCuts: true } : { cuts: [0] });
+    supply.playFrom(0);
+    await flush();
+    assert.equal(context.sources.length, 1);
+    assert.deepEqual(supply.debug().supply.required, ['narration:voice']);
+    assert.deepEqual(schedules.at(-1).duckIntervals, [{ startSec: 0, endSec: 3 }]);
+    supply.setMutedTracks(all ? { allCuts: false } : { cuts: [] });
+    await flush();
+    assert.equal(context.sources.length, 2, 'unmuting only adds the embedded source');
+    assert.equal(context.sources[0].starts.length, 1, 'independent speech is not duplicated');
+    supply.setMutedTracks(all ? { allAudio: true } : { audio: [0] });
+    await flush();
+    assert.deepEqual(supply.debug().supply.required, [`speech:${speech[0].id}`]);
+    assert.deepEqual(schedules.at(-1).duckIntervals, [], 'audio mute removes the independent ducking key');
+    assert.equal(context.gains[1].gain.value, 0, 'independent speech gain is muted');
+    assert.equal(context.sources.length, 2);
+  });
+}
 
 function pcmDeclaration(id = 'bed', durationSec = 120, kind = 'bgm', spec = {}) {
   const meta = metadata(durationSec, `/${id}.pcm`);

@@ -1,5 +1,6 @@
 import {
   buildWebAudioSchedule,
+  isAudioItemAudible,
   type WebAudioDecodedItem,
 } from '@akari-video/edit-store';
 import * as EditStoreKernel from '@akari-video/edit-store';
@@ -88,6 +89,8 @@ export interface PreviewAudioSidecar {
 }
 
 export interface PreviewAudioDeclaration {
+  /** Independent speech is owned by audio tracks and keys speech ducking. */
+  duckKey?: boolean;
   kind: 'bgm' | 'sfx' | 'narration';
   id: string;
   /** 実際に先読みする URL。sidecar があれば PCM / FLAC、無ければ source。 */
@@ -687,7 +690,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const regularTask = (item: PreviewAudioDeclaration): PrefetchTask => prepareWindowedTask({
       key: `${item.kind}:${item.id}`, at: firstUseRegular(item), failedAtMs: null,
       state: taskState(item.spec.sidecarState),
-      muted: () => trackMuted(item.kind, item.spec.track),
+      muted: () => !isAudioItemAudible({ muted: trackMuted(item.kind, item.spec.track) }, item.spec),
       run: () => resolveRegular(item), resolved: () => regularResolved(item),
     }, validSidecar(item.spec.sidecar)?.format === 'pcm-s16le');
   const speechTask = (item: PreviewSpeechDeclaration): PrefetchTask => prepareWindowedTask({
@@ -1237,9 +1240,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         durationSec: [item.spec.durationSec, validSidecar(item.spec.sidecar)?.durationSec]
           .find(finitePositive) ?? timelineDurationSec,
       }));
-    const scheduled = [...regularDecoded, ...mutedUnresolved];
+    const scheduled = [...regularDecoded, ...mutedUnresolved]
+      .filter(item => isAudioItemAudible(undefined, item.spec));
     const normalized = scheduled.map(item => ({
       ...item.spec,
+      ...(item.duckKey === true ? { duckKey: true,
+        mute: !isAudioItemAudible({ muted: trackMuted(item.kind, item.spec.track) }, item.spec) } : {}),
       id: item.id,
       durationSec: item.durationSec,
       ...(!item.sidecar ? { sidecar: undefined } : {}),
@@ -1652,7 +1658,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         const replacement = incoming.get(key);
         if (!replacement) { warn(`[frame-engine] audio ${key} removed; rebuild required`); return; }
         if (item.spec.sidecarState === replacement.spec.sidecarState && item.url === replacement.url
-          && item.sourceUrl === replacement.sourceUrl) return;
+          && item.sourceUrl === replacement.sourceUrl && item.duckKey === replacement.duckKey
+          && JSON.stringify(item.spec) === JSON.stringify(replacement.spec)) return;
         declarations[index] = replacement;
         regularDecoded = regularDecoded.filter(value => `${value.kind}:${value.id}` !== key);
         windowFailures.delete(key);
@@ -1723,6 +1730,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         void ensureDecoded().then(() => ensureDecoded()).catch(reason => {
           warn('[frame-engine] audio unmute failed', reason);
         });
+        launch(audioPosition(), { pinStart: true });
+      } else if ((playing || starting) && declarations.some(item => item.duckKey === true)) {
+        // Split speech keys must disappear along with their owning audio track.
         launch(audioPosition(), { pinStart: true });
       }
     },
