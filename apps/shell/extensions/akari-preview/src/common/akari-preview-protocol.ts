@@ -327,16 +327,6 @@ export interface ResolvedCaptionDisplayPayload {
     }>;
 }
 
-export interface BuildWaveformPeaksRequest {
-    assetUri: string;
-    workspaceRoots?: string[];
-    buckets?: number;
-}
-
-export type BuildWaveformPeaksResult =
-    | { ok: true; peaks: number[]; durationSec: number; buckets: number }
-    | { ok: false; reason: string };
-
 export type GpuPreferenceCurrent = 'high-performance' | 'power-saving' | 'unset' | 'other' | 'unknown';
 
 export interface GpuPreferenceState {
@@ -356,7 +346,6 @@ export type SetHighPerformanceGpuResult =
     | { ok: false; reason: string; state: GpuPreferenceState };
 
 export interface AkariPreviewService {
-    buildWaveformPeaks(request: BuildWaveformPeaksRequest): Promise<BuildWaveformPeaksResult>;
     promotePreviewAudioSidecars(request: import('./preview-audio-priority').PromotePreviewAudioSidecarsRequest):
         Promise<import('./preview-audio-priority').PromotePreviewAudioSidecarsResult>;
     getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;

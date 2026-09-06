@@ -4,9 +4,9 @@
 
 /** 既存アイコン群の直下からの最低ギャップ（この距離より上には寄せない）。 */
 export const MIN_GAP_ABOVE_PX = 32;
-/** 後続タブ（インスペクター等）1 枚分の見込み高さ + 余白。この分は必ず下に残す。 */
+/** 後続タブ（インスペクター等）1 枚分の見込み高さ。余白 8px は計算時に加える。 */
 export const FALLBACK_TAB_HEIGHT_PX = 48;
-export const RESERVED_BELOW_PX = FALLBACK_TAB_HEIGHT_PX + 8;
+export const RESERVED_BELOW_PX = FALLBACK_TAB_HEIGHT_PX;
 
 export interface ReviewTabMarginInput {
     /** 縦アイコンバー（tabBar）の実測高さ。 */
@@ -15,6 +15,8 @@ export interface ReviewTabMarginInput {
     heightAbove: number;
     /** 対象タブ自身の高さ。 */
     tabHeight: number;
+    /** 後続タブの実測高さ合計。省略時は従来の 1 枚分を確保する。 */
+    reservedBelow?: number;
 }
 
 /**
@@ -24,13 +26,13 @@ export interface ReviewTabMarginInput {
  * のときは 0 を返す。
  */
 export function computeReviewTabMarginTop(input: ReviewTabMarginInput): number {
-    const { barHeight, heightAbove, tabHeight } = input;
+    const { barHeight, heightAbove, tabHeight, reservedBelow = RESERVED_BELOW_PX } = input;
     if (barHeight <= 0) {
         return 0;
     }
     const idealTop = barHeight / 2 - tabHeight / 2;
     const minTop = heightAbove + MIN_GAP_ABOVE_PX;
-    const maxTop = barHeight - RESERVED_BELOW_PX - tabHeight;
+    const maxTop = barHeight - reservedBelow - 8 - tabHeight;
     const clampedTop = maxTop >= minTop
         ? Math.min(Math.max(idealTop, minTop), maxTop)
         : minTop;
