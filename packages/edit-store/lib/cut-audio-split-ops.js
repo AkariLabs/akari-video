@@ -56,6 +56,7 @@ function splitCutAudio(doc, options) {
     const visualIds = new Set(location.track.items.map(item => item.id));
     let audioTrack = document.tracks.find((track) => track.lane === 'audio' && 'items' in track
         && (track.muted === true) === (location.track.muted === true)
+        && track.items.length > 0
         && track.items.every(item => item.role === 'speech' && visualIds.has(item.link)));
     const createdTrack = audioTrack === undefined;
     if (!audioTrack) {

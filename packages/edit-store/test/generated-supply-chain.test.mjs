@@ -12,6 +12,7 @@ const repositoryRoot = join(packageRoot, '../..');
 const expectedSources = [
   'adjust-css-approx.ts',
   'adjust-css-visual.ts',
+  'audio-ownership.ts',
   'audio-schedule.ts',
   'canonical.ts',
   'caption-clock.ts',
@@ -21,6 +22,7 @@ const expectedSources = [
   'caption-window.ts',
   'caption-words-rederive.ts',
   'cut-adjacency.ts',
+  'cut-audio-split-ops.ts',
   'cut-ranges.ts',
   'ducking.ts',
   'edit-store.ts',

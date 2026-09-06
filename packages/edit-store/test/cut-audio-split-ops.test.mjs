@@ -164,8 +164,8 @@ test('4: receiver creation/reuse respects visual ownership and mute without comm
   const unlinked = unlinkCutAudio(first.document, { audioItemId: first.audioItemId });
   assert.equal(splitCutAudio(unlinked, { cutId: 'second' }).createdTrack, true);
   doc.tracks.unshift({ id: 'empty', lane: 'audio', items: [] });
-  assert.equal(split(doc).audioTrackId, 'empty');
-  assert.equal(split(doc).createdTrack, false);
+  assert.notEqual(split(doc).audioTrackId, 'empty');
+  assert.equal(split(doc).createdTrack, true);
 });
 
 test('5: split/unlink never mutate inputs and unlink removes only the link without enabling re-split', () => {
@@ -347,4 +347,45 @@ test('12: singleton audio folding explicitly clamps out-of-range sums to schema 
     assert.equal(audio.mute, true);
     assert.equal('keyframes' in audio, false);
   }
+});
+
+test('13: empty audio tracks with matching mute stay empty when a dedicated receiver is created', () => {
+  for (const muted of [undefined, false, true]) {
+    const doc = fixture();
+    const empty = { id: 'empty', lane: 'audio', name: 'Reserved for effects', items: [] };
+    if (muted !== undefined) {
+      trackOf(doc, 'v1').muted = muted;
+      empty.muted = muted;
+    }
+    doc.tracks.unshift(empty);
+    const result = unchanged(doc, () => split(doc));
+    assert.equal(result.createdTrack, true);
+    assert.notEqual(result.audioTrackId, empty.id);
+    assert.deepEqual(trackOf(result.document, empty.id), empty);
+    assert.equal(result.document.tracks.length, doc.tracks.length + 1);
+    assert.equal(trackOf(result.document, result.audioTrackId).items[0].id, result.audioItemId);
+    assertValid(result.document);
+  }
+});
+
+test('14: a receiver emptied by pair removal stays empty while a new nonempty receiver is reused', () => {
+  const doc = fixture();
+  const first = split(doc);
+  const removed = unchanged(first.document, () => removeCutAudioLinked(first.document,
+    { target: 'pair', cutId: 'cut' }));
+  assert.deepEqual(trackOf(removed, first.audioTrackId).items, []);
+  trackOf(removed, 'v1').items.unshift(structuredClone(itemOf(doc, 'cut')));
+  const next = unchanged(removed, () => split(removed));
+  assert.equal(next.createdTrack, true);
+  assert.notEqual(next.audioTrackId, first.audioTrackId);
+  assert.deepEqual(trackOf(next.document, first.audioTrackId), trackOf(removed, first.audioTrackId));
+  assert.equal(next.document.tracks.length, removed.tracks.length + 1);
+  const second = unchanged(next.document, () => splitCutAudio(next.document, { cutId: 'second' }));
+  assert.equal(second.createdTrack, false);
+  assert.equal(second.audioTrackId, next.audioTrackId);
+  assert.equal(second.document.tracks.length, next.document.tracks.length);
+  assert.deepEqual(trackOf(second.document, first.audioTrackId).items, []);
+  assert.deepEqual(trackOf(second.document, next.audioTrackId).items.map(item => item.id),
+    [next.audioItemId, second.audioItemId]);
+  assertValid(second.document);
 });

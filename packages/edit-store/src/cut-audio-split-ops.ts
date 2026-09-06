@@ -54,6 +54,7 @@ export function splitCutAudio(
     let audioTrack = document.tracks.find((track): track is AudioItemsTrackV2 =>
         track.lane === 'audio' && 'items' in track
         && (track.muted === true) === (location.track.muted === true)
+        && track.items.length > 0
         && track.items.every(item => item.role === 'speech' && visualIds.has(item.link)));
     const createdTrack = audioTrack === undefined;
     if (!audioTrack) {
