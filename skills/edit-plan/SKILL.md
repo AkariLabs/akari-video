@@ -17,27 +17,18 @@ description: analyze-project が作る分析レポート（interpretation.json +
 > `direction` を v2 の `edit.json` へ書かない。語レベル演出の書き先は字幕 SSOT である
 > `captions.json` object ルートの `emphasis_words[]` とする。
 
-## ハードルール
+## 出力ルール（全モード共通）
 
-- 判断の正本は検証済み `analysis.json` と人間の明示承認に置き、根拠のない transcript、フレーム、素材、承認を作らない。
-- **編集判断は analyze-project の分析レポートを一次証拠として使う**。edit-plan 自身は決定用の
-  HTML レポートを新たに生成しない。方針（サムネイル案・カット強度・字幕方針・章立て等）は
-  チャットで決め、決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、
-  常に追記する。`decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート
+- 判断の正本は検証済み `analysis.json` に置き、根拠のない transcript、フレーム、素材、承認を作らない。
+- 決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、常に追記する。
+  `decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート
   （[report-guide §decision_log](report-guide.md#decision_log)）は決定 UI を持たない記録の写しであり、
   この原則の例外ではない。
-- **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。`autonomy: full-auto`（[autonomy.md](autonomy.md)）は除く。
-- Checkpoint 1 で semantic keep/drop を明示承認した後、pause 候補が必要な場合だけ
-  [workflow.md](workflow.md) の cut candidate bridge を使う。bridge の全候補は
-  `REVIEW_REQUIRED` であり、`approved_to_apply:false` の report を作るだけである。
-  `edit.json` や `decision-log.md` を自動更新せず、候補 review 後も Checkpoint 3 の実行承認まで停止する。
-  適用後は [execution.md](execution.md) の cut 後 ASR 再検証、情報保持、UI timing、audio 境界を人間が
-  同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。
-- 静止画は生成物として保存し、provenance とともにチャットで提示する。i2v、アバター、その他の動画生成は対応静止画・素材計画・実行の承認がすべて揃うまで行わない。
+- 静止画は生成物として保存し、provenance とともに報告に含める。i2v、アバター、その他の動画生成は対応静止画がタイムラインに入ってから行う（有償の場合は [autonomy.md](autonomy.md) §4）。
 - **生成素材は `<project>/assets/generated/` に保存する（素材パネルの守備範囲。2026-08-12 改訂）**。プロジェクト外や `<plan-dir>/` 配下に置かない。生成はプロジェクト内でのみ行う（技術的強制はスコープ外。規約として明記）。
 - 生成素材には由来を再検証できるよう `<file>.meta.json` を添え、`provenance.origin` と `provenance.generator` を記録する。
 - **静止画はタイムラインへ直接置ける**: 画像（png / jpg / webp / bmp / gif）は visual 段の `items[]` に media クリップとして置く（[execution.md](execution.md) §静止画素材の扱い）。静止画を並べるためだけに ffmpeg で連結して 1 本の動画へ焼き込まない — 個々の画像の編集性が失われ、`edit.json` の SSOT が壊れる。
-- 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
+- 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。回答を待つのは有償・外部送信のときだけとし、無償・ローカルは宣言を `decision-log.md` に書いて進む（`collaborative` では従来どおり回答を待つ）。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
 - `edit.json` は **v2（`sources[]` + `tracks[].items[]`）だけを書く**。段は `lane` と配列順、クリップの内容は `source.kind` で表し、旧 `cuts` / `layers` / `overlays` キーを作らない。足してよいのは v2 公開契約が定めたフィールドだけである。
 - 見せ場マーカーは [beats.md](beats.md) の導出規約で分析・判断に使うが、v2 の `edit.json` へ `beats` を書かない。
 - 語レベル演出は [emphasis-detection.md](emphasis-detection.md) の検出規約で導出し、
@@ -45,9 +36,25 @@ description: analyze-project が作る分析レポート（interpretation.json +
 - 最終オーバーレイでは [overlay-authoring](../overlay-authoring/SKILL.md) スキルを使う。見つからない場合も規約を省略せず、[CLAUDE.md](../../CLAUDE.md) の authoring 規約を正本として使ったことを記録する。
 - OpenMontage は構造パターンの参考に限り、AGPL の文章やコードを転写しない。
 
+## 承認ルール（autonomy: collaborative のときだけ）
+
+- **編集判断は analyze-project の分析レポートを一次証拠として使う**。edit-plan 自身は決定用の
+  HTML レポートを新たに生成しない。方針（サムネイル案・カット強度・字幕方針・章立て等）は
+  チャットで決め、決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、
+  常に追記する。`decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート
+  （[report-guide §decision_log](report-guide.md#decision_log)）は決定 UI を持たない記録の写しであり、
+  この原則の例外ではない。
+- **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。
+- Checkpoint 1 で semantic keep/drop を明示承認した後、pause 候補が必要な場合だけ
+  [workflow.md](workflow.md) の cut candidate bridge を使う。bridge の全候補は
+  `REVIEW_REQUIRED` であり、`approved_to_apply:false` の report を作るだけである。
+  `edit.json` や `decision-log.md` を自動更新せず、候補 review 後も Checkpoint 3 の実行承認まで停止する。
+  適用後は [execution.md](execution.md) の cut 後 ASR 再検証、情報保持、UI timing、audio 境界を人間が
+  同じ版で確認し、`HUMAN_APPLY_GATE` を明示承認するまで完成扱いにしない。
+
 ## 実行順と目次
 
-0. [autonomy.md](autonomy.md) を読み、`.akari/intake.json` の `autonomy` でモードを決める。`full-auto` なら autonomy.md §2 の手順で進み、以下 1〜11 の承認手順は読まない（execution.md / beats.md / emphasis-detection.md 等の**出力ルール**は autonomy.md から参照する）。それ以外は 1 から。
+0. [autonomy.md](autonomy.md) を読み、作業場の akari.md と `.akari/intake.json` でモードを決める。`full-auto`（そのまま）と `checkpoint`（提案つき・既定）は autonomy.md の手順で進み、以下 1〜11 の承認手順は読まない。`collaborative`（一緒に作る）だけ 1 から。
 1. [workflow.md](workflow.md) を読み、分析の収集・並列実行・統合モードを決める。素材がある
    場合は [analyze-project](../analyze-project/SKILL.md) の分析レポート（無ければ先に生成を
    依頼する）を一次証拠として読む。素材がゼロの場合はこの時点で [plan-json.md](plan-json.md) を

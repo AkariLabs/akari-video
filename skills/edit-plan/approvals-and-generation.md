@@ -17,7 +17,7 @@
 実行後に残す provenance:
 ```
 
-選択が人間の意図や費用を変える場合は、宣言だけで実行せず回答を待つ。契約ですでに静止画の作成が承認されている場合も、手と理由は宣言して `decision-log.md` に追記する。失敗時に別の手へ切り替える前も、変更理由と得失を追記する。
+**有償または外部送信**を伴う場合は、宣言だけで実行せず回答を待つ。無償・ローカルの生成は宣言を `decision-log.md` に書いて進む（`collaborative` では従来どおり回答を待つ）。契約ですでに静止画の作成が承認されている場合も、手と理由は宣言して `decision-log.md` に追記する。失敗時に別の手へ切り替える前も、変更理由と得失を追記する。
 
 ## 手の優先順と禁止事項
 
@@ -51,15 +51,15 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 
 実フレーム由来なら、生成 prompt の代わりに source、source 時刻、抽出手段を記す。混成案は背景生成と HTML 文字組を別工程として記録する。
 
-## 3 段階チェックポイント
+## 3 段階チェックポイント（autonomy: collaborative のとき）
 
-契約上の checkpoint 数 `3` は M5 の確定値であり不変。**2026-07-22 改訂**: Checkpoint 1（方針）の
+契約上の checkpoint 数は `autonomy: collaborative` のとき `3`（M5 の確定値）。`checkpoint`（提案つき）/ `full-auto`（そのまま）では 0 で、書き出しの判子はシェルの書き出しボタンが持つ（判子は一回 契約 2026-09-06）。**2026-07-22 改訂**: Checkpoint 1（方針）の
 回答チャネルだった決定カード（`<レポートパス>.decisions.json` + ヘルパー）は、edit-plan 自身の
 レポート生成が analyze-project へ移管されたことに伴い廃止した。Checkpoint 1〜3 のすべてが
 **チャットでの明示承認**に一本化される（正式なレポートは analyze-project の分析レポートのみ、
 方向性の引き出しはチャットで行うという原則）。各 Checkpoint で `decision-log.md` へ追記した直後に
 判断記録レポートを再描画し、パスを提示する（[report-guide §decision_log](report-guide.md#decision_log)）。
-`autonomy: full-auto`（そのまま）では本節のチェックポイントを通らない（[autonomy.md](autonomy.md)。`checkpoint` / `collaborative` は本節のまま）。
+`full-auto`（そのまま）と `checkpoint`（提案つき）では本節のチェックポイントを通らない（[autonomy.md](autonomy.md)）。
 
 ### Checkpoint 1: 方針
 
@@ -87,7 +87,7 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 
 人間が manifest を明示承認した後だけ [execution.md](execution.md) へ進む。素材計画の承認を実行承認と兼用しない。
 
-承認済み画像を i2v へ進めるには、対応画像の承認、素材計画の承認、実行 manifest の承認をすべて確認する。契約上の checkpoint 数 `3` は M5 の確定値であり、無操作タイムアウトで減らさない。
+承認済み画像を i2v へ進めるには、対応画像の承認、素材計画の承認、実行 manifest の承認をすべて確認する。collaborative の checkpoint 数 3 は無操作タイムアウトで減らさない。
 
 ## plan-comments.json による差し戻し受領
 
@@ -100,6 +100,7 @@ Checkpoint 2 / Checkpoint 3 の再提示に着手する前に、`<plan-dir>/plan
 
 ## よくある間違い
 
+- 提案つきで方針の承認をチャットに求める（autonomy.md §3）。
 - Codex が優先手であることを理由に、生成前宣言を省く。
 - 推奨案だけを見せ、代替案の利点と欠点を隠す。
 - 画像承認だけで i2v を始める。

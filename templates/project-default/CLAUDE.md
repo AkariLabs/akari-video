@@ -13,11 +13,7 @@
 レポート作成、承認、編集完了、書き出し完了の節目では、`.akari/events/` に記録を
 1 件ずつ新しく追加します。すでにある記録は書き換えたり削除したりしません。
 
-今回の進め方は `.akari/intake.json` に記録されています。`status` が `submitted` のときは、
-そこに書かれた `tasks`（やること）・`target`（仕上がりの尺）・`autonomy`（おまかせの度合い）に
-従って進め、`autonomy` が `full-auto` のときは「そのまま = 途中確認なしで書き出しまで進み、事後に capture + lint を添える」として扱います。`autonomy` が `checkpoint`（既定）のときは、企画の承認や書き出しの前などの
-要所で必ず利用者に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、
-フォームまたは対話で確定させてから作業を始めます。
+今回の進め方は `.akari/intake.json` に記録されています。`status` が `submitted` のときは、そこに書かれた `tasks`（やること）・`target`（仕上がりの尺）・`autonomy`（おまかせの度合い）に従って進めます。`full-auto` は「そのまま = 途中確認なしで書き出しまで進み、事後に capture + lint を添える」、`checkpoint` は「提案つき = 既定。良さそうな物を入れて見せる。要らなければ消す。判子は書き出しの 1 回」、`collaborative` は「一緒に作る = 方針・素材・実行の要所で確認」として扱います。`status` が `draft`、ファイルが無い、または `autonomy` が欠落している場合は提案つきとみなし、draft の `tasks` / `target` / `autonomy` には従いません。進め方はフォームまたは対話で確定させます。
 
 進め方を `.akari/intake.json` に書くときは、`tasks` は決められた 5 つの id だけを使い、`target` は `duration_s` か `keep_length: true` のどちらか片方にします。`status` を `submitted` にする前に lint で確認します。
 
