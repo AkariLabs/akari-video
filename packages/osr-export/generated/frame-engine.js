@@ -1449,23 +1449,23 @@ ${indent}`);
           degraded: false
         };
       }
-      function applyCaptionTextEdit(record, newText) {
+      function applyCaptionTextEdit(record2, newText) {
         const normalizedText = newText.normalize("NFC").trim();
         if (!normalizedText) {
           throw new Error("\u5B57\u5E55\u306E\u30C6\u30AD\u30B9\u30C8\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
         }
-        if (normalizedText === record.text) {
-          return { record };
+        if (normalizedText === record2.text) {
+          return { record: record2 };
         }
-        const next = { ...record, text: normalizedText, edited: true };
+        const next = { ...record2, text: normalizedText, edited: true };
         let rederive;
-        if (Array.isArray(record.words) && record.words.length > 0) {
+        if (Array.isArray(record2.words) && record2.words.length > 0) {
           rederive = rederiveCaptionWords({
-            oldText: record.text,
+            oldText: record2.text,
             newText: normalizedText,
-            words: record.words,
-            start: record.start,
-            end: record.end
+            words: record2.words,
+            start: record2.start,
+            end: record2.end
           });
           if (rederive.degraded) {
             delete next.words;
@@ -1515,17 +1515,17 @@ ${indent}`);
         }
         return merged;
       }
-      function resolveCaptionStylePreset(record, catalog) {
-        const presetId = record.style_preset;
+      function resolveCaptionStylePreset(record2, catalog) {
+        const presetId = record2.style_preset;
         if (typeof presetId !== "string")
-          return { record, resolved: false };
+          return { record: record2, resolved: false };
         const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
         if (!preset)
-          return { record, resolved: false };
+          return { record: record2, resolved: false };
         return {
           record: {
-            ...record,
-            text_style: mergePresetTextStyle(preset.style, record.text_style)
+            ...record2,
+            text_style: mergePresetTextStyle(preset.style, record2.text_style)
           },
           resolved: true
         };
@@ -2090,8 +2090,8 @@ ${indent}`);
         let output = source;
         let changed = 0;
         for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
-          const record = JSON.parse(element.text);
-          const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+          const record2 = JSON.parse(element.text);
+          const hasPreset = Object.prototype.hasOwnProperty.call(record2, "style_preset");
           if (presetId === null) {
             if (!hasPreset)
               continue;
@@ -2100,8 +2100,8 @@ ${indent}`);
             changed++;
             continue;
           }
-          const shadowed = shadowedPresetStyleKeys(presetId, record.text_style);
-          if (hasPreset && record.style_preset === presetId && shadowed.length === 0)
+          const shadowed = shadowedPresetStyleKeys(presetId, record2.text_style);
+          if (hasPreset && record2.style_preset === presetId && shadowed.length === 0)
             continue;
           let nextElement;
           if (hasPreset) {
@@ -2438,8 +2438,8 @@ ${indent}`);
           return void 0;
         }
         const spans = value.map((span) => {
-          const record = span;
-          return { start: record.start, end: record.end };
+          const record2 = span;
+          return { start: record2.start, end: record2.end };
         });
         return spans.length > 0 ? spans : void 0;
       }
@@ -5574,11 +5574,11 @@ ${indent}`);
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
           throw new Error("\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
         }
-        const record = raw;
-        if (record.version !== 2) {
-          throw new error_1.LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
+        const record2 = raw;
+        if (record2.version !== 2) {
+          throw new error_1.LegacyEditVersionError(typeof record2.version === "number" ? record2.version : -1);
         }
-        const resolved = options?.captions === void 0 ? record : (0, item_anchor_1.resolveItemAnchors)(record, options.captions).edit;
+        const resolved = options?.captions === void 0 ? record2 : (0, item_anchor_1.resolveItemAnchors)(record2, options.captions).edit;
         return readV2Internal((0, item_anchor_1.withoutItemAnchors)(resolved));
       }
       function readInternalSources(source) {
@@ -6777,11 +6777,11 @@ ${indent}`);
           for (const item of Array.isArray(items) ? items : []) {
             if (!item || typeof item !== "object" || Array.isArray(item))
               continue;
-            const record = item;
-            if (!Object.prototype.hasOwnProperty.call(record, "track"))
+            const record2 = item;
+            if (!Object.prototype.hasOwnProperty.call(record2, "track"))
               refs.add(0);
-            else if (Number.isInteger(record.track) && Number(record.track) >= 0)
-              refs.add(Number(record.track));
+            else if (Number.isInteger(record2.track) && Number(record2.track) >= 0)
+              refs.add(Number(record2.track));
           }
           return Array.from(refs).sort((left, right) => left - right);
         };
@@ -6842,10 +6842,10 @@ ${indent}`);
         }
         return resolved;
       }
-      function resolveRecordTrackZ(trackZByItemId, record) {
-        const id = String(record?.id ?? "");
+      function resolveRecordTrackZ(trackZByItemId, record2) {
+        const id = String(record2?.id ?? "");
         const hashIndex = id.lastIndexOf("#");
-        return trackZByItemId.get(id) ?? trackZByItemId.get(String(record?.parentId ?? "")) ?? (hashIndex > 0 ? trackZByItemId.get(id.slice(0, hashIndex)) : void 0) ?? 0;
+        return trackZByItemId.get(id) ?? trackZByItemId.get(String(record2?.parentId ?? "")) ?? (hashIndex > 0 ? trackZByItemId.get(id.slice(0, hashIndex)) : void 0) ?? 0;
       }
       function resolveDeclaredCaptionTrackZ(tracks) {
         const declared = Array.isArray(tracks) ? tracks : [];
@@ -7101,7 +7101,7 @@ ${indent}`);
       var MIN_LINEAR_GAIN = 1e-4;
       var CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
       function easingProgress(easing, progress) {
-        const value = clamp5(progress);
+        const value = clamp6(progress);
         switch (easing ?? "linear") {
           case "hold":
             return 0;
@@ -7344,7 +7344,7 @@ ${indent}`);
       function finiteInRange(value, minimum, maximum, fallback) {
         return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
       }
-      function clamp5(value, minimum = 0, maximum = 1) {
+      function clamp6(value, minimum = 0, maximum = 1) {
         return Math.min(maximum, Math.max(minimum, value));
       }
       function cubicCoordinateAt(parameter2, first, second) {
@@ -8371,8 +8371,8 @@ ${indent}`);
           return "[]";
         const lines = ["["];
         tracks.forEach((track, index) => {
-          const record = requireRecord(track, "edit.json.tracks[]");
-          const rendered = serializeItemLike(record, indent + 2, true);
+          const record2 = requireRecord(track, "edit.json.tracks[]");
+          const rendered = serializeItemLike(record2, indent + 2, true);
           lines.push(...appendComma(rendered, index + 1 < tracks.length));
         });
         lines.push(`${" ".repeat(indent)}]`);
@@ -10076,8 +10076,8 @@ ${indent}`);
       }();
       Log.getDurationString = function(duration, _timescale) {
         var neg;
-        function pad(number, length) {
-          var str = "" + number;
+        function pad(number2, length) {
+          var str = "" + number2;
           var a = str.split(".");
           while (a[0].length < length) {
             a[0] = "0" + a[0];
@@ -15708,9 +15708,9 @@ ${indent}`);
           return;
         }
       };
-      ISOFile.prototype.getTrackSample = function(track_id, number) {
+      ISOFile.prototype.getTrackSample = function(track_id, number2) {
         var track = this.getTrackById(track_id);
-        var sample = this.getSample(track, number);
+        var sample = this.getSample(track, number2);
         return sample;
       };
       ISOFile.prototype.releaseUsedSamples = function(id, sampleNum) {
@@ -16230,15 +16230,15 @@ ${indent}`);
           }
         }
       };
-      ISOFile.process_sdtp = function(sdtp, sample, number) {
+      ISOFile.process_sdtp = function(sdtp, sample, number2) {
         if (!sample) {
           return;
         }
         if (sdtp) {
-          sample.is_leading = sdtp.is_leading[number];
-          sample.depends_on = sdtp.sample_depends_on[number];
-          sample.is_depended_on = sdtp.sample_is_depended_on[number];
-          sample.has_redundancy = sdtp.sample_has_redundancy[number];
+          sample.is_leading = sdtp.is_leading[number2];
+          sample.depends_on = sdtp.sample_depends_on[number2];
+          sample.is_depended_on = sdtp.sample_is_depended_on[number2];
+          sample.has_redundancy = sdtp.sample_has_redundancy[number2];
         } else {
           sample.is_leading = 0;
           sample.depends_on = 0;
@@ -17072,6 +17072,10 @@ ${indent}`);
     WarmupManager: () => WarmupManager,
     WebCodecsH264Encoder: () => WebCodecsH264Encoder,
     WebGL2Compositor: () => WebGL2Compositor,
+    animatorEase: () => animatorEase,
+    animatorParamsAt: () => animatorParamsAt,
+    animatorUnitOrder: () => animatorUnitOrder,
+    animatorUnitsOf: () => animatorUnitsOf,
     applyAdjustBasic: () => applyAdjustBasic,
     applyAdjustCurves: () => applyAdjustCurves,
     applyAdjustHue: () => applyAdjustHue,
@@ -17087,6 +17091,7 @@ ${indent}`);
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
     buildVideoSampleTable: () => buildVideoSampleTable,
     calculateDecoderTimestampOffsetUs: () => calculateDecoderTimestampOffsetUs,
+    captionAnimatorStateAt: () => captionAnimatorStateAt,
     captionMeasurementsEqual: () => captionMeasurementsEqual,
     captionMotionAt: () => captionMotionAt,
     captionRevealGroupStateAt: () => captionRevealGroupStateAt,
@@ -17150,6 +17155,7 @@ ${indent}`);
     normalizeAdjustFx: () => normalizeAdjustFx,
     normalizeAdjustHue: () => normalizeAdjustHue,
     normalizeAdjustWheels: () => normalizeAdjustWheels,
+    normalizeAnimators: () => normalizeAnimators,
     normalizeSpriteDraw: () => normalizeSpriteDraw,
     normalizeSpriteTextureRect: () => normalizeSpriteTextureRect,
     normalizeSpriteTile: () => normalizeSpriteTile,
@@ -20505,7 +20511,8 @@ void main() {
     "keyframes",
     "perspective",
     "adjust",
-    "motion"
+    "motion",
+    "animator"
   ];
   var KNOWN_LAYER_KEY_LIST = [
     "id",
@@ -20522,7 +20529,8 @@ void main() {
     "blend",
     "filter",
     "adjust",
-    "motion"
+    "motion",
+    "animator"
   ];
   var KNOWN_KEYFRAME_KEY_LIST = [
     "t",
@@ -20530,7 +20538,8 @@ void main() {
     "crop",
     "perspective",
     "opacity",
-    "easing"
+    "easing",
+    "animator"
   ];
   var KNOWN_CUT_KEYS = new Set(KNOWN_CUT_KEY_LIST);
   var KNOWN_LAYER_KEYS = new Set(KNOWN_LAYER_KEY_LIST);
@@ -20576,6 +20585,9 @@ void main() {
     return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
   }
   function warnUnknownFields(value, label, knownKeys, warn) {
+    if (knownKeys !== KNOWN_KEYFRAME_KEYS && (Object.hasOwn(value, "animator") || "keyframes" in value && Array.isArray(value.keyframes) && value.keyframes.some((point) => isRecord(point) && Object.hasOwn(point, "animator")))) {
+      warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
+    }
     for (const key of Object.keys(value)) {
       if (knownKeys.has(key)) continue;
       warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
@@ -26954,11 +26966,11 @@ void main() {
       startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
       durationSec: item.crossfadeOutSec
     }));
-    const clamp5 = (seconds) => Math.max(
+    const clamp6 = (seconds) => Math.max(
       0,
       Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
     );
-    const positionAtContextTime = (seconds) => context && playing ? clamp5(anchorTimelineSec + Math.max(0, seconds - anchorContextSec) * rate) : latestRequestedSec;
+    const positionAtContextTime = (seconds) => context && playing ? clamp6(anchorTimelineSec + Math.max(0, seconds - anchorContextSec) * rate) : latestRequestedSec;
     const contextPosition = () => positionAtContextTime(context?.currentTime ?? 0);
     const audioPosition = () => {
       let outputContextTime = context?.currentTime ?? 0;
@@ -27828,7 +27840,7 @@ void main() {
       startingWindowController = controller;
       starting = true;
       lastStartAttemptMs = now();
-      const gateStartSec = clamp5(options2.pinStart ? seconds : latestRequestedSec);
+      const gateStartSec = clamp6(options2.pinStart ? seconds : latestRequestedSec);
       if (playing) {
         releaseGate();
       } else {
@@ -27852,7 +27864,7 @@ void main() {
       }
       let outcome = "failed";
       try {
-        await ensureDecodedUpTo(clamp5(options2.pinStart ? seconds : latestRequestedSec));
+        await ensureDecodedUpTo(clamp6(options2.pinStart ? seconds : latestRequestedSec));
         if (thisGeneration !== generation) return;
         try {
           await context.resume();
@@ -27878,7 +27890,7 @@ void main() {
         const scheduleAudio = { ...regularScheduleDeclaration(), speech: speechForSchedule };
         let plan = scheduleBuilder({
           timelineDurationSec,
-          startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
+          startAtSec: clamp6(options2.pinStart ? seconds : latestRequestedSec),
           audio: scheduleAudio
         });
         const planWarnings = new Set(plan.warnings);
@@ -27900,7 +27912,7 @@ void main() {
         const waitMs = explicitWindowStartupWaitMs ?? (gate.holding && gateGeneration === thisGeneration ? Math.max(0, gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now()) : 1500);
         await waitForFirstWindows([...firstWindows.values()], controller.signal, waitMs);
         if (thisGeneration !== generation) return;
-        const effectiveStart = clamp5(options2.pinStart && playing ? seconds : latestRequestedSec);
+        const effectiveStart = clamp6(options2.pinStart && playing ? seconds : latestRequestedSec);
         if (Math.abs(effectiveStart - plan.startAtSec) > 1e-6) {
           plan = scheduleBuilder({ timelineDurationSec, startAtSec: effectiveStart, audio: scheduleAudio });
           for (const warning of plan.warnings) {
@@ -28177,7 +28189,7 @@ void main() {
         });
       },
       playFrom(seconds) {
-        latestRequestedSec = clamp5(seconds);
+        latestRequestedSec = clamp6(seconds);
         if (context && !playing && !starting) {
           gateIntent = { startSec: latestRequestedSec, sinceMs: now() };
           launch(latestRequestedSec);
@@ -28192,7 +28204,7 @@ void main() {
           latestRequestedSec = gateIntent.startSec;
           return gateIntent.startSec;
         }
-        latestRequestedSec = clamp5(fallbackSeconds);
+        latestRequestedSec = clamp6(fallbackSeconds);
         return playing ? audioPosition() : latestRequestedSec;
       },
       playbackTime(fallbackSeconds) {
@@ -28202,14 +28214,14 @@ void main() {
           return gate.startSec;
         }
         if (gateIntentHolding()) latestRequestedSec = gateIntent.startSec;
-        else latestRequestedSec = clamp5(fallbackSeconds);
+        else latestRequestedSec = clamp6(fallbackSeconds);
         if (!context) return latestRequestedSec;
         armPauseWatchdog();
         if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
         return playing ? audioPosition() : latestRequestedSec;
       },
       seek(seconds, continuePlaying = false) {
-        latestRequestedSec = clamp5(seconds);
+        latestRequestedSec = clamp6(seconds);
         generation += 1;
         playbackEpoch += 1;
         releaseGate();
@@ -28257,7 +28269,7 @@ void main() {
         return analyser;
       },
       noteRendered(seconds) {
-        lastRenderedTimelineSec = clamp5(seconds);
+        lastRenderedTimelineSec = clamp6(seconds);
         lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
       },
       debug,
@@ -29898,7 +29910,7 @@ void main() {
     for (let index = 0; index < left.tokens.length; index += 1) {
       const a = left.tokens[index];
       const b = right.tokens[index];
-      if (a.tokenIndex !== b.tokenIndex || a.rectIndex !== b.rectIndex || a.role !== b.role || a.style !== b.style || a.lineIndex !== b.lineIndex || !captionRectsEqual(a.rect, b.rect) || !captionTimingsEqual(a.timing, b.timing)) return false;
+      if (a.tokenIndex !== b.tokenIndex || a.charIndex !== b.charIndex || a.wordIndex !== b.wordIndex || a.rectIndex !== b.rectIndex || a.role !== b.role || a.style !== b.style || a.lineIndex !== b.lineIndex || !captionRectsEqual(a.rect, b.rect) || !captionTimingsEqual(a.timing, b.timing)) return false;
     }
     return true;
   }
@@ -30037,7 +30049,11 @@ void main() {
         const start = starts[index];
         const end = index + 1 < starts.length ? starts[index + 1] : tokenEnd;
         if (end <= start || stripHeight <= 0) continue;
-        tiles.push({ static: integerTile(start, strip.top, end - start, stripHeight), timing: token.timing });
+        tiles.push({
+          static: integerTile(start, strip.top, end - start, stripHeight),
+          timing: token.timing,
+          ...size.includeTokens ? { token } : {}
+        });
       }
       if (tokenEnd < cropRight && stripHeight > 0) {
         tiles.push({
@@ -30359,6 +30375,218 @@ void main() {
   }
   function finiteNumber(value, fallback) {
     return Number.isFinite(value) ? value : fallback;
+  }
+
+  // packages/frame-engine/src/timeline/caption-animator.ts
+  var record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  var finite6 = (value) => typeof value === "number" && Number.isFinite(value);
+  var number = (value, fallback = 0) => finite6(value) ? value : fallback;
+  var clamp5 = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+  var shapes = /* @__PURE__ */ new Set(["ramp", "ramp-down", "triangle", "round", "smooth", "square"]);
+  var bases = /* @__PURE__ */ new Set(["chars", "words", "lines", "segments"]);
+  function normalizeAnimators(raw, warn) {
+    if (!Array.isArray(raw)) return [];
+    const resolved = /* @__PURE__ */ new Map();
+    for (const value of raw) {
+      if (!record(value) || typeof value.id !== "string" || !value.id.trim()) continue;
+      const shape = value.shape ?? "ramp";
+      const basis = value.basis ?? "chars";
+      if (typeof shape !== "string" || !shapes.has(shape)) {
+        warn?.("animator.unknown-shape", `animator ${value.id}: unknown shape ${String(shape)}; ignored`);
+        continue;
+      }
+      if (typeof basis !== "string" || !bases.has(basis)) {
+        warn?.("animator.unknown-basis", `animator ${value.id}: unknown basis ${String(basis)}; ignored`);
+        continue;
+      }
+      if (basis === "segments") warn?.("animator.segments-fallback", `animator ${value.id}: segments uses words in v1`);
+      if (resolved.has(value.id)) {
+        warn?.("animator.duplicate-id", `animator ${value.id}: duplicate id; last declaration wins`);
+        resolved.delete(value.id);
+      }
+      const amount = record(value.amount) ? value.amount : {};
+      resolved.set(value.id, {
+        id: value.id,
+        basis: basis === "segments" ? "words" : basis,
+        shape,
+        start: clamp5(number(value.start)),
+        end: clamp5(number(value.end, 1)),
+        offset: clamp5(number(value.offset), -1, 1),
+        ...record(value.randomize) && finite6(value.randomize.seed) && Number.isInteger(value.randomize.seed) ? { randomize: { seed: value.randomize.seed } } : {},
+        amount: {
+          x: number(amount.x),
+          y: number(amount.y),
+          scale: number(amount.scale),
+          rotate: number(amount.rotate),
+          opacity: clamp5(number(amount.opacity), -1, 1),
+          letterSpacing: number(amount.letterSpacing),
+          blur: number(amount.blur)
+        },
+        ease: typeof value.ease === "string" ? value.ease : "linear"
+      });
+    }
+    return [...resolved.values()];
+  }
+  function animatorEase(w, name = "linear") {
+    const v2 = clamp5(number(w));
+    if (v2 === 0 || v2 === 1) return v2;
+    switch (name) {
+      case "hold":
+        return 0;
+      case "ease-in-out":
+      case "in-out-cubic":
+        return v2 < 0.5 ? 4 * v2 ** 3 : 1 - (-2 * v2 + 2) ** 3 / 2;
+      case "in-quad":
+        return v2 * v2;
+      case "out-quad":
+        return 1 - (1 - v2) ** 2;
+      case "in-out-quad":
+        return v2 < 0.5 ? 2 * v2 * v2 : 1 - (-2 * v2 + 2) ** 2 / 2;
+      case "in-cubic":
+        return v2 ** 3;
+      case "out-cubic":
+        return 1 - (1 - v2) ** 3;
+      case "in-quart":
+        return v2 ** 4;
+      case "out-quart":
+        return 1 - (1 - v2) ** 4;
+      case "in-out-quart":
+        return v2 < 0.5 ? 8 * v2 ** 4 : 1 - (-2 * v2 + 2) ** 4 / 2;
+      case "in-expo":
+        return 2 ** (10 * v2 - 10);
+      case "out-expo":
+        return 1 - 2 ** (-10 * v2);
+      case "in-out-expo":
+        return v2 < 0.5 ? 2 ** (20 * v2 - 10) / 2 : (2 - 2 ** (-20 * v2 + 10)) / 2;
+      case "in-back":
+        return 2.70158 * v2 ** 3 - 1.70158 * v2 ** 2;
+      case "out-back":
+        return 1 + 2.70158 * (v2 - 1) ** 3 + 1.70158 * (v2 - 1) ** 2;
+      case "in-out-back": {
+        const c = 1.70158 * 1.525;
+        return v2 < 0.5 ? (2 * v2) ** 2 * ((c + 1) * 2 * v2 - c) / 2 : ((2 * v2 - 2) ** 2 * ((c + 1) * (2 * v2 - 2) + c) + 2) / 2;
+      }
+      case "out-bounce": {
+        if (v2 < 1 / 2.75) return 7.5625 * v2 * v2;
+        if (v2 < 2 / 2.75) return 7.5625 * (v2 - 1.5 / 2.75) ** 2 + 0.75;
+        if (v2 < 2.5 / 2.75) return 7.5625 * (v2 - 2.25 / 2.75) ** 2 + 0.9375;
+        return 7.5625 * (v2 - 2.625 / 2.75) ** 2 + 0.984375;
+      }
+      case "out-elastic":
+        return 2 ** (-10 * v2) * Math.sin((10 * v2 - 0.75) * (2 * Math.PI / 3)) + 1;
+      default: {
+        const match = /^cubic-bezier\(([^)]+)\)$/i.exec(name);
+        const curve = match?.[1]?.split(",").map((part) => part.trim() === "" ? NaN : Number(part));
+        if (!curve || curve.length !== 4 || !curve.every(Number.isFinite)) return v2;
+        const [x1, y1, x22, y2] = curve;
+        if (x1 < 0 || x1 > 1 || x22 < 0 || x22 > 1) return v2;
+        return cubicBezierAt(v2, x1, y1, x22, y2);
+      }
+    }
+  }
+  function easingFor(point, id, leaf) {
+    if (typeof point.easing === "string") return point.easing;
+    if (!record(point.easing)) return "linear";
+    for (const key of [`animator.${id}.${leaf}`, `animator.${id}`, "animator"]) {
+      if (typeof point.easing[key] === "string") return point.easing[key];
+    }
+    return "linear";
+  }
+  function animatorParamsAt(animators, keyframes, localSeconds, fps) {
+    const points = Array.isArray(keyframes) ? keyframes.filter((p2) => record(p2) && finite6(p2.t) && Number.isInteger(p2.t) && p2.t >= 0).slice().sort((a, b) => number(a.t) - number(b.t)) : [];
+    const frame = number(localSeconds) * (finite6(fps) && fps > 0 ? fps : 30);
+    return Object.fromEntries(animators.map((animator) => {
+      const params = { offset: animator.offset, start: animator.start, end: animator.end };
+      for (const leaf of ["offset", "start", "end"]) {
+        const entries = points.map((point) => {
+          const value2 = record(point.animator) && Object.hasOwn(point.animator, animator.id) ? point.animator[animator.id] : void 0;
+          return { point, value: record(value2) && finite6(value2[leaf]) ? clamp5(value2[leaf], leaf === "offset" ? -1 : 0, 1) : void 0 };
+        });
+        const declared = entries.filter((entry) => entry.value !== void 0);
+        if (points.length < 2 || declared.length === 0) continue;
+        const previous = declared.filter((entry) => number(entry.point.t) <= frame).at(-1);
+        let value = (previous ?? declared[0]).value;
+        if (frame > number(points[0].t)) {
+          for (let i2 = 1; i2 < entries.length; i2++) {
+            const left = entries[i2 - 1];
+            const right = entries[i2];
+            if (frame >= number(right.point.t)) continue;
+            if (left.value === void 0 || right.value === void 0) break;
+            const k2 = animatorEase((frame - number(left.point.t)) / (number(right.point.t) - number(left.point.t)), easingFor(right.point, animator.id, leaf));
+            value = left.value + (right.value - left.value) * k2;
+            break;
+          }
+        }
+        params[leaf] = clamp5(value, leaf === "offset" ? -1 : 0, 1);
+      }
+      return [animator.id, params];
+    }));
+  }
+  function animatorUnitOrder(count, seed) {
+    const order = Array.from({ length: Math.max(0, Math.floor(number(count))) }, (_3, i2) => i2);
+    if (seed === void 0) return order;
+    let state = number(seed) >>> 0;
+    for (let i2 = order.length - 1; i2 > 0; i2--) {
+      state = state + 2654435769 >>> 0;
+      let hash = Math.imul(state ^ state >>> 16, 569420461);
+      hash = Math.imul(hash ^ hash >>> 15, 1935289751);
+      const j2 = ((hash ^ hash >>> 15) >>> 0) % (i2 + 1);
+      [order[i2], order[j2]] = [order[j2], order[i2]];
+    }
+    return order;
+  }
+  function captionAnimatorStateAt(animators, params, unitIndex, count, outputWidth) {
+    const state = { translateX: 0, translateY: 0, scale: 1, rotateDeg: 0, opacityDelta: 0, letterSpacing: 0, blurPx: 0 };
+    if (!Number.isInteger(count) || count <= 0 || !Number.isInteger(unitIndex) || unitIndex < 0 || unitIndex >= count) return state;
+    const px = Math.max(0, number(outputWidth, 1920)) / 1920;
+    for (const animator of animators ?? []) {
+      const p2 = params && Object.hasOwn(params, animator.id) ? params[animator.id] : animator;
+      const s = p2.start + p2.offset;
+      const e = p2.end + p2.offset;
+      if (s >= e) continue;
+      const rank = animator.randomize ? animatorUnitOrder(count, animator.randomize.seed)[unitIndex] : unitIndex;
+      const pos = (rank + 0.5) / count;
+      const ramp = clamp5((pos - s) / (e - s));
+      let w;
+      switch (animator.shape) {
+        case "ramp-down":
+          w = 1 - ramp;
+          break;
+        case "triangle":
+          w = 1 - Math.abs(2 * ramp - 1);
+          break;
+        case "round":
+          w = ramp === 0 || ramp === 1 ? 0 : Math.sin(Math.PI * ramp);
+          break;
+        case "smooth":
+          w = ramp * ramp * (3 - 2 * ramp);
+          break;
+        case "square":
+          w = s <= pos && pos < e ? 1 : 0;
+          break;
+        default:
+          w = ramp;
+      }
+      const k2 = animatorEase(w, animator.ease);
+      state.translateX += animator.amount.x * k2 * px;
+      state.translateY += animator.amount.y * k2 * px;
+      state.scale *= 1 + animator.amount.scale * k2;
+      state.rotateDeg += animator.amount.rotate * k2;
+      state.opacityDelta += animator.amount.opacity * k2;
+      state.letterSpacing += animator.amount.letterSpacing * k2 * px;
+      state.blurPx += animator.amount.blur * k2 * px;
+    }
+    return state;
+  }
+  function animatorUnitsOf(basis, tokens) {
+    const units = /* @__PURE__ */ new Map();
+    const indices = /* @__PURE__ */ new Map();
+    for (const token of tokens) {
+      const key = basis === "lines" ? token.lineIndex : basis === "chars" ? token.charIndex ?? token : token.wordIndex ?? token.tokenIndex ?? token;
+      if (!units.has(key)) units.set(key, units.size);
+      indices.set(token, units.get(key));
+    }
+    return { count: units.size, unitIndexOf: (token) => indices.get(token) ?? -1 };
   }
   return __toCommonJS(index_exports);
 })();

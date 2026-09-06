@@ -39,6 +39,9 @@ export interface CaptionWordTileToken {
   rect: CaptionWordRect;
   timing: CaptionWordTiming | null;
   tokenIndex?: number;
+  /** Cue-wide grapheme and parent word identities, present only for char markup. */
+  charIndex?: number;
+  wordIndex?: number;
   rectIndex?: number;
   role?: CaptionWordRole;
   style?: string | null;
@@ -56,6 +59,8 @@ export interface CaptionWordTileMeasurement {
 }
 
 export interface CaptionWordTile {
+  /** Opt-in identity for animator lookup; padding tiles have no token. */
+  token?: CaptionWordTileToken;
   static: {
     x: number;
     y: number;
@@ -113,6 +118,8 @@ export function captionMeasurementsEqual(
     const a = left.tokens[index]!;
     const b = right.tokens[index]!;
     if (a.tokenIndex !== b.tokenIndex
+        || a.charIndex !== b.charIndex
+        || a.wordIndex !== b.wordIndex
         || a.rectIndex !== b.rectIndex
         || a.role !== b.role
         || a.style !== b.style
@@ -199,7 +206,7 @@ function integerTile(x: number, y: number, width: number, height: number): Capti
 
 export function buildCaptionWordTiles(
   measurement: CaptionWordTileMeasurement,
-  size: { width: number; height: number; textureRect?: CaptionWordRect }
+  size: { width: number; height: number; textureRect?: CaptionWordRect; includeTokens?: boolean }
 ): CaptionWordTile[] | null {
   const width = Number(size.width);
   const height = Number(size.height);
@@ -276,7 +283,8 @@ export function buildCaptionWordTiles(
       const start = starts[index]!;
       const end = index + 1 < starts.length ? starts[index + 1]! : tokenEnd;
       if (end <= start || stripHeight <= 0) continue;
-      tiles.push({ static: integerTile(start, strip.top, end - start, stripHeight), timing: token.timing });
+      tiles.push({ static: integerTile(start, strip.top, end - start, stripHeight), timing: token.timing,
+        ...(size.includeTokens ? { token } : {}) });
     }
     if (tokenEnd < cropRight && stripHeight > 0) {
       tiles.push({

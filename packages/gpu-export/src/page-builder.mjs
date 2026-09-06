@@ -113,7 +113,7 @@ export function buildGpuPage({
       });
       return {
         id: String(overlay.id),
-        z: captionZ,
+        z: cue.animatorZ ?? captionZ,
         index,
         start: Number(overlay.start),
         duration: Number(overlay.duration),
@@ -128,6 +128,12 @@ export function buildGpuPage({
         styleId: word.effectiveStyle,
         emphasisStyles: word.emphasisStyles,
         sourceWordCount: word.wordCount,
+        ...(cue.animator?.length ? {
+          animator: cue.animator,
+          animatorKeyframes: cue.animatorKeyframes,
+          animatorStart: cue.animatorStart ?? Number(overlay.start),
+          animatorItem: cue.animatorItem,
+        } : {}),
       };
     }),
     statics: statics.map(({ overlay, index }) => ({
@@ -330,11 +336,15 @@ export async function loadAndBuildGpuPage({
   const projectedEdit = renderEdit.edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
-  const captions = filterCaptionRootByExcludedIds(
-    applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root,
+  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
+  const filteredCaptions = filterCaptionRootByExcludedIds(
+    styledCaptions,
     collectExcludedCaptionIds(prepared.edit),
   );
-  const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => {
+  const animatedCaptions = projectCaptionAnimators(filteredCaptions, styledCaptions, renderEdit.internal, trackZByItemId);
+  const captions = animatedCaptions.captions;
+  const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false
+    && !animatedCaptions.overlayIds.has(String(overlay.id))).map(async (overlay) => {
     const expanded = { ...overlay, z: resolveRecordTrackZ(trackZByItemId, overlay) };
     if (typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")) return expanded;
     const htmlPath = overlay.html;
@@ -380,6 +390,53 @@ export async function loadAndBuildGpuPage({
     forceDegraded,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };
+}
+
+/** Carry the already projected item declaration to the caption-only GPU exit. */
+function projectCaptionAnimators(filteredRoot, sourceRoot, internal, trackZByItemId) {
+  const rows = root => Array.isArray(root) ? root : root?.captions ?? [];
+  const sourceRows = rows(sourceRoot);
+  let cues = rows(filteredRoot);
+  const overlayIds = new Set();
+  const animated = [];
+  const fps = internal.output.fps;
+  const visit = (item, hidden = false) => {
+    hidden ||= item.declaration?.hidden === true || item.hidden === true;
+    if (hidden) return;
+    const kind = item.source?.kind;
+    const declaration = item.declaration;
+    if ((kind === "captions" || kind === "caption") && declaration?.animator?.length) {
+      const selected = kind === "caption"
+        ? sourceRows.filter(cue => String(cue.id) === String(item.source.id))
+        : cues.filter(cue => !(item.source.exclude ?? []).includes(cue.id));
+      if (kind === "caption") overlayIds.add(String(item.id));
+      else cues = cues.filter(cue => !selected.includes(cue));
+      for (const cue of selected) {
+        const start = kind === "caption" ? item.at : cue.start;
+        const end = kind === "caption" ? item.at + item.duration : cue.end;
+        animated.push({
+          ...cue,
+          id: `${item.id}::${cue.id}`,
+          ...(kind === "caption" ? {
+            start, end, time_domain: "output", src: undefined,
+          } : {}),
+          animator: declaration.animator,
+          // Inline internal points use seconds; resolved sidecar points retain integer frames.
+          animatorKeyframes: declaration.keyframes?.map(point => ({ ...point,
+            t: item.keyframesRef ? point.t : Math.round(point.t * fps),
+          })),
+          animatorStart: item.at,
+          animatorItem: { transform: declaration.transform, opacity: declaration.opacity },
+          animatorZ: resolveRecordTrackZ(trackZByItemId, item),
+        });
+      }
+    }
+    for (const child of item.children ?? []) visit(child, hidden);
+  };
+  for (const track of internal.tracks) for (const item of track.items) visit(item);
+  if (animated.length === 0) return { captions: filteredRoot, overlayIds };
+  const captions = [...cues, ...animated];
+  return { captions: Array.isArray(filteredRoot) ? captions : { ...filteredRoot, captions }, overlayIds };
 }
 
 function effectiveAdjustLutRef(item) {

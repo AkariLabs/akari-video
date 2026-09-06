@@ -81,31 +81,31 @@ export interface FrameEngineLayer {
 
 const KNOWN_CUT_KEY_LIST = [
   'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
-  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion'
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion', 'animator'
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
-  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion'
+  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator'
 ] as const;
 
 const KNOWN_KEYFRAME_KEY_LIST = [
-  't', 'transform', 'crop', 'perspective', 'opacity', 'easing'
+  't', 'transform', 'crop', 'perspective', 'opacity', 'easing', 'animator'
 ] as const;
 
-/** Runtime key inventories are kept exact with the declarations above by the type assertions below. */
-export const KNOWN_CUT_KEYS: ReadonlySet<keyof FrameEngineCut> = new Set(KNOWN_CUT_KEY_LIST);
-export const KNOWN_LAYER_KEYS: ReadonlySet<keyof FrameEngineLayer> = new Set(KNOWN_LAYER_KEY_LIST);
-export const KNOWN_KEYFRAME_KEYS: ReadonlySet<keyof LayerKeyframe> = new Set(KNOWN_KEYFRAME_KEY_LIST);
+/** Exact declaration inventories plus animator, which is recognized but ignored on non-text items. */
+export const KNOWN_CUT_KEYS: ReadonlySet<keyof FrameEngineCut | 'animator'> = new Set(KNOWN_CUT_KEY_LIST);
+export const KNOWN_LAYER_KEYS: ReadonlySet<keyof FrameEngineLayer | 'animator'> = new Set(KNOWN_LAYER_KEY_LIST);
+export const KNOWN_KEYFRAME_KEYS: ReadonlySet<keyof LayerKeyframe | 'animator'> = new Set(KNOWN_KEYFRAME_KEY_LIST);
 
 type ExactKeys<T, Keys extends PropertyKey> =
   Exclude<keyof T, Keys> extends never
     ? Exclude<Keys, keyof T> extends never ? true : false
     : false;
 type Assert<T extends true> = T;
-type _KnownCutKeysAreExact = Assert<ExactKeys<FrameEngineCut, typeof KNOWN_CUT_KEY_LIST[number]>>;
-type _KnownLayerKeysAreExact = Assert<ExactKeys<FrameEngineLayer, typeof KNOWN_LAYER_KEY_LIST[number]>>;
-type _KnownKeyframeKeysAreExact = Assert<ExactKeys<LayerKeyframe, typeof KNOWN_KEYFRAME_KEY_LIST[number]>>;
+type _KnownCutKeysAreExact = Assert<ExactKeys<FrameEngineCut & { animator?: unknown }, typeof KNOWN_CUT_KEY_LIST[number]>>;
+type _KnownLayerKeysAreExact = Assert<ExactKeys<FrameEngineLayer & { animator?: unknown }, typeof KNOWN_LAYER_KEY_LIST[number]>>;
+type _KnownKeyframeKeysAreExact = Assert<ExactKeys<LayerKeyframe & { animator?: unknown }, typeof KNOWN_KEYFRAME_KEY_LIST[number]>>;
 
 export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
   layers?: readonly FrameEngineLayer[];
@@ -217,6 +217,11 @@ function warnUnknownFields(
   knownKeys: ReadonlySet<PropertyKey>,
   warn: (message: string) => void
 ): void {
+  if (knownKeys !== KNOWN_KEYFRAME_KEYS && (Object.hasOwn(value, 'animator')
+      || ('keyframes' in value && Array.isArray(value.keyframes)
+        && value.keyframes.some(point => isRecord(point) && Object.hasOwn(point, 'animator'))))) {
+    warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
+  }
   for (const key of Object.keys(value)) {
     if (knownKeys.has(key)) continue;
     warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);

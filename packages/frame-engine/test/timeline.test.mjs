@@ -502,8 +502,8 @@ test('unknown cut and keyframe fields warn once without changing the evaluation 
   );
   assert.deepEqual(actual, baseline);
   assert.deepEqual(warnings, [
+    'cut unknown-cut: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)',
     'cut unknown-cut: field "frobnicate" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
-    'cut unknown-cut keyframe 0: field "animator" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
   ]);
 });
 
@@ -634,16 +634,16 @@ test('cuts without motion retain serialized fit-basis and layerStyle visuals', (
   }
 });
 
-test('runtime known-key inventories exactly expose the declared frame-engine shapes', () => {
+test('runtime known-key inventories expose declared shapes plus recognized non-text animator', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'adjust', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'opacity', 'out', 'perspective',
+    'adjust', 'animator', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'adjust', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
+    'adjust', 'animator', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
     'perspective', 'src', 't', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [
-    'crop', 'easing', 'opacity', 'perspective', 't', 'transform',
+    'animator', 'crop', 'easing', 'opacity', 'perspective', 't', 'transform',
   ]);
 });

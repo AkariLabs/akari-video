@@ -5,6 +5,7 @@
   const FE = window.AkariFrameEngine;
   const bridge = window.akariGpu;
   const warnings = [];
+  const captionAnimatorWarnings = new Set();
   const pools = new Map();
   const lookahead = new Map();
   const images = new Map();
@@ -342,9 +343,21 @@
     .akari-caption__tok--size-pulse{animation:none!important}
     .akari-caption__reveal-group{animation:none!important;opacity:1!important}`;
 
-  function captionHtmlWithUnitMarkers(html) {
-    if (!html.includes("akari-caption__reveal-group")) return html;
+  function captionHtmlWithUnitMarkers(html, animators) {
+    if (!html.includes("akari-caption__reveal-group") && !animators?.length) return html;
     const parsed = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+    // Plain compatibility HTML has no word spans. Add them only to the animator raster.
+    if (animators?.length && !parsed.body.querySelector(".akari-caption__tok")) {
+      for (const line of parsed.body.querySelectorAll(".akari-caption__line")) {
+        const words = new Intl.Segmenter(undefined, { granularity: "word" }).segment(line.textContent);
+        line.replaceChildren(...Array.from(words, ({ segment }) => {
+          const span = parsed.createElement("span");
+          span.className = "akari-caption__tok";
+          span.textContent = segment;
+          return span;
+        }));
+      }
+    }
     for (const [index, group] of [...parsed.body.querySelectorAll(".akari-caption__reveal-group")].entries()) {
       group.setAttribute("data-akari-unit", String(index));
     }
@@ -443,19 +456,26 @@
       ? unitElement
       : unitElement.querySelector(".akari-caption") ?? unitElement;
     const emPx = Number.parseFloat(getComputedStyle(typographyElement).fontSize) || 0;
-    const elements = [...unitElement.querySelectorAll(".akari-caption__tok, .akari-caption__emphasis-char")]
+    const chars = [...unitElement.querySelectorAll(".akari-caption__char")];
+    const words = [...root.querySelectorAll(".akari-caption__tok")];
+    const elements = chars.length ? chars : [...unitElement.querySelectorAll(".akari-caption__tok, .akari-caption__emphasis-char")]
       .filter((element) => !(element.classList.contains("akari-caption__tok")
         && element.querySelector(".akari-caption__emphasis-char")));
     const tokens = elements.flatMap((element, tokenIndex) => {
-      const role = tokenRole(element);
+      const parent = chars.length ? element.closest(".akari-caption__emphasis-char, .akari-caption__tok") : element;
+      const role = tokenRole(parent);
       const line = element.closest(".akari-caption__line");
       const lineIndex = line ? [...unitElement.querySelectorAll(".akari-caption__line")].indexOf(line) : 0;
       return [...element.getClientRects()].map((rect, rectIndex) => ({
-        tokenIndex,
+        tokenIndex: chars.length ? Number(element.getAttribute("data-akari-char")) : tokenIndex,
+        ...(chars.length ? {
+          charIndex: Number(element.getAttribute("data-akari-char")),
+          wordIndex: words.indexOf(element.closest(".akari-caption__tok")),
+        } : {}),
         rectIndex,
         role,
-        style: tokenStyle(element, role),
-        timing: tokenTiming(element, role, emPx),
+        style: tokenStyle(parent, role),
+        timing: tokenTiming(parent, role, emPx),
         rect: relativeRect(rect, origin),
         lineIndex: Math.max(0, lineIndex),
       }));
@@ -592,7 +612,7 @@
           rectIndex: after.rectIndex ?? before.rectIndex ?? null,
           role: after.role ?? before.role ?? "token",
         };
-        for (const field of ["tokenIndex", "rectIndex", "role", "style", "lineIndex"]) {
+        for (const field of ["tokenIndex", "rectIndex", "role", "style", "lineIndex", "charIndex", "wordIndex"]) {
           add(location, field, before[field], after[field]);
         }
         diffRect(before.rect, after.rect, location);
@@ -954,7 +974,12 @@
   }
 
   async function buildCaptionUnits(value, config, attemptsLog, differencesLog, startupMetrics) {
-    const html = captionHtmlWithUnitMarkers(value.html);
+    const animators = value.animator?.length ? FE.normalizeAnimators(value.animator, warnCaptionAnimatorOnce) : [];
+    for (const animator of animators) {
+      if (animator.amount.letterSpacing !== 0) warnCaptionAnimatorOnce("animator.letterSpacing-ignored", "letterSpacing is ignored by GPU caption tiles in v1");
+      if (animator.amount.blur !== 0) warnCaptionAnimatorOnce("animator.blur-ignored", "blur is ignored: GPU sprite tiles do not support a blur filter");
+    }
+    const html = captionHtmlWithUnitMarkers(value.html, animators);
     const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
     const settleCss = `*{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
     // 採寸はラスタと同じ settled 状態で行う。settle していないと plate の入場アニメ
@@ -991,7 +1016,7 @@
         const hasColor = roles.has("karaoke");
         const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
         if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
-        mode = hasColor ? "color" : hasGeometry ? "geometry" : "sprite";
+        mode = hasColor ? "color" : hasGeometry || animators.length > 0 ? "geometry" : "sprite";
         if (mode === "color") {
           const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
           const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
@@ -1046,7 +1071,7 @@
       const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
         ? null
-        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect });
+        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect, ...(animators.length ? { includeTokens: true } : {}) });
       units.push({
         id,
         secondaryId,
@@ -1073,9 +1098,92 @@
         degraded,
         registered: false,
         released: false,
+        ...(animators.length ? { animatorTokens: unitMeasurement.tokens, animatorLines: unitMeasurement.lines.length } : {}),
       });
     }
+    if (animators.length) prepareCaptionAnimatorUnits(units, animators, value);
     return { units, layoutMaxDeltaPx };
+  }
+
+  function warnCaptionAnimatorOnce(code, message) {
+    if (captionAnimatorWarnings.has(code)) return;
+    captionAnimatorWarnings.add(code);
+    warn(`${code}: ${message}`);
+  }
+
+  function prepareCaptionAnimatorUnits(units, animators, value) {
+    // Reveal groups are raster units, but selectors count over the entire cue.
+    let wordOffset = 0;
+    let lineOffset = 0;
+    const tokens = [];
+    for (const unit of units) {
+      const mapped = new Map(unit.animatorTokens.map(token => [token, {
+        ...token,
+        lineIndex: token.lineIndex + lineOffset,
+        ...(token.charIndex === undefined ? { wordIndex: token.tokenIndex + wordOffset } : {}),
+      }]));
+      tokens.push(...mapped.values());
+      for (const tile of unit.tiles ?? []) if (tile.token) tile.token = mapped.get(tile.token);
+      wordOffset += Math.max(-1, ...unit.animatorTokens.map(token => token.tokenIndex)) + 1;
+      lineOffset += unit.animatorLines;
+      delete unit.animatorTokens;
+      delete unit.animatorLines;
+    }
+    const groups = [...new Set(animators.map(a => a.basis))].map(basis => ({
+      animators: animators.filter(a => a.basis === basis),
+      units: FE.animatorUnitsOf(basis, tokens),
+    }));
+    for (const unit of units) unit.animator = {
+      animators, groups, keyframes: value.animatorKeyframes,
+      start: value.animatorStart ?? value.start,
+      item: value.animatorItem,
+    };
+  }
+
+  function captionAnimatorItemStateAt(unit, state, seconds, config) {
+    const declaration = unit.animator;
+    const points = declaration.keyframes?.map(point => ({ ...point, t: point.t / config.fps }));
+    const visual = FE.computeLayerKeyframesVisual(points, seconds - declaration.start);
+    const transform = declaration.item?.transform;
+    const scale = visual?.transform?.scale ?? transform?.scale ?? 1;
+    return {
+      ...state,
+      translateX: state.translateX + (visual?.transform?.x ?? transform?.x ?? 0),
+      translateY: state.translateY + (visual?.transform?.y ?? transform?.y ?? 0),
+      scaleX: state.scaleX * scale,
+      scaleY: state.scaleY * scale,
+      opacity: state.opacity * (visual?.opacity ?? declaration.item?.opacity ?? 1),
+      rotateDeg: state.rotateDeg + (visual?.transform?.rotateDegrees ?? transform?.rotate ?? 0),
+    };
+  }
+
+  function captionAnimatorTilesAt(unit, tiles, seconds, config) {
+    const declaration = unit.animator;
+    if (!declaration) return tiles;
+    const params = FE.animatorParamsAt(declaration.animators, declaration.keyframes, seconds - declaration.start, config.fps);
+    return tiles.map((tile, index) => {
+      const token = unit.tiles[index].token;
+      if (!token) return tile;
+      let translateX = 0, translateY = 0, scale = 1, opacityDelta = 0, rotateDeg = 0;
+      for (const group of declaration.groups) {
+        const state = FE.captionAnimatorStateAt(group.animators, params,
+          group.units.unitIndexOf(token), group.units.count, config.width);
+        translateX += state.translateX;
+        translateY += state.translateY;
+        scale *= state.scale;
+        opacityDelta += state.opacityDelta;
+        rotateDeg += state.rotateDeg;
+      }
+      return {
+        ...tile,
+        translateX: (tile.translateX ?? 0) + translateX,
+        translateY: (tile.translateY ?? 0) + translateY,
+        scaleX: (tile.scaleX ?? 1) * scale,
+        scaleY: (tile.scaleY ?? 1) * scale,
+        opacity: tile.opacity * Math.max(0, Math.min(1, 1 + opacityDelta)),
+        rotateDeg: (tile.rotateDeg ?? 0) + rotateDeg,
+      };
+    });
   }
 
   function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
@@ -2395,7 +2503,7 @@
             const revealState = unit.reveal
               ? FE.captionRevealGroupStateAt(unit.revealDelay, unit.revealDuration, localSeconds, unit.emPx)
               : null;
-            const state = revealState
+            let state = revealState
               ? {
                   opacity: revealState.opacity,
                   translateY: revealState.translateY,
@@ -2405,12 +2513,13 @@
                   rotateDeg: 0,
                 }
               : FE.captionMotionAt(unit.motion, localSeconds, unit.cueDuration, unit.emPx);
+            if (unit.animator) state = captionAnimatorItemStateAt(unit, state, seconds, config);
             if (state.opacity <= 0) continue;
             if (unit.tiles === null) {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
               continue;
             }
-            const tiles = unit.tiles.map((tile) => {
+            let tiles = unit.tiles.map((tile) => {
               if (tile.timing === null) return tile.static;
               const wordState = FE.captionWordStateAt(tile.timing, localSeconds);
               return {
@@ -2424,6 +2533,7 @@
                 scaleY: wordState.scaleY,
               };
             });
+            if (unit.animator) tiles = captionAnimatorTilesAt(unit, tiles, seconds, config);
             if (unit.mode === "geometry") {
               draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
               draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect, tiles, ...state });
