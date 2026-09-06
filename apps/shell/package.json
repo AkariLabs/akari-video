@@ -206,6 +206,7 @@
         "to": "packages/overlay-runtime",
         "filter": [
           "package.json",
+          "runtimes.mjs",
           "src/**/*"
         ]
       },
