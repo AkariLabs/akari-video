@@ -1,0 +1,752 @@
+{
+  "phase": "after",
+  "port": 9762,
+  "rect": {
+    "left": 1080,
+    "top": 39,
+    "width": 472,
+    "height": 935
+  },
+  "cells": [
+    {
+      "id": "vars-present_root-dark",
+      "vars": "present",
+      "rootColorScheme": "dark",
+      "usedRootColorScheme": "dark",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 627,
+        "bodyBackgroundColor": "rgb(30, 30, 30)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "Codex could not start",
+        "codexMarker": false,
+        "sampleVars": [
+          "--vscode-font-family",
+          "--vscode-font-weight",
+          "--vscode-font-size"
+        ]
+      },
+      "png": "after-vars-present_root-dark.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1082,
+            "y": 179.25,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1082,
+            "y": 506.5,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1082,
+            "y": 833.75,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1068,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1068,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1068,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1076,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1076,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1076,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          20,
+          20,
+          20
+        ],
+        "maxDeltaToPanel": 20
+      }
+    },
+    {
+      "id": "vars-stripped_root-dark",
+      "vars": "stripped",
+      "rootColorScheme": "dark",
+      "usedRootColorScheme": "dark",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 0,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "Codex could not start",
+        "codexMarker": false,
+        "sampleVars": []
+      },
+      "png": "after-vars-stripped_root-dark.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1082,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1082,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1082,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1068,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1068,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1068,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1076,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1076,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1076,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    },
+    {
+      "id": "vars-present_root-none",
+      "vars": "present",
+      "rootColorScheme": "(removed)",
+      "usedRootColorScheme": "normal",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 627,
+        "bodyBackgroundColor": "rgb(30, 30, 30)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "Codex could not start",
+        "codexMarker": false,
+        "sampleVars": [
+          "--vscode-font-family",
+          "--vscode-font-weight",
+          "--vscode-font-size"
+        ]
+      },
+      "png": "after-vars-present_root-none.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1082,
+            "y": 179.25,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1082,
+            "y": 506.5,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1082,
+            "y": 833.75,
+            "rgb": [
+              30,
+              30,
+              30
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1068,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1068,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1068,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1076,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1076,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1076,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          20,
+          20,
+          20
+        ],
+        "maxDeltaToPanel": 20
+      }
+    },
+    {
+      "id": "vars-stripped_root-none",
+      "vars": "stripped",
+      "rootColorScheme": "(removed)",
+      "usedRootColorScheme": "normal",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 0,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "Codex could not start",
+        "codexMarker": false,
+        "sampleVars": []
+      },
+      "png": "after-vars-stripped_root-none.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1082,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1082,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1082,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1068,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1068,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1068,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1076,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1076,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1076,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    }
+  ],
+  "records": [
+    {
+      "t": "2026-09-06T03:49:57.953Z",
+      "step": "main-connected"
+    },
+    {
+      "t": "2026-09-06T03:49:58.603Z",
+      "step": "open-codex-view",
+      "id": "workbench.view.extension.codexSecondaryViewContainer",
+      "result": {
+        "ok": false,
+        "error": "Error: The command 'workbench.view.extension.codexSecondaryViewContainer' cannot be executed. There are no active handlers available for the command."
+      }
+    },
+    {
+      "t": "2026-09-06T03:49:58.606Z",
+      "step": "open-codex-view",
+      "id": "workbench.view.extension.codexViewContainer",
+      "result": {
+        "ok": false,
+        "error": "Error: The command 'workbench.view.extension.codexViewContainer' cannot be executed. There are no active handlers available for the command."
+      }
+    },
+    {
+      "t": "2026-09-06T03:50:00.958Z",
+      "step": "open-codex-view",
+      "id": "chatgpt.sidebarSecondaryView.focus",
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "t": "2026-09-06T03:50:05.057Z",
+      "step": "codex-webview-found",
+      "url": "http://8d80692e-3771-5a5f-8ec6-67b64e8624f4.webview.localhost:55697/webview/index.html?id=<id>"
+    },
+    {
+      "t": "2026-09-06T03:50:05.476Z",
+      "step": "codex-iframe-rect",
+      "rect": {
+        "left": 1080,
+        "top": 39,
+        "width": 472,
+        "height": 935
+      }
+    },
+    {
+      "t": "2026-09-06T03:50:06.495Z",
+      "step": "saved-css-text",
+      "length": 65492
+    },
+    {
+      "t": "2026-09-06T03:50:13.011Z",
+      "step": "cell",
+      "id": "vars-present_root-dark",
+      "n": 627,
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
+      "inside": [
+        [
+          30,
+          30,
+          30
+        ],
+        [
+          30,
+          30,
+          30
+        ],
+        [
+          30,
+          30,
+          30
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 20
+    },
+    {
+      "t": "2026-09-06T03:50:24.199Z",
+      "step": "cell",
+      "id": "vars-stripped_root-dark",
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:50:30.349Z",
+      "step": "cell",
+      "id": "vars-present_root-none",
+      "n": 627,
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
+      "inside": [
+        [
+          30,
+          30,
+          30
+        ],
+        [
+          30,
+          30,
+          30
+        ],
+        [
+          30,
+          30,
+          30
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 20
+    },
+    {
+      "t": "2026-09-06T03:50:37.033Z",
+      "step": "cell",
+      "id": "vars-stripped_root-none",
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:50:37.810Z",
+      "step": "restored",
+      "n": 627,
+      "bodyBackgroundColor": "rgb(30, 30, 30)"
+    },
+    {
+      "t": "2026-09-06T03:50:37.864Z",
+      "step": "shell-color-scheme",
+      "documentElement": "dark",
+      "iframeWebview": "light"
+    }
+  ],
+  "shell": {
+    "documentElementColorScheme": "dark",
+    "iframeWebviewColorScheme": "light"
+  }
+}
