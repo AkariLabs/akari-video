@@ -86,6 +86,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 
 - 成果物は既定で `<project>/exports/<source-name>.mp4` に置く。既存名があれば連番を使う。
 - 状態の正本は `<project>/.akari/render.json` とする。HTML レポートは可視化専用とする。
+- CLI は書き出し成功後に帳面の結果行を追記する（`akari decision-log settle`）。`--no-settle` で抑止できる。
 - 成功時だけ `<project>/.akari/render-tmp/` を削除する。失敗時は診断用に保持する。
 - 字幕は `captions.json` から決定的な HTML へ生成し、他のオーバーレイと同じ経路で焼き込む。
 - 字幕スタイルの preset は `presets/textstyle/` にあり、`akari-apply-textstyle.mjs` で `captions.json` へ適用できる。この実行体も同じ解決の対象で、`<render-cut>` と同じ `bin/` 配下にある。通常は edit-plan 段階で適用を済ませ、render-cut はその結果をそのまま描画する。

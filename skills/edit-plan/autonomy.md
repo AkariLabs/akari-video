@@ -32,10 +32,10 @@
 1. 依頼文 + `intake.tasks` + akari.md の好みで「入れる物」を決める。**頼まれた物に加えて良さそうな物を足してよい**（B ロール・図解・テロップ演出・BGM・SE・章立て。足す判断は akari.md の調達の好み表に従う）。
 2. 分析は事実層 `analysis.json` だけを読む。分析レポートの必読は課さない。無ければ [analyze-footage](../analyze-footage/SKILL.md) の既定（L0 + L1）を実行する。
 3. 方針・素材計画をチャットで提示しない・承認を求めない。
-4. **足した物 1 件ごとに `decision-log.md` へ「予測」1 行**を、タイムラインに入れるのと同じターンで書く。既存の [decision_log 表形式](report-guide.md#decision_log) を使い、ISO 8601 日時と `category = proposal` / `subject = item id または caption id` / `決定 = 何を入れたか` / `理由 = なぜ良さそうか（根拠 = analysis.json のどこ / akari.md のどの行）` / `決定者 = machine:director` / `関連 = 出所（素材 id・手段）` を記す。頼まれた物そのもの（提案でない物）には予測行を書かない。予測行の欠落は edit-lint の warning 止まりとする。
+4. **足した物 1 件ごとに `decision-log.md` へ「予測」1 行**を、タイムラインに入れるのと同じターンで書く。既存の [decision_log 表形式](report-guide.md#decision_log) を使い、ISO 8601 日時と `category = proposal` / `subject = item id または caption id` / `決定 = 何を入れたか` / `理由 = なぜ良さそうか（根拠 = analysis.json のどこ / akari.md のどの行）` / `決定者 = machine:director` / `関連 = 出所（素材 id・手段）` を記す。関連セルには必ず `sha:<提案時の item / record の canonical JSON の sha256 先頭 8 hex>` を含める。canonical JSON はオブジェクトのキーを再帰的にソートして JSON.stringify した文字列（配列の順序は保持）とする。例: `source-01 / HTML overlay sha:1a2b3c4d`（sha は提案時の実データから計算する）。頼まれた物そのもの（提案でない物）には予測行を書かない。予測行の欠落は edit-lint の warning 止まりとする。
 5. [execution.md](execution.md) の出力ルールで v2 の `edit.json` / `captions.json` / overlays を書き、書いた直後に [edit-lint](../edit-lint/SKILL.md) を実行する。FAIL は直して再実行する。直せなければ §4 に従って止まる。原本は変更せず、`edit.json` を書くのはディレクター 1 人とし、生成物には `<file>.meta.json` の provenance を残す。字幕は `akari captions <project-dir>`（execution.md §4）を使う。
 6. **書き出さない（render-cut を呼ばない）**。最後に「入れた物 N 件（うち提案 M 件・帳面に M 行）・lint 結果・**プレビューで見て、要らなければ消してください。書き出しはヘッダの書き出しボタン**」を報告する。この報告が唯一のチャット出力となる（§1 の offer-once と §4 の停止時の連絡を除く）。
-7. 人間が消した / 直した / そのまま出した の**結果行は書き出し時**に機械が追記する（render-cut 側・別票）。
+7. 人間が消した / 直した / そのまま出した の**結果行は書き出し時**に `akari decision-log settle`（render-cut の CLI が自動で呼ぶ）が追記する。シェルの書き出しからの呼び出しは別票。
 
 ## 4. 止まる条件（3 つだけ）
 
