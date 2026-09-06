@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { projectLegacyEdit, readInternalEdit } from '@akari-video/edit-store';
+import { withCaptionsDisplaySupplement } from '../lib/common/derive-timeline-tracks.js';
 import {
   prepareV2KeyframeDistribution, setTrackFlag, stringifyEditV2,
 } from '../lib/common/edit-v2-mutations.js';
@@ -26,12 +27,16 @@ const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 },
 }).outputText;
 const Handler = new Function(
-  'setV2TrackFlag', 'prepareV2KeyframeDistribution', 'stringifyEditV2', 'TRACK_FLAG_STORAGE_PREFIX',
+  'setV2TrackFlag', 'prepareV2KeyframeDistribution', 'stringifyEditV2', 'TRACK_FLAG_STORAGE_PREFIX', 'withCaptionsDisplaySupplement',
   `${code}\nreturn Handler;`
-)(setTrackFlag, prepareV2KeyframeDistribution, stringifyEditV2, 'test-track-flags');
+)(setTrackFlag, prepareV2KeyframeDistribution, stringifyEditV2, 'test-track-flags', withCaptionsDisplaySupplement);
 
 function fixture() {
   const context = new Handler();
+  context.localLockedTrackIds = new Set();
+  context.computeAudioDisplayTracks = () => { context.displayTimelineTracks = context.timelineTracks; };
+  context.computeBgmDisplayTrack = () => {};
+  context.computeCaptionsDisplayTrack = () => {};
   const doc = {
     version: 2, output: { width: 320, height: 180, fps: 30 },
     sources: [{ id: 'media', path: 'media.mp4' }],
