@@ -6,6 +6,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveWordBook, buildMatcher, applyWordBook } from "../../word-book/src/index.mjs";
+
 import { buildCaptionsFromTranscript } from "../src/captions/build.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
 import { toPosix } from "../src/media/common.mjs";
@@ -16,7 +18,12 @@ const usage = [
   "  --source <sources[].id|媒体パス>",
   "  --readout <秒>       読み切り猶予（既定 0.3）",
   "  --min-duration <秒>  表示時間の床（既定 1.0）",
-  "  --max-chars <N>      語境界で分割する文字数",
+  "  --split phrase|none 文節優先 / 旧挙動（既定 phrase）",
+  "  --max-chars <N>      文字数上限（既定 20、0 で無制限）",
+  "  --max-seconds <秒>   区間長上限（既定 7.0、0 で無制限）",
+  "  --pause <秒>         分割するポーズ（既定 0.6）",
+  "  --word-book <path>   追加の単語帳",
+  "  --no-word-book       単語帳の既定適用を抑止",
   "  --force             手直し済みの字幕も上書き",
   "  --dry-run           書き込まず結果 JSON を表示",
   "  --json", "  --help",
@@ -69,19 +76,28 @@ export async function runCaptionsCli(argv, options = {}) {
     if (records.some((record) => record.edited === true) && !parsed.force) {
       throw new Error("手直し済みの字幕があります。上書きするには --force");
     }
-    const result = buildCaptionsFromTranscript(analysis.transcript, { ...parsed, src: source.id });
+    const result = buildCaptionsFromTranscript(analysis.transcript, { ...parsed, src: source.id, sourceDurationSeconds: Number.isFinite(analysis.probe?.duration_s) ? analysis.probe.duration_s : null });
+    const wordBook = { applied: 0 };
+    if (!parsed.noWordBook) {
+      const resolved = await resolveWordBook({ projectRoot, env: options.env ?? process.env, extraPath: parsed.wordBook });
+      if (resolved.entries.length) {
+        const applied = applyWordBook(result.captions, buildMatcher(resolved.entries), { mode: "captions" });
+        wordBook.applied = applied.records.filter((record, index) => record.text !== result.captions[index].text).length;
+        result.captions = applied.records;
+      }
+    }
     const root = {};
     for (const field of ["default_text_style", "display_policy", "emphasis_words"]) {
       if (existing && !Array.isArray(existing) && Object.hasOwn(existing, field)) root[field] = existing[field];
     }
     root.captions = result.captions;
     const content = `${JSON.stringify(root, null, 2)}\n`;
-    if (parsed.dryRun) stdout(content.trimEnd());
+    if (parsed.dryRun) stdout(JSON.stringify({ ...root, word_book: wordBook }, null, 2));
     else await writeProjectFilesGuarded(projectRoot, { "captions.json": content });
     if (!edit.tracks?.some((track) => track.items?.some((item) => item.source?.kind === "captions"))) {
       stderr("edit.json の visual トラックに字幕トラックを宣言してください（edit-lint v2.captions-track-undeclared の案内どおり）");
     }
-    stdout(JSON.stringify({ captions: result.captions.length, warnings: result.warnings, path: captionsPath }));
+    stdout(JSON.stringify({ captions: result.captions.length, warnings: result.warnings, path: captionsPath, word_book: wordBook }));
     return 0;
   } catch (error) {
     stderr(error instanceof Error ? error.message : String(error));
@@ -91,15 +107,15 @@ export async function runCaptionsCli(argv, options = {}) {
 
 function parseOptions(argv) {
   const parsed = {};
-  const values = { "--source": "source", "--readout": "readoutSeconds", "--min-duration": "minDurationSeconds", "--max-chars": "maxCharacters" };
-  const booleans = { "--force": "force", "--dry-run": "dryRun", "--json": "json" };
+  const values = { "--source": "source", "--readout": "readoutSeconds", "--min-duration": "minDurationSeconds", "--max-chars": "maxCharacters", "--split": "splitMode", "--max-seconds": "maxSeconds", "--pause": "pauseSeconds", "--word-book": "wordBook" };
+  const booleans = { "--no-word-book": "noWordBook", "--force": "force", "--dry-run": "dryRun", "--json": "json" };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (Object.hasOwn(booleans, argument)) parsed[booleans[argument]] = true;
     else if (Object.hasOwn(values, argument)) {
       const value = argv[++index];
       if (value === undefined || value.startsWith("--") || !value.trim()) throw new Error(`${argument} の値が必要です`);
-      parsed[values[argument]] = argument === "--source" ? value : Number(value);
+      parsed[values[argument]] = ["--source", "--split", "--word-book"].includes(argument) ? value : Number(value);
     } else throw new Error(`不明なオプションです: ${argument}`);
   }
   return parsed;

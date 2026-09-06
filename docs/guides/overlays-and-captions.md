@@ -75,6 +75,9 @@ akari captions <project-dir>
 - Preserve gaps: use word timestamps without filling silent gaps with captions.
 - Reading allowance: add 0.3 seconds to the final word's end by default, capped at the next caption's start.
 - Minimum duration: extend short captions to 1.0 second where the next caption permits; otherwise return a warning.
+- Split at phrases: prioritize sentence endings, pauses, commas, then character / duration limits (defaults: 20 characters and 7 seconds; `--split none` restores legacy splitting).
+- Cap at source duration: when probe duration is available, cap each end and drop captions shorter than 0.2 seconds with a warning.
+- Apply the word book: use resolved entries by default (`--word-book <path>` adds a book; `--no-word-book` disables application).
 
 Make corrections in the script panel or edit `captions.json` directly.
 
