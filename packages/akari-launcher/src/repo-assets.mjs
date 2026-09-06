@@ -33,6 +33,7 @@ const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup',
 const ASSET_RESOLVER_CLI_RELATIVE = path.join('packages', 'asset-resolver', 'bin', 'akari-assets.mjs');
 const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
 const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
+const DECISION_LOG_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'decision-log.mjs');
 const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
 const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
 const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
@@ -56,6 +57,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
   const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
+  const decisionLogScript = path.join(repoRoot, DECISION_LOG_SCRIPT_RELATIVE);
   const wordBookScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'word-book.mjs');
 
   return {
@@ -75,6 +77,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
     eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
     mediaScript: existsSync(mediaScript) ? mediaScript : null,
+    ...(existsSync(decisionLogScript) ? { decisionLogScript } : {}),
     ...(existsSync(wordBookScript) ? { wordBookScript } : {})
   };
 }
@@ -111,6 +114,7 @@ export function resolveLauncherAssets({
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
     eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
     mediaScript: candidate.mediaScript ?? vendor.mediaScript,
+    ...(candidate.decisionLogScript ?? vendor.decisionLogScript ? { decisionLogScript: candidate.decisionLogScript ?? vendor.decisionLogScript } : {}),
     ...(candidate.wordBookScript ?? vendor.wordBookScript
       ? { wordBookScript: candidate.wordBookScript ?? vendor.wordBookScript }
       : {})
