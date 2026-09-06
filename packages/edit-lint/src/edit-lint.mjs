@@ -787,10 +787,17 @@ function validateEngineCapabilities(rawEdit, internalEdit, engine, table, findin
       const actualPath = `${parentPath}[${itemIndex}]`;
       const internalItem = internalItems.get(String(item.id));
       const appliesTo = engineAppliesTo(item, internalItem, lane);
+      // GPU consumes selector-only caption points through animatorParamsAt, even
+      // though the general caption keyframe container is marked ignored.
+      const captionAnimatorPoints = appliesTo === "captions"
+        && Array.isArray(item.animator) && item.animator.length > 0
+        && Array.isArray(item.keyframes) && item.keyframes.every(point =>
+          isRecord(point) && Object.keys(point).every(key => ["t", "animator", "easing"].includes(key)));
       for (const key of Object.keys(item)) {
         checkEngineField({
           canonicalPath: `tracks[].items[].${key}`,
           actualPath: `${actualPath}.${key}`,
+          consumedByGpu: captionAnimatorPoints && key === "keyframes",
           appliesTo,
           engine,
           table,
@@ -818,6 +825,7 @@ function validateEngineCapabilities(rawEdit, internalEdit, engine, table, findin
             checkEngineField({
               canonicalPath: `tracks[].items[].keyframes[].${key}`,
               actualPath: `${actualPath}.keyframes[${keyframeIndex}].${key}`,
+              consumedByGpu: captionAnimatorPoints && ["t", "easing"].includes(key),
               appliesTo,
               engine,
               table,
@@ -857,6 +865,7 @@ function engineAppliesTo(item, internalItem, lane) {
 function checkEngineField({
   canonicalPath,
   actualPath,
+  consumedByGpu = false,
   appliesTo,
   engine,
   table,
@@ -878,6 +887,7 @@ function checkEngineField({
     return;
   }
   const actionable = engines.flatMap((engineName) => {
+    if (engineName === "gpu" && consumedByGpu) return [];
     const status = row[engineName];
     if (status === "ignored") {
       return [{
@@ -1010,6 +1020,51 @@ function validateEditStructure(edit, findings, paths) {
 
 // notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。
 // v2 Phase 0 は既存 v0/v1 の検証パイプラインへ混ぜず、トラック正本の最小不変条件だけを検査する。
+function validateAnimatorRefs(item, points, findings, keyframesPath) {
+  if (!Array.isArray(points)) return;
+  const ids = new Set((Array.isArray(item.animator) ? item.animator : [])
+    .filter(isRecord).map(animator => animator.id));
+  for (const [index, point] of points.entries()) {
+    if (!isRecord(point) || !isRecord(point.animator)) continue;
+    for (const id of Object.keys(point.animator)) {
+      if (ids.has(id)) continue;
+      addFinding(findings, {
+        severity: "error", check: "animator.unknown-ref",
+        message: `keyframe references undeclared animator id: ${id}`,
+        path: `${keyframesPath}[${index}].animator[${JSON.stringify(id)}]`,
+      });
+    }
+  }
+}
+
+function validateAnimators(item, findings, itemPath) {
+  if (Object.hasOwn(item, "animator") && ["media", "filter"].includes(item.source?.kind)) {
+    addFinding(findings, {
+      severity: "warning", check: "animator.non-text-target",
+      message: "animator is ignored on non-text items",
+      path: `${itemPath}.animator`,
+    });
+  }
+  const ids = new Set();
+  for (const [index, animator] of (Array.isArray(item.animator) ? item.animator : []).entries()) {
+    if (!isRecord(animator)) continue;
+    if (isNonEmptyString(animator.id)) {
+      if (ids.has(animator.id)) addFinding(findings, {
+        severity: "error", check: "animator.duplicate-id",
+        message: `duplicate animator id: ${animator.id}; last declaration wins when rendering`,
+        path: `${itemPath}.animator[${index}].id`,
+      });
+      ids.add(animator.id);
+    }
+    if (animator.basis === "segments") addFinding(findings, {
+      severity: "warning", check: "animator.segments-fallback",
+      message: "animator basis segments uses words in v1",
+      path: `${itemPath}.animator[${index}].basis`,
+    });
+  }
+  validateAnimatorRefs(item, item.keyframes, findings, `${itemPath}.keyframes`);
+}
+
 function validateEditV2(edit, findings) {
   validateAudioDuckKeys(edit?.audio?.duck_keys, findings);
   if (!Array.isArray(edit.tracks)) {
@@ -1065,6 +1120,7 @@ function validateEditV2(edit, findings) {
         const itemPath = `${parentPath}[${index}]`;
         if (!isRecord(item)) continue;
         registerId(itemIds, item.id, `${itemPath}.id`, "item");
+        validateAnimators(item, findings, itemPath);
         if (parent && Number.isInteger(item.at) && Number.isInteger(item.duration)
           && (item.at < 0 || item.at + item.duration > parent.duration)) {
           addFinding(findings, {
@@ -1463,6 +1519,7 @@ async function validateV2ObjectTreeFiles(edit, findings, paths) {
         continue;
       }
       const points = isRecord(bag.items) ? bag.items[item.id] : undefined;
+      validateAnimatorRefs(item, points, findings, `${itemPath}.keyframes`);
       if (!Array.isArray(points) || points.length !== item.keyframes.count) {
         addFinding(findings, {
           severity: "error",

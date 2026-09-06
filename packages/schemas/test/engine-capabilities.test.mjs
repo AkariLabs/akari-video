@@ -72,3 +72,24 @@ test("path and applies_to pairs are unambiguous for lint lookup", () => {
   }
   assert.deepEqual(new Set(table.fields.flatMap((field) => field.applies_to)), appliesToVocabulary);
 });
+
+test("caption animator capabilities consume GPU evaluation and retain non-text runtime warnings", () => {
+  for (const suffix of ['animator', 'keyframes[].animator']) {
+    const rows = table.fields.filter(field => field.path === `tracks[].items[].${suffix}`);
+    for (const target of ['captions', 'group', 'cuts', 'layers', 'baked', 'overlays']) {
+      const row = rows.find(field => field.applies_to.includes(target));
+      assert.ok(row, target);
+      assert.equal(row.osr, 'ignored');
+      if (target === 'captions' || target === 'group') {
+        assert.equal(row.gpu, 'consumed');
+        const fn = suffix === 'animator' ? 'captionAnimatorStateAt' : 'animatorParamsAt';
+        assert.ok(row.evidence.includes(fn));
+        const source = readFileSync(join(packageRoot, '../frame-engine/src/timeline/caption-animator.ts'), 'utf8');
+        assert.ok(source.includes(`export function ${fn}(`));
+      } else {
+        assert.equal(row.gpu, 'ignored');
+        if (target !== 'overlays') assert.equal(row.runtime_warning, true);
+      }
+    }
+  }
+});

@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "captions",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "captions",
+          "at": 0,
+          "duration": 60,
+          "source": { "kind": "captions", "path": "captions.json" },
+          "animator": [
+            { "id": "a1", "basis": "chars", "shape": "ramp", "start": 0, "end": 0.3, "offset": -0.3,
+              "amount": { "y": 24, "opacity": -1 } }
+          ],
+          "keyframes": [
+            { "t": 0, "animator": { "a1": { "offset": -0.3 } } },
+            { "t": 15, "animator": { "a1": { "offset": 1 } } }
+          ],
+          "items": []
+        }
+      ]
+    }
+  ]
+}

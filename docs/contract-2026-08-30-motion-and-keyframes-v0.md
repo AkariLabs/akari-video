@@ -1,7 +1,7 @@
 ---
 lifecycle: accepted
 created: 2026-08-30
-updated: 2026-08-30
+updated: 2026-09-06
 ---
 
 # 動きとキーフレーム契約 v0 — 4 段階（プリセット / キーフレーム / アニメーター / コード）と `motion/` 袋
@@ -132,7 +132,7 @@ media item（cuts）での適用先 = frame-engine base 経路（2026-09-01・is
 | キー | 型 | 意味 |
 |---|---|---|
 | `id` | string | アニメーターの id（キーフレームから参照）|
-| `basis` | `chars` / `words` / `lines` / `segments` | 範囲の単位（`segments` = 文節。既存のテロップ文節分割を使う）|
+| `basis` | `chars` / `words` / `lines` / `segments` | 範囲の単位（`segments` = 文節。v1 の words フォールバックは §4.4）|
 | `shape` | `ramp` / `triangle` / `round` / `smooth` / `square` / `ramp-down` | 範囲の中の影響度カーブ（0..1）|
 | `start` / `end` | number 0..1 | 範囲（単位数に対する比）|
 | `offset` | number | 範囲の平行移動（−1..1）。**動かすのはこれ**（§4.3）|
@@ -144,13 +144,56 @@ media item（cuts）での適用先 = frame-engine base 経路（2026-09-01・is
 - 対象は `telop` / `caption`（分離した行）/ `group` の中のテキスト系アイテム。HTML 部品は L3 か `vars`
 - 既存モーション文法との対応: `--anim-stagger` ≈ `offset` をキーフレームで動かす / `--anim-distance` ≈ `amount.y` / `--anim-easing` ≈ `ease`。既存 CSS 変数はそのまま生きる（L0）。アニメーターは native アイテムの L2
 
+**司令塔裁定（2026-09-06）— 単位の位置・影響度・量を確定する**:
+
+- 単位数を `count`、0 始まりの単位順序を `u` として、**`pos(u) = (u + 0.5) / count`**（各単位の中央）を割り当てる。`randomize.seed` があるときは**整数ハッシュによる決定論シャッフル**で単位の順序を振ってから pos を割り当てる。`Math.random` / `fract(sin())` は使わない
+- `s = start + offset`、`e = end + offset` とし、影響度は **`w = shape(pos, s, e)`**。`s ≥ e` なら全 shape で `w = 0`。それ以外は次表（`clamp01(v) = max(0, min(1, v))`）
+
+| `shape` | 影響度 `w` の式 |
+|---|---|
+| `ramp` | `ramp = clamp01((pos−s)/(e−s))` |
+| `ramp-down` | `1 − ramp` |
+| `triangle` | `1 − \|2·ramp − 1\|`（中央 1 の三角）|
+| `round` | `sin(π·ramp)` |
+| `smooth` | `ramp²(3−2·ramp)` |
+| `square` | `s ≤ pos < e` で 1、それ以外は 0 |
+
+- 影響度に `ease` を掛けて **`k = ease(w)`** とする。`ease` は §2.1-(b) の語彙、既定は `linear`。各量への寄与は `amount × k`（scale の適用倍率は次表）
+
+| `amount` のキー | 単位・適用量 |
+|---|---|
+| `x` / `y` / `letterSpacing` / `blur` | 出力 px。1920 幅を基準とし、`amount × k × output.width / 1920` に比率換算する（`adjust.fx` と同じ規約）|
+| `rotate` | 度。`amount.rotate × k`。gpu では tile 中心回転 |
+| `scale` | 倍率の**増分**。適用倍率 = `1 + amount.scale × k` |
+| `opacity` | 加算量（宣言値 −1..1）。寄与 = `amount.opacity × k` |
+
 ### 4.2 合成
 
 - 同じプロパティに複数のアニメーターが効くときは §4.1 の加算規則。アニメーターと L1 キーフレームは**独立に合成**（L1 = アイテム全体、L2 = 単位ごとのずれ）
+- **司令塔裁定（2026-09-06）**: `x` / `y` / `rotate` / `letterSpacing` / `blur` は各寄与の加算、`scale` は各適用倍率の乗算。`opacity` は **Σ の後で** `clamp01(1 + Σ(amount.opacity × k))` とし、アニメーターごとにはクランプしない。単位ごとの状態を、アイテム全体の keyframes / motion の状態と独立に合成する（不透明度・倍率は乗算）
 
 ### 4.3 offset のキーフレーム
 
 - 「どの順で」は `offset` を時間で動かして表す。点は L1 と同じ配列（inline or 袋）に `"animator": { "a1": { "offset": -0.25 } }` … `{ "offset": 1 }` として打つ（典型 2 点）。**文字ごとの点は存在しない**
+- **司令塔裁定（2026-09-06）**: `offset` に加えて `start` / `end` も同じキーフレーム点で動かせる。点が無ければ宣言値で静的。`t` はアイテム相対の整数フレーム、補間は §2.1（線形 / easing / hold）に従う
+
+### 4.4 v1 の実装状態と制約（2026-09-06）
+
+- **出口は gpu のみ**。osr / DOM プレビュー / インスペクター UI は別便
+- 対象は **captions.json 由来の字幕**。袋 item（`source.kind: "captions"`）の宣言は全 cue、cue item（`source.kind: "caption"`）の宣言はその cue に適用する。§4.1 の telop / group 内テキストのうち caption unit と同じ経路を通らないものは本便の対象外
+- `basis` は `chars`（書記素）/ `words` / `lines` を実装。**`segments` は v1 では words と同じ扱い**とし、edit-lint は `animator.segments-fallback` warning を出す。文節単位は別便
+- `letterSpacing` は tile 幾何を変えるため **gpu 出口では無視**する。非ゼロの宣言に runtime warning `animator.letterSpacing-ignored` を出す
+- `blur` も **gpu 出口では無視**する。現行の GPU sprite tile 描画は `filter: blur()` に対応していないため、非ゼロの宣言に runtime warning `animator.blur-ignored` を出す。評価器での量の計算は §4.1〜4.2 の規則どおり
+- 決定論: **同じ入力は同じ画素**（固定 seed・整数演算）。animator 無しの出力は**バイト不変**を保つ
+
+edit-lint の規則（gpu runtime の量の無視 warning とは別）:
+
+| 規則名 | severity | 判定 |
+|---|---|---|
+| `animator.non-text-target` | warning | media / filter item に animator を宣言した（描画では無視）|
+| `animator.unknown-ref` | error | キーフレーム点の `animator[id]` がその item の宣言に無い |
+| `animator.duplicate-id` | error | 同じ item の animator id が重複した |
+| `animator.segments-fallback` | warning | `basis: "segments"` を words として扱う |
 
 ## 5. 「キーフレームに展開」（L0 / L2 → L1・一方通行）
 

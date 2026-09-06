@@ -19867,7 +19867,8 @@ var KNOWN_CUT_KEY_LIST = [
   "keyframes",
   "perspective",
   "adjust",
-  "motion"
+  "motion",
+  "animator"
 ];
 var KNOWN_LAYER_KEY_LIST = [
   "id",
@@ -19884,7 +19885,8 @@ var KNOWN_LAYER_KEY_LIST = [
   "blend",
   "filter",
   "adjust",
-  "motion"
+  "motion",
+  "animator"
 ];
 var KNOWN_KEYFRAME_KEY_LIST = [
   "t",
@@ -19892,7 +19894,8 @@ var KNOWN_KEYFRAME_KEY_LIST = [
   "crop",
   "perspective",
   "opacity",
-  "easing"
+  "easing",
+  "animator"
 ];
 var KNOWN_CUT_KEYS = new Set(KNOWN_CUT_KEY_LIST);
 var KNOWN_LAYER_KEYS = new Set(KNOWN_LAYER_KEY_LIST);
@@ -19938,6 +19941,9 @@ function cutDeclaresPerspective(cut) {
   return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
 }
 function warnUnknownFields(value, label, knownKeys, warn) {
+  if (knownKeys !== KNOWN_KEYFRAME_KEYS && (Object.hasOwn(value, "animator") || "keyframes" in value && Array.isArray(value.keyframes) && value.keyframes.some((point) => isRecord(point) && Object.hasOwn(point, "animator")))) {
+    warn(`${label}: animator is ignored on non-text items (see packages/schemas/engine-capabilities.json)`);
+  }
   for (const key of Object.keys(value)) {
     if (knownKeys.has(key)) continue;
     warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);

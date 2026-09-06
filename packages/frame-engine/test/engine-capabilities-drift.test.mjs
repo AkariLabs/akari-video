@@ -38,7 +38,7 @@ test('every consumed cuts/layers capability names an identifier in frame-engine 
   assert.ok(audited.length > 0);
 });
 
-test('runtime-warning ignored rows are either the explicit perspective warning or generic unknown-key warnings', () => {
+test('runtime-warning ignored rows have explicit perspective/animator or generic unknown-key warnings', () => {
   assert.match(planSource, /field "\$\{key\}" is not consumed by the frame-engine/u);
   for (const row of table.fields.filter((field) => field.runtime_warning === true
     && field.gpu === 'ignored' && field.osr === 'ignored')) {
@@ -47,6 +47,12 @@ test('runtime-warning ignored rows are either the explicit perspective warning o
     for (const appliesTo of row.applies_to.filter((value) => value === 'cuts' || value === 'layers')) {
       if (key === 'perspective' && appliesTo === 'cuts') {
         assert.match(planSource, /perspective is not applied by the frame-engine base path/u);
+        continue;
+      }
+      if (key === 'animator') {
+        assert.match(planSource, /animator is ignored on non-text items/u);
+        assert.ok(KNOWN_KEYFRAME_KEYS.has(key));
+        assert.ok((appliesTo === 'cuts' ? KNOWN_CUT_KEYS : KNOWN_LAYER_KEYS).has(key));
         continue;
       }
       const known = isKeyframe ? KNOWN_KEYFRAME_KEYS

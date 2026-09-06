@@ -184,7 +184,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     };
     const displayTokens = mappedRendering && allWords.length > 0
       ? buildDisplayTokens(caption.text, displayText, allWords, (message) =>
-          warn("display-mapping", `captions.json item ${caption.id ?? "(unknown)"} ${message}`))
+          warn("display-mapping", `captions.json item ${caption.id ?? "(unknown)"} ${message}`),
+          Boolean(captionCharRenderer(caption.animator)))
       : null;
     if (displayTokens?.some((token) => token.untimed)) {
       warn(
@@ -230,6 +231,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               backgroundMode: textStyle?.background?.mode,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
+              animator: caption.animator,
             })
           : renderCaptionFragment(displayText, {
               maximum,
@@ -238,6 +240,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               backgroundMode: textStyle?.background?.mode,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
+              animator: caption.animator,
+              words: allWords,
             });
       overlays.push({
         id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
@@ -900,9 +904,12 @@ export function renderCaptionFragment(text, options = {}) {
   const animationKeyframesCss = options.captionAnimation
     ? `\n${options.captionAnimation.keyframesCss}`
     : "";
-  const lines = splitCaptionLines(text, maximum);
+  const charText = captionCharRenderer(options.animator);
+  const lines = splitCaptionLines(text, maximum, Boolean(charText));
   const markup = lines
-    .map((line) => `<p class="akari-caption__line">${escapeHtml(line)}</p>`)
+    .map((line) => `<p class="akari-caption__line">${charText
+      ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText(word)}</span>`).join("")
+      : escapeHtml(line)}</p>`)
     .join("");
   const blockMode = options.backgroundMode === "block";
   const plateMarkup = blockMode
@@ -1059,8 +1066,9 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const effectiveStyle = normalizedStyle ?? (hasEmphasis ? null : KARAOKE_STYLE);
   const rootStyle = effectiveStyle ?? "emphasis";
   const useMappedLines = Array.isArray(options.displayTokens) || effectiveStyle === REVEAL_STYLE;
+  const charText = captionCharRenderer(options.animator);
   const lines = useMappedLines
-    ? groupDisplayTokensIntoLines(renderTokens, maximum)
+    ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
     : groupWordsIntoLines(words, maximum);
   const renderLine = (line) => line
     .map((word) => renderCaptionToken(
@@ -1069,6 +1077,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       effectiveStyle,
       emphasisWords,
       emphasisTimeScale,
+      charText,
     ))
     .join("");
   const markup = effectiveStyle === REVEAL_STYLE
@@ -1235,7 +1244,7 @@ function mapNormalizedIndexToOriginal(boundaries, normalizedIndex) {
   return lo;
 }
 
-function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
+function buildDisplayTokens(sourceText, displayText, words, onMappingFallback, graphemes = false) {
   const tokens = [];
   let cursor = 0;
   const displayIndex = buildNormalizedTextIndex(displayText);
@@ -1250,7 +1259,7 @@ function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
       onMappingFallback?.(
         "display_text could not be aligned to text/words[]; used proportional timing fallback",
       );
-      return buildProportionalDisplayTokens(displayText, words);
+      return buildProportionalDisplayTokens(displayText, words, graphemes);
     }
     const found = mapNormalizedIndexToOriginal(
       displayIndex.boundaries,
@@ -1292,8 +1301,8 @@ function buildDisplayTokens(sourceText, displayText, words, onMappingFallback) {
   return tokens;
 }
 
-function buildProportionalDisplayTokens(displayText, words) {
-  const characters = Array.from(displayText);
+function buildProportionalDisplayTokens(displayText, words, graphemes = false) {
+  const characters = graphemes ? captionGraphemes(displayText) : Array.from(displayText);
   const weights = words.map((word) => Math.max(1, Array.from(word.text).length));
   const totalWeight = weights.reduce((sum, value) => sum + value, 0);
   const tokens = [];
@@ -1344,14 +1353,15 @@ function clipDisplayTokensToRange(tokens, rangeStart, rangeEnd) {
 // splitCaptionLines を唯一の優先順位（句読点 → 空白 → 文節境界 → 文字上限）として使い、
 // その分割点が発話 word の中なら最寄りの word 境界へスナップする。通常は 20±2 字に収まり、
 // それを超える単一 word だけは表示完全性を優先して分割しない。
-function groupDisplayTokensIntoLines(tokens, maximum) {
+function groupDisplayTokensIntoLines(tokens, maximum, graphemes = false) {
   if (tokens.length === 0) return [];
+  const charactersOf = graphemes ? captionGraphemes : Array.from;
   const text = tokens.map((token) => token.text).join("");
-  const desiredLines = splitCaptionLines(text, maximum);
+  const desiredLines = splitCaptionLines(text, maximum, graphemes);
   const desiredBoundaries = [];
   let desiredOffset = 0;
   for (const line of desiredLines.slice(0, -1)) {
-    desiredOffset += Array.from(line).length;
+    desiredOffset += charactersOf(line).length;
     desiredBoundaries.push(desiredOffset);
   }
 
@@ -1359,7 +1369,7 @@ function groupDisplayTokensIntoLines(tokens, maximum) {
   let tokenOffset = 0;
   for (const token of tokens) {
     const start = tokenOffset;
-    tokenOffset += Array.from(token.text).length;
+    tokenOffset += charactersOf(token.text).length;
     tokenRanges.push({ token, start, end: tokenOffset });
   }
 
@@ -1396,7 +1406,7 @@ function groupDisplayTokensIntoLines(tokens, maximum) {
       if (!token.untimed) {
         line.push(token);
       } else {
-        const characters = Array.from(token.text);
+        const characters = charactersOf(token.text);
         line.push({
           ...token,
           text: characters
@@ -1488,17 +1498,18 @@ function renderRevealWordCss() {
     }`;
 }
 
-function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1) {
+function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1, charText = null) {
+  const text = charText ?? escapeHtml;
   if (word.untimed) {
-    return `<span class="akari-caption__tok akari-caption__tok--unlit">${escapeHtml(word.text)}</span>`;
+    return `<span class="akari-caption__tok akari-caption__tok--unlit">${text(word.text)}</span>`;
   }
   if (style === REVEAL_WORD_STYLE) {
     const delay = formatSeconds(Math.max(0, word.start - rangeStart));
-    return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay: ${delay}s">${escapeHtml(word.text)}</span>`;
+    return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay: ${delay}s">${text(word.text)}</span>`;
   }
   const emphasis = findMatchingEmphasis(word, emphasisWords);
   // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
-  if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, emphasisTimeScale);
+  if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, emphasisTimeScale, charText);
 
   const delay = formatSeconds(Math.max(0, word.start - rangeStart));
   const className = style === KARAOKE_STYLE
@@ -1511,10 +1522,11 @@ function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasi
     : style === POP_STYLE
       ? `--akari-tok-delay: ${delay}s`
       : "";
-  return `<span class="${className}" style="${vars}">${escapeHtml(word.text)}</span>`;
+  return `<span class="${className}" style="${vars}">${text(word.text)}</span>`;
 }
 
-function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
+function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale, charText = null) {
+  const text = charText ?? escapeHtml;
   const style = resolveEmphasisStyle(emphasis);
   const overlapStart = Math.max(word.start, emphasis.t_start);
   const overlapEnd = Math.min(word.end, emphasis.t_end);
@@ -1528,35 +1540,35 @@ function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale) {
     // 追加で乗せるだけ。--akari-jumble-amp が 0 のとき jitterSuffix の 3 プロパティは恒等値へ
     // 潰れるため、amp=0 の出力は one-char-bang と画素等価になる。
     const jumble = style === EMPHASIS_STYLE_ONE_CHAR_JUMBLE;
-    const characters = Array.from(word.text);
+    const characters = charText ? captionGraphemes(word.text) : Array.from(word.text);
     const characterDuration = duration / characters.length;
     const markup = characters.map((character, index) => {
       const characterDelay = formatSeconds(delay + characterDuration * index);
       const jitterSuffix = jumble ? `; ${renderJumbleCharJitter(emphasis.id, index)}` : "";
-      return `<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: ${characterDelay}s; --akari-emphasis-dur: ${formatSeconds(Math.max(0.01, characterDuration))}s${jitterSuffix}">${escapeHtml(character)}</span>`;
+      return `<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: ${characterDelay}s; --akari-emphasis-dur: ${formatSeconds(Math.max(0.01, characterDuration))}s${jitterSuffix}">${text(character)}</span>`;
     }).join("");
     return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${markup}</span>`;
   }
 
   if (style === EMPHASIS_STYLE_SIZE_PULSE) {
-    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="--akari-emphasis-delay: ${formatSeconds(delay)}s; --akari-emphasis-dur: ${formatSeconds(duration)}s">${escapeHtml(word.text)}</span>`;
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="--akari-emphasis-delay: ${formatSeconds(delay)}s; --akari-emphasis-dur: ${formatSeconds(duration)}s">${text(word.text)}</span>`;
   }
 
   if (style === EMPHASIS_STYLE_COLOR_ONLY) {
-    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-color-only, var(--vscode-akariTheme-accent, #f97316))">${escapeHtml(word.text)}</span>`;
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-color-only, var(--vscode-akariTheme-accent, #f97316))">${text(word.text)}</span>`;
   }
 
   if (style === EMPHASIS_STYLE_OUTLINE_BOLD) {
-    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${escapeHtml(word.text)}</span>`;
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${text(word.text)}</span>`;
   }
 
   if (style === EMPHASIS_STYLE_DANGER
     || style === EMPHASIS_STYLE_POSITIVE
     || style === EMPHASIS_STYLE_HIGHLIGHT) {
-    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${escapeHtml(word.text)}</span>`;
+    return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}">${text(word.text)}</span>`;
   }
 
-  return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-${emphasisColorName(emphasis.emotion)})">${escapeHtml(word.text)}</span>`;
+  return `<span class="${baseClass}" data-emphasis-id="${emphasis.id}" style="color: var(--akari-emphasis-${emphasisColorName(emphasis.emotion)})">${text(word.text)}</span>`;
 }
 
 // FNV-1a 32bit — 暗号用途ではなく one-char-jumble の決定論シード生成専用。
@@ -1698,7 +1710,36 @@ function formatSeconds(value) {
   return (Math.round(value * 1000) / 1000).toString();
 }
 
-export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS) {
+function captionGraphemes(text) {
+  return Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(String(text)), part => part.segment);
+}
+
+function captionCharRenderer(animators) {
+  if (!Array.isArray(animators) || !animators.some(a => a?.basis === "chars")) return null;
+  let index = 0;
+  return text => captionGraphemes(text).map(char =>
+    `<span class="akari-caption__char" data-akari-char="${index++}">${escapeHtml(char)}</span>`).join("");
+}
+
+// Keep declared word boundaries when available, including whitespace between words.
+function captionPlainWords(text, words) {
+  const result = [];
+  let cursor = 0;
+  for (const word of words ?? []) {
+    if (!word.text) continue;
+    const at = text.indexOf(word.text, cursor);
+    if (at < 0) continue;
+    if (at > cursor) result.push(text.slice(cursor, at));
+    result.push(word.text);
+    cursor = at + word.text.length;
+  }
+  if (cursor < text.length) {
+    result.push(...Array.from(new Intl.Segmenter(undefined, { granularity: "word" }).segment(text.slice(cursor)), part => part.segment));
+  }
+  return result;
+}
+
+export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS, graphemes = false) {
   const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : DEFAULT_MAX_CHARACTERS;
   const explicit = String(text).split(/\r?\n/u);
   const lines = [];
@@ -1708,7 +1749,7 @@ export function splitCaptionLines(text, maximum = DEFAULT_MAX_CHARACTERS) {
       continue;
     }
     for (const segment of splitAfterPunctuation(value)) {
-      lines.push(...splitAtNaturalBoundaries(segment, limit));
+      lines.push(...splitAtNaturalBoundaries(segment, limit, graphemes));
     }
   }
   return lines;
@@ -1730,12 +1771,12 @@ function splitAfterPunctuation(value) {
   return segments;
 }
 
-function splitAtNaturalBoundaries(value, maximum) {
+function splitAtNaturalBoundaries(value, maximum, graphemes = false) {
   const lines = [];
-  let remaining = Array.from(value);
+  let remaining = graphemes ? captionGraphemes(value) : Array.from(value);
   while (remaining.length > maximum) {
     const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
-    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum);
+    const phraseBoundary = spaceBoundary ?? findLastPhraseBoundary(remaining, maximum, graphemes);
     const boundary = phraseBoundary ?? maximum;
     lines.push(remaining.slice(0, boundary).join(""));
     remaining = remaining.slice(boundary);
@@ -1751,13 +1792,14 @@ function findLastSpaceBoundary(characters, maximum) {
   return null;
 }
 
-function findLastPhraseBoundary(characters, maximum) {
+function findLastPhraseBoundary(characters, maximum, graphemes = false) {
   const prefix = characters.slice(0, maximum).join("");
   let best = null;
   for (const boundary of CAPTION_BOUNDARIES) {
     const index = prefix.lastIndexOf(boundary);
     if (index >= 0) {
-      const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
+      const part = prefix.slice(0, index + boundary.length);
+      const candidate = (graphemes ? captionGraphemes(part) : Array.from(part)).length;
       if (candidate > 0 && (best === null || candidate > best)) best = candidate;
     }
   }
