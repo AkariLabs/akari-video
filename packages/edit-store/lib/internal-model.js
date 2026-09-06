@@ -227,6 +227,7 @@ function readV2Internal(raw) {
             lane: track.lane,
             z: track.z,
             ...(track.name !== undefined ? { name: track.name } : {}),
+            ...(track.muted === undefined ? {} : { muted: track.muted }),
             origin: 'declared',
             ...('content' in track ? { content: { from: 'captions.json' } } : {}),
             items,
@@ -1087,6 +1088,8 @@ function projectLegacyEdit(internal) {
     const audioNarration = [];
     let audioBgm;
     for (const track of internal.tracks) {
+        if (track.lane === 'audio' && track.muted === true)
+            continue;
         for (const item of track.items) {
             const value = item.legacy.value;
             if (value === undefined) {
@@ -1116,7 +1119,11 @@ function projectLegacyEdit(internal) {
                             layers.push({ index: item.legacy.index, value: value });
                             break;
                         default:
-                            cuts.push({ index: item.legacy.index, value: value });
+                            cuts.push({
+                                index: item.legacy.index,
+                                value: (track.lane === 'visual' && track.muted === true
+                                    ? { ...value, mute: true } : value)
+                            });
                             break;
                     }
                     break;

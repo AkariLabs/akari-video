@@ -789,16 +789,19 @@ export function renameTrack(
 }
 
 /**
- * hidden / muted / locked は現行 v2 の exact な track 語彙に含まれない。
- * そのため edit.json を壊すキーは書かず、呼び出し側が StorageService に保持する。
- * schema へ再導入された時点で、この関数を通常のフィールド更新へ切り替える。
+ * muted は v2 語彙なので通常のフィールド更新として保存する。
+ * hidden / locked は exact keys に無いので、呼び出し側が StorageService に保持する。
  */
 export function setTrackFlag(
     doc: EditV2Document,
     options: { trackId: string; field: EditV2TrackFlag; value: boolean }
 ): EditV2Document {
     const value = cloneDocument(doc);
-    trackById(value, options.trackId);
+    const track = trackById(value, options.trackId);
+    if (options.field === 'muted') {
+        if (options.value === true) track.muted = true;
+        else delete track.muted;
+    }
     return value;
 }
 

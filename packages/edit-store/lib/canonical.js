@@ -9,7 +9,7 @@ const ITEM_KEY_ORDER = [
     'blend', 'crop', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'items'
 ];
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'];
-const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'items', 'content'];
+const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'muted', 'items', 'content'];
 const CAPTION_KEY_ORDER = [
     'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'time_domain', 'text_style'
 ];

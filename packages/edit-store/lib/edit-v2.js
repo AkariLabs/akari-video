@@ -120,7 +120,7 @@ function validateEditSource(value, index, ids) {
 function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'muted', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id))
         throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
@@ -130,6 +130,9 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     }
     if (hasOwn(value, 'name') && typeof value.name !== 'string') {
         throw invalid(`${path}.name`, '文字列である必要があります');
+    }
+    if (hasOwn(value, 'muted') && typeof value.muted !== 'boolean') {
+        throw invalid(`${path}.muted`, 'boolean である必要があります');
     }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');
