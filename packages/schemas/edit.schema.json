@@ -421,6 +421,126 @@
               "default": 0.5
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "glow"
+            },
+            "intensity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            },
+            "radius": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 20
+            },
+            "threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7
+            },
+            "warmth": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "default": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "clarity"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "default": 0.3
+            },
+            "radius": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "dehaze"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "default": 0.3
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "denoise"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.3
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "const": "motion_blur"
+            },
+            "px": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 10
+            },
+            "angle": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180,
+              "default": 0
+            }
+          }
         }
       ]
     },

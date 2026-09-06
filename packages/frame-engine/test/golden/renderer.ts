@@ -1,6 +1,8 @@
 import './decoder-instrumentation.js';
 import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess } from './b-frame.js';
 import { inspectGopTailGolden } from './gop-tail.js';
+import { measureFxPasses } from './fx-pass-timer.js';
+import type { WebGL2CompositorOptions } from '../../src/compositor/webgl2.js';
 import {
   BufferedRawFrameSink,
   applyItemAdjust,
@@ -10,6 +12,7 @@ import {
   ClipSessionPool,
   FrameMetrics,
   LookaheadFrameSource,
+  normalizeAdjustFx,
   parseCube,
   WebGL2Compositor,
   capturePresentedRgba,
@@ -156,14 +159,14 @@ async function sha256(bytes: Uint8Array): Promise<string> {
     .join('');
 }
 
-async function rgbaToPng(rgba: Uint8Array): Promise<Uint8Array> {
+async function rgbaToPng(rgba: Uint8Array, width = WIDTH, height = HEIGHT): Promise<Uint8Array> {
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
+  canvas.width = width;
+  canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('PNG canvas unavailable');
   context.putImageData(
-    new ImageData(new Uint8ClampedArray(rgba), WIDTH, HEIGHT),
+    new ImageData(new Uint8ClampedArray(rgba), width, height),
     0,
     0,
   );
@@ -1255,6 +1258,258 @@ async function inspectAdjustParity(
   return { rows, tolerance, pass: rows.length === 6 && rows.every(row => row.pass === true) };
 }
 
+async function inspectFxBlurEdge(
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  // Native 1080p exercises the large-radius reduced viewport, not just the small
+  // golden output's 30 * 320 / 1920 = 5 texel kernel.
+  const width = 1920, height = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const drawing = canvas.getContext('2d');
+  if (!drawing) throw new Error('FX edge canvas unavailable');
+  drawing.fillStyle = '#000';
+  drawing.fillRect(0, 0, width, height);
+  drawing.fillStyle = '#fff';
+  drawing.fillRect(width / 2, 0, width / 2, height);
+  const bitmap = await createImageBitmap(canvas);
+  const still = { bitmap, width, height };
+  const source: StillImageSource = {
+    async load() { return still; },
+    destroy() { bitmap.close(); },
+  };
+  const plan: EvaluationPlan = {
+    timeUs: 1_000_000, frameIndex: 30,
+    base: [{ id: 'fx-blur-edge', kind: 'image', image: source, sourceTimeUs: 0,
+      visual: { ...fullFrameVisual, adjustFx: normalizeAdjustFx([{ id: 'blur', px: 30 }]) } }],
+    layers: [], transition: { type: 'hard-cut', progress: 0 },
+    output: { width, height, colorSpace: 'bt709-limited' },
+  };
+  try {
+    const first = await parityFrame(plan, context, previewCanvas);
+    const second = await parityFrame(plan, context, previewCanvas);
+    const row = Math.floor(height / 2);
+    const profile = Array.from({ length: width }, (_, x) => first.exported[(row * width + x) * 4]!);
+    // Test all RGB channels against the running maximum: quantization may fall
+    // by one code value, but repeated small falls must not hide an actual stripe.
+    let monotone = true;
+    for (let channel = 0; channel < 3; channel += 1) {
+      let maximum = 0;
+      for (let x = 0; x < width; x += 1) {
+        const value = first.exported[(row * width + x) * 4 + channel]!;
+        if (value < maximum - 1) monotone = false;
+        maximum = Math.max(maximum, value);
+      }
+    }
+    const deterministic = compareRgba(first.exported, second.exported).differingPixels === 0;
+    // An unrendered/constant frame or an unblurred step is monotone too.
+    const intermediatePixels = profile.filter(value => value > 1 && value < 254).length;
+    const blurred = profile[0] === 0 && profile[width - 1] === 255 && intermediatePixels > 2;
+    await window.goldenHarness.writeArtifact('fx/blur-edge-px30.png', await rgbaToPng(first.exported, width, height));
+    return { width, height, px: 30, row, profile, profileUnit: '8-bit red channel',
+      monotoneTolerance: 1 / 255, monotone, deterministic, intermediatePixels,
+      pass: first.pass && second.pass && monotone && deterministic && blurred };
+  } finally {
+    source.destroy();
+  }
+}
+
+async function inspectFxParity(
+  output: EvaluationPlan['output'],
+  source: NativeFrameSource,
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  // source-b's odd frame has both texture and highlights above glow's threshold.
+  const frameIndex = 23;
+  const timeUs = Math.round((frameIndex + 0.5) / FPS * 1e6);
+  const basePlan: EvaluationPlan = {
+    timeUs, frameIndex,
+    base: [{ id: 'fx-baseline', source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+    layers: [], transition: { type: 'hard-cut', progress: 0 }, output,
+  };
+  const glErrorsBefore = context.compositor.stats.glErrors;
+  const baseline = await parityFrame(basePlan, context, previewCanvas);
+  const baselineGlErrors = context.compositor.stats.glErrors - glErrorsBefore;
+  const tolerance = { minDifferingPixels: Math.ceil(output.width * output.height * 0.01) };
+  const rows: Array<Record<string, unknown>> = [];
+  // none runs last, so it also detects stale FX state after all nine effects.
+  for (const id of ['vignette', 'blur', 'grain', 'sharpen', 'glow', 'clarity', 'dehaze', 'denoise', 'motion_blur', 'none']) {
+    const rowGlErrorsBefore = context.compositor.stats.glErrors;
+    const adjustFx = normalizeAdjustFx(id === 'none' ? [] : [{ id }]);
+    const plan: EvaluationPlan = {
+      ...basePlan,
+      base: [{ ...basePlan.base[0]!, visual: { ...fullFrameVisual, adjustFx } }],
+    };
+    const first = await parityFrame(plan, context, previewCanvas);
+    const second = await parityFrame(plan, context, previewCanvas);
+    const comparison = compareRgba(baseline.exported, first.exported);
+    const repeat = compareRgba(first.exported, second.exported);
+    const deterministic = repeat.differingPixels === 0;
+    const edge = id === 'blur' ? await inspectFxBlurEdge(context, previewCanvas) : undefined;
+    const glErrors = baselineGlErrors + context.compositor.stats.glErrors - rowGlErrorsBefore;
+    await window.goldenHarness.writeArtifact(`fx/${id}.png`, await rgbaToPng(first.exported));
+    rows.push({ id, timeUs, frameIndex, fixture: 'source-b.mp4', parameters: adjustFx,
+      meanAbs: meanAbsoluteDelta(baseline.exported, first.exported),
+      maxDelta: comparison.maxDelta, differingPixels: comparison.differingPixels, tolerance,
+      deterministic, repeatDifferingPixels: repeat.differingPixels, glErrors,
+      previewExportParity: first.pass && second.pass,
+      ...(edge ? { monotone: edge.monotone, edge } : {}),
+      pass: baseline.pass && first.pass && second.pass && deterministic && glErrors === 0
+        && (id === 'none' ? comparison.differingPixels === 0
+          : comparison.differingPixels >= tolerance.minDifferingPixels)
+        && (!edge || edge.pass),
+    });
+  }
+  return { rows, pass: rows.length === 10 && rows.every(row => row.pass === true) };
+}
+
+async function inspectFxCost() {
+  const width = 1920, height = 1080;
+  const frames = 60, warmupFrames = 10;
+  const input = document.createElement('canvas');
+  input.width = width;
+  input.height = height;
+  const drawing = input.getContext('2d');
+  if (!drawing) throw new Error('FX cost input canvas unavailable');
+  const pixels = drawing.createImageData(width, height);
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const offset = (y * width + x) * 4;
+    const value = 48 + (3 * x + 5 * y) % 160;
+    pixels.data[offset] = value;
+    pixels.data[offset + 1] = value;
+    pixels.data[offset + 2] = value;
+    pixels.data[offset + 3] = 255;
+  }
+  drawing.putImageData(pixels, 0, 0);
+  const bitmap = await createImageBitmap(input);
+  const still = { bitmap, width, height };
+  const source: StillImageSource = { async load() { return still; }, destroy() { bitmap.close(); } };
+  const canvas = document.createElement('canvas');
+  // flush disables the compositor's per-draw queries, allowing one non-nested
+  // query around the entire composition, including FX prep and texture copies.
+  const compositorOptions: WebGL2CompositorOptions = { synchronization: 'flush' };
+  const compositor = new WebGL2Compositor(canvas, compositorOptions);
+  const gl = canvas.getContext('webgl2')!;
+  const metrics = new FrameMetrics();
+  const output: EvaluationPlan['output'] = { width, height, colorSpace: 'bt709-limited' };
+  const effects = [{ id: 'blur', px: 20 }, { id: 'vignette' }, { id: 'grain' }];
+  const bare: EvaluationPlan = {
+    timeUs: 0, frameIndex: 0,
+    base: [{ id: 'fx-cost', kind: 'image', image: source, sourceTimeUs: 0, visual: fullFrameVisual }],
+    layers: [], transition: { type: 'hard-cut', progress: 0 }, output,
+  };
+  const withFx: EvaluationPlan = { ...bare,
+    base: [{ ...bare.base[0]!, visual: { ...fullFrameVisual, adjustFx: normalizeAdjustFx(effects) } }],
+  };
+  const timer = gl.getExtension('EXT_disjoint_timer_query_webgl2') as {
+    TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number;
+  } | null;
+  const compose = async (plan: EvaluationPlan, index: number) => {
+    const timedPlan = { ...plan, frameIndex: index, timeUs: Math.round(index / FPS * 1e6) };
+    const surface = await compositor.compose([still], [], output, metrics, timedPlan);
+    surface.close();
+  };
+  let glErrors = 0;
+  const collectGlErrors = () => {
+    while (gl.getError() !== gl.NO_ERROR) glErrors += 1;
+  };
+  const measure = async (plan: EvaluationPlan, index: number, gpu: boolean): Promise<number | null> => {
+    gl.finish();
+    const query = gpu ? gl.createQuery() : null;
+    if (gpu && !query) return null;
+    if (gpu && timer) {
+      gl.getParameter(timer.GPU_DISJOINT_EXT); // Clear a disjoint event from earlier work.
+      gl.beginQuery(timer.TIME_ELAPSED_EXT, query!);
+    }
+    const start = performance.now();
+    try {
+      try {
+        await compose(plan, index);
+      } finally {
+        if (gpu && timer) gl.endQuery(timer.TIME_ELAPSED_EXT);
+      }
+      if (!gpu) {
+        gl.finish();
+        return performance.now() - start;
+      }
+      gl.flush();
+      const deadline = performance.now() + 2_000;
+      // Query availability is updated only after yielding to the browser.
+      do {
+        await new Promise<void>(resolve => window.setTimeout(resolve, 1));
+        if (gl.getParameter(timer!.GPU_DISJOINT_EXT)) return null;
+        if (gl.getQueryParameter(query!, gl.QUERY_RESULT_AVAILABLE)) {
+          const nanoseconds = Number(gl.getQueryParameter(query!, gl.QUERY_RESULT));
+          return Number.isFinite(nanoseconds) && nanoseconds >= 0 ? nanoseconds / 1e6 : null;
+        }
+      } while (performance.now() < deadline);
+      return null;
+    } finally {
+      if (query) gl.deleteQuery(query);
+      collectGlErrors();
+    }
+  };
+  const samples = async (gpu: boolean) => {
+    const withFxSamples: number[] = [], withoutFxSamples: number[] = [];
+    for (let index = 0; index < frames; index += 1) {
+      // Reverse pair order each frame to reduce warmup/drift bias.
+      for (const enabled of index % 2 === 0 ? [false, true] : [true, false]) {
+        const value = await measure(enabled ? withFx : bare, index, gpu);
+        if (value === null) return null;
+        (enabled ? withFxSamples : withoutFxSamples).push(value);
+      }
+    }
+    return { withFxSamples, withoutFxSamples };
+  };
+  try {
+    for (let index = 0; index < warmupFrames; index += 1) {
+      await compose(bare, index);
+      await compose(withFx, index);
+    }
+    gl.finish();
+    collectGlErrors();
+    let measured = timer ? await samples(true) : null;
+    const method = measured ? 'EXT_disjoint_timer_query_webgl2' : 'gl.finish wall clock';
+    const fallbackReason = measured ? null : timer ? 'GPU query unavailable, disjoint, or timed out' : 'GPU timer extension unavailable';
+    // Do not mix GPU and wall-clock samples if a query becomes invalid.
+    measured ??= await samples(false);
+    if (!measured) throw new Error('FX wall-clock measurement failed');
+    const median = (values: number[]) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return (sorted[frames / 2 - 1]! + sorted[frames / 2]!) / 2;
+    };
+    const withFxMs = median(measured.withFxSamples);
+    const withoutFxMs = median(measured.withoutFxSamples);
+    const deltaMs = withFxMs - withoutFxMs;
+    // Whole-frame samples are complete before a pass hook is installed.
+    // No wall-clock fallback for pass timings: incomplete GPU evidence stays explicit.
+    const breakdown = await measureFxPasses(gl, timer, frames, async (index, passTimer) => {
+      compositorOptions.passTimer = passTimer;
+      try {
+        await compose(withFx, index);
+      } finally {
+        delete compositorOptions.passTimer;
+      }
+    });
+    collectGlErrors();
+    return { withFxMs, withoutFxMs, deltaMs, frames, warmupFrames, unit: 'ms/frame',
+      method, fallbackReason, width, height, fps: FPS, effects,
+      source: 'resident 1920x1080 synthetic textured ImageBitmap; decode and initial upload excluded',
+      calculation: 'frames = 60 whole-compose samples per variant, alternating pair order; then 60 separate with-FX frames for passes (passFrames); median = mean of sorted samples 30 and 31; deltaMs = withFxMs - withoutFxMs',
+      timingScope: 'entire compose (including FX prep, passes, and copies); GPU nanoseconds / 1e6, or performance.now around compose with gl.finish before and after',
+      passTimingScope: 'non-overlapping GPU queries around base preparation, FX prep, each effect, snapshot copy and final base draw; passMedianSumMs and passFrameMedianMs should approximate withFxMs (separate frames, query overhead and gaps can differ)',
+      ...breakdown,
+      targetDeltaMs: 4, meetsTarget: deltaMs <= 4,
+      ...measured, glErrors: glErrors + compositor.stats.glErrors };
+  } finally {
+    compositor.dispose();
+    source.destroy();
+  }
+}
+
 async function run(): Promise<void> {
   const metrics = new FrameMetrics();
   const warnings: string[] = [];
@@ -1835,6 +2090,14 @@ async function run(): Promise<void> {
   const adjustStats = {
     glErrors: compositor.stats.glErrors - adjustGlErrorsBefore,
   };
+  const fxGlErrorsBefore = compositor.stats.glErrors;
+  const fxParity = await inspectFxParity(
+    output, layerSession, context, previewCanvas,
+  );
+  const fxStats = {
+    glErrors: compositor.stats.glErrors - fxGlErrorsBefore,
+  };
+  const fxCost = await inspectFxCost();
   const filterLayers = await Promise.all((filterEdit.layers as any[]).map(async layer => {
     if (layer.filter?.type !== 'lut') return layer;
     return {
@@ -2074,6 +2337,9 @@ async function run(): Promise<void> {
     lookStats.glErrors === 0 &&
     adjustParity.pass &&
     adjustStats.glErrors === 0 &&
+    fxParity.pass &&
+    fxStats.glErrors === 0 &&
+    fxCost.glErrors === 0 &&
     filterParity.length === 3 && filterParity.every(row => row.pass === true) &&
     gopTail.pass &&
     bFrame.pass &&
@@ -2140,6 +2406,9 @@ async function run(): Promise<void> {
     adjustParity: adjustParity.rows,
     adjustTolerance: adjustParity.tolerance,
     adjustStats,
+    fxParity: fxParity.rows,
+    fxStats,
+    fxCost,
     filterParity,
     gopTail,
     bFrame,

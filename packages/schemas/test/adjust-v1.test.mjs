@@ -44,7 +44,7 @@ test('capability ledger keeps the two parent adjust rows and the fx row', () => 
   const fx = table.fields.filter(row => row.path === 'tracks[].items[].adjust.fx');
   assert.equal(fx.length, 1);
   assert.deepEqual([fx[0].gpu, fx[0].osr], ['consumed', 'consumed']);
-  assert.equal(fx[0].evidence, 'packages/frame-engine/src/compositor/webgl2.ts applyFx');
+  assert.equal(fx[0].evidence, 'packages/frame-engine/src/compositor/webgl2.ts runFxPasses');
   assert.equal(rows.length, 2);
   assert.ok(rows.every(row => row.path === 'tracks[].items[].adjust'));
   assert.deepEqual(rows.map(row => row.applies_to), [['cuts', 'layers', 'baked'], ['overlays', 'captions', 'group']]);

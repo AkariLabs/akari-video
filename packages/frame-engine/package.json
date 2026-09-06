@@ -18,6 +18,7 @@
     "compare:layers": "node test/golden/layers-compare.mjs",
     "compare:transitions": "node test/golden/transitions-compare.mjs",
     "compare:look": "node test/golden/look-compare.mjs",
+    "compare:fx": "node test/golden/fx-compare.mjs",
     "verify:l1": "npm test && npm run bench:cuts",
     "test": "npm run build && npm run test:unit && npm run test:seek && npm run test:golden",
     "ci:required": "npm test"

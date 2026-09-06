@@ -4829,7 +4829,12 @@ ${indent}`);
             vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
             blur: { px: [0, 50] },
             grain: { amount: [0, 1], size: [0.5, 4] },
-            sharpen: { amount: [0, 1] }
+            sharpen: { amount: [0, 1] },
+            glow: { intensity: [0, 1], radius: [0, 100], threshold: [0, 1], warmth: [-1, 1] },
+            clarity: { amount: [-1, 1], radius: [1, 50] },
+            dehaze: { amount: [-1, 1] },
+            denoise: { amount: [0, 1] },
+            motion_blur: { px: [0, 100], angle: [-180, 180] }
           };
           const seen = /* @__PURE__ */ new Set();
           for (const [index, fx] of value.fx.entries()) {
@@ -17045,6 +17050,8 @@ ${indent}`);
     DEFAULT_RANGE_CACHE_BYTES: () => DEFAULT_RANGE_CACHE_BYTES,
     DecodedFrameCoverageCache: () => DecodedFrameCoverageCache,
     DirectUploadFallbackError: () => DirectUploadFallbackError,
+    FX_PASS_FRAGMENT: () => FX_PASS_FRAGMENT,
+    FX_PASS_KINDS: () => FX_PASS_KINDS,
     FrameEvaluator: () => FrameEvaluator,
     FrameMetrics: () => FrameMetrics,
     KNOWN_CUT_KEYS: () => KNOWN_CUT_KEYS,
@@ -17116,6 +17123,9 @@ ${indent}`);
     forwardInverse: () => forwardInverse,
     frameCoversTimestamp: () => frameCoversTimestamp,
     futureFrameTimestampsToEvict: () => futureFrameTimestampsToEvict,
+    fxGaussianGeometry: () => fxGaussianGeometry,
+    fxGaussianWeights: () => fxGaussianWeights,
+    fxWorkingSize: () => fxWorkingSize,
     h264CodecString: () => h264CodecString,
     hasCutLayerStyleVisual: () => hasCutLayerStyleVisual,
     hevcCodecString: () => hevcCodecString2,
@@ -17147,6 +17157,7 @@ ${indent}`);
     parseFlacStreamInfo: () => parseFlacStreamInfo,
     parseSourceSelectionMode: () => parseSourceSelectionMode,
     parseWavHeader: () => parseWavHeader,
+    planFxPasses: () => planFxPasses,
     planStreamsBySource: () => planStreamsBySource,
     precedingSyncSample: () => precedingSyncSample,
     presentFrame: () => presentFrame,
@@ -17241,6 +17252,186 @@ ${indent}`);
 
   // packages/frame-engine/src/compositor/webgl2.ts
   var import_edit_store = __toESM(require_lib(), 1);
+
+  // packages/frame-engine/src/compositor/fx-passes.ts
+  var FX_STAGES = {
+    vignette: ["vignette"],
+    grain: ["grain"],
+    sharpen: ["sharpen"],
+    blur: ["gaussian-h", "gaussian-v"],
+    glow: ["bright-pass", "gaussian-h", "gaussian-v", "glow-composite"],
+    clarity: ["gaussian-h", "gaussian-v", "clarity-composite"],
+    dehaze: ["dehaze"],
+    denoise: ["denoise"],
+    motion_blur: ["motion-blur"]
+  };
+  var FX_PASS_KINDS = {
+    vignette: 1,
+    "gaussian-h": 2,
+    "gaussian-v": 2,
+    grain: 3,
+    sharpen: 4,
+    "bright-pass": 5,
+    "glow-composite": 6,
+    "clarity-composite": 7,
+    dehaze: 8,
+    denoise: 9,
+    "motion-blur": 10
+  };
+  function planFxPasses(fx = []) {
+    return fx.flatMap((effect) => {
+      const strength = effect.id === "blur" || effect.id === "motion_blur" ? effect.px : effect.id === "glow" ? effect.intensity : effect.amount;
+      return strength === 0 ? [] : FX_STAGES[effect.id].map((stage) => ({ stage, effect }));
+    });
+  }
+  function fxWorkingSize(source, crop, output) {
+    return {
+      width: Math.max(1, Math.min(output.width, Math.ceil(source.width * crop.width))),
+      height: Math.max(1, Math.min(output.height, Math.ceil(source.height * crop.height)))
+    };
+  }
+  function fxGaussianGeometry(px, outputWidth, work, displayed) {
+    const radius = px * outputWidth / 1920;
+    const rx = radius * work.width / Math.max(displayed.width, 1e-6);
+    const ry = radius * work.height / Math.max(displayed.height, 1e-6);
+    const levels = Math.max(0, Math.ceil(Math.log2(Math.max(rx, ry) / 16)));
+    const divisor = 2 ** levels;
+    const reduced = {
+      width: Math.max(1, Math.floor(work.width / divisor)),
+      height: Math.max(1, Math.floor(work.height / divisor))
+    };
+    return { reduced, radiusX: rx * reduced.width / work.width, radiusY: ry * reduced.height / work.height };
+  }
+  function fxGaussianWeights(radius) {
+    const tapCount = Math.min(16, Math.max(0, Math.ceil(radius)));
+    const weights = new Float32Array(17);
+    weights[0] = 1;
+    let sum = 1;
+    const sigma = radius / 2;
+    for (let tap = 1; tap <= tapCount; tap++) {
+      const weight = Math.exp(-0.5 * (tap / sigma) ** 2);
+      weights[tap] = weight;
+      sum += 2 * weight;
+    }
+    for (let tap = 0; tap <= tapCount; tap++) weights[tap] = weights[tap] / sum;
+    return { weights, tapCount };
+  }
+  var FX_PASS_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+uniform sampler2D original;
+uniform vec2 allocationSize;
+uniform vec2 inputSize;
+uniform vec2 workSize;
+uniform vec2 cropSize;
+uniform int fxKind;
+uniform vec4 params;
+uniform vec2 direction;
+uniform float gaussianWeights[17];
+uniform int tapCount;
+uniform uint frameIndex;
+vec4 sampleWork(vec2 local) {
+  vec2 pixel = clamp(local * inputSize, vec2(0.5), inputSize - 0.5);
+  return texture(source, pixel / allocationSize);
+}
+#if FX_KIND == 3
+uint fxHash(uint value) {
+  value ^= value >> 16u;
+  value *= 0x7feb352du;
+  value ^= value >> 15u;
+  value *= 0x846ca68bu;
+  return value ^ (value >> 16u);
+}
+#endif
+void main() {
+  vec4 src = sampleWork(uv);
+  vec3 rgb = src.rgb;
+#if FX_KIND == 1
+    vec2 local = uv;
+    vec2 box = cropSize;
+    vec2 delta = abs(local - 0.5) * 2.0;
+    float roundness = (params.z + 1.0) * 0.5;
+    vec2 aspect = mix(vec2(1.0), box / max(min(box.x, box.y), 0.000001), roundness);
+    float distance = mix(max(delta.x, delta.y), length(delta * aspect), roundness);
+    float falloff = params.w == 0.0 ? step(params.y, distance)
+      : smoothstep(params.y, params.y + params.w, distance);
+    rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
+#elif FX_KIND == 2
+    vec3 sum = rgb * gaussianWeights[0];
+    // Centre + at most sixteen pairs: 33 taps, a dense separable Gaussian.
+    for (int tap = 1; tap <= 16; tap++) {
+      if (tap > tapCount) break;
+      float weight = gaussianWeights[tap];
+      vec2 offset = direction * float(tap);
+      sum += (sampleWork(uv - offset).rgb + sampleWork(uv + offset).rgb) * weight;
+    }
+    rgb = sum;
+#elif FX_KIND == 3
+    vec2 workPixel = uv * workSize;
+    uvec2 cell = uvec2(ivec2(floor(workPixel / params.y))) + uvec2(frameIndex);
+    uint bits = fxHash(cell.x ^ fxHash(cell.y));
+    float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
+    rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
+#elif FX_KIND == 4
+    vec3 sum = vec3(0.0);
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) sum += sampleWork(uv + vec2(x, y) / workSize).rgb;
+    }
+    rgb = clamp(rgb + params.x * (rgb - sum / 9.0), 0.0, 1.0);
+#elif FX_KIND == 5
+    float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+    rgb *= step(params.z, luma);
+#elif FX_KIND == 6 || FX_KIND == 7
+    vec2 pixel = clamp(uv * workSize, vec2(0.5), workSize - 0.5);
+    vec4 base = texture(original, pixel / allocationSize);
+#if FX_KIND == 6
+      vec3 tint = vec3(1.0 + params.w * 0.25, 1.0, 1.0 - params.w * 0.25);
+      rgb = clamp(base.rgb + params.x * rgb * tint, 0.0, 1.0);
+#else
+      rgb = clamp(base.rgb + params.x * (base.rgb - rgb), 0.0, 1.0);
+#endif
+    src.a = base.a;
+#elif FX_KIND == 8
+    float dark = 1.0;
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) {
+        vec3 tap = sampleWork(uv + vec2(x, y) / workSize).rgb;
+        dark = min(dark, min(tap.r, min(tap.g, tap.b)));
+      }
+    }
+    // White atmospheric light; cap transmission to keep recovery finite.
+    float transmission = max(0.1, 1.0 - 0.95 * abs(params.x) * dark);
+    rgb = params.x >= 0.0 ? (rgb - 1.0) / transmission + 1.0
+      : rgb * transmission + vec3(1.0 - transmission);
+    rgb = clamp(rgb, 0.0, 1.0);
+#elif FX_KIND == 9
+    float sigma = max(0.0001, params.x * 0.25);
+    vec3 sum = vec3(0.0);
+    float weightSum = 0.0;
+    for (int y = -2; y <= 2; y++) {
+      for (int x = -2; x <= 2; x++) {
+        vec2 offset = vec2(x, y);
+        vec3 tap = sampleWork(uv + offset / workSize).rgb;
+        vec3 delta = tap - rgb;
+        float weight = exp(-dot(offset, offset) / 8.0 - dot(delta, delta) / (2.0 * sigma * sigma));
+        sum += tap * weight;
+        weightSum += weight;
+      }
+    }
+    rgb = sum / weightSum;
+#elif FX_KIND == 10
+    vec3 sum = vec3(0.0);
+    // direction is the full output-pixel length converted to crop-local UV.
+    for (int tap = -8; tap <= 8; tap++) {
+      sum += sampleWork(uv + direction * (float(tap) / 16.0)).rgb;
+    }
+    rgb = sum / 17.0;
+#endif
+  color = vec4(rgb, src.a);
+}`;
 
   // packages/frame-engine/src/timeline/layer-visual.ts
   function finite(value) {
@@ -17566,132 +17757,85 @@ vec3 yuv709Unclamped(float y, vec2 chroma) {
 vec3 yuv709(float y, vec2 chroma) {
   return clamp(yuv709Unclamped(y, chroma), 0.0, 1.0);
 }`;
-  function adjustFxGlsl(suffix = "") {
+  function fxResultGlsl(suffix, sampler) {
     return `
-uniform int fxCount;
-uniform int fxKinds[8];
-uniform vec4 fxParams[8];
-uniform ivec2 fxSpatial;
-uint fxHash(uint value) {
-  value ^= value >> 16u;
-  value *= 0x7feb352du;
-  value ^= value >> 15u;
-  value *= 0x846ca68bu;
-  return value ^ (value >> 16u);
-}
-vec2 fxClamp(vec2 sourceUv) {
-  vec4 rect = fxCropRect();
-  // Keep bilinear footprints inside the crop, including on sub-texel crops.
-  vec2 inset = min(0.5 / fxSourceSize(), rect.zw * 0.5);
-  return clamp(sourceUv, rect.xy + inset, rect.xy + rect.zw - inset);
-}
-vec2 fxLocal(vec2 sourceUv) {
-  vec4 rect = fxCropRect();
-  return (sourceUv - rect.xy) / max(rect.zw, vec2(0.000001));
-}
-vec3 fxPoints(vec3 rgb, vec2 sourceUv, vec2 local, int start, int end) {
-  for (int i = 0; i < 8; i++) {
-    if (i < start) continue;
-    if (i >= end) break;
-    vec4 params = fxParams[i];
-    if (fxKinds[i] == 1) {
-      vec4 rect = fxCropRect();
-      vec2 box = rect.zw * fxSourceSize();
-      vec2 delta = abs(local - 0.5) * 2.0;
-      float roundness = (params.z + 1.0) * 0.5;
-      vec2 aspect = mix(vec2(1.0), box / max(min(box.x, box.y), 0.000001), roundness);
-      float distance = mix(max(delta.x, delta.y), length(delta * aspect), roundness);
-      float falloff = params.w == 0.0 ? step(params.y, distance)
-        : smoothstep(params.y, params.y + params.w, distance);
-      rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
-    } else if (fxKinds[i] == 3) {
-      vec2 outputPixel = fxSourceToPixel(sourceUv);
-      uvec2 cell = uvec2(ivec2(floor(outputPixel / params.y))) + uvec2(frameIndex);
-      uint bits = fxHash(cell.x ^ fxHash(cell.y));
-      float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
-      rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
-    }
+uniform int hasFx${suffix};
+uniform vec2 fxSize${suffix};
+uniform vec4 fxCrop${suffix};
+vec4 sampleFx${suffix}(vec2 local) {
+  vec2 pixel = clamp(local * fxSize${suffix}, vec2(0.5), fxSize${suffix} - 0.5);
+  return texture(${sampler}, pixel / vec2(textureSize(${sampler}, 0)));
+}`;
   }
-  return rgb;
-}
-vec2 fxTap(vec2 sourceUv, int stage, int tap) {
-  if (fxKinds[stage] == 2) {
-    vec2 grid = vec2(float(tap % 5), float(tap / 5)) * 0.5 - 1.0;
-    float radius = fxParams[stage].x * outputSize.x / 1920.0;
-    // Map the output-pixel radius back into source texels (also under scale/rotation/perspective).
-    return fxClamp(fxPixelToSource(fxSourceToPixel(sourceUv) + grid * radius));
+  function fxDisplayedSize(inverse) {
+    const forward = invertMat3([
+      inverse[0],
+      inverse[3],
+      inverse[6],
+      inverse[1],
+      inverse[4],
+      inverse[7],
+      inverse[2],
+      inverse[5],
+      inverse[8]
+    ]);
+    const point = (x3, y2) => {
+      const z3 = forward[6] * x3 + forward[7] * y2 + forward[8];
+      return [
+        (forward[0] * x3 + forward[1] * y2 + forward[2]) / z3,
+        (forward[3] * x3 + forward[4] * y2 + forward[5]) / z3
+      ];
+    };
+    const left = point(0, 0.5), right = point(1, 0.5), top = point(0.5, 0), bottom = point(0.5, 1);
+    return {
+      width: Math.hypot(right[0] - left[0], right[1] - left[1]),
+      height: Math.hypot(bottom[0] - top[0], bottom[1] - top[1])
+    };
   }
-  vec2 grid = vec2(float(tap % 3), float(tap / 3)) - 1.0;
-  return fxClamp(sourceUv + grid / fxSourceSize());
+  var FX_PREP_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D sourceY;
+uniform sampler2D sourceU;
+uniform sampler2D sourceV;
+uniform sampler2D sourceRgba;
+uniform int sourceFormat;
+uniform int sourceRotation;
+uniform int preserveAlpha;
+uniform vec2 sourceSize;
+uniform vec4 cropRect;
+uniform sampler3D adjustLut;
+uniform int hasAdjustLut;
+uniform vec3 adjustLutDomainMin;
+uniform vec3 adjustLutDomainMax;
+uniform float adjustLutSize;
+uniform float adjustLutIntensity;
+${YUV_GLSL}
+vec3 applyAdjust(vec3 rgb) {
+  if (hasAdjustLut == 0) return rgb;
+  vec3 unit = clamp((rgb - adjustLutDomainMin) / (adjustLutDomainMax - adjustLutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
+  return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
-vec3 fxFirst(vec3 rgb, vec2 sourceUv, vec2 local, int end) {
-  int first = fxSpatial.x;
-  if (first < 0 || first >= end) return fxPoints(rgb, sourceUv, local, 0, end);
-  rgb = fxPoints(rgb, sourceUv, local, 0, first);
-  int taps = fxKinds[first] == 2 ? 25 : 9;
-  vec3 sum = vec3(0.0);
-  for (int tap = 0; tap < 25; tap++) {
-    if (tap >= taps) break;
-    vec2 q = fxTap(sourceUv, first, tap);
-    sum += fxPoints(fxSampleAdjusted(q), q, fxLocal(q), 0, first);
-  }
-  vec3 average = sum / float(taps);
-  rgb = fxKinds[first] == 2 ? average
-    : clamp(rgb + fxParams[first].x * (rgb - average), 0.0, 1.0);
-  return fxPoints(rgb, sourceUv, local, first + 1, end);
-}
-vec3 applyFx(vec3 rgb, vec2 sourceUv, vec2 local) {
-  if (fxCount == 0) return rgb;
-  int second = fxSpatial.y;
-  if (second < 0) return fxFirst(rgb, sourceUv, local, fxCount);
-  rgb = fxFirst(rgb, sourceUv, local, second);
-  int taps = fxKinds[second] == 2 ? 25 : 9;
-  vec3 sum = vec3(0.0);
-  for (int tap = 0; tap < 25; tap++) {
-    if (tap >= taps) break;
-    vec2 q = fxTap(sourceUv, second, tap);
-    sum += fxFirst(fxSampleAdjusted(q), q, fxLocal(q), second);
-  }
-  vec3 average = sum / float(taps);
-  rgb = fxKinds[second] == 2 ? average
-    : clamp(rgb + fxParams[second].x * (rgb - average), 0.0, 1.0);
-  return fxPoints(rgb, sourceUv, local, second + 1, fxCount);
-}`.replace(/\b(fx\w+|applyFx)\b/gu, "$1" + suffix);
-  }
-  function baseAdjustFxGlsl(index) {
-    return `
-vec4 fxCropRect${index}() {
-  if (layerStyle${index} == 1) return crop${index};
-  vec2 lo = clamp(canvasToSource(framing${index}.xy, sourceSize${index}), 0.0, 1.0);
-  vec2 hi = clamp(canvasToSource(framing${index}.xy + framing${index}.zw, sourceSize${index}), 0.0, 1.0);
-  return vec4(lo, max(hi - lo, vec2(0.000001)));
-}
-vec2 fxSourceSize${index}() { return sourceSize${index}; }
-vec2 fxPixelToSource${index}(vec2 pixel) {
-  vec2 p = pixel / outputSize;
-  if (layerStyle${index} == 1) return crop${index}.xy + inverseBox(p, transform${index}, box${index}) * crop${index}.zw;
-  return canvasToSource(inverseVisual(p, transform${index}, framing${index}), sourceSize${index});
-}
-vec2 fxSourceToPixel${index}(vec2 sourceUv) {
-  vec2 pixel;
-  if (layerStyle${index} == 1) {
-    pixel = ((sourceUv - crop${index}.xy) / crop${index}.zw - 0.5) * box${index};
+void main() {
+  vec2 inset = min(0.5 / sourceSize, cropRect.zw * 0.5);
+  vec2 q = clamp(cropRect.xy + uv * cropRect.zw, cropRect.xy + inset, cropRect.xy + cropRect.zw - inset);
+  if (sourceRotation == 1) q = vec2(1.0 - q.y, q.x);
+  else if (sourceRotation == 2) q = vec2(1.0 - q.x, 1.0 - q.y);
+  else if (sourceRotation == 3) q = vec2(q.y, 1.0 - q.x);
+  vec4 src;
+  if (sourceFormat == 2) {
+    src = texture(sourceRgba, q);
+    if (preserveAlpha == 0) src.a = 1.0;
   } else {
-    float fit = min(outputSize.x / sourceSize${index}.x, outputSize.y / sourceSize${index}.y);
-    vec2 canvasPoint = (sourceUv - 0.5) * sourceSize${index} * fit / outputSize + 0.5;
-    pixel = ((canvasPoint - framing${index}.xy) / framing${index}.zw - 0.5) * outputSize * transform${index}.z;
+    vec2 chroma = sourceFormat == 1 ? texture(sourceU, q).rg
+      : vec2(texture(sourceU, q).r, texture(sourceV, q).r);
+    src = vec4(yuv709(texture(sourceY, q).r, chroma), 1.0);
   }
-  float angle = transform${index}.w;
-  return mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * pixel + outputSize * 0.5 + transform${index}.xy;
-}
-vec3 fxSampleAdjusted${index}(vec2 sourceUv) {
-  vec2 q = unrotate(sourceUv, rotation${index});
-  if (format${index} == 2) return applyAdjust${index}(texture(rgba${index}, q).rgb);
-  vec2 chroma = format${index} == 1 ? texture(u${index}, q).rg : vec2(texture(u${index}, q).r, texture(v${index}, q).r);
-  return applyAdjust${index}(yuv709(texture(y${index}, q).r, chroma));
-}
-${adjustFxGlsl(String(index))}`;
-  }
+  color = vec4(applyAdjust(src.rgb), src.a);
+}`;
   var baseFragmentPrefix = (type) => `#version 300 es
 precision highp float;
 precision highp int;
@@ -17715,7 +17859,6 @@ uniform vec4 transform1;
 uniform float opacity0;
 uniform float opacity1;
 uniform vec2 outputSize;
-uniform uint frameIndex;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int rotation0;
@@ -17781,8 +17924,8 @@ vec3 applyAdjust1(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize1 - 1.0) + 0.5) / adjustLutSize1;
   return mix(rgb, texture(adjustLut1, coord).rgb, adjustLutIntensity1);
 }
-${baseAdjustFxGlsl(0)}
-${baseAdjustFxGlsl(1)}
+${fxResultGlsl("0", "rgba0")}
+${fxResultGlsl("1", "rgba1")}
 vec4 sample0(vec2 p) {
   vec2 q;
   if (layerStyle0 == 1) {
@@ -17795,18 +17938,14 @@ vec4 sample0(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize0);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
-  vec2 sourceUv = q;
-  vec4 rect = fxCropRect0();
-  vec2 local = (sourceUv - rect.xy) / rect.zw;
+  if (hasFx0 == 1) return vec4(sampleFx0((q - fxCrop0.xy) / fxCrop0.zw).rgb, opacity0);
   q = unrotate(q, rotation0);
   if (format0 == 2) {
     vec3 rgb = applyAdjust0(texture(rgba0, q).rgb);
-    rgb = applyFx0(rgb, sourceUv, local);
     return vec4(rgb, opacity0);
   }
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   vec3 rgb = applyAdjust0(yuv709(texture(y0, q).r, chroma));
-  rgb = applyFx0(rgb, sourceUv, local);
   return vec4(rgb, opacity0);
 }
 vec4 sample1(vec2 p) {
@@ -17821,18 +17960,14 @@ vec4 sample1(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize1);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
-  vec2 sourceUv = q;
-  vec4 rect = fxCropRect1();
-  vec2 local = (sourceUv - rect.xy) / rect.zw;
+  if (hasFx1 == 1) return vec4(sampleFx1((q - fxCrop1.xy) / fxCrop1.zw).rgb, opacity1);
   q = unrotate(q, rotation1);
   if (format1 == 2) {
     vec3 rgb = applyAdjust1(texture(rgba1, q).rgb);
-    rgb = applyFx1(rgb, sourceUv, local);
     return vec4(rgb, opacity1);
   }
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   vec3 rgb = applyAdjust1(yuv709(texture(y1, q).r, chroma));
-  rgb = applyFx1(rgb, sourceUv, local);
   return vec4(rgb, opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
@@ -18022,8 +18157,6 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform vec2 outputSize;
-uniform uint frameIndex;
-uniform vec2 fxSourceDimensions;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
@@ -18066,25 +18199,8 @@ vec3 applyAdjust(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
   return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
-vec4 fxCropRect() { return cropRect; }
-vec2 fxSourceSize() { return fxSourceDimensions; }
-vec2 fxPixelToSource(vec2 pixel) {
-  vec3 h = inverseMap * vec3(pixel, 1.0);
-  return cropRect.xy + h.xy / max(h.z, 0.000001) * cropRect.zw;
-}
-vec2 fxSourceToPixel(vec2 sourceUv) {
-  vec2 local = (sourceUv - cropRect.xy) / cropRect.zw;
-  vec3 h = inverse(inverseMap) * vec3(local, 1.0);
-  return h.xy / max(h.z, 0.000001);
-}
-vec3 fxSampleAdjusted(vec2 sourceUv) {
-  vec2 q = unrotate(sourceUv, layerRotation);
-  if (inputKind == 1) return applyAdjust(texture(image, q).rgb);
-  if (yuvFormat == 2) return applyAdjust(texture(lrgba, q).rgb);
-  vec2 chroma = yuvFormat == 1 ? texture(lu, q).rg : vec2(texture(lu, q).r, texture(lv, q).r);
-  return applyAdjust(yuv709(texture(ly, q).r, chroma));
-}
-${adjustFxGlsl()}
+uniform sampler2D fxTexture;
+${fxResultGlsl("", "fxTexture")}
 void main() {
   vec4 dst = texture(backdrop, uv);
   vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
@@ -18102,18 +18218,21 @@ void main() {
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
-  if (inputKind == 1) {
-    src = texture(image, colorUv);
-  } else if (yuvFormat == 2) {
-    src = vec4(texture(lrgba, colorUv).rgb, 1.0);
+  if (hasFx == 1) {
+    src = sampleFx(local);
   } else {
-    vec2 chroma = yuvFormat == 1
-      ? texture(lu, colorUv).rg
-      : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
-    src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
+    if (inputKind == 1) {
+      src = texture(image, colorUv);
+    } else if (yuvFormat == 2) {
+      src = vec4(texture(lrgba, colorUv).rgb, 1.0);
+    } else {
+      vec2 chroma = yuvFormat == 1
+        ? texture(lu, colorUv).rg
+        : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
+      src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
+    }
+    src.rgb = applyAdjust(src.rgb);
   }
-  src.rgb = applyAdjust(src.rgb);
-  src.rgb = applyFx(src.rgb, sourceUv, local);
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
@@ -18204,7 +18323,8 @@ void main() {
   var LUT_UNIT = 11;
   var DISSOLVE_NOISE_UNIT = 12;
   var BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13];
-  var REQUIRED_TEXTURE_UNITS = BASE_ADJUST_LUT_UNITS[1] + 1;
+  var FX_ORIGINAL_UNIT = 14;
+  var REQUIRED_TEXTURE_UNITS = FX_ORIGINAL_UNIT + 1;
   function adjustFxFrameIndex(plan) {
     return Number.isSafeInteger(plan.frameIndex) ? Math.max(0, plan.frameIndex) >>> 0 : 0;
   }
@@ -18393,7 +18513,8 @@ void main() {
         ["maskY", 5],
         ["lrgba", LAYER_RGBA_UNIT],
         ["maskRgba", MASK_RGBA_UNIT],
-        ["adjustLut", LUT_UNIT]
+        ["adjustLut", LUT_UNIT],
+        ["fxTexture", BASE_RGBA_UNITS[0]]
       ].forEach(
         ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
       );
@@ -18434,6 +18555,15 @@ void main() {
     fbos;
     fboTextures;
     fboShape = "";
+    fxPrepProgram = null;
+    fxPassPrograms = /* @__PURE__ */ new Map();
+    fxFbos = [];
+    fxTextures = [];
+    fxOriginalTexture = null;
+    fxAllocation = { width: 0, height: 0 };
+    fxWeightCache = /* @__PURE__ */ new Map();
+    // A/B must coexist for a transition. These are snapshots, never extra pass FBOs.
+    baseFxTextures = [];
     imageTextures = /* @__PURE__ */ new WeakMap();
     ownedImageTextures = /* @__PURE__ */ new Set();
     lookTextures = /* @__PURE__ */ new WeakMap();
@@ -18477,7 +18607,6 @@ void main() {
         program,
         cutUniforms,
         output: uniform(gl, program, "outputSize"),
-        frameIndex: gl.getUniformLocation(program, "frameIndex"),
         progress: gl.getUniformLocation(program, "transitionProgress"),
         dissolveNoise: gl.getUniformLocation(program, "dissolveNoise"),
         secondary: false
@@ -18690,7 +18819,7 @@ void main() {
       );
       this.gl.uniform1f(u2.opacity, v2.opacity);
       this.configureAdjustLut(v2.adjustLut, adjustLutUnit, u2);
-      this.configureAdjustFx(v2.adjustFx, u2);
+      this.configureFxResult(null, u2);
       if (v2.layerStyle) {
         const box2 = cutLayerStyleBox(v2, source.width, source.height);
         this.gl.uniform1i(u2.layerStyle, 1);
@@ -18726,44 +18855,243 @@ void main() {
     }
     adjustFxUniforms(program, suffix = "") {
       const location2 = (name) => this.gl.getUniformLocation(program, name);
-      return {
-        fxCount: location2(`fxCount${suffix}`),
-        fxKinds: location2(`fxKinds${suffix}[0]`),
-        fxParams: location2(`fxParams${suffix}[0]`),
-        fxSpatial: location2(`fxSpatial${suffix}`)
-      };
+      return { hasFx: location2(`hasFx${suffix}`), fxSize: location2(`fxSize${suffix}`), fxCrop: location2(`fxCrop${suffix}`) };
     }
-    configureAdjustFx(fx, u2) {
-      const kinds = new Int32Array(8);
-      const params = new Float32Array(32);
-      const spatial = [];
-      const count = Math.min(fx?.length ?? 0, 8);
-      for (let i2 = 0; i2 < count; i2++) {
-        const effect = fx[i2];
+    configureFxResult(result, u2) {
+      this.gl.uniform1i(u2.hasFx, result ? 1 : 0);
+      if (!result) return;
+      this.gl.uniform2f(u2.fxSize, result.size.width, result.size.height);
+      this.gl.uniform4f(u2.fxCrop, result.crop.x, result.crop.y, result.crop.width, result.crop.height);
+    }
+    fxProgram(fragment, names) {
+      const gl = this.gl;
+      const program = createProgram(gl, fragment);
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);
+      const position = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      return { program, locations: Object.fromEntries(names.map((name) => [name, gl.getUniformLocation(program, name)])) };
+    }
+    createFxTexture() {
+      const gl = this.gl;
+      const texture = gl.createTexture();
+      if (!texture) throw new Error("WebGL2 could not allocate an fx texture");
+      this.bind(FBO_SCRATCH_UNIT, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return texture;
+    }
+    fxPassProgramFor(kind) {
+      let cached = this.fxPassPrograms.get(kind);
+      if (!cached) {
+        const fragment = FX_PASS_FRAGMENT.replace("#version 300 es", `#version 300 es
+#define FX_KIND ${kind}`);
+        cached = this.fxProgram(fragment, [
+          "source",
+          "original",
+          "allocationSize",
+          "inputSize",
+          "workSize",
+          "cropSize",
+          "fxKind",
+          "params",
+          "direction",
+          "gaussianWeights[0]",
+          "tapCount",
+          "frameIndex"
+        ]);
+        this.fxPassPrograms.set(kind, cached);
+      }
+      return cached;
+    }
+    allocateFxTexture(texture, size) {
+      const gl = this.gl;
+      this.bind(FBO_SCRATCH_UNIT, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size.width, size.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+    ensureFxResources(output) {
+      const gl = this.gl;
+      if (!this.fxPrepProgram) {
+        this.fxPrepProgram = this.fxProgram(FX_PREP_FRAGMENT, [
+          "sourceY",
+          "sourceU",
+          "sourceV",
+          "sourceRgba",
+          "sourceFormat",
+          "sourceRotation",
+          "preserveAlpha",
+          "sourceSize",
+          "cropRect",
+          "adjustLut",
+          "hasAdjustLut",
+          "adjustLutDomainMin",
+          "adjustLutDomainMax",
+          "adjustLutSize",
+          "adjustLutIntensity"
+        ]);
+        for (let i2 = 0; i2 < 2; i2++) {
+          this.fxTextures.push(this.createFxTexture());
+          const fbo = gl.createFramebuffer();
+          if (!fbo) throw new Error("WebGL2 could not allocate an fx framebuffer");
+          this.fxFbos.push(fbo);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fxTextures[i2], 0);
+        }
+      }
+      if (output.width <= this.fxAllocation.width && output.height <= this.fxAllocation.height) return;
+      this.fxAllocation = {
+        width: Math.max(output.width, this.fxAllocation.width),
+        height: Math.max(output.height, this.fxAllocation.height)
+      };
+      for (const texture of this.fxTextures) this.allocateFxTexture(texture, this.fxAllocation);
+      if (this.fxOriginalTexture) this.allocateFxTexture(this.fxOriginalTexture, this.fxAllocation);
+    }
+    runFxPasses(passes, source, output, frameIndex, draw) {
+      this.options.passTimer?.("prep");
+      this.ensureFxResources(output);
+      const gl = this.gl;
+      const work = fxWorkingSize(source.size, source.crop, output);
+      const needsOriginal = passes.some((pass) => pass.effect.id === "glow" || pass.effect.id === "clarity");
+      if (needsOriginal && !this.fxOriginalTexture) {
+        this.fxOriginalTexture = this.createFxTexture();
+        this.allocateFxTexture(this.fxOriginalTexture, this.fxAllocation);
+      }
+      const prep = this.fxPrepProgram, p2 = prep.locations;
+      gl.useProgram(prep.program);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fxFbos[0]);
+      gl.viewport(0, 0, work.width, work.height);
+      gl.uniform1i(p2.sourceY, source.yuvUnits[0]);
+      gl.uniform1i(p2.sourceU, source.yuvUnits[1]);
+      gl.uniform1i(p2.sourceV, source.yuvUnits[2]);
+      gl.uniform1i(p2.sourceRgba, source.rgbaUnit);
+      gl.uniform1i(p2.sourceFormat, source.format);
+      gl.uniform1i(p2.sourceRotation, source.rotation);
+      gl.uniform1i(p2.preserveAlpha, source.preserveAlpha ? 1 : 0);
+      gl.uniform2f(p2.sourceSize, source.size.width, source.size.height);
+      gl.uniform4f(p2.cropRect, source.crop.x, source.crop.y, source.crop.width, source.crop.height);
+      gl.uniform1i(p2.adjustLut, source.lutUnit);
+      this.configureAdjustLut(source.lut, source.lutUnit, {
+        hasAdjustLut: p2.hasAdjustLut,
+        adjustLutDomainMin: p2.adjustLutDomainMin,
+        adjustLutDomainMax: p2.adjustLutDomainMax,
+        adjustLutSize: p2.adjustLutSize,
+        adjustLutIntensity: p2.adjustLutIntensity
+      });
+      draw();
+      this.bind(FX_ORIGINAL_UNIT, this.fxOriginalTexture ?? this.baseRgbaTextures[0]);
+      let current = 0;
+      let inputSize = work;
+      for (const { stage, effect } of passes) {
+        this.options.passTimer?.(stage === "gaussian-h" ? "blur-h" : stage === "gaussian-v" ? "blur-v" : stage);
+        if (stage === "bright-pass" || effect.id === "clarity" && stage === "gaussian-h") {
+          this.bind(FBO_SCRATCH_UNIT, this.fxOriginalTexture);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.fxFbos[current]);
+          gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, work.width, work.height);
+        }
+        const next = 1 - current;
+        let targetSize = work;
+        const kind = FX_PASS_KINDS[stage];
+        const passProgram = this.fxPassProgramFor(kind), u2 = passProgram.locations;
+        gl.useProgram(passProgram.program);
+        gl.uniform1i(u2.source, FBO_SCRATCH_UNIT);
+        gl.uniform1i(u2.original, FX_ORIGINAL_UNIT);
+        gl.uniform2f(u2.allocationSize, this.fxAllocation.width, this.fxAllocation.height);
+        gl.uniform2f(u2.workSize, work.width, work.height);
+        gl.uniform2f(u2.cropSize, source.size.width * source.crop.width, source.size.height * source.crop.height);
+        gl.uniform1ui(u2.frameIndex, frameIndex);
+        gl.uniform2f(u2.inputSize, inputSize.width, inputSize.height);
+        gl.uniform1i(u2.fxKind, kind);
         switch (effect.id) {
           case "vignette":
-            kinds[i2] = effect.amount === 0 ? 0 : 1;
-            params.set([effect.amount, effect.midpoint, effect.roundness, effect.feather], i2 * 4);
-            break;
-          case "blur":
-            kinds[i2] = effect.px === 0 ? 0 : 2;
-            params[i2 * 4] = effect.px;
+            gl.uniform4f(u2.params, effect.amount, effect.midpoint, effect.roundness, effect.feather);
             break;
           case "grain":
-            kinds[i2] = effect.amount === 0 ? 0 : 3;
-            params.set([effect.amount, effect.size], i2 * 4);
+            gl.uniform4f(u2.params, effect.amount, effect.size, 0, 0);
             break;
           case "sharpen":
-            kinds[i2] = effect.amount === 0 ? 0 : 4;
-            params[i2 * 4] = effect.amount;
+            gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
             break;
+          case "blur":
+          case "glow":
+          case "clarity": {
+            if (stage === "bright-pass" || stage === "glow-composite") {
+              if (effect.id !== "glow") throw new Error("Invalid glow pass");
+              gl.uniform4f(u2.params, effect.intensity, effect.radius, effect.threshold, effect.warmth);
+              break;
+            }
+            if (stage === "clarity-composite") {
+              if (effect.id !== "clarity") throw new Error("Invalid clarity pass");
+              gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
+              break;
+            }
+            const geometry = fxGaussianGeometry(
+              effect.id === "blur" ? effect.px : effect.radius,
+              output.width,
+              work,
+              source.displayed
+            );
+            const horizontal = stage === "gaussian-h";
+            if (horizontal) targetSize = geometry.reduced;
+            const radius = horizontal ? geometry.radiusX : geometry.radiusY;
+            let kernel = this.fxWeightCache.get(radius);
+            if (!kernel) {
+              kernel = fxGaussianWeights(radius);
+              if (this.fxWeightCache.size >= 64) this.fxWeightCache.clear();
+              this.fxWeightCache.set(radius, kernel);
+            }
+            gl.uniform1fv(u2["gaussianWeights[0]"], kernel.weights);
+            gl.uniform1i(u2.tapCount, kernel.tapCount);
+            gl.uniform2f(
+              u2.direction,
+              horizontal ? 1 / geometry.reduced.width : 0,
+              horizontal ? 0 : 1 / geometry.reduced.height
+            );
+            break;
+          }
+          case "dehaze":
+          case "denoise":
+            gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
+            break;
+          case "motion_blur": {
+            const length = effect.px * output.width / 1920;
+            const angle = effect.angle * Math.PI / 180;
+            gl.uniform2f(
+              u2.direction,
+              Math.cos(angle) * length / Math.max(source.displayed.width, 1e-6),
+              Math.sin(angle) * length / Math.max(source.displayed.height, 1e-6)
+            );
+            break;
+          }
         }
-        if (kinds[i2] === 2 || kinds[i2] === 4) spatial.push(i2);
+        this.bind(FBO_SCRATCH_UNIT, this.fxTextures[current]);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fxFbos[next]);
+        gl.viewport(0, 0, targetSize.width, targetSize.height);
+        draw();
+        current = next;
+        inputSize = targetSize;
       }
-      this.gl.uniform1i(u2.fxCount, kinds.some((kind) => kind !== 0) ? count : 0);
-      this.gl.uniform1iv(u2.fxKinds, kinds);
-      this.gl.uniform4fv(u2.fxParams, params);
-      this.gl.uniform2i(u2.fxSpatial, spatial[0] ?? -1, spatial[1] ?? -1);
+      this.options.passTimer?.(null);
+      return { texture: this.fxTextures[current], size: work, crop: source.crop };
+    }
+    snapshotBaseFx(index, result) {
+      this.options.passTimer?.("snapshot-copy");
+      const gl = this.gl;
+      let snapshot = this.baseFxTextures[index];
+      if (!snapshot) {
+        snapshot = { texture: this.createFxTexture(), allocation: { width: 0, height: 0 } };
+        this.baseFxTextures[index] = snapshot;
+      }
+      if (snapshot.allocation.width !== this.fxAllocation.width || snapshot.allocation.height !== this.fxAllocation.height) {
+        this.allocateFxTexture(snapshot.texture, this.fxAllocation);
+        snapshot.allocation = { ...this.fxAllocation };
+      }
+      this.bind(FBO_SCRATCH_UNIT, snapshot.texture);
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, result.size.width, result.size.height);
+      this.options.passTimer?.(null);
+      return { ...result, texture: snapshot.texture };
     }
     ensureFbos(w, h) {
       const shape = `${w}x${h}`;
@@ -18856,6 +19184,7 @@ void main() {
             baseProgram.cutUniforms[index]
           );
         } else {
+          this.bind(BASE_RGBA_UNITS[index], this.baseRgbaTextures[index]);
           sizes[index] = this.uploadYuv(
             frame,
             this.baseTextures.slice(index * 3, index * 3 + 3),
@@ -18913,9 +19242,9 @@ void main() {
     }
     configureBaseDraw(plan, target, baseProgram) {
       this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
+      this.gl.viewport(0, 0, plan.output.width, plan.output.height);
       this.gl.useProgram(baseProgram.program);
       this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
-      this.gl.uniform1ui(baseProgram.frameIndex, adjustFxFrameIndex(plan));
       if (baseProgram.dissolveNoise) {
         this.bind(
           DISSOLVE_NOISE_UNIT,
@@ -18923,6 +19252,53 @@ void main() {
         );
         this.gl.uniform1i(baseProgram.dissolveNoise, DISSOLVE_NOISE_UNIT);
       }
+    }
+    prepareBaseFx(frames, plan, baseProgram, draw) {
+      const output = plan.output;
+      frames.forEach((frame, index) => {
+        const visual = plan.base[index].visual;
+        const passes = planFxPasses(visual.adjustFx);
+        if (!passes.length) return;
+        const still = "bitmap" in frame;
+        const video = isVideoFrame(frame);
+        const rotation = still ? 0 : rotationQuarterTurns(frame);
+        const size = still ? { width: frame.width, height: frame.height } : video ? logicalSize(frame.displayWidth, frame.displayHeight, rotation) : logicalSize(frame.width, frame.height, rotation);
+        const fit = Math.min(output.width / size.width, output.height / size.height);
+        const framing = visual.framing;
+        const axis = (start, length, source, out) => {
+          const offset = (out - source * fit) * 0.5;
+          const clamp5 = (value) => Math.max(0, Math.min(1, value));
+          const lo = clamp5((start * out - offset) / (source * fit));
+          const hi = clamp5(((start + length) * out - offset) / (source * fit));
+          return [lo, Math.max(hi - lo, 1e-6)];
+        };
+        const x3 = axis(framing.x, framing.width, size.width, output.width);
+        const y2 = axis(framing.y, framing.height, size.height, output.height);
+        const crop = visual.layerStyle?.crop ?? { x: x3[0], y: y2[0], width: x3[1], height: y2[1] };
+        const displayed = visual.layerStyle ? cutLayerStyleBox(visual, size.width, size.height) : {
+          width: crop.width * size.width * fit * visual.transform.scale / framing.width,
+          height: crop.height * size.height * fit * visual.transform.scale / framing.height
+        };
+        const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
+          size,
+          crop,
+          displayed,
+          format: still || video ? 2 : frame.format === "NV12" ? 1 : 0,
+          rotation,
+          rgbaUnit: BASE_RGBA_UNITS[index],
+          yuvUnits: [index * 3, index * 3 + 1, index * 3 + 2],
+          preserveAlpha: false,
+          lut: visual.adjustLut,
+          lutUnit: BASE_ADJUST_LUT_UNITS[index]
+        }, output, adjustFxFrameIndex(plan), draw));
+        this.gl.useProgram(baseProgram.program);
+        this.bind(BASE_RGBA_UNITS[index], result.texture);
+        this.configureFxResult(result, baseProgram.cutUniforms[index]);
+        if (frames.length === 1) {
+          this.bind(BASE_RGBA_UNITS[1], result.texture);
+          this.configureFxResult(result, baseProgram.cutUniforms[1]);
+        }
+      });
     }
     async compose(base, layers, output, metrics, plan) {
       if (this.disposed) throw new Error("WebGL2 compositor is disposed");
@@ -18946,11 +19322,13 @@ void main() {
       const look = output.look ?? null;
       const lookIntensity = look ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1)) : 0;
       const hasLook = look !== null && lookIntensity > 0;
+      this.options.passTimer?.("base-prepare");
       const baseProgram = base.length > 0 ? this.baseProgramFor(plan.transition?.type ?? "hard-cut") : null;
       let uploadElapsedMs = baseProgram ? this.prepareBase(base, plan, output, baseProgram) : 0;
+      this.options.passTimer?.(null);
       let shaderElapsedMs = 0;
       const synchronization = this.options.synchronization ?? "finish";
-      const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
+      const timer = synchronization === "finish" && !this.options.passTimer ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
       const queries = [];
       const draw = () => {
         const query = timer ? gl.createQuery() : null;
@@ -18963,9 +19341,12 @@ void main() {
           queries.push(query);
         }
       };
+      if (baseProgram) this.prepareBaseFx(base, plan, baseProgram, draw);
       if (layers.length === 0 && !hasLook && baseProgram) {
+        this.options.passTimer?.("base-draw");
         this.configureBaseDraw(plan, null, baseProgram);
         draw();
+        this.options.passTimer?.(null);
         this.recordGlErrors(synchronization);
         metrics.record("upload", uploadElapsedMs);
         this.finishFrame(
@@ -18985,8 +19366,10 @@ void main() {
       }
       this.ensureFbos(output.width, output.height);
       if (baseProgram) {
+        this.options.passTimer?.("base-draw");
         this.configureBaseDraw(plan, this.fbos[0], baseProgram);
         draw();
+        this.options.passTimer?.(null);
         this.recordGlErrors(synchronization);
       } else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
@@ -19012,8 +19395,6 @@ void main() {
         adjustLutIntensity: uniform(gl, this.layerProgram, "adjustLutIntensity")
       };
       const layerFxUniforms = this.adjustFxUniforms(this.layerProgram);
-      const fxSourceDimensionsLoc = uniform(gl, this.layerProgram, "fxSourceDimensions");
-      const layerFrameIndexLoc = uniform(gl, this.layerProgram, "frameIndex");
       const blendModes = [
         "normal",
         "screen",
@@ -19122,9 +19503,29 @@ void main() {
         gl.uniform1f(opacityLoc, layer.opacity);
         gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
         this.configureAdjustLut(layer.adjustLut, LUT_UNIT, layerAdjustUniforms);
-        this.configureAdjustFx(layer.adjustFx, layerFxUniforms);
-        gl.uniform2f(fxSourceDimensionsLoc, width, height);
-        gl.uniform1ui(layerFrameIndexLoc, adjustFxFrameIndex(plan));
+        const passes = planFxPasses(layer.adjustFx);
+        let fxResult = null;
+        if (passes.length) {
+          const crop = layer.visual.crop;
+          const inverse = forwardInverse(layer.visual, width, height, output.width, output.height);
+          fxResult = this.runFxPasses(passes, {
+            size: { width, height },
+            crop,
+            displayed: fxDisplayedSize(inverse),
+            format: "bitmap" in color || isVideoFrame(color) ? 2 : color.format === "NV12" ? 1 : 0,
+            rotation: "bitmap" in color ? 0 : rotationQuarterTurns(color),
+            rgbaUnit: "bitmap" in color ? 4 : LAYER_RGBA_UNIT,
+            yuvUnits: [1, 2, 3],
+            preserveAlpha: "bitmap" in color,
+            lut: layer.adjustLut,
+            lutUnit: LUT_UNIT
+          }, output, adjustFxFrameIndex(plan), draw);
+          this.bind(BASE_RGBA_UNITS[0], fxResult.texture);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
+          gl.viewport(0, 0, output.width, output.height);
+          gl.useProgram(this.layerProgram);
+        }
+        this.configureFxResult(fxResult, layerFxUniforms);
         draw();
         this.recordGlErrors(synchronization);
         current = next;
@@ -19220,12 +19621,19 @@ void main() {
         ...this.layerTextures,
         ...this.layerRgbaTextures,
         ...this.fboTextures,
+        ...this.fxTextures,
+        ...this.fxOriginalTexture ? [this.fxOriginalTexture] : [],
+        ...this.baseFxTextures.flatMap((value) => value ? [value.texture] : []),
         ...this.ownedImageTextures,
         ...this.ownedLookTextures,
         ...this.dissolveNoiseTextures.values()
       ])
         this.gl.deleteTexture(t);
       for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
+      for (const f2 of this.fxFbos) this.gl.deleteFramebuffer(f2);
+      if (this.fxPrepProgram) this.gl.deleteProgram(this.fxPrepProgram.program);
+      for (const value of this.fxPassPrograms.values()) this.gl.deleteProgram(value.program);
+      this.fxPassPrograms.clear();
       this.gl.deleteBuffer(this.vertices);
       for (const value of this.basePrograms.values())
         this.gl.deleteProgram(value.program);
@@ -19877,7 +20285,7 @@ void main() {
       }
       const value = entry;
       const id = value.id;
-      if (id !== "vignette" && id !== "blur" && id !== "grain" && id !== "sharpen") {
+      if (id !== "vignette" && id !== "blur" && id !== "grain" && id !== "sharpen" && id !== "glow" && id !== "clarity" && id !== "dehaze" && id !== "denoise" && id !== "motion_blur") {
         warnings.push(`adjust.fx[${index}].id: unknown effect id "${String(id)}"; ignored`);
         continue;
       }
@@ -19905,12 +20313,33 @@ void main() {
         case "sharpen":
           resolved.push({ id, amount: parameter(value.amount, 0.5, 0, 1) });
           break;
+        case "glow":
+          resolved.push({
+            id,
+            intensity: parameter(value.intensity, 0.5, 0, 1),
+            radius: parameter(value.radius, 20, 0, 100),
+            threshold: parameter(value.threshold, 0.7, 0, 1),
+            warmth: parameter(value.warmth, 0, -1, 1)
+          });
+          break;
+        case "clarity":
+          resolved.push({ id, amount: parameter(value.amount, 0.3, -1, 1), radius: parameter(value.radius, 10, 1, 50) });
+          break;
+        case "dehaze":
+          resolved.push({ id, amount: parameter(value.amount, 0.3, -1, 1) });
+          break;
+        case "denoise":
+          resolved.push({ id, amount: parameter(value.amount, 0.3, 0, 1) });
+          break;
+        case "motion_blur":
+          resolved.push({ id, px: parameter(value.px, 10, 0, 100), angle: parameter(value.angle, 0, -180, 180) });
+          break;
       }
     }
     return resolved;
   }
   function isAdjustFxIdentity(fx) {
-    return normalizeAdjustFx(fx).every((effect) => effect.id === "blur" ? effect.px === 0 : effect.amount === 0);
+    return normalizeAdjustFx(fx).every((effect) => effect.id === "blur" || effect.id === "motion_blur" ? effect.px === 0 : effect.id === "glow" ? effect.intensity === 0 : effect.amount === 0);
   }
 
   // packages/frame-engine/src/timeline/item-motion.ts

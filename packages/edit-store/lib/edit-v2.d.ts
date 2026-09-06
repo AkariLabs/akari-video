@@ -230,6 +230,26 @@ export type AdjustFxV1 = {
 } | {
     id: 'sharpen';
     amount?: number;
+} | {
+    id: 'glow';
+    intensity?: number;
+    radius?: number;
+    threshold?: number;
+    warmth?: number;
+} | {
+    id: 'clarity';
+    amount?: number;
+    radius?: number;
+} | {
+    id: 'dehaze';
+    amount?: number;
+} | {
+    id: 'denoise';
+    amount?: number;
+} | {
+    id: 'motion_blur';
+    px?: number;
+    angle?: number;
 };
 export interface AdjustV1 {
     basic?: AdjustBasicV0;

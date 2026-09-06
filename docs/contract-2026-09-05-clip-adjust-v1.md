@@ -53,9 +53,17 @@ version 2 visual item の tracks[].items[].adjust。media / html / telop / filte
 | id | パラメータ・範囲（既定値） | 意味 |
 |---|---|---|
 | `vignette` | `amount` −1..1（0.5）、`midpoint` 0..1（0.5）、`roundness` −1..1（0）、`feather` 0..1（0.5） | crop 適用後のローカル 0..1 箱で周辺減光。負の amount は明るくする。roundness は矩形寄り（−1）から縦横比を補正した円（1）へ補間。midpoint は開始位置、feather は遷移幅（0 は段差） |
-| `blur` | `px` 0..50（8） | 半径は出力 px、`px × outputSize.x / 1920`。5×5 固定 25 タップの箱ぼかしで 1 パス近似。出力座標から source texel へ換算し、crop 内に clamp |
-| `grain` | `amount` 0..1（0.3）、`size` 0.5..4（1） | 出力 px 単位の粒。出力フレーム番号と `floor(outputPixel / size)` を整数 hash に渡す決定論ノイズ。RGB 共通に ±amount×0.15 を加算して輝度を変える。sin による hash は使わない |
-| `sharpen` | `amount` 0..1（0.5） | source texel の 3×3 平均との差を `rgb + amount × (rgb − average)` で加算し clamp |
+| `blur` | `px` 0..50（8） | 半径は出力 px、`px × outputSize.x / 1920` を作業テクセルへ換算。分離ガウス H → V の 2 パス（σ = 換算半径 / 2、各パス最大 33 タップ）。大半径は viewport を 1/2^k に縮小し、次パスで双一次拡大。サンプルは crop 内に clamp |
+| `grain` | `amount` 0..1（0.3）、`size` 0.5..4（1） | 作業空間の画素と出力フレーム番号を使う決定論ノイズ。`floor(workPixel / size)` とフレーム番号を整数 hash に渡す。RGB 共通に ±amount×0.15 を加算して輝度を変える。sin による hash は使わない |
+| `sharpen` | `amount` 0..1（0.5） | 作業テクセルの 3×3 平均との差を `rgb + amount × (rgb − average)` で加算し clamp |
+| `glow` | `intensity` 0..1（0.5）、`radius` 0..100 px（20）、`threshold` 0..1（0.7）、`warmth` −1..1（0） | 高輝度部のにじみ。Rec.709 luma が threshold 以上の bright-pass → ガウス H → V → 加算合成の 4 パス。warmth は加算色を暖色 / 寒色へ寄せる |
+| `clarity` | `amount` −1..1（0.3）、`radius` 1..50 px（10） | ガウス H → V → 合成の 3 パス。`rgb + amount × (rgb − gauss(rgb, radius))`。負で柔らかくする |
+| `dehaze` | `amount` −1..1（0.3） | 3×3 dark channel の min で透過率を推定し復元する 1 パス。大気光は白、透過率の下限は 0.1。負は霞を足す |
+| `denoise` | `amount` 0..1（0.3） | 5×5 bilateral の 1 パス。値域 σ = amount × 0.25、空間 σ = 2 作業テクセル |
+| `motion_blur` | `px` 0..100（10）、`angle` −180..180 度（0） | 角度に沿う 17 タップ、全長 px の方向ぼかし（1 パス）。0 度は水平、正角は crop ローカルの下方向へ回転 |
+
+第 2 群の radius / px も blur と同じ出力 px 規約（output.width / 1920）で換算する。
+ゼロ強度は identity（glow は intensity、motion_blur は px、他は amount）。radius や threshold は強度判定に使わない。
 
 旧 `cuts[].fx` は読み取り互換の語彙であり、`adjust.fx` と無関係。エンジンは従来どおり無視する。
 
@@ -92,7 +100,11 @@ version 2 visual item の tracks[].items[].adjust。media / html / telop / filte
 
 ## 4. 解決順とバイパス
 
-basic → lut → wheels → curves → hue → ⑥ fx（配列順・mask / opacity / blend の前）→ item 合成 → output.look。①〜⑤の LUT を適用する `applyAdjust` の直後に fx を評価する。空間処理は LUT に bake せず、cut A/B と layer の shader 内で行う。後続効果の近傍サンプルにも先行効果を適用する。追加 FBO は使わず、fx 無し・空配列・sections.fx=false は RGB を変更せず返す。
+basic → lut → wheels → curves → hue → ⑥ fx（配列順・mask / opacity / blend の前）→ item 合成 → output.look。fx が有効な cut A/B の各側と layer は、crop 窓を作業解像度へ描く prep パスで①〜⑤の `applyAdjust` を適用し、共有する 2 本の ping-pong FBO で効果パスを配列順に実行する。作業寸法は crop のテクセル寸法を出力寸法で上限 clamp し、FBO は最大出力寸法で確保・再利用する。
+
+パス数は vignette / grain / sharpen 各 1、blur 2、glow 4、clarity 3、dehaze / denoise / motion_blur 各 1。glow / clarity の合成元には、その効果へ入る直前の画像を再利用テクスチャへ退避する（FBO は増やさない）。後続効果は先行効果の結果を近傍サンプルする。最終結果を元ソースの代わりに合成側で読み、adjust を二重適用しない。mask / opacity / blend はパス列の後で従来どおり適用する。
+
+空間処理は LUT に bake しない。fx 無し・空配列・全効果ゼロ強度・sections.fx=false は prep を実行せず従来の直接経路を使い、fx 無しの出力はバイト不変。
 
 LUT はスラッシュなしなら presets/luts/<id>/<id>.cube、ありならプロジェクト相対（Windows / POSIX の区切り対応）。sections は false のときだけ該当段をバイパスする。OFF はプレビューと書き出しの両方でバイパスし、保存値は保持してよい。
 
@@ -114,4 +126,4 @@ Schema は閉じた構造・型・範囲・点数・必須キーを検査。vali
 
 ## 8. 非スコープ
 
-スプリット比較、エフェクト UI、CSS 近似（blur を除く）、render-cut（ffmpeg 経路）、第 2 群の効果（グロー / 明瞭度 / かすみ除去 / ノイズ除去 / モーションブラー）、旧 cuts[].fx の実装、LUT ライブラリ。
+スプリット比較、エフェクト UI、CSS 近似（blur を除く）、render-cut（ffmpeg 経路）、旧 cuts[].fx の実装、LUT ライブラリ。

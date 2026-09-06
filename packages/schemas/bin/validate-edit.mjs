@@ -226,6 +226,11 @@ function validateAdjustV1Sections(value, path) {
         blur: { px: [0, 50] },
         grain: { amount: [0, 1], size: [0.5, 4] },
         sharpen: { amount: [0, 1] },
+        glow: { intensity: [0, 1], radius: [0, 100], threshold: [0, 1], warmth: [-1, 1] },
+        clarity: { amount: [-1, 1], radius: [1, 50] },
+        dehaze: { amount: [-1, 1] },
+        denoise: { amount: [0, 1] },
+        motion_blur: { px: [0, 100], angle: [-180, 180] },
       };
       const seen = new Set();
       for (const [index, fx] of value.fx.entries()) {
