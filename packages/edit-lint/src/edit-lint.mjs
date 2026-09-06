@@ -382,6 +382,7 @@ export async function lintProject(input, options = {}) {
   if (intakeState.value !== undefined) {
     validateIntake(intakeState.value, findings, paths);
   }
+  await lintDecisionLogPredict({ projectRoot: paths.projectRoot, intake: intakeState.value, edit: rawEdit, findings });
 
   if (options.media) {
     runReferencedMediaChecks(
@@ -5346,6 +5347,33 @@ const INTAKE_TARGET_FIELDS = ["duration_s", "keep_length", "taste"];
 // intake.schema.json（packages/schemas/intake.schema.json）を手書きで再検証する。
 // edit-lint は依存ゼロ・自己完結の規律のため、他パッケージのバリデータを import しない
 // （review / captions と同じ「ルールをこちらにも手書きで写す」流儀）。
+async function lintDecisionLogPredict({ projectRoot, intake, edit, findings }) {
+  if (intake?.status !== "submitted"
+    || !["checkpoint", "full-auto"].includes(intake.autonomy)
+    || edit?.version !== 2
+    || !Array.isArray(edit.tracks)
+    || !edit.tracks.some(track => Array.isArray(track?.items) && track.items.length > 0)) {
+    return;
+  }
+
+  let decisionLog;
+  try {
+    decisionLog = await readFile(join(projectRoot, "decision-log.md"), "utf8");
+  } catch {
+    // 読み込みエラーも帳面が見つからない場合と同じ warning に留める。
+  }
+  if (decisionLog?.includes("machine:director")) {
+    return;
+  }
+  addFinding(findings, {
+    severity: "warning",
+    check: "decision-log.predict-missing",
+    message: "decision-log.md に機械の予測行（決定者 machine:director）がありません。提案つき / そのままモードでは、入れた物 1 件ごとに予測 1 行を追記してください（判子は一回 契約 §10）"
+      + (decisionLog === undefined ? "（decision-log.md が見つかりません）" : ""),
+    path: "decision-log.md",
+  });
+}
+
 function validateIntake(intake, findings, paths) {
   const intakeRelative = relativePath(paths.projectRoot, paths.intakePath);
   if (!isRecord(intake)) {

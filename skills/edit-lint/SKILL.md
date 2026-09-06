@@ -75,6 +75,7 @@ node <edit-lint> <project> --media --silence-error-seconds 2 --max-volume-error-
 状態の正本は常に `.akari/lint.json` とし、HTML は可視化にだけ使う。
 
 `.akari/intake.json`（進め方フォームの保存先。契約: `packages/schemas/intake.schema.json`）が存在すれば、schema 検証と整合検査（未知の task ID・`duration_s`/`keep_length` の同時指定・`status: submitted` なのに `submitted_at` 欠落 等）を合わせて行う。不正値は error（FAIL）、`status: "draft"`（進め方が未確定）は warning に留める。
+`decision-log.predict-missing`（warning）: 提案つき / そのままで item を入れたのに `decision-log.md` に `machine:director` の予測行が無い。
 
 ## 非スコープと拡張候補
 
