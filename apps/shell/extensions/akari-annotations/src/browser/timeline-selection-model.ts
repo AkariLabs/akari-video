@@ -73,6 +73,7 @@ export interface TimelineCaptionSelection {
     edited: boolean;
     textStyle?: CaptionTextStyle;
     effectiveTextStyle?: CaptionTextStyle;
+    animatorOwner?: { id: string; animator?: readonly Record<string, unknown>[] };
 }
 
 export interface TimelineLayerSelection {

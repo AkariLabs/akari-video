@@ -3723,6 +3723,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const ranges = this.captionRangeToOutputRanges(caption.id, caption.start, caption.end);
             const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
+            const animatorOwner = this.captionAnimatorOwner(caption.id);
             return {
                 kind: 'caption', id: caption.id, text: caption.text,
                 sourceStart: caption.start, sourceEnd: caption.end,
@@ -3730,7 +3731,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined,
                 speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited,
                 ...(caption.textStyle !== undefined ? { textStyle: caption.textStyle } : {}),
-                ...(effectiveTextStyle !== undefined ? { effectiveTextStyle } : {})
+                ...(effectiveTextStyle !== undefined ? { effectiveTextStyle } : {}),
+                ...(animatorOwner !== undefined ? { animatorOwner } : {})
             };
         }
         if (selection.kind === 'layer') {
@@ -7446,6 +7448,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const suffix = track === undefined ? '' : `（映像トラック ${track + 1}）`;
         return `このトランジション${suffix}は、PiP または複数トラックを合成する方式では書き出せません。`
             + '削除するか、映像を単一のトラックへ戻してください。';
+    }
+
+    protected captionAnimatorOwner(captionId: string): { id: string; animator?: readonly Record<string, unknown>[] } | undefined {
+        if (!Array.isArray(this.editDocument?.tracks)) return undefined;
+        const visit = (items: unknown): { id: string; animator?: readonly Record<string, unknown>[] } | undefined => {
+            if (!Array.isArray(items)) return undefined;
+            for (const candidate of items) {
+                if (!candidate || typeof candidate !== 'object') continue;
+                const item = candidate as Record<string, any>;
+                if (item.source?.kind === 'captions'
+                    && !(Array.isArray(item.source.exclude) ? item.source.exclude : []).includes(captionId)) {
+                    return { id: item.id, ...(Array.isArray(item.animator) ? { animator: item.animator } : {}) };
+                }
+                const nested = visit(item.items);
+                if (nested) return nested;
+            }
+            return undefined;
+        };
+        for (const track of this.editDocument.tracks as Array<Record<string, unknown>>) {
+            const owner = visit(track.items);
+            if (owner) return owner;
+        }
+        return undefined;
     }
 
     protected rawKeyframeItem(itemId: string): Record<string, any> | undefined {

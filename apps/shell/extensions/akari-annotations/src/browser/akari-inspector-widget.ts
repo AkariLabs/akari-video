@@ -1198,6 +1198,12 @@ function CAPTION_SECTIONS(
                 }
             ]
         },
+        ...(snapshot.animatorOwner ? [ANIMATOR_SECTION(
+            snapshot.animatorOwner.id,
+            `袋 ${snapshot.animatorOwner.id} のアニメーター（全 cue に効く）`,
+            snapshot.animatorOwner.animator,
+            requestWrite
+        )] : []),
         {
             id: 'info', label: '情報', collapsedByDefault: true, fields: [
                 { name: 'caption-id', label: 'clip', getValue: () => snapshot.id },
@@ -1855,15 +1861,17 @@ function OVERLAY_SECTIONS(
     ]);
 }
 
-function TREE_ITEM_SECTIONS(
-    snapshot: TimelineTreeItemSnapshot,
+function ANIMATOR_SECTION(
+    id: string,
+    headingLabel: string,
+    rawAnimators: readonly Record<string, unknown>[] | undefined,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
-): InspectorSection[] {
-    const animators = normalizeInspectorAnimators(snapshot.animator);
+): InspectorSection {
+    const animators = normalizeInspectorAnimators(rawAnimators);
     const writeAnimator = async (update: () => InspectorAnimator[]): Promise<InspectorWriteResult> => {
         try {
             const value = normalizeInspectorAnimators(update());
-            return await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'animator', value: value.length ? value : null });
+            return await requestWrite({ kind: 'item-field', id, path: 'animator', value: value.length ? value : null });
         } catch (error) {
             return { ok: false, message: error instanceof Error ? error.message : 'アニメーターを変更できませんでした。' };
         }
@@ -1937,6 +1945,13 @@ function TREE_ITEM_SECTIONS(
             });
         }
     });
+    return { id: 'animator', label: headingLabel, collapsedByDefault: true, fields: animatorFields };
+}
+
+function TREE_ITEM_SECTIONS(
+    snapshot: TimelineTreeItemSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection[] {
     const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
@@ -1988,9 +2003,9 @@ function TREE_ITEM_SECTIONS(
         ...(snapshot.sourceKind === 'html' ? [] : [{
             id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
         }]),
-        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [{
-            id: 'animator', label: 'アニメーター', collapsedByDefault: true, fields: animatorFields
-        }] : []),
+        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [
+            ANIMATOR_SECTION(snapshot.id, 'アニメーター', snapshot.animator, requestWrite)
+        ] : []),
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),

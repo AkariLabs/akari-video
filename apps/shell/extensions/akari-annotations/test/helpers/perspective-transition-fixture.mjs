@@ -18,7 +18,7 @@ export const timelineSource = readFileSync(new URL('../../src/browser/akari-anno
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
-    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'MOTION_FIELDS',
+    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
 ];
 const declarations = names.map(name => {
@@ -39,10 +39,11 @@ delete dependencies['module.exports'];
 const code = ts.transpileModule(declarations.join('\n'), {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-export const { perspectiveFields, transitionFields, layerSections, itemSections, cutSections } = new Function(
+export const { perspectiveFields, transitionFields, layerSections, itemSections, cutSections, animatorSection } = new Function(
     ...Object.keys(dependencies), `${code}\nreturn {
         perspectiveFields: PERSPECTIVE_FIELDS, transitionFields: cutTransitionFields,
-        layerSections: LAYER_SECTIONS, itemSections: TREE_ITEM_SECTIONS, cutSections: CUT_SECTIONS
+        layerSections: LAYER_SECTIONS, itemSections: TREE_ITEM_SECTIONS, cutSections: CUT_SECTIONS,
+        animatorSection: ANIMATOR_SECTION
     };`
 )(...Object.values(dependencies));
 
