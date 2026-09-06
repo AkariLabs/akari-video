@@ -322,6 +322,7 @@ CSS 3D は次の 3 群に分けて判定する。
   fail-closed にはしない。
 
 vgpu の理由語彙は `vgpu-scene-canvas-direct`、`vgpu-stateful-unsupported`、`vgpu-invalid-declaration`、`vgpu-condition:<条件をカンマ連結>`（[vgpu v0 契約](./contract-2026-09-06-vgpu-layer-v0.md)）。
+`vgpu-scene-stateful-direct` は妥当な `mode: "stateful"` 宣言を表し、状態を持つ WebGPU 効果を固定ステップ replay で canvas 直結する。
 
 次の条件は fail-closed のまま `degraded` とし、receipt に overlay id、理由、検出条件を全件残す。
 

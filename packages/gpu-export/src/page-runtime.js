@@ -2071,6 +2071,8 @@
       overlays: vgpuRecords.size, adapter: vgpuProbe.adapter, previewScale: null,
       deviceLost: [...vgpuRecords.values()].some(record => vgpuRuntime.inspect(record.container).deviceLost),
       probeMs: vgpuProbe.ms,
+      stateful: [...vgpuRecords.values()].filter(record => vgpuRuntime.inspect(record.container).stateful).length,
+      replaySteps: [...vgpuRecords.values()].reduce((sum, record) => sum + vgpuRuntime.inspect(record.container).replaySteps, 0),
     } } : {};
     const captionUnits = [];
     const captionRecords = [];
@@ -2206,7 +2208,7 @@
             const container = overlayFrame.contentDocument.querySelector(`[data-overlay-id="${CSS.escape(value.id)}"] > .scene-content`);
             if (!container) throw new Error(`VGPU-RENDER: overlay container is missing: ${value.id}`);
             container.parentElement.style.visibility = "visible";
-            vgpuRuntime.render(container, 0);
+            vgpuRuntime.render(container, 0, { fps: config.fps });
             if (vgpuRuntime.inspect(container).status !== "ready") throw new Error(`VGPU-RENDER: overlay is not ready: ${value.id}`);
             const canvas = container.querySelector("canvas");
             if (!canvas) throw new Error(`VGPU-RENDER: sprite canvas is missing: ${value.id}`);
@@ -2337,7 +2339,7 @@
             if (!activeAt(value, seconds)) continue;
             const record = vgpuRecords.get(value.id);
             if (!record) throw new Error(`VGPU-RENDER: overlay record is missing: ${value.id}`);
-            vgpuRuntime.render(record.container, seconds - value.start);
+            vgpuRuntime.render(record.container, seconds - value.start, { fps: config.fps });
             if (vgpuRuntime.inspect(record.container).status !== "ready") throw new Error(`VGPU-RENDER: overlay failed: ${value.id}`);
             spriteCompositor.updateSprite(value.id, record.canvas);
           }

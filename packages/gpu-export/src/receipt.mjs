@@ -304,5 +304,7 @@ function normalizeVgpuSummary(value) {
     previewScale: Number.isFinite(value.previewScale) ? value.previewScale : null,
     deviceLost: value.deviceLost === true,
     probeMs: finiteNonNegative(value.probeMs),
+    stateful: Math.floor(finiteNonNegative(value.stateful) ?? 0),
+    replaySteps: Math.floor(finiteNonNegative(value.replaySteps) ?? 0),
   };
 }

@@ -1,0 +1,224 @@
+<div class="vgpu-fx" style="position:absolute;inset:0">
+<!-- Ported from the official vgpu Interactive Fluid sample.
+MIT License
+Copyright (c) 2025 Vercel, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. -->
+<canvas></canvas>
+<div data-akari-vgpu-fallback style="display:none">WebGPU effect unavailable</div>
+<script type="application/json" data-akari-vgpu-scene>
+{
+  "version": 0,
+  "mode": "stateful",
+  "alphaMode": "premultiplied",
+  "seed": 1234,
+  "maxReplaySteps": 1800,
+  "uniforms": {
+    "stir": 1
+  },
+  "state": [
+    {
+      "id": "velocity",
+      "kind": "buffer",
+      "bytes": 73728
+    },
+    {
+      "id": "dye",
+      "kind": "buffer",
+      "bytes": 2359296
+    },
+    {
+      "id": "pressure",
+      "kind": "buffer",
+      "bytes": 36864
+    },
+    {
+      "id": "divergence",
+      "kind": "buffer",
+      "bytes": 36864
+    },
+    {
+      "id": "curl",
+      "kind": "buffer",
+      "bytes": 36864
+    }
+  ],
+  "passes": [
+    {
+      "id": "advect-velocity",
+      "kind": "compute",
+      "reads": [
+        "velocity"
+      ],
+      "writes": [
+        "velocity"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\n\nstruct Params { stir: f32 };\n@group(0) @binding(1) var<uniform> params: Params;\nfn pointer_at(t: f32) -> vec2f {\n  return vec2f(0.5 + 0.23 * cos(t * 1.7), 0.5 + 0.23 * sin(t * 1.7));\n}\nfn input_uniforms() -> Input {\n  let t = akari.time;\n  let speed = vec2f(-0.23 * 1.7 * sin(t * 1.7), 0.23 * 1.7 * cos(t * 1.7));\n  let direction = normalize(speed);\n  let ramp = min(1.0, (t + akari_state.dt) / 0.4) * params.stir;\n  return Input(u32(akari_state.step), 1.0,\n    pointer_at(t), pointer_at(t + akari_state.dt), speed * params.stir,\n    vec4f(0.5 + 0.5 * direction.x, 0.5 + 0.5 * direction.y, 1.0, 1.0) * params.stir,\n    vec4f(0.5 + 0.28 * sin(0.73 * t), 0.5 + 0.22 * sin(1.09 * t + 0.4), ramp, 0.006),\n    vec4f(0.5 + 0.26 * sin(0.61 * t + 3.14159265), 0.5 + 0.24 * sin(0.97 * t + 2.1), ramp, 0.0055));\n}\nfn load_src(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\nfn sample_velocity(p: vec2f) -> vec2f {\n  let coord = clamp(p * vec2f(grid.size) - 0.5, vec2f(0), vec2f(grid.size) - 1.0);\n  let cell = vec2i(floor(coord));\n  let f = fract(coord);\n  let bottom = mix(load_src(index_of(cell, grid.size)), load_src(index_of(cell + vec2i(1, 0), grid.size)), f.x);\n  let top = mix(load_src(index_of(cell + vec2i(0, 1), grid.size)), load_src(index_of(cell + vec2i(1, 1), grid.size)), f.x);\n  return mix(bottom, top, f.y);\n}\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let input = input_uniforms();\n  let cell = vec2i(id.xy);\n  let p = cell_uv(cell, grid.size);\n  let aspect = f32(grid.size.x) / f32(grid.size.y);\n  let dt = akari_state.dt;\n  let source_velocity = load_src(index_of(cell, grid.size));\n  let backtrace = clamp(p - dt * source_velocity, 0.5 / vec2f(grid.size), 1.0 - 0.5 / vec2f(grid.size));\n  var velocity = pow(0.98, akari_state.dt * 60.0) * sample_velocity(backtrace);\n\n  let weight_a = emitter_weight(p, input.idle_a, aspect);\n  let weight_b = emitter_weight(p, input.idle_b, aspect);\n  let time = akari.time;\n  let tangent_a = vec2f(0.28 * 0.73 * cos(0.73 * time), 0.22 * 1.09 * cos(1.09 * time + 0.4));\n  let tangent_b = vec2f(0.26 * 0.61 * cos(0.61 * time + 3.14159265), 0.24 * 0.97 * cos(0.97 * time + 2.1));\n  velocity += dt * (weight_a * (2.6 * tangent_a + 2.0 * vec2f(-tangent_a.y, tangent_a.x))\n                  + weight_b * (2.6 * tangent_b - 2.0 * vec2f(-tangent_b.y, tangent_b.x)));\n\n  if (input.pointer_active > 0.0) {\n    let weight = segment_weight(p, input.pointer_from, input.pointer_to, 0.002, aspect);\n    velocity += weight * input.pointer_velocity * 0.8;\n  }\n\n  let speed = length(velocity);\n  if (speed > 2.5) { velocity *= 2.5 / speed; }\n  let output_index = 2u * index_of(cell, grid.size);\n  let output_value = velocity;\n  velocity_out[output_index + 0u] = output_value[0];\n  velocity_out[output_index + 1u] = output_value[1];\n}\n"
+    },
+    {
+      "id": "curl",
+      "kind": "compute",
+      "reads": [
+        "velocity"
+      ],
+      "writes": [
+        "curl"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\nfn load_velocity(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let left = load_velocity(index_of(p - vec2i(1, 0), grid.size)).y;\n  let right = load_velocity(index_of(p + vec2i(1, 0), grid.size)).y;\n  let top = load_velocity(index_of(p + vec2i(0, 1), grid.size)).x;\n  let bottom = load_velocity(index_of(p - vec2i(0, 1), grid.size)).x;\n  curl_out[index_of(p, grid.size)] = 0.5 * (right - left - top + bottom);\n}\n"
+    },
+    {
+      "id": "vorticity",
+      "kind": "compute",
+      "reads": [
+        "velocity",
+        "curl"
+      ],
+      "writes": [
+        "velocity"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\nfn load_src(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let left = abs(curl_in[index_of(p - vec2i(1, 0), grid.size)]);\n  let right = abs(curl_in[index_of(p + vec2i(1, 0), grid.size)]);\n  let top = abs(curl_in[index_of(p + vec2i(0, 1), grid.size)]);\n  let bottom = abs(curl_in[index_of(p - vec2i(0, 1), grid.size)]);\n  let center = curl_in[index_of(p, grid.size)];\n\n  var force = 0.5 * vec2f(top - bottom, right - left);\n  force /= length(force) + 0.0001;\n  force *= 20.0 * center;\n  force.y *= -1.0;\n\n  var velocity = load_src(index_of(p, grid.size)) + force * akari_state.dt;\n  let speed = length(velocity);\n  if (speed > 2.5) { velocity *= 2.5 / speed; }\n  let output_index = 2u * index_of(p, grid.size);\n  let output_value = velocity;\n  velocity_out[output_index + 0u] = output_value[0];\n  velocity_out[output_index + 1u] = output_value[1];\n}\n"
+    },
+    {
+      "id": "divergence",
+      "kind": "compute",
+      "reads": [
+        "velocity"
+      ],
+      "writes": [
+        "divergence"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\nfn load_velocity(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let last = vec2i(grid.size) - 1;\n  let l = select(load_velocity(index_of(p - vec2i(1, 0), grid.size)).x, 0.0, p.x == 0);\n  let r = select(load_velocity(index_of(p + vec2i(1, 0), grid.size)).x, 0.0, p.x == last.x);\n  let b = select(load_velocity(index_of(p - vec2i(0, 1), grid.size)).y, 0.0, p.y == 0);\n  let t = select(load_velocity(index_of(p + vec2i(0, 1), grid.size)).y, 0.0, p.y == last.y);\n  divergence_out[index_of(p, grid.size)] =\n    (r - l)*.5*f32(grid.size.x) + (t - b)*.5*f32(grid.size.y);\n}\n"
+    },
+    {
+      "id": "pressure-1",
+      "kind": "compute",
+      "reads": [
+        "pressure",
+        "divergence"
+      ],
+      "writes": [
+        "pressure"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let i = index_of(p, grid.size);\n  let center = pressure_in[i];\n  let last = vec2i(grid.size) - 1;\n  let left = select(pressure_in[index_of(p - vec2i(1, 0), grid.size)], center, p.x == 0) * 1.0;\n  let right = select(pressure_in[index_of(p + vec2i(1, 0), grid.size)], center, p.x == last.x) * 1.0;\n  let bottom = select(pressure_in[index_of(p - vec2i(0, 1), grid.size)], center, p.y == 0) * 1.0;\n  let top = select(pressure_in[index_of(p + vec2i(0, 1), grid.size)], center, p.y == last.y) * 1.0;\n  let wx = f32(grid.size.x * grid.size.x);\n  let wy = f32(grid.size.y * grid.size.y);\n  pressure_out[i] = ((left + right) * wx + (bottom + top) * wy - divergence_in[i]) / (2.0 * wx + 2.0 * wy);\n}\n"
+    },
+    {
+      "id": "pressure-2",
+      "kind": "compute",
+      "reads": [
+        "pressure",
+        "divergence"
+      ],
+      "writes": [
+        "pressure"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let i = index_of(p, grid.size);\n  let center = pressure_in[i];\n  let last = vec2i(grid.size) - 1;\n  let left = select(pressure_in[index_of(p - vec2i(1, 0), grid.size)], center, p.x == 0) * 1.0;\n  let right = select(pressure_in[index_of(p + vec2i(1, 0), grid.size)], center, p.x == last.x) * 1.0;\n  let bottom = select(pressure_in[index_of(p - vec2i(0, 1), grid.size)], center, p.y == 0) * 1.0;\n  let top = select(pressure_in[index_of(p + vec2i(0, 1), grid.size)], center, p.y == last.y) * 1.0;\n  let wx = f32(grid.size.x * grid.size.x);\n  let wy = f32(grid.size.y * grid.size.y);\n  pressure_out[i] = ((left + right) * wx + (bottom + top) * wy - divergence_in[i]) / (2.0 * wx + 2.0 * wy);\n}\n"
+    },
+    {
+      "id": "pressure-3",
+      "kind": "compute",
+      "reads": [
+        "pressure",
+        "divergence"
+      ],
+      "writes": [
+        "pressure"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let i = index_of(p, grid.size);\n  let center = pressure_in[i];\n  let last = vec2i(grid.size) - 1;\n  let left = select(pressure_in[index_of(p - vec2i(1, 0), grid.size)], center, p.x == 0) * 1.0;\n  let right = select(pressure_in[index_of(p + vec2i(1, 0), grid.size)], center, p.x == last.x) * 1.0;\n  let bottom = select(pressure_in[index_of(p - vec2i(0, 1), grid.size)], center, p.y == 0) * 1.0;\n  let top = select(pressure_in[index_of(p + vec2i(0, 1), grid.size)], center, p.y == last.y) * 1.0;\n  let wx = f32(grid.size.x * grid.size.x);\n  let wy = f32(grid.size.y * grid.size.y);\n  pressure_out[i] = ((left + right) * wx + (bottom + top) * wy - divergence_in[i]) / (2.0 * wx + 2.0 * wy);\n}\n"
+    },
+    {
+      "id": "project",
+      "kind": "compute",
+      "reads": [
+        "velocity",
+        "pressure"
+      ],
+      "writes": [
+        "velocity"
+      ],
+      "dispatch": [
+        16,
+        9,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\nfn load_src(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.size)) { return; }\n  let p = vec2i(id.xy);\n  let last = vec2i(grid.size) - 1;\n  let c = pressure_in[index_of(p, grid.size)];\n  let l = select(pressure_in[index_of(p - vec2i(1, 0), grid.size)], c, p.x == 0);\n  let r = select(pressure_in[index_of(p + vec2i(1, 0), grid.size)], c, p.x == last.x);\n  let b = select(pressure_in[index_of(p - vec2i(0, 1), grid.size)], c, p.y == 0);\n  let t = select(pressure_in[index_of(p + vec2i(0, 1), grid.size)], c, p.y == last.y);\n  var u = load_src(index_of(p, grid.size)) - vec2f(\n    (r - l)*.5*f32(grid.size.x),\n    (t - b)*.5*f32(grid.size.y),\n  );\n  if (p.x == 0 && u.x < 0.0) { u.x = 0.0; }\n  if (p.x == last.x && u.x > 0.0) { u.x = 0.0; }\n  if (p.y == 0 && u.y < 0.0) { u.y = 0.0; }\n  if (p.y == last.y && u.y > 0.0) { u.y = 0.0; }\n  let s = length(u);\n  if (s > 2.5) { u *= 2.5 / s; }\n  let output_index = 2u * index_of(p, grid.size);\n  let output_value = u;\n  velocity_out[output_index + 0u] = output_value[0];\n  velocity_out[output_index + 1u] = output_value[1];\n}\n"
+    },
+    {
+      "id": "advect-dye",
+      "kind": "compute",
+      "reads": [
+        "dye",
+        "velocity"
+      ],
+      "writes": [
+        "dye"
+      ],
+      "dispatch": [
+        64,
+        36,
+        1
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\n\nstruct Params { stir: f32 };\n@group(0) @binding(1) var<uniform> params: Params;\nfn pointer_at(t: f32) -> vec2f {\n  return vec2f(0.5 + 0.23 * cos(t * 1.7), 0.5 + 0.23 * sin(t * 1.7));\n}\nfn input_uniforms() -> Input {\n  let t = akari.time;\n  let speed = vec2f(-0.23 * 1.7 * sin(t * 1.7), 0.23 * 1.7 * cos(t * 1.7));\n  let direction = normalize(speed);\n  let ramp = min(1.0, (t + akari_state.dt) / 0.4) * params.stir;\n  return Input(u32(akari_state.step), 1.0,\n    pointer_at(t), pointer_at(t + akari_state.dt), speed * params.stir,\n    vec4f(0.5 + 0.5 * direction.x, 0.5 + 0.5 * direction.y, 1.0, 1.0) * params.stir,\n    vec4f(0.5 + 0.28 * sin(0.73 * t), 0.5 + 0.22 * sin(1.09 * t + 0.4), ramp, 0.006),\n    vec4f(0.5 + 0.26 * sin(0.61 * t + 3.14159265), 0.5 + 0.24 * sin(0.97 * t + 2.1), ramp, 0.0055));\n}\nfn load_src(i: u32) -> vec4f { return vec4f(dye_in[4u * i + 0u], dye_in[4u * i + 1u], dye_in[4u * i + 2u], dye_in[4u * i + 3u]); }\nfn load_velocity(i: u32) -> vec2f { return vec2f(velocity_in[2u * i + 0u], velocity_in[2u * i + 1u]); }\n\n\nfn sample_dye(p: vec2f) -> vec4f {\n  let coord = clamp(p * vec2f(grid.dye_size) - 0.5, vec2f(0), vec2f(grid.dye_size) - 1.0);\n  let cell = vec2i(floor(coord));\n  let f = fract(coord);\n  let bottom = mix(load_src(index_of(cell, grid.dye_size)), load_src(index_of(cell + vec2i(1, 0), grid.dye_size)), f.x);\n  let top = mix(\n    load_src(index_of(cell + vec2i(0, 1), grid.dye_size)),\n    load_src(index_of(cell + vec2i(1, 1), grid.dye_size)),\n    f.x,\n  );\n  return mix(bottom, top, f.y);\n}\n\nfn sample_velocity(p: vec2f) -> vec2f {\n  let coord = clamp(p * vec2f(grid.size) - 0.5, vec2f(0), vec2f(grid.size) - 1.0);\n  let cell = vec2i(floor(coord));\n  let f = fract(coord);\n  let bottom = mix(load_velocity(index_of(cell, grid.size)), load_velocity(index_of(cell + vec2i(1, 0), grid.size)), f.x);\n  let top = mix(\n    load_velocity(index_of(cell + vec2i(0, 1), grid.size)),\n    load_velocity(index_of(cell + vec2i(1, 1), grid.size)),\n    f.x,\n  );\n  return mix(bottom, top, f.y);\n}\n\n@compute @workgroup_size(8, 8)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (any(id.xy >= grid.dye_size)) { return; }\n  let input = input_uniforms();\n  let cell = vec2i(id.xy);\n  let p = cell_uv(cell, grid.dye_size);\n  let aspect = f32(grid.size.x) / f32(grid.size.y);\n  let backtrace = clamp(p - sample_velocity(p) * akari_state.dt, 0.5 / vec2f(grid.dye_size), 1.0 - 0.5 / vec2f(grid.dye_size));\n  var color = pow(0.97, akari_state.dt * 60.0) * sample_dye(backtrace);\n\n  color += vec4f(0.05, 0.48, 1.0, 1.0) * emitter_weight(p, input.idle_a, aspect) * 0.12;\n  color += vec4f(1.0, 0.08, 0.55, 1.0) * emitter_weight(p, input.idle_b, aspect) * 0.115;\n  if (input.pointer_active > 0.0) {\n    let weight = segment_weight(p, input.pointer_from, input.pointer_to, 0.002, aspect);\n    color += input.pointer_color * weight * 0.35;\n  }\n\n  let output_index = 4u * index_of(cell, grid.dye_size);\n  let output_value = clamp(color, vec4f(0), vec4f(4));\n  dye_out[output_index + 0u] = output_value[0];\n  dye_out[output_index + 1u] = output_value[1];\n  dye_out[output_index + 2u] = output_value[2];\n  dye_out[output_index + 3u] = output_value[3];\n}\n"
+    },
+    {
+      "id": "display",
+      "kind": "fragment",
+      "reads": [
+        "dye"
+      ],
+      "wgsl": "struct Grid {\n  size: vec2u,\n  dye_size: vec2u,\n}\n\nstruct Input {\n  step: u32,\n  pointer_active: f32,\n  pointer_from: vec2f,\n  pointer_to: vec2f,\n  pointer_velocity: vec2f,\n  pointer_color: vec4f,\n  idle_a: vec4f,\n  idle_b: vec4f,\n}\n\nfn index_of(p: vec2i, size: vec2u) -> u32 {\n  let q = clamp(p, vec2i(0), vec2i(size) - 1);\n  return u32(q.y) * size.x + u32(q.x);\n}\n\nfn cell_uv(p: vec2i, size: vec2u) -> vec2f {\n  return (vec2f(p) + 0.5) / vec2f(size);\n}\n\nfn segment_weight(\n  p: vec2f,\n  a: vec2f,\n  b: vec2f,\n  radius_squared: f32,\n  aspect: f32,\n) -> f32 {\n  let scale = vec2f(aspect, 1.0);\n  let point = p * scale;\n  let origin = a * scale;\n  let delta = (b - a) * scale;\n  let t = clamp(dot(point - origin, delta) / max(dot(delta, delta), 1e-7), 0.0, 1.0);\n  let d = point - (origin + t * delta);\n  return exp(-dot(d, d) / radius_squared);\n}\n\nfn emitter_weight(p: vec2f, emitter: vec4f, aspect: f32) -> f32 {\n  let d = (p - emitter.xy) * vec2f(aspect, 1.0);\n  return exp(-dot(d, d) / emitter.w) * emitter.z;\n}\n\nconst grid = Grid(vec2u(128, 72), vec2u(512, 288));\nfn load_dye(i: u32) -> vec4f { return vec4f(dye_in[4u * i + 0u], dye_in[4u * i + 1u], dye_in[4u * i + 2u], dye_in[4u * i + 3u]); }\n\nconst DYE_SIZE = vec2u(512, 288);\n\nfn sample_dye(p: vec2f) -> vec3f {\n  let grid = clamp(p * vec2f(DYE_SIZE) - 0.5, vec2f(0), vec2f(DYE_SIZE) - 1.0);\n  let cell = vec2i(floor(grid));\n  let f = fract(grid);\n  let bottom = mix(load_dye(index_of(cell, DYE_SIZE)).rgb, load_dye(index_of(cell + vec2i(1, 0), DYE_SIZE)).rgb, f.x);\n  let top = mix(load_dye(index_of(cell + vec2i(0, 1), DYE_SIZE)).rgb, load_dye(index_of(cell + vec2i(1, 1), DYE_SIZE)).rgb, f.x);\n  return mix(bottom, top, f.y);\n}\n\n@fragment\nfn fragment_main(@builtin(position) position: vec4f) -> @location(0) vec4f {\n  var uv = akari_uv(position);\n  uv.y = 1.0 - uv.y; // WebGPU fragment coordinates start at the top; the solver's +Y points up.\n  let density = sample_dye(uv);\n  let color = 1.0 - exp(-density * 1.35);\n  let vignette = 0.68 + 0.32 * pow(max(0.0, 1.0 - dot(uv - 0.5, uv - 0.5) * 1.9), 1.5);\n  return vec4f((vec3f(0.003, 0.005, 0.014) + color) * vignette, 1.0);\n}\n"
+    }
+  ]
+}
+</script>
+</div>

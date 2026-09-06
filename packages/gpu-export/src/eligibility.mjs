@@ -291,9 +291,9 @@ function keys(value, allowed, label) {
   }
 }
 function validateVgpuDescriptor(value) {
+  if (object(value) && value.mode === 'stateful') return validateVgpuStatefulDescriptor(value);
   keys(value, ['version', 'mode', 'alphaMode', 'seed', 'uniforms', 'passes'], 'vgpu');
   if (value.version !== 0) throw new TypeError('vgpu version must be 0');
-  if (value.mode === 'stateful') throw new TypeError('vgpu-stateful-unsupported');
   if (value.mode !== 'pure') throw new TypeError('vgpu mode must be pure');
   if (value.alphaMode !== undefined && value.alphaMode !== 'premultiplied') throw new TypeError('vgpu alphaMode must be premultiplied');
   if (value.seed !== undefined && !Number.isFinite(value.seed)) throw new TypeError('vgpu seed must be finite');
@@ -318,6 +318,59 @@ function validateVgpuDescriptor(value) {
   return { ...value, alphaMode: 'premultiplied', seed: value.seed === undefined ? 0 : value.seed, uniforms, passes };
 }
 
+function validateVgpuStatefulDescriptor(value) {
+  keys(value, ['version', 'mode', 'alphaMode', 'seed', 'maxReplaySteps', 'uniforms', 'state', 'passes'], 'vgpu');
+  if (value.version !== 0) throw new TypeError('vgpu version must be 0');
+  if (value.alphaMode !== undefined && value.alphaMode !== 'premultiplied') throw new TypeError('vgpu alphaMode must be premultiplied');
+  if (value.seed !== undefined && !Number.isFinite(value.seed)) throw new TypeError('vgpu seed must be finite');
+  if (!Number.isInteger(value.maxReplaySteps) || value.maxReplaySteps < 1) throw new TypeError('vgpu maxReplaySteps must be a positive integer');
+  const uniforms = value.uniforms === undefined ? {} : value.uniforms;
+  if (!object(uniforms)) throw new TypeError('vgpu uniforms must be an object');
+  for (const [key, uniform] of Object.entries(uniforms)) {
+    if (!Number.isFinite(uniform) && !(Array.isArray(uniform) && uniform.length >= 2
+      && uniform.length <= 4 && uniform.every(Number.isFinite))) throw new TypeError(`vgpu uniform ${key} must be f32 or vec2f/3f/4f`);
+  }
+  if (!Array.isArray(value.state) || value.state.length < 1 || value.state.length > 8) throw new TypeError('vgpu state must contain 1 to 8 resources');
+  const stateIds = new Set();
+  const state = value.state.map(resource => {
+    keys(resource, resource?.kind === 'buffer' ? ['id', 'kind', 'bytes'] : ['id', 'kind', 'format', 'size'], 'vgpu state');
+    if (typeof resource.id !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(resource.id) || stateIds.has(resource.id)) throw new TypeError('vgpu state id must be valid and unique');
+    if (resource.kind === 'buffer') {
+      if (!Number.isInteger(resource.bytes) || resource.bytes <= 0 || resource.bytes > 67108864 || resource.bytes % 4 !== 0) throw new TypeError('vgpu buffer bytes must be a positive multiple of 4 up to 67108864');
+    } else if (resource.kind === 'texture') {
+      if (!['rgba16float', 'rgba8unorm', 'r32float', 'rg32float', 'rgba32float'].includes(resource.format)) throw new TypeError('vgpu state texture format is unsupported');
+      if (!Array.isArray(resource.size) || resource.size.length !== 2 || !resource.size.every(n => Number.isInteger(n) && n > 0 && n <= 4096)) throw new TypeError('vgpu state texture size must contain two positive integers up to 4096');
+    } else throw new TypeError('vgpu state kind must be buffer or texture');
+    stateIds.add(resource.id);
+    return { ...resource };
+  });
+  if (!Array.isArray(value.passes) || !value.passes.length) throw new TypeError('vgpu passes must be nonempty');
+  const seen = new Set();
+  let computing = false;
+  const passes = value.passes.map((pass, index) => {
+    keys(pass, pass?.kind === 'fragment' ? ['id', 'kind', 'wgsl', 'reads', 'writes'] : ['id', 'kind', 'wgsl', 'reads', 'writes', 'dispatch'], 'vgpu pass');
+    if (typeof pass.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pass.id) || seen.has(pass.id)) throw new TypeError('vgpu pass id must be valid and unique');
+    if (typeof pass.wgsl !== 'string' || !pass.wgsl.trim()) throw new TypeError('vgpu pass wgsl must be nonempty');
+    if (!['init', 'compute', 'fragment'].includes(pass.kind)) throw new TypeError('vgpu pass kind must be init, compute or fragment');
+    const reads = pass.reads === undefined ? [] : pass.reads;
+    const writes = pass.writes === undefined ? [] : pass.writes;
+    for (const list of [reads, writes]) {
+      if (!Array.isArray(list) || list.some(id => typeof id !== 'string' || !stateIds.has(id)) || new Set(list).size !== list.length) throw new TypeError('vgpu reads/writes must reference unique state ids');
+    }
+    if (pass.kind === 'fragment') {
+      if (index !== value.passes.length - 1 || writes.length) throw new TypeError('vgpu fragment must be last and cannot write state');
+    } else {
+      if (index === value.passes.length - 1) throw new TypeError('vgpu requires one final fragment');
+      if (!Array.isArray(pass.dispatch) || pass.dispatch.length !== 3 || !pass.dispatch.every(n => Number.isInteger(n) && n >= 1)) throw new TypeError('vgpu dispatch must contain three positive integers');
+      if (pass.kind === 'init' && (computing || reads.length || !writes.length)) throw new TypeError('vgpu init must precede compute, write state and have no reads');
+      if (pass.kind === 'compute') computing = true;
+    }
+    seen.add(pass.id);
+    return { ...pass, reads, writes };
+  });
+  return { ...value, alphaMode: 'premultiplied', seed: value.seed === undefined ? 0 : value.seed, uniforms, state, passes };
+}
+
 function classifyVgpuOverlay(source, names) {
   const degraded = reason => ({ classification: "degraded", reason });
   if (/data-akari-3d-scene/iu.test(source)) return degraded("vgpu-condition:three-or-canvas-runtime(data-akari-3d-scene)");
@@ -327,9 +380,9 @@ function classifyVgpuOverlay(source, names) {
     .filter(([, tag]) => /\btype\s*=\s*["']application\/json["']/iu.test(tag) && /\bdata-akari-vgpu-scene(?:\s|=|$)/iu.test(tag));
   if (scripts.length !== 1) return degraded("vgpu-invalid-declaration");
   try {
-    validateVgpuDescriptor(JSON.parse(scripts[0][2]));
-    return { classification: "vgpu", reason: "vgpu-scene-canvas-direct" };
-  } catch (error) {
-    return degraded(error.message === "vgpu-stateful-unsupported" ? error.message : "vgpu-invalid-declaration");
+    const descriptor = validateVgpuDescriptor(JSON.parse(scripts[0][2]));
+    return { classification: "vgpu", reason: descriptor.mode === "stateful" ? "vgpu-scene-stateful-direct" : "vgpu-scene-canvas-direct" };
+  } catch {
+    return degraded("vgpu-invalid-declaration");
   }
 }

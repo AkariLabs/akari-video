@@ -16,7 +16,13 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
   const gpu = sheet(neon);
   assert.ok(gpu.indexOf('window.AkariVgpu=') < gpu.indexOf('window.akari.vgpuRuntime ='));
   assert.match(gpu, /await window\.akari\.vgpuRuntime\.probe\(\)/);
-  assert.match(gpu, /window\.akari\.vgpuRuntime\.render\(vgpuContainer, localSeconds\)/);
+  assert.match(gpu, /window\.akari\.vgpuRuntime\.render\(vgpuContainer, localSeconds, \{ fps: 30 \}\)/);
+  const alternateFps = 24;
+  const alternateSheet = renderOverlaySheet({
+    overlays: [{ id: 'v', start: 0, duration: 1, html: neon }],
+    edit: { ...edit, output: { ...edit.output, fps: alternateFps } }, projectRoot: process.cwd(), duration: 1,
+  });
+  assert.ok(alternateSheet.includes(`window.akari.vgpuRuntime.render(vgpuContainer, localSeconds, { fps: ${alternateFps} });`));
   assert.match(gpu, /pendingVgpuDraws\.push\(\[vgpuContainer, seconds - start\]\)/);
   for (const [html, hash] of [
     ['<div>static</div>', '5078fecb28be4bf74705d4b87ff01677ff78c67d1fd92cf7ca78f98f66c39d7e'],

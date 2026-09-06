@@ -3909,7 +3909,7 @@ function createOverlayRuntime() {
       if (o.isGlass && o.glassReady) window.akari?.glassRuntime?.render(o.el, ms / 1000, {});
       if (o.isVgpu && o.vgpuReady) {
         try {
-          window.akari?.vgpuRuntime?.render(o.el, ms / 1000, { previewScale: PREVIEW_VGPU_SCALE });
+          window.akari?.vgpuRuntime?.render(o.el, ms / 1000, { previewScale: PREVIEW_VGPU_SCALE, fps: o.fps || fps || 30 });
         } catch (error) {
           o.vgpuReady = false;
           showVgpuFallback(o.el);

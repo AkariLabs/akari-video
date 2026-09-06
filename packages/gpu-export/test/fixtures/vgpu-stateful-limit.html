@@ -1,5 +1,5 @@
 <div class="vgpu-fx" style="position:absolute;inset:0">
-<!-- AKARI original deterministic trail shader. -->
+<!-- AKARI original deterministic trail shader; replay limit fixture. -->
 <canvas></canvas>
 <div data-akari-vgpu-fallback style="display:none">WebGPU effect unavailable</div>
 <script type="application/json" data-akari-vgpu-scene>
@@ -8,7 +8,7 @@
   "mode": "stateful",
   "alphaMode": "premultiplied",
   "seed": 1234,
-  "maxReplaySteps": 1800,
+  "maxReplaySteps": 5,
   "uniforms": {
     "stir": 1
   },

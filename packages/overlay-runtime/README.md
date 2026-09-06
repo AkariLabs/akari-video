@@ -72,6 +72,9 @@ vgpu overlay を扱うホストは、three 群がある場合はその後に
 プレビューは `render(container, localTimeSeconds, { previewScale: 0.5 })`、非表示化と unmount で
 `dispose(container)` を呼ぶ。probe と render の失敗を捕捉して任意の `[data-akari-vgpu-fallback]` を表示し、
 警告は 1 回にまとめる。共有 device は container の破棄時には落とさない。
+`mode: "stateful"` の断片では `render(container, localTimeSeconds, { fps })` の `fps`（= `edit.output.fps`）が必須で、省略すると TypeError になる。
+stateful のプレビューは上の options にも `fps` を加え、`{ previewScale: 0.5, fps }` を渡す。
+逆戻りシークは reset + 固定ステップ replay で追従し、`maxReplaySteps` 超過は `VGPU-REPLAY-LIMIT` で失敗する。
 宣言と純関数・解像度の約束は [vgpu v0 契約](../../docs/contract-2026-09-06-vgpu-layer-v0.md) を参照。
 
 ## ホストアダプタ契約（新シェル実装者向け — 本パッケージへの入力）
@@ -531,8 +534,8 @@ npm グローバルインストール禁止の制約内で完結するよう、�
 entry `akari-vgpu-entry.js`:
 
 ```js
-import { init, effect, surface, target, frame, sampler, uniforms, clock, VGPUError } from "vgpu";
-window.AkariVgpu = Object.freeze({ init, effect, surface, target, frame, sampler, uniforms, clock, VGPUError });
+import { init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError } from "vgpu";
+window.AkariVgpu = Object.freeze({ init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError });
 ```
 
 再生成（空の一時ディレクトリ、macOS arm64。リポの package.json / lock は変更しない）:
@@ -557,7 +560,7 @@ wc -c vgpu-bundle.js
 shasum -a 256 vgpu-bundle.js
 ```
 
-実測: **152953 bytes** / SHA-256 `9251bb41157e72e36211af2d0766de72db7251023fb2b968c15bdc529c111c25`。
+実測: **156447 bytes** / SHA-256 `adf071ead35c31bdaabaa2c65ea18c8a5a2502b5ed122c61a7ff88048615f8a3`。
 metafile の npm 入力は `vgpu` / `@vgpu/core` / `@vgpu/wgsl` の 3 パッケージのみ。
 上記 grep は **0 件**。`vgpu/node` / `vgpu/three` / `vgpu/mock` の entry は使用しない。
 唯一の URL 文字列 `https://github.com/vercel-labs/vgpu/issues/294` はエラーメッセージの参照先で、実行時 fetch ではない。
