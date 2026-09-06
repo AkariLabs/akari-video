@@ -531,8 +531,8 @@ npm グローバルインストール禁止の制約内で完結するよう、�
 entry `akari-vgpu-entry.js`:
 
 ```js
-import { init, effect, surface, target, frame, sampler, uniforms, clock, VGPUError } from "vgpu";
-window.AkariVgpu = Object.freeze({ init, effect, surface, target, frame, sampler, uniforms, clock, VGPUError });
+import { init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError } from "vgpu";
+window.AkariVgpu = Object.freeze({ init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError });
 ```
 
 再生成（空の一時ディレクトリ、macOS arm64。リポの package.json / lock は変更しない）:
@@ -557,7 +557,7 @@ wc -c vgpu-bundle.js
 shasum -a 256 vgpu-bundle.js
 ```
 
-実測: **152953 bytes** / SHA-256 `9251bb41157e72e36211af2d0766de72db7251023fb2b968c15bdc529c111c25`。
+実測: **156447 bytes** / SHA-256 `adf071ead35c31bdaabaa2c65ea18c8a5a2502b5ed122c61a7ff88048615f8a3`。
 metafile の npm 入力は `vgpu` / `@vgpu/core` / `@vgpu/wgsl` の 3 パッケージのみ。
 上記 grep は **0 件**。`vgpu/node` / `vgpu/three` / `vgpu/mock` の entry は使用しない。
 唯一の URL 文字列 `https://github.com/vercel-labs/vgpu/issues/294` はエラーメッセージの参照先で、実行時 fetch ではない。
