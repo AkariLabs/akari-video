@@ -45,6 +45,30 @@ const identityTransform = value => ({
     rotate: Number.isFinite(value?.rotate) ? value.rotate : 0
 });
 
+test('motion seats survive both layer and cut summary boundaries without injecting absent motion', () => {
+    const motion = {
+        in: { preset: 'slide-up', duration: 12, ease: 'out-cubic', amount: 40 },
+        out: { preset: 'fade', duration: 8 },
+        loop: { preset: 'spin', period: 60, amount: -1 }
+    };
+    for (const declaration of [motion, undefined, null, []]) {
+        const layer = buildLayerSummaryBase({ id: 'moving', t: 1, duration: 3,
+            kind: 'video', src: 'main', motion: declaration },
+        'layers[0]', identityTransform, new Map(), noopWarn);
+        const cut = buildCutSummaryFields({ src: 'main', in: 0, out: 3, motion: declaration },
+            'main', id => id === 'main', identityTransform, noopWarn);
+        assert.equal(layer.ok, true);
+        assert.equal(cut.ok, true);
+        if (declaration === motion) {
+            assert.deepEqual(layer.base.motion, motion);
+            assert.deepEqual(cut.fields.motion, motion);
+        } else {
+            assert.equal('motion' in layer.base, false);
+            assert.equal('motion' in cut.fields, false);
+        }
+    }
+});
+
 test('buildLayerSummaryBase: crop and perspective from a realistic edit.json layer reach the summary base', () => {
     const layer = {
         id: 'l-pip-1',

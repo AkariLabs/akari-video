@@ -44,6 +44,21 @@ updated: 2026-08-30
 - HTML 部品の L0 は既存どおり `vars`（CSS 変数 `--anim-duration / stagger / distance / easing / delay`）。`motion` は native アイテム（telop / media / caption / group）用
 - グループの `motion` は子全体にかかる（グループ = 小さなコンポジション）
 
+- **実装状態（2026-09-06）**: frame-engine の layer / cut 評価で `motion` を描画する。シェルプレビュー / gpu / osr の 3 出口で同じ評価を使う
+- `amount` の既定値は次表。`scale` / `pulse` は倍率に対する差分（0.2 = 20%）、`spin` は回転方向（±1）
+
+| プリセット | `amount` の既定値 |
+|---|---|
+| `slide-up` / `slide-down` / `slide-left` / `slide-right` | 40 px |
+| `scale` | 0.2 |
+| `pulse` | 0.05 |
+| `float` | 6 px |
+| `spin` | 1（回転方向）|
+
+- 合成は **keyframes の結果（未指定なら静的値）に motion を合成する 1 段**。`in` / `out` / `loop` の `dx` / `dy` / `rotate` は加算、`scale` と `opacity` は乗算、`reveal`（wipe）は交差
+- `wipe` は crop 窓の中の表示率 `reveal` で表し、隠れた部分は完全透過。閉じた端点でも crop の幅・高さは `Number.EPSILON` 以上を保ち、opacity 0 で完全透過にする
+- `duration` / `period` が 0 以下・非有限、または未知 preset の席は描画で無視する。未知 preset は席ごとに lint warning `motion.unknown-preset`（path は `.motion.in` / `.motion.out` / `.motion.loop`）
+
 ## 2. L1 キーフレーム — `keyframes` の一般化
 
 ### 2.1 形（1 つだけ: 点形）
