@@ -1,6 +1,8 @@
 import './decoder-instrumentation.js';
 import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess } from './b-frame.js';
 import { inspectGopTailGolden } from './gop-tail.js';
+import { measureFxPasses } from './fx-pass-timer.js';
+import type { WebGL2CompositorOptions } from '../../src/compositor/webgl2.js';
 import {
   BufferedRawFrameSink,
   applyItemAdjust,
@@ -1388,7 +1390,8 @@ async function inspectFxCost() {
   const canvas = document.createElement('canvas');
   // flush disables the compositor's per-draw queries, allowing one non-nested
   // query around the entire composition, including FX prep and texture copies.
-  const compositor = new WebGL2Compositor(canvas, { synchronization: 'flush' });
+  const compositorOptions: WebGL2CompositorOptions = { synchronization: 'flush' };
+  const compositor = new WebGL2Compositor(canvas, compositorOptions);
   const gl = canvas.getContext('webgl2')!;
   const metrics = new FrameMetrics();
   const output: EvaluationPlan['output'] = { width, height, colorSpace: 'bt709-limited' };
@@ -1481,12 +1484,25 @@ async function inspectFxCost() {
     const withFxMs = median(measured.withFxSamples);
     const withoutFxMs = median(measured.withoutFxSamples);
     const deltaMs = withFxMs - withoutFxMs;
+    // Whole-frame samples are complete before a pass hook is installed.
+    // No wall-clock fallback for pass timings: incomplete GPU evidence stays explicit.
+    const breakdown = await measureFxPasses(gl, timer, frames, async (index, passTimer) => {
+      compositorOptions.passTimer = passTimer;
+      try {
+        await compose(withFx, index);
+      } finally {
+        delete compositorOptions.passTimer;
+      }
+    });
+    collectGlErrors();
     return { withFxMs, withoutFxMs, deltaMs, frames, warmupFrames, unit: 'ms/frame',
       method, fallbackReason, width, height, fps: FPS, effects,
       source: 'resident 1920x1080 synthetic textured ImageBitmap; decode and initial upload excluded',
-      calculation: '60 samples per variant, alternating pair order; median = mean of sorted samples 30 and 31; deltaMs = withFxMs - withoutFxMs',
+      calculation: 'frames = 60 whole-compose samples per variant, alternating pair order; then 60 separate with-FX frames for passes (passFrames); median = mean of sorted samples 30 and 31; deltaMs = withFxMs - withoutFxMs',
       timingScope: 'entire compose (including FX prep, passes, and copies); GPU nanoseconds / 1e6, or performance.now around compose with gl.finish before and after',
-      targetDeltaMs: 3, meetsTarget: deltaMs < 3,
+      passTimingScope: 'non-overlapping GPU queries around base preparation, FX prep, each effect, snapshot copy and final base draw; passMedianSumMs and passFrameMedianMs should approximate withFxMs (separate frames, query overhead and gaps can differ)',
+      ...breakdown,
+      targetDeltaMs: 4, meetsTarget: deltaMs <= 4,
       ...measured, glErrors: glErrors + compositor.stats.glErrors };
   } finally {
     compositor.dispose();

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { planFxPasses, fxWorkingSize, fxGaussianGeometry } from '../dist/compositor/fx-passes.js';
+import { planFxPasses, fxWorkingSize, fxGaussianGeometry, fxGaussianWeights } from '../dist/compositor/fx-passes.js';
 import { normalizeAdjustFx } from '../dist/adjust/fx.js';
 
 test('pass planner expands each effect to the contract pass count', () => {
@@ -41,7 +41,7 @@ test('work size is the crop texel size capped independently by output bounds', (
 
 test('Gaussian geometry converts output pixels and reduces large radii within 33 dense taps', () => {
   const work = { width: 1920, height: 1080 };
-  for (const [px, divisor] of [[8, 1], [16, 1], [17, 2], [30, 2], [50, 4]]) {
+  for (const [px, divisor] of [[8, 1], [16, 1], [17, 2], [20, 2], [30, 2], [50, 4]]) {
     const result = fxGaussianGeometry(px, 1920, work, work);
     assert.deepEqual(result.reduced, { width: work.width / divisor, height: work.height / divisor });
     assert.equal(result.radiusX, px / divisor);
@@ -51,4 +51,27 @@ test('Gaussian geometry converts output pixels and reduces large radii within 33
   const scaled = fxGaussianGeometry(8, 960, { width: 960, height: 540 }, work);
   assert.equal(scaled.radiusX, 2);
   assert.equal(scaled.radiusY, 2);
+});
+
+test('precomputed Gaussian matches the previous normalized kernel, including fractional and zero radii', () => {
+  for (const radius of [0, 0.01, 0.5, 1, 2.25, 8, 10, 15.9, 16]) {
+    const { weights, tapCount } = fxGaussianWeights(radius);
+    assert.equal(weights.length, 17);
+    assert.equal(tapCount, Math.ceil(radius));
+    const reference = [1, ...Array.from({ length: tapCount }, (_, i) => Math.exp(-0.5 * ((i + 1) / (radius / 2)) ** 2))];
+    const total = reference[0] + 2 * reference.slice(1).reduce((sum, value) => sum + value, 0);
+    for (let tap = 0; tap < weights.length; tap++) {
+      assert.ok(Math.abs(weights[tap] - (reference[tap] ?? 0) / total) < 1e-7);
+      assert.ok(weights[tap] >= 0);
+      if (tap) assert.ok(weights[tap] <= weights[tap - 1]);
+    }
+    assert.ok(Math.abs(weights[0] + 2 * weights.slice(1).reduce((sum, value) => sum + value, 0) - 1) < 1e-7);
+    // Convolving a hard edge has no negative steps, including after RGBA8 rounding.
+    const profile = Array.from({ length: 65 }, (_, x) => {
+      let sum = 0;
+      for (let tap = -tapCount; tap <= tapCount; tap++) if (x + tap >= 32) sum += weights[Math.abs(tap)];
+      return Math.round(sum * 255);
+    });
+    assert.ok(profile.every((value, i) => !i || value >= profile[i - 1]));
+  }
 });

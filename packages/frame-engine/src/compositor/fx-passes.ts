@@ -20,6 +20,13 @@ export interface FxPass<T = ResolvedAdjustFx> {
   effect: T;
 }
 
+/** Gaussian H/V share arithmetic; composite stages need their own specialization. */
+export const FX_PASS_KINDS: Record<FxStage, number> = {
+  vignette: 1, 'gaussian-h': 2, 'gaussian-v': 2, grain: 3, sharpen: 4,
+  'bright-pass': 5, 'glow-composite': 6, 'clarity-composite': 7,
+  dehaze: 8, denoise: 9, 'motion-blur': 10,
+};
+
 /** Pure, ordered effect expansion. Prep is separate; zero-strength stages need no draw. */
 export function planFxPasses<T extends PlannableFx>(fx: readonly T[] = []): FxPass<T>[] {
   return fx.flatMap(effect => {
@@ -54,6 +61,22 @@ export function fxGaussianGeometry(px: number, outputWidth: number, work: FxSize
   return { reduced, radiusX: rx * reduced.width / work.width, radiusY: ry * reduced.height / work.height };
 }
 
+/** Normalized centre + symmetric pairs, computed once per work radius, never per pixel. */
+export function fxGaussianWeights(radius: number): { weights: Float32Array; tapCount: number } {
+  const tapCount = Math.min(16, Math.max(0, Math.ceil(radius)));
+  const weights = new Float32Array(17);
+  weights[0] = 1;
+  let sum = 1;
+  const sigma = radius / 2;
+  for (let tap = 1; tap <= tapCount; tap++) {
+    const weight = Math.exp(-0.5 * (tap / sigma) ** 2);
+    weights[tap] = weight;
+    sum += 2 * weight;
+  }
+  for (let tap = 0; tap <= tapCount; tap++) weights[tap] = weights[tap]! / sum;
+  return { weights, tapCount };
+}
+
 // Work textures use a top-left logical UV at the GL bottom-left, consistently through
 // prep, every effect and the final sampler. Only the final compositor flips output Y.
 export const FX_PASS_FRAGMENT = `#version 300 es
@@ -70,12 +93,14 @@ uniform vec2 cropSize;
 uniform int fxKind;
 uniform vec4 params;
 uniform vec2 direction;
-uniform float radius;
+uniform float gaussianWeights[17];
+uniform int tapCount;
 uniform uint frameIndex;
 vec4 sampleWork(vec2 local) {
   vec2 pixel = clamp(local * inputSize, vec2(0.5), inputSize - 0.5);
   return texture(source, pixel / allocationSize);
 }
+#if FX_KIND == 3
 uint fxHash(uint value) {
   value ^= value >> 16u;
   value *= 0x7feb352du;
@@ -83,10 +108,11 @@ uint fxHash(uint value) {
   value *= 0x846ca68bu;
   return value ^ (value >> 16u);
 }
+#endif
 void main() {
   vec4 src = sampleWork(uv);
   vec3 rgb = src.rgb;
-  if (fxKind == 1) {
+#if FX_KIND == 1
     vec2 local = uv;
     vec2 box = cropSize;
     vec2 delta = abs(local - 0.5) * 2.0;
@@ -96,45 +122,42 @@ void main() {
     float falloff = params.w == 0.0 ? step(params.y, distance)
       : smoothstep(params.y, params.y + params.w, distance);
     rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
-  } else if (fxKind == 2 && radius > 0.0) {
-    float sigma = radius / 2.0;
-    vec3 sum = rgb;
-    float weightSum = 1.0;
+#elif FX_KIND == 2
+    vec3 sum = rgb * gaussianWeights[0];
     // Centre + at most sixteen pairs: 33 taps, a dense separable Gaussian.
     for (int tap = 1; tap <= 16; tap++) {
-      if (float(tap) > ceil(radius)) break;
-      float weight = exp(-0.5 * pow(float(tap) / sigma, 2.0));
+      if (tap > tapCount) break;
+      float weight = gaussianWeights[tap];
       vec2 offset = direction * float(tap);
       sum += (sampleWork(uv - offset).rgb + sampleWork(uv + offset).rgb) * weight;
-      weightSum += 2.0 * weight;
     }
-    rgb = sum / weightSum;
-  } else if (fxKind == 3) {
+    rgb = sum;
+#elif FX_KIND == 3
     vec2 workPixel = uv * workSize;
     uvec2 cell = uvec2(ivec2(floor(workPixel / params.y))) + uvec2(frameIndex);
     uint bits = fxHash(cell.x ^ fxHash(cell.y));
     float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
     rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
-  } else if (fxKind == 4) {
+#elif FX_KIND == 4
     vec3 sum = vec3(0.0);
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) sum += sampleWork(uv + vec2(x, y) / workSize).rgb;
     }
     rgb = clamp(rgb + params.x * (rgb - sum / 9.0), 0.0, 1.0);
-  } else if (fxKind == 5) {
+#elif FX_KIND == 5
     float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
     rgb *= step(params.z, luma);
-  } else if (fxKind == 6 || fxKind == 7) {
+#elif FX_KIND == 6 || FX_KIND == 7
     vec2 pixel = clamp(uv * workSize, vec2(0.5), workSize - 0.5);
     vec4 base = texture(original, pixel / allocationSize);
-    if (fxKind == 6) {
+#if FX_KIND == 6
       vec3 tint = vec3(1.0 + params.w * 0.25, 1.0, 1.0 - params.w * 0.25);
       rgb = clamp(base.rgb + params.x * rgb * tint, 0.0, 1.0);
-    } else {
+#else
       rgb = clamp(base.rgb + params.x * (base.rgb - rgb), 0.0, 1.0);
-    }
+#endif
     src.a = base.a;
-  } else if (fxKind == 8) {
+#elif FX_KIND == 8
     float dark = 1.0;
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) {
@@ -147,7 +170,7 @@ void main() {
     rgb = params.x >= 0.0 ? (rgb - 1.0) / transmission + 1.0
       : rgb * transmission + vec3(1.0 - transmission);
     rgb = clamp(rgb, 0.0, 1.0);
-  } else if (fxKind == 9) {
+#elif FX_KIND == 9
     float sigma = max(0.0001, params.x * 0.25);
     vec3 sum = vec3(0.0);
     float weightSum = 0.0;
@@ -162,13 +185,13 @@ void main() {
       }
     }
     rgb = sum / weightSum;
-  } else if (fxKind == 10) {
+#elif FX_KIND == 10
     vec3 sum = vec3(0.0);
     // direction is the full output-pixel length converted to crop-local UV.
     for (int tap = -8; tap <= 8; tap++) {
       sum += sampleWork(uv + direction * (float(tap) / 16.0)).rgb;
     }
     rgb = sum / 17.0;
-  }
+#endif
   color = vec4(rgb, src.a);
 }`;

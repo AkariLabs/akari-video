@@ -17087,6 +17087,19 @@ var FX_STAGES = {
   denoise: ["denoise"],
   motion_blur: ["motion-blur"]
 };
+var FX_PASS_KINDS = {
+  vignette: 1,
+  "gaussian-h": 2,
+  "gaussian-v": 2,
+  grain: 3,
+  sharpen: 4,
+  "bright-pass": 5,
+  "glow-composite": 6,
+  "clarity-composite": 7,
+  dehaze: 8,
+  denoise: 9,
+  "motion-blur": 10
+};
 function planFxPasses(fx = []) {
   return fx.flatMap((effect) => {
     const strength = effect.id === "blur" || effect.id === "motion_blur" ? effect.px : effect.id === "glow" ? effect.intensity : effect.amount;
@@ -17111,6 +17124,20 @@ function fxGaussianGeometry(px, outputWidth, work, displayed) {
   };
   return { reduced, radiusX: rx * reduced.width / work.width, radiusY: ry * reduced.height / work.height };
 }
+function fxGaussianWeights(radius) {
+  const tapCount = Math.min(16, Math.max(0, Math.ceil(radius)));
+  const weights = new Float32Array(17);
+  weights[0] = 1;
+  let sum = 1;
+  const sigma = radius / 2;
+  for (let tap = 1; tap <= tapCount; tap++) {
+    const weight = Math.exp(-0.5 * (tap / sigma) ** 2);
+    weights[tap] = weight;
+    sum += 2 * weight;
+  }
+  for (let tap = 0; tap <= tapCount; tap++) weights[tap] = weights[tap] / sum;
+  return { weights, tapCount };
+}
 var FX_PASS_FRAGMENT = `#version 300 es
 precision highp float;
 precision highp int;
@@ -17125,12 +17152,14 @@ uniform vec2 cropSize;
 uniform int fxKind;
 uniform vec4 params;
 uniform vec2 direction;
-uniform float radius;
+uniform float gaussianWeights[17];
+uniform int tapCount;
 uniform uint frameIndex;
 vec4 sampleWork(vec2 local) {
   vec2 pixel = clamp(local * inputSize, vec2(0.5), inputSize - 0.5);
   return texture(source, pixel / allocationSize);
 }
+#if FX_KIND == 3
 uint fxHash(uint value) {
   value ^= value >> 16u;
   value *= 0x7feb352du;
@@ -17138,10 +17167,11 @@ uint fxHash(uint value) {
   value *= 0x846ca68bu;
   return value ^ (value >> 16u);
 }
+#endif
 void main() {
   vec4 src = sampleWork(uv);
   vec3 rgb = src.rgb;
-  if (fxKind == 1) {
+#if FX_KIND == 1
     vec2 local = uv;
     vec2 box = cropSize;
     vec2 delta = abs(local - 0.5) * 2.0;
@@ -17151,45 +17181,42 @@ void main() {
     float falloff = params.w == 0.0 ? step(params.y, distance)
       : smoothstep(params.y, params.y + params.w, distance);
     rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
-  } else if (fxKind == 2 && radius > 0.0) {
-    float sigma = radius / 2.0;
-    vec3 sum = rgb;
-    float weightSum = 1.0;
+#elif FX_KIND == 2
+    vec3 sum = rgb * gaussianWeights[0];
     // Centre + at most sixteen pairs: 33 taps, a dense separable Gaussian.
     for (int tap = 1; tap <= 16; tap++) {
-      if (float(tap) > ceil(radius)) break;
-      float weight = exp(-0.5 * pow(float(tap) / sigma, 2.0));
+      if (tap > tapCount) break;
+      float weight = gaussianWeights[tap];
       vec2 offset = direction * float(tap);
       sum += (sampleWork(uv - offset).rgb + sampleWork(uv + offset).rgb) * weight;
-      weightSum += 2.0 * weight;
     }
-    rgb = sum / weightSum;
-  } else if (fxKind == 3) {
+    rgb = sum;
+#elif FX_KIND == 3
     vec2 workPixel = uv * workSize;
     uvec2 cell = uvec2(ivec2(floor(workPixel / params.y))) + uvec2(frameIndex);
     uint bits = fxHash(cell.x ^ fxHash(cell.y));
     float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
     rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
-  } else if (fxKind == 4) {
+#elif FX_KIND == 4
     vec3 sum = vec3(0.0);
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) sum += sampleWork(uv + vec2(x, y) / workSize).rgb;
     }
     rgb = clamp(rgb + params.x * (rgb - sum / 9.0), 0.0, 1.0);
-  } else if (fxKind == 5) {
+#elif FX_KIND == 5
     float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
     rgb *= step(params.z, luma);
-  } else if (fxKind == 6 || fxKind == 7) {
+#elif FX_KIND == 6 || FX_KIND == 7
     vec2 pixel = clamp(uv * workSize, vec2(0.5), workSize - 0.5);
     vec4 base = texture(original, pixel / allocationSize);
-    if (fxKind == 6) {
+#if FX_KIND == 6
       vec3 tint = vec3(1.0 + params.w * 0.25, 1.0, 1.0 - params.w * 0.25);
       rgb = clamp(base.rgb + params.x * rgb * tint, 0.0, 1.0);
-    } else {
+#else
       rgb = clamp(base.rgb + params.x * (base.rgb - rgb), 0.0, 1.0);
-    }
+#endif
     src.a = base.a;
-  } else if (fxKind == 8) {
+#elif FX_KIND == 8
     float dark = 1.0;
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) {
@@ -17202,7 +17229,7 @@ void main() {
     rgb = params.x >= 0.0 ? (rgb - 1.0) / transmission + 1.0
       : rgb * transmission + vec3(1.0 - transmission);
     rgb = clamp(rgb, 0.0, 1.0);
-  } else if (fxKind == 9) {
+#elif FX_KIND == 9
     float sigma = max(0.0001, params.x * 0.25);
     vec3 sum = vec3(0.0);
     float weightSum = 0.0;
@@ -17217,14 +17244,14 @@ void main() {
       }
     }
     rgb = sum / weightSum;
-  } else if (fxKind == 10) {
+#elif FX_KIND == 10
     vec3 sum = vec3(0.0);
     // direction is the full output-pixel length converted to crop-local UV.
     for (int tap = -8; tap <= 8; tap++) {
       sum += sampleWork(uv + direction * (float(tap) / 16.0)).rgb;
     }
     rgb = sum / 17.0;
-  }
+#endif
   color = vec4(rgb, src.a);
 }`;
 
@@ -18331,11 +18358,12 @@ var WebGL2Compositor = class {
   fboTextures;
   fboShape = "";
   fxPrepProgram = null;
-  fxPassProgram = null;
+  fxPassPrograms = /* @__PURE__ */ new Map();
   fxFbos = [];
   fxTextures = [];
   fxOriginalTexture = null;
   fxAllocation = { width: 0, height: 0 };
+  fxWeightCache = /* @__PURE__ */ new Map();
   // A/B must coexist for a transition. These are snapshots, never extra pass FBOs.
   baseFxTextures = [];
   imageTextures = /* @__PURE__ */ new WeakMap();
@@ -18658,6 +18686,29 @@ var WebGL2Compositor = class {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return texture;
   }
+  fxPassProgramFor(kind) {
+    let cached = this.fxPassPrograms.get(kind);
+    if (!cached) {
+      const fragment = FX_PASS_FRAGMENT.replace("#version 300 es", `#version 300 es
+#define FX_KIND ${kind}`);
+      cached = this.fxProgram(fragment, [
+        "source",
+        "original",
+        "allocationSize",
+        "inputSize",
+        "workSize",
+        "cropSize",
+        "fxKind",
+        "params",
+        "direction",
+        "gaussianWeights[0]",
+        "tapCount",
+        "frameIndex"
+      ]);
+      this.fxPassPrograms.set(kind, cached);
+    }
+    return cached;
+  }
   allocateFxTexture(texture, size) {
     const gl = this.gl;
     this.bind(FBO_SCRATCH_UNIT, texture);
@@ -18683,19 +18734,6 @@ var WebGL2Compositor = class {
         "adjustLutSize",
         "adjustLutIntensity"
       ]);
-      this.fxPassProgram = this.fxProgram(FX_PASS_FRAGMENT, [
-        "source",
-        "original",
-        "allocationSize",
-        "inputSize",
-        "workSize",
-        "cropSize",
-        "fxKind",
-        "params",
-        "direction",
-        "radius",
-        "frameIndex"
-      ]);
       for (let i2 = 0; i2 < 2; i2++) {
         this.fxTextures.push(this.createFxTexture());
         const fbo = gl.createFramebuffer();
@@ -18714,6 +18752,7 @@ var WebGL2Compositor = class {
     if (this.fxOriginalTexture) this.allocateFxTexture(this.fxOriginalTexture, this.fxAllocation);
   }
   runFxPasses(passes, source, output, frameIndex, draw) {
+    this.options.passTimer?.("prep");
     this.ensureFxResources(output);
     const gl = this.gl;
     const work = fxWorkingSize(source.size, source.crop, output);
@@ -18744,18 +18783,11 @@ var WebGL2Compositor = class {
       adjustLutIntensity: p2.adjustLutIntensity
     });
     draw();
-    const passProgram = this.fxPassProgram, u2 = passProgram.locations;
-    gl.useProgram(passProgram.program);
-    gl.uniform1i(u2.source, FBO_SCRATCH_UNIT);
-    gl.uniform1i(u2.original, FX_ORIGINAL_UNIT);
     this.bind(FX_ORIGINAL_UNIT, this.fxOriginalTexture ?? this.baseRgbaTextures[0]);
-    gl.uniform2f(u2.allocationSize, this.fxAllocation.width, this.fxAllocation.height);
-    gl.uniform2f(u2.workSize, work.width, work.height);
-    gl.uniform2f(u2.cropSize, source.size.width * source.crop.width, source.size.height * source.crop.height);
-    gl.uniform1ui(u2.frameIndex, frameIndex);
     let current = 0;
     let inputSize = work;
     for (const { stage, effect } of passes) {
+      this.options.passTimer?.(stage === "gaussian-h" ? "blur-h" : stage === "gaussian-v" ? "blur-v" : stage);
       if (stage === "bright-pass" || effect.id === "clarity" && stage === "gaussian-h") {
         this.bind(FBO_SCRATCH_UNIT, this.fxOriginalTexture);
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fxFbos[current]);
@@ -18763,18 +18795,25 @@ var WebGL2Compositor = class {
       }
       const next = 1 - current;
       let targetSize = work;
+      const kind = FX_PASS_KINDS[stage];
+      const passProgram = this.fxPassProgramFor(kind), u2 = passProgram.locations;
+      gl.useProgram(passProgram.program);
+      gl.uniform1i(u2.source, FBO_SCRATCH_UNIT);
+      gl.uniform1i(u2.original, FX_ORIGINAL_UNIT);
+      gl.uniform2f(u2.allocationSize, this.fxAllocation.width, this.fxAllocation.height);
+      gl.uniform2f(u2.workSize, work.width, work.height);
+      gl.uniform2f(u2.cropSize, source.size.width * source.crop.width, source.size.height * source.crop.height);
+      gl.uniform1ui(u2.frameIndex, frameIndex);
       gl.uniform2f(u2.inputSize, inputSize.width, inputSize.height);
+      gl.uniform1i(u2.fxKind, kind);
       switch (effect.id) {
         case "vignette":
-          gl.uniform1i(u2.fxKind, 1);
           gl.uniform4f(u2.params, effect.amount, effect.midpoint, effect.roundness, effect.feather);
           break;
         case "grain":
-          gl.uniform1i(u2.fxKind, 3);
           gl.uniform4f(u2.params, effect.amount, effect.size, 0, 0);
           break;
         case "sharpen":
-          gl.uniform1i(u2.fxKind, 4);
           gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
           break;
         case "blur":
@@ -18782,13 +18821,11 @@ var WebGL2Compositor = class {
         case "clarity": {
           if (stage === "bright-pass" || stage === "glow-composite") {
             if (effect.id !== "glow") throw new Error("Invalid glow pass");
-            gl.uniform1i(u2.fxKind, stage === "bright-pass" ? 5 : 6);
             gl.uniform4f(u2.params, effect.intensity, effect.radius, effect.threshold, effect.warmth);
             break;
           }
           if (stage === "clarity-composite") {
             if (effect.id !== "clarity") throw new Error("Invalid clarity pass");
-            gl.uniform1i(u2.fxKind, 7);
             gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
             break;
           }
@@ -18800,8 +18837,15 @@ var WebGL2Compositor = class {
           );
           const horizontal = stage === "gaussian-h";
           if (horizontal) targetSize = geometry.reduced;
-          gl.uniform1i(u2.fxKind, 2);
-          gl.uniform1f(u2.radius, horizontal ? geometry.radiusX : geometry.radiusY);
+          const radius = horizontal ? geometry.radiusX : geometry.radiusY;
+          let kernel = this.fxWeightCache.get(radius);
+          if (!kernel) {
+            kernel = fxGaussianWeights(radius);
+            if (this.fxWeightCache.size >= 64) this.fxWeightCache.clear();
+            this.fxWeightCache.set(radius, kernel);
+          }
+          gl.uniform1fv(u2["gaussianWeights[0]"], kernel.weights);
+          gl.uniform1i(u2.tapCount, kernel.tapCount);
           gl.uniform2f(
             u2.direction,
             horizontal ? 1 / geometry.reduced.width : 0,
@@ -18811,13 +18855,11 @@ var WebGL2Compositor = class {
         }
         case "dehaze":
         case "denoise":
-          gl.uniform1i(u2.fxKind, effect.id === "dehaze" ? 8 : 9);
           gl.uniform4f(u2.params, effect.amount, 0, 0, 0);
           break;
         case "motion_blur": {
           const length = effect.px * output.width / 1920;
           const angle = effect.angle * Math.PI / 180;
-          gl.uniform1i(u2.fxKind, 10);
           gl.uniform2f(
             u2.direction,
             Math.cos(angle) * length / Math.max(source.displayed.width, 1e-6),
@@ -18833,9 +18875,11 @@ var WebGL2Compositor = class {
       current = next;
       inputSize = targetSize;
     }
+    this.options.passTimer?.(null);
     return { texture: this.fxTextures[current], size: work, crop: source.crop };
   }
   snapshotBaseFx(index, result) {
+    this.options.passTimer?.("snapshot-copy");
     const gl = this.gl;
     let snapshot = this.baseFxTextures[index];
     if (!snapshot) {
@@ -18848,6 +18892,7 @@ var WebGL2Compositor = class {
     }
     this.bind(FBO_SCRATCH_UNIT, snapshot.texture);
     gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, result.size.width, result.size.height);
+    this.options.passTimer?.(null);
     return { ...result, texture: snapshot.texture };
   }
   ensureFbos(w, h) {
@@ -19079,11 +19124,13 @@ var WebGL2Compositor = class {
     const look = output.look ?? null;
     const lookIntensity = look ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1)) : 0;
     const hasLook = look !== null && lookIntensity > 0;
+    this.options.passTimer?.("base-prepare");
     const baseProgram = base.length > 0 ? this.baseProgramFor(plan.transition?.type ?? "hard-cut") : null;
     let uploadElapsedMs = baseProgram ? this.prepareBase(base, plan, output, baseProgram) : 0;
+    this.options.passTimer?.(null);
     let shaderElapsedMs = 0;
     const synchronization = this.options.synchronization ?? "finish";
-    const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
+    const timer = synchronization === "finish" && !this.options.passTimer ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
     const queries = [];
     const draw = () => {
       const query = timer ? gl.createQuery() : null;
@@ -19098,8 +19145,10 @@ var WebGL2Compositor = class {
     };
     if (baseProgram) this.prepareBaseFx(base, plan, baseProgram, draw);
     if (layers.length === 0 && !hasLook && baseProgram) {
+      this.options.passTimer?.("base-draw");
       this.configureBaseDraw(plan, null, baseProgram);
       draw();
+      this.options.passTimer?.(null);
       this.recordGlErrors(synchronization);
       metrics.record("upload", uploadElapsedMs);
       this.finishFrame(
@@ -19119,8 +19168,10 @@ var WebGL2Compositor = class {
     }
     this.ensureFbos(output.width, output.height);
     if (baseProgram) {
+      this.options.passTimer?.("base-draw");
       this.configureBaseDraw(plan, this.fbos[0], baseProgram);
       draw();
+      this.options.passTimer?.(null);
       this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
@@ -19383,7 +19434,8 @@ var WebGL2Compositor = class {
     for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
     for (const f2 of this.fxFbos) this.gl.deleteFramebuffer(f2);
     if (this.fxPrepProgram) this.gl.deleteProgram(this.fxPrepProgram.program);
-    if (this.fxPassProgram) this.gl.deleteProgram(this.fxPassProgram.program);
+    for (const value of this.fxPassPrograms.values()) this.gl.deleteProgram(value.program);
+    this.fxPassPrograms.clear();
     this.gl.deleteBuffer(this.vertices);
     for (const value of this.basePrograms.values())
       this.gl.deleteProgram(value.program);

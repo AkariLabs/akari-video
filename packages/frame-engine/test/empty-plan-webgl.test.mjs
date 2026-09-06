@@ -100,13 +100,16 @@ test('WebGL2 compositor keeps an empty plan black when an identity look is activ
   });
 });
 
-test('base-only draw body remains byte-identical to the base commit', () => {
+test('base-only draw body remains byte-identical apart from the optional diagnostic boundary', () => {
   // Exclude the routing condition: this hash pins the established base draw body only.
   const section = sourceSection(
     '      this.configureBaseDraw(plan, null, baseProgram!);',
     '    this.ensureFbos',
   );
-  assert.equal(sha256(section), '01a6ddcc3ed9b58e0062fabe80438c99c9f11e3c0d6ed75e21f3edd258f15d19');
+  // r2 adds a query-end hook after draw, without changing any rendering operation.
+  const diagnosticBoundary = '      this.options.passTimer?.(null);\n';
+  assert.equal(section.split(diagnosticBoundary).length, 2);
+  assert.equal(sha256(section.replace(diagnosticBoundary, '')), '01a6ddcc3ed9b58e0062fabe80438c99c9f11e3c0d6ed75e21f3edd258f15d19');
 });
 
 test('layer compositor path matches the source-space fx pass revision', () => {
@@ -117,4 +120,11 @@ test('layer compositor path matches the source-space fx pass revision', () => {
   // r1 replaces inline fx uniforms with conditional prep/effect draws, then restores the
   // composite framebuffer and viewport. The no-fx base draw hash above stays unchanged.
   assert.equal(sha256(section), 'a8e964e94cd6cf39aa7f28e8333fd6d2949df5294e4d9f0c2c26dc761d4be4da');
+});
+
+test('FX program cache and pass dispatch match the compile-time specialization revision', () => {
+  // The base-only and layer draw sections above did not change. Pin the changed
+  // FX section separately: lazy programs, cached locations and per-pass uniforms.
+  const section = sourceSection('  private fxPassProgramFor(', '  private snapshotBaseFx(');
+  assert.equal(sha256(section), '03764771c26a0c3a1b065e3f7dcc7ac2e995c901e917adf76b78a567962d522f');
 });

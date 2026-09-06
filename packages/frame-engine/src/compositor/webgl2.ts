@@ -14,7 +14,7 @@ import type {
 } from '../types.js';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import type { ParsedCubeLut } from '../look/cube.js';
-import { planFxPasses, fxWorkingSize, fxGaussianGeometry, FX_PASS_FRAGMENT, type FxCrop, type FxSize, type FxPass } from './fx-passes.js';
+import { planFxPasses, fxWorkingSize, fxGaussianGeometry, fxGaussianWeights, FX_PASS_FRAGMENT, FX_PASS_KINDS, type FxCrop, type FxSize, type FxPass } from './fx-passes.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
 import { dissolveNoiseField } from './dissolve-noise.js';
 
@@ -210,6 +210,11 @@ interface GpuTimerExtension {
 export interface WebGL2CompositorOptions {
   synchronization?: 'finish' | 'flush';
   uploadPath?: UploadPath;
+  /** Diagnostic only. Consecutive stage boundaries; null ends the last stage.
+   * The caller owns queries and must not wrap compose in another elapsed query.
+   * Omitted in production: no callbacks or diagnostic queries are executed.
+   */
+  passTimer?: (stage: string | null) => void;
 }
 
 export class DirectUploadFallbackError extends Error {
@@ -1061,11 +1066,12 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly fboTextures: WebGLTexture[];
   private fboShape = '';
   private fxPrepProgram: FxProgram | null = null;
-  private fxPassProgram: FxProgram | null = null;
+  private readonly fxPassPrograms = new Map<number, FxProgram>();
   private readonly fxFbos: WebGLFramebuffer[] = [];
   private readonly fxTextures: WebGLTexture[] = [];
   private fxOriginalTexture: WebGLTexture | null = null;
   private fxAllocation: FxSize = { width: 0, height: 0 };
+  private readonly fxWeightCache = new Map<number, ReturnType<typeof fxGaussianWeights>>();
   // A/B must coexist for a transition. These are snapshots, never extra pass FBOs.
   private readonly baseFxTextures: Array<{ texture: WebGLTexture; allocation: FxSize }> = [];
   private readonly imageTextures = new WeakMap<
@@ -1541,6 +1547,20 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return texture;
   }
+  private fxPassProgramFor(kind: number): FxProgram {
+    let cached = this.fxPassPrograms.get(kind);
+    if (!cached) {
+      // Keep #version first. Preprocessing removes every other effect before ANGLE
+      // translates the shader, avoiding the register cost of the former uber shader.
+      const fragment = FX_PASS_FRAGMENT.replace('#version 300 es', `#version 300 es\n#define FX_KIND ${kind}`);
+      cached = this.fxProgram(fragment, [
+        'source', 'original', 'allocationSize', 'inputSize', 'workSize', 'cropSize', 'fxKind',
+        'params', 'direction', 'gaussianWeights[0]', 'tapCount', 'frameIndex',
+      ]);
+      this.fxPassPrograms.set(kind, cached);
+    }
+    return cached;
+  }
   private allocateFxTexture(texture: WebGLTexture, size: FxSize): void {
     const gl = this.gl;
     this.bind(FBO_SCRATCH_UNIT, texture);
@@ -1553,10 +1573,6 @@ export class WebGL2Compositor implements CompositorBackend {
         'sourceY', 'sourceU', 'sourceV', 'sourceRgba', 'sourceFormat', 'sourceRotation',
         'preserveAlpha', 'sourceSize', 'cropRect', 'adjustLut', 'hasAdjustLut',
         'adjustLutDomainMin', 'adjustLutDomainMax', 'adjustLutSize', 'adjustLutIntensity',
-      ]);
-      this.fxPassProgram = this.fxProgram(FX_PASS_FRAGMENT, [
-        'source', 'original', 'allocationSize', 'inputSize', 'workSize', 'cropSize', 'fxKind',
-        'params', 'direction', 'radius', 'frameIndex',
       ]);
       for (let i = 0; i < 2; i++) {
         this.fxTextures.push(this.createFxTexture());
@@ -1576,6 +1592,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private runFxPasses(
     passes: readonly FxPass[], source: FxSource, output: FxSize, frameIndex: number, draw: () => void,
   ): FxResult {
+    this.options.passTimer?.('prep');
     this.ensureFxResources(output);
     const gl = this.gl;
     const work = fxWorkingSize(source.size, source.crop, output);
@@ -1604,18 +1621,11 @@ export class WebGL2Compositor implements CompositorBackend {
       adjustLutIntensity: p.adjustLutIntensity!,
     });
     draw();
-    const passProgram = this.fxPassProgram!, u = passProgram.locations;
-    gl.useProgram(passProgram.program);
-    gl.uniform1i(u.source!, FBO_SCRATCH_UNIT);
-    gl.uniform1i(u.original!, FX_ORIGINAL_UNIT);
     this.bind(FX_ORIGINAL_UNIT, this.fxOriginalTexture ?? this.baseRgbaTextures[0]!);
-    gl.uniform2f(u.allocationSize!, this.fxAllocation.width, this.fxAllocation.height);
-    gl.uniform2f(u.workSize!, work.width, work.height);
-    gl.uniform2f(u.cropSize!, source.size.width * source.crop.width, source.size.height * source.crop.height);
-    gl.uniform1ui(u.frameIndex!, frameIndex);
     let current = 0;
     let inputSize = work;
     for (const { stage, effect } of passes) {
+      this.options.passTimer?.(stage === 'gaussian-h' ? 'blur-h' : stage === 'gaussian-v' ? 'blur-v' : stage);
       if (stage === 'bright-pass' || (effect.id === 'clarity' && stage === 'gaussian-h')) {
         // Preserve this effect's input, including all earlier effects, without a third FBO.
         this.bind(FBO_SCRATCH_UNIT, this.fxOriginalTexture!);
@@ -1624,18 +1634,27 @@ export class WebGL2Compositor implements CompositorBackend {
       }
       const next = 1 - current;
       let targetSize = work;
+      const kind = FX_PASS_KINDS[stage];
+      const passProgram = this.fxPassProgramFor(kind), u = passProgram.locations;
+      gl.useProgram(passProgram.program);
+      // Uniform state belongs to each program. Refresh all common inputs after
+      // binding, even on cache hits and when H/V reuse the same Gaussian program.
+      gl.uniform1i(u.source!, FBO_SCRATCH_UNIT);
+      gl.uniform1i(u.original!, FX_ORIGINAL_UNIT);
+      gl.uniform2f(u.allocationSize!, this.fxAllocation.width, this.fxAllocation.height);
+      gl.uniform2f(u.workSize!, work.width, work.height);
+      gl.uniform2f(u.cropSize!, source.size.width * source.crop.width, source.size.height * source.crop.height);
+      gl.uniform1ui(u.frameIndex!, frameIndex);
       gl.uniform2f(u.inputSize!, inputSize.width, inputSize.height);
+      gl.uniform1i(u.fxKind!, kind);
       switch (effect.id) {
         case 'vignette':
-          gl.uniform1i(u.fxKind!, 1);
           gl.uniform4f(u.params!, effect.amount, effect.midpoint, effect.roundness, effect.feather);
           break;
         case 'grain':
-          gl.uniform1i(u.fxKind!, 3);
           gl.uniform4f(u.params!, effect.amount, effect.size, 0, 0);
           break;
         case 'sharpen':
-          gl.uniform1i(u.fxKind!, 4);
           gl.uniform4f(u.params!, effect.amount, 0, 0, 0);
           break;
         case 'blur':
@@ -1643,13 +1662,11 @@ export class WebGL2Compositor implements CompositorBackend {
         case 'clarity': {
           if (stage === 'bright-pass' || stage === 'glow-composite') {
             if (effect.id !== 'glow') throw new Error('Invalid glow pass');
-            gl.uniform1i(u.fxKind!, stage === 'bright-pass' ? 5 : 6);
             gl.uniform4f(u.params!, effect.intensity, effect.radius, effect.threshold, effect.warmth);
             break;
           }
           if (stage === 'clarity-composite') {
             if (effect.id !== 'clarity') throw new Error('Invalid clarity pass');
-            gl.uniform1i(u.fxKind!, 7);
             gl.uniform4f(u.params!, effect.amount, 0, 0, 0);
             break;
           }
@@ -1657,21 +1674,27 @@ export class WebGL2Compositor implements CompositorBackend {
             output.width, work, source.displayed);
           const horizontal = stage === 'gaussian-h';
           if (horizontal) targetSize = geometry.reduced;
-          gl.uniform1i(u.fxKind!, 2);
-          gl.uniform1f(u.radius!, horizontal ? geometry.radiusX : geometry.radiusY);
+          const radius = horizontal ? geometry.radiusX : geometry.radiusY;
+          let kernel = this.fxWeightCache.get(radius);
+          if (!kernel) {
+            kernel = fxGaussianWeights(radius);
+            // Animated radii must not grow a session-long cache without bound.
+            if (this.fxWeightCache.size >= 64) this.fxWeightCache.clear();
+            this.fxWeightCache.set(radius, kernel);
+          }
+          gl.uniform1fv(u['gaussianWeights[0]']!, kernel.weights);
+          gl.uniform1i(u.tapCount!, kernel.tapCount);
           gl.uniform2f(u.direction!, horizontal ? 1 / geometry.reduced.width : 0,
             horizontal ? 0 : 1 / geometry.reduced.height);
           break;
         }
         case 'dehaze':
         case 'denoise':
-          gl.uniform1i(u.fxKind!, effect.id === 'dehaze' ? 8 : 9);
           gl.uniform4f(u.params!, effect.amount, 0, 0, 0);
           break;
         case 'motion_blur': {
           const length = effect.px * output.width / 1920;
           const angle = effect.angle * Math.PI / 180;
-          gl.uniform1i(u.fxKind!, 10);
           gl.uniform2f(u.direction!, Math.cos(angle) * length / Math.max(source.displayed.width, 1e-6),
             Math.sin(angle) * length / Math.max(source.displayed.height, 1e-6));
           break;
@@ -1684,9 +1707,11 @@ export class WebGL2Compositor implements CompositorBackend {
       current = next;
       inputSize = targetSize;
     }
+    this.options.passTimer?.(null);
     return { texture: this.fxTextures[current]!, size: work, crop: source.crop };
   }
   private snapshotBaseFx(index: number, result: FxResult): FxResult {
+    this.options.passTimer?.('snapshot-copy');
     const gl = this.gl;
     let snapshot = this.baseFxTextures[index];
     if (!snapshot) {
@@ -1699,6 +1724,7 @@ export class WebGL2Compositor implements CompositorBackend {
     }
     this.bind(FBO_SCRATCH_UNIT, snapshot.texture);
     gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, result.size.width, result.size.height);
+    this.options.passTimer?.(null);
     return { ...result, texture: snapshot.texture };
   }
   private ensureFbos(w: number, h: number) {
@@ -1958,15 +1984,17 @@ export class WebGL2Compositor implements CompositorBackend {
       ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1))
       : 0;
     const hasLook = look !== null && lookIntensity > 0;
+    this.options.passTimer?.('base-prepare');
     const baseProgram = base.length > 0
       ? this.baseProgramFor(plan.transition?.type ?? 'hard-cut')
       : null;
     let uploadElapsedMs =
       baseProgram ? this.prepareBase(base, plan, output, baseProgram) : 0;
+    this.options.passTimer?.(null);
     let shaderElapsedMs = 0;
     const synchronization = this.options.synchronization ?? 'finish';
     const timer =
-      synchronization === 'finish'
+      synchronization === 'finish' && !this.options.passTimer
         ? gl.getExtension('EXT_disjoint_timer_query_webgl2')
         : null;
     const queries: WebGLQuery[] = [];
@@ -1988,8 +2016,10 @@ export class WebGL2Compositor implements CompositorBackend {
     // Avoiding an FBO here structurally preserves the existing 28 golden frames byte-for-byte.
     // An empty base has no program, so let it fall through to the existing FBO black-clear path.
     if (layers.length === 0 && !hasLook && baseProgram) {
+      this.options.passTimer?.('base-draw');
       this.configureBaseDraw(plan, null, baseProgram!);
       draw();
+      this.options.passTimer?.(null);
       this.recordGlErrors(synchronization);
       metrics.record('upload', uploadElapsedMs);
       this.finishFrame(
@@ -2010,8 +2040,10 @@ export class WebGL2Compositor implements CompositorBackend {
 
     this.ensureFbos(output.width, output.height);
     if (baseProgram) {
+      this.options.passTimer?.('base-draw');
       this.configureBaseDraw(plan, this.fbos[0]!, baseProgram);
       draw();
+      this.options.passTimer?.(null);
       this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]!);
@@ -2295,7 +2327,8 @@ export class WebGL2Compositor implements CompositorBackend {
     for (const f of this.fbos) this.gl.deleteFramebuffer(f);
     for (const f of this.fxFbos) this.gl.deleteFramebuffer(f);
     if (this.fxPrepProgram) this.gl.deleteProgram(this.fxPrepProgram.program);
-    if (this.fxPassProgram) this.gl.deleteProgram(this.fxPassProgram.program);
+    for (const value of this.fxPassPrograms.values()) this.gl.deleteProgram(value.program);
+    this.fxPassPrograms.clear();
     this.gl.deleteBuffer(this.vertices);
     for (const value of this.basePrograms.values())
       this.gl.deleteProgram(value.program);

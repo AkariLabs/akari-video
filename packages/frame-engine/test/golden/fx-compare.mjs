@@ -20,3 +20,11 @@ for (const row of rows) {
 }
 const cost = results.fxCost;
 process.stdout.write(`FX cost (${cost.unit}, ${cost.method}): with=${cost.withFxMs.toFixed(4)}, without=${cost.withoutFxMs.toFixed(4)}, delta=${cost.deltaMs.toFixed(4)}, frames=${cost.frames} per variant; ${cost.calculation}\n`);
+process.stdout.write(`Target: delta <= ${cost.targetDeltaMs} ms/frame; meetsTarget=${cost.meetsTarget}\n`);
+process.stdout.write(`\nGPU pass breakdown (${cost.passMethod}, ${cost.passFrames} separate frames)\n\n`);
+process.stdout.write('| stage | median ms/frame | samples |\n|---|---:|---:|\n');
+for (const pass of cost.passes) {
+  process.stdout.write(`| ${pass.stage} | ${pass.medianMs?.toFixed(4) ?? 'unavailable'} | ${pass.samples} |\n`);
+}
+process.stdout.write(`Sum of pass medians: ${cost.passMedianSumMs?.toFixed(4) ?? 'unavailable'}; median of frame sums: ${cost.passFrameMedianMs?.toFixed(4) ?? 'unavailable'}; whole compose: ${cost.withFxMs.toFixed(4)} ms/frame\n`);
+if (cost.passFailureReason) process.stdout.write(`Pass measurement incomplete: ${cost.passFailureReason}\n`);

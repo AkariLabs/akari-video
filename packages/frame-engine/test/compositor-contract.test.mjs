@@ -82,8 +82,8 @@ test('transition vocabulary is generated from the shared table and look is a fin
   assert.match(source, /this\.lookTexture\(look\.lut\)/u);
   assert.match(source, /\.\.\.this\.ownedLookTextures/u);
   assert.match(source, /draw\(\);\s+this\.recordGlErrors\(synchronization\);[\s\S]{0,300}this\.bind\(0, this\.baseTextures\[0\]!\)/u);
-  assert.match(source, /configureBaseDraw\(plan, null, baseProgram!\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
-  assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!, baseProgram\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+  assert.match(source, /configureBaseDraw\(plan, null, baseProgram!\);\s+draw\(\);\s+this\.options\.passTimer\?\.\(null\);\s+this\.recordGlErrors\(synchronization\)/u);
+  assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!, baseProgram\);\s+draw\(\);\s+this\.options\.passTimer\?\.\(null\);\s+this\.recordGlErrors\(synchronization\)/u);
 });
 
 test('filter compositor uses an analytic quad and the cached sampler3D path', () => {
@@ -297,13 +297,40 @@ test('prep clamps the source crop and uses exactly the existing adjustment arith
 });
 
 test('Gaussian uses dense bounded taps and clamps bilinear footprints to the active work rectangle', () => {
-  assert.match(FX_PASS_FRAGMENT, /float sigma = radius \/ 2\.0/u);
+  assert.match(FX_PASS_FRAGMENT, /uniform float gaussianWeights\[17\]/u);
+  assert.match(FX_PASS_FRAGMENT, /uniform int tapCount/u);
   assert.match(FX_PASS_FRAGMENT, /for \(int tap = 1; tap <= 16; tap\+\+\)/u);
-  assert.match(FX_PASS_FRAGMENT, /exp\(-0\.5 \* pow\(float\(tap\) \/ sigma, 2\.0\)\)/u);
+  assert.match(FX_PASS_FRAGMENT, /if \(tap > tapCount\) break/u);
+  const gaussian = FX_PASS_FRAGMENT.slice(FX_PASS_FRAGMENT.indexOf('#elif FX_KIND == 2'), FX_PASS_FRAGMENT.indexOf('#elif FX_KIND == 3'));
+  assert.doesNotMatch(gaussian, /exp\(|pow\(|weightSum|sigma/u);
+  assert.match(gaussian, /rgb \* gaussianWeights\[0\]/u);
+  assert.match(gaussian, /float weight = gaussianWeights\[tap\]/u);
   assert.match(FX_PASS_FRAGMENT, /clamp\(local \* inputSize, vec2\(0\.5\), inputSize - 0\.5\)/u);
   assert.match(FX_PASS_FRAGMENT, /texture\(source, pixel \/ allocationSize\)/u);
   assert.match(source, /gl\.viewport\(0, 0, targetSize\.width, targetSize\.height\)/u);
   assert.match(source, /gl\.copyTexSubImage2D/u);
+});
+
+test('FX specialization removes runtime kind branches and refreshes program-local uniforms inside the pass loop', () => {
+  assert.doesNotMatch(FX_PASS_FRAGMENT, /if\s*\(fxKind/u);
+  for (let kind = 1; kind <= 10; kind++) {
+    assert.match(FX_PASS_FRAGMENT, new RegExp(`#(?:if|elif) [^\\n]*FX_KIND == ${kind}\\b`, 'u'));
+  }
+  assert.match(source, /fxPassPrograms = new Map<number, FxProgram>\(\)/u);
+  const factory = source.slice(source.indexOf('  private fxPassProgramFor('), source.indexOf('  private allocateFxTexture('));
+  assert.match(factory, /this\.fxPassPrograms\.get\(kind\)/u);
+  assert.match(factory, /#version 300 es\\n#define FX_KIND \$\{kind\}/u);
+  assert.match(factory, /this\.fxPassPrograms\.set\(kind, cached\)/u);
+  const run = source.slice(source.indexOf('  private runFxPasses('), source.indexOf('  private snapshotBaseFx('));
+  assert.doesNotMatch(run, /getUniformLocation/u);
+  const loop = run.slice(run.indexOf('for (const { stage, effect } of passes)'));
+  const binding = loop.indexOf('gl.useProgram(passProgram.program)');
+  const parameters = loop.indexOf('switch (effect.id)');
+  assert.ok(binding > 0 && parameters > binding);
+  for (const name of ['source', 'original', 'allocationSize', 'workSize', 'cropSize', 'frameIndex', 'inputSize', 'fxKind']) {
+    assert.ok(loop.indexOf(`u.${name}!`, binding) < parameters, `${name} must be reset after binding, before effect parameters`);
+    assert.ok(loop.indexOf(`u.${name}!`, binding) > binding, `${name} is missing`);
+  }
 });
 
 test('grain uses an integer frame hash in work pixels and vignette uses the crop-local box', () => {

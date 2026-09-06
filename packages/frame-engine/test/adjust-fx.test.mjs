@@ -236,13 +236,14 @@ test('legacy timeline-map plans omit frameIndex and bypass fx prep', async () =>
 });
 
 // Records real compositor draws and rejects sampler/attachment feedback; no GLSL rasterization.
-function recordingCompositor(frameSize = { width: 2, height: 2 }) {
+function recordingCompositor(frameSize = { width: 2, height: 2 }, options = {}, still = false) {
   let active, target = null, textureUnit = 0, viewport;
   let framebuffers = 0, textureId = 0;
   const uniforms = new Map(), bindings = new Map(), attachments = new Map(), shaders = new Map();
-  const draws = [], copies = [], allocations = [];
+  const draws = [], copies = [], allocations = [], calls = [], deletedPrograms = [];
   const gl = new Proxy({}, {
     get(_target, key) {
+      calls.push(key);
       if (key === 'NO_ERROR') return 0;
       if (/^[A-Z][A-Z0-9_]+$/u.test(key)) return key;
       if (key === 'createFramebuffer') return () => ({ framebuffer: ++framebuffers });
@@ -254,6 +255,7 @@ function recordingCompositor(frameSize = { width: 2, height: 2 }) {
       if (key === 'getExtension') return () => null;
       if (key === 'getError') return () => 0;
       if (key === 'getUniformLocation') return (program, name) => ({ program, name });
+      if (key === 'deleteProgram') return program => deletedPrograms.push(program);
       if (key === 'useProgram') return program => { active = program; };
       if (key === 'shaderSource') return (shader, source) => { shader.source = source; };
       if (key === 'attachShader') return (program, shader) => { shaders.set(program, (shaders.get(program) ?? '') + shader.source); };
@@ -273,19 +275,22 @@ function recordingCompositor(frameSize = { width: 2, height: 2 }) {
       };
       if (key === 'drawArrays') return () => {
         const state = uniforms.get(active);
+        const specialization = shaders.get(active).match(/#define FX_KIND (\d+)/u);
+        if (specialization) assert.deepEqual(state.fxKind, [Number(specialization[1])], 'pass uses its specialized program');
         const attachment = attachments.get(target);
         if (attachment) for (const [, sampler] of shaders.get(active).matchAll(/uniform sampler2D (\w+);/gu)) {
           assert.notStrictEqual(bindings.get(state[sampler]?.[0] ?? 0), attachment, 'feedback: ' + sampler);
         }
-        draws.push({ ...structuredClone(state), target, attachment, viewport, bindings: new Map(bindings) });
+        draws.push({ ...structuredClone(state), program: active, target, attachment, viewport, bindings: new Map(bindings) });
       };
       return () => {};
     },
   });
-  const compositor = new WebGL2Compositor({ getContext: () => gl }, { synchronization: 'flush' });
-  const frame = { format: 'NV12', ...frameSize, y: new Uint8Array(4), uv: new Uint8Array(2) };
+  const compositor = new WebGL2Compositor({ getContext: () => gl }, { synchronization: 'flush', ...options });
+  const frame = still ? { bitmap: {}, ...frameSize }
+    : { format: 'NV12', ...frameSize, y: new Uint8Array(4), uv: new Uint8Array(2) };
   return {
-    draws, copies, allocations, compositor,
+    draws, copies, allocations, calls, compositor, shaders, deletedPrograms,
     framebuffers: () => framebuffers,
     async render(plan) {
       draws.length = 0; copies.length = 0;
@@ -299,6 +304,45 @@ function recordingCompositor(frameSize = { width: 2, height: 2 }) {
 }
 
 const effectDraws = draws => draws.filter(draw => draw.fxKind);
+
+test('specialized FX programs compile lazily, refresh uniforms across frames and crops, and dispose once', async () => {
+  const recorder = recordingCompositor({ width: 1920, height: 1080 });
+  const programs = () => [...recorder.shaders].filter(([, shader]) => shader.includes('#define FX_KIND '));
+  try {
+    await recorder.render(evaluate(buildResolvedTimelinePlan([cut])));
+    assert.equal(programs().length, 0, 'no effects means no effect programs');
+    const cached = new Map();
+    for (const [index, crop] of [undefined, { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, undefined].entries()) {
+      const timeline = buildResolvedTimelinePlan([], { layers: [{ ...layer, crop, adjust: { fx: [
+        { id: 'blur', px: 20 }, { id: 'vignette' }, { id: 'grain' },
+      ] } }] });
+      recorder.calls.length = 0;
+      const effects = effectDraws(await recorder.render({ ...evaluate(timeline), frameIndex: 42 + index }));
+      assert.deepEqual(effects.map(draw => draw.fxKind[0]), [2, 2, 1, 3]);
+      assert.equal(programs().length, 3, 'H/V share one Gaussian; unused effects stay uncompiled');
+      const size = crop ? [960, 540] : [1920, 1080];
+      for (const draw of effects) {
+        const kind = draw.fxKind[0];
+        if (cached.has(kind)) assert.strictEqual(draw.program, cached.get(kind));
+        else cached.set(kind, draw.program);
+        assert.deepEqual(draw.allocationSize, [1920, 1080]);
+        assert.deepEqual(draw.workSize, size);
+        assert.deepEqual(draw.cropSize, size);
+        assert.deepEqual(draw.frameIndex, [42 + index]);
+        assert.equal(draw.source.length, 1);
+        assert.equal(draw.original.length, 1);
+        assert.notEqual(draw.source[0], draw.original[0]);
+        assert.ok(draw.bindings.get(draw.source[0]));
+        assert.ok(draw.bindings.get(draw.original[0]));
+      }
+      if (index) assert.equal(recorder.calls.includes('compileShader'), false);
+    }
+  } finally { recorder.compositor.dispose(); }
+  recorder.compositor.dispose();
+  for (const [program] of programs()) {
+    assert.equal(recorder.deletedPrograms.filter(deleted => deleted === program).length, 1);
+  }
+});
 
 const group2Defaults = [
   { id: 'glow', intensity: 0.5, radius: 20, threshold: 0.7, warmth: 0 },
@@ -381,12 +425,15 @@ test('group two preserves transition sources and converts output-pixel radii and
     const effects = effectDraws(draws);
     assert.deepEqual(effects.map(draw => draw.fxKind[0]), [5, 2, 2, 6, 10, 2, 2, 7, 5, 2, 2, 6]);
     assert.deepEqual(effects[1].viewport, [0, 0, 240, 135]);
-    assert.ok(Math.abs(effects[1].radius[0] - 12.5) < 1e-5);
+    assert.deepEqual(effects[1].tapCount, [13]);
+    const weights = effects[1]['gaussianWeights[0]'][0];
+    assert.ok(Math.abs(weights[1] / weights[0] - Math.exp(-0.5 / (12.5 / 2) ** 2)) < 1e-7);
     assert.ok(Math.abs(effects[4].direction[0]) < 1e-9);
     assert.ok(Math.abs(effects[4].direction[1] - 50 / 540) < 1e-8);
     assert.deepEqual(effects[7].params, [-0.5, 0, 0, 0]);
-    assert.deepEqual(effects[9].radius, [0]);
-    assert.deepEqual(effects[10].radius, [0]);
+    assert.deepEqual(effects[9].tapCount, [0]);
+    assert.deepEqual(effects[10].tapCount, [0]);
+    assert.equal(effects[9]['gaussianWeights[0]'][0][0], 1);
     const final = draws.at(-1);
     assert.deepEqual(final.hasFx0, [1]);
     assert.deepEqual(final.hasFx1, [1]);
@@ -489,11 +536,45 @@ test('large blur reduces H viewport, expands V and leaves mask/blending on the f
     const [h, v, grain] = effectDraws(draws);
     assert.deepEqual(h.viewport, [0, 0, 480, 270]);
     assert.deepEqual(v.viewport, [0, 0, 1920, 1080]);
-    assert.ok(h.radius[0] <= 16 && v.radius[0] <= 16);
+    assert.ok(h.tapCount[0] <= 16 && v.tapCount[0] <= 16);
     assert.deepEqual(h.direction, [1 / 480, 0]);
     assert.deepEqual(v.direction, [0, 1 / 270]);
     assert.deepEqual(grain.inputSize, [1920, 1080]);
     assert.deepEqual(draws.find(draw => draw.hasFx).hasFx, [1]);
+  } finally { recorder.compositor.dispose(); }
+});
+
+test('1080p still base runs each timed stage once and reuses all warm FX resources', async () => {
+  const stages = [];
+  const recorder = recordingCompositor({ width: 1920, height: 1080 }, { passTimer: stage => stages.push(stage) }, true);
+  try {
+    const timeline = buildResolvedTimelinePlan([{ ...cut, adjust: { fx: [
+      { id: 'blur', px: 20 }, { id: 'vignette' }, { id: 'grain' },
+    ] } }]);
+    const plan = evaluate(timeline);
+    await recorder.render(plan);
+    stages.length = 0;
+    recorder.calls.length = 0;
+    const allocations = recorder.allocations.length;
+    const draws = await recorder.render(plan);
+    assert.deepEqual(stages, ['base-prepare', null, 'prep', 'blur-h', 'blur-v', 'vignette', 'grain', null,
+      'snapshot-copy', null, 'base-draw', null]);
+    assert.equal(draws.length, 6);
+    assert.equal(recorder.copies.length, 1);
+    assert.equal(recorder.allocations.length, allocations);
+    for (const call of ['bufferData', 'vertexAttribPointer', 'compileShader', 'getUniformLocation',
+      'texImage2D', 'copyTexImage2D', 'generateMipmap', 'finish', 'readPixels', 'createQuery', 'beginQuery']) {
+      assert.equal(recorder.calls.includes(call), false, `warm path must not call ${call}`);
+    }
+    const [h, v] = effectDraws(draws);
+    assert.deepEqual(h.viewport, [0, 0, 960, 540]);
+    assert.deepEqual(h.inputSize, [1920, 1080]);
+    assert.deepEqual(v.viewport, [0, 0, 1920, 1080]);
+    assert.deepEqual(v.inputSize, [960, 540]);
+    assert.deepEqual(h.tapCount, [10]);
+    assert.deepEqual(v.tapCount, [10]);
+    assert.deepEqual(h['gaussianWeights[0]'], v['gaussianWeights[0]']);
+    assert.strictEqual(draws.at(-1).bindings.get(6), recorder.copies[0].to);
   } finally { recorder.compositor.dispose(); }
 });
 
