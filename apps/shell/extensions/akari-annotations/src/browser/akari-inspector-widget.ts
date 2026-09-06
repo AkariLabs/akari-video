@@ -87,6 +87,10 @@ import {
     readInspectorAdjustSnapshot
 } from './inspector/adjust-fields';
 import {
+    INSPECTOR_ADJUST_FX, InspectorAdjustFx, addInspectorAdjustFx, removeInspectorAdjustFx,
+    moveInspectorAdjustFx, updateInspectorAdjustFxParam
+} from './inspector/adjust-fx-fields';
+import {
     composeInspectorSections,
     InspectorSectionDef,
     InspectorSectionState
@@ -144,6 +148,13 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     title?: string;
     actionLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    actions?: readonly {
+        name: string;
+        label: string;
+        title: string;
+        disabled?: boolean;
+        action: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    }[];
     menuAction?: {
         label: string;
         action: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
@@ -1919,6 +1930,7 @@ function ADJUST_SECTIONS(
     const adjust = readInspectorAdjustSnapshot(snapshot.adjust);
     const basicEnabled = adjust.sections.basic;
     const lutEnabled = adjust.sections.lut;
+    const fxEnabled = adjust.sections.fx;
     const disabledTitle = 'セクションがオフのため変更できません。';
     const editorWrite = (section: 'curves' | 'wheels' | 'hue'): AdjustEditorWrite => async (path, value) =>
         adjust.sections[section]
@@ -2032,6 +2044,60 @@ function ADJUST_SECTIONS(
         action: async () => lutEnabled && adjustLutOptions.importLut
             ? adjustLutOptions.importLut() : { ok: false, message: disabledTitle }
     });
+    const writeFx = async (update: () => InspectorAdjustFx[]): Promise<InspectorWriteResult> => {
+        if (!fxEnabled) return { ok: false, message: disabledTitle };
+        try {
+            return await requestWrite(createInspectorAdjustWriteRequest(itemId, 'adjust.fx', update()));
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : '効果を変更できませんでした。' };
+        }
+    };
+    const fxFields: InspectorFieldDef[] = [{
+        name: 'adjust-fx-add', label: '効果を追加', inputKind: 'select',
+        options: ['選択…', ...INSPECTOR_ADJUST_FX.map(effect => effect.label)],
+        getValue: () => '選択…', getEditValue: () => '選択…',
+        keyframeDisabled: true, disabled: !fxEnabled, title: fxEnabled ? undefined : disabledTitle,
+        write: async (_snapshot, value) => {
+            if (!fxEnabled) return { ok: false, message: disabledTitle };
+            if (value === '選択…') return { ok: true };
+            const effect = INSPECTOR_ADJUST_FX.find(candidate => candidate.label === value);
+            if (!effect) return { ok: false, message: '一覧から効果を選択してください。' };
+            return writeFx(() => addInspectorAdjustFx(adjust.fx, effect.id));
+        }
+    }];
+    adjust.fx.forEach((effect, index) => {
+        const definition = INSPECTOR_ADJUST_FX.find(candidate => candidate.id === effect.id)!;
+        fxFields.push({
+            name: `adjust-fx-${effect.id}`, label: definition.label, getValue: () => '',
+            keyframeDisabled: true, disabled: !fxEnabled, title: fxEnabled ? undefined : disabledTitle,
+            actions: [{
+                name: 'up', label: '↑', title: `${definition.label}を上へ`, disabled: index === 0,
+                action: () => writeFx(() => moveInspectorAdjustFx(adjust.fx, index, -1))
+            }, {
+                name: 'down', label: '↓', title: `${definition.label}を下へ`, disabled: index === adjust.fx.length - 1,
+                action: () => writeFx(() => moveInspectorAdjustFx(adjust.fx, index, 1))
+            }, {
+                name: 'remove', label: '削除', title: `${definition.label}を削除`,
+                action: () => writeFx(() => removeInspectorAdjustFx(adjust.fx, index))
+            }]
+        });
+        for (const param of definition.params) {
+            const value = (effect as Record<string, unknown>)[param.key] as number | undefined ?? param.default;
+            fxFields.push({
+                name: `adjust-fx-${effect.id}-${param.key}`, label: param.label,
+                getValue: () => `${Number((value * param.displayScale).toFixed(1))} ${param.unit}`,
+                getEditValue: () => String(value), inputKind: 'scrub-number',
+                min: param.min, max: param.max, scrubStep: param.step,
+                unit: param.unit, displayScale: param.displayScale,
+                displayPrecision: param.step * param.displayScale < 1 ? 1 : 0,
+                keyframeDisabled: true, disabled: !fxEnabled, title: fxEnabled ? undefined : disabledTitle,
+                write: (_snapshot, input) => writeFx(() => updateInspectorAdjustFxParam(
+                    adjust.fx, index, param.key, input.trim() ? Number(input) : NaN
+                )),
+                reset: () => writeFx(() => updateInspectorAdjustFxParam(adjust.fx, index, param.key, null))
+            });
+        }
+    });
     return [{
         id: 'adjust:basic',
         label: ACTIVE_ADJUST_SECTIONS[0],
@@ -2097,6 +2163,16 @@ function ADJUST_SECTIONS(
                 itemId,
                 'adjust.sections.lut',
                 enabled ? null : false
+            ))
+        }
+    }, {
+        id: 'adjust:fx',
+        label: ACTIVE_ADJUST_SECTIONS[5],
+        fields: fxFields,
+        enable: {
+            name: 'adjust-fx-enabled', label: 'エフェクトを有効化', checked: fxEnabled,
+            write: enabled => requestWrite(createInspectorAdjustWriteRequest(
+                itemId, 'adjust.sections.fx', enabled ? null : false
             ))
         }
     }];
@@ -3152,6 +3228,30 @@ export class AkariInspectorWidget extends BaseWidget {
         labelElement.className = 'akari-inspector-row-label';
         labelElement.textContent = field.label;
         row.appendChild(labelElement);
+
+        if (field.actions) {
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '4px';
+            labelElement.style.fontWeight = '600';
+            for (const definition of field.actions) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'akari-inspector-row-input';
+                button.textContent = definition.label;
+                button.title = definition.title;
+                button.setAttribute('aria-label', definition.title);
+                button.setAttribute('data-akari-ui', `action:inspector-${fieldName}-${definition.name}`);
+                button.disabled = field.disabled === true || definition.disabled === true;
+                button.addEventListener('click', () => void definition.action(snapshot).then(result => {
+                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                }));
+                actions.appendChild(button);
+            }
+            row.appendChild(actions);
+            parent.appendChild(row);
+            return;
+        }
 
         if (field.action) {
             const action = document.createElement('button');
