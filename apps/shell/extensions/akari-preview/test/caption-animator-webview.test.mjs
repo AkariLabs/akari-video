@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { harness } from './caption-animator-webview-harness.mjs';
+import { harness, frameEngine } from './caption-animator-webview-harness.mjs';
 import { cutFixture, captionHost } from './caption-animator-cut-fixture.mjs';
-import { applyCaptionAnimatorDom } from '../../../../../packages/frame-engine/dist/timeline/caption-animator-dom.js';
+const { applyCaptionAnimatorDom } = frameEngine;
 
 test('停止中の frameEngineClock.seek 単独でも実データの字幕を更新する', async () => {
     const fixture = cutFixture();

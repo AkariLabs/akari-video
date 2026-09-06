@@ -7,6 +7,14 @@ import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.j
 
 export const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 
+// 司令塔補正（2026-09-06 合流時）: 評価器はコミット済みの generated バンドルから読む。
+// packages/frame-engine/dist は CI の shell レーンでは作られないため、そこへの直 import は
+// ERR_MODULE_NOT_FOUND になる（webview が実際に読むのもこのバンドル）。
+export const frameEngine = vm.runInNewContext(
+    readFileSync(new URL('../generated/frame-engine.js', import.meta.url), 'utf8') + ';AkariFrameEngine',
+    { console }
+);
+
 function section(text, from, to) {
     const start = text.indexOf(from);
     const end = text.indexOf(to, start);
