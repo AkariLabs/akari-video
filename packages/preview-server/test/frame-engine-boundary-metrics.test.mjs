@@ -15,6 +15,30 @@ function method(marker, nextMarker, replacement, globals = {}) {
   return runInNewContext(`(${stripTypeScriptTypes(declaration)})`, globals);
 }
 
+test('applySourceChoice invalidates video and image sources after replacement and before metrics', async () => {
+  const applySource = source.slice(source.indexOf('async applySourceChoice('), source.indexOf('  seek(seconds:'));
+  assert.match(applySource, /this\.sources\.set\(id, image\);\s*this\.scheduler\.invalidateSource\(id\);/u);
+  assert.match(applySource, /this\.sources\.set\(id, this\.createVideoSource\(id, choice\.url\)\);\s*this\.scheduler\.invalidateSource\(id\);/u);
+  const apply = method('async applySourceChoice(', '  seek(seconds:', 'async function applySourceChoice(', {
+    CachedStillImageSource: class { constructor(url) { this.url = url; } },
+  });
+  for (const url of ['/replacement.mp4', '/replacement.png']) {
+    const events = [];
+    const runtime = {
+      sourceChoices: new Map(), pools: new Map(), lookahead: new Map(), images: new Map(), sources: new Map(),
+      createVideoSource: (_id, sourceUrl) => ({ url: sourceUrl }),
+      scheduler: { invalidateSource(id) {
+        assert.equal(id, 'clip');
+        assert.equal(runtime.sources.get(id).url, url);
+        events.push('invalidate');
+      } },
+      updateMetrics: () => events.push('metrics'),
+    };
+    await apply.call(runtime, 'clip', { url });
+    assert.deepEqual(events, ['invalidate', 'metrics']);
+  }
+});
+
 test('boundary metrics expose hit and last elapsed/decode beside late, including a text row', () => {
   assert.match(source, /boundaryBefore: \{ total: number; late: number; hit: number \}/u);
   assert.match(source, /boundaryAfter: \{ total: number; late: number; hit: number \}/u);

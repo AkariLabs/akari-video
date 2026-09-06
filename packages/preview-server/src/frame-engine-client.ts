@@ -798,9 +798,11 @@ class FrameEngineRuntime {
       const image = new CachedStillImageSource(choice.url);
       this.images.set(id, image);
       this.sources.set(id, image);
+      this.scheduler.invalidateSource(id);
     } else {
       this.images.delete(id);
       this.sources.set(id, this.createVideoSource(id, choice.url));
+      this.scheduler.invalidateSource(id);
     }
     // Keep the maps captured by the scheduler alive; snapshot() reads the current choices.
     this.updateMetrics();
