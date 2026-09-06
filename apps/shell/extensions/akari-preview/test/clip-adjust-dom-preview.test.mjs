@@ -72,6 +72,11 @@ test('shell DOM preview applies fx blur at local CSS scale before transition', (
   assert.equal(evaluate(element, item, false), 'blur(20.00px)');
   assert.equal(element.dataset.akariAdjustFilter, 'blur(20.00px)');
   assert.equal(element.style.filter, 'blur(20.00px) opacity(0.5)');
+  const defaultItem = { adjust: { fx: [{ id: 'blur' }] } };
+  const defaultElement = { dataset: {}, style: { filter: '' } };
+  assert.equal(evaluate(defaultElement, defaultItem, false), 'blur(8.00px)');
+  assert.equal(defaultElement.dataset.akariAdjustFilter, 'blur(8.00px)');
+  assert.equal(defaultElement.style.filter, 'blur(8.00px) opacity(0.5)');
   const engineElement = { dataset: {}, style: { filter: '' } };
   assert.equal(evaluate(engineElement, item, true), '');
   assert.deepEqual(engineElement, { dataset: {}, style: { filter: '' } });

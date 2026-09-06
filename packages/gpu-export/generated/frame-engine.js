@@ -9934,8 +9934,10 @@ ${indent}`);
         }
         const scale = Number.isFinite(blurScale) ? blurScale : 1;
         for (const effect of fx) {
-          if (effect.id === "blur" && typeof effect.px === "number" && Number.isFinite(effect.px) && effect.px > 0) {
-            parts.push("blur(" + (effect.px * scale).toFixed(2) + "px)");
+          if (effect.id === "blur") {
+            const px = typeof effect.px === "number" && Number.isFinite(effect.px) ? effect.px : 8;
+            if (px > 0)
+              parts.push("blur(" + (px * scale).toFixed(2) + "px)");
           }
         }
         if (transition)

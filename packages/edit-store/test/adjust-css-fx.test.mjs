@@ -38,11 +38,21 @@ for (const [name, compute] of [['native', computeAdjustCssVisual], ['serialized'
       { filter: 'brightness(2.00) blur(8.00px) opacity(0.5)', hasApproximation: false });
   });
 
-  test(`CSS ignores invalid blur pixels but retains the fx filter seat (${name})`, () => {
-    // 非空 fx は無効な blur 値だけでも null ではなく空 filter・hasApproximation: false を返す規範。
+  test(`CSS defaults omitted or invalid blur pixels to contract §2's 8 (${name})`, () => {
     for (const effect of [
-      { id: 'blur', px: 0 }, { id: 'blur' }, { id: 'blur', px: NaN },
-      { id: 'blur', px: -1 }, { id: 'blur', px: Infinity }, { id: 'blur', px: '8' },
+      { id: 'blur' }, { id: 'blur', px: NaN },
+      { id: 'blur', px: Infinity }, { id: 'blur', px: '8' },
+    ]) {
+      assert.deepEqual({ ...compute({ fx: [effect] }) }, { filter: 'blur(8.00px)', hasApproximation: false });
+    }
+    assert.deepEqual({ ...compute({ fx: [{ id: 'blur' }] }, undefined, 0.5) },
+      { filter: 'blur(4.00px)', hasApproximation: false });
+  });
+
+  test(`CSS omits only finite non-positive blur pixels but retains the fx filter seat (${name})`, () => {
+    // 非空 fx は有限で 0 以下の blur 値だけでも null ではなく空 filter・hasApproximation: false を返す規範。
+    for (const effect of [
+      { id: 'blur', px: 0 }, { id: 'blur', px: -1 },
     ]) {
       assert.deepEqual({ ...compute({ fx: [effect] }) }, { filter: '', hasApproximation: false });
     }
