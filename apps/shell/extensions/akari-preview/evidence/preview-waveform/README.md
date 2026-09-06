@@ -1,3 +1,4 @@
+2026-09-06 廃止: 再生バーの波形帯は削除され、ボタンは音声メーターを開く（task 2026-09-06-preview-transport-v2）
 # preview-waveform — 検証記録
 
 対象: `apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts`
