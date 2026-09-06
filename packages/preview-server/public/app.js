@@ -3577,77 +3577,39 @@ fullscreenToggle.addEventListener('click', () => {
   else { previewPane.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
 });
 
-// --- 3D オーバーレイ（three.js） ---
-// Web UI にはこれまで 3D ランタイムが一切無く、断片の `[data-akari-3d-fallback]`
-// （「3D を読み込み中」）が永久に出たままだった（実機報告 2026-08-07。three.js の取得要求は
-// ゼロ = 遅いのではなく未実装）。shell と同じ packages/overlay-runtime のランタイムを使う。
-//
-// three vendor は 3D 宣言時だけ、追加の text vendor は texts[] 宣言時だけ読む。
-// 該当宣言の無いプロジェクトのダウンロード量は 1 バイトも増えない。
-let threeBundleReady = null;
-let threeTextBundleReady = null;
-let threeRuntimeReady = null;
-const loadThreeScript = (src) => new Promise((resolve, reject) => {
-  const el = document.createElement('script');
-  el.src = src;
-  el.async = false; // vendor → runtime の順序を守る
-  el.onload = () => resolve();
-  el.onerror = () => reject(new Error(`${src} を読み込めませんでした`));
-  document.head.appendChild(el);
-});
-function ensureThreeBundle() {
-  if (!threeBundleReady) threeBundleReady = loadThreeScript('/three-bundle.js');
-  return threeBundleReady;
+// --- Declarative runtime loading ---
+const runtimeScriptLoads = new Map();
+function loadRuntimeScript(src) {
+  if (!runtimeScriptLoads.has(src)) runtimeScriptLoads.set(src, new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src; el.async = false;
+    el.onload = resolve;
+    el.onerror = () => { runtimeScriptLoads.delete(src); el.remove(); reject(new Error(`${src} を読み込めませんでした`)); };
+    document.head.appendChild(el);
+  }));
+  return runtimeScriptLoads.get(src);
 }
-function ensureThreeTextBundle() {
-  if (!threeTextBundleReady) {
-    threeTextBundleReady = (async () => {
-      await ensureThreeBundle();
-      await loadThreeScript('/vendor-3d-text-bundle.js');
-    })();
+let runtimeManifestReady;
+async function ensureRuntimes(overlays) {
+  runtimeManifestReady ??= fetch('/runtimes.json').then(response => {
+    if (!response.ok) throw new Error('runtime manifest could not be loaded');
+    return response.json();
+  }).catch(error => { runtimeManifestReady = null; throw error; });
+  const manifest = await runtimeManifestReady;
+  for (const entry of manifest.runtimes) {
+    const matching = overlays.filter(rec => rec.el.querySelector(entry.selector));
+    if (!matching.length) continue;
+    for (const rec of matching) {
+      if (entry.fragmentBaseAttribute && rec.fragmentUrl) rec.el.setAttribute(entry.fragmentBaseAttribute, rec.fragmentUrl);
+    }
+    await loadRuntimeScript(manifest.registry);
+    const descriptors = matching.flatMap(rec => [...rec.el.querySelectorAll(entry.selector)].map(node => JSON.parse(node.textContent)));
+    for (const script of entry.scripts) {
+      if (!script.when || descriptors.some(d => Array.isArray(d?.[script.when.nonEmptyArray]) && d[script.when.nonEmptyArray].length)) await loadRuntimeScript(script.url);
+    }
+    window.akari?.[entry.browserGlobal]?.configure?.(entry.options ?? {});
+    for (const rec of matching) rec.runtimeIds.add(entry.id);
   }
-  return threeTextBundleReady;
-}
-function ensureThreeRuntime(needsText = false) {
-  const prerequisites = needsText ? ensureThreeTextBundle() : ensureThreeBundle();
-  if (!threeRuntimeReady) {
-    threeRuntimeReady = (async () => {
-      await prerequisites;
-      await loadThreeScript('/three-runtime.js');
-      window.akari.threeRuntime.configure({
-        defaultFontUrl: '/__akari/fonts/zen-kaku-gothic-new-black.ttf',
-      });
-      return Boolean(window.akari?.threeRuntime);
-    })().catch((e) => {
-      console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
-      return false;
-    });
-  }
-  return (async () => {
-    await prerequisites;
-    const runtimeReady = await threeRuntimeReady;
-    return runtimeReady && Boolean(window.akari?.threeRuntime);
-  })().catch((e) => {
-    console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
-    return false;
-  });
-}
-let glassRuntimeReady = null;
-function ensureGlassRuntime(fragmentUrl) {
-  if (window.akari?.glassRuntime) return Promise.resolve(true);
-  if (!glassRuntimeReady) {
-    // Packs carry this runtime; variants live one directory below the pack root.
-    const base = new URL(fragmentUrl || '/', document.baseURI);
-    const runtimeUrl = new URL(base.pathname.includes('/variants/')
-      ? '../runtime/glass-runtime.js' : 'runtime/glass-runtime.js', base).href;
-    glassRuntimeReady = loadThreeScript(runtimeUrl).then(() => Boolean(window.akari?.glassRuntime))
-      .catch((error) => {
-        console.error('[akari-glass] ランタイムを読み込めませんでした', error);
-        glassRuntimeReady = null;
-        return false;
-      });
-  }
-  return glassRuntimeReady;
 }
 let itemKeyframesRuntimeReady;
 function ensureItemKeyframesRuntime() {
@@ -3672,28 +3634,10 @@ function createOverlayRuntime() {
   function unmount() {
     mountGeneration++;
     for (const o of overlays) {
-      if (o.is3d) window.akari?.threeRuntime?.dispose(o.el);
-      if (o.isGlass) window.akari?.glassRuntime?.dispose(o.el);
+      for (const runtime of window.akari?.runtimes?.forContainer(o.el) ?? []) runtime.dispose(o.el);
     }
     stage.querySelectorAll('[data-overlay-id]').forEach(el => el.remove());
     overlays.length = 0;
-  }
-  // 断片の HTML が入った後に判定する（html はファイル参照で非同期に届くため）
-  function markThreeOverlay(rec) {
-    const scene = rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]');
-    rec.is3d = Boolean(scene);
-    const glassScene = rec.el.querySelector('script[type="application/json"][data-akari-glass-scene]');
-    rec.isGlass = Boolean(glassScene);
-    if (glassScene && rec.fragmentUrl) {
-      try {
-        const descriptor = JSON.parse(glassScene.textContent);
-        if (typeof descriptor.backdrop === 'string') {
-          descriptor.backdrop = new URL(descriptor.backdrop, rec.fragmentUrl).href;
-          glassScene.textContent = JSON.stringify(descriptor);
-        }
-      } catch (error) { console.error('[akari-glass] 宣言を読めません', error); }
-    }
-    rec.needsThreeText = Boolean(scene?.textContent?.includes('"texts"'));
   }
   // 断片の vw/vh 系単位をステージ基準へ（viewport-units.js。shell の overlay-runtime と同じ）。
   // プレビューはステージを scale() で縮めるため、素の vw はウィンドウ幅基準となり書き出しとずれる。
@@ -3755,13 +3699,10 @@ function createOverlayRuntime() {
         start: o.start,
         duration: o.duration,
         visible: false,
-        isGlass: false,
-        glassReady: false,
+        runtimeIds: new Set(),
         fragmentUrl: rawHtml && !rawHtml.trimStart().startsWith('<')
-          ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href : null,
-        is3d: false,
-        needsThreeText: false,
-        threeReady: false,
+          ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href
+          : o.htmlPath ? new URL(resolveMediaUrl(o.htmlPath), document.baseURI).href : null,
         hitPolicyPending: false,
         ...(Array.isArray(o.keyframes) ? {
           keyframes: o.keyframes,
@@ -3784,7 +3725,6 @@ function createOverlayRuntime() {
             if (generation !== mountGeneration) return;
             setOverlayFragmentHtml(c, html || '', o.params);
             applyViewportUnits(c);
-            markThreeOverlay(rec);
             window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
             rec.hitPolicyPending = rec.visible;
           })
@@ -3793,7 +3733,6 @@ function createOverlayRuntime() {
       } else {
         setOverlayFragmentHtml(c, rawHtml, o.params);
         applyViewportUnits(c);
-        markThreeOverlay(rec);
       }
       frag.appendChild(c);
       overlays.push(rec);
@@ -3801,20 +3740,10 @@ function createOverlayRuntime() {
     stage.appendChild(frag);
     Promise.all(fragmentLoads).then(async () => {
       if (generation !== mountGeneration) return;
-      const glassOverlays = overlays.filter(o => o.isGlass);
-      if (glassOverlays.length) {
-        const ready = await ensureGlassRuntime(glassOverlays[0].fragmentUrl);
-        if (generation !== mountGeneration) return;
-        for (const rec of glassOverlays) rec.glassReady = ready;
-        if (ready) updateOverlays();
-      }
-      const threeOverlays = overlays.filter(o => o.is3d);
-      if (threeOverlays.length === 0) return;
-      const ready = await ensureThreeRuntime(threeOverlays.some(o => o.needsThreeText));
+      await ensureRuntimes([...overlays]);
       if (generation !== mountGeneration) return;
-      for (const rec of threeOverlays) rec.threeReady = ready;
-      if (ready) updateOverlays();
-    });
+      updateOverlays();
+    }).catch(error => console.error("[preview] runtime loading failed", error));
   }
   // 断片の実寸はアニメで毎フレーム変わりうる。外枠のサイズは固定なのでキャッシュ判定が
   // できず、可視中の断片は毎回測り直す（同時に見えている断片は通常 1〜3 枚）。
@@ -3836,8 +3765,7 @@ function createOverlayRuntime() {
         // ゲート属性の付け外しでアニメの顔ぶれが変わるのでキャッシュを捨てる
         o._anims = null;
         // 見えなくなったら GPU リソースを返す（shell の overlay-runtime と同じ）
-        if (!v && o.isGlass) window.akari?.glassRuntime?.dispose(o.el);
-        if (!v && o.is3d) window.akari?.threeRuntime?.dispose(o.el);
+        if (!v) for (const runtime of window.akari?.runtimes?.forContainer(o.el) ?? []) runtime.dispose(o.el);
         o.visible = v;
       }
       if (!v) continue;
@@ -3870,26 +3798,13 @@ function createOverlayRuntime() {
         o._animsAt = nowMs;
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
-      if (o.isGlass && o.glassReady) window.akari?.glassRuntime?.render(o.el, ms / 1000, {});
-      if (o.is3d) {
-        // three の描画だけはランタイム読み込み後に始まる。CSS 側は上で同期済みなので、
-        // 読み込み待ちの間も断片の見た目はタイムラインに追従する。
-        if (o.threeReady) {
-          window.akari?.threeRuntime?.render(o.el, ms / 1000, {
-            syncVideos: true,
-            maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE,
-          });
-        }
-        if (o.hitPolicyPending) {
-          window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
-          o.hitPolicyPending = false;
-        }
-        continue;
-      }
+      const runtimes = (window.akari?.runtimes?.forContainer(o.el) ?? []).filter(runtime => o.runtimeIds.has(runtime.id));
+      for (const runtime of runtimes) runtime.render(o.el, ms / 1000, {syncVideos: true, maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE});
       if (o.hitPolicyPending) {
         window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
         o.hitPolicyPending = false;
       }
+      if (runtimes.some(runtime => runtime.premountTick)) continue;
       // ㉑ 当たり判定（clip-path）は断片の実寸に合わせる。ただし可視化時に 1 回だけ測ると、
       // その後アニメで拡大した分がはみ出して**見た目まで切り取られる**（実測: pop 断片が
       // 1.13 倍に育った瞬間、円が角丸四角に切れた）。アニメを進めた後に測り直す。

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import http from 'node:http';
+import { runtimes, runtimeRoot, registryPath, browserManifest } from '../../overlay-runtime/runtimes.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -900,6 +901,22 @@ const server = http.createServer(async (req, res) => {
     if (m) return r.fn(req, res, m);
   }
 
+  if (req.method === 'GET' && pathname === '/runtimes.json') {
+    res.writeHead(200, {'Content-Type':'application/json', 'Cache-Control':'no-store'});
+    return res.end(JSON.stringify(browserManifest()));
+  }
+  if (req.method === 'GET') {
+    const manifest = browserManifest();
+    let file = pathname === manifest.registry ? registryPath : null;
+    for (const [index, entry] of manifest.runtimes.entries()) {
+      const scriptIndex = entry.scripts.findIndex(script => script.url === pathname);
+      if (scriptIndex >= 0) file = path.resolve(runtimeRoot, runtimes[index].scripts[scriptIndex].path);
+    }
+    if (file) return serveFile(res, file, MIME['.js'], {}, req.headers);
+    if (pathname.startsWith('/__akari/runtimes/')) {
+      res.writeHead(404); return res.end('Not found');
+    }
+  }
   if (pathname === '/' || pathname === '/index.html') {
     return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8');
   }

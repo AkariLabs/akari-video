@@ -11,6 +11,99 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 機能的に無改変で移送。詳しい挙動仕様は `docs/notes-2026-07-14-viewer-ui-round.md`
 （編集移送済みの設計ノート）を参照。
 
+## ランタイムの足し方（1 ファイル + 1 エントリ）
+
+新しい宣言型の描画は `src/<id>-runtime.js` と `runtimes.mjs` の `runtimes` 配列への
+1 エントリで追加する。書き出し、preview-server の遅延ロード、入力束縛、素材検査はこの配列を読む。
+断片は従来どおり `script[type="application/json"]` に宣言だけを置く。
+
+1. ランタイムファイルを作る。以下のように `render(container, seconds, options)`、
+   `inspect(container)`、`dispose(container)` を公開・登録する。`seconds` は断片内の局所時刻。
+   壁時計で進めず、逆シークでも同じ画素を描く。`inspect().status` は `loading` / `ready` /
+   `error` を返し、`dispose` は繰り返し呼べるようにする。
+
+   ```js
+   (() => {
+     const instances = new WeakMap();
+     const entry = {
+       id: "dummy", selector: 'script[type="application/json"][data-akari-dummy-scene]',
+       render(container, seconds, options = {}) {
+         let canvas = instances.get(container);
+         if (!canvas) {
+           canvas = document.createElement("canvas");
+           canvas.width = canvas.height = 16;
+           container.appendChild(canvas);
+           instances.set(container, canvas);
+         }
+         const ctx = canvas.getContext("2d");
+         ctx.fillStyle = seconds < 1 ? "#ff0000" : "#0000ff";
+         ctx.fillRect(0, 0, 16, 16);
+       },
+       inspect: container => ({status: instances.has(container) ? "ready" : "idle"}),
+       dispose(container) { instances.get(container)?.remove(); instances.delete(container); },
+     };
+     window.akari = window.akari || {};
+     window.akari.dummyRuntime = entry;
+     if (window.akari.runtimes) window.akari.runtimes.register(entry);
+     else (window.akari.pendingRuntimes ??= []).push(entry);
+   })();
+   ```
+
+2. `runtimes.mjs` に登録する。パスはこのパッケージのルート基準。
+   `scripts` は記載順に読む。条件付きスクリプトには `when: {nonEmptyArray: "texts"}` のように
+   非空配列のキーを指定できる（Node とブラウザで同じ判定、関数ソースの eval は不要）。
+
+   ```js
+   {
+     id: "dummy", declaration: {attr: "data-akari-dummy-scene"},
+     browserGlobal: "dummyRuntime", scripts: [{path: "src/dummy-runtime.js"}],
+     usesVideoTextures: false,
+     assetReferences(descriptor) {
+       if (typeof descriptor?.image !== "string" || !/^[\w.-]+$/.test(descriptor.image))
+         throw new TypeError("dummy image must be a relative file name");
+       return [{role: "dummy-image", path: descriptor.image, field: ["image"], mime: "image/png"}];
+     },
+     appliesTo: () => true,
+     validate(descriptor, ctx) {
+       if (descriptor?.color !== "blue") return ["dummy color must be blue"];
+       ctx.validateReference(descriptor.image);
+       return [];
+     },
+   }
+   ```
+
+   参照を持たないランタイムは `assetReferences: () => []` でよい。参照の `path` はプロジェクト基準、
+   `role` は入力ハッシュの識別子、`field` は宣言内の書き換え先キー列（配列添字も可）、
+   `mime` は data URI の MIME。断片基準のパスは `assetReferences(descriptor, ctx)` の
+   `ctx.htmlPath` から解決する。ホストが実ファイルを束縛し、書き出し時に参照を data URI に埋める。
+   既存ランタイムの特殊な埋め込みは `embed(overlay, ctx)` に保持している。
+   `validate` はエラー文字列の配列を返すか `ctx.fail(message)` を使う。`ctx` は
+   `meta` / `category` / `name` / `payloadFiles` / `html` / `validateReference(path)` を持つ。
+   `appliesTo(meta)` が検査対象を決める。宣言を必須にする場合は `requiredFor(category, ctx)` を加える。
+   不正 JSON / 非 object は共通検査で報告され、`validate` には `null` が渡る。
+
+3. 断片に `<script type="application/json" data-akari-dummy-scene>{"image":"image.png","color":"blue"}</script>`
+   を置く。`image.png` は同じプロジェクトに配置する。上記ランタイムでは 1 秒未満が赤、以降は青。
+   preview-server は再起動してマニフェストを読み直す。`GET /runtimes.json` に新しい ID が現れ、
+   該当断片があるときだけスクリプトがロードされる。
+4. `node --test packages/overlay-runtime/test-harness/runtime-registry.test.mjs` と
+   `node --test packages/overlay-runtime/test-harness/runtime-registry-browser.test.mjs` で検査する。
+   後者は Chrome と puppeteer-core が必要。テスト専用の登録例は
+   `test-harness/fixtures/dummy-entry.mjs`、ランタイムは `dummy-runtime.js` にある。
+   テストはそのエントリをプロセス内（素材 CLI は `--import`）でだけ登録し、製品配列には残さない。
+
+ブラウザの共通口は `window.akari.runtimes.register(entry)` / `list()` / `forContainer(container)`。
+既存の `threeRuntime` / `glassRuntime` グローバルも維持する。すべての描画に同じ options を渡し、
+プレビューの `syncVideos` / `maxRenderSize` は必要なランタイムだけが使う。
+先読みを実装する場合は任意の `configurePremount` / `premountTick` を登録できる。
+断片基準の背景を読むランタイムは `fragmentBaseAttribute` を指定するとホストが元の URL を属性へ渡す。
+
+`overlay-runtime.js` は script-only ホスト向けに `runtime-registry.js` の bootstrap を内包する
+（テストで一致を検査）。先にロードされたランタイムの登録キューも回収する。
+ただしシェルのスクリプト配信一覧は `apps/shell` が所有する固定リストであり、現在は three のみを配信する。
+登録済みの描画・破棄は自動で処理されるが、新しいランタイムの**シェルへの配信**にはホスト側が
+マニフェストを採用する必要がある。preview-server と書き出しにはこの制限はない。
+
 ## このパッケージが担うもの / 担わないもの
 
 | 担う | 担わない |
@@ -502,3 +595,11 @@ npm グローバルインストール禁止の制約内で完結するよう、�
   231 行で区切ると `#minimap-viewport` 規則の宣言途中で切れ、閉じ括弧を欠く
   不正な CSS になるため、意図（「minimap 用ブロックを抽出」）に沿って実際の
   ブロック終端まで抽出した。詳細は `out/status.json` 隣接の `report.md` を参照
+
+旧テスト／旧ホストの未登録な `threeRuntime` / `glassRuntime`（`render` / `dispose` だけのモックを含む）に限り、registry の一致が空のときだけ固定テーブルのレガシーブリッジを使う。新規ランタイムの追記は不要。
+
+書き出しは manifest の `browserGlobal` を使う per-id ブロックを共通ビルダーで生成する。
+既存の inline script バイトを保つため、three / glass の `scripts[].exportSource` は
+ブラウザ専用の末尾登録を除いた描画本体を返す。プレビューは登録を含むファイル全体を読む。
+`exportSceneLabel` と `exportRenderOptions` は既存のログ文言・引数表記を保持するための宣言で、
+新規エントリでは省略できる（ID をログに使用し、描画の第 3 引数は `{}`）。

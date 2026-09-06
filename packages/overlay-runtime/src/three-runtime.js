@@ -2412,3 +2412,11 @@ window.akari.threeRuntime = (() => {
     attachHostPremountDriver,
   };
 })();
+
+// Register with current hosts, or queue until a script-only host boots its registry.
+(() => {
+  const entry = { id: "three", selector: 'script[type="application/json"][data-akari-3d-scene]',
+    ...window.akari.threeRuntime };
+  if (window.akari.runtimes) window.akari.runtimes.register(entry);
+  else (window.akari.pendingRuntimes ??= []).push(entry);
+})();
