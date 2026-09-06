@@ -16,15 +16,17 @@ execFileSync(process.execPath, [resolve(goldenDirectory, 'generate-fixture.mjs')
   stdio: 'inherit'
 });
 
-execFileSync(resolve(repository, 'node_modules/esbuild/bin/esbuild'), [
+execFileSync(process.execPath, [resolve(repository, 'node_modules/esbuild/bin/esbuild'),
   resolve(goldenDirectory, 'renderer.ts'),
   '--bundle', '--format=iife', '--platform=browser', '--target=chrome122',
   `--outfile=${resolve(generated, 'renderer.js')}`
 ], { cwd: packageDirectory, stdio: 'inherit' });
 
-const directElectron = resolve(repository, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
-const electron = existsSync(directElectron)
-  ? directElectron
+const windowsElectron = resolve(repository, 'node_modules/electron/dist/electron.exe');
+const macElectron = resolve(repository, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const electron = existsSync(windowsElectron)
+  ? windowsElectron
+  : existsSync(macElectron) ? macElectron
   : resolve(repository, 'node_modules/.bin/electron');
 const electronEnvironment = { ...process.env };
 delete electronEnvironment.ELECTRON_RUN_AS_NODE;
@@ -82,15 +84,25 @@ assert.equal(results.lookIntensity.length, 3);
 assert.equal(results.lookIntensity.every(sample => sample.pass), true);
 assert.equal(results.lookIntensity.find(sample => sample.intensity === 0).baselineDifferingPixels, 0);
 assert.equal(results.lookStats.glErrors, 0);
-assert.equal(results.adjustParity.length, 3);
+assert.equal(results.adjustParity.length, 6);
 assert.equal(results.adjustParity.every(sample => sample.pass), true);
 assert.deepEqual(results.adjustParity.map(sample => sample.id), [
   'exposure-plus-one', 'temperature-plus-half', 'natural-lut-half',
+  'curves-master-s', 'wheels-lift-gain', 'hue-desaturate',
 ]);
 assert.equal(results.adjustParity.every(sample => Number.isFinite(sample.meanAbs)), true);
 assert.equal(results.adjustParity.every(sample => sample.meanAbs <= results.adjustTolerance.meanAbs), true);
 assert.equal(results.adjustParity.every(sample => sample.maxDelta <= results.adjustTolerance.maxDelta), true);
 assert.equal(results.adjustStats.glErrors, 0);
+assert.equal(results.fxParity.length, 10);
+assert.equal(results.fxParity.every(sample => sample.pass === true), true);
+assert.equal(results.fxParity.find(sample => sample.id === 'blur')?.monotone, true);
+assert.equal(results.fxParity.find(sample => sample.id === 'none')?.differingPixels, 0);
+assert.equal(results.fxStats.glErrors, 0);
+assert.equal(results.fxCost.frames, 60);
+assert.equal(results.fxCost.unit, 'ms/frame');
+assert.equal(['withFxMs', 'withoutFxMs', 'deltaMs'].every(key => Number.isFinite(results.fxCost[key])), true);
+assert.equal(results.fxCost.glErrors, 0);
 assert.equal(results.filterParity.length, 3);
 assert.equal(results.filterParity.every(sample => sample.pass), true);
 assert.equal(results.gopTail.rows.length, 9);
@@ -167,6 +179,11 @@ assert.equal(filterComparison.rows.every(row => row.outsideDifferingPixels === 0
 assert.equal(filterComparison.rows.every(row => row.firstSha256 === row.secondSha256), true);
 
 execFileSync(process.execPath, [resolve(goldenDirectory, 'adjust-compare.mjs')], {
+  cwd: packageDirectory,
+  stdio: 'inherit',
+});
+
+execFileSync(process.execPath, [resolve(goldenDirectory, 'fx-compare.mjs')], {
   cwd: packageDirectory,
   stdio: 'inherit',
 });

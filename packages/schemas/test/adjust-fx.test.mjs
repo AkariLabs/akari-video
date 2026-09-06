@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { fxExamples, invalidFxCases } from './fixtures/adjust-fx-cases.mjs';
+import { fxExamples, invalidFxCases, validGroup2FxCases } from './fixtures/adjust-fx-cases.mjs';
 
 const schema = JSON.parse(readFileSync(new URL('../edit.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: false }).compile({ $defs: schema.$defs, $ref: '#/$defs/adjustV1' });
@@ -28,6 +28,13 @@ test('schema adjust fx accepts omission, defaults, empty arrays and inclusive bo
   for (const adjust of [{}, { fx: [] }, { sections: { fx: false } }, {
     fx: [{ id: 'vignette', amount: -1, midpoint: 0, roundness: -1, feather: 1 }, { id: 'blur', px: 50 }, { id: 'grain', amount: 1, size: 0.5 }, { id: 'sharpen', amount: 0 }],
   }, { fx: [{ id: 'vignette' }, { id: 'blur' }, { id: 'grain' }, { id: 'sharpen' }] }]) {
+    assert.equal(validate(adjust), true, JSON.stringify(validate.errors));
+  }
+});
+
+test('group two accepts defaults and inclusive boundaries with either section state', async () => {
+  for (const value of validGroup2FxCases) for (const enabled of [true, false]) {
+    const adjust = { ...value, sections: { fx: enabled } };
     assert.equal(validate(adjust), true, JSON.stringify(validate.errors));
   }
 });

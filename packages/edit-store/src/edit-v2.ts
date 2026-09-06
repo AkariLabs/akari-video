@@ -185,7 +185,12 @@ export type AdjustFxV1 =
     | { id: 'vignette'; amount?: number; midpoint?: number; roundness?: number; feather?: number }
     | { id: 'blur'; px?: number }
     | { id: 'grain'; amount?: number; size?: number }
-    | { id: 'sharpen'; amount?: number };
+    | { id: 'sharpen'; amount?: number }
+    | { id: 'glow'; intensity?: number; radius?: number; threshold?: number; warmth?: number }
+    | { id: 'clarity'; amount?: number; radius?: number }
+    | { id: 'dehaze'; amount?: number }
+    | { id: 'denoise'; amount?: number }
+    | { id: 'motion_blur'; px?: number; angle?: number };
 
 export interface AdjustV1 {
     basic?: AdjustBasicV0;
@@ -789,6 +794,11 @@ function validateAdjust(value: unknown, path: string): asserts value is AdjustV1
             blur: { px: [0, 50] },
             grain: { amount: [0, 1], size: [0.5, 4] },
             sharpen: { amount: [0, 1] },
+            glow: { intensity: [0, 1], radius: [0, 100], threshold: [0, 1], warmth: [-1, 1] },
+            clarity: { amount: [-1, 1], radius: [1, 50] },
+            dehaze: { amount: [-1, 1] },
+            denoise: { amount: [0, 1] },
+            motion_blur: { px: [0, 100], angle: [-180, 180] },
         };
         const seen = new Set<string>();
         for (const [index, fx] of value.fx.entries()) {

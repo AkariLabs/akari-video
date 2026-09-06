@@ -109,11 +109,12 @@ test('base-only draw body remains byte-identical to the base commit', () => {
   assert.equal(sha256(section), '01a6ddcc3ed9b58e0062fabe80438c99c9f11e3c0d6ed75e21f3edd258f15d19');
 });
 
-test('layer compositor path remains byte-identical to its pre-change source golden', () => {
+test('layer compositor path matches the source-space fx pass revision', () => {
   const section = sourceSection(
     '// FBO 0 starts as the base.',
     '    // Copy, or apply the optional final 3D LUT',
   );
-  // adjust.fx adds per-layer effect, source-dimension and frame-index uniforms; FBO routing is unchanged.
-  assert.equal(sha256(section), '3fd48841f6a4b0952bedb4892ea87ce31a5cbd77ea3a33d97f5d2654ce8d5a38');
+  // r1 replaces inline fx uniforms with conditional prep/effect draws, then restores the
+  // composite framebuffer and viewport. The no-fx base draw hash above stays unchanged.
+  assert.equal(sha256(section), 'a8e964e94cd6cf39aa7f28e8333fd6d2949df5294e4d9f0c2c26dc761d4be4da');
 });

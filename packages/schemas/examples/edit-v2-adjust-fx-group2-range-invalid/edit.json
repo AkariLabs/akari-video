@@ -29,7 +29,29 @@
           "adjust": {
             "fx": [
               {
-                "id": "unknown_effect"
+                "id": "glow",
+                "intensity": 0.5,
+                "radius": 101,
+                "threshold": 0.7,
+                "warmth": 0
+              },
+              {
+                "id": "clarity",
+                "amount": 0.3,
+                "radius": 10
+              },
+              {
+                "id": "dehaze",
+                "amount": 0.3
+              },
+              {
+                "id": "denoise",
+                "amount": 0.3
+              },
+              {
+                "id": "motion_blur",
+                "px": 10,
+                "angle": 0
               }
             ],
             "sections": {
