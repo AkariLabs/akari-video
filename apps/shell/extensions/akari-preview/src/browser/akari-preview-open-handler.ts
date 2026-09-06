@@ -107,6 +107,7 @@ import {
     LayerCropSummary,
     LayerKeyframesSummary,
     LayerPerspectiveSummary,
+    MotionSummary,
     normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
@@ -225,6 +226,7 @@ interface EditSummaryLayer {
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
     adjust?: EditSummaryAdjust;
 }
 
@@ -356,6 +358,7 @@ interface EditSummaryCut {
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
     speed?: number;
     gain_db?: number;
     gainDb?: number;
@@ -11427,6 +11430,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             crop: cut ? cut.crop : undefined,
                             perspective: cut ? cut.perspective : undefined,
                             keyframes: cut ? cut.keyframes : undefined,
+                            motion: cut ? cut.motion : undefined,
                             adjust: cut ? cut.adjust : undefined,
                             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
                             // 同じ理由（写像には関与しない見た目/再生情報）で元 cuts から補う。

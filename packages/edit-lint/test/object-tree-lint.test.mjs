@@ -6,6 +6,40 @@ import test from "node:test";
 
 import { lintProject } from "../src/edit-lint.mjs";
 
+test("unknown motion presets warn once per seat with the complete nested item path", async () => {
+  const root = await mkdtemp(join(tmpdir(), "akari-motion-preset-lint-"));
+  try {
+    const child = { id: "child", at: 0, duration: 90, source: { kind: "telop", preset: "title" } };
+    const edit = {
+      version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [],
+      tracks: [{ id: "visual", lane: "visual", items: [
+        { id: "parent", at: 0, duration: 90, source: { kind: "group" }, items: [child] },
+      ] }],
+    };
+    const warningsFor = async motion => {
+      child.motion = motion;
+      await writeFile(join(root, "edit.json"), JSON.stringify(edit));
+      const result = await lintProject(root, { writeReports: false });
+      return result.findings.filter(finding => finding.check === "motion.unknown-preset")
+        .map(({ severity, path }) => ({ severity, path }));
+    };
+    const warning = seat => ({ severity: "warning", path: `edit.json#tracks[0].items[0].items[0].motion.${seat}` });
+    assert.deepEqual(await warningsFor({ in: { preset: "future", duration: 12 },
+      out: { preset: "fade", duration: 12 }, loop: { preset: "pulse", period: 30 } }), [warning("in")]);
+    assert.deepEqual(await warningsFor({ in: { preset: "pulse", duration: 12 },
+      out: { preset: "future", duration: 12 }, loop: { preset: "fade", period: 30 } }),
+    [warning("in"), warning("loop"), warning("out")]);
+    for (const preset of ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"]) {
+      assert.deepEqual(await warningsFor({ in: { preset, duration: 12 }, out: { preset, duration: 12 } }), []);
+    }
+    for (const preset of ["pulse", "float", "spin"]) {
+      assert.deepEqual(await warningsFor({ loop: { preset, period: 30 } }), []);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("object-tree lint emits every A1 check at the contracted severity", async () => {
   const root = await mkdtemp(join(tmpdir(), "akari-object-tree-lint-"));
   try {

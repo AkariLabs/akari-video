@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
@@ -250,6 +251,7 @@ import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/key
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { validateInspectorPerspective } from './inspector/perspective-fields';
+import { validateInspectorMotion } from './inspector/motion-fields';
 import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
     audioClipFxFieldsForSnapshot,
@@ -3238,6 +3240,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
+                } else if (request.path === 'mask') {
+                    const value = request.value;
+                    if (raw.source?.kind !== 'media') throw new Error('media item だけが指定できます');
+                    if (value !== null && typeof value !== 'string') throw new Error('mask は sources の id で指定してください');
+                    if (typeof value === 'string' && !this.sourceMap.has(value)) {
+                        return { ok: false, message: 'sources に無い id です' };
+                    }
+                    patch = { mask: value };
+                    label = 'クリップのマスクを変更';
+                } else if (request.path === 'motion') {
+                    const value = request.value;
+                    if (raw.source?.kind === 'html') throw new Error('HTML 部品の動きはパラメータから変更してください。');
+                    validateInspectorMotion(value, raw.duration);
+                    patch = { motion: value };
+                    label = 'クリップの動きを変更';
                 } else if (request.path === 'perspective') {
                     const value = request.value;
                     if (value !== null) {
@@ -3603,9 +3620,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
         return {
             ...selection,
+            ...(raw.source?.kind === 'media' ? {
+                ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+            } : {}),
             outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
+            ...(raw.source?.kind !== 'html' && raw.motion && typeof raw.motion === 'object' && !Array.isArray(raw.motion)
+                ? { motion: raw.motion } : {}),
             ...(transform ? { transform } : {}),
             ...(typeof raw.opacity === 'number' ? { opacity: raw.opacity } : {}),
             ...(raw.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop) ? { crop: raw.crop } : {}),
@@ -3718,6 +3741,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? raw.crop as TimelineCropSnapshot : undefined;
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
+                sourceKind: rawItem?.source?.kind,
+                durationFrames: Number.isInteger(rawItem?.duration) ? rawItem!.duration : Math.max(1, Math.round(layer.duration * this.fps)),
+                ...(rawItem?.source?.kind !== 'html' && rawItem?.motion && typeof rawItem.motion === 'object' && !Array.isArray(rawItem.motion)
+                    ? { motion: rawItem.motion } : {}),
+                ...(raw?.source?.kind === 'media' ? {
+                    ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                    maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+                } : {}),
                 trackName: this.trackDisplayNameForItem(layer.id),
                 clipName: resolveTimelineClipName(layer),
                 outputStart: layer.t, duration: layer.duration,

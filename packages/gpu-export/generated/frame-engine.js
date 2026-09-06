@@ -32,9 +32,9 @@ var AkariFrameEngine = (() => {
   ));
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // packages/edit-store/lib/transition-vocabulary.js
+  // ../motion-engine/packages/edit-store/lib/transition-vocabulary.js
   var require_transition_vocabulary = __commonJS({
-    "packages/edit-store/lib/transition-vocabulary.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/transition-vocabulary.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
@@ -79,9 +79,9 @@ var AkariFrameEngine = (() => {
     }
   });
 
-  // packages/edit-store/lib/edit-store.js
+  // ../motion-engine/packages/edit-store/lib/edit-store.js
   var require_edit_store = __commonJS({
-    "packages/edit-store/lib/edit-store.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/edit-store.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.findMatchingBracket = findMatchingBracket;
@@ -1285,9 +1285,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-words-rederive.js
+  // ../motion-engine/packages/edit-store/lib/caption-words-rederive.js
   var require_caption_words_rederive = __commonJS({
-    "packages/edit-store/lib/caption-words-rederive.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-words-rederive.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.KARAOKE_MIN_WORD_MATCH_RATIO = void 0;
@@ -1480,9 +1480,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-style-preset.js
+  // ../motion-engine/packages/edit-store/lib/caption-style-preset.js
   var require_caption_style_preset = __commonJS({
-    "packages/edit-store/lib/caption-style-preset.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-style-preset.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.mergePresetTextStyle = mergePresetTextStyle;
@@ -1563,9 +1563,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/generated/textstyle-catalog.js
+  // ../motion-engine/packages/edit-store/lib/generated/textstyle-catalog.js
   var require_textstyle_catalog = __commonJS({
-    "packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TEXTSTYLE_CATALOG = void 0;
@@ -1818,9 +1818,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-store.js
+  // ../motion-engine/packages/edit-store/lib/caption-store.js
   var require_caption_store = __commonJS({
-    "packages/edit-store/lib/caption-store.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-store.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CAPTION_ZONES = void 0;
@@ -2987,9 +2987,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-window.js
+  // ../motion-engine/packages/edit-store/lib/caption-window.js
   var require_caption_window = __commonJS({
-    "packages/edit-store/lib/caption-window.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-window.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.captionWindowSeconds = captionWindowSeconds;
@@ -3009,9 +3009,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-clock.js
+  // ../motion-engine/packages/edit-store/lib/caption-clock.js
   var require_caption_clock = __commonJS({
-    "packages/edit-store/lib/caption-clock.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-clock.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.normalizeCaptionClock = normalizeCaptionClock;
@@ -3068,9 +3068,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/cut-adjacency.js
+  // ../motion-engine/packages/edit-store/lib/cut-adjacency.js
   var require_cut_adjacency = __commonJS({
-    "packages/edit-store/lib/cut-adjacency.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/cut-adjacency.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
@@ -3111,9 +3111,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/timeline-map.js
+  // ../motion-engine/packages/edit-store/lib/timeline-map.js
   var require_timeline_map = __commonJS({
-    "packages/edit-store/lib/timeline-map.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/timeline-map.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
@@ -3348,9 +3348,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/caption-display.js
+  // ../motion-engine/packages/edit-store/lib/caption-display.js
   var require_caption_display = __commonJS({
-    "packages/edit-store/lib/caption-display.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/caption-display.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
@@ -4283,9 +4283,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/edit-v2.js
+  // ../motion-engine/packages/edit-store/lib/edit-v2.js
   var require_edit_v2 = __commonJS({
-    "packages/edit-store/lib/edit-v2.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/edit-v2.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.readEditV2 = readEditV2;
@@ -4642,9 +4642,7 @@ ${indent}`);
               "freeze",
               "fx",
               "speed",
-              "chroma_key",
-              "gain_db",
-              "mute"
+              "chroma_key"
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src))
@@ -4661,10 +4659,6 @@ ${indent}`);
               throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
             if (hasOwn(value, "speed"))
               requirePositiveNumber(value.speed, `${path}.speed`);
-            if (hasOwn(value, "gain_db"))
-              requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
-            if (hasOwn(value, "mute") && typeof value.mute !== "boolean")
-              throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
             return;
           case "html":
             requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
@@ -5079,9 +5073,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/edit-v2-item-write.js
+  // ../motion-engine/packages/edit-store/lib/edit-v2-item-write.js
   var require_edit_v2_item_write = __commonJS({
-    "packages/edit-store/lib/edit-v2-item-write.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/edit-v2-item-write.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
@@ -5258,9 +5252,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/item-anchor.js
+  // ../motion-engine/packages/edit-store/lib/item-anchor.js
   var require_item_anchor = __commonJS({
-    "packages/edit-store/lib/item-anchor.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/item-anchor.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.toAnchorCaptions = toAnchorCaptions;
@@ -5417,9 +5411,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/migrate/error.js
+  // ../motion-engine/packages/edit-store/lib/migrate/error.js
   var require_error = __commonJS({
-    "packages/edit-store/lib/migrate/error.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/migrate/error.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.LegacyEditVersionError = void 0;
@@ -5434,9 +5428,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/shape-markup.js
+  // ../motion-engine/packages/edit-store/lib/shape-markup.js
   var require_shape_markup = __commonJS({
-    "packages/edit-store/lib/shape-markup.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/shape-markup.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.shapeMarkup = shapeMarkup;
@@ -5505,9 +5499,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/internal-model.js
+  // ../motion-engine/packages/edit-store/lib/internal-model.js
   var require_internal_model = __commonJS({
-    "packages/edit-store/lib/internal-model.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/internal-model.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.readInternalEdit = readInternalEdit;
@@ -6353,8 +6347,6 @@ ${indent}`);
           ...source.freeze !== void 0 ? { freeze: source.freeze } : {},
           ...source.fx !== void 0 ? { fx: source.fx } : {},
           ...source.speed !== void 0 ? { speed: source.speed } : {},
-          ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
-          ...source.mute !== void 0 ? { mute: source.mute } : {},
           ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
         };
       }
@@ -6573,9 +6565,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/legacy-audio-view.js
+  // ../motion-engine/packages/edit-store/lib/legacy-audio-view.js
   var require_legacy_audio_view = __commonJS({
-    "packages/edit-store/lib/legacy-audio-view.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/legacy-audio-view.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.projectLegacyAudioView = projectLegacyAudioView;
@@ -6636,9 +6628,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/retime.js
+  // ../motion-engine/packages/edit-store/lib/retime.js
   var require_retime = __commonJS({
-    "packages/edit-store/lib/retime.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/retime.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.retime = retime;
@@ -6721,9 +6713,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/track-order.js
+  // ../motion-engine/packages/edit-store/lib/track-order.js
   var require_track_order = __commonJS({
-    "packages/edit-store/lib/track-order.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/track-order.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.deriveVisualTrackOrder = deriveVisualTrackOrder;
@@ -6774,9 +6766,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/track-z.js
+  // ../motion-engine/packages/edit-store/lib/track-z.js
   var require_track_z = __commonJS({
-    "packages/edit-store/lib/track-z.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/track-z.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.collectTrackZByItemId = collectTrackZByItemId;
@@ -6823,9 +6815,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/track-transition-compatibility.js
+  // ../motion-engine/packages/edit-store/lib/track-transition-compatibility.js
   var require_track_transition_compatibility = __commonJS({
-    "packages/edit-store/lib/track-transition-compatibility.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/track-transition-compatibility.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.usesDefaultCompatibilityTrackOrder = usesDefaultCompatibilityTrackOrder;
@@ -6894,9 +6886,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/transition-visual.js
+  // ../motion-engine/packages/edit-store/lib/transition-visual.js
   var require_transition_visual = __commonJS({
-    "packages/edit-store/lib/transition-visual.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/transition-visual.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.computeTransitionVisual = computeTransitionVisual;
@@ -7040,9 +7032,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/envelope.js
+  // ../motion-engine/packages/edit-store/lib/envelope.js
   var require_envelope = __commonJS({
-    "packages/edit-store/lib/envelope.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/envelope.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
@@ -7329,9 +7321,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/ducking.js
+  // ../motion-engine/packages/edit-store/lib/ducking.js
   var require_ducking = __commonJS({
-    "packages/edit-store/lib/ducking.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/ducking.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.STATIC_DUCK_GAIN_DB = void 0;
@@ -7348,9 +7340,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/audio-schedule.js
+  // ../motion-engine/packages/edit-store/lib/audio-schedule.js
   var require_audio_schedule = __commonJS({
-    "packages/edit-store/lib/audio-schedule.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/audio-schedule.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildWebAudioSchedule = buildWebAudioSchedule2;
@@ -7624,8 +7616,6 @@ ${indent}`);
             continue;
           const cut = normalizedCuts[segment.cutIndex];
           if (!cut || typeof cut.src !== "string" || !cut.src)
-            continue;
-          if (cut.mute === true)
             continue;
           const speed = finitePositive4(cut.speed) ? cut.speed : 1;
           const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
@@ -7915,14 +7905,14 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/generated/edit-v2-keys.js
+  // ../motion-engine/packages/edit-store/lib/generated/edit-v2-keys.js
   var require_edit_v2_keys = __commonJS({
-    "packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
       exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
       exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -8122,8 +8112,6 @@ ${indent}`);
           "freeze",
           "fx",
           "speed",
-          "gain_db",
-          "mute",
           "chroma_key"
         ],
         "itemSourceAudioMediaV2": [
@@ -8179,9 +8167,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/canonical.js
+  // ../motion-engine/packages/edit-store/lib/canonical.js
   var require_canonical = __commonJS({
-    "packages/edit-store/lib/canonical.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/canonical.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.serializeEdit = serializeEdit;
@@ -8412,9 +8400,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/tree-ops.js
+  // ../motion-engine/packages/edit-store/lib/tree-ops.js
   var require_tree_ops = __commonJS({
-    "packages/edit-store/lib/tree-ops.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/tree-ops.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
@@ -9148,9 +9136,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/cut-ranges.js
+  // ../motion-engine/packages/edit-store/lib/cut-ranges.js
   var require_cut_ranges = __commonJS({
-    "packages/edit-store/lib/cut-ranges.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/cut-ranges.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.detectEditVersion = detectEditVersion;
@@ -9347,9 +9335,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/adjust-css-approx.js
+  // ../motion-engine/packages/edit-store/lib/adjust-css-approx.js
   var require_adjust_css_approx = __commonJS({
-    "packages/edit-store/lib/adjust-css-approx.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/adjust-css-approx.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.adjustBasicToCssApprox = adjustBasicToCssApprox;
@@ -9379,9 +9367,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/migrate/legacy-parse.js
+  // ../motion-engine/packages/edit-store/lib/migrate/legacy-parse.js
   var require_legacy_parse = __commonJS({
-    "packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.parseEdit = parseEdit;
@@ -9854,9 +9842,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/adjust-css-visual.js
+  // ../motion-engine/packages/edit-store/lib/adjust-css-visual.js
   var require_adjust_css_visual = __commonJS({
-    "packages/edit-store/lib/adjust-css-visual.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/adjust-css-visual.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.computeAdjustCssVisual = computeAdjustCssVisual;
@@ -9913,9 +9901,9 @@ ${indent}`);
     }
   });
 
-  // packages/edit-store/lib/index.js
+  // ../motion-engine/packages/edit-store/lib/index.js
   var require_lib = __commonJS({
-    "packages/edit-store/lib/index.js"(exports) {
+    "../motion-engine/packages/edit-store/lib/index.js"(exports) {
       "use strict";
       var __createBinding = exports && exports.__createBinding || (Object.create ? function(o2, m2, k2, k22) {
         if (k22 === void 0) k22 = k2;
@@ -9976,9 +9964,9 @@ ${indent}`);
     }
   });
 
-  // node_modules/@webav/mp4box.js/dist/mp4box.all.js
+  // ../motion-engine/node_modules/@webav/mp4box.js/dist/mp4box.all.js
   var require_mp4box_all = __commonJS({
-    "node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
+    "../motion-engine/node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
       var Log = /* @__PURE__ */ function() {
         var start = /* @__PURE__ */ new Date();
         var LOG_LEVEL_ERROR = 4;
@@ -17006,6 +16994,8 @@ ${indent}`);
     KNOWN_LAYER_KEYS: () => KNOWN_LAYER_KEYS,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
+    MOTION_IN_OUT_PRESETS: () => MOTION_IN_OUT_PRESETS,
+    MOTION_LOOP_PRESETS: () => MOTION_LOOP_PRESETS,
     PitchShiftKernel: () => PitchShiftKernel,
     RangeMp4Source: () => RangeMp4Source,
     RefusalError: () => RefusalError,
@@ -17056,6 +17046,7 @@ ${indent}`);
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     downmixToMono: () => downmixToMono,
+    easeValue: () => easeValue,
     encodedChunkInitForSample: () => encodedChunkInitForSample,
     estimateDecodedBytes: () => estimateDecodedBytes,
     evaluateCodecSupport: () => evaluateCodecSupport,
@@ -17083,6 +17074,7 @@ ${indent}`);
     isItemAdjustIdentity: () => isItemAdjustIdentity,
     isLayerActiveAt: () => isLayerActiveAt,
     mergeByteRanges: () => mergeByteRanges,
+    motionVisualAt: () => motionVisualAt,
     needsCodecProbe: () => needsCodecProbe,
     normalizeAdjustBasic: () => normalizeAdjustBasic,
     normalizeAdjustCurves: () => normalizeAdjustCurves,
@@ -18227,7 +18219,7 @@ void main() {
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
       ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
-        (name, unit) => gl.uniform1i(gl.getUniformLocation(program, name), unit)
+        (name, unit2) => gl.uniform1i(gl.getUniformLocation(program, name), unit2)
       );
       const cutUniforms = [0, 1].map((index) => ({
         framing: gl.getUniformLocation(program, `framing${index}`),
@@ -18258,12 +18250,12 @@ void main() {
       this.basePrograms.set(type, state);
       return state;
     }
-    bind(unit, texture) {
-      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    bind(unit2, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
       this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
     }
-    bind3d(unit, texture) {
-      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    bind3d(unit2, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
       this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
     }
     lookTexture(lut, allocationUnit = LUT_UNIT) {
@@ -18332,7 +18324,7 @@ void main() {
       this.stats.directUploadFallbackReason ??= reason;
       throw new DirectUploadFallbackError(reason);
     }
-    uploadVideoFrameTexture(texture, unit, frame, uniforms) {
+    uploadVideoFrameTexture(texture, unit2, frame, uniforms) {
       if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
         this.failDirectUpload("direct upload is disabled for this session");
       if (!isDirectUploadableFormat(frame.format))
@@ -18345,7 +18337,7 @@ void main() {
         this.failDirectUpload(`invalid display size ${width}x${height}`);
       const gl = this.gl;
       while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
-      this.bind(unit, texture);
+      this.bind(unit2, texture);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
@@ -18480,7 +18472,7 @@ void main() {
         this.gl.uniform2f(u2.box, 1, 1);
       }
     }
-    configureAdjustLut(lut, unit, uniforms) {
+    configureAdjustLut(lut, unit2, uniforms) {
       const gl = this.gl;
       gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
       if (!lut) {
@@ -18490,7 +18482,7 @@ void main() {
         gl.uniform1f(uniforms.adjustLutIntensity, 0);
         return;
       }
-      this.bind3d(unit, this.lookTexture(lut, unit));
+      this.bind3d(unit2, this.lookTexture(lut, unit2));
       gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
       gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
       gl.uniform1f(uniforms.adjustLutSize, lut.size);
@@ -18560,9 +18552,9 @@ void main() {
       return texture;
     }
     /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
-    uploadStillBaseTexture(value, unit, uniforms) {
+    uploadStillBaseTexture(value, unit2, uniforms) {
       const texture = this.stillTexture(value);
-      this.bind(unit, texture);
+      this.bind(unit2, texture);
       if (uniforms) {
         this.gl.uniform1i(uniforms.format, 2);
         this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
@@ -19205,8 +19197,8 @@ void main() {
     }
     if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
     const p2 = [0, 1, 2].map((index) => {
-      const unit = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
-      return clamp(unit) * (lut.size - 1);
+      const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+      return clamp(unit2) * (lut.size - 1);
     });
     const lo = p2.map(Math.floor);
     const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
@@ -19581,6 +19573,150 @@ void main() {
     return result;
   }
 
+  // packages/frame-engine/src/timeline/item-motion.ts
+  var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"];
+  var MOTION_LOOP_PRESETS = ["pulse", "float", "spin"];
+  var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
+  var loopPresets = new Set(MOTION_LOOP_PRESETS);
+  var unit = (u2) => Math.max(0, Math.min(1, u2));
+  var finite3 = (value) => typeof value === "number" && Number.isFinite(value);
+  var identity = () => ({ dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 });
+  function bounce(u2) {
+    const n2 = 7.5625;
+    const d2 = 2.75;
+    if (u2 < 1 / d2) return n2 * u2 * u2;
+    if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+    if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+    return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+  }
+  function easeValue(name, u2) {
+    u2 = unit(u2);
+    if (name === "hold") return u2 < 1 ? 0 : 1;
+    if (u2 === 0 || u2 === 1) return u2;
+    const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
+    if (polynomial) {
+      const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
+      if (polynomial[1] === "in") return u2 ** power;
+      if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
+      return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
+    }
+    const back = 1.70158;
+    switch (name) {
+      case "ease-in-out":
+        return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+      case "in-expo":
+        return 2 ** (10 * u2 - 10);
+      case "out-expo":
+        return 1 - 2 ** (-10 * u2);
+      case "in-out-expo":
+        return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+      case "in-back":
+        return (back + 1) * u2 ** 3 - back * u2 ** 2;
+      case "out-back":
+        return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
+      case "in-out-back": {
+        const c = back * 1.525;
+        return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+      }
+      case "out-bounce":
+        return bounce(u2);
+      case "out-elastic":
+        return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
+    }
+    const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
+    if (bezier) {
+      const values = bezier.slice(1).map((value) => value.trim() ? Number(value) : NaN);
+      const [x1, y1, x22, y2] = values;
+      if (values.every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+        const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+        let low = 0;
+        let high = 1;
+        for (let iteration = 0; iteration < 48; iteration += 1) {
+          const t = (low + high) / 2;
+          if (coordinate(t, x1, x22) < u2) low = t;
+          else high = t;
+        }
+        return coordinate((low + high) / 2, y1, y2);
+      }
+    }
+    return u2;
+  }
+  function compose(target, effect) {
+    target.dx += effect.dx;
+    target.dy += effect.dy;
+    target.scale *= effect.scale;
+    target.rotate += effect.rotate;
+    target.opacity *= effect.opacity;
+    if (effect.reveal) {
+      const a = target.reveal ?? { x: 0, y: 0, w: 1, h: 1 };
+      const b = effect.reveal;
+      const x3 = Math.max(a.x, b.x);
+      const y2 = Math.max(a.y, b.y);
+      target.reveal = {
+        x: x3,
+        y: y2,
+        w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
+        h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
+      };
+    }
+  }
+  function motionVisualAt(motion2, localSeconds, itemDurationSeconds, fps) {
+    if (!motion2 || !finite3(localSeconds) || !finite3(itemDurationSeconds) || itemDurationSeconds <= 0 || !finite3(fps) || fps <= 0) return null;
+    const result = identity();
+    let applied = false;
+    for (const seat of ["in", "out"]) {
+      const entry = motion2[seat];
+      if (!entry || !inOutPresets.has(entry.preset) || !finite3(entry.duration) || entry.duration <= 0) continue;
+      const span = entry.duration / fps;
+      if (!finite3(span) || span <= 0) continue;
+      applied = true;
+      const progress = seat === "in" ? localSeconds / span : 1 - (itemDurationSeconds - localSeconds) / span;
+      const eased = easeValue(entry.ease, progress);
+      const hidden = seat === "in" ? 1 - eased : eased;
+      const amount = finite3(entry.amount) ? entry.amount : entry.preset === "scale" ? 0.2 : 40;
+      const effect = identity();
+      switch (entry.preset) {
+        case "fade":
+          effect.opacity = unit(1 - hidden);
+          break;
+        case "slide-up":
+          effect.dy = hidden * amount;
+          break;
+        case "slide-down":
+          effect.dy = -hidden * amount;
+          break;
+        case "slide-left":
+          effect.dx = hidden * amount;
+          break;
+        case "slide-right":
+          effect.dx = -hidden * amount;
+          break;
+        case "scale":
+          effect.scale = 1 - hidden * amount;
+          break;
+        case "wipe":
+          effect.reveal = { x: 0, y: 0, w: unit(1 - hidden), h: 1 };
+          break;
+      }
+      compose(result, effect);
+    }
+    const loop = motion2.loop;
+    if (loop && loopPresets.has(loop.preset) && finite3(loop.period) && loop.period > 0) {
+      const span = loop.period / fps;
+      if (finite3(span) && span > 0) {
+        applied = true;
+        const phase = easeValue(loop.ease, (localSeconds % span + span) % span / span);
+        const amount = finite3(loop.amount) ? loop.amount : loop.preset === "pulse" ? 0.05 : loop.preset === "float" ? 6 : 1;
+        const effect = identity();
+        if (loop.preset === "pulse") effect.scale = 1 + amount * Math.sin(2 * Math.PI * phase);
+        if (loop.preset === "float") effect.dy = amount * Math.sin(2 * Math.PI * phase);
+        if (loop.preset === "spin") effect.rotate = 360 * phase * amount;
+        compose(result, effect);
+      }
+    }
+    return applied ? result : null;
+  }
+
   // packages/frame-engine/src/timeline/plan.ts
   var KNOWN_CUT_KEY_LIST = [
     "in",
@@ -19599,7 +19735,8 @@ void main() {
     "crop",
     "keyframes",
     "perspective",
-    "adjust"
+    "adjust",
+    "motion"
   ];
   var KNOWN_LAYER_KEY_LIST = [
     "id",
@@ -19615,7 +19752,8 @@ void main() {
     "opacity",
     "blend",
     "filter",
-    "adjust"
+    "adjust",
+    "motion"
   ];
   var KNOWN_KEYFRAME_KEY_LIST = [
     "t",
@@ -19634,7 +19772,7 @@ void main() {
     transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
     opacity: 1
   };
-  function finite3(value, fallback) {
+  function finite4(value, fallback) {
     return typeof value === "number" && Number.isFinite(value) ? value : fallback;
   }
   function clamp3(value, minimum, maximum) {
@@ -19659,7 +19797,7 @@ void main() {
     return Array.isArray(keyframes) ? keyframes.filter((point) => Boolean(point) && typeof point === "object" && Number.isFinite(point.t) && point.t >= 0).length : 0;
   }
   function hasCutLayerStyleVisual(cut) {
-    return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+    return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2 || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe";
   }
   function cutDeclaresPerspective(cut) {
     return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
@@ -19699,8 +19837,8 @@ void main() {
       throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
     }
     const virtualCuts = cuts.map((cut) => {
-      const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
-      const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
+      const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+      const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
       return {
         ...cut,
         out: cut.out + freezeDuration * speed,
@@ -19712,10 +19850,10 @@ void main() {
     const placements = cuts.map((cut, index) => {
       const segment = trackSegments[index];
       if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-      const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+      const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
       const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-      const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
-      const freezeAt = cut.freeze ? clamp3(finite3(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+      const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+      const freezeAt = cut.freeze ? clamp3(finite4(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
       const adjustLut = resolveAdjustLut(cut.adjust);
       return {
         cut,
@@ -19752,7 +19890,7 @@ void main() {
         maskSources.set(layer.src, null);
       }
     }
-    const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
+    const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))), 0);
     return {
       map,
       cuts: placements,
@@ -19761,13 +19899,13 @@ void main() {
       layerAdjustLuts,
       maskSources,
       warn,
-      fps: finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+      fps: finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
     };
   }
   function isLayerActiveAt(layer, timeUs, fps) {
     const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
-    const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
-    const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
+    const startFrame = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const endFrame = Math.max(startFrame, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
     return frame >= startFrame && frame < endFrame;
   }
   function playbackSecondsAt(placement, outputSeconds) {
@@ -19802,27 +19940,27 @@ void main() {
     const amount = right.t > left.t ? clamp3((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
     const lerp3 = (a, b) => a + (b - a) * amount;
     return {
-      scale: Math.max(1, lerp3(finite3(left.scale, 1), finite3(right.scale, 1))),
-      centerX: clamp3(lerp3(finite3(left.cx, 0.5), finite3(right.cx, 0.5)), 0, 1),
-      centerY: clamp3(lerp3(finite3(left.cy, 0.5), finite3(right.cy, 0.5)), 0, 1)
+      scale: Math.max(1, lerp3(finite4(left.scale, 1), finite4(right.scale, 1))),
+      centerX: clamp3(lerp3(finite4(left.cx, 0.5), finite4(right.cx, 0.5)), 0, 1),
+      centerY: clamp3(lerp3(finite4(left.cy, 0.5), finite4(right.cy, 0.5)), 0, 1)
     };
   }
   function layerStyleVisualAt(cut, localSeconds) {
     const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
     const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const crop = animated?.crop ?? {
-      x: finite3(staticCrop.x, 0),
-      y: finite3(staticCrop.y, 0),
-      width: finite3(staticCrop.w, 1),
-      height: finite3(staticCrop.h, 1)
+      x: finite4(staticCrop.x, 0),
+      y: finite4(staticCrop.y, 0),
+      width: finite4(staticCrop.w, 1),
+      height: finite4(staticCrop.h, 1)
     };
     const width = clamp3(crop.width, Number.EPSILON, 1);
     const height = clamp3(crop.height, Number.EPSILON, 1);
     const transform = animated?.transform ?? {
-      x: finite3(cut.transform?.x, 0),
-      y: finite3(cut.transform?.y, 0),
-      scale: finite3(cut.transform?.scale, 1),
-      rotateDegrees: finite3(cut.transform?.rotate, 0)
+      x: finite4(cut.transform?.x, 0),
+      y: finite4(cut.transform?.y, 0),
+      scale: finite4(cut.transform?.scale, 1),
+      rotateDegrees: finite4(cut.transform?.rotate, 0)
     };
     return {
       framing: DEFAULT_VISUAL.framing,
@@ -19832,15 +19970,46 @@ void main() {
         scale: Math.max(Number.EPSILON, transform.scale),
         rotateDegrees: transform.rotateDegrees
       },
-      opacity: clamp3(animated?.opacity ?? finite3(cut.opacity, 1), 0, 1),
+      opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
       layerStyle: {
         crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
       }
     };
   }
-  function visualAt(cut, playbackSeconds, localSeconds, adjustLut) {
+  function motionTransform(transform, motion2) {
+    return {
+      x: transform.x + motion2.dx,
+      y: transform.y + motion2.dy,
+      scale: transform.scale * motion2.scale,
+      rotateDegrees: transform.rotateDegrees + motion2.rotate
+    };
+  }
+  function motionCrop(crop, reveal) {
+    return {
+      x: crop.x + crop.width * reveal.x,
+      y: crop.y + crop.height * reveal.y,
+      // Keep downstream geometry nondegenerate; motionOpacity preserves a closed wipe's transparency.
+      width: Math.max(Number.EPSILON, crop.width * reveal.w),
+      height: Math.max(Number.EPSILON, crop.height * reveal.h)
+    };
+  }
+  function motionOpacity(opacity, motion2) {
+    return motion2.reveal && (motion2.reveal.w === 0 || motion2.reveal.h === 0) ? 0 : opacity * motion2.opacity;
+  }
+  function cutMotionVisual(visual, motion2) {
+    if (!motion2) return visual;
+    return {
+      ...visual,
+      transform: motionTransform(visual.transform, motion2),
+      opacity: motionOpacity(visual.opacity, motion2),
+      ...visual.layerStyle && motion2.reveal ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion2.reveal) } } : {}
+    };
+  }
+  function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut) {
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const motion2 = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
     if (hasCutLayerStyleVisual(cut)) {
-      const visual2 = layerStyleVisualAt(cut, localSeconds);
+      const visual2 = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion2);
       return adjustLut ? { ...visual2, adjustLut } : visual2;
     }
     let framing = DEFAULT_VISUAL.framing;
@@ -19858,41 +20027,42 @@ void main() {
       };
     } else if (cut.framing?.crop) {
       const crop = cut.framing.crop;
-      const width = clamp3(finite3(crop.w, 1), Number.EPSILON, 1);
-      const height = clamp3(finite3(crop.h, 1), Number.EPSILON, 1);
+      const width = clamp3(finite4(crop.w, 1), Number.EPSILON, 1);
+      const height = clamp3(finite4(crop.h, 1), Number.EPSILON, 1);
       framing = {
-        x: clamp3(finite3(crop.x, 0), 0, 1 - width),
-        y: clamp3(finite3(crop.y, 0), 0, 1 - height),
+        x: clamp3(finite4(crop.x, 0), 0, 1 - width),
+        y: clamp3(finite4(crop.y, 0), 0, 1 - height),
         width,
         height,
         scale: Math.max(1 / width, 1 / height),
-        centerX: clamp3(finite3(crop.x, 0) + width / 2, 0, 1),
-        centerY: clamp3(finite3(crop.y, 0) + height / 2, 0, 1)
+        centerX: clamp3(finite4(crop.x, 0) + width / 2, 0, 1),
+        centerY: clamp3(finite4(crop.y, 0) + height / 2, 0, 1)
       };
     }
     const visual = {
       framing,
       transform: {
-        x: finite3(cut.transform?.x, 0),
-        y: finite3(cut.transform?.y, 0),
-        scale: Math.max(Number.EPSILON, finite3(cut.transform?.scale, 1)),
-        rotateDegrees: finite3(cut.transform?.rotate, 0)
+        x: finite4(cut.transform?.x, 0),
+        y: finite4(cut.transform?.y, 0),
+        scale: Math.max(Number.EPSILON, finite4(cut.transform?.scale, 1)),
+        rotateDegrees: finite4(cut.transform?.rotate, 0)
       },
-      opacity: clamp3(finite3(cut.opacity, 1), 0, 1)
+      opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
     };
-    return adjustLut ? { ...visual, adjustLut } : visual;
+    const composed = cutMotionVisual(visual, motion2);
+    return adjustLut ? { ...composed, adjustLut } : composed;
   }
-  function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
+  function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
     const cut = placement.cut;
     if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
     const source = sources.get(cut.src);
     const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
     const localSeconds = Math.max(0, outputSeconds - placement.at);
-    const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
+    const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
     const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
     if (image) return image;
     if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
-    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
     return {
       id: `cut-${cutIndex}`,
       source,
@@ -19963,7 +20133,7 @@ void main() {
     const resolved = [];
     timeline.layers.forEach((layer, index) => {
       if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
-      const localSeconds = Math.max(0, seconds - finite3(layer.t, 0));
+      const localSeconds = Math.max(0, seconds - finite4(layer.t, 0));
       const id = String(layer.id ?? `layer-${index}`);
       if (layer.kind === "filter") {
         if (!validFilter(layer.filter)) {
@@ -19975,7 +20145,7 @@ void main() {
           kind: "filter",
           filter: layer.filter,
           corners: filterQuadCornersAt(layer, localSeconds),
-          opacity: clamp3(finite3(layer.opacity, 1), 0, 1)
+          opacity: clamp3(finite4(layer.opacity, 1), 0, 1)
         });
         return;
       }
@@ -19990,30 +20160,37 @@ void main() {
       const staticTransform = layer.transform ?? {};
       const visual = {
         crop: animated?.crop ?? {
-          x: clamp3(finite3(staticCrop.x, 0), 0, 1),
-          y: clamp3(finite3(staticCrop.y, 0), 0, 1),
-          width: clamp3(finite3(staticCrop.w, 1), Number.EPSILON, 1),
-          height: clamp3(finite3(staticCrop.h, 1), Number.EPSILON, 1)
+          x: clamp3(finite4(staticCrop.x, 0), 0, 1),
+          y: clamp3(finite4(staticCrop.y, 0), 0, 1),
+          width: clamp3(finite4(staticCrop.w, 1), Number.EPSILON, 1),
+          height: clamp3(finite4(staticCrop.h, 1), Number.EPSILON, 1)
         },
         perspective: animated?.perspective ?? (layer.perspective ?? null),
         transform: animated?.transform ?? {
-          x: finite3(staticTransform.x, 0),
-          y: finite3(staticTransform.y, 0),
-          scale: Math.max(Number.EPSILON, finite3(staticTransform.scale, 1)),
-          rotateDegrees: finite3(staticTransform.rotate, 0)
+          x: finite4(staticTransform.x, 0),
+          y: finite4(staticTransform.y, 0),
+          scale: Math.max(Number.EPSILON, finite4(staticTransform.scale, 1)),
+          rotateDegrees: finite4(staticTransform.rotate, 0)
         }
       };
       visual.crop.width = clamp3(visual.crop.width, Number.EPSILON, 1);
       visual.crop.height = clamp3(visual.crop.height, Number.EPSILON, 1);
       visual.crop.x = clamp3(visual.crop.x, 0, 1 - visual.crop.width);
       visual.crop.y = clamp3(visual.crop.y, 0, 1 - visual.crop.height);
+      const motion2 = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
+      let opacity = clamp3(animated?.opacity ?? finite4(layer.opacity, 1), 0, 1);
+      if (motion2) {
+        visual.transform = motionTransform(visual.transform, motion2);
+        if (motion2.reveal) visual.crop = motionCrop(visual.crop, motion2.reveal);
+        opacity = motionOpacity(opacity, motion2);
+      }
       const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
       const adjustLut = timeline.layerAdjustLuts[index];
       const common = {
         id,
         visual,
         blend,
-        opacity: clamp3(animated?.opacity ?? finite3(layer.opacity, 1), 0, 1),
+        opacity,
         ...adjustLut ? { adjustLut } : {}
       };
       if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
@@ -20061,8 +20238,8 @@ void main() {
       return {
         timeUs,
         base: [
-          layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources),
-          layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources)
+          layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources, timeline.fps),
+          layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources, timeline.fps)
         ],
         layers: resolvedCompositeLayers(timeline, timeUs, sources),
         transition: {
@@ -20074,7 +20251,7 @@ void main() {
     }
     const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
-    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
+    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
     return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
@@ -20100,7 +20277,7 @@ void main() {
   // packages/frame-engine/vendor/av-cliper/av-cliper.js
   var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
-  // node_modules/@webav/internal-utils/dist/internal-utils.js
+  // ../motion-engine/node_modules/@webav/internal-utils/dist/internal-utils.js
   var import_mp4box = __toESM(require_mp4box_all(), 1);
   var L = () => {
     let e, t = 16.6;
@@ -20207,7 +20384,7 @@ void main() {
     }
   })();
 
-  // node_modules/wave-resampler/lib/interpolator.js
+  // ../motion-engine/node_modules/wave-resampler/lib/interpolator.js
   var Interpolator = class {
     /**
      * @param {number} scaleFrom the length of the original array.
@@ -20319,7 +20496,7 @@ void main() {
     return Math.sin(Math.PI * x3) / (Math.PI * x3);
   }
 
-  // node_modules/wave-resampler/lib/fir-lpf.js
+  // ../motion-engine/node_modules/wave-resampler/lib/fir-lpf.js
   var FIRLPF = class {
     /**
      * @param {number} order The order of the filter.
@@ -20379,7 +20556,7 @@ void main() {
     }
   };
 
-  // node_modules/wave-resampler/lib/butterworth-lpf.js
+  // ../motion-engine/node_modules/wave-resampler/lib/butterworth-lpf.js
   var ButterworthLPF = class {
     /**
      * @param {number} order The order of the filter.
@@ -20460,7 +20637,7 @@ void main() {
     }
   };
 
-  // node_modules/wave-resampler/index.js
+  // ../motion-engine/node_modules/wave-resampler/index.js
   var DEFAULT_LPF_USE = {
     "point": false,
     "linear": false,
@@ -20550,7 +20727,7 @@ void main() {
     resample_(samples, newSamples, interpolator);
   }
 
-  // node_modules/opfs-tools/dist/opfs-tools.js
+  // ../motion-engine/node_modules/opfs-tools/dist/opfs-tools.js
   var z2 = (r) => {
     throw TypeError(r);
   };
@@ -28009,7 +28186,7 @@ void main() {
     { location: 3, size: 3, offset: 6 },
     { location: 4, size: 2, offset: 9 }
   ];
-  function finite4(value, fallback, label) {
+  function finite5(value, fallback, label) {
     const resolved = value ?? fallback;
     if (!Number.isFinite(resolved)) throw new Error(`${label} must be finite`);
     return resolved;
@@ -28020,12 +28197,12 @@ void main() {
     }
     return {
       id: draw.id,
-      opacity: Math.max(0, Math.min(1, finite4(draw.opacity, 1, "opacity"))),
-      translateX: finite4(draw.translateX, 0, "translateX"),
-      translateY: finite4(draw.translateY, 0, "translateY"),
-      scaleX: finite4(draw.scaleX, 1, "scaleX"),
-      scaleY: finite4(draw.scaleY, 1, "scaleY"),
-      rotateDeg: finite4(draw.rotateDeg, 0, "rotateDeg")
+      opacity: Math.max(0, Math.min(1, finite5(draw.opacity, 1, "opacity"))),
+      translateX: finite5(draw.translateX, 0, "translateX"),
+      translateY: finite5(draw.translateY, 0, "translateY"),
+      scaleX: finite5(draw.scaleX, 1, "scaleX"),
+      scaleY: finite5(draw.scaleY, 1, "scaleY"),
+      rotateDeg: finite5(draw.rotateDeg, 0, "rotateDeg")
     };
   }
   function normalizeSpriteTile(tile) {
@@ -28037,14 +28214,14 @@ void main() {
       y: tile.y,
       width: tile.width,
       height: tile.height,
-      mix: Math.max(0, Math.min(1, finite4(tile.mix, 0, "tile mix"))),
+      mix: Math.max(0, Math.min(1, finite5(tile.mix, 0, "tile mix"))),
       visible: tile.visible ?? true,
-      opacity: Math.max(0, Math.min(1, finite4(tile.opacity, 1, "tile opacity"))),
-      translateX: finite4(tile.translateX, 0, "tile translateX"),
-      translateY: finite4(tile.translateY, 0, "tile translateY"),
-      scaleX: finite4(tile.scaleX, 1, "tile scaleX"),
-      scaleY: finite4(tile.scaleY, 1, "tile scaleY"),
-      rotateDeg: finite4(tile.rotateDeg, 0, "tile rotateDeg")
+      opacity: Math.max(0, Math.min(1, finite5(tile.opacity, 1, "tile opacity"))),
+      translateX: finite5(tile.translateX, 0, "tile translateX"),
+      translateY: finite5(tile.translateY, 0, "tile translateY"),
+      scaleX: finite5(tile.scaleX, 1, "tile scaleX"),
+      scaleY: finite5(tile.scaleY, 1, "tile scaleY"),
+      rotateDeg: finite5(tile.rotateDeg, 0, "tile rotateDeg")
     };
   }
   function normalizeSpriteTextureRect(rect, canvasWidth, canvasHeight) {
@@ -28326,8 +28503,8 @@ void main() {
       if (!instanceCanvasLocation) throw new Error("sprite instance compositor uniform is unavailable: uCanvas");
       this.instanceCanvasLocation = instanceCanvasLocation;
       gl.useProgram(instanceProgram);
-      for (let unit = 0; unit < this.textureUnitCount; unit += 1) {
-        gl.uniform1i(gl.getUniformLocation(instanceProgram, `uTexture${unit}`), unit);
+      for (let unit2 = 0; unit2 < this.textureUnitCount; unit2 += 1) {
+        gl.uniform1i(gl.getUniformLocation(instanceProgram, `uTexture${unit2}`), unit2);
       }
       const plainInstanceVertex = compileShader2(gl, gl.VERTEX_SHADER, `#version 300 es
       layout(location = 0) in vec2 position;
@@ -28395,8 +28572,8 @@ void main() {
       }
       gl.bindVertexArray(null);
       gl.useProgram(plainInstanceProgram);
-      for (let unit = 0; unit < this.textureUnitCount; unit += 1) {
-        gl.uniform1i(gl.getUniformLocation(plainInstanceProgram, `uTexture${unit}`), unit);
+      for (let unit2 = 0; unit2 < this.textureUnitCount; unit2 += 1) {
+        gl.uniform1i(gl.getUniformLocation(plainInstanceProgram, `uTexture${unit2}`), unit2);
       }
       this.baseTexture = createTexture(gl);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -28535,11 +28712,11 @@ void main() {
         }
         const base = this.sprites.get(draw.id);
         if (!base) throw new Error(`unknown sprite: ${draw.id}`);
-        const unit = normalizeSpriteDraw(draw);
+        const unit2 = normalizeSpriteDraw(draw);
         if (kind === "plain") {
           run.instances.push({
-            transform: spriteTransformMatrix(unit, this.canvas.width, this.canvas.height),
-            opacity: unit.opacity,
+            transform: spriteTransformMatrix(unit2, this.canvas.width, this.canvas.height),
+            opacity: unit2.opacity,
             texture: base
           });
           continue;
@@ -28556,7 +28733,7 @@ void main() {
           this.canvas.height
         );
         const tiles = draw.tiles !== void 0 ? draw.tiles : draw.textureRect !== void 0 ? [{ ...draw.textureRect }] : [{ x: 0, y: 0, width: this.canvas.width, height: this.canvas.height }];
-        const unitTransform = spriteTransformMatrix(unit, this.canvas.width, this.canvas.height);
+        const unitTransform = spriteTransformMatrix(unit2, this.canvas.width, this.canvas.height);
         for (const tile of tiles) {
           const value = normalizeSpriteTile(tile);
           if (!value.visible) continue;
@@ -28566,7 +28743,7 @@ void main() {
             unitTransform,
             tileTransform: spriteTileMatrix(value, this.canvas.width, this.canvas.height),
             mix: value.mix,
-            opacity: unit.opacity * value.opacity,
+            opacity: unit2.opacity * value.opacity,
             base,
             highlight
           });
@@ -28679,8 +28856,8 @@ void main() {
     }
     planRunChunks(runs, state) {
       const simulated = Array(this.textureUnitCount).fill(null);
-      for (const [unit, texture] of state.textures) {
-        if (unit >= 0 && unit < simulated.length) simulated[unit] = texture;
+      for (const [unit2, texture] of state.textures) {
+        if (unit2 >= 0 && unit2 < simulated.length) simulated[unit2] = texture;
       }
       const chunks = [];
       let plainStart = 0;
@@ -28709,20 +28886,20 @@ void main() {
           const units = /* @__PURE__ */ new Map();
           const used = /* @__PURE__ */ new Set();
           for (const texture of value.textures) {
-            const unit = simulated.indexOf(texture);
-            if (unit >= 0) {
-              units.set(texture, unit);
-              used.add(unit);
+            const unit2 = simulated.indexOf(texture);
+            if (unit2 >= 0) {
+              units.set(texture, unit2);
+              used.add(unit2);
             }
           }
           for (const texture of value.textures) {
             if (units.has(texture)) continue;
-            let unit = simulated.findIndex((entry, index) => entry === null && !used.has(index));
-            if (unit < 0) unit = simulated.findIndex((_entry, index) => !used.has(index));
-            if (unit < 0) throw new Error("sprite compositor texture unit capacity is insufficient");
-            units.set(texture, unit);
-            used.add(unit);
-            simulated[unit] = texture;
+            let unit2 = simulated.findIndex((entry, index) => entry === null && !used.has(index));
+            if (unit2 < 0) unit2 = simulated.findIndex((_entry, index) => !used.has(index));
+            if (unit2 < 0) throw new Error("sprite compositor texture unit capacity is insufficient");
+            units.set(texture, unit2);
+            used.add(unit2);
+            simulated[unit2] = texture;
           }
           const start = run.kind === "plain" ? plainStart : tileStart;
           chunks.push({
@@ -28773,21 +28950,21 @@ void main() {
         );
       }
     }
-    bindTexture(unit, texture, state) {
+    bindTexture(unit2, texture, state) {
       const gl = this.gl;
-      if (state.textures.get(unit) === texture) return;
-      const switchActiveTexture = state.activeTextureUnit !== unit;
+      if (state.textures.get(unit2) === texture) return;
+      const switchActiveTexture = state.activeTextureUnit !== unit2;
       if (this.probe) {
         this.probe.section("bindTexture", () => {
-          if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit);
+          if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit2);
           gl.bindTexture(gl.TEXTURE_2D, texture);
         });
       } else {
-        if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit);
+        if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit2);
         gl.bindTexture(gl.TEXTURE_2D, texture);
       }
-      if (switchActiveTexture) state.activeTextureUnit = unit;
-      state.textures.set(unit, texture);
+      if (switchActiveTexture) state.activeTextureUnit = unit2;
+      state.textures.set(unit2, texture);
     }
     usePipeline(program, vertexArray, state) {
       const switchProgram = state.program !== program;
@@ -28832,7 +29009,7 @@ void main() {
   };
 
   // packages/frame-engine/src/timeline/caption-words.ts
-  var identity = () => ({
+  var identity2 = () => ({
     mix: 0,
     visible: true,
     opacity: 1,
@@ -28880,7 +29057,7 @@ void main() {
     return lerp(middle, end, ease2((progress - 0.5) * 2));
   }
   function captionWordStateAt(timing, localSeconds) {
-    const state = identity();
+    const state = identity2();
     const progress = progressAt(timing, localSeconds);
     const emPx = Math.max(0, Number.isFinite(timing.emPx) ? Number(timing.emPx) : 0);
     switch (timing.role) {
@@ -29047,7 +29224,7 @@ void main() {
   }
 
   // packages/frame-engine/src/timeline/caption-motion.ts
-  var identity2 = () => ({
+  var identity3 = () => ({
     opacity: 1,
     translateX: 0,
     translateY: 0,
@@ -29219,7 +29396,7 @@ void main() {
       const progress = Math.max(0, Math.min(1, local / 0.18));
       const eased = applyEase(progress, "ease-out");
       return {
-        ...identity2(),
+        ...identity3(),
         opacity: eased,
         translateY: 0.18 * em * (1 - eased)
       };
@@ -29240,7 +29417,7 @@ void main() {
       const delay = Math.max(0, cueDuration - duration);
       if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
     }
-    return states.reduce(combine, identity2());
+    return states.reduce(combine, identity3());
   }
   function slotDuration(slot, cueDuration, fallback) {
     return Math.min(positiveDuration(slot.durationSec ?? slot.duration_sec, fallback), Math.max(0.05, cueDuration));

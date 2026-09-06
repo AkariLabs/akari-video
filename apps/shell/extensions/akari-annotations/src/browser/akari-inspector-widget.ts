@@ -46,6 +46,12 @@ import {
     type InspectorPerspectiveAxis
 } from './inspector/perspective-fields';
 import { createCutTransitionWriteRequest, transitionOptionLabel } from './inspector/transition-fields';
+import { createMaskWriteRequest, maskOptionLabel, maskOptionLabels } from './inspector/mask-fields';
+import {
+    createMotionWriteRequest, normalizeInspectorMotion, MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
+    MOTION_EASES, MOTION_PRESET_LABELS, MOTION_DURATION_DEFAULTS, MOTION_AMOUNT_DEFAULTS,
+    type InspectorMotionSnapshot, type InspectorMotionSlot, type InspectorMotionField
+} from './inspector/motion-fields';
 import {
     addCutFramingKeyframe,
     createCutFramingCropWriteRequest,
@@ -709,6 +715,88 @@ const LAYER_BLEND_OPTIONS = [
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ] as const;
 
+function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
+    snapshot: T,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (snapshot.maskSourceOptions === undefined) return [];
+    const options = maskOptionLabels(snapshot.maskSourceOptions);
+    const selected = maskOptionLabel(snapshot.maskSourceOptions, snapshot.mask);
+    if (!options.includes(selected)) options.push(selected);
+    const disabled = snapshot.maskSourceOptions.length === 0;
+    const title = 'グレースケール動画（白 = 表示・黒 = 透過）';
+    return [{
+        name: 'mask', label: 'マスク', inputKind: 'select', options,
+        getValue: () => selected, getEditValue: () => selected,
+        disabled, title: disabled ? `プロジェクトにマスクに使える動画ソースがありません。${title}` : title,
+        write: async (current, value) => {
+            try {
+                if (disabled) return { ok: false, message: 'プロジェクトにマスクに使える動画ソースがありません' };
+                return await requestWrite(createMaskWriteRequest(current, value));
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        },
+        reset: current => requestWrite(createMaskWriteRequest(current, 'なし'))
+    }];
+}
+
+function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
+    snapshot: T,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    const motion = normalizeInspectorMotion(snapshot.motion);
+    return (['in', 'out', 'loop'] as const).flatMap((slot: InspectorMotionSlot) => {
+        const label = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
+        const seat = motion[slot];
+        const amount = seat ? MOTION_AMOUNT_DEFAULTS[seat.preset] : undefined;
+        const missingTitle = 'プリセットを選ぶと変更できます。';
+        const write = async (current: T, field: InspectorMotionField, input: string | null): Promise<InspectorWriteResult> => {
+            try {
+                return await requestWrite(createMotionWriteRequest(current, slot, field, input));
+            } catch (error) {
+                return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+        };
+        const selected = seat ? MOTION_PRESET_LABELS[seat.preset] : 'なし';
+        const ease = seat?.ease ?? 'linear';
+        const easeOptions: string[] = [...MOTION_EASES];
+        if (!easeOptions.includes(ease)) easeOptions.push(ease);
+        const frames = slot === 'loop' ? motion.loop?.period : motion[slot]?.duration;
+        return ([
+            {
+                name: `motion-${slot}-preset`, label, inputKind: 'select',
+                options: ['なし', ...(slot === 'loop' ? MOTION_LOOP_PRESETS : MOTION_IN_OUT_PRESETS).map(id => MOTION_PRESET_LABELS[id])],
+                getValue: () => selected, getEditValue: () => selected, disabled: false,
+                write: (current, input) => write(current, 'preset', input), reset: current => write(current, 'preset', null)
+            },
+            {
+                name: `motion-${slot}-duration`, label: slot === 'loop' ? '周期' : `${label}の尺`,
+                inputKind: 'scrub-number', unit: 'f', scrubStep: 1, displayPrecision: 0, min: 1,
+                ...(slot === 'loop' ? {} : { max: snapshot.durationFrames }),
+                getValue: () => String(frames ?? MOTION_DURATION_DEFAULTS[slot]),
+                getEditValue: () => String(frames ?? MOTION_DURATION_DEFAULTS[slot]),
+                disabled: !seat, title: seat ? undefined : missingTitle,
+                write: (current, input) => write(current, 'duration', input), reset: current => write(current, 'duration', null)
+            },
+            {
+                name: `motion-${slot}-ease`, label: `${label}のイージング`, inputKind: 'select', options: easeOptions,
+                getValue: () => ease, getEditValue: () => ease,
+                disabled: !seat, title: seat ? undefined : missingTitle,
+                write: (current, input) => write(current, 'ease', input), reset: current => write(current, 'ease', null)
+            },
+            {
+                name: `motion-${slot}-amount`, label: `${label}の量`, inputKind: 'scrub-number',
+                unit: amount?.unit, scrubStep: amount?.unit === '倍' ? 0.01 : 1,
+                getValue: () => String(seat?.amount ?? amount?.value ?? 0),
+                getEditValue: () => String(seat?.amount ?? amount?.value ?? 0),
+                disabled: !seat || !amount, title: !seat ? missingTitle : !amount ? 'このプリセットに量はありません' : undefined,
+                write: (current, input) => write(current, 'amount', input), reset: current => write(current, 'amount', null)
+            }
+        ] satisfies InspectorFieldDef<T>[]).map(field => ({ ...field, keyframeDisabled: true }));
+    });
+}
+
 function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -777,6 +865,9 @@ function LAYER_SECTIONS(
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
+        ...(snapshot.sourceKind === 'html' ? [] : [{
+            id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
+        }]),
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -832,7 +923,8 @@ function LAYER_SECTIONS(
                             path: 'source.chroma_key.blend', value: null
                         })
                     })
-                }
+                },
+                ...MASK_FIELDS(snapshot, requestWrite)
             ]
         },
         ...(telopFields.length > 0 ? [{ id: 'telop', label: 'テキスト', fields: telopFields }] : []),
@@ -1798,6 +1890,9 @@ function TREE_ITEM_SECTIONS(
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
+        ...(snapshot.sourceKind === 'html' ? [] : [{
+            id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
+        }]),
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),
@@ -1805,7 +1900,7 @@ function TREE_ITEM_SECTIONS(
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }] },
+        }, ...MASK_FIELDS(snapshot, requestWrite)] },
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: 'kind', getValue: () => snapshot.sourceKind },
             { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },

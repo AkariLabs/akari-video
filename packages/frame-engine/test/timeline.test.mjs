@@ -586,13 +586,61 @@ LUT_3D_SIZE 2
   assert.deepEqual(disabledPlan, baselinePlan);
 });
 
+test('wipe alone routes cuts through layerStyle and preserves transparent nonzero crop endpoints', () => {
+  const source = videoSource();
+  const at = (motion, seconds) => evaluationPlanFromResolvedTimeline(buildResolvedTimelinePlan([
+    { src: 'fixture.mp4', in: 0, out: 2, opacity: 0.8, motion },
+  ], { fps: 24 }), seconds * 1e6, new Map([['fixture.mp4', source]]), stillOutput).base[0].visual;
+  for (const seat of ['in', 'out']) assert.equal(hasCutLayerStyleVisual({ motion: { [seat]: { preset: 'wipe', duration: 24 } } }), true);
+  assert.equal(hasCutLayerStyleVisual({ motion: { in: { preset: 'fade', duration: 24 } } }), false);
+  const motion = { in: { preset: 'wipe', duration: 24 }, out: { preset: 'wipe', duration: 24 } };
+  assert.deepEqual(at(motion, 0).layerStyle.crop, { x: 0, y: 0, width: Number.EPSILON, height: 1 });
+  assert.equal(at(motion, 0).opacity, 0);
+  for (const seconds of [0.5, 1.5]) {
+    assert.deepEqual(at(motion, seconds).layerStyle.crop, { x: 0, y: 0, width: 0.5, height: 1 });
+    assert.equal(at(motion, seconds).opacity, 0.8);
+  }
+});
+
+test('cut motion uses output-local time and speed-adjusted duration in both visual paths', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  for (const extra of [{}, { crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6 } }]) {
+    const cut = { src: 'fixture.mp4', in: 4, out: 8, speed: 2, at: 1,
+      transform: { x: 10, y: 20, scale: 2, rotate: 15 }, opacity: 0.8, ...extra,
+      motion: { in: { preset: 'slide-up', duration: 24 }, out: { preset: 'fade', duration: 24 },
+        loop: { preset: 'spin', period: 48 } } };
+    const timeline = buildResolvedTimelinePlan([cut], { fps: 24 });
+    const at = seconds => evaluationPlanFromResolvedTimeline(timeline, seconds * 1e6, sources, stillOutput).base[0];
+    assert.deepEqual(at(1.5).visual.transform, { x: 10, y: 40, scale: 2, rotateDegrees: 105 });
+    assert.equal(at(1.5).visual.opacity, 0.8);
+    assert.equal(at(1.5).sourceTimeUs, 5e6);
+    assert.deepEqual(at(2.5).visual.transform, { x: 10, y: 20, scale: 2, rotateDegrees: 285 });
+    assert.equal(at(2.5).visual.opacity, 0.4);
+  }
+});
+
+test('cuts without motion retain serialized fit-basis and layerStyle visuals', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  for (const extra of [{}, { crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6 } }]) {
+    const cut = { src: 'fixture.mp4', in: 0, out: 2,
+      transform: { x: 12, y: -4, scale: 0.5, rotate: 30 }, opacity: 0.6, ...extra };
+    const at = declaration => evaluationPlanFromResolvedTimeline(buildResolvedTimelinePlan([declaration]),
+      500_000, sources, stillOutput);
+    const expected = { framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
+      transform: { x: 12, y: -4, scale: 0.5, rotateDegrees: 30 }, opacity: 0.6,
+      ...(extra.crop ? { layerStyle: { crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.6 } } } : {}) };
+    assert.equal(JSON.stringify(at(cut).base[0].visual), JSON.stringify(expected));
+    assert.equal(JSON.stringify(at(cut)), JSON.stringify(at({ ...cut, motion: undefined })));
+  }
+});
+
 test('runtime known-key inventories exactly expose the declared frame-engine shapes', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'adjust', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'opacity', 'out', 'perspective',
+    'adjust', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'adjust', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'opacity',
+    'adjust', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
     'perspective', 'src', 't', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [
