@@ -102,7 +102,7 @@ LUT はスラッシュなしなら presets/luts/<id>/<id>.cube、ありならプ
 
 ## 5. 消費側の約束
 
-M2-1 時点で新 3 セクションはエンジン未消費（bake 関数は用意・plan 未配線）。2/4 便で配線。GPU / OSR と frame-engine preview は同じ全段 bake とバイパスを使う。DOM fallback は新 3 セクションを CSS 近似できないため適用せず、色調整は近似表示の指標を出す。frame-engine active 時は二重適用しない。台帳は adjust の path 単位であり本便では行を増やさない。
+M2-1 時点で新 3 セクションはエンジン未消費（bake 関数は用意・plan 未配線）。2/4 便で配線。GPU / OSR と frame-engine preview は同じ全段 bake とバイパスを使う。DOM fallback は新 3 セクションを CSS 近似できないため適用せず、色調整は近似表示の指標を出し、fx のうち blur だけは CSS `filter: blur()` で近似し、それ以外の fx は適用せず近似表示の指標で開示する。frame-engine active 時は二重適用しない。台帳は adjust の path 単位であり本便では行を増やさない。
 
 ## 6. lint 分担
 
@@ -114,4 +114,4 @@ Schema は閉じた構造・型・範囲・点数・必須キーを検査。vali
 
 ## 8. 非スコープ
 
-スプリット比較、エフェクト UI、CSS 近似、render-cut（ffmpeg 経路）、第 2 群の効果（グロー / 明瞭度 / かすみ除去 / ノイズ除去 / モーションブラー）、旧 cuts[].fx の実装、LUT ライブラリ。
+スプリット比較、エフェクト UI、CSS 近似（blur を除く）、render-cut（ffmpeg 経路）、第 2 群の効果（グロー / 明瞭度 / かすみ除去 / ノイズ除去 / モーションブラー）、旧 cuts[].fx の実装、LUT ライブラリ。

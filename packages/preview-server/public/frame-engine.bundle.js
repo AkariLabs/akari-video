@@ -9881,10 +9881,12 @@ var require_adjust_css_visual = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeAdjustCssVisual = computeAdjustCssVisual;
-    function computeAdjustCssVisual(adjust, transitionFilter) {
+    function computeAdjustCssVisual(adjust, transitionFilter, blurScale = 1) {
       const source = adjust && typeof adjust === "object" && !Array.isArray(adjust) ? adjust : null;
       const rawBasic = source && source.sections?.basic !== false ? source.basic : null;
       const basic = rawBasic && typeof rawBasic === "object" && !Array.isArray(rawBasic) ? rawBasic : null;
+      const rawFx = source && source.sections?.fx !== false ? source.fx : null;
+      const fx = Array.isArray(rawFx) ? rawFx : [];
       const rawTransition = typeof transitionFilter === "string" ? transitionFilter.trim() : "";
       const transition = rawTransition === "none" ? "" : rawTransition;
       const clamp012 = (value) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
@@ -9900,8 +9902,8 @@ var require_adjust_css_visual = __commonJS({
         return !(points.length === 2 && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5 && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
       });
       const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point) => Math.abs((Number.isFinite(point.value) ? clamp012(point.value) : 0.5) - 0.5) > 1e-4));
-      const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
-      if (!basic && !transition && !hasUnsupportedSection)
+      const hasUnsupportedSection = hasWheels || hasCurves || hasHue || fx.some((effect) => effect.id !== "blur");
+      if (!basic && !transition && !hasUnsupportedSection && fx.length === 0)
         return null;
       const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
       const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
@@ -9921,6 +9923,12 @@ var require_adjust_css_visual = __commonJS({
         parts.push("sepia(" + (temperature * 0.3).toFixed(2) + ")");
       } else if (temperature < -5e-3) {
         parts.push("hue-rotate(" + (-temperature * 20).toFixed(0) + "deg)");
+      }
+      const scale = Number.isFinite(blurScale) ? blurScale : 1;
+      for (const effect of fx) {
+        if (effect.id === "blur" && typeof effect.px === "number" && Number.isFinite(effect.px) && effect.px > 0) {
+          parts.push("blur(" + (effect.px * scale).toFixed(2) + "px)");
+        }
       }
       if (transition)
         parts.push(transition);
