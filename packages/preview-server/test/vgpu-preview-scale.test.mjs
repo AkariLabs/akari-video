@@ -80,9 +80,11 @@ test('actual overlay tick forwards the current scale to the runtime', () => {
   const { context, buttons } = setup();
   const calls = [];
   const el = { getAnimations: () => [] };
+  // 選択した倍率と fps がレジストリ経由の render に毎回渡ることを検証する。
   Object.assign(context, {
-    overlays: [{ el, start: 0, duration: 10, visible: true, isVgpu: true, vgpuReady: true, fps: 24 }],
-    window: { akari: { vgpuRuntime: { render: (...args) => calls.push(args) } } },
+    overlays: [{ el, start: 0, duration: 10, visible: true, runtimeIds: new Set(['vgpu']), fps: 24 }],
+    window: { akari: { runtimes: { forContainer: container => container === el ? [{ id: 'vgpu', render: (...args) => calls.push(args) }] : [] } } },
+    PREVIEW_3D_MAX_RENDER_SIZE: 720,
     performance: { now: () => 0 }, fps: 30, editMode: false,
   });
   vm.runInContext(section('  function tick(t) {', '\n  // 断片の顔ぶれ'), context);

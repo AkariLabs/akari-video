@@ -646,3 +646,12 @@ window.akari.glassRuntime = (() => {
 
   return { dispose, inspect, render };
 })();
+
+// Register with current hosts, or queue until a script-only host boots its registry.
+(() => {
+  const entry = { id: "glass", selector: 'script[type="application/json"][data-akari-glass-scene]',
+    ...window.akari.glassRuntime,
+    fragmentBaseAttribute: "data-akari-glass-base" };
+  if (window.akari.runtimes) window.akari.runtimes.register(entry);
+  else (window.akari.pendingRuntimes ??= []).push(entry);
+})();

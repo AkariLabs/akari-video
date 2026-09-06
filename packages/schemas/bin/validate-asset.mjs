@@ -3,6 +3,7 @@
 // 素材ライブラリ契約 v0 の構造を、Node.js 組み込み機能だけで検証する。
 
 import fs from "node:fs";
+import { runtimes, validateRuntimeDeclarations } from "../../overlay-runtime/runtimes.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,11 +24,6 @@ const assetDir = path.resolve(assetArgument);
 const metaPath = path.join(assetDir, "meta.json");
 const previewPath = path.join(assetDir, "preview.png");
 const errors = [];
-
-// fragment.html 内の <script type="application/json" data-akari-3d-scene> 宣言を抽出する
-// （属性の順序は問わない。packages/render-cut/src/render-inputs.mjs の THREE_SCENE_SCRIPT_PATTERN と同じ流儀）。
-const SCENE_DECLARATION_PATTERN =
-  /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/iu;
 
 if (!isDirectory(assetDir)) {
   fail(`素材ディレクトリが見つかりません: ${assetDir}`);
@@ -407,90 +403,24 @@ function validateFiles() {
     if (hasFragment === hasScene) {
       fail("scene3d 素材は fragment.html（オーバーレイ）か scene.py（ベイクレシピ）のどちらか一方を実体に持つ必要があります");
     }
-    if (
-      hasFragment &&
-      requiresGltfModel(path.join(assetDir, "fragment.html")) &&
-      !payloadFiles.some((filePath) => /\.(?:glb|gltf)$/i.test(filePath))
-    ) {
-      fail("scene3d 素材には glTF 実体（.glb または .gltf）が必要です");
-    }
   }
 
-  if (Array.isArray(meta?.requires) && meta.requires.includes("glass-runtime")) {
-    for (const filePath of payloadFiles) {
-      const name = relativeToAsset(filePath).replaceAll("\\", "/");
-      if (name === "fragment.html" || /^variants\/[^/]+\.html$/i.test(name)) validateGlassDeclaration(filePath);
-    }
+  for (const filePath of payloadFiles) {
+    const name = relativeToAsset(filePath).replaceAll("\\", "/");
+    if (name !== "fragment.html" && !/^variants\/[^/]+\.html$/i.test(name)) continue;
+    let html;
+    try { html = fs.readFileSync(filePath, "utf8"); }
+    catch (error) { fail(`fragment.html を読めません: ${messageOf(error)}`); continue; }
+    for (const error of validateRuntimeDeclarations(html, {
+      meta, category, name, payloadFiles,
+      validateReference: reference => validateReference(filePath, reference),
+    })) fail(error);
   }
+
   for (const filePath of payloadFiles) {
     if (/\.(?:html?|css|svg|m?js|cjs)$/i.test(filePath)) validateLocalReferences(filePath);
     else if (/\.gltf$/i.test(filePath)) validateGltfReferences(filePath);
   }
-}
-
-function validateGlassDeclaration(filePath) {
-  const source = fs.readFileSync(filePath, "utf8").replace(/<!--[\s\S]*?-->/gu, "");
-  const pattern = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
-  const declarations = [...source.matchAll(pattern)];
-  if (!declarations.length) fail(`${relativeToAsset(filePath)} に data-akari-glass-scene 宣言が見つかりません`);
-  const elements = source.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/giu, "").replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/giu, "");
-  if (declarations.length && !/<[a-z][^>]*\sdata-akari-glass(?=\s|=|\/?>)/iu.test(elements)) {
-    fail(`${relativeToAsset(filePath)}: 宣言があるのにガラス面が無い`);
-  }
-  for (const match of declarations) {
-    let descriptor;
-    try { descriptor = JSON.parse(match[1]); }
-    catch (error) { fail(`data-akari-glass-scene の JSON を読めません: ${messageOf(error)}`); continue; }
-    if (!isPlainObject(descriptor)) { fail("data-akari-glass-scene は JSON object である必要があります"); continue; }
-    if (descriptor.backdrop === undefined) continue;
-    const backdrop = descriptor.backdrop;
-    if (typeof backdrop !== "string" || !backdrop.trim() || /^[a-z][a-z\d+.-]*:|^[\/\\]/iu.test(backdrop) || backdrop.includes("\\")) {
-      fail("data-akari-glass-scene.backdrop は相対パスである必要があります");
-      continue;
-    }
-    validateReference(filePath, backdrop);
-  }
-}
-
-// data-akari-3d-scene 宣言が model を持たず、かつ非空の texts[] を持つときだけ glb を任意化する
-// （overlay-runtime/src/three-runtime.js の readDescriptor と同じ判定。texts[] も model も
-// 無い宣言・宣言を読めない場合は従来どおり glb を必須のまま扱う＝安全側デフォルト）。
-function requiresGltfModel(fragmentPath) {
-  const descriptor = readSceneDeclaration(fragmentPath);
-  if (descriptor === null) return true;
-  const hasModel = descriptor.model !== undefined;
-  const hasNonEmptyTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
-  return hasModel || !hasNonEmptyTexts;
-}
-
-function readSceneDeclaration(fragmentPath) {
-  let source;
-  try {
-    source = fs.readFileSync(fragmentPath, "utf8");
-  } catch (error) {
-    fail(`fragment.html を読めません: ${messageOf(error)}`);
-    return null;
-  }
-
-  const match = source.match(SCENE_DECLARATION_PATTERN);
-  if (!match) {
-    fail('fragment.html に <script type="application/json" data-akari-3d-scene> 宣言が見つかりません');
-    return null;
-  }
-
-  let descriptor;
-  try {
-    descriptor = JSON.parse(match[1]);
-  } catch (error) {
-    fail(`data-akari-3d-scene の JSON を読めません: ${messageOf(error)}`);
-    return null;
-  }
-
-  if (!isPlainObject(descriptor)) {
-    fail("data-akari-3d-scene は JSON object である必要があります");
-    return null;
-  }
-  return descriptor;
 }
 
 function validatePng(filePath) {
@@ -528,8 +458,8 @@ function validateLocalReferences(filePath) {
   for (const pattern of patterns) {
     for (const match of source.matchAll(pattern)) {
       // new URL(url, base) is a dynamic JS constructor, not CSS url().
-      // Limit this correction to glass packs; keep literal CSS and JS loaders checked.
-      if (pattern === patterns[1] && meta?.requires?.includes("glass-runtime")
+      // Manifest capabilities preserve the legacy dynamic-constructor exemption.
+      if (pattern === patterns[1] && runtimes.some(entry => entry.skipDynamicNewUrl && entry.appliesTo(meta))
           && /\.(?:m?js|cjs)$/i.test(filePath) && match[0].startsWith("URL(")
           && /\bnew\s*$/u.test(source.slice(0, match.index))) continue;
       references.add(match[1].trim());

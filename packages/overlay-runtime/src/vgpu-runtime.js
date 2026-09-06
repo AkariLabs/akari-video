@@ -354,3 +354,11 @@ fn akari_uv(pos: vec4f) -> vec2f { return pos.xy / vec2f(akari.pad.x, akari.pad.
   }
   return Object.freeze({ render, inspect, dispose, probe, readDescriptor });
 })();
+
+// Register with current hosts, or queue until a script-only host boots its registry.
+(() => {
+  const entry = { id: "vgpu", selector: 'script[type="application/json"][data-akari-vgpu-scene]',
+    ...window.akari.vgpuRuntime };
+  if (window.akari.runtimes) window.akari.runtimes.register(entry);
+  else (window.akari.pendingRuntimes ??= []).push(entry);
+})();
