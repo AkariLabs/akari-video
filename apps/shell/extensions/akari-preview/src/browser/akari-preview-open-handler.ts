@@ -4063,19 +4063,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const resolveLayerMask = async (): Promise<string | undefined> => {
                     if (!maskSourceId) return undefined;
                     const maskSource = sourcesById.get(maskSourceId);
-                    if (!maskSource) {
-                        console.warn(`[akari-preview] ${label}.mask を無視しました（sources に id がありません）`);
-                        return undefined;
-                    }
                     try {
-                        const maskUri = this.resolveEditAssetUri(maskSource.uri.toString(), editUri);
+                        // The internal projection normally resolves mask ids to project-relative paths.
+                        const maskUri = maskSource
+                            ? this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
+                            : this.resolveEditAssetUri(maskSourceId, editUri);
                         if (isImageLayerSrc(maskUri.path.toString()) || isImageLayerSrc(value.src)) {
                             console.warn(`[akari-preview] ${label}.mask を無視しました（静止画には対応していません）`);
                             return undefined;
                         }
                         return (await ensureAssetStream(maskUri.toString(), maskUri)).url;
                     } catch {
-                        console.warn(`[akari-preview] ${label}.mask を無視しました（マスク動画を解決・配信できません）`);
+                        console.warn(`[akari-preview] ${label}.mask を無視しました（sources の id / パスとして解決・配信できません）`);
                         return undefined;
                     }
                 };

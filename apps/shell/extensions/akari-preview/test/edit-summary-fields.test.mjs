@@ -67,7 +67,7 @@ test('buildLayerSummaryBase: absent mask stays absent; invalid masks warn once a
     }
 });
 
-test('v2 layer mask resolves a sources id through ensureAssetStream into the existing URL seat', () => {
+test('v2 layer mask resolves a sources id or projected path through ensureAssetStream into the existing URL seat', () => {
     const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
     const start = handler.indexOf('const resolveLayerItem = async');
     const end = handler.indexOf('const layerResolutions =', start);
@@ -77,11 +77,11 @@ test('v2 layer mask resolves a sources id through ensureAssetStream into the exi
     const resolver = layer.match(/const resolveLayerMask = async[\s\S]*?\n                \};/)?.[0];
     assert.ok(resolver);
     assert.match(resolver, /sourcesById\.get\(maskSourceId\)/);
-    assert.match(resolver, /if \(!maskSource\)[\s\S]*?console\.warn\([\s\S]*?return undefined;/);
-    assert.match(resolver, /const maskUri = this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)/);
+    assert.match(resolver, /const maskUri = maskSource\s*\? this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)\s*: this\.resolveEditAssetUri\(maskSourceId, editUri\);/);
     assert.match(resolver, /isImageLayerSrc\(maskUri\.path\.toString\(\)\)/);
     assert.match(resolver, /return \(await ensureAssetStream\(maskUri\.toString\(\), maskUri\)\)\.url;/);
     assert.match(resolver, /catch \{\s*console\.warn\([^\n]+\);\s*return undefined;/);
+    assert.match(resolver, /sources の id \/ パスとして解決・配信できません/);
     assert.match(layer, /if \(intake\?\.status === 'alpha'\) \{\s*if \(maskSourceId\) \{\s*console\.warn\([^\n]+\);/);
     assert.match(layer, /src: color\.url,\s*mask: mask\.url/);
     assert.match(layer, /const stream = await ensureAssetStream\(streamUri\.toString\(\), streamUri\);\s*const mask = await resolveLayerMask\(\);[\s\S]*?src: stream\.url,\s*\.\.\.\(mask \? \{ mask \} : \{\}\)/);
