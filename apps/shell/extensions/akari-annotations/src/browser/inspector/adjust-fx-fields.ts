@@ -1,9 +1,14 @@
-export type InspectorAdjustFxId = 'vignette' | 'blur' | 'grain' | 'sharpen';
+export type InspectorAdjustFxId = 'vignette' | 'blur' | 'grain' | 'sharpen' | 'glow' | 'clarity' | 'dehaze' | 'denoise' | 'motion_blur';
 export type InspectorAdjustFx =
     | { id: 'vignette'; amount?: number; midpoint?: number; roundness?: number; feather?: number }
     | { id: 'blur'; px?: number }
     | { id: 'grain'; amount?: number; size?: number }
-    | { id: 'sharpen'; amount?: number };
+    | { id: 'sharpen'; amount?: number }
+    | { id: 'glow'; intensity?: number; radius?: number; threshold?: number; warmth?: number }
+    | { id: 'clarity'; amount?: number; radius?: number }
+    | { id: 'dehaze'; amount?: number }
+    | { id: 'denoise'; amount?: number }
+    | { id: 'motion_blur'; px?: number; angle?: number };
 
 export interface InspectorAdjustFxParam {
     key: string;
@@ -35,6 +40,26 @@ export const INSPECTOR_ADJUST_FX: readonly {
     ] },
     { id: 'sharpen', label: 'シャープ', params: [
         { key: 'amount', label: '量', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 }
+    ] },
+    { id: 'glow', label: 'グロー', params: [
+        { key: 'intensity', label: '強さ', min: 0, max: 1, default: 0.5, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'radius', label: '半径', min: 0, max: 100, default: 20, step: 1, unit: 'px', displayScale: 1 },
+        { key: 'threshold', label: 'しきい値', min: 0, max: 1, default: 0.7, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'warmth', label: '色味', min: -1, max: 1, default: 0, step: 0.01, unit: '%', displayScale: 100 }
+    ] },
+    { id: 'clarity', label: '明瞭度', params: [
+        { key: 'amount', label: '量', min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 },
+        { key: 'radius', label: '半径', min: 1, max: 50, default: 10, step: 1, unit: 'px', displayScale: 1 }
+    ] },
+    { id: 'dehaze', label: 'かすみ除去', params: [
+        { key: 'amount', label: '量', min: -1, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
+    ] },
+    { id: 'denoise', label: 'ノイズ除去', params: [
+        { key: 'amount', label: '量', min: 0, max: 1, default: 0.3, step: 0.01, unit: '%', displayScale: 100 }
+    ] },
+    { id: 'motion_blur', label: 'モーションブラー', params: [
+        { key: 'px', label: '長さ', min: 0, max: 100, default: 10, step: 1, unit: 'px', displayScale: 1 },
+        { key: 'angle', label: '角度', min: -180, max: 180, default: 0, step: 1, unit: '°', displayScale: 1 }
     ] }
 ];
 

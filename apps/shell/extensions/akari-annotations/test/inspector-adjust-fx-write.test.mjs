@@ -24,7 +24,23 @@ test('効果語彙とパラメータは契約の範囲・既定・表示単位�
         ]],
         ['blur', 'ぼかし', [['px', 0, 50, 8, 1, 'px', 1]]],
         ['grain', 'フィルムグレイン', [['amount', 0, 1, 0.3, 0.01, '%', 100], ['size', 0.5, 4, 1, 0.1, '倍', 1]]],
-        ['sharpen', 'シャープ', [['amount', 0, 1, 0.5, 0.01, '%', 100]]]
+        ['sharpen', 'シャープ', [['amount', 0, 1, 0.5, 0.01, '%', 100]]],
+        ['glow', 'グロー', [
+            ['intensity', 0, 1, 0.5, 0.01, '%', 100],
+            ['radius', 0, 100, 20, 1, 'px', 1],
+            ['threshold', 0, 1, 0.7, 0.01, '%', 100],
+            ['warmth', -1, 1, 0, 0.01, '%', 100]
+        ]],
+        ['clarity', '明瞭度', [
+            ['amount', -1, 1, 0.3, 0.01, '%', 100],
+            ['radius', 1, 50, 10, 1, 'px', 1]
+        ]],
+        ['dehaze', 'かすみ除去', [['amount', -1, 1, 0.3, 0.01, '%', 100]]],
+        ['denoise', 'ノイズ除去', [['amount', 0, 1, 0.3, 0.01, '%', 100]]],
+        ['motion_blur', 'モーションブラー', [
+            ['px', 0, 100, 10, 1, 'px', 1],
+            ['angle', -180, 180, 0, 1, '°', 1]
+        ]]
     ]);
 });
 
@@ -43,16 +59,17 @@ test('正規化は不正な要素・未知キー・重複を捨て既定キー�
 
 test('追加は id だけを保存し重複・9 個目・未知 id を拒否する', () => {
     let list = [];
-    for (const { id } of INSPECTOR_ADJUST_FX) {
+    for (const { id } of INSPECTOR_ADJUST_FX.slice(0, 8)) {
         const previous = structuredClone(list);
         const next = addInspectorAdjustFx(list, id);
         assert.deepEqual(list, previous);
         assert.deepEqual(next.at(-1), { id });
-        assert.throws(() => addInspectorAdjustFx(next, id), /同じ効果は 1 つまでです/u);
+        assert.throws(() => addInspectorAdjustFx([{ id }], id), /同じ効果は 1 つまでです/u);
         list = next;
     }
     assert.throws(() => addInspectorAdjustFx(Array.from({ length: 8 }, () => ({ id: 'blur' })), 'grain'), /8 個まで/u);
-    assert.throws(() => addInspectorAdjustFx([], 'glow'), /一覧から/u);
+    assert.throws(() => addInspectorAdjustFx(list, INSPECTOR_ADJUST_FX[8].id), /8 個まで/u);
+    assert.throws(() => addInspectorAdjustFx([], 'nonexistent_fx'), /一覧から/u);
 });
 
 test('並べ替え・削除は入力を変更せずパラメータと適用順を保持する', () => {
@@ -149,7 +166,7 @@ test('全 visual 選択で実働 6 セクションと追加 select が同じ adj
         assert.deepEqual(f.all().map(section => section.label), ACTIVE_ADJUST_SECTIONS);
         const row = f.row('add');
         assert.equal(row.inputKind, 'select');
-        assert.deepEqual(row.options, ['選択…', 'ビネット', 'ぼかし', 'フィルムグレイン', 'シャープ']);
+        assert.deepEqual(row.options, ['選択…', 'ビネット', 'ぼかし', 'フィルムグレイン', 'シャープ', 'グロー', '明瞭度', 'かすみ除去', 'ノイズ除去', 'モーションブラー']);
         assert.equal(row.getValue(), '選択…');
         assert.equal((await row.write(f.snapshot(), 'ビネット')).ok, true);
         assert.deepEqual(f.writes, [{ kind: 'item-field', id: 'clip', path: 'adjust.fx', value: [{ id: 'vignette' }] }]);
@@ -202,7 +219,7 @@ test('OFF は追加・並べ替え・削除・数値・リセットを無効化�
 
 test('UI は不正入力を日本語の ok:false で返して書き込まない', async () => {
     const f = fixture('item', { fx: [{ id: 'blur' }] });
-    assert.equal((await f.row('add').write(f.snapshot(), 'グロー')).ok, false);
+    assert.equal((await f.row('add').write(f.snapshot(), '存在しない効果')).ok, false);
     for (const value of ['', 'NaN', '51']) {
         const result = await f.row('blur-px').write(f.snapshot(), value);
         assert.equal(result.ok, false);
