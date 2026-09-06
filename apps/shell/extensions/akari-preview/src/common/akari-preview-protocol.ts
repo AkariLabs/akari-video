@@ -323,6 +323,24 @@ export type BuildWaveformPeaksResult =
     | { ok: true; peaks: number[]; durationSec: number; buckets: number }
     | { ok: false; reason: string };
 
+export type GpuPreferenceCurrent = 'high-performance' | 'power-saving' | 'unset' | 'other' | 'unknown';
+
+export interface GpuPreferenceState {
+    /** process.platform。win32 以外は supported:false。 */
+    platform: string;
+    /** レジストリの読み書きが可能な環境か（win32 かつ reg.exe の読み取りに成功）。 */
+    supported: boolean;
+    /** 正規化したアプリ自身の exe フルパス（未対応環境は null）。 */
+    executable: string | null;
+    current: GpuPreferenceCurrent;
+    /** レジストリの生の値（未設定・未対応は null）。 */
+    raw: string | null;
+}
+
+export type SetHighPerformanceGpuResult =
+    | { ok: true; state: GpuPreferenceState }
+    | { ok: false; reason: string; state: GpuPreferenceState };
+
 export interface AkariPreviewService {
     buildWaveformPeaks(request: BuildWaveformPeaksRequest): Promise<BuildWaveformPeaksResult>;
     promotePreviewAudioSidecars(request: import('./preview-audio-priority').PromotePreviewAudioSidecarsRequest):
@@ -350,4 +368,6 @@ export interface AkariPreviewService {
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
     prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;
     resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null>;
+    getGpuPreferenceState(): Promise<GpuPreferenceState>;
+    setHighPerformanceGpu(enabled: boolean): Promise<SetHighPerformanceGpuResult>;
 }
