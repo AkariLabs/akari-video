@@ -1,18 +1,18 @@
 {
   "sameRect": true,
   "rectBefore": {
-    "left": 221.9140625,
-    "top": 39,
-    "width": 877,
-    "height": 563.6953125
+    "left": 0,
+    "top": 0,
+    "width": 1200,
+    "height": 800
   },
   "rectAfter": {
-    "left": 221.9140625,
-    "top": 39,
-    "width": 877,
-    "height": 563.6953125
+    "left": 0,
+    "top": 0,
+    "width": 1200,
+    "height": 800
   },
-  "samples": 7700,
+  "samples": 15000,
   "maxDelta": 0,
   "meanDelta": 0,
   "samplesOverDelta2": 0,

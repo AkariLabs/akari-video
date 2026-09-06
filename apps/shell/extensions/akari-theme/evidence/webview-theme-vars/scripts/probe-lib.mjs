@@ -133,19 +133,28 @@ export async function measure(view) {
   return withTimeout(evalIn(view, MEASURE), 10000, 'measure');
 }
 
-// Codex のコンテンツを持つ webview を探す（title=Codex or data-codex-window-type）。
+// Codex のコンテンツを持つ webview を探す。
+// 判定は 3 段: (1) data-codex-window-type (2) title が Codex / ChatGPT
+// (3) それ以外は「akari-output-preview-* ではない webview」= このシェルで
+// webview を出すのはプレビューと Codex だけなので消去法で決まる。
+// 拡張の版によって title が Codex / ChatGPT / 「Codex could not start」と変わり、
+// 起動途中は marker も出ないため、(1)(2) だけでは取り逃す（実測）。
 export async function findCodexWebview(port, timeout = 120000) {
   return waitFor('codex webview', async () => {
+    let fallback = null;
     for (const t of await webviewTargets(port)) {
+      const id = new URL(t.url).searchParams.get('id');
+      if (/^akari-output-preview-/u.test(String(id))) continue;
       let view;
       try {
         view = await attachWebview(t);
         const m = await measure(view);
-        if (m && (m.codexMarker || /codex/iu.test(String(m.title)))) return { target: t, view, measurement: m };
+        if (m && (m.codexMarker || /codex|chatgpt/iu.test(String(m.title)))) return { target: t, view, measurement: m };
+        if (m && !fallback) { fallback = { target: t, view, measurement: m }; continue; }
         view.close();
       } catch { try { view?.close(); } catch { /* noop */ } }
     }
-    return null;
+    return fallback;
   }, timeout, 1000);
 }
 

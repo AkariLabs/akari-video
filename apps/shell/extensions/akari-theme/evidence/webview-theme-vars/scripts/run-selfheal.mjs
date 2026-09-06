@@ -8,7 +8,7 @@
 //   node run-selfheal.mjs --port 9762 --out <dir> [--idle-sec 300]
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { realClick } from './cdp-lib.mjs';
+import { keyPress, realClick } from './cdp-lib.mjs';
 import {
   connectMain, evalIn, findCodexWebview, iframeRect, runCommand, sleep, measure, innerExpr,
   decodePng, samplePanel, shot, sanitize
@@ -107,6 +107,36 @@ if (focusTarget && focusTarget.found) {
   console.log('focus', JSON.stringify(focus.activeElement));
 }
 
+// 復帰後に webview が実入力を受けることの直接確認。
+// 未ログインの Codex は入力欄も onboarding ボタンも出さない（startup-loader のまま／
+// 内部エラーページ）ので、入力欄クリックだけでは「操作を受ける」ことを示せない。
+// 内側 document に pointerdown / click / keydown のリスナーを張り、CDP の実マウス・
+// 実キーを送って届くことと activeElement を記録する。
+await evalIn(view, innerExpr(`
+  window.__akariInteract = { pointerdown: 0, click: 0, keydown: 0, keys: [] };
+  const w = window.__akariInteract;
+  d.addEventListener('pointerdown', () => { w.pointerdown++; }, true);
+  d.addEventListener('click', () => { w.click++; }, true);
+  d.addEventListener('keydown', e => { w.keydown++; w.keys.push(e.key); }, true);
+  return true;
+`));
+const clickX = rect.left + rect.width / 2;
+const clickY = rect.top + rect.height / 2;
+await realClick(main, clickX, clickY);
+await sleep(400);
+await keyPress(main, { key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, text: 'a' });
+await sleep(600);
+const interaction = await evalIn(view, innerExpr(`
+  const a = d.activeElement;
+  return {
+    counters: window.__akariInteract,
+    activeElement: a ? { tag: a.tagName, editable: a.isContentEditable === true, id: String(a.id || '').slice(0, 40) } : null,
+    hasFocus: d.hasFocus(),
+    title: d.title
+  };
+`));
+console.log('interaction', JSON.stringify(interaction));
+
 // アイドル再送のカウント。webview のホストページが作り直されるとリスナーごと消えるので、
 // 数える直前に必ず張り直し、読み出しも配列でなければ空として扱う。
 const installCounter = () => evalIn(view, `(() => {
@@ -133,7 +163,7 @@ const payload = sanitize({
   stripped: { measurement: strippedMeasure, samples: strippedSamples, png: path.basename(pngStripped) },
   series, restoredAtSec,
   restored: { samples: restoredSamples, png: path.basename(pngRestored), measurement: await measure(view) },
-  focus,
+  focus, interaction, interactionClickedAt: { x: clickX, y: clickY },
   idle: { elapsedSec: idleElapsedSec, resends: msgs.length, perMinute: Number(perMinute.toFixed(3)), timestampsRelativeSec: msgs.map(t => Math.round((t - idleStart) / 100) / 10) }
 }, [[out, '<evidence>']]);
 await writeFile(path.join(out, 'after-selfheal.json'), JSON.stringify(payload, null, 2) + '\n');

@@ -1,0 +1,952 @@
+{
+  "phase": "after",
+  "seconds": 40,
+  "connectedAtSec": 0.4,
+  "codexViewOpenedAtSec": 0.5,
+  "whiteUntilSec": null,
+  "darkFromSec": 0.4,
+  "whiteSamples": 0,
+  "totalSamplesWithPixels": 20,
+  "series": [
+    {
+      "elapsedSec": 0.4,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 2.4,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 3.9,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 5.4,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 6.8,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 10.1,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 12.4,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 15.1,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 16.5,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 18.7,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 20.3,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 21.9,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 23.3,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 25.5,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 27.3,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 30.2,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 32.1,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 33.7,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 36.3,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    },
+    {
+      "elapsedSec": 39,
+      "rect": {
+        "left": 1108,
+        "top": 39,
+        "width": 444,
+        "height": 935
+      },
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "white": false
+    }
+  ]
+}

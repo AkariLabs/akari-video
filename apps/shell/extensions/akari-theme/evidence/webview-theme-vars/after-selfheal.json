@@ -2,9 +2,9 @@
   "baselineN": 627,
   "removed": 627,
   "rect": {
-    "left": 1038,
+    "left": 1066,
     "top": 39,
-    "width": 514,
+    "width": 486,
     "height": 935
   },
   "stripped": {
@@ -16,15 +16,15 @@
       "themeKindHtml": null,
       "themeKindBody": "vscode-dark",
       "bodyClass": "vscode-dark",
-      "title": "ChatGPT",
-      "codexMarker": true,
+      "title": "Codex could not start",
+      "codexMarker": false,
       "sampleVars": []
     },
     "samples": {
       "inside": [
         {
           "label": "inside-0",
-          "x": 1040,
+          "x": 1068,
           "y": 179.25,
           "rgb": [
             10,
@@ -34,7 +34,7 @@
         },
         {
           "label": "inside-1",
-          "x": 1040,
+          "x": 1068,
           "y": 506.5,
           "rgb": [
             10,
@@ -44,7 +44,7 @@
         },
         {
           "label": "inside-2",
-          "x": 1040,
+          "x": 1068,
           "y": 833.75,
           "rgb": [
             10,
@@ -56,7 +56,7 @@
       "panel": [
         {
           "label": "panel-0",
-          "x": 1026,
+          "x": 1054,
           "y": 179.25,
           "rgb": [
             10,
@@ -66,7 +66,7 @@
         },
         {
           "label": "panel-1",
-          "x": 1026,
+          "x": 1054,
           "y": 506.5,
           "rgb": [
             10,
@@ -76,7 +76,7 @@
         },
         {
           "label": "panel-2",
-          "x": 1026,
+          "x": 1054,
           "y": 833.75,
           "rgb": [
             10,
@@ -88,7 +88,7 @@
       "ground": [
         {
           "label": "ground-0",
-          "x": 1034,
+          "x": 1062,
           "y": 179.25,
           "rgb": [
             5,
@@ -98,7 +98,7 @@
         },
         {
           "label": "ground-1",
-          "x": 1034,
+          "x": 1062,
           "y": 506.5,
           "rgb": [
             5,
@@ -108,7 +108,7 @@
         },
         {
           "label": "ground-2",
-          "x": 1034,
+          "x": 1062,
           "y": 833.75,
           "rgb": [
             5,
@@ -133,60 +133,60 @@
       "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
     },
     {
-      "elapsedSec": 5.8,
+      "elapsedSec": 6.1,
       "n": 0,
       "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
     },
     {
-      "elapsedSec": 10.8,
+      "elapsedSec": 11.1,
       "n": 0,
       "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
     },
     {
-      "elapsedSec": 15.8,
+      "elapsedSec": 16.1,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+      "bodyBackgroundColor": "rgb(30, 30, 30)"
     }
   ],
-  "restoredAtSec": 15.8,
+  "restoredAtSec": 16.1,
   "restored": {
     "samples": {
       "inside": [
         {
           "label": "inside-0",
-          "x": 1040,
+          "x": 1068,
           "y": 179.25,
           "rgb": [
-            10,
-            10,
-            10
+            30,
+            30,
+            30
           ]
         },
         {
           "label": "inside-1",
-          "x": 1040,
+          "x": 1068,
           "y": 506.5,
           "rgb": [
-            10,
-            10,
-            10
+            30,
+            30,
+            30
           ]
         },
         {
           "label": "inside-2",
-          "x": 1040,
+          "x": 1068,
           "y": 833.75,
           "rgb": [
-            10,
-            10,
-            10
+            30,
+            30,
+            30
           ]
         }
       ],
       "panel": [
         {
           "label": "panel-0",
-          "x": 1026,
+          "x": 1054,
           "y": 179.25,
           "rgb": [
             10,
@@ -196,7 +196,7 @@
         },
         {
           "label": "panel-1",
-          "x": 1026,
+          "x": 1054,
           "y": 506.5,
           "rgb": [
             10,
@@ -206,7 +206,7 @@
         },
         {
           "label": "panel-2",
-          "x": 1026,
+          "x": 1054,
           "y": 833.75,
           "rgb": [
             10,
@@ -218,7 +218,7 @@
       "ground": [
         {
           "label": "ground-0",
-          "x": 1034,
+          "x": 1062,
           "y": 179.25,
           "rgb": [
             5,
@@ -228,7 +228,7 @@
         },
         {
           "label": "ground-1",
-          "x": 1034,
+          "x": 1062,
           "y": 506.5,
           "rgb": [
             5,
@@ -238,7 +238,7 @@
         },
         {
           "label": "ground-2",
-          "x": 1034,
+          "x": 1062,
           "y": 833.75,
           "rgb": [
             5,
@@ -248,23 +248,23 @@
         }
       ],
       "deltasToPanel": [
-        0,
-        0,
-        0
+        20,
+        20,
+        20
       ],
-      "maxDeltaToPanel": 0
+      "maxDeltaToPanel": 20
     },
     "png": "after-selfheal-restored.png",
     "measurement": {
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
       "htmlColorScheme": "normal",
       "themeKindHtml": null,
       "themeKindBody": "vscode-dark",
       "bodyClass": "vscode-dark",
-      "title": "ChatGPT",
-      "codexMarker": true,
+      "title": "Codex could not start",
+      "codexMarker": false,
       "sampleVars": [
         "--vscode-font-family",
         "--vscode-font-weight",
@@ -273,48 +273,47 @@
     }
   },
   "focus": {
-    "attempted": true,
-    "kind": "button",
-    "clickedAt": {
-      "x": 1459.02734375,
-      "y": 916
-    },
+    "attempted": false,
     "info": {
       "found": false,
-      "buttons": [
-        "Back",
-        "Next"
-      ]
+      "buttons": []
     },
     "fallback": {
-      "found": true,
-      "kind": "button",
-      "tag": "BUTTON",
-      "label": "Next",
-      "rect": {
-        "x": 385.0546875,
-        "y": 859,
-        "width": 71.9453125,
-        "height": 36
-      }
+      "found": false
+    }
+  },
+  "interaction": {
+    "counters": {
+      "pointerdown": 1,
+      "click": 1,
+      "keydown": 1,
+      "keys": [
+        "a"
+      ]
     },
     "activeElement": {
-      "tag": "BUTTON",
+      "tag": "BODY",
       "editable": false,
-      "type": "button"
-    }
+      "id": ""
+    },
+    "hasFocus": true,
+    "title": "Codex could not start"
+  },
+  "interactionClickedAt": {
+    "x": 1309,
+    "y": 506.5
   },
   "idle": {
     "elapsedSec": 300,
     "resends": 6,
     "perMinute": 1.2,
     "timestampsRelativeSec": [
-      43.6,
-      88.7,
-      133.7,
-      178.7,
-      223.7,
-      268.7
+      38.4,
+      83.4,
+      128.4,
+      173.4,
+      218.4,
+      263.4
     ]
   }
 }

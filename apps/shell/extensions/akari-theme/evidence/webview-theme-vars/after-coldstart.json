@@ -631,10 +631,10 @@
     "--vscode-sideBarTitle-foreground"
   ],
   "whiteUntilSec": null,
-  "darkFromSec": 0.4,
+  "darkFromSec": 25.1,
   "series": [
     {
-      "elapsedSec": 0.4,
+      "elapsedSec": 25.1,
       "n": 627,
       "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
       "themeKindBody": "vscode-dark",
@@ -677,25 +677,25 @@
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 5.6,
+      "elapsedSec": 31.5,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -715,30 +715,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 10.8,
+      "elapsedSec": 37.5,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -758,30 +758,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 17.4,
+      "elapsedSec": 44.3,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -801,30 +801,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 22.6,
+      "elapsedSec": 50.4,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -844,30 +844,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 27.8,
+      "elapsedSec": 57.4,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -887,30 +887,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 33.1,
+      "elapsedSec": 63.6,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -930,30 +930,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 38.3,
+      "elapsedSec": 68.9,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -973,30 +973,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 43.5,
+      "elapsedSec": 74.7,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1016,30 +1016,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 48.8,
+      "elapsedSec": 83.1,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1059,30 +1059,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 54.1,
+      "elapsedSec": 89.8,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1102,30 +1102,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 59.3,
+      "elapsedSec": 96.9,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1145,30 +1145,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 64.5,
+      "elapsedSec": 103.6,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1188,30 +1188,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 69.7,
+      "elapsedSec": 109.2,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1231,30 +1231,30 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     },
     {
-      "elapsedSec": 74.8,
+      "elapsedSec": 114.6,
       "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
       "themeKindBody": "vscode-dark",
       "inside": [
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ],
         [
-          10,
-          10,
-          10
+          30,
+          30,
+          30
         ]
       ],
       "panel": [
@@ -1274,351 +1274,7 @@
           10
         ]
       ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 80.1,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 85.3,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 90.6,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 95.8,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 101.2,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 106.4,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 111.6,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
-      "missingVsFirst": [],
-      "addedVsFirst": []
-    },
-    {
-      "elapsedSec": 116.8,
-      "n": 627,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
-      "themeKindBody": "vscode-dark",
-      "inside": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "panel": [
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ],
-        [
-          10,
-          10,
-          10
-        ]
-      ],
-      "maxDeltaToPanel": 0,
+      "maxDeltaToPanel": 20,
       "missingVsFirst": [],
       "addedVsFirst": []
     }

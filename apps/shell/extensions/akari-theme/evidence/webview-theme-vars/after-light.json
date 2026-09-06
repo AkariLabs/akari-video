@@ -9,22 +9,22 @@
     "settledAfterSec": 5
   },
   "rect": {
-    "left": 1108,
+    "left": 1066,
     "top": 39,
-    "width": 444,
+    "width": 486,
     "height": 935
   },
   "healthy": {
     "measurement": {
       "n": 629,
-      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "bodyBackgroundColor": "rgb(255, 255, 255)",
       "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
       "htmlColorScheme": "normal",
       "themeKindHtml": null,
       "themeKindBody": "vscode-light",
       "bodyClass": "vscode-light",
-      "title": "ChatGPT",
-      "codexMarker": true,
+      "title": "Codex could not start",
+      "codexMarker": false,
       "sampleVars": [
         "--vscode-font-family",
         "--vscode-font-weight",
@@ -36,7 +36,7 @@
       "inside": [
         {
           "label": "inside-0",
-          "x": 1110,
+          "x": 1068,
           "y": 179.25,
           "rgb": [
             255,
@@ -46,7 +46,7 @@
         },
         {
           "label": "inside-1",
-          "x": 1110,
+          "x": 1068,
           "y": 506.5,
           "rgb": [
             255,
@@ -56,7 +56,7 @@
         },
         {
           "label": "inside-2",
-          "x": 1110,
+          "x": 1068,
           "y": 833.75,
           "rgb": [
             255,
@@ -68,7 +68,7 @@
       "panel": [
         {
           "label": "panel-0",
-          "x": 1096,
+          "x": 1054,
           "y": 179.25,
           "rgb": [
             255,
@@ -78,7 +78,7 @@
         },
         {
           "label": "panel-1",
-          "x": 1096,
+          "x": 1054,
           "y": 506.5,
           "rgb": [
             255,
@@ -88,7 +88,7 @@
         },
         {
           "label": "panel-2",
-          "x": 1096,
+          "x": 1054,
           "y": 833.75,
           "rgb": [
             255,
@@ -100,7 +100,7 @@
       "ground": [
         {
           "label": "ground-0",
-          "x": 1104,
+          "x": 1062,
           "y": 179.25,
           "rgb": [
             236,
@@ -110,7 +110,7 @@
         },
         {
           "label": "ground-1",
-          "x": 1104,
+          "x": 1062,
           "y": 506.5,
           "rgb": [
             236,
@@ -120,7 +120,7 @@
         },
         {
           "label": "ground-2",
-          "x": 1104,
+          "x": 1062,
           "y": 833.75,
           "rgb": [
             236,
@@ -136,8 +136,8 @@
       ],
       "maxDeltaToPanel": 0
     },
-    "darkPixelRatio": 0.0076,
-    "sampled": 25288
+    "darkPixelRatio": 0.0058,
+    "sampled": 27840
   },
   "stripped": {
     "removed": 629,
@@ -149,8 +149,8 @@
       "themeKindHtml": null,
       "themeKindBody": "vscode-light",
       "bodyClass": "vscode-light",
-      "title": "ChatGPT",
-      "codexMarker": true,
+      "title": "Codex could not start",
+      "codexMarker": false,
       "sampleVars": []
     },
     "png": "after-light-stripped.png",
@@ -158,7 +158,7 @@
       "inside": [
         {
           "label": "inside-0",
-          "x": 1110,
+          "x": 1068,
           "y": 179.25,
           "rgb": [
             255,
@@ -168,7 +168,7 @@
         },
         {
           "label": "inside-1",
-          "x": 1110,
+          "x": 1068,
           "y": 506.5,
           "rgb": [
             255,
@@ -178,7 +178,7 @@
         },
         {
           "label": "inside-2",
-          "x": 1110,
+          "x": 1068,
           "y": 833.75,
           "rgb": [
             255,
@@ -190,7 +190,7 @@
       "panel": [
         {
           "label": "panel-0",
-          "x": 1096,
+          "x": 1054,
           "y": 179.25,
           "rgb": [
             255,
@@ -200,7 +200,7 @@
         },
         {
           "label": "panel-1",
-          "x": 1096,
+          "x": 1054,
           "y": 506.5,
           "rgb": [
             255,
@@ -210,7 +210,7 @@
         },
         {
           "label": "panel-2",
-          "x": 1096,
+          "x": 1054,
           "y": 833.75,
           "rgb": [
             255,
@@ -222,7 +222,7 @@
       "ground": [
         {
           "label": "ground-0",
-          "x": 1104,
+          "x": 1062,
           "y": 179.25,
           "rgb": [
             236,
@@ -232,7 +232,7 @@
         },
         {
           "label": "ground-1",
-          "x": 1104,
+          "x": 1062,
           "y": 506.5,
           "rgb": [
             236,
@@ -242,7 +242,7 @@
         },
         {
           "label": "ground-2",
-          "x": 1104,
+          "x": 1062,
           "y": 833.75,
           "rgb": [
             236,
@@ -258,7 +258,7 @@
       ],
       "maxDeltaToPanel": 0
     },
-    "darkPixelRatio": 0.01,
-    "sampled": 25288
+    "darkPixelRatio": 0.0122,
+    "sampled": 27840
   }
 }
