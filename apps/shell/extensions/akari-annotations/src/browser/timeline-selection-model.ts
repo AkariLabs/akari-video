@@ -75,6 +75,7 @@ export interface TimelineCaptionSelection {
     edited: boolean;
     textStyle?: CaptionTextStyle;
     effectiveTextStyle?: CaptionTextStyle;
+    animatorOwner?: { id: string; animator?: readonly Record<string, unknown>[] };
 }
 
 export interface TimelineLayerSelection {
@@ -116,6 +117,7 @@ export interface TimelineTreeItemSelection {
 
 export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     motion?: Record<string, unknown>;
+    animator?: readonly Record<string, unknown>[];
     mask?: string;
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
@@ -246,9 +248,9 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | `source.vars.${string}` | `source.params.${string}`
+            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | 'animator' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
-        value: InspectorAdjustValue | Record<string, unknown> | { corners: [number, number][] } | string | null;
+        value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | null;
     }
     | { kind: 'cut-transition-out'; index: number; value: { type: TransitionType; duration: number } | null }
     | { kind: 'cut-speed'; index: number; value: number | null }
