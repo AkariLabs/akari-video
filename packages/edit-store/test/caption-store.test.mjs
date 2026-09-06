@@ -237,6 +237,47 @@ test('default_text_style の未知キーも既定スタイルを破棄せず警�
   assert.match(parsed.warnings[0], /字幕の既定スタイルに未知のフィールド（bogus）/);
 });
 
+test('default_text_style の max_characters は警告なしで取り込む', () => {
+  const parsed = parseCaptions(JSON.stringify({
+    default_text_style: { max_characters: 12 },
+    captions: [caption('c-0001', 0, '本文')]
+  }));
+  assert.equal(parsed.warnings.length, 0);
+  assert.equal(parsed.defaultTextStyle.maxCharacters, 12);
+});
+
+test('字幕ごとの max_characters は警告なしで取り込む', () => {
+  const parsed = parseCaptions(JSON.stringify([
+    caption('c-0001', 0, '本文', { text_style: { max_characters: 8 } })
+  ]));
+  assert.equal(parsed.warnings.length, 0);
+  assert.equal(parsed.captions[0].textStyle.maxCharacters, 8);
+});
+
+test('insertCaptionLine は maxCharacters を直列化して既定スタイルとともに保持する', () => {
+  const source = JSON.stringify({ default_text_style: { max_characters: 12 }, captions: [] });
+  const inserted = insertCaptionLine(source, caption('c-0001', 0, '新規', {
+    textStyle: { maxCharacters: 8 }
+  }));
+  const parsed = parseCaptions(inserted);
+  assert.equal(parsed.warnings.length, 0);
+  assert.equal(parsed.captions[0].textStyle.maxCharacters, 8);
+  assert.equal(parsed.defaultTextStyle.maxCharacters, 12);
+});
+
+test('不正な max_characters は警告なしで無視し他フィールドを保持する', () => {
+  for (const value of [0, -1, 1.5, '12']) {
+    const style = { max_characters: value, color: '#112233' };
+    const parsed = parseCaptions(JSON.stringify({
+      default_text_style: style,
+      captions: [caption('c-0001', 0, '本文', { text_style: style })]
+    }));
+    assert.equal(parsed.warnings.length, 0, String(value));
+    assert.deepEqual(parsed.defaultTextStyle, { color: '#112233' });
+    assert.deepEqual(parsed.captions[0].textStyle, { color: '#112233' });
+  }
+});
+
 test('shared parity fixture の valid_style_cases 全件で字幕行が生き残る', () => {
   for (const item of styleParity.valid_style_cases) {
     const source = JSON.stringify([{ ...styleParity.caption, text_style: item.style }]);

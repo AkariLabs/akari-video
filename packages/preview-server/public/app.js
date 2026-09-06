@@ -4369,6 +4369,13 @@ function isPortraitOutput() {
   return Number(os.height) > Number(os.width);
 }
 function captionLineBudget() { return isPortraitOutput() ? 10 : 20; }
+function captionLineBudgetFor(caption) {
+  // render-cut mergeCaptionTextStyles と同じく各段を先に検証し、不正値は次の段へ落とす。
+  for (const value of [caption?.text_style?.max_characters, summary?.default_text_style?.max_characters]) {
+    if (Number.isInteger(value) && value > 0) return value;
+  }
+  return captionLineBudget();
+}
 function defaultCaptionFontSize() {
   const os = summary?.output || {};
   return isPortraitOutput() ? Math.round(Number(os.width) * 0.06) : 38;
@@ -4601,7 +4608,7 @@ function updateCaption() {
   const displayText = active.display_text || active.text || '';
   const wantsReveal = hasWords && (style === 'reveal'
     || (!style && isPortraitOutput()
-      && splitCaptionLines(displayText, captionLineBudget()).length > 1));
+      && splitCaptionLines(displayText, captionLineBudgetFor(active)).length > 1));
   const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
   // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
   const blockMode = (active.text_style?.background?.mode
@@ -4639,7 +4646,7 @@ function updateCaption() {
       captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${esc(active.text || '')}</span>`;
     } else {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
-      const lines = splitCaptionLines(displayText, captionLineBudget());
+      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active));
       captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
         wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;
