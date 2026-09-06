@@ -1,3 +1,7 @@
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
+import { captionsButtonLabel } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService } from '@theia/core/lib/common';
 import { BaseWidget } from '@theia/core/lib/browser';
@@ -198,6 +202,14 @@ export class AkariDaihonWidget extends BaseWidget {
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
 
+    @inject(AkariProjectService)
+    protected readonly projectService!: AkariProjectService;
+
+    @inject(QuickPickService)
+    protected readonly quickPick!: QuickPickService;
+
+    protected readonly captionsButton = document.createElement('button');
+    protected buildingCaptions = false;
     protected readonly count = document.createElement('span');
     protected readonly tplButton = document.createElement('button');
     protected readonly qcButton = document.createElement('button');
@@ -271,7 +283,14 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openSilenceBatch(event.currentTarget as HTMLElement);
         });
-        header.append(title, this.count, spacer, this.tplButton, this.qcButton, this.silenceButton);
+        this.captionsButton.type = 'button';
+        this.captionsButton.className = 'theia-button primary akari-daihon-captions';
+        this.captionsButton.textContent = captionsButtonLabel([]);
+        this.captionsButton.style.cssText = 'min-height:36px;padding:8px 14px;font-weight:600;white-space:normal';
+        this.captionsButton.disabled = true;
+        this.captionsButton.addEventListener('click', () => void this.buildCaptions());
+        header.style.flexWrap = 'wrap';
+        header.append(title, this.count, spacer, this.captionsButton, this.tplButton, this.qcButton, this.silenceButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -353,6 +372,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const relevant = (this.editUri && event.contains(this.editUri))
                 || (this.captionsUri && event.contains(this.captionsUri));
+            if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
+                void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
+            }
             if (relevant) this.queueReload();
         }));
         try {
@@ -386,7 +408,57 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsUri = this.editUri?.parent.resolve('captions.json');
     }
 
+    protected async captionSources(): Promise<{ id: string; path: string }[]> {
+        if (!this.editUri) return [];
+        const edit = JSON.parse(await this.readText(this.editUri));
+        return Array.isArray(edit.sources) ? edit.sources.filter((source: { id?: unknown; path?: unknown }) =>
+            typeof source.id === 'string' && typeof source.path === 'string') : [];
+    }
+
+    protected async refreshCaptionsButton(): Promise<void> {
+        const sources = await this.captionSources();
+        const states = this.editUri ? await this.projectService.transcriptStates({
+            projectRoot: this.editUri.parent.toString(), relativePaths: sources.map(source => source.path)
+        }) : {};
+        this.captionsButton.textContent = this.buildingCaptions ? '字幕を作成中…' : captionsButtonLabel(Object.values(states));
+        this.captionsButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
+    }
+
+    protected async buildCaptions(): Promise<void> {
+        if (this.buildingCaptions || !this.editUri) return;
+        this.buildingCaptions = true;
+        this.captionsButton.disabled = true;
+        const projectRoot = this.editUri.parent.toString();
+        try {
+            const sources = await this.captionSources();
+            const source = sources.length === 1 ? sources[0] : await this.quickPick.show(
+                sources.map(item => ({ label: item.id, description: item.path, ...item })), { placeholder: '字幕を作る素材を選ぶ' }
+            );
+            if (!source) return;
+            const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
+            if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
+            this.captionsButton.textContent = '字幕を作成中…';
+            const request = { projectRoot, source: source.id, transcribeFirst: states[source.path] !== 'done' };
+            const result = await this.projectService.buildCaptions(request);
+            if (result.needsForce) {
+                const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
+                if (!confirmed) return;
+                await this.projectService.buildCaptions({ ...request, force: true, transcribeFirst: false });
+            }
+            await this.reload();
+        } catch (error) {
+            this.notify(`字幕を作れません: ${this.errorMessage(error)}`);
+        } finally {
+            this.buildingCaptions = false;
+            await this.refreshCaptionsButton().catch(error => this.notify(this.errorMessage(error)));
+        }
+    }
+
     protected async reload(): Promise<void> {
+        await this.refreshCaptionsButton().catch(error => {
+            this.captionsButton.disabled = true;
+            this.notify(this.errorMessage(error));
+        });
         if (!this.editUri || !this.captionsUri) {
             this.segments = [];
             this.renderRows([]);
