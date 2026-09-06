@@ -42,6 +42,356 @@ function assertPcmNode(source, startFrame) {
   assert.deepEqual(source.buffer.getChannelData(0), expectedSamples(startFrame, source.buffer.length));
 }
 
+test('cuts ミュートは speech の予定表を保ち、required と窓取得と欠落警告から除外する', async t => {
+  const camera = pcmDeclaration('camera');
+  const { supply, context, requests, warnings } = pcmSupply(t, {
+    declarations: [],
+    speech: [speech('camera', 'camera', '/camera.mp4', {
+      track: 3, durationSec: 120, outSec: 120, materialDurationSec: 120,
+      sidecar: camera.spec.sidecar, sidecarState: 'ready',
+    })],
+  });
+  supply.setMutedTracks({ cuts: [3] });
+  supply.prime();
+  supply.playFrom(0);
+  await flush();
+  assert.equal(supply.debug().scheduled.speech, 1);
+  assert.deepEqual(supply.debug().scheduled.skipped, []);
+  assert.deepEqual(supply.debug().supply.required, []);
+  assert.equal(supply.debug().supply.gate.holding, false);
+  assert.equal(context.sources.length, 0);
+  assert.equal(requests.length, 0);
+  assertWindowStats(supply, requests, { fetched: 0 });
+  assert.deepEqual(warnings, []);
+  supply.setMutedTracks({ cuts: [] });
+  await flush();
+  assert.ok(context.sources.length > 0, '初回に飛ばした speech も解除直後に鳴る');
+  assert.deepEqual(supply.debug().supply.required, ['speech:camera']);
+});
+
+for (const kind of ['speech', 'narration']) {
+  for (const pcm of [false, true]) {
+    test(`${kind} の${pcm ? 'PCM 窓' : 'デコード音源'}は再生中のミュートを即時反映し、解除で gain と予定表を戻す`, async t => {
+      const scope = kind === 'speech' ? 'cuts' : 'audio';
+      const declaration = pcm ? pcmDeclaration('voice', 120, 'narration', { t: 0, track: 2 })
+        : { kind: 'narration', id: 'voice', url: '/voice.wav', spec: { t: 0, track: 2 } };
+      const { supply, context, requests, clock } = pcmSupply(t, {
+        declarations: kind === 'speech' ? [] : [declaration],
+        speech: kind === 'speech' ? [speech('voice', 'camera', '/voice.wav', {
+          track: 2, durationSec: 8, outSec: 8, materialDurationSec: 8,
+          ...(pcm ? { sidecar: declaration.spec.sidecar, sidecarState: 'ready' } : {}),
+        })] : [],
+        ...(!pcm ? { fetchImpl: async () => response(1) } : {}),
+      });
+      supply.playFrom(0);
+      await flush();
+      assert.ok(context.sources.length > 0);
+      const baseGain = context.gains[1];
+      const otherGains = context.gains.filter(gain => gain !== baseGain);
+      const otherCalls = otherGains.map(gain => [...gain.gain.calls]);
+      const cancel = t.mock.method(baseGain.gain, 'cancelScheduledValues');
+      context.currentTime = 0.52;
+      supply.setMutedTracks({ [scope]: [2] });
+      assert.equal(baseGain.gain.value, 0);
+      assert.deepEqual(baseGain.gain.calls.at(-1), ['set', 0, 0.52]);
+      assert.deepEqual(cancel.mock.calls.at(-1).arguments, [0.52]);
+      assert.deepEqual(otherGains.map(gain => gain.gain.calls), otherCalls, 'envelope と master は触らない');
+      const fetchCount = requests.length;
+      const sourceCount = context.sources.length;
+      context.currentTime = 20;
+      await clock.advance(1000);
+      assert.equal(requests.length, fetchCount, 'ミュート中は次の窓を取らない');
+      assert.equal(context.sources.length, sourceCount);
+      context.currentTime = 0.52;
+      supply.setMutedTracks({ [scope]: [] });
+      assert.equal(baseGain.gain.value, 1, '次の窓や非同期の組み直しを待たず gain を戻す');
+      await flush();
+      assert.equal(supply.debug().scheduled.startAtSec, 0.5);
+      assert.ok(context.sources.length > sourceCount);
+      const resumedCount = context.sources.length;
+      supply.setMutedTracks({ [scope]: [] });
+      await flush();
+      assert.equal(context.sources.length, resumedCount, '同じ状態なら組み直さない');
+      supply.pause();
+      const callsAfterPause = context.gains.map(gain => [...gain.gain.calls]);
+      supply.setMutedTracks({ allCuts: true, allAudio: true });
+      supply.setMutedTracks({ allCuts: false, allAudio: false });
+      await flush();
+      assert.deepEqual(context.gains.map(gain => gain.gain.calls), callsAfterPause, '停止した gain は登録簿から外れる');
+      assert.equal(supply.debug().playing, false);
+      assert.equal(context.sources.length, resumedCount, '停止中の解除では再生を開始しない');
+      assert.equal(clock.pending(), 0);
+    });
+  }
+}
+
+test('未デコードのミュート音源はソースも sidecar も取得せず、解除したスコープだけ準備する', async t => {
+  const fetches = [];
+  const { supply, context } = pcmSupply(t, {
+    declarations: [{ kind: 'narration', id: 'voice', url: '/voice.flac', sourceUrl: '/voice.wav',
+      spec: { t: 0, track: 4 } }],
+    speech: [speech('camera', 'camera', '/camera.mp4', { track: 4 })],
+    fetchImpl: async url => { fetches.push(url); return response(1); },
+  });
+  supply.setMutedTracks({ cuts: [4], audio: [4] });
+  supply.prime();
+  supply.playFrom(0);
+  await flush();
+  assert.deepEqual(fetches, []);
+  assert.deepEqual(supply.debug().supply.required, []);
+  assert.equal(supply.debug().scheduled.speech, 1);
+  assert.equal(context.sources.length, 0);
+  supply.setMutedTracks({ audio: [] });
+  await flush();
+  assert.deepEqual(fetches, ['/voice.flac']);
+  assert.equal(supply.debug().scheduled.narration, 1);
+  assert.equal(supply.debug().scheduled.speech, 1);
+  assert.deepEqual(supply.debug().scheduled.skipped, []);
+});
+
+test('ミュート中の ready 更新は PCM メタデータを準備せず、解除後に準備して鳴らす', async t => {
+  const voice = pcmDeclaration('voice', 120, 'narration', { t: 0, track: 7 });
+  const { supply, context, requests } = pcmSupply(t, {
+    declarations: [{ ...voice, spec: { ...voice.spec, sidecarState: 'queued', sidecar: undefined } }],
+  });
+  supply.setMutedTracks({ audio: [7] });
+  supply.updateAudio({ declarations: [voice] });
+  await flush();
+  assert.deepEqual(supply.debug().supply.ready, []);
+  assert.equal(requests.length, 0);
+  supply.setMutedTracks({ audio: [] });
+  assert.equal(supply.debug().playing, false);
+  supply.playFrom(0);
+  await flush();
+  assert.ok(context.sources.length > 0);
+  assert.deepEqual(supply.debug().supply.ready, ['narration:voice']);
+});
+
+test('全 audio ミュートで開始した未デコードの narration は解除直後に取得して鳴らす', async t => {
+  const fetches = [];
+  const { supply, context } = pcmSupply(t, {
+    declarations: [{ kind: 'narration', id: 'voice', url: '/voice.wav', spec: { t: 0, track: 6 } }],
+    fetchImpl: async url => { fetches.push(url); return response(1); },
+  });
+  supply.setMutedTracks({ allAudio: true });
+  supply.playFrom(0);
+  await flush();
+  assert.equal(supply.debug().scheduled.narration, 1);
+  assert.deepEqual(supply.debug().scheduled.skipped, []);
+  assert.equal(context.sources.length, 0);
+  assert.deepEqual(fetches, []);
+  supply.setMutedTracks({ allAudio: false });
+  await flush();
+  assert.deepEqual(fetches, ['/voice.wav']);
+  assert.equal(context.sources.length, 1);
+});
+
+test('未来の decode が待機中でも解除した音源は空いている先読み枠ですぐ取得する', async t => {
+  const future = deferred();
+  t.after(() => future.resolve());
+  const fetches = [];
+  const { supply, context } = pcmSupply(t, {
+    declarations: [
+      { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } },
+      { kind: 'sfx', id: 'future', url: '/future.wav', spec: { t: 90 } },
+      { kind: 'narration', id: 'voice', url: '/voice.wav', spec: { t: 0, track: 5 } },
+    ],
+    fetchImpl: async url => {
+      fetches.push(url);
+      if (url === '/future.wav') await future.promise;
+      return response(1);
+    },
+  });
+  supply.setMutedTracks({ audio: [5] });
+  supply.playFrom(0);
+  await flush();
+  assert.equal(context.sources.length, 1);
+  assert.deepEqual(fetches, ['/marker.wav', '/future.wav']);
+  supply.setMutedTracks({ audio: [] });
+  await flush();
+  assert.deepEqual(fetches, ['/marker.wav', '/future.wav', '/voice.wav']);
+  assert.equal(supply.debug().prefetch.pending, 1, '未来の decode はまだ待機している');
+  assert.equal(supply.debug().scheduled.narration, 1);
+  assert.ok(context.sources.length > 1, '未来の decode の終了を待たず narration が鳴る');
+});
+
+test('待機 worker は繰り返し再開しても decode の並列度 2 を超えない', async t => {
+  const pending = new Map(['future', 'voice', 'extra'].map(id => [`/${id}.wav`, deferred()]));
+  t.after(() => { for (const item of pending.values()) item.resolve(); });
+  const fetches = [];
+  let active = 0;
+  let maxActive = 0;
+  const { supply } = pcmSupply(t, {
+    declarations: [
+      { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } },
+      { kind: 'sfx', id: 'future', url: '/future.wav', spec: { t: 90 } },
+      ...['voice', 'extra'].map((id, index) => ({
+        kind: 'narration', id, url: `/${id}.wav`, spec: { t: 0, track: index + 5 },
+      })),
+    ],
+    fetchImpl: async url => {
+      fetches.push(url);
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await pending.get(url)?.promise;
+      active -= 1;
+      return response(1);
+    },
+  });
+  supply.setMutedTracks({ audio: [5, 6] });
+  supply.playFrom(0);
+  await flush();
+  supply.setMutedTracks({ audio: [6] });
+  await flush();
+  assert.equal(active, 2);
+  supply.setMutedTracks({ audio: [] });
+  supply.prime();
+  supply.prime();
+  await flush();
+  assert.deepEqual(fetches, ['/marker.wav', '/future.wav', '/voice.wav']);
+  pending.get('/voice.wav').resolve();
+  await flush();
+  assert.deepEqual(fetches, ['/marker.wav', '/future.wav', '/voice.wav', '/extra.wav']);
+  assert.equal(active, 2);
+  pending.get('/extra.wav').resolve();
+  await flush();
+  assert.equal(supply.debug().prefetch.pending, 1);
+  pending.get('/future.wav').resolve();
+  await flush();
+  assert.equal(supply.debug().prefetch.pending, 0);
+  assert.equal(maxActive, 2);
+});
+
+for (const ending of ['dispose', 'exception']) {
+  test(`待機 worker は ${ending} でも先読み終了を妨げない`, async t => {
+    const future = deferred();
+    t.after(() => future.resolve());
+    const warnings = [];
+    const failure = new Error('warning callback failed');
+    const { supply, clock } = pcmSupply(t, {
+      declarations: [
+        { kind: 'sfx', id: 'marker', url: '/marker.wav', spec: { t: 0 } },
+        { kind: 'sfx', id: 'future', url: '/future.wav', spec: { t: 90 } },
+      ],
+      fetchImpl: async url => {
+        if (url === '/future.wav') {
+          await future.promise;
+          if (ending === 'exception') throw new Error('fetch failed');
+        }
+        return response(1);
+      },
+      onWarning: (message, reason) => {
+        if (message !== '[frame-engine] audio prefetch failed') throw failure;
+        warnings.push(reason);
+      },
+    });
+    supply.prime();
+    await flush();
+    assert.equal(supply.debug().prefetch.pending, 1);
+    await clock.advance(10);
+    if (ending === 'dispose') supply.dispose();
+    future.resolve();
+    await flush();
+    assert.equal(supply.debug().prefetch.pending, 0);
+    assert.equal(supply.debug().prefetch.elapsedMs, 10);
+    assert.deepEqual(warnings, ending === 'exception' ? [failure] : []);
+  });
+}
+
+test('sidecar 待ちの途中でミュートした音源は失敗後も元ソースを取得せず、解除時は即再試行する', async t => {
+  const failed = deferred();
+  const fetches = [];
+  const sidecar = { path: '/voice.flac', durationSec: 8, padBeforeSec: 0, padAfterSec: 0 };
+  const { supply } = pcmSupply(t, {
+    declarations: [{ kind: 'narration', id: 'voice', url: '/voice.flac', sourceUrl: '/voice.wav',
+      spec: { t: 0, track: 2, sidecar } }],
+    speech: [speech('camera', 'camera', '/camera.mp4', { track: 2, sidecar: { ...sidecar, path: '/camera.flac' } })],
+    fetchImpl: async url => {
+      fetches.push(url);
+      if (url.endsWith('.flac')) { await failed.promise; return { ok: false, status: 500 }; }
+      return response(1);
+    },
+  });
+  supply.playFrom(0);
+  await flush();
+  supply.setMutedTracks({ cuts: [2], audio: [2] });
+  failed.resolve();
+  await flush();
+  assert.deepEqual(fetches, ['/voice.flac', '/camera.flac']);
+  assert.deepEqual(supply.debug().supply.failed, [], 'ミュート中に取りやめた fallback は失敗扱いにしない');
+  supply.setMutedTracks({ cuts: [], audio: [] });
+  await flush();
+  assert.ok(fetches.includes('/voice.wav'));
+  assert.ok(fetches.includes('/camera.mp4'));
+});
+
+for (const gainEvents of [[], [
+  { offsetSec: 0, value: 0.5, method: 'set' },
+  { offsetSec: 2, value: 0.75, method: 'linear' },
+]]) {
+  test(`全 cuts ミュートの解除は${gainEvents.length ? '元の gain イベントと速度' : '空イベントの既定 gain'}を復元し、自然終了後は登録を残さない`, async t => {
+    const { supply, context } = pcmSupply(t, {
+      declarations: [], speech: [speech('camera', 'camera', '/camera.mp4', { atSec: 2, durationSec: 4, outSec: 4 })],
+      fetchImpl: async () => response(1),
+      scheduleBuilder: input => {
+        const plan = scheduleBuilder(input);
+        for (const item of plan.items) {
+          item.gainEvents = gainEvents;
+          item.envelopeEvents = [{ offsetSec: 0, value: 0.8, method: 'set' }];
+        }
+        return plan;
+      },
+    });
+    supply.setRate(2);
+    supply.playFrom(0);
+    await flush();
+    const base = context.gains[1];
+    const envelope = context.gains[2];
+    const original = [...base.gain.calls];
+    const envelopeCalls = [...envelope.gain.calls];
+    context.currentTime = 0.5;
+    supply.setMutedTracks({ allCuts: true });
+    assert.equal(base.gain.value, 0);
+    supply.setMutedTracks({ allCuts: false });
+    assert.deepEqual(base.gain.calls.slice(-original.length), original);
+    assert.deepEqual(envelope.gain.calls, envelopeCalls);
+    await flush();
+    const currentBase = context.gains.at(-2);
+    context.sources.at(-1).onended();
+    const endedCalls = [...currentBase.gain.calls];
+    supply.setMutedTracks({ allCuts: true });
+    assert.deepEqual(currentBase.gain.calls, endedCalls, '自然終了した source の gain は操作しない');
+  });
+}
+
+test('debug は昇順のミュートトラックと全体ミュートを返し、省略キーとスコープを独立に保つ', t => {
+  const { supply } = pcmSupply(t);
+  supply.setMutedTracks({ cuts: new Set([9, 2, 9]), audio: [8, 1], allCuts: true, allAudio: true });
+  assert.deepEqual(supply.debug().supply.mutedTracks, { cuts: [2, 9], audio: [1, 8], allCuts: true, allAudio: true });
+  supply.setMutedTracks({ cuts: undefined, audio: [], allCuts: false });
+  assert.deepEqual(supply.debug().supply.mutedTracks, { cuts: [2, 9], audio: [], allCuts: false, allAudio: true });
+  assert.deepEqual(supply.debug().supply.required, [], 'allAudio はトラック指定の有無に関係なく効く');
+  supply.setMutedTracks({ allAudio: false });
+  assert.deepEqual(supply.debug().supply.required, ['bgm:bed']);
+});
+
+for (const track of [undefined, -1, 0.5, '3']) {
+  test(`無効または未指定のトラック ${String(track)} は両スコープで 0 としてミュートする`, async t => {
+    const fetches = [];
+    const { supply, context } = pcmSupply(t, {
+      declarations: [{ kind: 'narration', id: 'voice', url: '/voice.wav', spec: { t: 0, track } }],
+      speech: [speech('camera', 'camera', '/camera.mp4', { track })],
+      fetchImpl: async url => { fetches.push(url); return response(1); },
+    });
+    supply.setMutedTracks({ cuts: [0], audio: [0] });
+    supply.playFrom(0);
+    await flush();
+    assert.deepEqual(supply.debug().supply.required, []);
+    assert.deepEqual(fetches, []);
+    assert.equal(context.sources.length, 0);
+  });
+}
+
 test('再生中の組み直しが最初の窓を待つ間に届いた次の ready も拾い、組み直しは 2 回だけ行う', async t => {
   const secondWindow = deferred();
   const server = rangeServer({ requireRange: true, beforeResponse: request => {

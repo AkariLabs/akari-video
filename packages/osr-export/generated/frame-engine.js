@@ -7424,7 +7424,7 @@ ${indent}`);
             id,
             kind,
             t: spec.t,
-            track: normalizedTrack(spec.track),
+            track: normalizedTrack2(spec.track),
             materialDurationSec: spec.durationSec,
             sourceOffsetSec: trim.sourceOffsetSec,
             itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
@@ -7525,7 +7525,7 @@ ${indent}`);
         return {
           kind: "bgm",
           id: typeof spec.id === "string" && spec.id ? spec.id : "bgm",
-          track: normalizedTrack(spec.track),
+          track: normalizedTrack2(spec.track),
           timelineStartSec,
           timelineEndSec: timelineStartSec + durationSec,
           delaySec,
@@ -7583,7 +7583,7 @@ ${indent}`);
         return {
           kind: "speech",
           id,
-          track: normalizedTrack(spec.track),
+          track: normalizedTrack2(spec.track),
           timelineStartSec,
           timelineEndSec: timelineStartSec + durationSec,
           delaySec,
@@ -7706,7 +7706,7 @@ ${indent}`);
           outSec,
           speed: input.speed,
           gainDb: input.gainDb,
-          track: normalizedTrack(input.track),
+          track: normalizedTrack2(input.track),
           materialDurationSec: outSec
         });
       }
@@ -7882,7 +7882,7 @@ ${indent}`);
       function finiteRange(value, minimum, maximum) {
         return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : void 0;
       }
-      function normalizedTrack(value) {
+      function normalizedTrack2(value) {
         return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
       }
       function finitePositive4(value) {
@@ -25837,6 +25837,7 @@ void main() {
     let overBudgetWarned = false;
     let prefetchInFlight = null;
     let activePrefetchQueue = null;
+    let wakePrefetch = null;
     let disposed = false;
     let decodedRevision = 0;
     let prefetchEverRan = false;
@@ -25851,6 +25852,13 @@ void main() {
     let regularDecoded = [];
     let speechDecoded = /* @__PURE__ */ new Map();
     let active = [];
+    const activeItemGains = /* @__PURE__ */ new Set();
+    let mutedCutTracks = /* @__PURE__ */ new Set();
+    let mutedAudioTracks = /* @__PURE__ */ new Set();
+    let allCutsMuted = false;
+    let allAudioMuted = false;
+    const trackMuted = (kind, track) => kind === "speech" ? allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
+    const itemMuted = (item) => trackMuted(item.kind, item.track);
     const windowSources = /* @__PURE__ */ new Map();
     const windowStops = /* @__PURE__ */ new Set();
     const windowFailures = /* @__PURE__ */ new Set();
@@ -25961,6 +25969,7 @@ void main() {
       windowController = null;
       for (const stop of [...windowStops]) stop();
       windowStops.clear();
+      for (const entry of activeItemGains) entry.remove();
       bufferedUntil = {};
       const sources = active;
       active = [];
@@ -26073,7 +26082,7 @@ void main() {
         `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
       );
       let usedSidecar = Boolean(sidecar && buffer);
-      if (!buffer && sidecar && declaration.sourceUrl) {
+      if (!buffer && sidecar && declaration.sourceUrl && !trackMuted(declaration.kind, declaration.spec.track)) {
         buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
         usedSidecar = false;
       }
@@ -26105,7 +26114,7 @@ void main() {
       const bakedPath = sidecar?.path ?? legacy?.path;
       let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
       let usedSidecar = Boolean(bakedPath && buffer);
-      if (!buffer) {
+      if (!buffer && !trackMuted("speech", declaration.track)) {
         buffer = await decodeUrl(
           declaration.url,
           `speech ${declaration.src}`,
@@ -26135,8 +26144,8 @@ void main() {
     const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
     const taskState = (state) => state === "queued" || state === "generating" ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
     const prepareWindowedTask = (task, pcm) => {
-      if (pcm && task.state === "decode") {
-        task.state = "windowed";
+      if (pcm && task.state === "decode") task.state = "windowed";
+      if (task.state === "windowed" && !task.muted() && !task.resolved()) {
         void task.run().catch((reason) => {
           task.failedAtMs = now();
           warn(`[frame-engine] ${task.key} PCM metadata unavailable`, reason);
@@ -26149,6 +26158,7 @@ void main() {
       at: firstUseRegular(item),
       failedAtMs: null,
       state: taskState(item.spec.sidecarState),
+      muted: () => trackMuted(item.kind, item.spec.track),
       run: () => resolveRegular(item),
       resolved: () => regularResolved(item)
     }, validSidecar(item.spec.sidecar)?.format === "pcm-s16le");
@@ -26157,6 +26167,7 @@ void main() {
       at: firstUseSpeech(item),
       failedAtMs: null,
       state: taskState(item.sidecarState),
+      muted: () => trackMuted("speech", item.track),
       run: () => resolveSpeech(item),
       resolved: () => speechDecoded.has(item.id)
     }, item.sidecar?.format === "pcm-s16le");
@@ -26166,31 +26177,61 @@ void main() {
     ].sort((left, right) => left.at - right.at);
     const pendingTasks = () => {
       const at2 = now();
-      return tasks.filter((task) => task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+      return tasks.filter((task) => !task.muted() && task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
     };
     const runPrefetch = async (queue) => {
       activePrefetchQueue = queue;
+      for (const task of queue) task.queued = true;
       prefetchPending = queue.length;
       let cursor = 0;
+      let workers = 2;
+      let failed = false;
+      let failure;
+      const idle = /* @__PURE__ */ new Set();
+      const wake = () => {
+        const waiters = [...idle];
+        idle.clear();
+        for (const resume of waiters) resume();
+      };
+      wakePrefetch = wake;
       const worker = async () => {
-        while (cursor < queue.length) {
-          const task = queue[cursor++];
-          if (!task) break;
-          try {
-            if (disposed || !tasks.includes(task)) continue;
-            await task.run();
-            task.failedAtMs = task.resolved() ? null : now();
-          } catch (reason) {
-            task.failedAtMs = now();
-            warn(`[frame-engine] ${task.key} prefetch failed`, reason);
-          } finally {
-            prefetchPending -= 1;
-            notifyTaskSettled();
-            if (task.updated && !disposed) replanIfNeeded();
+        try {
+          while (!disposed && !failed) {
+            if (cursor >= queue.length) {
+              if (idle.size === workers - 1) return;
+              await new Promise((resolve) => idle.add(resolve));
+              continue;
+            }
+            const task = queue[cursor++];
+            if (!task) break;
+            try {
+              if (!tasks.includes(task) || task.muted()) continue;
+              await task.run();
+              task.failedAtMs = task.resolved() || task.muted() ? null : now();
+            } catch (reason) {
+              task.failedAtMs = now();
+              warn(`[frame-engine] ${task.key} prefetch failed`, reason);
+            } finally {
+              task.queued = false;
+              prefetchPending -= 1;
+              notifyTaskSettled();
+              if (task.updated && !disposed) replanIfNeeded();
+            }
           }
+        } catch (reason) {
+          failed = true;
+          failure = reason;
+        } finally {
+          workers -= 1;
+          wake();
         }
       };
-      await Promise.all([worker(), worker()]);
+      try {
+        await Promise.all([worker(), worker()]);
+        if (failed) throw failure;
+      } finally {
+        for (const task of queue) task.queued = false;
+      }
     };
     const taskWaiters = /* @__PURE__ */ new Set();
     const notifyTaskSettled = () => {
@@ -26198,7 +26239,17 @@ void main() {
     };
     const ensureDecoded = () => {
       if (disposed) return Promise.resolve();
-      if (prefetchInFlight) return prefetchInFlight;
+      for (const task of tasks) prepareWindowedTask(task, false);
+      if (prefetchInFlight) {
+        if (activePrefetchQueue) for (const task of pendingTasks()) {
+          if (task.queued) continue;
+          task.queued = true;
+          activePrefetchQueue.push(task);
+          prefetchPending += 1;
+        }
+        wakePrefetch?.();
+        return prefetchInFlight;
+      }
       const queue = pendingTasks();
       if (queue.length === 0) return Promise.resolve();
       const first = !prefetchEverRan;
@@ -26209,6 +26260,7 @@ void main() {
         prefetchPending = 0;
         prefetchInFlight = null;
         activePrefetchQueue = null;
+        wakePrefetch = null;
         replanIfNeeded();
       });
       return prefetchInFlight;
@@ -26280,6 +26332,21 @@ void main() {
         else param.setValueAtTime(event.value, at2);
       }
     };
+    const registerItemGain = (item, baseGain, startTime, transportRate) => {
+      const entry = {
+        kind: item.kind,
+        track: normalizedTrack(item.track),
+        baseGain,
+        gainEvents: item.gainEvents,
+        startTime,
+        transportRate,
+        remove: () => {
+          activeItemGains.delete(entry);
+        }
+      };
+      activeItemGains.add(entry);
+      return entry;
+    };
     const startItem = (item, contextStart) => {
       if (!context) return false;
       const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
@@ -26309,9 +26376,11 @@ void main() {
         tail.connect(masterGain ?? context.destination);
         applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
         source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
+        const gainEntry = registerItemGain(item, baseGain, contextStart + item.delaySec / rate, rate);
         const activeItem = { source, gains };
         active.push(activeItem);
         source.onended = () => {
+          gainEntry.remove();
           active = active.filter((candidate) => candidate !== activeItem);
           try {
             source.disconnect();
@@ -26408,6 +26477,7 @@ void main() {
       }
       tail.connect(masterGain ?? audioContext.destination);
       applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate);
+      const gainEntry = registerItemGain(item, baseGain, itemStart, transportRate);
       let consumed = 0;
       let failures = 0;
       let timer = null;
@@ -26424,6 +26494,7 @@ void main() {
       const stop = () => {
         if (stopped) return;
         stopped = true;
+        gainEntry.remove();
         if (timer !== null) clearTimeout(timer);
         prepared?.release();
         for (const [source, release] of nodes) {
@@ -26450,11 +26521,11 @@ void main() {
         }, delay);
       };
       const fill = async () => {
-        if (!current() || filling) return;
+        if (!current() || filling || itemMuted(item)) return;
         filling = true;
         let retryDelay = null;
         try {
-          while (current()) {
+          while (current() && !itemMuted(item)) {
             const slice = windowSlice(item, windowed, consumed);
             if (!slice) {
               if (nodes.size === 0) stop();
@@ -26465,7 +26536,7 @@ void main() {
             const request = prepared ?? prepareWindow(windowed, slice, signal);
             prepared = void 0;
             const result = await request.result;
-            if (!current()) {
+            if (!current() || itemMuted(item)) {
               request.release();
               return;
             }
@@ -26526,7 +26597,7 @@ void main() {
           }
         } finally {
           filling = false;
-          if (current() && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
+          if (current() && !itemMuted(item) && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
             arm(retryDelay ?? WINDOW_REFILL_MS);
           }
         }
@@ -26535,22 +26606,28 @@ void main() {
       return true;
     };
     const regularScheduleDeclaration = () => {
-      const normalized = regularDecoded.map((item) => ({
+      const mutedUnresolved = declarations.filter((item) => trackMuted(item.kind, item.spec.track) && item.spec.sidecarState !== "no-audio" && !regularResolved(item)).map((item) => ({
+        ...item,
+        sidecar: Boolean(validSidecar(item.spec.sidecar)),
+        durationSec: [item.spec.durationSec, validSidecar(item.spec.sidecar)?.durationSec].find(finitePositive2) ?? timelineDurationSec
+      }));
+      const scheduled = [...regularDecoded, ...mutedUnresolved];
+      const normalized = scheduled.map((item) => ({
         ...item.spec,
         id: item.id,
         durationSec: item.durationSec,
         ...!item.sidecar ? { sidecar: void 0 } : {}
       }));
-      const bgm = normalized.find((_3, index) => regularDecoded[index]?.kind === "bgm");
+      const bgm = normalized.find((_3, index) => scheduled[index]?.kind === "bgm");
       return {
         ...bgm ? { bgm } : {},
-        sfx: normalized.filter((_3, index) => regularDecoded[index]?.kind === "sfx"),
-        narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
+        sfx: normalized.filter((_3, index) => scheduled[index]?.kind === "sfx"),
+        narration: normalized.filter((_3, index) => scheduled[index]?.kind === "narration")
       };
     };
     const supplyKeysAt = (positionSec, asPlaying) => {
       const requiredTasks = tasks.filter((task) => {
-        if (task.at > positionSec || task.state === "no-audio") return false;
+        if (task.muted() || task.at > positionSec || task.state === "no-audio") return false;
         const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
         if (regular) {
           if (regular.kind === "bgm") return positionSec < timelineDurationSec;
@@ -26664,7 +26741,7 @@ void main() {
         }
         const speechForSchedule = speech.flatMap((item) => {
           const resolved = speechDecoded.get(item.id);
-          if (!resolved) return [];
+          if (!resolved) return item.sidecarState !== "no-audio" && trackMuted("speech", item.track) ? [item] : [];
           return [{
             ...item,
             ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
@@ -26685,6 +26762,7 @@ void main() {
         }
         const firstWindows = /* @__PURE__ */ new Map();
         for (const item of plan.items) {
+          if (itemMuted(item)) continue;
           const windowed = windowedFor(item);
           if (!windowed || item.delaySec > 0 || windowFailures.has(`${item.kind}:${item.id}`)) continue;
           const slice = windowSlice(item, windowed, 0);
@@ -26703,6 +26781,10 @@ void main() {
         lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
         const skipped = [];
         for (const item of lastSchedule) {
+          if (itemMuted(item)) {
+            firstWindows.get(item)?.release();
+            continue;
+          }
           const started = windowedFor(item) ? startWindowedItem(item, contextStart, thisGeneration, firstWindows.get(item)) : startItem(item, contextStart);
           if (!started) skipped.push(`${item.kind}:${item.id}`);
         }
@@ -26770,6 +26852,12 @@ void main() {
           failed,
           noAudio,
           bufferedUntil: { ...bufferedUntil },
+          mutedTracks: {
+            cuts: [...mutedCutTracks].sort((a, b) => a - b),
+            audio: [...mutedAudioTracks].sort((a, b) => a - b),
+            allCuts: allCutsMuted,
+            allAudio: allAudioMuted
+          },
           gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
         },
         contextState: context?.state ?? "unavailable",
@@ -26831,6 +26919,7 @@ void main() {
       replacement.updated = true;
       tasks[index] = replacement;
       if (activePrefetchQueue && replacement.state === "decode") {
+        replacement.queued = true;
         activePrefetchQueue.push(replacement);
         prefetchPending += 1;
       }
@@ -26889,6 +26978,36 @@ void main() {
     };
     return {
       updateAudio,
+      setMutedTracks(muted) {
+        if (disposed) return;
+        const cuts = muted.cuts === void 0 ? mutedCutTracks : new Set([...muted.cuts].map(normalizedTrack));
+        const audio = muted.audio === void 0 ? mutedAudioTracks : new Set([...muted.audio].map(normalizedTrack));
+        const allCuts = muted.allCuts ?? allCutsMuted;
+        const allAudio = muted.allAudio ?? allAudioMuted;
+        const equal = (left, right) => left.size === right.size && [...left].every((track) => right.has(track));
+        if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks) && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
+        const released = (before, after, allBefore, allAfter) => !allAfter && (allBefore || [...before].some((track) => !after.has(track)));
+        const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts) || released(mutedAudioTracks, audio, allAudioMuted, allAudio);
+        const previous = new Map([...activeItemGains].map((entry) => [entry, trackMuted(entry.kind, entry.track)]));
+        mutedCutTracks = cuts;
+        mutedAudioTracks = audio;
+        allCutsMuted = allCuts;
+        allAudioMuted = allAudio;
+        if (context) for (const entry of activeItemGains) {
+          const silent = trackMuted(entry.kind, entry.track);
+          if (silent === previous.get(entry)) continue;
+          entry.baseGain.gain.cancelScheduledValues(context.currentTime);
+          if (silent) entry.baseGain.gain.setValueAtTime(0, context.currentTime);
+          else applyGainEvents(entry.baseGain.gain, entry.gainEvents, entry.startTime, entry.transportRate);
+        }
+        notifyTaskSettled();
+        if (unmuted && (playing || starting)) {
+          void ensureDecoded().then(() => ensureDecoded()).catch((reason) => {
+            warn("[frame-engine] audio unmute failed", reason);
+          });
+          launch(audioPosition(), { pinStart: true });
+        }
+      },
       prime() {
         ensureDecoded().catch((reason) => {
           warn("[frame-engine] audio prefetch failed", reason);
@@ -26979,6 +27098,7 @@ void main() {
       debug,
       dispose() {
         disposed = true;
+        wakePrefetch?.();
         if (pauseTimer !== null) clearTimeout(pauseTimer);
         pauseTimer = null;
         pause();
@@ -26998,6 +27118,9 @@ void main() {
         void context?.close().catch(() => void 0);
       }
     };
+  }
+  function normalizedTrack(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
   }
   function validSidecar(value) {
     if (!value || typeof value !== "object") return void 0;
