@@ -24,6 +24,8 @@ import {
     BuildWaveformPeaksRequest,
     BuildWaveformPeaksResult,
     EndReviewSessionRequest,
+    GpuPreferenceState,
+    SetHighPerformanceGpuResult,
     LintEditCandidateRequest,
     LintEditCandidateResult,
     ListReviewSessionsRequest,
@@ -204,6 +206,19 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
   Object.defineProperty(runtime, '__akariItemKeyframesSoftReload', { value: true });
 })();`;
 
+interface GpuPreferenceRegistry {
+    command: string;
+    read(executable: string): string | null;
+    write(executable: string, value: string): void;
+    remove(executable: string): void;
+}
+
+interface GpuPreferenceModule {
+    HIGH_PERFORMANCE_GPU_PREFERENCE: string;
+    normalizeGpuPreferenceExecutable(executable: string): string;
+    createRegistryAccess(): GpuPreferenceRegistry;
+}
+
 type SpeechAtempoModule = {
     requestPreviewAudioSidecar(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
     previewAudioSidecarStatus(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
@@ -343,6 +358,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // 台帳で一度裏取りできた要求 root（realpath 済みの絶対パス）。resolveAllowedWorkspaceRoots() を参照。
     protected readonly confirmedWorkspaceRoots = new Set<string>();
     protected speechAtempoModule: Promise<SpeechAtempoModule> | undefined;
+    protected gpuPreferenceModule: Promise<GpuPreferenceModule> | undefined;
 
     constructor() {
         process.once('exit', () => {
@@ -959,6 +975,90 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             keys: Array.isArray(request.keys) ? request.keys.filter(key => typeof key === 'string') : [],
             sourcePaths
         });
+    }
+
+    protected gpuPreferencePlatform(): string { return process.platform; }
+
+    protected gpuPreferenceExecutable(): string { return process.execPath; }
+
+    protected createGpuPreferenceRegistry(module: GpuPreferenceModule): GpuPreferenceRegistry {
+        return module.createRegistryAccess();
+    }
+
+    async getGpuPreferenceState(): Promise<GpuPreferenceState> {
+        const platform = this.gpuPreferencePlatform();
+        const unavailable: GpuPreferenceState = {
+            platform, supported: false, executable: null, current: 'unknown', raw: null
+        };
+        if (platform !== 'win32') return unavailable;
+        let module: GpuPreferenceModule;
+        let executable: string;
+        try {
+            module = await this.loadGpuPreferenceModule();
+            executable = module.normalizeGpuPreferenceExecutable(this.gpuPreferenceExecutable());
+        } catch {
+            return unavailable;
+        }
+        try {
+            const raw = this.createGpuPreferenceRegistry(module).read(executable);
+            const current = raw === null ? 'unset'
+                : raw === module.HIGH_PERFORMANCE_GPU_PREFERENCE ? 'high-performance'
+                    : raw === 'GpuPreference=1;' ? 'power-saving' : 'other';
+            return { platform, supported: true, executable, current, raw };
+        } catch {
+            return { ...unavailable, executable };
+        }
+    }
+
+    async setHighPerformanceGpu(enabled: boolean): Promise<SetHighPerformanceGpuResult> {
+        const state = await this.getGpuPreferenceState();
+        if (state.supported !== true) return { ok: false, reason: 'unsupported', state };
+        if (state.current === 'power-saving' || state.current === 'other') {
+            return { ok: false, reason: 'user-preference', state };
+        }
+        if ((enabled === true && state.current === 'high-performance')
+            || (enabled === false && state.current === 'unset')) {
+            return { ok: true, state };
+        }
+        // 「自分が書いた 2」の判定は sidecar を持たず「値が GpuPreference=2; かつ設定がオン」で
+        // 自分のものとみなす簡略化（司令塔裁定 2026-09-06）。オフへの変更時はその 2 を削除する。
+        try {
+            const module = await this.loadGpuPreferenceModule();
+            const registry = this.createGpuPreferenceRegistry(module);
+            if (enabled === true) {
+                registry.write(state.executable, module.HIGH_PERFORMANCE_GPU_PREFERENCE);
+            } else {
+                registry.remove(state.executable);
+            }
+        } catch (error) {
+            const reason = enabled === true ? 'registry-write-failed' : 'registry-remove-failed';
+            return { ok: false, reason: `${reason}: ${error instanceof Error ? error.message : String(error)}`, state };
+        }
+        return { ok: true, state: await this.getGpuPreferenceState() };
+    }
+
+    protected loadGpuPreferenceModule(): Promise<GpuPreferenceModule> {
+        if (this.gpuPreferenceModule) return this.gpuPreferenceModule;
+        this.gpuPreferenceModule = (async () => {
+            const candidates: string[] = [];
+            if (typeof process.resourcesPath === 'string') {
+                candidates.push(resolve(process.resourcesPath,
+                    'packages', 'osr-export', 'src', 'gpu-preference.mjs'));
+            }
+            let ancestor = resolve(__dirname);
+            for (let depth = 0; depth < 10; depth += 1) {
+                candidates.push(resolve(ancestor, 'packages', 'osr-export', 'src', 'gpu-preference.mjs'));
+                const parent = dirname(ancestor);
+                if (parent === ancestor) break;
+                ancestor = parent;
+            }
+            const candidate = candidates.find(value => this.isFile(value));
+            if (!candidate) throw new Error('GPU preference helper could not be found');
+            const importModule = Function('specifier', 'return import(specifier)') as
+                (specifier: string) => Promise<GpuPreferenceModule>;
+            return importModule(pathToFileURL(candidate).toString());
+        })();
+        return this.gpuPreferenceModule;
     }
 
     protected loadSpeechAtempoModule(): Promise<SpeechAtempoModule> {
