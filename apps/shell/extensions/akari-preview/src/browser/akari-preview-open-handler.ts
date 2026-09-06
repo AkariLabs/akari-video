@@ -101,6 +101,9 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
+    buildCaptionAnimatorSummaryFields,
+    CaptionAnimatorSummary,
+    CaptionAnimatorSummaryInput,
     buildCutSummaryFields,
     buildLayerSummaryBase,
     ChromaKeySummary,
@@ -267,7 +270,9 @@ const isPreviewColorLike = (value: string): boolean =>
 
 type PreviewCaptionClockDomain = 'source' | 'output' | 'legacy';
 
-interface PreviewCaptionClockInput extends PreviewCaption {
+type AnimatedPreviewCaption = PreviewCaption & CaptionAnimatorSummary;
+
+interface PreviewCaptionClockInput extends AnimatedPreviewCaption {
     /** 読込層だけが扱う時刻 domain。webview へ渡す前に必ず output へ正規化する。 */
     clockDomain: PreviewCaptionClockDomain;
     /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
@@ -608,7 +613,8 @@ interface PreviewModel {
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
     assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
-    captions: PreviewCaption[];
+    captions: AnimatedPreviewCaption[];
+    captionAnimatorInternal?: CaptionAnimatorSummaryInput;
     excludedCaptionIds?: string[];
     /**
      * まだソースが 1 つも宣言されていない edit.json（新規プロジェクト直後）。
@@ -782,6 +788,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewFallbackSourceUris?: Set<string>;
     akariPreviewCaptionsUri?: URI;
     akariPreviewExcludedCaptionIds?: Set<string>;
+    akariPreviewCaptionAnimatorInternal?: CaptionAnimatorSummaryInput;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewMotionBagResources?: Set<string>;
@@ -2882,6 +2889,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
             const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            // 字幕 RPC が先着しても、同時に読込中の edit の宣言・cut 時計を使う。
+            // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
+            await widget.akariPreviewRefresh;
+            if (widget.isDisposed) return;
             const captions = normalizePreviewCaptionClock(
                 loaded.captions,
                 this.previewCaptionTimelineSegments(
@@ -2889,7 +2900,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.akariPreviewSummary?.output?.fps
                 )
             ).filter(caption => !widget.akariPreviewExcludedCaptionIds?.has(caption.id));
-            widget.sendMessage({ type: 'akari-preview-captions-update', captions });
+            widget.sendMessage({ type: 'akari-preview-captions-update',
+                captions: buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal) });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
@@ -3022,6 +3034,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await this.disposeAssetStreams(model.assetStreamIds);
             return;
         }
+        // 表示 cue がまだ無く差分が none の場合も、次の字幕更新には最新の宣言を使う。
+        widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
@@ -3213,6 +3227,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ]);
         widget.akariPreviewCaptionsUri = model.captionsUri;
         widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
+        widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;
         const trackedUris = [
             ...(model.editUri ? [model.editUri] : []),
             ...(model.relatedEditUri ? [model.relatedEditUri] : []),
@@ -3567,6 +3582,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewVideoUri = videoUri;
         widget.akariPreviewFallbackSourceUris = new Set([videoUri.toString()]);
         widget.akariPreviewCaptionsUri = undefined;
+        widget.akariPreviewCaptionAnimatorInternal = undefined;
         widget.akariPreviewTrackedResources = new Set(kind === 'output' ? [identityUri.toString()] : []);
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
         widget.viewType = 'akari.preview';
@@ -3727,7 +3743,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetUris: [],
                     assetStreamIds: [],
                     captionsUri,
-                    captions: normalizePreviewCaptionClock(captions, []),
+                    captions: buildCaptionAnimatorSummaryFields(normalizePreviewCaptionClock(captions, []), internal),
+                    captionAnimatorInternal: internal,
                     excludedCaptionIds: [...excludedCaptionIds],
                     emphasisWords,
                     emptyProject: true
@@ -4315,10 +4332,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
-            const outputCaptions = normalizePreviewCaptionClock(
+            const outputCaptions = buildCaptionAnimatorSummaryFields(normalizePreviewCaptionClock(
                 captions,
                 this.previewCaptionTimelineSegments(cuts, internal.output.fps)
-            );
+            ), internal);
             return {
                 editUri,
                 sourceUri,
@@ -4332,6 +4349,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 previewAudioKeepProbes,
                 previewAudioPendingRequests,
                 previewAudioStreams: new Map([...assetStreams].filter(([key]) => key.startsWith('preview-audio:'))),
+                captionAnimatorInternal: internal,
                 captionsUri,
                 captions: outputCaptions,
                 excludedCaptionIds: [...excludedCaptionIds],
@@ -8029,6 +8047,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
+                        // 停止中は preview の rAF が無い。clock を直接 seek した場合も
+                        // DOM 字幕へ output 時計を通知して同じ位置を描く。
+                        window.dispatchEvent(new CustomEvent('akari-frame-engine-seek', { detail: { time: position } }));
                         return position;
                     },
                     play(seconds) {
@@ -12072,24 +12093,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 return null;
             };
-            const findLastPhraseBoundary = (characters, maximum) => {
+            const findLastPhraseBoundary = (characters, maximum, graphemes = false) => {
                 const prefix = characters.slice(0, maximum).join('');
                 let best = null;
                 for (const boundary of CAPTION_BOUNDARIES) {
                     const index = prefix.lastIndexOf(boundary);
                     if (index >= 0) {
-                        const candidate = Array.from(prefix.slice(0, index + boundary.length)).length;
+                        const part = prefix.slice(0, index + boundary.length);
+                        const candidate = graphemes
+                            ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(part)).length
+                            : Array.from(part).length;
                         if (candidate > 0 && (best === null || candidate > best)) best = candidate;
                     }
                 }
                 return best;
             };
-            const splitAtNaturalBoundaries = (value, maximum) => {
+            const splitAtNaturalBoundaries = (value, maximum, graphemes = false) => {
                 const lines = [];
-                let remaining = Array.from(value);
+                let remaining = graphemes
+                    ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value), part => part.segment)
+                    : Array.from(value);
                 while (remaining.length > maximum) {
                     const spaceBoundary = findLastSpaceBoundary(remaining, maximum);
-                    const phraseBoundary = spaceBoundary !== null ? spaceBoundary : findLastPhraseBoundary(remaining, maximum);
+                    const phraseBoundary = spaceBoundary !== null ? spaceBoundary : findLastPhraseBoundary(remaining, maximum, graphemes);
                     const boundary = phraseBoundary !== null ? phraseBoundary : maximum;
                     lines.push(remaining.slice(0, boundary).join(''));
                     remaining = remaining.slice(boundary);
@@ -12110,13 +12136,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 segments.push(characters.slice(start).join(''));
                 return segments;
             };
-            const splitCaptionLines = (text, maximum) => {
+            const splitCaptionLines = (text, maximum, graphemes = false) => {
                 const limit = Number.isFinite(maximum) && maximum > 0 ? Math.floor(maximum) : 20;
                 const lines = [];
                 for (const value of String(text).split(/\\r?\\n/u)) {
                     if (value.length === 0) { lines.push(''); continue; }
                     for (const segment of splitAfterPunctuation(value)) {
-                        lines.push(...splitAtNaturalBoundaries(segment, limit));
+                        lines.push(...splitAtNaturalBoundaries(segment, limit, graphemes));
                     }
                 }
                 return lines;
@@ -12201,7 +12227,16 @@ body { display: grid; place-items: center; padding: 32px; }
             const emphasisColorName = emotion =>
                 ['joy', 'pain', 'surprise', 'anger', 'sadness', 'emphasis'].includes(emotion)
                     ? emotion : 'emphasis';
-            const renderEmphasisCaptionToken = (word, rangeStart, emphasis) => {
+            const captionCharRenderer = animators => {
+                if (!Array.isArray(animators) || !animators.some(a => a?.basis === 'chars')) return null;
+                let index = 0;
+                const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+                return text => Array.from(segmenter.segment(String(text)), part =>
+                    '<span class="akari-caption__char" data-akari-char="' + index++ + '">'
+                    + escapeCaptionHtml(part.segment).replace(/&#039;/g, '&#39;') + '</span>').join('');
+            };
+            const renderEmphasisCaptionToken = (word, rangeStart, emphasis, renderChars = null) => {
+                const renderText = renderChars || escapeCaptionHtml;
                 const style = resolveEmphasisStyle(emphasis);
                 const overlapStart = Math.max(word.start, emphasis.t_start);
                 const overlapEnd = Math.min(word.end, emphasis.t_end);
@@ -12209,14 +12244,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 const duration = Math.max(0.01, overlapEnd - overlapStart);
                 const baseClass = 'akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--' + style;
                 if (style === 'one-char-bang') {
-                    const characters = Array.from(word.text);
+                    const characters = renderChars
+                        ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word.text), part => part.segment)
+                        : Array.from(word.text);
                     const characterDuration = duration / characters.length;
                     const markup = characters.map((character, index) =>
                         '<span class="akari-caption__emphasis-char" style="--akari-emphasis-delay: '
                         + formatCaptionSeconds(delay + characterDuration * index)
                         + 's; --akari-emphasis-dur: '
                         + formatCaptionSeconds(Math.max(0.01, characterDuration)) + 's">'
-                        + escapeCaptionHtml(character) + '</span>'
+                        + renderText(character) + '</span>'
                     ).join('');
                     return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id + '">'
                         + markup + '</span>';
@@ -12225,22 +12262,23 @@ body { display: grid; place-items: center; padding: 32px; }
                     return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
                         + '" style="--akari-emphasis-delay: ' + formatCaptionSeconds(delay)
                         + 's; --akari-emphasis-dur: ' + formatCaptionSeconds(duration) + 's">'
-                        + escapeCaptionHtml(word.text) + '</span>';
+                        + renderText(word.text) + '</span>';
                 }
                 return '<span class="' + baseClass + '" data-emphasis-id="' + emphasis.id
                     + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
-                    + escapeCaptionHtml(word.text) + '</span>';
+                    + renderText(word.text) + '</span>';
             };
-            const renderCaptionToken = (word, rangeStart, style) => {
+            const renderCaptionToken = (word, rangeStart, style, renderChars = null) => {
+                const renderText = renderChars || escapeCaptionHtml;
                 if (style === 'reveal-word') {
                     const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                     return '<span class="akari-caption__tok akari-caption__tok--reveal-word"'
                         + ' style="--akari-tok-delay: ' + delay + 's">'
-                        + escapeCaptionHtml(word.text) + '</span>';
+                        + renderText(word.text) + '</span>';
                 }
                 const emphasis = findMatchingEmphasis(word);
                 // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
-                if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis);
+                if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, renderChars);
                 const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                 const className = style === 'karaoke'
                     ? 'akari-caption__tok akari-caption__tok--karaoke'
@@ -12252,9 +12290,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         + formatCaptionSeconds(Math.max(0.01, word.end - word.start)) + 's'
                     : style === 'pop' ? '--akari-tok-delay: ' + delay + 's' : '';
                 return '<span class="' + className + '" style="' + vars + '">'
-                    + escapeCaptionHtml(word.text) + '</span>';
+                    + renderText(word.text) + '</span>';
             };
             const renderStyledCaptionFragment = caption => {
+                const renderChars = captionCharRenderer(caption.animator);
                 const style = caption.style;
                 const textStyleActive = Boolean(caption.textStyle
                     && Object.keys(caption.textStyle).length > 0);
@@ -12266,7 +12305,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
                 const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
                 const renderLine = line =>
-                    line.map(word => renderCaptionToken(word, caption.start, reveal ? null : style)).join('');
+                    line.map(word => renderCaptionToken(word, caption.start, reveal ? null : style, renderChars)).join('');
                 const markup = reveal
                     ? renderRevealGroupsMarkup(
                         groupWordsIntoDisplayLines(caption.words, captionLineBudget),
@@ -12320,17 +12359,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const renderPlainCaptionFragment = caption => {
+                const renderChars = captionCharRenderer(caption.animator);
+                const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
-                        + escapeCaptionHtml(caption.text)
+                        + renderText(caption.text)
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
                 }
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
-                const lines = splitCaptionLines(caption.text || '', captionLineBudget);
+                const lines = splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
                 const markup = lines.map(line => '<p class="akari-caption__line">'
-                    + escapeCaptionHtml(line) + '</p>').join('');
+                    + renderText(line) + '</p>').join('');
                 const blockMode = caption.textStyle && caption.textStyle.background
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
@@ -12364,6 +12405,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     captionPlate.style.setProperty('--caption-font-size', captionDefaultFontSize + 'px');
                 }
             };
+            let captionAnimatorUnavailableWarned = false;
             const renderCaption = () => {
                 if (activeCaptionEdit) return;
                 // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
@@ -12397,6 +12439,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionPlate.innerHTML = usesWords
                             ? renderStyledCaptionFragment(caption)
                             : renderPlainCaptionFragment(caption);
+                    } else if (caption && Array.isArray(caption.animator)
+                        && caption.animator.some(a => a?.basis === 'chars')) {
+                        captionPlate.innerHTML = captionCharRenderer(caption.animator)(caption.text);
                     } else {
                         captionPlate.textContent = caption ? caption.text : '';
                     }
@@ -12409,6 +12454,24 @@ body { display: grid; place-items: center; padding: 32px; }
                     for (const animation of captionAnimations) {
                         animation.pause();
                         animation.currentTime = localMs;
+                    }
+                }
+                if (caption && Array.isArray(caption.animator) && caption.animator.length > 0) {
+                    const applyAnimator = window.AkariFrameEngine?.applyCaptionAnimatorDom;
+                    if (typeof applyAnimator === 'function') {
+                        applyAnimator(captionPlate, {
+                            animators: caption.animator,
+                            keyframes: caption.animatorKeyframes,
+                            cueLocalSeconds: outputTime - caption.start,
+                            cueDurationSec: caption.end - caption.start,
+                            keyframeOffsetSeconds: caption.start - (caption.animatorStart ?? caption.start),
+                            fps: summary.output.fps,
+                            outputWidth: summary.output.width,
+                            warn: (code, message) => console.warn('[akari-preview] ' + code + ': ' + message)
+                        });
+                    } else if (!captionAnimatorUnavailableWarned) {
+                        captionAnimatorUnavailableWarned = true;
+                        console.warn('[akari-preview] caption animator unavailable: frame-engine bundle is not loaded');
                     }
                 }
                 // ㉓ styled 字幕は「inset:0 全画面ラッパー + 内側配置」を取り得るため、
@@ -12424,6 +12487,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
+            window.addEventListener('akari-frame-engine-seek', event => {
+                const time = event.detail?.time;
+                if (!Number.isFinite(time)) return;
+                outputTime = time;
+                renderCaption();
+            });
             const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
             let activeTransitionWindowKey = null;
             let activeTransitionOutgoingIsStill = false;

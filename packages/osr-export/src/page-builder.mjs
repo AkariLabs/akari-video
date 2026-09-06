@@ -30,6 +30,8 @@ const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 export function buildOsrPage({
   edit,
   captions = [],
+  sourceCaptions = captions,
+  internal = null,
   overlays = [],
   projectRoot,
   plan = null,
@@ -49,17 +51,41 @@ export function buildOsrPage({
   const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
     ? captionTrackZ
     : Number.MAX_SAFE_INTEGER;
-  const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
-  const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
+  const animated = projectCaptionAnimators(captions, sourceCaptions, internal);
+  const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false
+    && !animated.overlayIds.has(String(overlay.id)));
+  const captionRoot = Array.isArray(animated.captions) ? animated.captions : animated.captions?.captions ?? [];
+  const cuesById = new Map(captionRoot.map(cue => [cue.id, cue]));
+  const captionAnimators = {};
   const captionOverlays = generateCaptionOverlays(captionRoot, edit.cuts ?? [], {
     output: { width, height },
     sourceCount: Array.isArray(edit.sources) ? edit.sources.length : 1,
     defaultTextStyle: Array.isArray(captions) ? undefined : captions?.default_text_style,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words : captions?.emphasis_words ?? edit.emphasis_words,
-  }).map((overlay) => ({ ...overlay, z: captionZ }));
+  }).map((overlay) => {
+    const cue = cuesById.get(overlay.generatedFrom);
+    if (!cue?.animator?.length) return { ...overlay, z: captionZ };
+    captionAnimators[overlay.id] = {
+      animator: cue.animator,
+      keyframes: cue.animatorKeyframes ?? [],
+      start: Number(overlay.start),
+      duration: Number(overlay.duration),
+      animatorStart: cue.animatorStart ?? Number(overlay.start),
+    };
+    // 分離 cue の既存 overlay 属性を保ったまま
+    // char span を持つ字幕 HTML に置き換える。元 overlay は上で除外済み。
+    const original = overlays.find(candidate => String(candidate.id) === cue.animatorOverlayId);
+    return { ...original, ...overlay,
+      ...(original ? { transform: original.transform } : {}),
+      z: cue.animatorZ ?? captionZ,
+    };
+  });
   const allOverlays = [...enabledOverlays, ...captionOverlays];
   const projectedEdit = {
     ...edit,
+    ...(animated.overlayIds.size ? {
+      overlays: (edit.overlays ?? []).filter(overlay => !animated.overlayIds.has(String(overlay.id))),
+    } : {}),
     layers: (edit.layers ?? []).map((layer, index) => layer?.kind === "filter" && layer?.filter?.type === "lut"
       ? { ...layer, filter: { ...layer.filter, cubeText: layerLutCubeTexts[index] } }
       : layer),
@@ -72,6 +98,7 @@ export function buildOsrPage({
     intensity: Number(edit?.output?.look?.intensity ?? 1),
   };
   const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts };
+  if (Object.keys(captionAnimators).length) config.captionAnimators = captionAnimators;
   const pageHeight = height + (stampRow ? 1 : 0);
   const html = `<!doctype html>
 <html>
@@ -138,8 +165,9 @@ export async function loadAndBuildOsrPage({
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const edit = prepared.edit;
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
+  const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
   const captions = filterCaptionRootByExcludedIds(
-    applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root,
+    styledCaptions,
     collectExcludedCaptionIds(edit),
   );
   const overlays = await Promise.all((edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => {
@@ -167,6 +195,8 @@ export async function loadAndBuildOsrPage({
   const page = buildOsrPage({
     edit,
     captions,
+    sourceCaptions: styledCaptions,
+    internal: renderEdit.internal,
     overlays,
     projectRoot,
     plan,
@@ -181,6 +211,51 @@ export async function loadAndBuildOsrPage({
     adjustLutCubeTexts,
   });
   return { ...page, warnings: prepared.warnings };
+}
+
+// GPU 出口と同じ内部宣言の投影。袋は含まれる全 cue、分離 item は参照 cue のみ。
+function projectCaptionAnimators(filteredRoot, sourceRoot, internal) {
+  const rows = root => Array.isArray(root) ? root : root?.captions ?? [];
+  const overlayIds = new Set();
+  if (!internal) return { captions: filteredRoot, overlayIds };
+  const sourceRows = rows(sourceRoot);
+  let cues = rows(filteredRoot);
+  const animated = [];
+  const fps = internal.output.fps;
+  const trackZByItemId = collectTrackZByItemId(internal.tracks);
+  const visit = (item, hidden = false) => {
+    hidden ||= item.declaration?.hidden === true || item.hidden === true;
+    if (hidden) return;
+    const kind = item.source?.kind;
+    const declaration = item.declaration;
+    if ((kind === "captions" || kind === "caption") && declaration?.animator?.length) {
+      const selected = kind === "caption"
+        ? sourceRows.filter(cue => String(cue.id) === String(item.source.id))
+        : cues.filter(cue => !(item.source.exclude ?? []).includes(cue.id));
+      if (kind === "caption") overlayIds.add(String(item.id));
+      else cues = cues.filter(cue => !selected.includes(cue));
+      for (const cue of selected) animated.push({
+        ...cue,
+        id: `${item.id}::${cue.id}`,
+        ...(kind === "caption" ? {
+          start: item.at, end: item.at + item.duration, time_domain: "output", src: undefined,
+          animatorOverlayId: String(item.id),
+        } : {}),
+        animator: declaration.animator,
+        // inline の内部時刻は秒、解決済み sidecar は整数フレームのまま。
+        animatorKeyframes: declaration.keyframes?.map(point => ({ ...point,
+          t: item.keyframesRef ? point.t : Math.round(point.t * fps),
+        })),
+        animatorStart: item.at,
+        animatorZ: resolveRecordTrackZ(trackZByItemId, item),
+      });
+    }
+    for (const child of item.children ?? []) visit(child, hidden);
+  };
+  for (const track of internal.tracks) for (const item of track.items) visit(item);
+  if (animated.length === 0) return { captions: filteredRoot, overlayIds };
+  const captions = [...cues, ...animated];
+  return { captions: Array.isArray(filteredRoot) ? captions : { ...filteredRoot, captions }, overlayIds };
 }
 
 function effectiveAdjustLutRef(item) {
