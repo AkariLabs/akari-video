@@ -1,0 +1,28 @@
+<div class="vgpu-fx" style="position:absolute;inset:0">
+<!-- AKARI original HDR preservation fixture: white center with rgba16float, 0.25 gray with rgba8unorm. -->
+<canvas></canvas>
+<script type="application/json" data-akari-vgpu-scene>
+{
+  "version": 0,
+  "mode": "pure",
+  "passes": [
+    {
+      "id": "scene",
+      "format": "rgba16float",
+      "wgsl": "@fragment fn fs_main(@builtin(position) p: vec4f) -> @location(0) vec4f { let q = (akari_uv(p) - 0.5) * vec2f(akari.aspect, 1.0); let light = select(0.0, 4.0, length(q) < 0.25); return vec4f(vec3f(light), 1.0); }"
+    },
+    {
+      "id": "bright",
+      "format": "rgba16float",
+      "inputs": ["scene"],
+      "wgsl": "@fragment fn fs_main(@builtin(position) p: vec4f) -> @location(0) vec4f { return textureSample(input_0, input_sampler, akari_uv(p)); }"
+    },
+    {
+      "id": "composite",
+      "inputs": ["scene", "bright"],
+      "wgsl": "@fragment fn fs_main(@builtin(position) p: vec4f) -> @location(0) vec4f { let hdr = textureSample(input_1, input_sampler, akari_uv(p)); return vec4f(hdr.rgb / 4.0, 1.0); }"
+    }
+  ]
+}
+</script>
+</div>
