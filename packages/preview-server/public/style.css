@@ -5,3 +5,6 @@
   overflow-wrap: anywhere;
 }
 .audio-status[hidden] { display: none; }
+.vgpu-scale-divider { border: 0; border-top: 1px solid #505050; margin: 10px 0; }
+.zoom-presets.vgpu-scale-presets { grid-template-columns: repeat(3, 32px); }
+.zoom-preset.vgpu-scale-preset[aria-pressed="true"] { border-color: #fff; background: #505050; }
