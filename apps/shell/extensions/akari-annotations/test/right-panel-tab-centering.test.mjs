@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
 
-import {
+const require = createRequire(import.meta.url);
+const {
   computeReviewTabMarginTop,
   FALLBACK_TAB_HEIGHT_PX,
   MIN_GAP_ABOVE_PX,
   RESERVED_BELOW_PX,
-} from "../lib/common/right-panel-tab-centering.js";
+} = require("../lib/common/right-panel-tab-centering.js");
 
 test("computeReviewTabMarginTop は既定サイズのウィンドウでタブをバー高の中央付近へ置く（実測 barHeight=646）", () => {
   const margin = computeReviewTabMarginTop({ barHeight: 646, heightAbove: 48, tabHeight: 48 });
@@ -48,6 +52,70 @@ test("computeReviewTabMarginTop: 大画面から極小画面へ縮めた直後�
   // ここでは新しい barHeight に対する margin 自体が独立に正しく収まることを保証する。
   const tinyMargin = computeReviewTabMarginTop({ barHeight: 358, heightAbove: 48, tabHeight: 48 });
   const reviewBottom = 48 + tinyMargin + 48;
-  const inspectorBottom = reviewBottom + RESERVED_BELOW_PX - 8; // インスペクターは 48px, gap 無し
+  const inspectorBottom = reviewBottom + RESERVED_BELOW_PX; // インスペクターは 48px, gap 無し
   assert.ok(inspectorBottom <= 358, `inspector must fit at tiny barHeight: ${inspectorBottom} <= 358`);
+});
+
+test('three following tabs retain their full 144px plus the overflow gap', () => {
+  const input = { barHeight: 300, heightAbove: 48, tabHeight: 48 };
+  const margin = computeReviewTabMarginTop({ ...input, reservedBelow: 144 });
+  assert.equal(margin, 52);
+  assert.ok(margin < computeReviewTabMarginTop(input));
+  assert.equal(input.heightAbove + margin + input.tabHeight + 144, input.barHeight - 8);
+});
+
+test('omitted reservedBelow preserves the previous one-tab-plus-8px clamp', () => {
+  // This size reaches the upper clamp, so adding the gap twice would change the result.
+  const input = { barHeight: 150, heightAbove: 0, tabHeight: 48 };
+  assert.equal(computeReviewTabMarginTop(input), 46);
+  assert.equal(computeReviewTabMarginTop(input), computeReviewTabMarginTop({ ...input, reservedBelow: RESERVED_BELOW_PX }));
+});
+
+const styleSource = ts.createSourceFile('right-panel-tab-style.ts', readFileSync(
+  new URL('../src/browser/right-panel-tab-style.ts', import.meta.url), 'utf8'
+), ts.ScriptTarget.Latest, true);
+const applyFunction = styleSource.statements.find(node => ts.isFunctionDeclaration(node)
+  && node.name?.text === 'applyReviewTabMarginTop');
+assert.ok(applyFunction);
+const applyCode = ts.transpileModule(applyFunction.getText(styleSource), {
+  compilerOptions: { target: ts.ScriptTarget.ES2021 },
+}).outputText;
+
+test('DOM centering measures every following tab and falls back only when none follow', () => {
+  for (const heights of [[48, 48, 48], [32, 60, 52], [0, 48], []]) {
+    class Element {
+      constructor(height) { this.height = height; }
+      getBoundingClientRect() { return { height: this.height }; }
+    }
+    const tab = new Element(48);
+    tab.closest = () => new Element(300);
+    tab.previousElementSibling = new Element(48);
+    let previous = tab;
+    for (const height of heights) {
+      previous.nextElementSibling = new Element(height);
+      previous = previous.nextElementSibling;
+    }
+    const properties = new Map();
+    const document = {
+      getElementById: () => tab,
+      documentElement: { style: {
+        getPropertyValue: name => properties.get(name),
+        setProperty: (name, value) => properties.set(name, value),
+      } },
+    };
+    const calls = [];
+    const apply = new Function('document', 'HTMLElement', 'computeReviewTabMarginTop', 'FALLBACK_TAB_HEIGHT_PX', `
+      const REVIEW_TAB_DOM_ID = 'review';
+      const MARGIN_TOP_VAR = 'margin';
+      ${applyCode}
+      return applyReviewTabMarginTop;
+    `)(document, Element, input => { calls.push(input); return computeReviewTabMarginTop(input); }, FALLBACK_TAB_HEIGHT_PX);
+    assert.equal(apply(), true);
+    assert.deepEqual(calls[0], {
+      barHeight: 300, heightAbove: 48, tabHeight: 48,
+      reservedBelow: heights.length ? heights.reduce((sum, height) => sum + height, 0) : FALLBACK_TAB_HEIGHT_PX,
+    });
+    assert.equal(properties.get('margin'), `${computeReviewTabMarginTop(calls[0])}px`);
+    assert.equal(apply(), false);
+  }
 });

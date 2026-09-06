@@ -33,6 +33,8 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
+import { trackHeaderControls } from '../common/track-header-controls';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import {
     AudioLoudnessEnvelope,
@@ -1199,6 +1201,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
         this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
+        this.trackHeaderColumn.addEventListener('wheel', event => this.onTrackHeaderWheel(event), { passive: false });
 
         Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
         Object.assign(this.hScrollbarTrack.style, {
@@ -8238,18 +8241,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         nameElement.textContent = timelineTrack && this.timelineTrackItemCount(timelineTrack) === 0
             ? `${name} (空)` : name;
         row.append(icon, nameElement);
-        const muteButton = this.trackHeaderButton(
-            `${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute
-        );
-        if (timelineTrack?.kind === 'audio'
-            && !this.timelineTracks.some(track => track.id === timelineTrack.id)) {
-            muteButton.disabled = true;
-            muteButton.title = '自動追加された行はミュートできません（トラックを追加で確定してから）';
+        const controls = trackHeaderControls(kind);
+        if (controls.visibility) {
+            row.append(this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility));
         }
-        row.append(
-            this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
-            muteButton
-        );
+        if (controls.mute) {
+            const muteButton = this.trackHeaderButton(
+                `${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute
+            );
+            if (timelineTrack?.kind === 'audio'
+                && !this.timelineTracks.some(track => track.id === timelineTrack.id)) {
+                muteButton.disabled = true;
+                muteButton.title = '自動追加された行はミュートできません（トラックを追加で確定してから）';
+            }
+            row.append(muteButton);
+        }
         if (timelineTrack) {
             nameElement.addEventListener('dblclick', event => {
                 event.preventDefault();
@@ -12424,6 +12430,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectTimeAtClientX(event.clientX);
     }
 
+    private wheelZoomDuration(currentDuration: number, deltaY: number): number {
+        const rawFactor = Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY);
+        const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
+        return currentDuration / factor;
+    }
+
+    protected onTrackHeaderWheel(event: WheelEvent): void {
+        const plan = planTimelineHeaderWheel(event);
+        if (plan.kind === 'none') {
+            return;
+        }
+        event.preventDefault();
+        if (plan.kind === 'scroll') {
+            this.stripScroll.scrollTop += plan.deltaY;
+        } else if (plan.kind === 'pan') {
+            const rect = this.strip.getBoundingClientRect();
+            if (rect.width > 0) {
+                this.panViewBy(plan.delta / rect.width * this.visibleDuration());
+            }
+        } else {
+            const currentDuration = this.visibleDuration();
+            const proposedDuration = this.wheelZoomDuration(currentDuration, plan.deltaY);
+            this.applyViewDuration(proposedDuration, this.viewStart + 0.5 * currentDuration, 0.5);
+        }
+    }
+
     protected onWheelZoom(event: WheelEvent): void {
         if (event.ctrlKey) {
             event.preventDefault();
@@ -12432,9 +12464,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const currentDuration = this.visibleDuration();
-            const rawFactor = Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY);
-            const factor = Math.min(ZOOM_EVENT_FACTOR_MAX, Math.max(ZOOM_EVENT_FACTOR_MIN, rawFactor));
-            const proposedDuration = currentDuration / factor;
+            const proposedDuration = this.wheelZoomDuration(currentDuration, event.deltaY);
             const cursorRatio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
             const cursorTime = this.viewStart + cursorRatio * currentDuration;
             this.applyViewDuration(proposedDuration, cursorTime, cursorRatio);
