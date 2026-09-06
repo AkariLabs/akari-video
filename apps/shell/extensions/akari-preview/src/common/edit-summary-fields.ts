@@ -68,6 +68,8 @@ export interface LayerSummaryBase {
     chromaKey?: ChromaKeySummary;
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
+    /** Declared sources id; the caller resolves it to an asset stream URL. */
+    mask?: string;
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
 }
@@ -287,6 +289,13 @@ export function buildLayerSummaryBase(
             base.perspective = perspective;
         } else {
             warn(`[akari-preview] ${label}.perspective を無視しました（corners が不正/退化四角形です）`, record.perspective);
+        }
+    }
+    if (record.mask !== undefined) {
+        if (typeof record.mask === 'string' && record.mask.trim()) {
+            base.mask = record.mask;
+        } else {
+            warn(`[akari-preview] ${label}.mask を無視しました（非空文字列ではありません）`, record.mask);
         }
     }
     if (isPlainObject(record.motion)) base.motion = record.motion;
