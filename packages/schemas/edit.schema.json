@@ -324,6 +324,106 @@
         }
       }
     },
+    "adjustFxV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "const": "vignette"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "default": 0.5
+            },
+            "midpoint": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            },
+            "roundness": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "default": 0
+            },
+            "feather": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "const": "blur"
+            },
+            "px": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 50,
+              "default": 8
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "const": "grain"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.3
+            },
+            "size": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 4,
+              "default": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "const": "sharpen"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            }
+          }
+        }
+      ]
+    },
     "adjustV1": {
       "type": "object",
       "additionalProperties": false,
@@ -359,6 +459,9 @@
             },
             "hue": {
               "type": "boolean"
+            },
+            "fx": {
+              "type": "boolean"
             }
           }
         },
@@ -370,6 +473,75 @@
         },
         "hue": {
           "$ref": "#/$defs/adjustHueCurvesV1"
+        },
+        "fx": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/adjustFxV1"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "const": "vignette"
+                  }
+                }
+              },
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "const": "blur"
+                  }
+                }
+              },
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "const": "grain"
+                  }
+                }
+              },
+              "minContains": 0,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "const": "sharpen"
+                  }
+                }
+              },
+              "minContains": 0,
+              "maxContains": 1
+            }
+          ]
         }
       },
       "$comment": "正本は docs/contract-2026-09-05-clip-adjust-v1.md。v2 visual item の per-clip 補正で、未指定の値は中立、sections は false のときだけ該当段をバイパスする。"

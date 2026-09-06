@@ -214,18 +214,37 @@ export interface AdjustHueCurvesV1 {
     sat?: AdjustHuePointV1[];
     luma?: AdjustHuePointV1[];
 }
+export type AdjustFxV1 = {
+    id: 'vignette';
+    amount?: number;
+    midpoint?: number;
+    roundness?: number;
+    feather?: number;
+} | {
+    id: 'blur';
+    px?: number;
+} | {
+    id: 'grain';
+    amount?: number;
+    size?: number;
+} | {
+    id: 'sharpen';
+    amount?: number;
+};
 export interface AdjustV1 {
     basic?: AdjustBasicV0;
     lut?: AdjustLutV0 | null;
     curves?: AdjustCurvesV1;
     wheels?: AdjustWheelsV1;
     hue?: AdjustHueCurvesV1;
+    fx?: AdjustFxV1[];
     sections?: {
         basic?: boolean;
         lut?: boolean;
         curves?: boolean;
         wheels?: boolean;
         hue?: boolean;
+        fx?: boolean;
     };
 }
 /** @deprecated Use AdjustV1. */

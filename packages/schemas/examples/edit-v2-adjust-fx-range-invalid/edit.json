@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "main.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "visual",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 30,
+          "crop": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1
+          },
+          "adjust": {
+            "fx": [
+              {
+                "id": "blur",
+                "px": 51
+              }
+            ],
+            "sections": {
+              "fx": true
+            }
+          },
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 1
+          }
+        }
+      ]
+    }
+  ]
+}
