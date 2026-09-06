@@ -85,8 +85,8 @@ interface Measurements {
   seekLatestMs: number | null;
   seekBeforeMs: number[];
   seekAfterMs: number[];
-  boundaryBefore: { total: number; late: number };
-  boundaryAfter: { total: number; late: number };
+  boundaryBefore: { total: number; late: number; hit: number };
+  boundaryAfter: { total: number; late: number; hit: number };
   warmupMs: number[];
 }
 
@@ -589,12 +589,13 @@ class FrameEngineRuntime {
   private readonly audio: PreviewAudioSupply;
   private readonly measurements: Measurements = {
     presentedAt: [], lateFrames: 0, seekLatestMs: null, seekBeforeMs: [], seekAfterMs: [],
-    boundaryBefore: { total: 0, late: 0 }, boundaryAfter: { total: 0, late: 0 }, warmupMs: [],
+    boundaryBefore: { total: 0, late: 0, hit: 0 }, boundaryAfter: { total: 0, late: 0, hit: 0 }, warmupMs: [],
   };
   private rendering: Promise<void> | null = null;
   private lastPlaybackFrame = -1;
   private lastPresentedSec = 0;
   private lastCutIndex: number | null = null;
+  private boundaryLastMs: { elapsed: number; decode: number; hit: boolean } | null = null;
   private currentAccesses: LookaheadAccess[] | null = null;
   private currentDecodedFrames: DecodedFrameObservation[] | null = null;
   private lastRequestedTimeUs: number | null = null;
@@ -905,8 +906,17 @@ class FrameEngineRuntime {
       const streamId = `cut-${cutIndex}`;
       const bucket = this.scheduler.isWarmed(streamId)
         ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
+      const baseAccesses = this.currentAccesses.filter(access =>
+        plan.base.some(layer => layer.id === access.streamId));
+      const hit = baseAccesses.length > 0 && baseAccesses.every(access => access.hit === true);
       bucket.total += 1;
       if (late) bucket.late += 1;
+      if (hit) bucket.hit += 1;
+      this.boundaryLastMs = {
+        elapsed,
+        decode: Math.max(0, ...baseAccesses.map(access => access.decodeMs)),
+        hit,
+      };
       this.lastCutIndex = cutIndex;
     }
     if (reason === 'seek') {
@@ -940,6 +950,9 @@ class FrameEngineRuntime {
     this.ui.metrics.dataset.seekAfterMs = after == null ? '' : after.toFixed(3);
     this.ui.metrics.dataset.boundaryLateBefore = `${m.boundaryBefore.late}/${m.boundaryBefore.total}`;
     this.ui.metrics.dataset.boundaryLateAfter = `${m.boundaryAfter.late}/${m.boundaryAfter.total}`;
+    this.ui.metrics.dataset.boundaryHitAfter = `${m.boundaryAfter.hit}/${m.boundaryAfter.total}`;
+    this.ui.metrics.dataset.boundaryLastMs = this.boundaryLastMs == null ? ''
+      : `${this.boundaryLastMs.elapsed.toFixed(1)}/${this.boundaryLastMs.decode.toFixed(1)}`;
     this.ui.metrics.dataset.uploadPath = this.compositor.uploadPath;
     this.ui.metrics.dataset.requestedTimeUs = this.lastRequestedTimeUs == null
       ? '' : String(this.lastRequestedTimeUs);
@@ -962,6 +975,7 @@ class FrameEngineRuntime {
       `seek after (cache)  ${format(after)} ms`,
       `boundary late       before ${m.boundaryBefore.late}/${m.boundaryBefore.total}`,
       `                    after  ${m.boundaryAfter.late}/${m.boundaryAfter.total}`,
+      `boundary last       ${format(this.boundaryLastMs?.elapsed ?? null)} ms / decode ${format(this.boundaryLastMs?.decode ?? null)} ms  hit ${this.boundaryLastMs?.hit ?? '—'}`,
       `warmup median       ${format(percentile(m.warmupMs))} ms`,
       `upload path         ${this.compositor.uploadPath}`,
       `warmup coverage     ${scheduler.coverage.warmed}/${scheduler.coverage.needed}`,
