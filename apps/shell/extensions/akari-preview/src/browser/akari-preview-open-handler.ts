@@ -4448,7 +4448,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             sidecarRequests.push(entry);
             try {
                 const stream = await ensure(key, assetUri);
-                const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
+                // Independent speech still references the video container. Like embedded
+                // speech, it needs extracted audio even for a short trim without clip FX.
+                const plan: ReturnType<typeof resolveRegularSidecarPlan> = audioCollection === 'speech'
+                    ? {
+                        request: true,
+                        format: trim.outSec === undefined ? 'pcm-s16le' : resolveSpeechSidecarFormat({
+                            inSec: trim.inSec, outSec: trim.outSec
+                        })
+                    }
+                    : resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
                 const sidecarRequest = previewAudioSidecarRequestFor(clipFx);
                 if (!plan.request) return { src: stream.url };
                 const request: PreviewAudioSidecarRequest = {
@@ -4621,7 +4630,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
                 }, kind === 'speech' ? 'narration' : kind,
                 kind !== 'sfx' ? String(item.id) : `sfx-${index + 1}`, item.t,
-                audioClipFxOf(item, kind === 'speech' ? 'narration' : kind), kind === 'speech' ? 'speech' : undefined);
+                audioClipFxOf(item, kind), kind === 'speech' ? 'speech' : undefined);
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum

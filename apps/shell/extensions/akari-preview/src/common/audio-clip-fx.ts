@@ -12,7 +12,7 @@ function finiteNumber(value: unknown): value is number {
 
 // Match preview-server's prepareHeavyWav adoption rules. Denoise validation is
 // deliberately deferred to hasAudioClipFx and the sidecar service.
-export function audioClipFxOf(raw: unknown, kind: 'sfx' | 'bgm' | 'narration'): AudioClipFx {
+export function audioClipFxOf(raw: unknown, kind: 'sfx' | 'bgm' | 'narration' | 'speech'): AudioClipFx {
     if (!raw || typeof raw !== 'object') return {};
     const value = raw as Record<string, unknown>;
     return {

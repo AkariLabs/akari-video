@@ -4,6 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { createPreviewAudioHost } from './helpers/preview-audio-host.mjs';
 import { resolveSfxTrimWindow } from '../lib/common/audio-schedule.js';
+import { resolveSpeechSidecarFormat } from '../lib/common/preview-audio-eligibility.js';
 import { buildWebAudioSchedule, isAudioItemAudible, isCutAudioAudible, projectSpeechDeclarations } from '../../../../../packages/edit-store/lib/index.js';
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
@@ -92,13 +93,20 @@ class FakeContext {
         this.sources.push(node);
         return node;
     }
-    async decodeAudioData() { return { duration: 16, length: 16000, numberOfChannels: 1, sampleRate: 1000 }; }
+    async decodeAudioData(bytes) {
+        if (new Uint8Array(bytes)[0] === 0) throw new Error('video container cannot be decoded');
+        return { duration: 16, length: 16000, numberOfChannels: 1, sampleRate: 1000 };
+    }
     async resume() { this.state = 'running'; }
     async close() { this.state = 'closed'; }
 }
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
-async function supplyFor(t, edit, muted = {}) {
-    const host = createPreviewAudioHost(() => ({ state: 'not-needed' }));
+const readySidecar = () => ({
+    state: 'ready', key: 'voice-sidecar', stream: { id: 'voice-stream', url: 'stream://voice-sidecar' },
+    durationSec: 16, format: 'flac'
+});
+async function supplyFor(t, edit, muted = {}, resultFor = readySidecar) {
+    const host = createPreviewAudioHost(resultFor);
     const { summary } = await host.load(edit);
     const cuts = normalize(summary);
     const declarations = declarationsFor(summary, cuts);
@@ -106,7 +114,11 @@ async function supplyFor(t, edit, muted = {}) {
     const inputs = [], plans = [], fetches = [], warnings = [];
     const supply = createPreviewAudioSupply({ timelineDurationSec: 16, ...declarations,
         contextFactory: () => context,
-        fetchImpl: async url => { fetches.push(url); return { ok: true, headers: new Headers({ 'content-length': '1' }), arrayBuffer: async () => new ArrayBuffer(1) }; },
+        fetchImpl: async url => {
+            fetches.push(url);
+            return { ok: true, headers: new Headers({ 'content-length': '1' }),
+                arrayBuffer: async () => Uint8Array.of(url.endsWith('.mp4') ? 0 : 1).buffer };
+        },
         scheduleBuilder: input => { inputs.push(input); const plan = buildWebAudioSchedule(input); plans.push(plan); return plan; },
         onWarning: message => warnings.push(message)
     });
@@ -114,8 +126,7 @@ async function supplyFor(t, edit, muted = {}) {
     supply.setMutedTracks(muted);
     supply.playFrom(0);
     await flush();
-    assert.deepEqual(warnings, []);
-    return { summary, cuts, declarations, context, supply, inputs, plans, fetches };
+    return { summary, cuts, declarations, context, supply, inputs, plans, fetches, warnings, host };
 }
 
 test('summary wiring preserves cut ownership and uses the shared item audibility rule', () => {
@@ -130,6 +141,11 @@ test('summary wiring preserves cut ownership and uses the shared item audibility
 
 for (const split of [true, false]) test(`${split ? 'split' : 'control'}: host summary reaches the shared supply exactly once`, async t => {
     const f = await supplyFor(t, fixture(split));
+    assert.deepEqual(f.warnings, []);
+    assert.equal(f.supply.debug().supply.phase, 'ready');
+    assert.deepEqual(plain(f.supply.debug().supply.failed), []);
+    assert.equal(f.supply.debug().playing, true);
+    assert.deepEqual(f.fetches, ['stream://voice-sidecar']);
     assert.equal(f.summary.cuts[0].audio, split ? false : undefined);
     assert.equal(f.supply.debug().scheduled.speech, split ? 0 : 1);
     assert.equal(f.supply.debug().scheduled.narration, split ? 1 : 0);
@@ -213,13 +229,14 @@ test('independent speech uses narration sidecars and polling updates only its ow
         durationSec: 16, format: 'flac'
     } : { state: 'queued' });
     const edit = fixture();
-    edit.tracks[1].items[0].lowcut_hz = 80;
     const model = await f.load(edit);
     const pending = model.previewAudioPendingRequests;
     assert.equal(pending.length, 1);
     assert.equal(pending[0].kind, 'narration');
     assert.equal(pending[0].audioCollection, 'speech');
     assert.equal(pending[0].id, 'voice');
+    assert.equal(pending[0].request.format, resolveSpeechSidecarFormat({ inSec: 0, outSec: 16 }));
+    assert.equal(pending[0].request.clipFx, undefined);
     assert.equal(model.summary.audio.speech[0].sidecarState, 'queued');
     const messages = [];
     const widget = { isDisposed: false, disposed: { connect() {} },
@@ -232,6 +249,87 @@ test('independent speech uses narration sidecars and polling updates only its ow
     assert.equal(messages[0].type, 'akari-preview-audio-update');
     assert.equal(widget.akariPreviewAudioPendingRequests.length, 0);
 });
+
+for (const outSec of [16, 300]) test(`speech always requests its sidecar format for trim 3..${outSec}`, async () => {
+    const f = createPreviewAudioHost();
+    const edit = fixture();
+    edit.tracks[1].items[0].source.in = 3;
+    edit.tracks[1].items[0].source.out = outSec;
+    await f.load(edit);
+    assert.equal(f.requests.length, 1);
+    const request = f.requests[0];
+    assert.ok(request.sourceUri.endsWith('/assets/main.mp4'));
+    assert.equal(request.inSec, 3);
+    assert.equal(request.outSec, outSec);
+    assert.equal(request.speed, 1);
+    assert.equal(request.format, resolveSpeechSidecarFormat({ inSec: 3, outSec }));
+    assert.equal(request.decodedBytesThreshold, undefined);
+});
+
+test('speech sidecar retains clip FX speed and trim', async () => {
+    const f = createPreviewAudioHost();
+    const edit = fixture();
+    edit.tracks[1].items[0].lowcut_hz = 80;
+    Object.assign(edit.tracks[1].items[0].source, { in: 3, out: 13, speed: 2 });
+    await f.load(edit);
+    assert.equal(f.requests.length, 1);
+    assert.equal(f.requests[0].inSec, 3);
+    assert.equal(f.requests[0].outSec, 13);
+    assert.equal(f.requests[0].speed, 2);
+    assert.equal(f.requests[0].clipFx.lowcut_hz, 80);
+});
+
+test('speech without an explicit out still requires a sidecar without a size threshold', async () => {
+    const f = createPreviewAudioHost();
+    const edit = fixture();
+    delete edit.tracks[1].items[0].source.out;
+    const model = await f.load(edit);
+    assert.equal(model.previewAudioPendingRequests.length, 1);
+    assert.equal(f.requests[0].outSec, undefined);
+    assert.equal(f.requests[0].format, 'pcm-s16le');
+    assert.equal(f.requests[0].decodedBytesThreshold, undefined);
+});
+
+test('ordinary WAV narration still decodes directly without requesting a sidecar', async t => {
+    const edit = fixture();
+    edit.sources.push({ id: 'narration', path: 'assets/narration.wav' });
+    const item = edit.tracks[1].items[0];
+    item.role = 'narration';
+    item.source.src = 'narration';
+    delete item.link;
+    const f = await supplyFor(t, edit);
+    assert.equal(f.host.requests.length, 0);
+    assert.equal(f.summary.audio.narration[0].sidecarState, undefined);
+    assert.ok(f.fetches[0].endsWith('/assets/narration.wav'));
+    assert.equal(f.supply.debug().supply.phase, 'ready');
+    assert.equal(f.supply.debug().scheduled.narration, 1);
+    assert.deepEqual(f.warnings, []);
+});
+
+for (const state of ['queued', 'generating', 'unavailable', 'no-audio']) {
+    test(`speech sidecar ${state} preserves the supply gate and fallback rules`, async t => {
+        const f = await supplyFor(t, fixture(), {}, () => ({ state }));
+        assert.equal(f.host.requests.length, 1);
+        assert.equal(f.summary.audio.speech[0].sidecarState, state);
+        assert.equal(f.supply.debug().scheduled.narration, 0);
+        if (state === 'unavailable') {
+            assert.ok(f.fetches.length > 0);
+            assert.ok(f.fetches.every(url => url.endsWith('/assets/main.mp4')));
+            assert.equal(f.supply.debug().supply.phase, 'degraded');
+            assert.deepEqual(plain(f.supply.debug().supply.failed), ['narration:voice']);
+            assert.equal(f.supply.debug().playing, false);
+        } else {
+            assert.deepEqual(f.fetches, []);
+            assert.deepEqual(f.warnings, []);
+            if (state !== 'no-audio') {
+                assert.equal(f.supply.debug().supply.phase, 'preparing');
+                assert.equal(f.supply.debug().playing, false);
+            } else {
+                assert.deepEqual(plain(f.supply.debug().supply.noAudio), ['narration:voice']);
+            }
+        }
+    });
+}
 
 test('legacy video and transition apply shared cut audibility, and speech enters narration decode', () => {
     const muteVideo = source.match(/video\.muted = globalMuted \|\| !isCutAudioAudible[^;]+;/u)[0];
