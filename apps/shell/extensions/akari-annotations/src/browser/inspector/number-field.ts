@@ -102,7 +102,8 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     const displayMax = options.max === undefined ? undefined : toDisplay(options.max);
 
     const container = document.createElement('div');
-    container.className = 'akari-inspector-number-field';
+    container.className = 'akari-inspector-number-field'
+        + (options.keyframe === undefined ? ' akari-inspector-number-field-seatless' : '');
     container.setAttribute('data-akari-ui', `field:inspector-${options.name}`);
 
     const handle = document.createElement('button');

@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
 import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
-import { keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
+import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
 test('media layer / item の動画タブはパース直後に「動き」12行を畳んで表示する', () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
@@ -151,8 +151,8 @@ const rowMethods = ['appendRow', 'keyframeSeatOptions', 'attachRowMenu'].map(nam
 const rowCode = ts.transpileModule(`class InspectorRows { ${rowMethods.join('\n')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const InspectorRows = new Function('createNumberField', 'keyframeValueAt',
-  `${rowCode}\nreturn InspectorRows;`)(createNumberField, keyframeValueAt);
+const InspectorRows = new Function('createNumberField', 'keyframeRowPropertyOf', 'keyframeValueAt',
+  `${rowCode}\nreturn InspectorRows;`)(createNumberField, keyframeRowPropertyOf, keyframeValueAt);
 
 test('layer / item の動画タブにクロップ直後のパース（4 隅）8行 + 解除が出る', () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {

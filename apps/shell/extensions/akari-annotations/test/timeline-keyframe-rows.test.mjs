@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   aggregateKeyframeDiamonds,
   deriveTimelineKeyframeRows,
+  keyframeRowPropertyOf,
 } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
 test('既定プロパティ行を導出し、両端白抜き・中間塗りを判定する', () => {
@@ -25,13 +26,22 @@ test('既定プロパティ行を導出し、両端白抜き・中間塗りを�
   ]);
 });
 
-test('crop / perspective は表示専用行として必要時だけ現れる', () => {
+test('crop / perspective は編集可能行として必要時だけ現れる', () => {
   const rows = deriveTimelineKeyframeRows({
     id: 'card', duration: 30, crop: { x: 0, y: 0, w: 1, h: 1 },
     keyframes: [{ t: 0, perspective: { corners: [] } }, { t: 30, perspective: { corners: [] } }]
   });
-  assert.equal(rows.find(row => row.property === 'crop').editable, false);
-  assert.equal(rows.find(row => row.property === 'perspective').editable, false);
+  assert.equal(rows.find(row => row.property === 'crop').editable, true);
+  assert.equal(rows.find(row => row.property === 'perspective').editable, true);
+  assert.equal(rows.find(row => row.property === 'crop').label, 'クロップ');
+  assert.equal(rows.find(row => row.property === 'perspective').label, 'パース');
+});
+
+test('seat leaves map to their single timeline row', () => {
+  for (const [seat, row] of [
+    ['crop.w', 'crop'], ['perspective.tl.x', 'perspective'],
+    ['transform.x', 'transform.x'], ['opacity', 'opacity'], ['crop', 'crop']
+  ]) assert.equal(keyframeRowPropertyOf(seat), row);
 });
 
 test('集約ダイヤは全子が同時刻なら塗り、一部だけならくり抜き', () => {

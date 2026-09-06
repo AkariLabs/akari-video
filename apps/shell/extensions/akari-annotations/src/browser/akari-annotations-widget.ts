@@ -246,9 +246,11 @@ import {
     aggregateKeyframeDiamonds,
     deriveTimelineKeyframeRows,
     keyframeValueAt,
+    keyframeRowPropertyOf,
     KeyframeProperty,
     TimelineKeyframePropertyRow
 } from './timeline/timeline-keyframe-rows';
+import { objectKeyframeValue } from './timeline/object-keyframe-value';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
@@ -7625,7 +7627,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
                     const t = Math.max(0, Math.min(durationFrames, Math.round(ratio * durationFrames)));
                     void this.setTimelineKeyframe(row.id, propertyRow.property, t,
-                        this.staticKeyframeValue(raw, propertyRow.property));
+                        propertyRow.property === 'crop' || propertyRow.property === 'perspective'
+                            ? objectKeyframeValue(raw, propertyRow.property, t, undefined, this.hydratedKeyframes(row.id))
+                            : this.staticKeyframeValue(raw, propertyRow.property));
                 });
             }
             if (created) for (const diamond of propertyRow.diamonds) {
@@ -7656,7 +7660,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         : [diamond.t];
                     this.selectionModel.keyframeSelection = {
                         kind: 'keyframe', itemId: row.id,
-                        property: propertyRow.property as KeyframeControlRequest['property'], times,
+                        property: propertyRow.property, times,
                         easing: this.segmentEasingAt(row.id, propertyRow.property, diamond.t)
                     };
                     this.applyKeyframePropertySelectionClass();
@@ -7754,7 +7758,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const key = property.substring('transform.'.length);
             return raw?.transform?.[key] ?? (key === 'scale' ? 1 : 0);
         }
-        return raw?.[property] ?? (property === 'opacity' ? 1 : {});
+        if (property === 'crop' || property === 'perspective') return objectKeyframeValue(raw, property, 0, undefined, []);
+        return raw?.[property] ?? 1;
     }
 
     protected hydratedKeyframes(itemId: string): readonly Record<string, unknown>[] | undefined {
@@ -7789,7 +7794,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             itemId, property, t, value, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
         this.selectionModel.keyframeSelection = {
-            kind: 'keyframe', itemId, property: property as KeyframeControlRequest['property'], times: [t],
+            kind: 'keyframe', itemId, property, times: [t],
             easing: this.segmentEasingAt(itemId, property, t)
         };
     }
@@ -7807,7 +7812,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             itemId, property, fromT, toT, ...(hydratedPoints ? { hydratedPoints } : {})
         }));
         this.selectionModel.keyframeSelection = {
-            kind: 'keyframe', itemId, property: property as KeyframeControlRequest['property'], times: [toT],
+            kind: 'keyframe', itemId, property, times: [toT],
             easing: this.segmentEasingAt(itemId, property, toT)
         };
     }
@@ -7923,6 +7928,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleKeyframeControl(request: KeyframeControlRequest): Promise<InspectorWriteResult> {
+        const property = keyframeRowPropertyOf(request.property);
         try {
             const itemId = request.itemId.startsWith('cut:')
                 ? this.cutItemIds[Number(request.itemId.substring('cut:'.length))] : request.itemId;
@@ -7938,7 +7944,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const points = this.hydratedKeyframes(itemId) ?? [];
             const times: number[] = [];
             for (const point of points) {
-                if (keyframeValueAt(point, request.property) !== undefined) times.push(Number(point.t));
+                if (keyframeValueAt(point, property) !== undefined) times.push(Number(point.t));
             }
             times.sort((left, right) => left - right);
             if (request.action === 'reveal') {
@@ -7946,12 +7952,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const nearest = times.reduce((best, candidate) =>
                     Math.abs(candidate - t) < Math.abs(best - t) ? candidate : best);
                 this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId, property: request.property, times: [nearest],
-                    easing: this.segmentEasingAt(itemId, request.property, nearest)
+                    kind: 'keyframe', itemId, property, times: [nearest],
+                    easing: this.segmentEasingAt(itemId, property, nearest)
                 };
                 this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, itemId));
                 this.applyKeyframePropertySelectionClass();
-                if (!this.scrollTimelineKeyframeRowIntoView(itemId, request.property)) {
+                if (!this.scrollTimelineKeyframeRowIntoView(itemId, property)) {
                     throw new Error('キーフレーム行を表示できませんでした。');
                 }
                 return { ok: true };
@@ -7970,8 +7976,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.selectedSourceT = this.outputToSource(this.playheadT);
                     await this.requestSeek(this.playheadT, { domain: 'output' });
                     this.selectionModel.keyframeSelection = {
-                        kind: 'keyframe', itemId, property: request.property, times: [target],
-                        easing: this.segmentEasingAt(itemId, request.property, target)
+                        kind: 'keyframe', itemId, property, times: [target],
+                        easing: this.segmentEasingAt(itemId, property, target)
                     };
                     this.applyKeyframePropertySelectionClass();
                 }
@@ -7985,23 +7991,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (toT === undefined || !request.easing) throw new Error('イージングを設定する区間を選択してください。');
                 const hydratedPoints = this.hydratedKeyframes(itemId);
                 await this.commitEditMutation('区間イージングを変更', doc => setV2SegmentEasing(doc, {
-                    itemId, property: request.property, toT, easing: request.easing!,
+                    itemId, property, toT, easing: request.easing!,
                     ...(hydratedPoints ? { hydratedPoints } : {})
                 }));
                 this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId, property: request.property, times: [toT], easing: request.easing
+                    kind: 'keyframe', itemId, property, times: [toT], easing: request.easing
                 };
+                return { ok: true };
+            }
+            if (request.action === 'write') {
+                if (property !== 'crop' && property !== 'perspective') {
+                    throw new Error('数値行の書き込み対象が不正です。');
+                }
+                const value = objectKeyframeValue(raw, request.property, t, request.value,
+                    times.includes(t) ? points : []);
+                if (property === 'perspective') validateInspectorPerspective(value.corners);
+                if (times.includes(t)) await this.setTimelineKeyframe(itemId, property, t, value);
+                else if (property === 'crop') return await this.handleInspectorWrite({
+                    kind: 'item-field', id: itemId, path: request.property as `crop.${InspectorCropAxis}`, value: request.value
+                });
+                else return await this.handleInspectorWrite({ kind: 'item-field', id: itemId, path: 'perspective', value });
                 return { ok: true };
             }
             if (times.includes(t)) {
                 this.selectionModel.keyframeSelection = {
-                    kind: 'keyframe', itemId, property: request.property, times: [t],
-                    easing: this.segmentEasingAt(itemId, request.property, t)
+                    kind: 'keyframe', itemId, property, times: [t],
+                    easing: this.segmentEasingAt(itemId, property, t)
                 };
                 await this.removeSelectedKeyframes();
             } else {
-                await this.setTimelineKeyframe(itemId, request.property, t,
-                    request.value ?? this.staticKeyframeValue(raw, request.property));
+                await this.setTimelineKeyframe(itemId, property, t,
+                    property === 'crop' || property === 'perspective'
+                        ? objectKeyframeValue(raw, request.property, t, request.value, points)
+                        : request.value ?? this.staticKeyframeValue(raw, property));
             }
             return { ok: true };
         } catch (error) {
