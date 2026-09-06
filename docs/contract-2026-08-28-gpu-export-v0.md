@@ -21,6 +21,7 @@
 |---|---|---|
 | `same` | はい | 静的 HTML は起動時、対応済み字幕は unit の初回活性時に 1 回だけスプライト化する |
 | `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新し、登場表現は `three-scene-entrance-curve`、`three-scene-entrance-sampled`、または `three-scene-sampled-composite` で処理する |
+| `vgpu` | はい | pure な `data-akari-vgpu-scene` を WebGPU canvas に描き、毎コマスプライトへ転送する（[vgpu v0 契約](./contract-2026-09-06-vgpu-layer-v0.md)） |
 | `degraded` | いいえ | raster 自体は可能でも live DOM と同じ時間変化を保証できない |
 | `unsupported` | いいえ | v0 の表現範囲外であり、正しい完成画を生成できない |
 
@@ -319,6 +320,8 @@ CSS 3D は次の 3 群に分けて判定する。
 - `transform-style: preserve-3d` は `dom` 適格とする。ただし GPU 経路の遮蔽順は DOM 順になる。
   子孫の描画域が画面上で交差し、手前の要素が DOM 上で先に描かれる矛盾対を検出した場合は警告するが、
   fail-closed にはしない。
+
+vgpu の理由語彙は `vgpu-scene-canvas-direct`、`vgpu-stateful-unsupported`、`vgpu-invalid-declaration`、`vgpu-condition:<条件をカンマ連結>`（[vgpu v0 契約](./contract-2026-09-06-vgpu-layer-v0.md)）。
 
 次の条件は fail-closed のまま `degraded` とし、receipt に overlay id、理由、検出条件を全件残す。
 

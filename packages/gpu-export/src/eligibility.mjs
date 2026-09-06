@@ -21,6 +21,7 @@ const OVERLAY_CONDITIONS = [
   ["css-3d-backface-hidden", hasBackfaceHiddenWithDepthTransform, "dynamic"],
   ["self-driving-clock", /requestAnimationFrame\s*\(|setTimeout\s*\(|setInterval\s*\(|Date\.now\s*\(|performance\.now\s*\(/iu, "dynamic"],
   ["media-element", /<(?:video|audio)\b/iu, "dynamic"],
+  ["vgpu-runtime", /data-akari-vgpu-scene/iu, "dynamic"],
   ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b/iu, "dynamic"],
   ["script-runtime", /<script\b(?![^>]*type=["']application\/json)/iu, "dynamic"],
   ["animation-timing", /@keyframes|@property|\banimation(?:-[a-z-]+)?\s*:|\btransition(?:-[a-z-]+)?\s*:/iu, "dynamic"],
@@ -69,6 +70,9 @@ export function evaluateGpuEligibility({
       : null;
     if (names.includes("item-keyframes")) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
+    } else if (names.includes("vgpu-runtime")) {
+      const result = classifyVgpuOverlay(source, names);
+      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, result.classification, result.reason, names));
     } else if (isThreeOnlyOverlay(source, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (names.includes("three-or-canvas-runtime")) {
@@ -163,7 +167,7 @@ export function evaluateGpuEligibility({
       : value)
     : entries;
   const summary = { same: 0, three: 0, dom: 0, degraded: 0, unsupported: 0 };
-  for (const value of forcedEntries) summary[value.classification] += 1;
+  for (const value of forcedEntries) summary[value.classification] = (summary[value.classification] ?? 0) + 1;
   summary.degraded = originalDegraded;
   if (forceDegraded) summary.forced = forcedEntries.filter((value) => value.forced === true).length;
   return {
@@ -273,4 +277,59 @@ function mergeTextStyle(base, override) {
 
 function entry(kind, id, classification, reason, conditions) {
   return { kind, id: String(id), classification, reason, conditions };
+}
+
+// Mirrors the browser descriptor validator; agreement is exercised by vgpu-direct tests.
+function object(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+}
+function keys(value, allowed, label) {
+  if (!object(value)) throw new TypeError(`${label} must be an object`);
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) throw new TypeError(`${label}: unsupported key ${key}`);
+  }
+}
+function validateVgpuDescriptor(value) {
+  keys(value, ['version', 'mode', 'alphaMode', 'seed', 'uniforms', 'passes'], 'vgpu');
+  if (value.version !== 0) throw new TypeError('vgpu version must be 0');
+  if (value.mode === 'stateful') throw new TypeError('vgpu-stateful-unsupported');
+  if (value.mode !== 'pure') throw new TypeError('vgpu mode must be pure');
+  if (value.alphaMode !== undefined && value.alphaMode !== 'premultiplied') throw new TypeError('vgpu alphaMode must be premultiplied');
+  if (value.seed !== undefined && !Number.isFinite(value.seed)) throw new TypeError('vgpu seed must be finite');
+  const uniforms = value.uniforms === undefined ? {} : value.uniforms;
+  if (!object(uniforms)) throw new TypeError('vgpu uniforms must be an object');
+  for (const [key, uniform] of Object.entries(uniforms)) {
+    if (!Number.isFinite(uniform) && !(Array.isArray(uniform) && uniform.length >= 2
+      && uniform.length <= 4 && uniform.every(Number.isFinite))) throw new TypeError(`vgpu uniform ${key} must be f32 or vec2f/3f/4f`);
+  }
+  if (!Array.isArray(value.passes) || !value.passes.length) throw new TypeError('vgpu passes must be nonempty');
+  const seen = new Set();
+  const passes = value.passes.map((pass) => {
+    keys(pass, ['id', 'wgsl', 'inputs', 'scale'], 'vgpu pass');
+    if (typeof pass.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pass.id) || seen.has(pass.id)) throw new TypeError('vgpu pass id must be valid and unique');
+    if (typeof pass.wgsl !== 'string' || !pass.wgsl.trim()) throw new TypeError('vgpu pass wgsl must be nonempty');
+    const inputs = pass.inputs === undefined ? [] : pass.inputs;
+    if (!Array.isArray(inputs) || inputs.length > 8 || inputs.some(id => typeof id !== 'string' || !seen.has(id))) throw new TypeError('vgpu inputs must reference up to 8 earlier passes');
+    if (pass.scale !== undefined && (!Number.isFinite(pass.scale) || pass.scale <= 0)) throw new TypeError('vgpu pass scale must be positive');
+    seen.add(pass.id);
+    return { ...pass, inputs, scale: pass.scale === undefined ? 1 : pass.scale };
+  });
+  return { ...value, alphaMode: 'premultiplied', seed: value.seed === undefined ? 0 : value.seed, uniforms, passes };
+}
+
+function classifyVgpuOverlay(source, names) {
+  const degraded = reason => ({ classification: "degraded", reason });
+  if (/data-akari-3d-scene/iu.test(source)) return degraded("vgpu-condition:three-or-canvas-runtime(data-akari-3d-scene)");
+  const remaining = names.filter(name => !["vgpu-runtime", "three-or-canvas-runtime"].includes(name));
+  if (remaining.length) return degraded(`vgpu-condition:${remaining.join(",")}`);
+  const scripts = [...source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu)]
+    .filter(([, tag]) => /\btype\s*=\s*["']application\/json["']/iu.test(tag) && /\bdata-akari-vgpu-scene(?:\s|=|$)/iu.test(tag));
+  if (scripts.length !== 1) return degraded("vgpu-invalid-declaration");
+  try {
+    validateVgpuDescriptor(JSON.parse(scripts[0][2]));
+    return { classification: "vgpu", reason: "vgpu-scene-canvas-direct" };
+  } catch (error) {
+    return degraded(error.message === "vgpu-stateful-unsupported" ? error.message : "vgpu-invalid-declaration");
+  }
 }

@@ -1277,7 +1277,7 @@
     };
   }
 
-  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null) {
+  function orderedSpriteDraws(manifest, seconds, domRuntime, threeStates = null, vgpuRecords = null) {
     const values = [];
     for (const value of manifest.statics) {
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
@@ -1294,11 +1294,28 @@
       const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
       values.push({ z, index: value.index, id: value.id, ...state });
     }
+    for (const value of manifest.vgpu ?? []) {
+      if (activeAt(value, seconds)) values.push({ z: value.z ?? 0, index: value.index, id: value.id, opacity: 1, ...vgpuRecords?.get(value.id)?.draw });
+    }
     for (const run of manifest.dom ?? []) {
       const z = Number.isInteger(run.z) && run.z >= 0 ? run.z : 0;
       if (domRuntime.activeAt(run, seconds)) values.push({ z, index: run.index, id: run.runId, opacity: 1 });
     }
     return values.sort((left, right) => (left.z - right.z) || (left.index - right.index));
+  }
+
+  // The canvas pixels exclude the overlay host's CSS placement. Restore that placement
+  // in the compositor, using the same resolved container styles as the preview.
+  function vgpuDrawState(container) {
+    const style = container.ownerDocument.defaultView.getComputedStyle(container.parentElement);
+    const matrix = new DOMMatrixReadOnly(style.transform === "none" ? undefined : style.transform);
+    if (!isSupported2DMatrix(matrix)) throw new Error("VGPU-RENDER: unsupported host transform");
+    const scaleX = Math.hypot(matrix.a, matrix.b);
+    return {
+      opacity: Number(style.opacity), translateX: matrix.e, translateY: matrix.f,
+      scaleX, scaleY: scaleX ? (matrix.a * matrix.d - matrix.b * matrix.c) / scaleX : 0,
+      rotateDeg: -Math.atan2(matrix.b, matrix.a) * 180 / Math.PI,
+    };
   }
 
   function styleVariables(element, vars) {
@@ -2005,7 +2022,7 @@
   window.__akariGpuDomInternals = {
     sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
     sampledDrawStateFromMatrix, isSupported2DMatrix, boxMatchesFrame, preserve3dSampleTimes,
-    detectPreserve3dOrderConflicts,
+    detectPreserve3dOrderConflicts, vgpuDrawState,
   };
 
   window.__akariGpuRun = async function () {
@@ -2047,6 +2064,14 @@
     const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
+    const vgpuRecords = new Map();
+    let vgpuRuntime = null;
+    let vgpuProbe = null;
+    const vgpuSummary = () => vgpuProbe ? { vgpu: {
+      overlays: vgpuRecords.size, adapter: vgpuProbe.adapter, previewScale: null,
+      deviceLost: [...vgpuRecords.values()].some(record => vgpuRuntime.inspect(record.container).deviceLost),
+      probeMs: vgpuProbe.ms,
+    } } : {};
     const captionUnits = [];
     const captionRecords = [];
     const captionMeasureAttemptValues = [];
@@ -2154,9 +2179,11 @@
           else overlayFrame.addEventListener("load", resolve, { once: true });
         });
         await overlayFrame.contentWindow.__akariReady;
-        threeRuntime = overlayFrame.contentWindow.akari?.threeRuntime;
-        if (!threeRuntime || typeof threeRuntime.render !== "function" || typeof threeRuntime.inspect !== "function") {
-          throw new Error("3D overlays require window.akari.threeRuntime with render() and inspect()");
+        if (config.spriteManifest.three.length > 0) {
+          threeRuntime = overlayFrame.contentWindow.akari?.threeRuntime;
+          if (!threeRuntime || typeof threeRuntime.render !== "function" || typeof threeRuntime.inspect !== "function") {
+            throw new Error("3D overlays require window.akari.threeRuntime with render() and inspect()");
+          }
         }
         for (const value of config.spriteManifest.three) {
           const container = overlayFrame.contentDocument.querySelector(`[data-overlay-id="${CSS.escape(value.id)}"] > .scene-content`);
@@ -2167,6 +2194,25 @@
           if (!canvas) throw new Error(`3D sprite canvas is missing: ${value.id}`);
           threeRecords.set(value.id, { container, canvas });
           if (value.entranceMode !== "composite") spriteCompositor.registerSprite(value.id, canvas);
+        }
+        if (config.spriteManifest.vgpu?.length > 0) {
+          vgpuRuntime = overlayFrame.contentWindow.akari?.vgpuRuntime;
+          if (!vgpuRuntime || typeof vgpuRuntime.render !== "function" || typeof vgpuRuntime.probe !== "function") {
+            throw new Error("VGPU-UNAVAILABLE: window.akari.vgpuRuntime with render()/probe() is required");
+          }
+          vgpuProbe = await vgpuRuntime.probe();
+          if (!vgpuProbe?.ok) throw new Error("VGPU-UNAVAILABLE: probe failed");
+          for (const value of config.spriteManifest.vgpu) {
+            const container = overlayFrame.contentDocument.querySelector(`[data-overlay-id="${CSS.escape(value.id)}"] > .scene-content`);
+            if (!container) throw new Error(`VGPU-RENDER: overlay container is missing: ${value.id}`);
+            container.parentElement.style.visibility = "visible";
+            vgpuRuntime.render(container, 0);
+            if (vgpuRuntime.inspect(container).status !== "ready") throw new Error(`VGPU-RENDER: overlay is not ready: ${value.id}`);
+            const canvas = container.querySelector("canvas");
+            if (!canvas) throw new Error(`VGPU-RENDER: sprite canvas is missing: ${value.id}`);
+            vgpuRecords.set(value.id, { container, canvas, draw: vgpuDrawState(container) });
+            spriteCompositor.registerSprite(value.id, canvas);
+          }
         }
       }
       overlaySheetHasVideo = Boolean(overlayFrame)
@@ -2287,6 +2333,14 @@
               }
             }
           }
+          for (const value of config.spriteManifest.vgpu ?? []) {
+            if (!activeAt(value, seconds)) continue;
+            const record = vgpuRecords.get(value.id);
+            if (!record) throw new Error(`VGPU-RENDER: overlay record is missing: ${value.id}`);
+            vgpuRuntime.render(record.container, seconds - value.start);
+            if (vgpuRuntime.inspect(record.container).status !== "ready") throw new Error(`VGPU-RENDER: overlay failed: ${value.id}`);
+            spriteCompositor.updateSprite(value.id, record.canvas);
+          }
           stages.three.push(performance.now() - threeStarted);
           const domStarted = performance.now();
           let activeDomRuns = 0;
@@ -2298,7 +2352,7 @@
           const domFrameCost = performance.now() - domStarted;
           stages.dom.push(domFrameCost);
           if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
-          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime, threeStates, vgpuRecords);
           for (const unit of captionUnits) {
             if (seconds >= unit.cueStart + unit.cueDuration) {
               releaseCaptionUnit(unit, spriteCompositor);
@@ -2469,6 +2523,7 @@
             },
             domLayer: domRuntime.summary(),
             three: { ...threeSampling.summary(), composite: threeComposite.summary() },
+            ...vgpuSummary(),
             // 生存デコーダセッション数。#28 の時点で「RSS はセッション数に比例」と分かって
             // いたのに記録が無く、issue #52 でまた手探りになったので run.json に残す
             decoderSessions: engine.decoderSessions,
@@ -2476,6 +2531,11 @@
         }
       }
       const encoderFinish = encoder ? await encoder.finish() : null;
+      for (const record of vgpuRecords.values()) {
+        const state = vgpuRuntime.inspect(record.container);
+        if (state.deviceLost) throw new Error("VGPU-DEVICE-LOST: device lost during export");
+        if (state.status !== "ready") throw new Error("VGPU-RENDER: overlay failed during export");
+      }
       const mux = encoder ? await bridge.finishChunks({ encoderFinish }) : null;
       return {
         status: supported ? "completed" : "unsupported",
@@ -2525,6 +2585,7 @@
         },
         domLayer: domRuntime.summary(),
         three: { ...threeSampling.summary(), composite: threeComposite.summary() },
+        ...vgpuSummary(),
         mux,
         eligibility: config.eligibility,
         warnings,
@@ -2535,6 +2596,7 @@
       domRuntime?.dispose();
       threeSampling?.dispose();
       threeComposite?.dispose();
+      for (const record of vgpuRecords.values()) vgpuRuntime?.dispose(record.container);
       spriteCompositor.dispose();
       engine.dispose();
     }
