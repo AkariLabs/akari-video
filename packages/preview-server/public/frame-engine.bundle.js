@@ -24,9 +24,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../edit-store/lib/transition-vocabulary.js
+// ../../../motion-engine/packages/edit-store/lib/transition-vocabulary.js
 var require_transition_vocabulary = __commonJS({
-  "../edit-store/lib/transition-vocabulary.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/transition-vocabulary.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
@@ -71,9 +71,9 @@ var require_transition_vocabulary = __commonJS({
   }
 });
 
-// ../edit-store/lib/edit-store.js
+// ../../../motion-engine/packages/edit-store/lib/edit-store.js
 var require_edit_store = __commonJS({
-  "../edit-store/lib/edit-store.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/edit-store.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.findMatchingBracket = findMatchingBracket;
@@ -1277,9 +1277,9 @@ ${indent}`);
   }
 });
 
-// ../edit-store/lib/caption-words-rederive.js
+// ../../../motion-engine/packages/edit-store/lib/caption-words-rederive.js
 var require_caption_words_rederive = __commonJS({
-  "../edit-store/lib/caption-words-rederive.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-words-rederive.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.KARAOKE_MIN_WORD_MATCH_RATIO = void 0;
@@ -1472,9 +1472,9 @@ var require_caption_words_rederive = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-style-preset.js
+// ../../../motion-engine/packages/edit-store/lib/caption-style-preset.js
 var require_caption_style_preset = __commonJS({
-  "../edit-store/lib/caption-style-preset.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-style-preset.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.mergePresetTextStyle = mergePresetTextStyle;
@@ -1555,9 +1555,9 @@ var require_caption_style_preset = __commonJS({
   }
 });
 
-// ../edit-store/lib/generated/textstyle-catalog.js
+// ../../../motion-engine/packages/edit-store/lib/generated/textstyle-catalog.js
 var require_textstyle_catalog = __commonJS({
-  "../edit-store/lib/generated/textstyle-catalog.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/generated/textstyle-catalog.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TEXTSTYLE_CATALOG = void 0;
@@ -1810,9 +1810,9 @@ var require_textstyle_catalog = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-store.js
+// ../../../motion-engine/packages/edit-store/lib/caption-store.js
 var require_caption_store = __commonJS({
-  "../edit-store/lib/caption-store.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-store.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CAPTION_ZONES = void 0;
@@ -2979,9 +2979,9 @@ var require_caption_store = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-window.js
+// ../../../motion-engine/packages/edit-store/lib/caption-window.js
 var require_caption_window = __commonJS({
-  "../edit-store/lib/caption-window.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-window.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.captionWindowSeconds = captionWindowSeconds;
@@ -3001,9 +3001,9 @@ var require_caption_window = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-clock.js
+// ../../../motion-engine/packages/edit-store/lib/caption-clock.js
 var require_caption_clock = __commonJS({
-  "../edit-store/lib/caption-clock.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-clock.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.normalizeCaptionClock = normalizeCaptionClock;
@@ -3060,9 +3060,9 @@ var require_caption_clock = __commonJS({
   }
 });
 
-// ../edit-store/lib/cut-adjacency.js
+// ../../../motion-engine/packages/edit-store/lib/cut-adjacency.js
 var require_cut_adjacency = __commonJS({
-  "../edit-store/lib/cut-adjacency.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/cut-adjacency.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.STILL_IMAGE_SOURCE_PATTERN = exports.DEFAULT_CUT_ADJACENCY_FPS = void 0;
@@ -3103,9 +3103,9 @@ var require_cut_adjacency = __commonJS({
   }
 });
 
-// ../edit-store/lib/timeline-map.js
+// ../../../motion-engine/packages/edit-store/lib/timeline-map.js
 var require_timeline_map = __commonJS({
-  "../edit-store/lib/timeline-map.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/timeline-map.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.projectSpeechKeyIntervals = projectSpeechKeyIntervals;
@@ -3340,9 +3340,9 @@ var require_timeline_map = __commonJS({
   }
 });
 
-// ../edit-store/lib/caption-display.js
+// ../../../motion-engine/packages/edit-store/lib/caption-display.js
 var require_caption_display = __commonJS({
-  "../edit-store/lib/caption-display.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/caption-display.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
@@ -4275,9 +4275,9 @@ var require_caption_display = __commonJS({
   }
 });
 
-// ../edit-store/lib/edit-v2.js
+// ../../../motion-engine/packages/edit-store/lib/edit-v2.js
 var require_edit_v2 = __commonJS({
-  "../edit-store/lib/edit-v2.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/edit-v2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.readEditV2 = readEditV2;
@@ -4631,9 +4631,7 @@ var require_edit_v2 = __commonJS({
             "freeze",
             "fx",
             "speed",
-            "chroma_key",
-            "gain_db",
-            "mute"
+            "chroma_key"
           ]), path);
           requireText(value.src, `${path}.src`);
           if (!sourceIds.has(value.src))
@@ -4650,10 +4648,6 @@ var require_edit_v2 = __commonJS({
             throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           if (hasOwn(value, "speed"))
             requirePositiveNumber(value.speed, `${path}.speed`);
-          if (hasOwn(value, "gain_db"))
-            requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
-          if (hasOwn(value, "mute") && typeof value.mute !== "boolean")
-            throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           return;
         case "html":
           requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
@@ -5068,9 +5062,9 @@ var require_edit_v2 = __commonJS({
   }
 });
 
-// ../edit-store/lib/edit-v2-item-write.js
+// ../../../motion-engine/packages/edit-store/lib/edit-v2-item-write.js
 var require_edit_v2_item_write = __commonJS({
-  "../edit-store/lib/edit-v2-item-write.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/edit-v2-item-write.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
@@ -5247,9 +5241,9 @@ var require_edit_v2_item_write = __commonJS({
   }
 });
 
-// ../edit-store/lib/item-anchor.js
+// ../../../motion-engine/packages/edit-store/lib/item-anchor.js
 var require_item_anchor = __commonJS({
-  "../edit-store/lib/item-anchor.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/item-anchor.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.toAnchorCaptions = toAnchorCaptions;
@@ -5406,9 +5400,9 @@ var require_item_anchor = __commonJS({
   }
 });
 
-// ../edit-store/lib/migrate/error.js
+// ../../../motion-engine/packages/edit-store/lib/migrate/error.js
 var require_error = __commonJS({
-  "../edit-store/lib/migrate/error.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/migrate/error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.LegacyEditVersionError = void 0;
@@ -5423,9 +5417,9 @@ var require_error = __commonJS({
   }
 });
 
-// ../edit-store/lib/shape-markup.js
+// ../../../motion-engine/packages/edit-store/lib/shape-markup.js
 var require_shape_markup = __commonJS({
-  "../edit-store/lib/shape-markup.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/shape-markup.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shapeMarkup = shapeMarkup;
@@ -5494,9 +5488,9 @@ var require_shape_markup = __commonJS({
   }
 });
 
-// ../edit-store/lib/internal-model.js
+// ../../../motion-engine/packages/edit-store/lib/internal-model.js
 var require_internal_model = __commonJS({
-  "../edit-store/lib/internal-model.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/internal-model.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.readInternalEdit = readInternalEdit;
@@ -6341,8 +6335,6 @@ var require_internal_model = __commonJS({
         ...source.freeze !== void 0 ? { freeze: source.freeze } : {},
         ...source.fx !== void 0 ? { fx: source.fx } : {},
         ...source.speed !== void 0 ? { speed: source.speed } : {},
-        ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
-        ...source.mute !== void 0 ? { mute: source.mute } : {},
         ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
       };
     }
@@ -6556,9 +6548,9 @@ var require_internal_model = __commonJS({
   }
 });
 
-// ../edit-store/lib/legacy-audio-view.js
+// ../../../motion-engine/packages/edit-store/lib/legacy-audio-view.js
 var require_legacy_audio_view = __commonJS({
-  "../edit-store/lib/legacy-audio-view.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/legacy-audio-view.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.projectLegacyAudioView = projectLegacyAudioView;
@@ -6619,9 +6611,9 @@ var require_legacy_audio_view = __commonJS({
   }
 });
 
-// ../edit-store/lib/retime.js
+// ../../../motion-engine/packages/edit-store/lib/retime.js
 var require_retime = __commonJS({
-  "../edit-store/lib/retime.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/retime.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.retime = retime;
@@ -6704,9 +6696,9 @@ var require_retime = __commonJS({
   }
 });
 
-// ../edit-store/lib/track-order.js
+// ../../../motion-engine/packages/edit-store/lib/track-order.js
 var require_track_order = __commonJS({
-  "../edit-store/lib/track-order.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/track-order.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.deriveVisualTrackOrder = deriveVisualTrackOrder;
@@ -6757,9 +6749,9 @@ var require_track_order = __commonJS({
   }
 });
 
-// ../edit-store/lib/track-z.js
+// ../../../motion-engine/packages/edit-store/lib/track-z.js
 var require_track_z = __commonJS({
-  "../edit-store/lib/track-z.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/track-z.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.collectTrackZByItemId = collectTrackZByItemId;
@@ -6806,9 +6798,9 @@ var require_track_z = __commonJS({
   }
 });
 
-// ../edit-store/lib/track-transition-compatibility.js
+// ../../../motion-engine/packages/edit-store/lib/track-transition-compatibility.js
 var require_track_transition_compatibility = __commonJS({
-  "../edit-store/lib/track-transition-compatibility.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/track-transition-compatibility.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.usesDefaultCompatibilityTrackOrder = usesDefaultCompatibilityTrackOrder;
@@ -6877,9 +6869,9 @@ var require_track_transition_compatibility = __commonJS({
   }
 });
 
-// ../edit-store/lib/transition-visual.js
+// ../../../motion-engine/packages/edit-store/lib/transition-visual.js
 var require_transition_visual = __commonJS({
-  "../edit-store/lib/transition-visual.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/transition-visual.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeTransitionVisual = computeTransitionVisual;
@@ -7023,9 +7015,9 @@ var require_transition_visual = __commonJS({
   }
 });
 
-// ../edit-store/lib/envelope.js
+// ../../../motion-engine/packages/edit-store/lib/envelope.js
 var require_envelope = __commonJS({
-  "../edit-store/lib/envelope.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/envelope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_DUCK_KEYS = exports.DEFAULT_DUCK_RELEASE_SEC = exports.DEFAULT_DUCK_ATTACK_SEC = exports.DEFAULT_DUCK_DB = void 0;
@@ -7312,9 +7304,9 @@ var require_envelope = __commonJS({
   }
 });
 
-// ../edit-store/lib/ducking.js
+// ../../../motion-engine/packages/edit-store/lib/ducking.js
 var require_ducking = __commonJS({
-  "../edit-store/lib/ducking.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/ducking.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.STATIC_DUCK_GAIN_DB = void 0;
@@ -7331,9 +7323,9 @@ var require_ducking = __commonJS({
   }
 });
 
-// ../edit-store/lib/audio-schedule.js
+// ../../../motion-engine/packages/edit-store/lib/audio-schedule.js
 var require_audio_schedule = __commonJS({
-  "../edit-store/lib/audio-schedule.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/audio-schedule.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.buildWebAudioSchedule = buildWebAudioSchedule2;
@@ -7607,8 +7599,6 @@ var require_audio_schedule = __commonJS({
           continue;
         const cut = normalizedCuts2[segment.cutIndex];
         if (!cut || typeof cut.src !== "string" || !cut.src)
-          continue;
-        if (cut.mute === true)
           continue;
         const speed = finitePositive3(cut.speed) ? cut.speed : 1;
         const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
@@ -7898,14 +7888,14 @@ var require_audio_schedule = __commonJS({
   }
 });
 
-// ../edit-store/lib/generated/edit-v2-keys.js
+// ../../../motion-engine/packages/edit-store/lib/generated/edit-v2-keys.js
 var require_edit_v2_keys = __commonJS({
-  "../edit-store/lib/generated/edit-v2-keys.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
     exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -8105,8 +8095,6 @@ var require_edit_v2_keys = __commonJS({
         "freeze",
         "fx",
         "speed",
-        "gain_db",
-        "mute",
         "chroma_key"
       ],
       "itemSourceAudioMediaV2": [
@@ -8162,9 +8150,9 @@ var require_edit_v2_keys = __commonJS({
   }
 });
 
-// ../edit-store/lib/canonical.js
+// ../../../motion-engine/packages/edit-store/lib/canonical.js
 var require_canonical = __commonJS({
-  "../edit-store/lib/canonical.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/canonical.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.serializeEdit = serializeEdit;
@@ -8395,9 +8383,9 @@ var require_canonical = __commonJS({
   }
 });
 
-// ../edit-store/lib/tree-ops.js
+// ../../../motion-engine/packages/edit-store/lib/tree-ops.js
 var require_tree_ops = __commonJS({
-  "../edit-store/lib/tree-ops.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/tree-ops.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
@@ -9131,9 +9119,9 @@ var require_tree_ops = __commonJS({
   }
 });
 
-// ../edit-store/lib/cut-ranges.js
+// ../../../motion-engine/packages/edit-store/lib/cut-ranges.js
 var require_cut_ranges = __commonJS({
-  "../edit-store/lib/cut-ranges.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/cut-ranges.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.detectEditVersion = detectEditVersion;
@@ -9330,9 +9318,9 @@ var require_cut_ranges = __commonJS({
   }
 });
 
-// ../edit-store/lib/adjust-css-approx.js
+// ../../../motion-engine/packages/edit-store/lib/adjust-css-approx.js
 var require_adjust_css_approx = __commonJS({
-  "../edit-store/lib/adjust-css-approx.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/adjust-css-approx.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.adjustBasicToCssApprox = adjustBasicToCssApprox;
@@ -9362,9 +9350,9 @@ var require_adjust_css_approx = __commonJS({
   }
 });
 
-// ../edit-store/lib/migrate/legacy-parse.js
+// ../../../motion-engine/packages/edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
-  "../edit-store/lib/migrate/legacy-parse.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseEdit = parseEdit;
@@ -9837,9 +9825,9 @@ var require_legacy_parse = __commonJS({
   }
 });
 
-// ../edit-store/lib/adjust-css-visual.js
+// ../../../motion-engine/packages/edit-store/lib/adjust-css-visual.js
 var require_adjust_css_visual = __commonJS({
-  "../edit-store/lib/adjust-css-visual.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/adjust-css-visual.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.computeAdjustCssVisual = computeAdjustCssVisual;
@@ -9896,9 +9884,9 @@ var require_adjust_css_visual = __commonJS({
   }
 });
 
-// ../edit-store/lib/index.js
+// ../../../motion-engine/packages/edit-store/lib/index.js
 var require_lib = __commonJS({
-  "../edit-store/lib/index.js"(exports) {
+  "../../../motion-engine/packages/edit-store/lib/index.js"(exports) {
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? function(o2, m2, k2, k22) {
       if (k22 === void 0) k22 = k2;
@@ -9959,9 +9947,9 @@ var require_lib = __commonJS({
   }
 });
 
-// ../../node_modules/@webav/mp4box.js/dist/mp4box.all.js
+// ../../../motion-engine/node_modules/@webav/mp4box.js/dist/mp4box.all.js
 var require_mp4box_all = __commonJS({
-  "../../node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
+  "../../../motion-engine/node_modules/@webav/mp4box.js/dist/mp4box.all.js"(exports) {
     var Log = /* @__PURE__ */ function() {
       var start = /* @__PURE__ */ new Date();
       var LOG_LEVEL_ERROR = 4;
@@ -20075,7 +20063,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
 // ../frame-engine/vendor/av-cliper/av-cliper.js
 var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
-// ../../node_modules/@webav/internal-utils/dist/internal-utils.js
+// ../../../motion-engine/node_modules/@webav/internal-utils/dist/internal-utils.js
 var import_mp4box = __toESM(require_mp4box_all(), 1);
 var L = () => {
   let e, t = 16.6;
@@ -20182,7 +20170,7 @@ A.set(S.error, 3);
   }
 })();
 
-// ../../node_modules/wave-resampler/lib/interpolator.js
+// ../../../motion-engine/node_modules/wave-resampler/lib/interpolator.js
 var Interpolator = class {
   /**
    * @param {number} scaleFrom the length of the original array.
@@ -20294,7 +20282,7 @@ function sinc_(x3) {
   return Math.sin(Math.PI * x3) / (Math.PI * x3);
 }
 
-// ../../node_modules/wave-resampler/lib/fir-lpf.js
+// ../../../motion-engine/node_modules/wave-resampler/lib/fir-lpf.js
 var FIRLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -20354,7 +20342,7 @@ var FIRLPF = class {
   }
 };
 
-// ../../node_modules/wave-resampler/lib/butterworth-lpf.js
+// ../../../motion-engine/node_modules/wave-resampler/lib/butterworth-lpf.js
 var ButterworthLPF = class {
   /**
    * @param {number} order The order of the filter.
@@ -20435,7 +20423,7 @@ var ButterworthLPF = class {
   }
 };
 
-// ../../node_modules/wave-resampler/index.js
+// ../../../motion-engine/node_modules/wave-resampler/index.js
 var DEFAULT_LPF_USE = {
   "point": false,
   "linear": false,
@@ -20525,7 +20513,7 @@ function downsample_(samples, newSamples, interpolator, filter) {
   resample_(samples, newSamples, interpolator);
 }
 
-// ../../node_modules/opfs-tools/dist/opfs-tools.js
+// ../../../motion-engine/node_modules/opfs-tools/dist/opfs-tools.js
 var z2 = (r) => {
   throw TypeError(r);
 };
@@ -27478,13 +27466,13 @@ async function requestAutoProxy(candidate, ui, isCurrent) {
 function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
   const ids = /* @__PURE__ */ new Set();
   if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
-  const finite4 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const finite5 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
   const cursors = /* @__PURE__ */ new Map();
   const overlaps = /* @__PURE__ */ new Map();
   for (const cut of cuts) {
     const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
-    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
-    const freeze = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const speed = finite5(cut.speed, 1) > 0 ? finite5(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite5(cut.freeze?.duration_sec, 0));
     const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
     const at2 = Number.isFinite(cut.at) && Number(cut.at) >= 0 ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
     const end = at2 + duration;
@@ -27495,11 +27483,11 @@ function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
       if (typeof id === "string" && id) ids.add(id);
     }
   }
-  const fps = finite4(timelineData?.fps, 30) > 0 ? finite4(timelineData?.fps, 30) : 30;
+  const fps = finite5(timelineData?.fps, 30) > 0 ? finite5(timelineData?.fps, 30) : 30;
   const frame = Math.floor(atSeconds * fps + 1e-9);
   for (const layer of layers) {
-    const start = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
-    const end = Math.max(start, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
+    const start = Math.max(0, Math.ceil(finite5(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite5(layer.t, 0) + Math.max(0, finite5(layer.duration, 0))) * fps - 1e-6));
     if (frame < start || frame >= end || layer.kind === "filter") continue;
     for (const id of [layer.src, layer.mask]) {
       if (typeof id === "string" && id) ids.add(id);
