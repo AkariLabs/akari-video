@@ -85,6 +85,7 @@ export const LANES = {
       ext('akari-shell-strip'),
       ext('akari-surfaces'),
       ext('akari-tabs'),
+      ext('akari-theme'),          // webview の styles 再送スケジューラ（2026-09-06 webview-theme-vars で追加）
       ext('akari-transcript'),
       {
         // akari-preview の test script は `tsc -b && node --test test/*.test.mjs`。
