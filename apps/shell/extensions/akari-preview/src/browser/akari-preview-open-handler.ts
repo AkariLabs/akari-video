@@ -7783,6 +7783,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     return { declarations, speech };
                 };
+                const normalizedMutedTracks = muted => ({
+                    cuts: Array.isArray(muted && muted.cuts) ? muted.cuts : [],
+                    audio: Array.isArray(muted && muted.audio) ? muted.audio : [],
+                    allCuts: typeof (muted && muted.allCuts) === 'boolean' ? muted.allCuts : false,
+                    allAudio: typeof (muted && muted.allAudio) === 'boolean' ? muted.allAudio : false
+                });
                 const createAudioSupplyForSummary = (value, cuts, duration) => {
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
@@ -7791,6 +7797,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
                     supply.setRate(rate);
+                    const initialAllMuted = Array.isArray(initial.allTracksMutedScopes) ? initial.allTracksMutedScopes : [];
+                    supply.setMutedTracks(normalizedMutedTracks(window.akari.frameEngineMutedTracks || {
+                        cuts: initial.mutedTracksByScope && initial.mutedTracksByScope.cuts,
+                        audio: initial.mutedTracksByScope && initial.mutedTracksByScope.audio,
+                        allCuts: initialAllMuted.includes('cuts'),
+                        allAudio: initialAllMuted.includes('audio')
+                    }));
                     return supply;
                 };
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
@@ -7817,6 +7830,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateAudioStatus();
                 };
                 window.akari.frameEngineUpdateAudio = updateAudio;
+                const setMutedTracks = muted => {
+                    if (disposed) return;
+                    audioSupply.setMutedTracks(normalizedMutedTracks(muted));
+                    updateAudioStatus();
+                };
+                window.akari.frameEngineSetMutedTracks = setMutedTracks;
                 const pendingAudio = window.akari.frameEnginePendingAudio;
                 if (pendingAudio) {
                     delete window.akari.frameEnginePendingAudio;
@@ -8197,6 +8216,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     delete window.akariFrameEngineAudioAnalyser;
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
+                    if (window.akari.frameEngineSetMutedTracks === setMutedTracks) delete window.akari.frameEngineSetMutedTracks;
                     clearInterval(audioStatusTimer);
                     window.akari.attachAudioMeter(null, 'frame-engine');
                     clearInterval(audioPriorityInterval);
@@ -8367,6 +8387,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 audio: initialAllTracksMutedScopes.includes('audio'),
                 layers: initialAllTracksMutedScopes.includes('layers')
             };
+            const frameEngineMutedTracksPayload = () => ({
+                cuts: [...mutedTracksByScope.cuts],
+                audio: [...mutedTracksByScope.audio],
+                allCuts: allTracksMutedByScope.cuts,
+                allAudio: allTracksMutedByScope.audio
+            });
+            const syncFrameEngineMutedTracks = () => {
+                // 後から起動する frame-engine と、summary 更新時の supply 再作成にも同じ状態を渡す。
+                const muted = frameEngineMutedTracksPayload();
+                window.akari.frameEngineMutedTracks = muted;
+                if (window.akari.frameEngineSetMutedTracks) window.akari.frameEngineSetMutedTracks(muted);
+            };
+            syncFrameEngineMutedTracks();
             let globalMuted = initial.muted === true;
             let previewRate = 1;
             previewRate = clampPreviewPlaybackRate(initial.initialPlaybackRate);
@@ -14185,6 +14218,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncScope('cuts', tracks.cuts);
                 syncScope('layers', tracks.layers);
                 syncScope('audio', tracks.audio);
+                syncFrameEngineMutedTracks();
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
@@ -14352,6 +14386,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             else mutedTracksByScope[scope].delete(track);
                         }
                     }
+                    syncFrameEngineMutedTracks();
                     if (window.akari.previewAudio) {
                         window.akari.previewAudio.setMutedTracks(
                             mutedTracksByScope.audio, allTracksMutedByScope.audio
@@ -14366,6 +14401,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     hiddenTracksByScope.layers = new Set(Array.isArray(message.hiddenLayers) ? message.hiddenLayers : []);
                     mutedTracksByScope.layers = new Set(Array.isArray(message.mutedLayers) ? message.mutedLayers : []);
                     mutedTracksByScope.audio = new Set(Array.isArray(message.mutedAudio) ? message.mutedAudio : []);
+                    syncFrameEngineMutedTracks();
                     if (window.akari.previewAudio) {
                         window.akari.previewAudio.setMutedTracks(mutedTracksByScope.audio, allTracksMutedByScope.audio);
                     }
