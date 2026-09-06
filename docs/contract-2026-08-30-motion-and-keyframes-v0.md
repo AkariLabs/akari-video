@@ -179,12 +179,17 @@ media item（cuts）での適用先 = frame-engine base 経路（2026-09-01・is
 
 ### 4.4 v1 の実装状態と制約（2026-09-06）
 
-- **出口は gpu のみ**。osr / DOM プレビュー / インスペクター UI は別便
+- **gpu に加え、OSR whole-page 出口の DOM 字幕とシェルの出力プレビュー（webview の `#caption-plate`）で実装済み**。いずれも frame-engine の同じ評価器 `captionAnimatorStateAt` を使う。Web UI（preview-server の旧経路）とインスペクター UI は本便の対象外
 - 対象は **captions.json 由来の字幕**。袋 item（`source.kind: "captions"`）の宣言は全 cue、cue item（`source.kind: "caption"`）の宣言はその cue に適用する。§4.1 の telop / group 内テキストのうち caption unit と同じ経路を通らないものは本便の対象外
 - `basis` は `chars`（書記素）/ `words` / `lines` を実装。**`segments` は v1 では words と同じ扱い**とし、edit-lint は `animator.segments-fallback` warning を出す。文節単位は別便
+- **DOM 出口の適用器**は `packages/frame-engine/src/timeline/caption-animator-dom.ts` の `applyCaptionAnimatorDom(root, declaration)`。`declaration` は `animators` / `keyframes` / `cueLocalSeconds` / `cueDurationSec` / `fps` / `outputWidth` を受け取り、任意の `keyframeOffsetSeconds` で袋 item の開始を基準とするキーフレーム時刻を保つ
+- 適用器は root（cue の要素）内の単位要素を列挙する。`chars` は `.akari-caption__char`、`words` は `.akari-caption__tok`（無ければ単語 span）、`lines` は `.akari-caption__line`（行要素の無い `.akari-caption__reveal-group` も行として扱う）。`segments` は words にフォールバックして一度だけ runtime warning を出し、対象の単位要素が無ければ warning を出してその basis を無視する
+- `captionAnimatorStateAt` の評価結果を単位要素の **inline style** に書く。`transform` は `translate(x px, y px) scale(s) rotate(r deg)`、`opacity` は §4.2 のクランプ後の値を既存 opacity に乗算し、`letterSpacing` / `blur` は `letter-spacing` / `filter: blur()` に反映する。span は inline style の `display: inline-block` で transform を有効にする。副作用は inline style に限り、class / DOM 構造は変えない。**animator が無ければ DOM を一切変えない（バイト不変）**
+- OSR は page-builder が cue ごとの animator / keyframes を埋め込み、page-runtime が各フレームの capture 前に適用する。シェルは summary に宣言を供給し、`chars` 宣言時だけ書記素 span を生成して、マスタークロックの tick / seek で同じ適用器を呼ぶ（frame-engine 経路 / DOM `<video>` 経路共通）
 - `letterSpacing` は tile 幾何を変えるため **gpu 出口では無視**する。非ゼロの宣言に runtime warning `animator.letterSpacing-ignored` を出す
 - `blur` も **gpu 出口では無視**する。現行の GPU sprite tile 描画は `filter: blur()` に対応していないため、非ゼロの宣言に runtime warning `animator.blur-ignored` を出す。評価器での量の計算は §4.1〜4.2 の規則どおり
-- 決定論: **同じ入力は同じ画素**（固定 seed・整数演算）。animator 無しの出力は**バイト不変**を保つ
+- **DOM 出口（OSR whole-page / シェルプレビュー）では `letterSpacing` / `blur` とも inline style でそのまま効く**。この 2 量を無視する gpu とは見た目が異なりうる。gpu との一致は「文字が現れる順序と概ねの位置」とし、tile と DOM の描画の細部（アンチエイリアス等）までの一致は求めない
+- 決定論: **同じ出口・同じ入力は同じ画素**（固定 seed・整数演算）。DOM 適用も同じフレームなら同じ DOM となる。animator 無しの出力は**バイト不変**を保つ
 
 edit-lint の規則（gpu runtime の量の無視 warning とは別）:
 

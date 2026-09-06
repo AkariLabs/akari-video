@@ -4,6 +4,7 @@
   const config = window.__AKARI_OSR_CONFIG__;
   const FE = window.AkariFrameEngine;
   const warnings = [];
+  const captionAnimatorWarnings = new Set();
   const pools = new Map();
   const lookahead = new Map();
   const images = new Map();
@@ -170,6 +171,37 @@
   const stampRow = document.getElementById("akari-stamp");
   let engineRuntime;
 
+  function warnCaptionAnimatorOnce(code, message) {
+    if (captionAnimatorWarnings.has(code)) return;
+    captionAnimatorWarnings.add(code);
+    warn(`${code}: ${message}`);
+  }
+
+  function applyCaptionAnimators(seconds) {
+    if (!config.captionAnimators) return;
+    const roots = new Map(Array.from(overlayFrame.contentDocument.querySelectorAll("[data-overlay-id]"),
+      root => [root.getAttribute("data-overlay-id"), root]));
+    for (const [id, declaration] of Object.entries(config.captionAnimators)) {
+      if (seconds < declaration.start || seconds >= declaration.start + declaration.duration) continue;
+      const root = roots.get(id);
+      if (!root) {
+        warnCaptionAnimatorOnce("animator.missing-overlay", `caption overlay ${id} was not found`);
+        continue;
+      }
+      FE.applyCaptionAnimatorDom(root, {
+        animators: declaration.animator,
+        keyframes: declaration.keyframes,
+        cueLocalSeconds: seconds - declaration.start,
+        cueDurationSec: declaration.duration,
+        // 袋 item の点は cue が切り替わってもリセットしない。
+        keyframeOffsetSeconds: declaration.start - (declaration.animatorStart ?? declaration.start),
+        fps: config.fps,
+        outputWidth: config.width,
+        warn: warnCaptionAnimatorOnce,
+      });
+    }
+  }
+
   window.__akariReady = (async () => {
     await document.fonts.ready;
     await new Promise((resolve) => {
@@ -180,6 +212,10 @@
     engineRuntime = new OsrFrameEngineRuntime();
     await engineRuntime.renderAt(0);
     await engineRuntime.renderAt(0);
+    if (config.captionAnimators) {
+      await overlayFrame.contentWindow.__akariSeek(0);
+      applyCaptionAnimators(0);
+    }
     await animationFrames(2);
     return true;
   })();
@@ -188,6 +224,7 @@
     await window.__akariReady;
     await engineRuntime.renderAt(seconds);
     const result = await overlayFrame.contentWindow.__akariSeek(seconds);
+    applyCaptionAnimators(seconds);
     stampRow.style.backgroundColor = window.__akariEncodeStamp(frameNumber).css;
     await animationFrames(2);
     return {

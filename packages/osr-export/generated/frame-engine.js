@@ -1857,21 +1857,21 @@ ${indent}`);
         if (!values) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
         }
-        const warnings = [];
-        const defaultTextStyle = !Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
+        const warnings2 = [];
+        const defaultTextStyle = !Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings2.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
         if (!Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 && defaultTextStyle === void 0) {
           throw new Error("\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
         }
         const captions = [];
         const seenIds = /* @__PURE__ */ new Set();
         for (let index = 0; index < values.length; index++) {
-          const caption = normalizeCaption(values[index], (keys) => warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306E text_style \u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`));
+          const caption = normalizeCaption(values[index], (keys) => warnings2.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306E text_style \u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`));
           if (!caption) {
-            warnings.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306F\u6642\u523B\u307E\u305F\u306F\u5185\u5BB9\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+            warnings2.push(`${index + 1} \u756A\u76EE\u306E\u5B57\u5E55\u306F\u6642\u523B\u307E\u305F\u306F\u5185\u5BB9\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
             continue;
           }
           if (seenIds.has(caption.id)) {
-            warnings.push(`\u5B57\u5E55 ${caption.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u884C\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+            warnings2.push(`\u5B57\u5E55 ${caption.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u884C\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
             continue;
           }
           seenIds.add(caption.id);
@@ -1880,7 +1880,7 @@ ${indent}`);
         return {
           captions,
           ...defaultTextStyle !== void 0 ? { defaultTextStyle } : {},
-          warnings
+          warnings: warnings2
         };
       }
       function mergeCaptionTextStyles(defaultStyle, captionStyle) {
@@ -5350,12 +5350,12 @@ ${indent}`);
         const segments = (0, timeline_map_1.buildTimelineMap)(legacy.cuts, { fps: legacy.fps }).segments;
         const captionById = new Map(captions.map((caption) => [caption.id, caption]));
         const changes = [];
-        const warnings = [];
+        const warnings2 = [];
         let tracksChanged = false;
         const tracks = edit.tracks.map((track) => {
           if (!("items" in track) || !Array.isArray(track.items) || track.lane !== "visual")
             return track;
-          const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
+          const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings2);
           if (items === track.items)
             return track;
           tracksChanged = true;
@@ -5364,20 +5364,20 @@ ${indent}`);
         return {
           edit: tracksChanged ? { ...edit, tracks } : edit,
           changes,
-          warnings
+          warnings: warnings2
         };
       }
-      function resolveItems(items, parentAtFrames, captionById, segments, fps, changes, warnings) {
+      function resolveItems(items, parentAtFrames, captionById, segments, fps, changes, warnings2) {
         let changed = false;
         const result = items.map((item) => {
           let next = item;
           if (item.anchor) {
             if (item.source.kind === "captions" || item.source.kind === "caption") {
-              warnings.push({ id: item.id, reason: "unsupported-kind" });
+              warnings2.push({ id: item.id, reason: "unsupported-kind" });
             } else {
               const caption = captionById.get(item.anchor.caption);
               if (!caption) {
-                warnings.push({ id: item.id, reason: "caption-not-found" });
+                warnings2.push({ id: item.id, reason: "caption-not-found" });
               } else {
                 const resolution = resolveItemAnchor(item, {
                   caption,
@@ -5386,7 +5386,7 @@ ${indent}`);
                   parentAtFrames
                 });
                 if ("unresolvable" in resolution) {
-                  warnings.push({ id: item.id, reason: resolution.unresolvable });
+                  warnings2.push({ id: item.id, reason: resolution.unresolvable });
                 } else if (item.at !== resolution.at || item.duration !== resolution.duration) {
                   changes.push({
                     id: item.id,
@@ -5401,7 +5401,7 @@ ${indent}`);
           }
           const absoluteAtFrames = parentAtFrames + next.at;
           if (Array.isArray(next.items)) {
-            const children = resolveItems(next.items, absoluteAtFrames, captionById, segments, fps, changes, warnings);
+            const children = resolveItems(next.items, absoluteAtFrames, captionById, segments, fps, changes, warnings2);
             if (children !== next.items) {
               next = { ...next, items: children };
               changed = true;
@@ -5651,7 +5651,7 @@ ${indent}`);
         }));
         const pathOf = (id) => sources.find((entry) => entry.id === id)?.path;
         const chromaKeyOf = (id) => sources.find((entry) => entry.id === id)?.chromaKey;
-        const warnings = [];
+        const warnings2 = [];
         const refCounters = /* @__PURE__ */ new Map();
         const legacyIndexCounters = /* @__PURE__ */ new Map();
         const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap((track) => "items" in track && track.lane === "visual" ? [track.items] : []), pathOf);
@@ -5664,7 +5664,7 @@ ${indent}`);
             track.items.forEach((item) => {
               const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, overlappingItemIds.has(item.id));
               if (built.warning) {
-                warnings.push(built.warning);
+                warnings2.push(built.warning);
               }
               items.push(built.item);
             });
@@ -5705,7 +5705,7 @@ ${indent}`);
           emptyProject: sources.length === 0,
           tracks,
           tracksDeclared: true,
-          warnings,
+          warnings: warnings2,
           declaration: {
             ...edit.audio !== void 0 ? { audio: edit.audio } : {},
             ...edit.captions !== void 0 ? { captions: edit.captions } : {}
@@ -7388,15 +7388,15 @@ ${indent}`);
       var envelope_1 = require_envelope();
       var timeline_map_1 = require_timeline_map();
       function buildWebAudioSchedule2(input) {
-        const warnings = [];
+        const warnings2 = [];
         const timelineDurationSec = finitePositive4(input.timelineDurationSec) ? input.timelineDurationSec : 0;
         const startAtSec = Math.max(0, Math.min(timelineDurationSec, Number.isFinite(input.startAtSec) ? input.startAtSec : 0));
         const audio = input.audio;
         if (!audio || timelineDurationSec <= 0 || startAtSec >= timelineDurationSec) {
-          return { timelineDurationSec, startAtSec, items: [], duckIntervals: [], warnings };
+          return { timelineDurationSec, startAtSec, items: [], duckIntervals: [], warnings: warnings2 };
         }
-        const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings);
-        const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings);
+        const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings2);
+        const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings2);
         const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.map((item) => ({
           t: item.t,
           durationSec: item.itemDurationSec
@@ -7410,7 +7410,7 @@ ${indent}`);
         const items = [];
         const bgm = audio.bgm;
         if (bgm) {
-          const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
+          const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings2);
           if (scheduled)
             items.push(scheduled);
         }
@@ -7425,13 +7425,13 @@ ${indent}`);
             items.push(scheduled);
         }
         for (const speech of audio.speech ?? []) {
-          const scheduled = scheduleSpeech(speech, timelineDurationSec, startAtSec, warnings);
+          const scheduled = scheduleSpeech(speech, timelineDurationSec, startAtSec, warnings2);
           if (scheduled)
             items.push(scheduled);
         }
-        return { timelineDurationSec, startAtSec, items, duckIntervals, warnings };
+        return { timelineDurationSec, startAtSec, items, duckIntervals, warnings: warnings2 };
       }
-      function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
+      function resolveTimedItems(kind, specs, timelineDurationSec, warnings2) {
         if (!Array.isArray(specs))
           return [];
         const resolved = [];
@@ -7440,21 +7440,21 @@ ${indent}`);
           const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
           const label = `${kind} ${id}`;
           if (!spec || !finitePositive4(spec.durationSec)) {
-            warnings.push(`${label}: decoded duration is invalid; skipped`);
+            warnings2.push(`${label}: decoded duration is invalid; skipped`);
             continue;
           }
           if (typeof spec.t !== "number" || !Number.isFinite(spec.t) || spec.t < 0 || spec.t >= timelineDurationSec) {
-            warnings.push(`${label}: t is outside timeline duration; skipped`);
+            warnings2.push(`${label}: t is outside timeline duration; skipped`);
             continue;
           }
-          const gainDb = normalizedGainDb(spec, label, warnings);
+          const gainDb = normalizedGainDb(spec, label, warnings2);
           if (gainDb === null)
             continue;
           const sidecar = validSidecar2(spec.sidecar);
           if (spec.sidecar && !sidecar)
-            warnings.push(`${label}: sidecar declaration is invalid; using source`);
+            warnings2.push(`${label}: sidecar declaration is invalid; using source`);
           const playbackRate = kind === "sfx" && !sidecar && finiteClipSpeed(spec.speed) ? spec.speed : 1;
-          const trim = sidecar ? { sourceOffsetSec: 0, durationSec: sidecar.durationSec } : resolveTrim(kind, spec, label, warnings);
+          const trim = sidecar ? { sourceOffsetSec: 0, durationSec: sidecar.durationSec } : resolveTrim(kind, spec, label, warnings2);
           if (!trim)
             continue;
           resolved.push({
@@ -7472,24 +7472,24 @@ ${indent}`);
         }
         return resolved;
       }
-      function resolveTrim(kind, spec, label, warnings) {
+      function resolveTrim(kind, spec, label, warnings2) {
         const materialDurationSec = spec.durationSec;
         let sourceOffsetSec = finiteNonNegative2(spec.in) ? spec.in : 0;
         if (sourceOffsetSec >= materialDurationSec) {
           if (kind === "sfx") {
-            warnings.push(`${label}: in is at or beyond decoded duration; skipped`);
+            warnings2.push(`${label}: in is at or beyond decoded duration; skipped`);
             return null;
           }
-          warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
+          warnings2.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
           sourceOffsetSec = 0;
         }
         let outSec = finitePositive4(spec.out) ? spec.out : materialDurationSec;
         if (outSec > materialDurationSec) {
-          warnings.push(`${label}: out exceeds decoded duration; clamped to material end`);
+          warnings2.push(`${label}: out exceeds decoded duration; clamped to material end`);
           outSec = materialDurationSec;
         }
         if (outSec <= sourceOffsetSec) {
-          warnings.push(`${label}: out <= in after clamping; skipped`);
+          warnings2.push(`${label}: out <= in after clamping; skipped`);
           return null;
         }
         return { sourceOffsetSec, durationSec: outSec - sourceOffsetSec };
@@ -7523,13 +7523,13 @@ ${indent}`);
           envelopeEvents: scheduledEnvelopeEvents(item.spec, item.t, item.itemDurationSec, elapsedIntoItemSec, durationSec, item.kind === "sfx" ? duckIntervals : [])
         };
       }
-      function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
+      function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings2) {
         const label = "bgm";
         if (!finitePositive4(spec.durationSec)) {
-          warnings.push(`${label}: decoded duration is invalid; skipped`);
+          warnings2.push(`${label}: decoded duration is invalid; skipped`);
           return null;
         }
-        const gainDb = normalizedGainDb(spec, label, warnings);
+        const gainDb = normalizedGainDb(spec, label, warnings2);
         if (gainDb === null)
           return null;
         const timelineT = typeof spec.t === "number" && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
@@ -7537,12 +7537,12 @@ ${indent}`);
           return null;
         const sidecar = validSidecar2(spec.sidecar);
         if (spec.sidecar && !sidecar)
-          warnings.push(`${label}: sidecar declaration is invalid; using source`);
+          warnings2.push(`${label}: sidecar declaration is invalid; using source`);
         const materialDurationSec = sidecar ? sidecar.durationSec : spec.durationSec;
         const playbackRate = sidecar ? 1 : finiteClipSpeed(spec.speed) ? spec.speed : 1;
         let materialInSec = sidecar ? 0 : finiteNonNegative2(spec.in) ? spec.in : 0;
         if (materialInSec >= materialDurationSec) {
-          warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
+          warnings2.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
           materialInSec = 0;
         }
         const loop = spec.loop !== false;
@@ -7577,24 +7577,24 @@ ${indent}`);
           envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, timelineDurationSec - timelineT, elapsedSec, durationSec, duckIntervals)
         };
       }
-      function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
+      function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings2) {
         const id = typeof spec?.id === "string" && spec.id ? spec.id : "speech";
         const label = `speech ${id}`;
         if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative2(spec.atSec) || !finitePositive4(spec.durationSec) || !finiteNonNegative2(spec.inSec) || !finitePositive4(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive4(spec.speed) || !finitePositive4(spec.materialDurationSec)) {
-          warnings.push(`${label}: declaration is invalid; skipped`);
+          warnings2.push(`${label}: declaration is invalid; skipped`);
           return null;
         }
         if (spec.atSec >= timelineDurationSec)
           return null;
-        const gainDb = normalizedGainDb(spec, label, warnings);
+        const gainDb = normalizedGainDb(spec, label, warnings2);
         if (gainDb === null)
           return null;
         const sidecar = validSidecar2(spec.sidecar);
         if (spec.sidecar && !sidecar)
-          warnings.push(`${label}: sidecar declaration is invalid; using source`);
+          warnings2.push(`${label}: sidecar declaration is invalid; using source`);
         const atempo = spec.atempo && typeof spec.atempo.path === "string" && spec.atempo.path && finitePositive4(spec.atempo.durationSec) ? spec.atempo : void 0;
         if (spec.atempo && !atempo)
-          warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
+          warnings2.push(`${label}: atempo declaration is invalid; using source playbackRate`);
         const baked = sidecar ?? atempo;
         const crossfadeInSec = finitePositive4(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
         const crossfadeOutSec = finitePositive4(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
@@ -7786,17 +7786,17 @@ ${indent}`);
           method: index === 0 ? "set" : "linear"
         }));
       }
-      function normalizedGainDb(spec, label, warnings) {
+      function normalizedGainDb(spec, label, warnings2) {
         const raw = spec.gainDb !== void 0 ? spec.gainDb : spec.gain_db;
         if (raw === void 0)
           return 0;
         if (typeof raw !== "number" || !Number.isFinite(raw)) {
-          warnings.push(`${label}: gain_db is not finite; skipped`);
+          warnings2.push(`${label}: gain_db is not finite; skipped`);
           return null;
         }
         const clamped = Math.max(-60, Math.min(12, raw));
         if (clamped !== raw)
-          warnings.push(`${label}: gain_db clamped to [-60, 12]`);
+          warnings2.push(`${label}: gain_db clamped to [-60, 12]`);
         return clamped;
       }
       function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
@@ -9204,7 +9204,7 @@ ${indent}`);
       function applyLegacy(initialSource, ranges, opts) {
         let source = initialSource;
         let removedFrames = 0;
-        const warnings = [];
+        const warnings2 = [];
         const affectedTracks = /* @__PURE__ */ new Set();
         const parsed = JSON.parse(initialSource);
         const fps = requireFps(opts.fps ?? parsed.output?.fps ?? parsed.fps ?? 30);
@@ -9239,20 +9239,20 @@ ${indent}`);
             }
           }
           if (!matched)
-            warnings.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
+            warnings2.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
         }
         if (affectedTracks.size > 0) {
           const after = readLegacyCuts(source);
           source = (0, edit_store_1.setCutAtValuesInSource)(source, after.cuts.flatMap((cut, cutIndex) => affectedTracks.has(normalizeTrack(cut.track)) ? [{ cutIndex, at: null }] : []));
         }
-        return { source, removedFrames, warnings };
+        return { source, removedFrames, warnings: warnings2 };
       }
       function applyV2(source, ranges, opts) {
         const raw = JSON.parse(source);
         const validated = (0, edit_v2_1.readEditV2)(raw);
         const fps = requireFps(opts.fps ?? validated.output.fps);
         const edit = JSON.parse(JSON.stringify(raw));
-        const warnings = [];
+        const warnings2 = [];
         const affectedTrackIds = /* @__PURE__ */ new Set();
         let removedFrames = 0;
         for (const range of ranges) {
@@ -9277,7 +9277,7 @@ ${indent}`);
             }
           }
           if (!matched)
-            warnings.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
+            warnings2.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
         }
         for (const track of visualTracks(edit)) {
           if (!affectedTrackIds.has(track.id))
@@ -9292,7 +9292,7 @@ ${indent}`);
         }
         (0, edit_v2_1.readEditV2)(edit);
         return { source: `${JSON.stringify(edit, null, 2)}
-`, removedFrames, warnings };
+`, removedFrames, warnings: warnings2 };
       }
       function splitAndRemove(item, overlapIn, overlapOut, edit) {
         if (item.source.kind !== "media")
@@ -9432,7 +9432,7 @@ ${indent}`);
         if (!value || typeof value !== "object") {
           throw new Error("\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
         }
-        const warnings = [];
+        const warnings2 = [];
         const cuts = [];
         const overlays = [];
         const beats = [];
@@ -9478,7 +9478,7 @@ ${indent}`);
             const output = rawCut?.out;
             const hasSrc = rawCut !== null && typeof rawCut === "object" && Object.prototype.hasOwnProperty.call(rawCut, "src");
             if (isV1 && !hasSrc || hasSrc && typeof rawCut.src !== "string" || isV0 && hasSrc || hasSrc && (!isV1 || !sourceIds.has(rawCut.src))) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E src \u3092\u89E3\u6C7A\u3067\u304D\u306A\u3044\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E src \u3092\u89E3\u6C7A\u3067\u304D\u306A\u3044\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             if (typeof input === "number" && Number.isFinite(input) && typeof output === "number" && Number.isFinite(output) && input < output) {
@@ -9487,7 +9487,7 @@ ${indent}`);
                 if (typeof rawCut.speed === "number" && Number.isFinite(rawCut.speed) && rawCut.speed > 0) {
                   speed = rawCut.speed;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E speed \u304C\u4E0D\u6B63\u306A\u305F\u3081 1 \u3068\u3057\u3066\u6271\u3044\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E speed \u304C\u4E0D\u6B63\u306A\u305F\u3081 1 \u3068\u3057\u3066\u6271\u3044\u307E\u3059\u3002`);
                 }
               }
               let transitionOut;
@@ -9501,7 +9501,7 @@ ${indent}`);
                     duration: transition.duration
                   };
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transition_out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transition_out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               let at2;
@@ -9509,12 +9509,12 @@ ${indent}`);
                 if (typeof rawCut.at === "number" && Number.isFinite(rawCut.at) && rawCut.at >= 0) {
                   at2 = rawCut.at;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E at \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E at \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               const track = normalizeTrack(rawCut.track);
               if (rawCut.track !== void 0 && track !== rawCut.track) {
-                warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
+                warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
               }
               let transform;
               if (rawCut.transform !== void 0 && rawCut.transform !== null) {
@@ -9529,7 +9529,7 @@ ${indent}`);
                     ...rawTransform.rotate !== void 0 ? { rotate: rawTransform.rotate } : {}
                   };
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transform \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E transform \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               let opacity;
@@ -9537,7 +9537,7 @@ ${indent}`);
                 if (typeof rawCut.opacity === "number" && Number.isFinite(rawCut.opacity) && rawCut.opacity >= 0 && rawCut.opacity <= 1) {
                   opacity = rawCut.opacity;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E opacity \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306E opacity \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               origins.cuts.push(index);
@@ -9553,11 +9553,11 @@ ${indent}`);
                 ...rawCut.track !== void 0 ? { track } : {}
               });
             } else {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u6642\u523B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AF\u30EA\u30C3\u30D7\u306F\u6642\u523B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
             }
           }
         } else if (value.cuts !== void 0) {
-          warnings.push("cuts \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30AF\u30EA\u30C3\u30D7\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+          warnings2.push("cuts \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30AF\u30EA\u30C3\u30D7\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
         }
         if (Array.isArray(value.overlays)) {
           const seenIds = /* @__PURE__ */ new Set();
@@ -9565,7 +9565,7 @@ ${indent}`);
             const overlay = value.overlays[index];
             if (typeof overlay?.id === "string" && overlay.id && typeof overlay.start === "number" && Number.isFinite(overlay.start) && typeof overlay.duration === "number" && Number.isFinite(overlay.duration) && overlay.duration > 0) {
               if (seenIds.has(overlay.id)) {
-                warnings.push(`\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4 ${overlay.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+                warnings2.push(`\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4 ${overlay.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
                 continue;
               }
               seenIds.add(overlay.id);
@@ -9578,14 +9578,14 @@ ${indent}`);
                 payload: JSON.parse(JSON.stringify(overlay))
               });
               if (overlay.track !== void 0 && normalizeTrack(overlay.track) !== overlay.track) {
-                warnings.push(`\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4 ${overlay.id} \u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4 ${overlay.id} \u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
               }
             } else {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u306F\u8B58\u5225\u60C5\u5831\u307E\u305F\u306F\u6642\u523B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u306F\u8B58\u5225\u60C5\u5831\u307E\u305F\u306F\u6642\u523B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
             }
           }
         } else if (value.overlays !== void 0) {
-          warnings.push("overlays \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+          warnings2.push("overlays \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
         }
         if (Array.isArray(value.beats)) {
           const seenIds = /* @__PURE__ */ new Set();
@@ -9593,12 +9593,12 @@ ${indent}`);
             const beat = value.beats[index];
             const validRequiredFields = beat !== null && typeof beat === "object" && typeof beat.id === "string" && /^b-\d{4}$/.test(beat.id) && typeof beat.kind === "string" && beat.kind.length > 0 && typeof beat.t === "number" && Number.isFinite(beat.t) && beat.t >= 0 && typeof beat.strength === "number" && Number.isFinite(beat.strength) && beat.strength >= 0 && beat.strength <= 1;
             if (!validRequiredFields || seenIds.has(beat.id)) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7A2E\u985E\u30FB\u5F37\u5EA6\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7A2E\u985E\u30FB\u5F37\u5EA6\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             const hasSrc = Object.prototype.hasOwnProperty.call(beat, "src");
             if (hasSrc && typeof beat.src !== "string" || isV0 && hasSrc || hasSrc && (!isV1 || !sourceIds.has(beat.src))) {
-              warnings.push(`\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC ${beat.id} \u306E src \u3092\u89E3\u6C7A\u3067\u304D\u306A\u3044\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC ${beat.id} \u306E src \u3092\u89E3\u6C7A\u3067\u304D\u306A\u3044\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             seenIds.add(beat.id);
@@ -9613,7 +9613,7 @@ ${indent}`);
             });
           }
         } else if (value.beats !== void 0) {
-          warnings.push("beats \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+          warnings2.push("beats \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u898B\u305B\u5834\u30DE\u30FC\u30AB\u30FC\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
         }
         if (Array.isArray(value.layers)) {
           const seenIds = /* @__PURE__ */ new Set();
@@ -9621,24 +9621,24 @@ ${indent}`);
             const layer = value.layers[index];
             const valid = layer !== null && typeof layer === "object" && typeof layer.id === "string" && layer.id.length > 0 && typeof layer.t === "number" && Number.isFinite(layer.t) && layer.t >= 0 && typeof layer.duration === "number" && Number.isFinite(layer.duration) && layer.duration > 0 && (layer.kind === "baked" || layer.kind === "video") && typeof layer.src === "string" && layer.src.length > 0;
             if (!valid) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u7D20\u6750\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7A2E\u985E\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u7D20\u6750\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7A2E\u985E\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             if (seenIds.has(layer.id)) {
-              warnings.push(`\u7D20\u6750 ${layer.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`\u7D20\u6750 ${layer.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             seenIds.add(layer.id);
             const track = normalizeTrack(layer.track);
             if (layer.track !== void 0 && track !== layer.track) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E\u7D20\u6750\u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E\u7D20\u6750\u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
             }
             let preset;
             if (layer.preset !== void 0 && layer.preset !== null) {
               if (typeof layer.preset === "string") {
                 preset = layer.preset;
               } else {
-                warnings.push(`\u7D20\u6750 ${layer.id} \u306E preset \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u7D20\u6750 ${layer.id} \u306E preset \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
             }
             let transform;
@@ -9653,7 +9653,7 @@ ${indent}`);
                   ...rawTransform.rotate !== void 0 ? { rotate: rawTransform.rotate } : {}
                 };
               } else {
-                warnings.push(`\u7D20\u6750 ${layer.id} \u306E transform \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u7D20\u6750 ${layer.id} \u306E transform \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
             }
             let opacity;
@@ -9661,7 +9661,7 @@ ${indent}`);
               if (typeof layer.opacity === "number" && Number.isFinite(layer.opacity) && layer.opacity >= 0 && layer.opacity <= 1) {
                 opacity = layer.opacity;
               } else {
-                warnings.push(`\u7D20\u6750 ${layer.id} \u306E opacity \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u7D20\u6750 ${layer.id} \u306E opacity \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
             }
             let blend;
@@ -9669,7 +9669,7 @@ ${indent}`);
               if (typeof layer.blend === "string" && LAYER_BLEND_MODES.includes(layer.blend)) {
                 blend = layer.blend;
               } else {
-                warnings.push(`\u7D20\u6750 ${layer.id} \u306E blend \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u7D20\u6750 ${layer.id} \u306E blend \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
             }
             let chromaKey;
@@ -9683,7 +9683,7 @@ ${indent}`);
                   ...rawChromaKey.blend !== void 0 ? { blend: rawChromaKey.blend } : {}
                 };
               } else {
-                warnings.push(`\u7D20\u6750 ${layer.id} \u306E chroma_key \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                warnings2.push(`\u7D20\u6750 ${layer.id} \u306E chroma_key \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
               }
             }
             origins.layers.push(index);
@@ -9702,16 +9702,16 @@ ${indent}`);
             });
           }
         } else if (value.layers !== void 0) {
-          warnings.push("layers \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u7D20\u6750\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+          warnings2.push("layers \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u7D20\u6750\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
         }
         if (value.audio !== void 0 && (value.audio === null || typeof value.audio !== "object" || Array.isArray(value.audio))) {
-          warnings.push("audio \u304C object \u3067\u306F\u306A\u3044\u305F\u3081 SE/BGM \u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+          warnings2.push("audio \u304C object \u3067\u306F\u306A\u3044\u305F\u3081 SE/BGM \u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
         } else if (value.audio && typeof value.audio === "object") {
           if (Array.isArray(value.audio.sfx)) {
             for (let index = 0; index < value.audio.sfx.length; index++) {
               const sfx = value.audio.sfx[index];
               if (sfx === null || typeof sfx !== "object" || typeof sfx.path !== "string" || sfx.path.length === 0 || typeof sfx.t !== "number" || !Number.isFinite(sfx.t) || sfx.t < 0) {
-                warnings.push(`${index + 1} \u756A\u76EE\u306E SE \u306F\u6642\u523B\u307E\u305F\u306F\u7D20\u6750\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+                warnings2.push(`${index + 1} \u756A\u76EE\u306E SE \u306F\u6642\u523B\u307E\u305F\u306F\u7D20\u6750\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
                 continue;
               }
               let gainDb;
@@ -9719,7 +9719,7 @@ ${indent}`);
                 if (typeof sfx.gain_db === "number" && Number.isFinite(sfx.gain_db) && sfx.gain_db >= -60 && sfx.gain_db <= 12) {
                   gainDb = sfx.gain_db;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E SE \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E SE \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               let inSeconds;
@@ -9727,7 +9727,7 @@ ${indent}`);
                 if (typeof sfx.in === "number" && Number.isFinite(sfx.in) && sfx.in >= 0) {
                   inSeconds = sfx.in;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E SE \u306E in \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E SE \u306E in \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               let outSeconds;
@@ -9735,7 +9735,7 @@ ${indent}`);
                 if (typeof sfx.out === "number" && Number.isFinite(sfx.out) && sfx.out > 0) {
                   outSeconds = sfx.out;
                 } else {
-                  warnings.push(`${index + 1} \u756A\u76EE\u306E SE \u306E out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`${index + 1} \u756A\u76EE\u306E SE \u306E out \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               origins.audioSfx.push(index);
@@ -9752,7 +9752,7 @@ ${indent}`);
                 ...gainDb !== void 0 ? { gainDb } : {}
               });
               if (sfx.track !== void 0 && normalizeTrack(sfx.track) !== sfx.track) {
-                warnings.push(`${index + 1} \u756A\u76EE\u306E SE \u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
+                warnings2.push(`${index + 1} \u756A\u76EE\u306E SE \u306E track \u304C\u4E0D\u6B63\u306A\u305F\u3081 track 0 \u306B\u8868\u793A\u3057\u307E\u3059\u3002`);
               }
             }
           }
@@ -9761,11 +9761,11 @@ ${indent}`);
             for (let index = 0; index < value.audio.narration.length; index++) {
               const narration = value.audio.narration[index];
               if (narration === null || typeof narration !== "object" || typeof narration.id !== "string" || narration.id.length === 0 || typeof narration.path !== "string" || narration.path.length === 0 || typeof narration.t !== "number" || !Number.isFinite(narration.t) || narration.t < 0) {
-                warnings.push(`${index + 1} \u756A\u76EE\u306E\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7D20\u6750\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+                warnings2.push(`${index + 1} \u756A\u76EE\u306E\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u306F\u8B58\u5225\u60C5\u5831\u30FB\u6642\u523B\u30FB\u7D20\u6750\u306E\u3044\u305A\u308C\u304B\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
                 continue;
               }
               if (seenNarrationIds.has(narration.id)) {
-                warnings.push(`\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3 ${narration.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+                warnings2.push(`\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3 ${narration.id} \u304C\u91CD\u8907\u3057\u3066\u3044\u308B\u305F\u3081\u3001\u5F8C\u306E\u8981\u7D20\u306F\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
                 continue;
               }
               seenNarrationIds.add(narration.id);
@@ -9774,7 +9774,7 @@ ${indent}`);
                 if (typeof narration.gain_db === "number" && Number.isFinite(narration.gain_db) && narration.gain_db >= -60 && narration.gain_db <= 12) {
                   gainDb = narration.gain_db;
                 } else {
-                  warnings.push(`\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3 ${narration.id} \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
+                  warnings2.push(`\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3 ${narration.id} \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002`);
                 }
               }
               origins.audioNarration.push(index);
@@ -9791,7 +9791,7 @@ ${indent}`);
               });
             }
           } else if (value.audio.narration !== void 0) {
-            warnings.push("audio.narration \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+            warnings2.push("audio.narration \u304C\u914D\u5217\u3067\u306F\u306A\u3044\u305F\u3081\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u3092\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
           }
           const bgm = value.audio.bgm;
           if (bgm !== void 0 && bgm !== null) {
@@ -9801,7 +9801,7 @@ ${indent}`);
                 if (typeof bgm.gain_db === "number" && Number.isFinite(bgm.gain_db) && bgm.gain_db >= -60 && bgm.gain_db <= 12) {
                   gainDb = bgm.gain_db;
                 } else {
-                  warnings.push("bgm \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002");
+                  warnings2.push("bgm \u306E gain_db \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002");
                 }
               }
               let ducking;
@@ -9809,7 +9809,7 @@ ${indent}`);
                 if (typeof bgm.ducking === "boolean") {
                   ducking = bgm.ducking;
                 } else {
-                  warnings.push("bgm \u306E ducking \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002");
+                  warnings2.push("bgm \u306E ducking \u304C\u4E0D\u6B63\u306A\u305F\u3081\u7121\u8996\u3057\u307E\u3059\u3002");
                 }
               }
               audioBgm = {
@@ -9821,7 +9821,7 @@ ${indent}`);
                 ...ducking !== void 0 ? { ducking } : {}
               };
             } else {
-              warnings.push("bgm \u306E path \u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
+              warnings2.push("bgm \u306E path \u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002");
             }
           }
         }
@@ -9834,11 +9834,11 @@ ${indent}`);
             const track = value.timeline.tracks[index];
             const valid = track !== null && typeof track === "object" && !Array.isArray(track) && typeof track.id === "string" && track.id.length > 0 && typeof track.kind === "string" && kinds.includes(track.kind) && (track.ref === void 0 || Number.isInteger(track.ref) && track.ref >= 0) && (track.label === void 0 || typeof track.label === "string") && (track.muted === void 0 || typeof track.muted === "boolean") && (track.hidden === void 0 || typeof track.hidden === "boolean") && (track.locked === void 0 || typeof track.locked === "boolean");
             if (!valid) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E timeline.tracks \u8981\u7D20\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E timeline.tracks \u8981\u7D20\u304C\u4E0D\u6B63\u306A\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             if (seenTrackIds.has(track.id) || track.kind === "captions" && seenSingletonKinds.has(track.kind)) {
-              warnings.push(`${index + 1} \u756A\u76EE\u306E timeline.tracks \u8981\u7D20\u304C\u91CD\u8907\u306E\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
+              warnings2.push(`${index + 1} \u756A\u76EE\u306E timeline.tracks \u8981\u7D20\u304C\u91CD\u8907\u306E\u305F\u3081\u8868\u793A\u3057\u307E\u305B\u3093\u3002`);
               continue;
             }
             seenTrackIds.add(track.id);
@@ -9873,7 +9873,7 @@ ${indent}`);
           ...audioBgm ? { audioBgm } : {},
           ...timeline ? { timeline } : {},
           fps,
-          warnings,
+          warnings: warnings2,
           origins
         };
       }
@@ -17056,6 +17056,7 @@ ${indent}`);
     applyAdjustCurves: () => applyAdjustCurves,
     applyAdjustHue: () => applyAdjustHue,
     applyAdjustWheels: () => applyAdjustWheels,
+    applyCaptionAnimatorDom: () => applyCaptionAnimatorDom,
     applyHomography: () => applyHomography,
     applyItemAdjust: () => applyItemAdjust,
     avcCodecString: () => avcCodecString2,
@@ -19850,28 +19851,28 @@ void main() {
   function parameter(value, fallback, min, max) {
     return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
   }
-  function normalizeAdjustFx(fx, sections, warnings = []) {
+  function normalizeAdjustFx(fx, sections, warnings2 = []) {
     if (sections?.fx === false || fx == null) return [];
     if (!Array.isArray(fx)) {
-      warnings.push("adjust.fx.structure: expected an array");
+      warnings2.push("adjust.fx.structure: expected an array");
       return [];
     }
-    if (fx.length > 8) warnings.push("adjust.fx.max-items: only the first 8 entries are considered");
+    if (fx.length > 8) warnings2.push("adjust.fx.max-items: only the first 8 entries are considered");
     const resolved = [];
     const seen = /* @__PURE__ */ new Set();
     for (const [index, entry] of fx.slice(0, 8).entries()) {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        warnings.push(`adjust.fx[${index}]: expected an effect object`);
+        warnings2.push(`adjust.fx[${index}]: expected an effect object`);
         continue;
       }
       const value = entry;
       const id = value.id;
       if (id !== "vignette" && id !== "blur" && id !== "grain" && id !== "sharpen") {
-        warnings.push(`adjust.fx[${index}].id: unknown effect id "${String(id)}"; ignored`);
+        warnings2.push(`adjust.fx[${index}].id: unknown effect id "${String(id)}"; ignored`);
         continue;
       }
       if (seen.has(id)) {
-        warnings.push(`adjust.fx.duplicate-id: ${id} at index ${index}; ignored`);
+        warnings2.push(`adjust.fx.duplicate-id: ${id} at index ${index}; ignored`);
         continue;
       }
       seen.add(id);
@@ -20119,8 +20120,8 @@ void main() {
     };
     return isItemAdjustIdentity(view) ? void 0 : bakeItemAdjustLut(view, userLut);
   }
-  function resolveAdjustFx(adjust, warnings = []) {
-    const fx = normalizeAdjustFx(adjust?.fx, adjust?.sections, warnings);
+  function resolveAdjustFx(adjust, warnings2 = []) {
+    const fx = normalizeAdjustFx(adjust?.fx, adjust?.sections, warnings2);
     return fx.length ? fx : void 0;
   }
   function normalizeTransition(cut) {
@@ -20163,9 +20164,9 @@ void main() {
       onWarning?.(message);
     };
     const itemFx = (adjust, owner) => {
-      const warnings = [];
-      const fx = resolveAdjustFx(adjust, warnings);
-      warnings.forEach((message) => warn(owner + ": " + message));
+      const warnings2 = [];
+      const fx = resolveAdjustFx(adjust, warnings2);
+      warnings2.forEach((message) => warn(owner + ": " + message));
       return fx;
     };
     cuts.forEach((cut, index) => {
@@ -30141,6 +30142,84 @@ void main() {
       indices.set(token, units.get(key));
     }
     return { count: units.size, unitIndexOf: (token) => indices.get(token) ?? -1 };
+  }
+
+  // packages/frame-engine/src/timeline/caption-animator-dom.ts
+  var warnings = /* @__PURE__ */ new WeakMap();
+  var opacityBases = /* @__PURE__ */ new WeakMap();
+  var fixed = (value) => (Math.abs(value) < 5e-7 ? 0 : value).toFixed(6);
+  function applyCaptionAnimatorDom(root, declaration) {
+    if (!Array.isArray(declaration.animators) || declaration.animators.length === 0) return;
+    const warn = (code, message) => {
+      if (!declaration.warn) return;
+      let codes = warnings.get(root);
+      if (!codes) warnings.set(root, codes = /* @__PURE__ */ new Set());
+      if (codes.has(code)) return;
+      codes.add(code);
+      declaration.warn(code, message);
+    };
+    const animators = normalizeAnimators(declaration.animators, warn);
+    if (animators.length === 0) return;
+    const params = animatorParamsAt(
+      animators,
+      declaration.keyframes,
+      declaration.cueLocalSeconds + (declaration.keyframeOffsetSeconds ?? 0),
+      declaration.fps
+    );
+    const groups = [...new Set(animators.map((animator) => animator.basis))].map((basis) => {
+      let selector = basis === "chars" ? ".akari-caption__char" : basis === "words" ? ".akari-caption__tok" : ".akari-caption__line";
+      let units = Array.from(root.querySelectorAll(selector));
+      if (basis === "words" && units.length === 0) {
+        selector = "span.akari-caption__word, span[data-akari-word]";
+        units = Array.from(root.querySelectorAll(selector));
+      }
+      if (basis === "lines") {
+        selector = ".akari-caption__line, .akari-caption__reveal-group";
+        units = Array.from(root.querySelectorAll(selector)).filter((unit2) => unit2.querySelectorAll(".akari-caption__line").length === 0);
+      }
+      if (units.length === 0) warn(`animator.missing-${basis}`, `caption has no ${basis} units; animator ignored`);
+      const selected = animators.filter((animator) => animator.basis === basis);
+      return { selector, states: new Map(units.map((unit2, index) => [unit2, captionAnimatorStateAt(selected, params, index, units.length, declaration.outputWidth)])) };
+    });
+    const candidates = new Set(groups.flatMap((group) => [...group.states.keys()]));
+    const ancestors = /* @__PURE__ */ new Set();
+    for (const unit2 of candidates) {
+      for (let parent = unit2.parentElement; parent && parent !== root; parent = parent.parentElement) {
+        if (candidates.has(parent)) ancestors.add(parent);
+      }
+    }
+    for (const unit2 of candidates) {
+      if (ancestors.has(unit2) || !("style" in unit2)) continue;
+      let x3 = 0, y2 = 0, scale = 1, rotate = 0, opacityDelta = 0, spacing = 0, blur = 0;
+      for (const group of groups) {
+        const member = unit2.closest(group.selector);
+        const state = member ? group.states.get(member) : void 0;
+        if (!state) continue;
+        x3 += state.translateX;
+        y2 += state.translateY;
+        scale *= state.scale;
+        rotate += state.rotateDeg;
+        opacityDelta += state.opacityDelta;
+        spacing += state.letterSpacing;
+        blur += state.blurPx;
+      }
+      const style = unit2.style;
+      let opacity = opacityBases.get(unit2);
+      if (!opacity || style.opacity !== opacity.written) {
+        opacity = { original: style.opacity, priority: style.getPropertyPriority("opacity"), written: "" };
+        opacityBases.set(unit2, opacity);
+      }
+      if (opacity.original) style.setProperty("opacity", opacity.original, opacity.priority);
+      else style.removeProperty("opacity");
+      const value = Number.parseFloat(unit2.ownerDocument?.defaultView?.getComputedStyle(unit2).opacity ?? style.opacity);
+      const baseOpacity = Number.isFinite(value) ? value : 1;
+      if (unit2.tagName.toLowerCase() === "span") style.display = "inline-block";
+      style.setProperty("transform", `translate(${fixed(x3)}px, ${fixed(y2)}px) scale(${fixed(scale)}) rotate(${fixed(rotate)}deg)`, "important");
+      style.letterSpacing = `${fixed(spacing)}px`;
+      style.filter = `blur(${fixed(Math.max(0, blur))}px)`;
+      style.setProperty("opacity", fixed(baseOpacity * Math.max(0, Math.min(1, 1 + opacityDelta))), "important");
+      opacity.written = style.opacity;
+    }
   }
   return __toCommonJS(index_exports);
 })();

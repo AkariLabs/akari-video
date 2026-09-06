@@ -49,6 +49,71 @@ export type LayerKeyframesSummary = unknown[];
 /** Light object gate only; preset/span validation belongs to the frame engine and edit-lint. */
 export type MotionSummary = Record<string, unknown>;
 
+export interface CaptionAnimatorSummary {
+    animator?: unknown[];
+    animatorKeyframes?: unknown[];
+    animatorStart?: number;
+}
+
+/** Minimal internal tree input; no file access or preview/browser dependencies. */
+export interface CaptionAnimatorItemInput {
+    at: number;
+    hidden?: boolean;
+    source: { kind: string; id?: string; exclude?: string[] };
+    declaration: Record<string, unknown>;
+    keyframesRef?: unknown;
+    children?: readonly CaptionAnimatorItemInput[];
+}
+
+export interface CaptionAnimatorSummaryInput {
+    output: { fps: number };
+    tracks: readonly { hidden?: boolean; items: readonly CaptionAnimatorItemInput[] }[];
+}
+
+/**
+ * Attach item declarations to already resolved output cues. Preserve display IDs, fragments,
+ * and timing: sourceCueId identifies the original cue after layout/cut projection.
+ * A detached cue item takes precedence over a bag; excluded cues never inherit the bag.
+ * Inline internal points are seconds, while resolved sidecar points remain integer frames.
+ */
+export function buildCaptionAnimatorSummaryFields<T extends { id?: string; sourceCueId?: string }>(
+    captions: T[], internal?: CaptionAnimatorSummaryInput
+): (T & CaptionAnimatorSummary)[] {
+    if (!internal) return captions;
+    const bags: CaptionAnimatorItemInput[] = [];
+    const cues: CaptionAnimatorItemInput[] = [];
+    const visit = (item: CaptionAnimatorItemInput): void => {
+        if (item.hidden === true || item.declaration.hidden === true) return;
+        if (item.source.kind === 'captions') bags.push(item);
+        if (item.source.kind === 'caption') cues.push(item);
+        for (const child of item.children ?? []) visit(child);
+    };
+    for (const track of internal.tracks) {
+        if (!track.hidden) for (const item of track.items) visit(item);
+    }
+    return captions.map(caption => {
+        const id = caption.sourceCueId ?? caption.id;
+        const item = cues.find(candidate => id !== undefined && String(candidate.source.id) === String(id))
+            ?? bags.find(candidate => !candidate.source.exclude?.includes(id ?? '')
+                && Array.isArray(candidate.declaration.animator) && candidate.declaration.animator.length > 0);
+        const animator = item?.declaration.animator;
+        if (!item || !Array.isArray(animator) || animator.length === 0) return caption;
+        const keyframes = item.declaration.keyframes;
+        return {
+            ...caption,
+            animator,
+            ...(Array.isArray(keyframes) ? {
+                animatorKeyframes: keyframes.map(point => isPlainObject(point) ? {
+                    ...point,
+                    ...(typeof point.t === 'number' && Number.isFinite(point.t)
+                        ? { t: item.keyframesRef ? point.t : Math.round(point.t * internal.output.fps) } : {})
+                } : point)
+            } : {}),
+            animatorStart: item.at
+        };
+    });
+}
+
 export interface ChromaKeySummary {
     color: string;
     similarity: number;

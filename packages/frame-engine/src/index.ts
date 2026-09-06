@@ -35,6 +35,7 @@ export * from './exits/webcodecs.js';
 export * from './exits/sprite-compositor.js';
 export * from './timeline/caption-motion.js';
 export * from './timeline/caption-animator.js';
+export * from './timeline/caption-animator-dom.js';
 export * from './timeline/item-motion.js';
 
 export { applyItemAdjust, applyAdjustWheels, applyAdjustCurves, applyAdjustHue, normalizeAdjustWheels, normalizeAdjustCurves, normalizeAdjustHue, isAdjustWheelsIdentity, isAdjustCurvesIdentity, isAdjustHueIdentity } from "./adjust/kernel.js";
