@@ -19,6 +19,7 @@ import type {
 } from '../types.js';
 import type { ParsedCubeLut } from '../look/cube.js';
 import { bakeItemAdjustLut, isItemAdjustIdentity } from '../adjust/bake.js';
+import { normalizeAdjustFx, type ResolvedAdjustFx } from '../adjust/fx.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
 import { motionVisualAt, type MotionV0, type MotionVisual } from './item-motion.js';
 
@@ -120,6 +121,7 @@ interface ResolvedCutPlacement {
   freezeAt: number | null;
   freezeDuration: number;
   adjustLut?: ParsedCubeLut;
+  adjustFx?: ResolvedAdjustFx[];
 }
 
 export interface ResolvedTimelinePlan {
@@ -128,6 +130,7 @@ export interface ResolvedTimelinePlan {
   readonly totalDuration: number;
   readonly layers: readonly FrameEngineLayer[];
   readonly layerAdjustLuts: readonly (ParsedCubeLut | undefined)[];
+  readonly layerAdjustFx?: readonly (ResolvedAdjustFx[] | undefined)[];
   readonly maskSources: ReadonlyMap<string, string | null>;
   readonly warn: (message: string) => void;
   readonly fps: number;
@@ -167,6 +170,15 @@ export function resolveAdjustLut(adjust: FrameEngineAdjust | null | undefined): 
     lut: userLut ? { lut: 'resolved', intensity: adjust.lut?.intensity } : null,
   };
   return isItemAdjustIdentity(view) ? undefined : bakeItemAdjustLut(view, userLut);
+}
+
+/** Resolve spatial effects separately from the color LUT, once per plan. */
+export function resolveAdjustFx(
+  adjust: FrameEngineAdjust | null | undefined,
+  warnings: string[] = []
+): ResolvedAdjustFx[] | undefined {
+  const fx = normalizeAdjustFx(adjust?.fx, adjust?.sections, warnings);
+  return fx.length ? fx : undefined;
 }
 
 function normalizeTransition(cut: FrameEngineCut): EditCut['transitionOut'] {
@@ -239,6 +251,12 @@ export function buildResolvedTimelinePlan(
     warned.add(message);
     onWarning?.(message);
   };
+  const itemFx = (adjust: FrameEngineAdjust | undefined, owner: string) => {
+    const warnings: string[] = [];
+    const fx = resolveAdjustFx(adjust, warnings);
+    warnings.forEach(message => warn(owner + ': ' + message));
+    return fx;
+  };
   cuts.forEach((cut, index) => {
     const id = String(cut.id ?? `cut-${index}`);
     warnUnknownFields(cut, `cut ${id}`, KNOWN_CUT_KEYS, warn);
@@ -273,6 +291,7 @@ export function buildResolvedTimelinePlan(
       ? clamp(finite(cut.freeze.at_sec, 0), 0, playbackDuration)
       : null;
     const adjustLut = resolveAdjustLut(cut.adjust);
+    const adjustFx = itemFx(cut.adjust, `cut ${cut.id ?? `cut-${index}`}`);
     return {
       cut,
       at: segment.at,
@@ -280,11 +299,13 @@ export function buildResolvedTimelinePlan(
       playbackDuration,
       freezeAt,
       freezeDuration,
-      ...(adjustLut ? { adjustLut } : {})
+      ...(adjustLut ? { adjustLut } : {}),
+      ...(adjustFx ? { adjustFx } : {})
     };
   });
   const visibleLayers = layers;
   const layerAdjustLuts = visibleLayers.map(layer => resolveAdjustLut(layer.adjust));
+  const layerAdjustFx = visibleLayers.map((layer, index) => itemFx(layer.adjust, `layer ${layer.id ?? `layer-${index}`}`));
   // issue #39: perspective is out of scope for the base path; never drop it silently.
   cuts.forEach((cut, index) => {
     if (!cutDeclaresPerspective(cut)) return;
@@ -318,6 +339,7 @@ export function buildResolvedTimelinePlan(
     map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd),
     layers: visibleLayers,
     layerAdjustLuts,
+    ...(layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {}),
     maskSources,
     warn,
     fps: finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) > 0
@@ -454,13 +476,14 @@ function visualAt(
   playbackSeconds: number,
   localSeconds: number,
   fps: number,
-  adjustLut?: ParsedCubeLut
+  adjustLut?: ParsedCubeLut,
+  adjustFx?: ResolvedAdjustFx[]
 ): ResolvedCutVisual {
   const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
   const motion = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
   if (hasCutLayerStyleVisual(cut)) {
     const visual = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion);
-    return adjustLut ? { ...visual, adjustLut } : visual;
+    return { ...visual, ...(adjustLut ? { adjustLut } : {}), ...(adjustFx ? { adjustFx } : {}) };
   }
   let framing = DEFAULT_VISUAL.framing;
   const keyframes = cut.framing?.keyframes;
@@ -500,7 +523,7 @@ function visualAt(
     opacity: clamp(finite(cut.opacity, 1), 0, 1)
   };
   const composed = cutMotionVisual(visual, motion);
-  return adjustLut ? { ...composed, adjustLut } : composed;
+  return { ...composed, ...(adjustLut ? { adjustLut } : {}), ...(adjustFx ? { adjustFx } : {}) };
 }
 
 function layerFromPlacement(
@@ -516,7 +539,7 @@ function layerFromPlacement(
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   // 出力ローカル秒: freeze で絵が止まっている間も進む（layer-style keyframes の時計）。
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut, placement.adjustFx);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
@@ -671,10 +694,12 @@ function resolvedCompositeLayers(
     }
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
     const adjustLut = timeline.layerAdjustLuts[index];
+    const adjustFx = timeline.layerAdjustFx?.[index];
     const common = {
       id, visual,
       blend, opacity,
-      ...(adjustLut ? { adjustLut } : {})
+      ...(adjustLut ? { adjustLut } : {}),
+      ...(adjustFx ? { adjustFx } : {})
     };
     if (isStillImageSourcePath(layer.src)) {
       if (layer.mask || layer.kind === 'matte') timeline.warn(`mask ignored for still image layer ${id}`);
@@ -714,6 +739,9 @@ export function evaluationPlanFromResolvedTimeline(
   output: EvaluationPlan['output']
 ): EvaluationPlan {
   const outputSeconds = timeUs / 1e6;
+  // One rounding rule for preview and both export paths, independent of source playback.
+  const frameIndex = Number.isFinite(timeline.fps) && timeline.fps > 0
+    ? Math.max(0, Math.round(outputSeconds * timeline.fps)) : 0;
   const window = timeline.map.transitionWindows.find(candidate =>
     outputSeconds >= candidate.start && outputSeconds <= candidate.end
   );
@@ -726,6 +754,7 @@ export function evaluationPlanFromResolvedTimeline(
     }
     return {
       timeUs,
+      frameIndex,
       base: [
         layerFromPlacement(timeline.cuts[outgoingIndex]!, outgoingIndex, outputSeconds, sources, timeline.fps),
         layerFromPlacement(timeline.cuts[incomingIndex]!, incomingIndex, outputSeconds, sources, timeline.fps)
@@ -743,7 +772,7 @@ export function evaluationPlanFromResolvedTimeline(
   const base = resolved.segment?.kind === 'src' && cutIndex != null
     ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources, timeline.fps)]
     : [];
-  return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
+  return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
 }
 
 /** Backward-compatible hard-cut adapter for callers that already own a TimelineMapResult. */

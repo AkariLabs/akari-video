@@ -38,9 +38,13 @@ test('all eight look files conform to adjustV1 and exactly match index ids', () 
     assert.equal(JSON.stringify(look).includes('vignette'), false);
   }
 });
-test('capability ledger remains path-based with exactly the two adjust rows', () => {
+test('capability ledger keeps the two parent adjust rows and the fx row', () => {
   const table = JSON.parse(readFileSync(new URL('../engine-capabilities.json', import.meta.url), 'utf8'));
-  const rows = table.fields.filter(row => row.path.includes('.adjust'));
+  const rows = table.fields.filter(row => row.path === 'tracks[].items[].adjust');
+  const fx = table.fields.filter(row => row.path === 'tracks[].items[].adjust.fx');
+  assert.equal(fx.length, 1);
+  assert.deepEqual([fx[0].gpu, fx[0].osr], ['consumed', 'consumed']);
+  assert.equal(fx[0].evidence, 'packages/frame-engine/src/compositor/webgl2.ts applyFx');
   assert.equal(rows.length, 2);
   assert.ok(rows.every(row => row.path === 'tracks[].items[].adjust'));
   assert.deepEqual(rows.map(row => row.applies_to), [['cuts', 'layers', 'baked'], ['overlays', 'captions', 'group']]);

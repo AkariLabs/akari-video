@@ -5,7 +5,7 @@ import test from 'node:test';
 import { TRANSITION_TYPE_IDS } from '@akari-video/edit-store';
 import {
   applyHomography, buildBaseFragment, cutLayerStyleBox, cutLayerStyleSourceUv, forwardInverse,
-  invertMat3, isDirectUploadableFormat
+  invertMat3, isDirectUploadableFormat, WebGL2Compositor
 } from '../dist/index.js';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
@@ -246,6 +246,79 @@ test('item adjustment LUTs are sampled on each source quad before transition or 
   assert.match(source, /private lookTexture\(lut: ParsedCubeLut, allocationUnit = LUT_UNIT\)/u);
   assert.match(source, /this\.bind3d\(allocationUnit, texture\)/u);
   assert.match(source, /const BASE_ADJUST_LUT_UNITS = \[LUT_UNIT, 13\]/u);
+});
+
+function layerFragment() {
+  const shaders = [];
+  const gl = new Proxy({}, {
+    get(_target, key) {
+      if (key === 'shaderSource') return (_shader, text) => shaders.push(text);
+      if (key === 'getParameter') return () => 32;
+      if (key === 'getAttribLocation') return () => 0;
+      if (key === 'getShaderParameter' || key === 'getProgramParameter') return () => true;
+      if (key.startsWith('create') || key === 'getUniformLocation') return () => ({});
+      return () => {};
+    },
+  });
+  const compositor = new WebGL2Compositor({ getContext: () => gl });
+  compositor.dispose();
+  return shaders.find(text => text.includes('uniform mat3 inverseMap;'));
+}
+
+test('fx uniforms and identity bypass exist in the compiled layer and both base fragments', () => {
+  for (const [fragment, suffixes] of [[layerFragment(), ['']], [buildBaseFragment('fade'), ['0', '1']]]) {
+    assert.match(fragment, /uniform vec2 outputSize;/u);
+    assert.match(fragment, /uniform uint frameIndex;/u);
+    for (const suffix of suffixes) {
+      for (const [type, name] of [['int', 'fxCount'], ['int', 'fxKinds'], ['vec4', 'fxParams'], ['ivec2', 'fxSpatial']]) {
+        assert.ok(fragment.includes(`uniform ${type} ${name}${suffix}`));
+      }
+      assert.ok(fragment.includes(`vec3 applyFx${suffix}(vec3 rgb, vec2 sourceUv, vec2 local) {\n  if (fxCount${suffix} == 0) return rgb;`));
+    }
+  }
+});
+
+test('fx follows applyAdjust immediately, before mask, opacity and blend on every source path', () => {
+  const layer = layerFragment();
+  assert.match(layer, /src\.rgb = applyAdjust\(src\.rgb\);\s+src\.rgb = applyFx\(src\.rgb, sourceUv, local\);\s+float maskA/u);
+  assert.ok(layer.indexOf('float maskA') < layer.indexOf('src.a * maskA * opacity'));
+  assert.ok(layer.indexOf('src.a * maskA * opacity') < layer.indexOf('blend(dst.rgb, src.rgb)'));
+  for (const type of ['hard-cut', ...TRANSITION_TYPE_IDS]) {
+    const fragment = buildBaseFragment(type);
+    for (const suffix of ['0', '1']) {
+      const sample = fragment.slice(fragment.indexOf(`vec4 sample${suffix}(`), fragment.indexOf(suffix === '0' ? 'vec4 sample1(' : 'vec3 overBlack('));
+      for (const sampler of ['texture', 'yuv709']) {
+        assert.match(sample, new RegExp(`vec3 rgb = applyAdjust${suffix}\\(${sampler}[^;]+;\\s+rgb = applyFx${suffix}\\(rgb, sourceUv, local\\);\\s+return vec4\\(rgb, opacity${suffix}\\);`, 'u'));
+      }
+    }
+  }
+});
+
+test('fx uses bounded crop-clamped taps and evaluates preceding stages at each neighbour', () => {
+  const fragment = layerFragment();
+  assert.match(fragment, /float radius = fxParams\[stage\]\.x \* outputSize\.x \/ 1920\.0/u);
+  assert.match(fragment, /fxClamp\(fxPixelToSource\(fxSourceToPixel\(sourceUv\) \+ grid \* radius\)\)/u);
+  assert.match(fragment, /fxClamp\(sourceUv \+ grid \/ fxSourceSize\(\)\)/u);
+  assert.match(fragment, /clamp\(sourceUv, rect\.xy \+ inset, rect\.xy \+ rect\.zw - inset\)/u);
+  assert.equal((fragment.match(/for \(int tap = 0; tap < 25; tap\+\+\)/gu) ?? []).length, 2);
+  assert.match(fragment, /fxKinds\[first\] == 2 \? 25 : 9/u);
+  assert.match(fragment, /sum \+= fxPoints\(fxSampleAdjusted\(q\), q, fxLocal\(q\), 0, first\)/u);
+  assert.match(fragment, /sum \+= fxFirst\(fxSampleAdjusted\(q\), q, fxLocal\(q\), second\)/u);
+  assert.match(fragment, /clamp\(rgb \+ fxParams\[second\]\.x \* \(rgb - average\), 0\.0, 1\.0\)/u);
+  assert.match(fragment, /fxPoints\(rgb, sourceUv, local, second \+ 1, fxCount\)/u);
+});
+
+test('grain uses an integer frame hash and vignette uses the crop-local box', () => {
+  const fragment = layerFragment();
+  assert.match(fragment, /uint fxHash\(uint value\)/u);
+  assert.match(fragment, /value \^= value >> 16u/u);
+  assert.match(fragment, /floor\(outputPixel \/ params\.y\).*uvec2\(frameIndex\)/u);
+  assert.match(fragment, /noise \* params\.x \* 0\.15/u);
+  assert.doesNotMatch(fragment, /fract\s*\(\s*sin/u);
+  assert.match(fragment, /abs\(local - 0\.5\)/u);
+  assert.match(fragment, /box \/ max\(min\(box\.x, box\.y\)/u);
+  assert.match(fragment, /params\.w == 0\.0 \? step/u);
+  assert.match(fragment, /rgb - vec3\(params\.x \* falloff\)/u);
 });
 
 test('layer-style cut box matches the layer program forwardInverse on identical inputs (issue #39)', () => {

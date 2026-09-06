@@ -1,5 +1,6 @@
 import type { TransitionType } from '@akari-video/edit-store';
 import type { ParsedCubeLut } from './look/cube.js';
+import type { ResolvedAdjustFx } from './adjust/fx.js';
 
 export type TimelineTimeUs = number;
 export type NativeVideoFormat = 'NV12' | 'I420';
@@ -114,6 +115,8 @@ export interface ResolvedCutVisual {
   opacity: number;
   /** Item-scoped basic + LUT adjustment, baked once while the timeline plan is built. */
   adjustLut?: ParsedCubeLut;
+  /** Ordered spatial effects, applied after adjustment and before mask/opacity/blend. */
+  adjustFx?: ResolvedAdjustFx[];
   /**
    * Present only for layer-style cuts (see ResolvedCutLayerStyle). Absent — not `undefined` — for every
    * other cut so the fit-basis visual stays deep-equal to the pre-issue-#39 shape.
@@ -172,6 +175,8 @@ export interface ResolvedCompositeLayer {
   opacity: number;
   /** Item-scoped adjustment applied to the source quad before blending. */
   adjustLut?: ParsedCubeLut;
+  /** Ordered spatial effects, applied after adjustment and before mask/opacity/blend. */
+  adjustFx?: ResolvedAdjustFx[];
 }
 
 export type ResolvedFilter =
@@ -215,6 +220,8 @@ export interface ResolvedLook {
 
 export interface EvaluationPlan {
   timeUs: TimelineTimeUs;
+  /** Output frame number (nonnegative integer); omitted metadata uses grain seed 0. */
+  frameIndex?: number;
   base: readonly ResolvedBaseLayer[];
   layers: readonly ResolvedEvaluationLayer[];
   transition?: ResolvedTransition;

@@ -4812,7 +4812,36 @@ ${indent}`);
       }
       function validateAdjust(value, path) {
         requireRecord(value, path);
-        requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections", "curves", "wheels", "hue", "fx"]), path);
+        if (hasOwn(value, "fx")) {
+          const fxPath = path + ".fx";
+          if (!Array.isArray(value.fx) || value.fx.length > 8) {
+            throw invalid(fxPath, "adjust.fx.structure: must be an array of at most 8 effects");
+          }
+          const ranges = {
+            vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+            blur: { px: [0, 50] },
+            grain: { amount: [0, 1], size: [0.5, 4] },
+            sharpen: { amount: [0, 1] }
+          };
+          const seen = /* @__PURE__ */ new Set();
+          for (const [index, fx] of value.fx.entries()) {
+            const at2 = fxPath + "[" + index + "]";
+            requireRecord(fx, at2);
+            if (typeof fx.id !== "string" || !hasOwn(ranges, fx.id)) {
+              throw invalid(at2 + ".id", "adjust.fx.id: unknown effect id");
+            }
+            if (seen.has(fx.id))
+              throw invalid(at2 + ".id", "adjust.fx.duplicate-id: " + fx.id);
+            seen.add(fx.id);
+            const params = ranges[fx.id];
+            requireExactKeys(fx, /* @__PURE__ */ new Set(["id", ...Object.keys(params)]), at2);
+            for (const [key, [min, max]] of Object.entries(params)) {
+              if (hasOwn(fx, key))
+                requireRange(fx[key], min, max, at2 + "." + key);
+            }
+          }
+        }
         for (const section of ["curves", "hue"]) {
           if (!hasOwn(value, section))
             continue;
@@ -4884,7 +4913,7 @@ ${indent}`);
         }
         if (hasOwn(value, "sections")) {
           requireRecord(value.sections, `${path}.sections`);
-          const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut", "curves", "wheels", "hue"]);
+          const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut", "curves", "wheels", "hue", "fx"]);
           requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
           for (const key of sectionKeys) {
             if (hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
@@ -7306,9 +7335,9 @@ ${indent}`);
       function clamp5(value, minimum = 0, maximum = 1) {
         return Math.min(maximum, Math.max(minimum, value));
       }
-      function cubicCoordinateAt(parameter, first, second) {
-        const inverse = 1 - parameter;
-        return 3 * inverse * inverse * parameter * first + 3 * inverse * parameter * parameter * second + parameter * parameter * parameter;
+      function cubicCoordinateAt(parameter2, first, second) {
+        const inverse = 1 - parameter2;
+        return 3 * inverse * inverse * parameter2 * first + 3 * inverse * parameter2 * parameter2 * second + parameter2 * parameter2 * parameter2;
       }
       function cubicBezierAt2(progress, x1, y1, x22, y2) {
         if (![x1, y1, x22, y2].every(Number.isFinite) || x1 < 0 || x1 > 1 || x22 < 0 || x22 > 1)
@@ -7318,11 +7347,11 @@ ${indent}`);
         let lower = 0;
         let upper = 1;
         for (let index = 0; index < 32; index += 1) {
-          const parameter = (lower + upper) / 2;
-          if (cubicCoordinateAt(parameter, x1, x22) < progress)
-            lower = parameter;
+          const parameter2 = (lower + upper) / 2;
+          if (cubicCoordinateAt(parameter2, x1, x22) < progress)
+            lower = parameter2;
           else
-            upper = parameter;
+            upper = parameter2;
         }
         return cubicCoordinateAt((lower + upper) / 2, y1, y2);
       }
@@ -17077,6 +17106,7 @@ ${indent}`);
     invertMat3: () => invertMat3,
     isAdjustBasicIdentity: () => isAdjustBasicIdentity,
     isAdjustCurvesIdentity: () => isAdjustCurvesIdentity,
+    isAdjustFxIdentity: () => isAdjustFxIdentity,
     isAdjustHueIdentity: () => isAdjustHueIdentity,
     isAdjustWheelsIdentity: () => isAdjustWheelsIdentity,
     isCaptionMotionSupported: () => isCaptionMotionSupported,
@@ -17090,6 +17120,7 @@ ${indent}`);
     needsCodecProbe: () => needsCodecProbe,
     normalizeAdjustBasic: () => normalizeAdjustBasic,
     normalizeAdjustCurves: () => normalizeAdjustCurves,
+    normalizeAdjustFx: () => normalizeAdjustFx,
     normalizeAdjustHue: () => normalizeAdjustHue,
     normalizeAdjustWheels: () => normalizeAdjustWheels,
     normalizeSpriteDraw: () => normalizeSpriteDraw,
@@ -17110,6 +17141,7 @@ ${indent}`);
     readVideoCodecFromMoov: () => readVideoCodecFromMoov,
     readbackFrame: () => readbackFrame,
     resetCodecProbeCache: () => resetCodecProbeCache,
+    resolveAdjustFx: () => resolveAdjustFx,
     resolveAdjustLut: () => resolveAdjustLut,
     resolveFrameEngineSourceMode: () => resolveFrameEngineSourceMode,
     resolveLookLutPath: () => resolveLookLutPath,
@@ -17517,6 +17549,132 @@ vec3 yuv709Unclamped(float y, vec2 chroma) {
 vec3 yuv709(float y, vec2 chroma) {
   return clamp(yuv709Unclamped(y, chroma), 0.0, 1.0);
 }`;
+  function adjustFxGlsl(suffix = "") {
+    return `
+uniform int fxCount;
+uniform int fxKinds[8];
+uniform vec4 fxParams[8];
+uniform ivec2 fxSpatial;
+uint fxHash(uint value) {
+  value ^= value >> 16u;
+  value *= 0x7feb352du;
+  value ^= value >> 15u;
+  value *= 0x846ca68bu;
+  return value ^ (value >> 16u);
+}
+vec2 fxClamp(vec2 sourceUv) {
+  vec4 rect = fxCropRect();
+  // Keep bilinear footprints inside the crop, including on sub-texel crops.
+  vec2 inset = min(0.5 / fxSourceSize(), rect.zw * 0.5);
+  return clamp(sourceUv, rect.xy + inset, rect.xy + rect.zw - inset);
+}
+vec2 fxLocal(vec2 sourceUv) {
+  vec4 rect = fxCropRect();
+  return (sourceUv - rect.xy) / max(rect.zw, vec2(0.000001));
+}
+vec3 fxPoints(vec3 rgb, vec2 sourceUv, vec2 local, int start, int end) {
+  for (int i = 0; i < 8; i++) {
+    if (i < start) continue;
+    if (i >= end) break;
+    vec4 params = fxParams[i];
+    if (fxKinds[i] == 1) {
+      vec4 rect = fxCropRect();
+      vec2 box = rect.zw * fxSourceSize();
+      vec2 delta = abs(local - 0.5) * 2.0;
+      float roundness = (params.z + 1.0) * 0.5;
+      vec2 aspect = mix(vec2(1.0), box / max(min(box.x, box.y), 0.000001), roundness);
+      float distance = mix(max(delta.x, delta.y), length(delta * aspect), roundness);
+      float falloff = params.w == 0.0 ? step(params.y, distance)
+        : smoothstep(params.y, params.y + params.w, distance);
+      rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
+    } else if (fxKinds[i] == 3) {
+      vec2 outputPixel = fxSourceToPixel(sourceUv);
+      uvec2 cell = uvec2(ivec2(floor(outputPixel / params.y))) + uvec2(frameIndex);
+      uint bits = fxHash(cell.x ^ fxHash(cell.y));
+      float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
+      rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
+    }
+  }
+  return rgb;
+}
+vec2 fxTap(vec2 sourceUv, int stage, int tap) {
+  if (fxKinds[stage] == 2) {
+    vec2 grid = vec2(float(tap % 5), float(tap / 5)) * 0.5 - 1.0;
+    float radius = fxParams[stage].x * outputSize.x / 1920.0;
+    // Map the output-pixel radius back into source texels (also under scale/rotation/perspective).
+    return fxClamp(fxPixelToSource(fxSourceToPixel(sourceUv) + grid * radius));
+  }
+  vec2 grid = vec2(float(tap % 3), float(tap / 3)) - 1.0;
+  return fxClamp(sourceUv + grid / fxSourceSize());
+}
+vec3 fxFirst(vec3 rgb, vec2 sourceUv, vec2 local, int end) {
+  int first = fxSpatial.x;
+  if (first < 0 || first >= end) return fxPoints(rgb, sourceUv, local, 0, end);
+  rgb = fxPoints(rgb, sourceUv, local, 0, first);
+  int taps = fxKinds[first] == 2 ? 25 : 9;
+  vec3 sum = vec3(0.0);
+  for (int tap = 0; tap < 25; tap++) {
+    if (tap >= taps) break;
+    vec2 q = fxTap(sourceUv, first, tap);
+    sum += fxPoints(fxSampleAdjusted(q), q, fxLocal(q), 0, first);
+  }
+  vec3 average = sum / float(taps);
+  rgb = fxKinds[first] == 2 ? average
+    : clamp(rgb + fxParams[first].x * (rgb - average), 0.0, 1.0);
+  return fxPoints(rgb, sourceUv, local, first + 1, end);
+}
+vec3 applyFx(vec3 rgb, vec2 sourceUv, vec2 local) {
+  if (fxCount == 0) return rgb;
+  int second = fxSpatial.y;
+  if (second < 0) return fxFirst(rgb, sourceUv, local, fxCount);
+  rgb = fxFirst(rgb, sourceUv, local, second);
+  int taps = fxKinds[second] == 2 ? 25 : 9;
+  vec3 sum = vec3(0.0);
+  for (int tap = 0; tap < 25; tap++) {
+    if (tap >= taps) break;
+    vec2 q = fxTap(sourceUv, second, tap);
+    sum += fxFirst(fxSampleAdjusted(q), q, fxLocal(q), second);
+  }
+  vec3 average = sum / float(taps);
+  rgb = fxKinds[second] == 2 ? average
+    : clamp(rgb + fxParams[second].x * (rgb - average), 0.0, 1.0);
+  return fxPoints(rgb, sourceUv, local, second + 1, fxCount);
+}`.replace(/\b(fx\w+|applyFx)\b/gu, "$1" + suffix);
+  }
+  function baseAdjustFxGlsl(index) {
+    return `
+vec4 fxCropRect${index}() {
+  if (layerStyle${index} == 1) return crop${index};
+  vec2 lo = clamp(canvasToSource(framing${index}.xy, sourceSize${index}), 0.0, 1.0);
+  vec2 hi = clamp(canvasToSource(framing${index}.xy + framing${index}.zw, sourceSize${index}), 0.0, 1.0);
+  return vec4(lo, max(hi - lo, vec2(0.000001)));
+}
+vec2 fxSourceSize${index}() { return sourceSize${index}; }
+vec2 fxPixelToSource${index}(vec2 pixel) {
+  vec2 p = pixel / outputSize;
+  if (layerStyle${index} == 1) return crop${index}.xy + inverseBox(p, transform${index}, box${index}) * crop${index}.zw;
+  return canvasToSource(inverseVisual(p, transform${index}, framing${index}), sourceSize${index});
+}
+vec2 fxSourceToPixel${index}(vec2 sourceUv) {
+  vec2 pixel;
+  if (layerStyle${index} == 1) {
+    pixel = ((sourceUv - crop${index}.xy) / crop${index}.zw - 0.5) * box${index};
+  } else {
+    float fit = min(outputSize.x / sourceSize${index}.x, outputSize.y / sourceSize${index}.y);
+    vec2 canvasPoint = (sourceUv - 0.5) * sourceSize${index} * fit / outputSize + 0.5;
+    pixel = ((canvasPoint - framing${index}.xy) / framing${index}.zw - 0.5) * outputSize * transform${index}.z;
+  }
+  float angle = transform${index}.w;
+  return mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * pixel + outputSize * 0.5 + transform${index}.xy;
+}
+vec3 fxSampleAdjusted${index}(vec2 sourceUv) {
+  vec2 q = unrotate(sourceUv, rotation${index});
+  if (format${index} == 2) return applyAdjust${index}(texture(rgba${index}, q).rgb);
+  vec2 chroma = format${index} == 1 ? texture(u${index}, q).rg : vec2(texture(u${index}, q).r, texture(v${index}, q).r);
+  return applyAdjust${index}(yuv709(texture(y${index}, q).r, chroma));
+}
+${adjustFxGlsl(String(index))}`;
+  }
   var baseFragmentPrefix = (type) => `#version 300 es
 precision highp float;
 precision highp int;
@@ -17540,6 +17698,7 @@ uniform vec4 transform1;
 uniform float opacity0;
 uniform float opacity1;
 uniform vec2 outputSize;
+uniform uint frameIndex;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int rotation0;
@@ -17605,6 +17764,8 @@ vec3 applyAdjust1(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize1 - 1.0) + 0.5) / adjustLutSize1;
   return mix(rgb, texture(adjustLut1, coord).rgb, adjustLutIntensity1);
 }
+${baseAdjustFxGlsl(0)}
+${baseAdjustFxGlsl(1)}
 vec4 sample0(vec2 p) {
   vec2 q;
   if (layerStyle0 == 1) {
@@ -17617,10 +17778,19 @@ vec4 sample0(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize0);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
+  vec2 sourceUv = q;
+  vec4 rect = fxCropRect0();
+  vec2 local = (sourceUv - rect.xy) / rect.zw;
   q = unrotate(q, rotation0);
-  if (format0 == 2) return vec4(applyAdjust0(texture(rgba0, q).rgb), opacity0);
+  if (format0 == 2) {
+    vec3 rgb = applyAdjust0(texture(rgba0, q).rgb);
+    rgb = applyFx0(rgb, sourceUv, local);
+    return vec4(rgb, opacity0);
+  }
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(applyAdjust0(yuv709(texture(y0, q).r, chroma)), opacity0);
+  vec3 rgb = applyAdjust0(yuv709(texture(y0, q).r, chroma));
+  rgb = applyFx0(rgb, sourceUv, local);
+  return vec4(rgb, opacity0);
 }
 vec4 sample1(vec2 p) {
   vec2 q;
@@ -17634,10 +17804,19 @@ vec4 sample1(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize1);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
+  vec2 sourceUv = q;
+  vec4 rect = fxCropRect1();
+  vec2 local = (sourceUv - rect.xy) / rect.zw;
   q = unrotate(q, rotation1);
-  if (format1 == 2) return vec4(applyAdjust1(texture(rgba1, q).rgb), opacity1);
+  if (format1 == 2) {
+    vec3 rgb = applyAdjust1(texture(rgba1, q).rgb);
+    rgb = applyFx1(rgb, sourceUv, local);
+    return vec4(rgb, opacity1);
+  }
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(applyAdjust1(yuv709(texture(y1, q).r, chroma)), opacity1);
+  vec3 rgb = applyAdjust1(yuv709(texture(y1, q).r, chroma));
+  rgb = applyFx1(rgb, sourceUv, local);
+  return vec4(rgb, opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
 vec3 A(vec2 p) { return overBlack(sample0(p)); }
@@ -17826,6 +18005,8 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform vec2 outputSize;
+uniform uint frameIndex;
+uniform vec2 fxSourceDimensions;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
@@ -17868,6 +18049,25 @@ vec3 applyAdjust(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
   return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
+vec4 fxCropRect() { return cropRect; }
+vec2 fxSourceSize() { return fxSourceDimensions; }
+vec2 fxPixelToSource(vec2 pixel) {
+  vec3 h = inverseMap * vec3(pixel, 1.0);
+  return cropRect.xy + h.xy / max(h.z, 0.000001) * cropRect.zw;
+}
+vec2 fxSourceToPixel(vec2 sourceUv) {
+  vec2 local = (sourceUv - cropRect.xy) / cropRect.zw;
+  vec3 h = inverse(inverseMap) * vec3(local, 1.0);
+  return h.xy / max(h.z, 0.000001);
+}
+vec3 fxSampleAdjusted(vec2 sourceUv) {
+  vec2 q = unrotate(sourceUv, layerRotation);
+  if (inputKind == 1) return applyAdjust(texture(image, q).rgb);
+  if (yuvFormat == 2) return applyAdjust(texture(lrgba, q).rgb);
+  vec2 chroma = yuvFormat == 1 ? texture(lu, q).rg : vec2(texture(lu, q).r, texture(lv, q).r);
+  return applyAdjust(yuv709(texture(ly, q).r, chroma));
+}
+${adjustFxGlsl()}
 void main() {
   vec4 dst = texture(backdrop, uv);
   vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
@@ -17896,6 +18096,7 @@ void main() {
     src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
   src.rgb = applyAdjust(src.rgb);
+  src.rgb = applyFx(src.rgb, sourceUv, local);
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
@@ -17987,6 +18188,9 @@ void main() {
   var DISSOLVE_NOISE_UNIT = 12;
   var BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13];
   var REQUIRED_TEXTURE_UNITS = BASE_ADJUST_LUT_UNITS[1] + 1;
+  function adjustFxFrameIndex(plan) {
+    return Number.isSafeInteger(plan.frameIndex) ? Math.max(0, plan.frameIndex) >>> 0 : 0;
+  }
   function isVideoFrame(value) {
     return "displayWidth" in value && "displayHeight" in value && "close" in value;
   }
@@ -18234,6 +18438,7 @@ void main() {
         (name, unit2) => gl.uniform1i(gl.getUniformLocation(program, name), unit2)
       );
       const cutUniforms = [0, 1].map((index) => ({
+        ...this.adjustFxUniforms(program, String(index)),
         framing: gl.getUniformLocation(program, `framing${index}`),
         transform: gl.getUniformLocation(program, `transform${index}`),
         opacity: gl.getUniformLocation(program, `opacity${index}`),
@@ -18255,6 +18460,7 @@ void main() {
         program,
         cutUniforms,
         output: uniform(gl, program, "outputSize"),
+        frameIndex: gl.getUniformLocation(program, "frameIndex"),
         progress: gl.getUniformLocation(program, "transitionProgress"),
         dissolveNoise: gl.getUniformLocation(program, "dissolveNoise"),
         secondary: false
@@ -18467,6 +18673,7 @@ void main() {
       );
       this.gl.uniform1f(u2.opacity, v2.opacity);
       this.configureAdjustLut(v2.adjustLut, adjustLutUnit, u2);
+      this.configureAdjustFx(v2.adjustFx, u2);
       if (v2.layerStyle) {
         const box2 = cutLayerStyleBox(v2, source.width, source.height);
         this.gl.uniform1i(u2.layerStyle, 1);
@@ -18499,6 +18706,47 @@ void main() {
       gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
       gl.uniform1f(uniforms.adjustLutSize, lut.size);
       gl.uniform1f(uniforms.adjustLutIntensity, 1);
+    }
+    adjustFxUniforms(program, suffix = "") {
+      const location2 = (name) => this.gl.getUniformLocation(program, name);
+      return {
+        fxCount: location2(`fxCount${suffix}`),
+        fxKinds: location2(`fxKinds${suffix}[0]`),
+        fxParams: location2(`fxParams${suffix}[0]`),
+        fxSpatial: location2(`fxSpatial${suffix}`)
+      };
+    }
+    configureAdjustFx(fx, u2) {
+      const kinds = new Int32Array(8);
+      const params = new Float32Array(32);
+      const spatial = [];
+      const count = Math.min(fx?.length ?? 0, 8);
+      for (let i2 = 0; i2 < count; i2++) {
+        const effect = fx[i2];
+        switch (effect.id) {
+          case "vignette":
+            kinds[i2] = effect.amount === 0 ? 0 : 1;
+            params.set([effect.amount, effect.midpoint, effect.roundness, effect.feather], i2 * 4);
+            break;
+          case "blur":
+            kinds[i2] = effect.px === 0 ? 0 : 2;
+            params[i2 * 4] = effect.px;
+            break;
+          case "grain":
+            kinds[i2] = effect.amount === 0 ? 0 : 3;
+            params.set([effect.amount, effect.size], i2 * 4);
+            break;
+          case "sharpen":
+            kinds[i2] = effect.amount === 0 ? 0 : 4;
+            params[i2 * 4] = effect.amount;
+            break;
+        }
+        if (kinds[i2] === 2 || kinds[i2] === 4) spatial.push(i2);
+      }
+      this.gl.uniform1i(u2.fxCount, kinds.some((kind) => kind !== 0) ? count : 0);
+      this.gl.uniform1iv(u2.fxKinds, kinds);
+      this.gl.uniform4fv(u2.fxParams, params);
+      this.gl.uniform2i(u2.fxSpatial, spatial[0] ?? -1, spatial[1] ?? -1);
     }
     ensureFbos(w, h) {
       const shape = `${w}x${h}`;
@@ -18650,6 +18898,7 @@ void main() {
       this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
       this.gl.useProgram(baseProgram.program);
       this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
+      this.gl.uniform1ui(baseProgram.frameIndex, adjustFxFrameIndex(plan));
       if (baseProgram.dissolveNoise) {
         this.bind(
           DISSOLVE_NOISE_UNIT,
@@ -18745,6 +18994,9 @@ void main() {
         adjustLutSize: uniform(gl, this.layerProgram, "adjustLutSize"),
         adjustLutIntensity: uniform(gl, this.layerProgram, "adjustLutIntensity")
       };
+      const layerFxUniforms = this.adjustFxUniforms(this.layerProgram);
+      const fxSourceDimensionsLoc = uniform(gl, this.layerProgram, "fxSourceDimensions");
+      const layerFrameIndexLoc = uniform(gl, this.layerProgram, "frameIndex");
       const blendModes = [
         "normal",
         "screen",
@@ -18853,6 +19105,9 @@ void main() {
         gl.uniform1f(opacityLoc, layer.opacity);
         gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
         this.configureAdjustLut(layer.adjustLut, LUT_UNIT, layerAdjustUniforms);
+        this.configureAdjustFx(layer.adjustFx, layerFxUniforms);
+        gl.uniform2f(fxSourceDimensionsLoc, width, height);
+        gl.uniform1ui(layerFrameIndexLoc, adjustFxFrameIndex(plan));
         draw();
         this.recordGlErrors(synchronization);
         current = next;
@@ -19585,6 +19840,62 @@ void main() {
     return result;
   }
 
+  // packages/frame-engine/src/adjust/fx.ts
+  function parameter(value, fallback, min, max) {
+    return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+  }
+  function normalizeAdjustFx(fx, sections, warnings = []) {
+    if (sections?.fx === false || fx == null) return [];
+    if (!Array.isArray(fx)) {
+      warnings.push("adjust.fx.structure: expected an array");
+      return [];
+    }
+    if (fx.length > 8) warnings.push("adjust.fx.max-items: only the first 8 entries are considered");
+    const resolved = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const [index, entry] of fx.slice(0, 8).entries()) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        warnings.push(`adjust.fx[${index}]: expected an effect object`);
+        continue;
+      }
+      const value = entry;
+      const id = value.id;
+      if (id !== "vignette" && id !== "blur" && id !== "grain" && id !== "sharpen") {
+        warnings.push(`adjust.fx[${index}].id: unknown effect id "${String(id)}"; ignored`);
+        continue;
+      }
+      if (seen.has(id)) {
+        warnings.push(`adjust.fx.duplicate-id: ${id} at index ${index}; ignored`);
+        continue;
+      }
+      seen.add(id);
+      switch (id) {
+        case "vignette":
+          resolved.push({
+            id,
+            amount: parameter(value.amount, 0.5, -1, 1),
+            midpoint: parameter(value.midpoint, 0.5, 0, 1),
+            roundness: parameter(value.roundness, 0, -1, 1),
+            feather: parameter(value.feather, 0.5, 0, 1)
+          });
+          break;
+        case "blur":
+          resolved.push({ id, px: parameter(value.px, 8, 0, 50) });
+          break;
+        case "grain":
+          resolved.push({ id, amount: parameter(value.amount, 0.3, 0, 1), size: parameter(value.size, 1, 0.5, 4) });
+          break;
+        case "sharpen":
+          resolved.push({ id, amount: parameter(value.amount, 0.5, 0, 1) });
+          break;
+      }
+    }
+    return resolved;
+  }
+  function isAdjustFxIdentity(fx) {
+    return normalizeAdjustFx(fx).every((effect) => effect.id === "blur" ? effect.px === 0 : effect.amount === 0);
+  }
+
   // packages/frame-engine/src/timeline/item-motion.ts
   var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"];
   var MOTION_LOOP_PRESETS = ["pulse", "float", "spin"];
@@ -19799,6 +20110,10 @@ void main() {
     };
     return isItemAdjustIdentity(view) ? void 0 : bakeItemAdjustLut(view, userLut);
   }
+  function resolveAdjustFx(adjust, warnings = []) {
+    const fx = normalizeAdjustFx(adjust?.fx, adjust?.sections, warnings);
+    return fx.length ? fx : void 0;
+  }
   function normalizeTransition(cut) {
     return cut.transition_out ?? cut.transitionOut;
   }
@@ -19835,6 +20150,12 @@ void main() {
       warned.add(message);
       onWarning?.(message);
     };
+    const itemFx = (adjust, owner) => {
+      const warnings = [];
+      const fx = resolveAdjustFx(adjust, warnings);
+      warnings.forEach((message) => warn(owner + ": " + message));
+      return fx;
+    };
     cuts.forEach((cut, index) => {
       const id = String(cut.id ?? `cut-${index}`);
       warnUnknownFields(cut, `cut ${id}`, KNOWN_CUT_KEYS, warn);
@@ -19867,6 +20188,7 @@ void main() {
       const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
       const freezeAt = cut.freeze ? clamp3(finite4(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
       const adjustLut = resolveAdjustLut(cut.adjust);
+      const adjustFx = itemFx(cut.adjust, `cut ${cut.id ?? `cut-${index}`}`);
       return {
         cut,
         at: segment.at,
@@ -19874,11 +20196,13 @@ void main() {
         playbackDuration,
         freezeAt,
         freezeDuration,
-        ...adjustLut ? { adjustLut } : {}
+        ...adjustLut ? { adjustLut } : {},
+        ...adjustFx ? { adjustFx } : {}
       };
     });
     const visibleLayers = layers;
     const layerAdjustLuts = visibleLayers.map((layer) => resolveAdjustLut(layer.adjust));
+    const layerAdjustFx = visibleLayers.map((layer, index) => itemFx(layer.adjust, `layer ${layer.id ?? `layer-${index}`}`));
     cuts.forEach((cut, index) => {
       if (!cutDeclaresPerspective(cut)) return;
       warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
@@ -19909,6 +20233,7 @@ void main() {
       totalDuration: Math.max(map.totalDuration, layersEnd),
       layers: visibleLayers,
       layerAdjustLuts,
+      ...layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {},
       maskSources,
       warn,
       fps: finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
@@ -20017,12 +20342,12 @@ void main() {
       ...visual.layerStyle && motion2.reveal ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion2.reveal) } } : {}
     };
   }
-  function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut) {
+  function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut, adjustFx) {
     const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
     const motion2 = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
     if (hasCutLayerStyleVisual(cut)) {
       const visual2 = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion2);
-      return adjustLut ? { ...visual2, adjustLut } : visual2;
+      return { ...visual2, ...adjustLut ? { adjustLut } : {}, ...adjustFx ? { adjustFx } : {} };
     }
     let framing = DEFAULT_VISUAL.framing;
     const keyframes = cut.framing?.keyframes;
@@ -20062,7 +20387,7 @@ void main() {
       opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
     };
     const composed = cutMotionVisual(visual, motion2);
-    return adjustLut ? { ...composed, adjustLut } : composed;
+    return { ...composed, ...adjustLut ? { adjustLut } : {}, ...adjustFx ? { adjustFx } : {} };
   }
   function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
     const cut = placement.cut;
@@ -20070,7 +20395,7 @@ void main() {
     const source = sources.get(cut.src);
     const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
     const localSeconds = Math.max(0, outputSeconds - placement.at);
-    const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
+    const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut, placement.adjustFx);
     const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
     if (image) return image;
     if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
@@ -20198,12 +20523,14 @@ void main() {
       }
       const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
       const adjustLut = timeline.layerAdjustLuts[index];
+      const adjustFx = timeline.layerAdjustFx?.[index];
       const common = {
         id,
         visual,
         blend,
         opacity,
-        ...adjustLut ? { adjustLut } : {}
+        ...adjustLut ? { adjustLut } : {},
+        ...adjustFx ? { adjustFx } : {}
       };
       if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
         if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
@@ -20237,6 +20564,7 @@ void main() {
   }
   function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;
+    const frameIndex = Number.isFinite(timeline.fps) && timeline.fps > 0 ? Math.max(0, Math.round(outputSeconds * timeline.fps)) : 0;
     const window2 = timeline.map.transitionWindows.find(
       (candidate) => outputSeconds >= candidate.start && outputSeconds <= candidate.end
     );
@@ -20249,6 +20577,7 @@ void main() {
       }
       return {
         timeUs,
+        frameIndex,
         base: [
           layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources, timeline.fps),
           layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources, timeline.fps)
@@ -20264,7 +20593,7 @@ void main() {
     const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
     const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
-    return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
+    return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;

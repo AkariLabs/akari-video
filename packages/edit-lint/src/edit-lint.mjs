@@ -1598,7 +1598,7 @@ function validateAdjust(value, findings, path) {
       });
     }
   };
-  reportUnknownKeys(value, new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
+  reportUnknownKeys(value, new Set(["basic", "lut", "sections", "curves", "wheels", "hue", "fx"]), path);
 
   if (Object.hasOwn(value, "basic")) {
     const basicPath = `${path}.basic`;
@@ -1660,7 +1660,7 @@ function validateAdjust(value, findings, path) {
         severity: "error", check: "adjust.sections.structure", message: "sections must be an object", path: sectionsPath,
       });
     } else {
-      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue"]);
+      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue", "fx"]);
       reportUnknownKeys(value.sections, sectionKeys, sectionsPath);
       for (const key of sectionKeys) {
         if (Object.hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
@@ -6441,6 +6441,37 @@ function validateAdjustV1Sections(value, findings, path) {
   const number = (v, min, max, section, at) => {
     if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
   };
+  if (Object.hasOwn(value, 'fx')) {
+    const at = path + '.fx';
+    if (!Array.isArray(value.fx)) {
+      report('fx', 'structure', at, 'must be an array');
+    } else {
+      if (value.fx.length > 8) report('fx', 'max-items', at, 'must contain at most 8 effects');
+      const ranges = {
+        vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+        blur: { px: [0, 50] },
+        grain: { amount: [0, 1], size: [0.5, 4] },
+        sharpen: { amount: [0, 1] },
+      };
+      const seen = new Set();
+      for (const [index, fx] of value.fx.entries()) {
+        const fxPath = at + '[' + index + ']';
+        if (!isRecord(fx)) { report('fx', 'structure', fxPath, 'must be an object'); continue; }
+        if (typeof fx.id !== 'string' || !Object.hasOwn(ranges, fx.id)) {
+          report('fx', 'id', fxPath + '.id', 'unknown effect id'); continue;
+        }
+        if (seen.has(fx.id)) report('fx', 'duplicate-id', fxPath + '.id', 'duplicate effect id: ' + fx.id);
+        seen.add(fx.id);
+        const params = ranges[fx.id];
+        for (const key of Object.keys(fx)) {
+          if (key !== 'id' && !Object.hasOwn(params, key)) addFinding(findings, { severity: 'error', check: 'adjust.unknown-key', path: fxPath + '.' + key, message: key + ' is not defined for ' + fx.id });
+        }
+        for (const [key, [min, max]] of Object.entries(params)) {
+          if (Object.hasOwn(fx, key)) number(fx[key], min, max, 'fx', fxPath + '.' + key);
+        }
+      }
+    }
+  }
   for (const section of ['curves', 'hue']) {
     if (!Object.hasOwn(value, section)) continue;
     const channels = value[section], at = path + '.' + section;

@@ -181,13 +181,20 @@ export interface AdjustWheelsV1 { lift?: AdjustWheelV1; gamma?: AdjustWheelV1; g
 export interface AdjustHuePointV1 { hue: number; value: number }
 export interface AdjustHueCurvesV1 { hue?: AdjustHuePointV1[]; sat?: AdjustHuePointV1[]; luma?: AdjustHuePointV1[] }
 
+export type AdjustFxV1 =
+    | { id: 'vignette'; amount?: number; midpoint?: number; roundness?: number; feather?: number }
+    | { id: 'blur'; px?: number }
+    | { id: 'grain'; amount?: number; size?: number }
+    | { id: 'sharpen'; amount?: number };
+
 export interface AdjustV1 {
     basic?: AdjustBasicV0;
     lut?: AdjustLutV0 | null;
     curves?: AdjustCurvesV1;
     wheels?: AdjustWheelsV1;
     hue?: AdjustHueCurvesV1;
-    sections?: { basic?: boolean; lut?: boolean; curves?: boolean; wheels?: boolean; hue?: boolean };
+    fx?: AdjustFxV1[];
+    sections?: { basic?: boolean; lut?: boolean; curves?: boolean; wheels?: boolean; hue?: boolean; fx?: boolean };
 }
 
 /** @deprecated Use AdjustV1. */
@@ -771,7 +778,34 @@ function validateCrop(value: unknown, path: string): asserts value is CropV2 {
 
 function validateAdjust(value: unknown, path: string): asserts value is AdjustV1 {
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['basic', 'lut', 'sections', 'curves', 'wheels', 'hue']), path);
+    requireExactKeys(value, new Set(['basic', 'lut', 'sections', 'curves', 'wheels', 'hue', 'fx']), path);
+    if (hasOwn(value, 'fx')) {
+        const fxPath = path + '.fx';
+        if (!Array.isArray(value.fx) || value.fx.length > 8) {
+            throw invalid(fxPath, 'adjust.fx.structure: must be an array of at most 8 effects');
+        }
+        const ranges: Record<string, Record<string, [number, number]>> = {
+            vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+            blur: { px: [0, 50] },
+            grain: { amount: [0, 1], size: [0.5, 4] },
+            sharpen: { amount: [0, 1] },
+        };
+        const seen = new Set<string>();
+        for (const [index, fx] of value.fx.entries()) {
+            const at = fxPath + '[' + index + ']';
+            requireRecord(fx, at);
+            if (typeof fx.id !== 'string' || !hasOwn(ranges, fx.id)) {
+                throw invalid(at + '.id', 'adjust.fx.id: unknown effect id');
+            }
+            if (seen.has(fx.id)) throw invalid(at + '.id', 'adjust.fx.duplicate-id: ' + fx.id);
+            seen.add(fx.id);
+            const params = ranges[fx.id];
+            requireExactKeys(fx, new Set(['id', ...Object.keys(params)]), at);
+            for (const [key, [min, max]] of Object.entries(params)) {
+                if (hasOwn(fx, key)) requireRange(fx[key], min, max, at + '.' + key);
+            }
+        }
+    }
     for (const section of ['curves', 'hue']) {
         if (!hasOwn(value, section)) continue;
         const channels = value[section];
@@ -830,7 +864,7 @@ function validateAdjust(value: unknown, path: string): asserts value is AdjustV1
     }
     if (hasOwn(value, 'sections')) {
         requireRecord(value.sections, `${path}.sections`);
-        const sectionKeys = new Set(['basic', 'lut', 'curves', 'wheels', 'hue']);
+        const sectionKeys = new Set(['basic', 'lut', 'curves', 'wheels', 'hue', 'fx']);
         requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
         for (const key of sectionKeys) {
             if (hasOwn(value.sections, key) && typeof value.sections[key] !== 'boolean') {
