@@ -290,6 +290,7 @@ test('source replacement waits for rendering, preserves map identity, and skips 
       return { url };
     },
     updateMetrics: () => events.push('metrics'),
+    scheduler: { invalidateSource() {} },
   };
   const maps = [runtime.pools, runtime.lookahead, runtime.sources];
   await apply.call(runtime, 'a', { ...original, support: { ...supported } });

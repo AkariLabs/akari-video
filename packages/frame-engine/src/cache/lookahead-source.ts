@@ -21,6 +21,7 @@ export interface LookaheadFrameSourceOptions {
 export class LookaheadFrameSource implements NativeFrameSource {
   private readonly caches = new Map<string, LookaheadCache>();
   private readonly inFlight = new Map<string, Promise<void>>();
+  private readonly pinRequests = new Set<string>();
   private readonly fps: number;
   private readonly capacity: number;
 
@@ -64,12 +65,16 @@ export class LookaheadFrameSource implements NativeFrameSource {
     return frame;
   }
 
-  prefetch(timeUs: number, request?: { streamId: string }): Promise<void> {
+  prefetch(timeUs: number, request?: { streamId: string; pin?: boolean }): Promise<void> {
     const streamId = request?.streamId ?? 'default';
     const frameNumber = this.frameNumber(timeUs);
     const cache = this.cacheFor(streamId);
-    if (cache.has(frameNumber)) return Promise.resolve();
+    if (cache.has(frameNumber)) {
+      if (request?.pin) cache.pin(frameNumber);
+      return Promise.resolve();
+    }
     const key = `${streamId}:${frameNumber}`;
+    if (request?.pin) this.pinRequests.add(key);
     const existing = this.inFlight.get(key);
     if (existing) return existing;
     const operation = (async () => {
@@ -78,15 +83,25 @@ export class LookaheadFrameSource implements NativeFrameSource {
       const started = performance.now();
       const frame = await this.source.decode(timeUs, undefined, request);
       cache.put(frameNumber, frame, performance.now() - started);
-    })().finally(() => this.inFlight.delete(key));
+      // Apply joined pin requests before waking decode() waiters, so presentation unpins last.
+      if (this.pinRequests.has(key)) cache.pin(frameNumber);
+    })().finally(() => {
+      this.inFlight.delete(key);
+      this.pinRequests.delete(key);
+    });
     this.inFlight.set(key, operation);
     return operation;
+  }
+
+  has(timeUs: number, request?: { streamId: string }): boolean {
+    return this.caches.get(request?.streamId ?? 'default')?.has(this.frameNumber(timeUs)) ?? false;
   }
 
   clear(): void {
     for (const cache of this.caches.values()) cache.clear();
     this.caches.clear();
     this.inFlight.clear();
+    this.pinRequests.clear();
   }
 
   /**
