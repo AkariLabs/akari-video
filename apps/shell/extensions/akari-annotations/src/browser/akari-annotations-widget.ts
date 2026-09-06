@@ -3258,6 +3258,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     validateInspectorMotion(value, raw.duration);
                     patch = { motion: value };
                     label = 'クリップの動きを変更';
+                } else if (request.path === 'animator') {
+                    const value = request.value;
+                    patch = { animator: value };
+                    label = 'クリップのアニメーターを変更';
                 } else if (request.path === 'perspective') {
                     const value = request.value;
                     if (value !== null) {
@@ -3632,6 +3636,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
             ...(raw.source?.kind !== 'html' && raw.motion && typeof raw.motion === 'object' && !Array.isArray(raw.motion)
                 ? { motion: raw.motion } : {}),
+            ...(Array.isArray(raw.animator) ? { animator: raw.animator } : {}),
             ...(transform ? { transform } : {}),
             ...(typeof raw.opacity === 'number' ? { opacity: raw.opacity } : {}),
             ...(raw.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop) ? { crop: raw.crop } : {}),

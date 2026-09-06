@@ -1859,17 +1859,11 @@ function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
-    // raw item → snapshot への animator 受け渡しは所有外ファイル
-    // （akari-annotations-widget.ts / timeline-selection-model.ts）のため別票。
-    const animators = normalizeInspectorAnimators((snapshot as { animator?: unknown }).animator);
+    const animators = normalizeInspectorAnimators(snapshot.animator);
     const writeAnimator = async (update: () => InspectorAnimator[]): Promise<InspectorWriteResult> => {
         try {
             const value = normalizeInspectorAnimators(update());
-            const request: { kind: 'item-field'; id: string; path: 'animator'; value: InspectorAnimator[] | null } = {
-                kind: 'item-field', id: snapshot.id, path: 'animator', value: value.length ? value : null
-            };
-            // 書き込み要求型への animator 追加も所有外（timeline-selection-model.ts）のため別票。
-            return await requestWrite(request as unknown as InspectorWriteRequest);
+            return await requestWrite({ kind: 'item-field', id: snapshot.id, path: 'animator', value: value.length ? value : null });
         } catch (error) {
             return { ok: false, message: error instanceof Error ? error.message : 'アニメーターを変更できませんでした。' };
         }
