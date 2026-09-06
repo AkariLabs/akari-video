@@ -17,7 +17,8 @@ export interface PreviewSchedulerPool {
 }
 
 export interface PreviewSchedulerLookahead {
-  prefetch(timeUs: number, request?: { streamId: string }): Promise<void>;
+  prefetch(timeUs: number, request?: { streamId: string; pin?: boolean }): Promise<void>;
+  has?(timeUs: number, request?: { streamId: string }): boolean;
 }
 
 export interface PreviewSchedulerOptions {
@@ -245,11 +246,31 @@ export function createPreviewScheduler({
   const requirementsAtBoundary = (boundarySeconds: number): readonly Requirement[] => {
     const cached = boundaryRequirements.get(boundarySeconds);
     if (cached) return cached;
-    const timeUs = Math.min(
+    // outputToSource uses closed cut intervals, so the new base first appears after the boundary.
+    // isLayerActiveAt uses half-open intervals, so layers and masks can appear on the boundary.
+    // Sample each kind at its first presentation grid point before merging by source/stream key.
+    const layerFirstUs = Math.min(
       totalDurationUs,
-      Math.round((boundarySeconds + 1 / fps) * 1e6),
+      Math.ceil(boundarySeconds * fps - 1e-6) / fps * 1e6,
     );
-    const requirements = requirementsAtTime(timeUs, `preview warmup plan failed at ${boundarySeconds}s`);
+    const baseFirstUs = Math.min(
+      totalDurationUs,
+      (Math.floor(boundarySeconds * fps + 1e-6) + 1) / fps * 1e6,
+    );
+    const warningContext = `preview warmup plan failed at ${boundarySeconds}s`;
+    const baseRequirements = requirementsAtTime(baseFirstUs, warningContext);
+    const layerRequirements = layerFirstUs === baseFirstUs
+      ? baseRequirements
+      : requirementsAtTime(layerFirstUs, warningContext);
+    const seen = new Set<string>();
+    const requirements: readonly Requirement[] = [
+      ...baseRequirements.filter(requirement => requirement.kind === 'base'),
+      ...layerRequirements.filter(requirement => requirement.kind === 'layer' || requirement.kind === 'mask'),
+    ].filter(requirement => {
+      if (seen.has(requirement.key)) return false;
+      seen.add(requirement.key);
+      return true;
+    });
     boundaryRequirements.set(boundarySeconds, requirements);
     return requirements;
   };
@@ -321,6 +342,7 @@ export function createPreviewScheduler({
     boundarySeconds: number,
     currentKeys: ReadonlySet<string>,
   ) => {
+    const started = now();
     if (warmed.has(requirement.key) || inFlight.has(requirement.key)) return;
     if (!evictFor(requirement, currentKeys)) return;
     const pool = pools.get(requirement.sourceId);
@@ -333,12 +355,20 @@ export function createPreviewScheduler({
     inFlight.add(requirement.key);
     metrics.onChanged?.();
     void pool.getSession(requirement.streamId)
-      .then(session => session.warmup(requirement.sourceTimeUs, 1e6 / fps))
-      .then(elapsedMs => {
+      .then(session => session.warmup(requirement.sourceTimeUs + 1e6 / fps, 1e6 / fps))
+      .then(() => {
+        if (disposed || !live.has(requirement.key)) return;
+        return lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, {
+          streamId: requirement.streamId,
+          pin: true,
+        });
+      })
+      .then(() => {
         if (disposed) return;
         inFlight.delete(requirement.key);
         if (!live.has(requirement.key)) return;
         warmed.add(requirement.key);
+        const elapsedMs = Math.max(0, now() - started);
         metrics.warmupMs.push(elapsedMs);
         metrics.onWarmed?.(requirement.streamId, elapsedMs);
         metrics.onChanged?.();
@@ -404,6 +434,11 @@ export function createPreviewScheduler({
     for (const boundary of boundaries) {
       if (boundary <= latestTimeSeconds || boundary > latestTimeSeconds + leadIn) continue;
       for (const requirement of requirementsAtBoundary(boundary)) {
+        if (warmed.has(requirement.key) && lookahead.get(requirement.sourceId)?.has?.(
+          requirement.sourceTimeUs, { streamId: requirement.streamId },
+        ) === false) {
+          warmed.delete(requirement.key);
+        }
         startWarmup(requirement, boundary, currentKeys);
       }
     }

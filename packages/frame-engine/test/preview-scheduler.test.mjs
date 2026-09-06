@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildResolvedTimelinePlan,
   createPreviewScheduler,
+  evaluationPlanFromResolvedTimeline,
 } from '../dist/index.js';
 
 const output = { width: 640, height: 360, colorSpace: 'bt709-limited' };
@@ -50,7 +51,7 @@ function fakeRuntime(ids, { pendingWarmups = false, headers = false, releaseResu
   }]));
   const lookahead = new Map([...pools.keys()].map(sourceId => [sourceId, {
     async prefetch(sourceTimeUs, request) {
-      prefetched.push({ sourceId, streamId: request?.streamId, sourceTimeUs });
+      prefetched.push({ sourceId, streamId: request?.streamId, sourceTimeUs, pin: request?.pin });
     },
   }]));
   return {
@@ -73,16 +74,15 @@ function createScheduler(timeline, ids, runtime, metrics = { warmupMs: [] }, opt
 }
 
 async function flushMicrotasks() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  // Drain getSession -> warmup -> pinned prefetch -> coverage completion.
+  for (let index = 0; index < 12; index += 1) await Promise.resolve();
 }
 
 test('cut and layer starts both schedule base, layer color, and mask while excluding still images', async () => {
   const ids = ['base-a', 'base-b', 'color', 'mask', 'still.png'];
   const timeline = timelineFixture({
     cuts: [
-      { src: 'base-a', in: 0, out: 1 },
+      { src: 'base-a', in: 0, out: 0.99 },
       { src: 'base-b', in: 2, out: 3 },
     ],
     layers: [
@@ -205,7 +205,7 @@ test('decoder pressure evicts the farthest next use and never releases the curre
   const ids = ['base'];
   const timeline = timelineFixture({
     cuts: [
-      { src: 'base', in: 0, out: 0.5 },
+      { src: 'base', in: 0, out: 0.49 },
       { src: 'base', in: 1, out: 1.5 },
       { src: 'base', in: 2, out: 2.5 },
       { src: 'base', in: 3, out: 3.5 },
@@ -230,7 +230,7 @@ test('a stale pool lane self-heals the live ledger without counting an eviction'
   const ids = ['base'];
   const timeline = timelineFixture({
     cuts: [
-      { src: 'base', in: 0, out: 0.5 },
+      { src: 'base', in: 0, out: 0.49 },
       { src: 'base', in: 1, out: 1.5 },
       { src: 'base', in: 2, out: 2.5 },
       { src: 'base', in: 3, out: 3.5 },
@@ -291,14 +291,14 @@ test('primeHeaders defers until first presentation and prepares only referenced 
 test('warmupNextBoundary warms only the next distant boundary once, in flight and after completion', async () => {
   const ids = ['a', 'b', 'c'];
   const timeline = timelineFixture({ cuts: [
-    { src: 'a', in: 0, out: 10 },
+    { src: 'a', in: 0, out: 9.99 },
     { src: 'b', in: 0, out: 10 },
     { src: 'c', in: 0, out: 10 },
   ] });
   const runtime = fakeRuntime(ids, { pendingWarmups: true });
   const scheduler = createScheduler(timeline, ids, runtime);
   scheduler.notePresented(2_000_000, { reason: 'seek' });
-  assert.ok(10 - 2 > scheduler.state().leadInSeconds);
+  assert.ok(9.99 - 2 > scheduler.state().leadInSeconds);
   scheduler.warmupNextBoundary();
   scheduler.warmupNextBoundary();
   await flushMicrotasks();
@@ -309,6 +309,9 @@ test('warmupNextBoundary warms only the next distant boundary once, in flight an
   await flushMicrotasks();
   assert.equal(runtime.started.length, 1);
   assert.equal(scheduler.state().coverage.warmed, 1);
+  assert.deepEqual(runtime.prefetched.filter(item => item.pin), [
+    { sourceId: 'b', streamId: 'cut-1', sourceTimeUs: 10_000, pin: true },
+  ]);
   scheduler.warmupNextBoundary(30);
   scheduler.dispose();
   scheduler.warmupNextBoundary(10);
@@ -319,7 +322,7 @@ test('warmupNextBoundary warms only the next distant boundary once, in flight an
 test('warmupNextBoundary respects the live decoder limit and protects the current stream', async () => {
   const ids = ['a', 'b'];
   const timeline = timelineFixture({ cuts: [
-    { src: 'a', in: 0, out: 10 },
+    { src: 'a', in: 0, out: 9.99 },
     { src: 'b', in: 0, out: 10 },
   ] });
   const runtime = fakeRuntime(ids, { pendingWarmups: true });
@@ -330,5 +333,241 @@ test('warmupNextBoundary respects the live decoder limit and protects the curren
   assert.equal(scheduler.state().liveDecoders, 1);
   assert.equal(scheduler.state().decoderLimitHits, 1);
   assert.deepEqual(runtime.started, []);
+  assert.equal(runtime.prefetched.some(item => item.pin), false);
   assert.deepEqual(runtime.released, []);
+});
+
+test('coverage waits for pinned prefetch of the first boundary grid frame, including speed changes', async () => {
+  for (const [boundary, sourceId, streamId, expectedSourceUs] of [
+    [10.4, 'b', 'cut-1', 2_066_667],
+    [10.41, 'b', 'cut-1', 2_046_667],
+    [10.42, 'b', 'cut-1', 2_026_667],
+  ]) {
+    const ids = ['a', 'b'];
+    const timeline = timelineFixture({ cuts: [
+      { src: 'a', in: 0, out: boundary },
+      { src: 'b', in: 2, out: 6, speed: 2 },
+    ] });
+    const runtime = fakeRuntime(ids, { pendingWarmups: true });
+    const prefetched = [];
+    let resolvePrefetch;
+    runtime.lookahead.set(sourceId, {
+      prefetch(timeUs, request) {
+        prefetched.push({ timeUs, request });
+        return new Promise(resolve => { resolvePrefetch = resolve; });
+      },
+    });
+    const scheduler = createScheduler(timeline, ids, runtime);
+    const firstFrameUs = 313 / 30 * 1e6;
+    const plan = evaluationPlanFromResolvedTimeline(timeline, firstFrameUs, sourceRegistry(ids), output);
+    assert.equal(plan.base[0].id, streamId);
+    const sourceTimeUs = plan.base[0].sourceTimeUs;
+    assert.equal(sourceTimeUs, expectedSourceUs);
+
+    scheduler.warmupNextBoundary();
+    await flushMicrotasks();
+    assert.deepEqual(prefetched, []);
+    assert.deepEqual(runtime.started.map(item => item.streamId), ['cut-1']);
+    assert.equal(runtime.started[0].sourceTimeUs, sourceTimeUs + 1e6 / 30);
+    runtime.warmupResolvers[0]();
+    await flushMicrotasks();
+    assert.deepEqual(prefetched, [{ timeUs: sourceTimeUs, request: { streamId, pin: true } }]);
+    assert.deepEqual(scheduler.state().coverage, { warmed: 0, needed: 1, boundarySeconds: boundary });
+    assert.equal(scheduler.isWarmed(streamId), false);
+    scheduler.warmupNextBoundary();
+    await flushMicrotasks();
+    assert.equal(prefetched.length, 1, 'pending pin requests are shared');
+    resolvePrefetch();
+    await flushMicrotasks();
+    assert.deepEqual(scheduler.state().coverage, { warmed: 1, needed: 1, boundarySeconds: boundary });
+    assert.equal(scheduler.isWarmed(streamId), true);
+    scheduler.dispose();
+  }
+});
+
+for (const [name, boundary, expectedSourceUs] of [
+  ['grid-aligned cut boundary at 10.4s pins cut-1 at frame 313', 10.4, 33_333],
+  ['non-grid-aligned cut boundary at 10.41s pins cut-1 at frame 313', 10.41, 23_333],
+]) {
+  test(name, async () => {
+    const ids = ['h264', 'hevc-4k'];
+    const timeline = timelineFixture({ cuts: [
+      { src: 'h264', in: 0, out: boundary },
+      { src: 'hevc-4k', in: 0, out: 5 },
+    ] });
+    const runtime = fakeRuntime(ids);
+    const scheduler = createScheduler(timeline, ids, runtime);
+    const plan = evaluationPlanFromResolvedTimeline(timeline, 313 / 30 * 1e6, sourceRegistry(ids), output);
+    assert.equal(plan.base[0].id, 'cut-1');
+    assert.equal(plan.base[0].sourceTimeUs, expectedSourceUs);
+
+    scheduler.warmupNextBoundary();
+    await flushMicrotasks();
+    assert.deepEqual(runtime.started, [{
+      sourceId: 'hevc-4k', streamId: 'cut-1', sourceTimeUs: expectedSourceUs + 1e6 / 30,
+    }]);
+    assert.deepEqual(runtime.prefetched.filter(item => item.pin), [{
+      sourceId: 'hevc-4k', streamId: 'cut-1', sourceTimeUs: plan.base[0].sourceTimeUs, pin: true,
+    }]);
+    scheduler.dispose();
+  });
+}
+
+test('grid-aligned layer boundary at 2.0s pins layer and mask at frame 60, with base first', async () => {
+  const ids = ['base', 'color', 'mask'];
+  const timeline = timelineFixture({
+    cuts: [
+      { src: 'base', in: 0, out: 2 },
+      { src: 'base', in: 4, out: 6 },
+    ],
+    layers: [{ id: 'matte', t: 2, duration: 1, kind: 'matte', src: 'color', mask: 'mask' }],
+  });
+  const runtime = fakeRuntime(ids);
+  const scheduler = createScheduler(timeline, ids, runtime);
+  const layerPlan = evaluationPlanFromResolvedTimeline(timeline, 60 / 30 * 1e6, sourceRegistry(ids), output);
+  const basePlan = evaluationPlanFromResolvedTimeline(timeline, 61 / 30 * 1e6, sourceRegistry(ids), output);
+  assert.equal(layerPlan.layers[0].sourceTimeUs, 0);
+  assert.notEqual(layerPlan.layers[0].sourceTimeUs, basePlan.layers[0].sourceTimeUs);
+  assert.equal(basePlan.base[0].id, 'cut-1');
+
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.deepEqual(runtime.started.map(item => item.streamId), ['cut-1', 'layer-matte', 'layer-matte-mask']);
+  assert.deepEqual(runtime.prefetched.filter(item => item.pin), [
+    { sourceId: 'base', streamId: 'cut-1', sourceTimeUs: basePlan.base[0].sourceTimeUs, pin: true },
+    { sourceId: 'color', streamId: 'layer-matte', sourceTimeUs: layerPlan.layers[0].sourceTimeUs, pin: true },
+    { sourceId: 'mask', streamId: 'layer-matte-mask', sourceTimeUs: layerPlan.layers[0].mask.sourceTimeUs, pin: true },
+  ]);
+  assert.deepEqual(scheduler.state().coverage, { warmed: 3, needed: 3, boundarySeconds: 2 });
+  scheduler.dispose();
+});
+
+test('a failed boundary prefetch warns, leaves coverage cold, and permits retry', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 9.99 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids);
+  const warnings = [];
+  let fail = true;
+  let calls = 0;
+  runtime.lookahead.set('b', {
+    async prefetch() {
+      calls += 1;
+      if (fail) throw new Error('prefetch failed');
+    },
+  });
+  const metrics = { warmupMs: [], onWarning: message => warnings.push(message) };
+  const scheduler = createScheduler(timeline, ids, runtime, metrics);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    scheduler.warmupNextBoundary();
+    await flushMicrotasks();
+    assert.equal(scheduler.state().coverage.warmed, 0);
+    assert.equal(scheduler.state().liveDecoders, 0);
+    assert.equal(scheduler.isWarmed('cut-1'), false);
+  }
+  assert.deepEqual(warnings, ['warmup cut-1: prefetch failed']);
+  assert.deepEqual(metrics.warmupMs, []);
+  fail = false;
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.equal(calls, 3);
+  assert.equal(scheduler.state().coverage.warmed, 1);
+  scheduler.dispose();
+});
+
+test('playback repins a missing warmed boundary while seek and legacy lookahead do not', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 9.99 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids);
+  const cached = runtime.lookahead.get('b');
+  let retained = true;
+  cached.has = (timeUs, request) => {
+    assert.equal(timeUs, 10_000);
+    assert.deepEqual(request, { streamId: 'cut-1' });
+    return retained;
+  };
+  const scheduler = createScheduler(timeline, ids, runtime);
+  const pins = () => runtime.prefetched.filter(item => item.pin);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.equal(pins().length, 1);
+  scheduler.notePresented(9e6, { reason: 'playback' });
+  await flushMicrotasks();
+  assert.equal(pins().length, 1, 'retained boundary needs no work');
+  retained = false;
+  scheduler.notePresented(9e6, { reason: 'seek' });
+  await flushMicrotasks();
+  assert.equal(pins().length, 1, 'seek never schedules a boundary pin');
+  scheduler.notePresented(9e6, { reason: 'playback' });
+  scheduler.notePresented(9e6, { reason: 'playback' });
+  await flushMicrotasks();
+  assert.equal(pins().length, 2, 'missing boundary is repinned once while in flight');
+  assert.deepEqual(pins()[1], { sourceId: 'b', streamId: 'cut-1', sourceTimeUs: 10_000, pin: true });
+  delete cached.has;
+  scheduler.notePresented(9e6, { reason: 'playback' });
+  await flushMicrotasks();
+  assert.equal(pins().length, 2, 'legacy lookahead without has remains compatible');
+  scheduler.reset();
+  assert.equal(scheduler.isWarmed('cut-1'), false);
+  scheduler.dispose();
+});
+
+test('warmup timing includes getSession, decoder warmup, and prefetch before adapting lead-in', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 9.99 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids);
+  let clock = 100;
+  let resolveSession;
+  let resolveWarmup;
+  let resolvePrefetch;
+  runtime.pools.set('b', {
+    getSession() { return new Promise(resolve => { resolveSession = resolve; }); },
+  });
+  runtime.lookahead.set('b', {
+    prefetch() { return new Promise(resolve => { resolvePrefetch = resolve; }); },
+  });
+  const warmed = [];
+  const metrics = { warmupMs: [], onWarmed: (...args) => warmed.push(args) };
+  const scheduler = createScheduler(timeline, ids, runtime, metrics, { now: () => clock });
+  scheduler.warmupNextBoundary();
+  clock = 800;
+  resolveSession({
+    id: 'b:cut-1',
+    warmup(nearStartUs, frameDurationUs) {
+      assert.equal(nearStartUs, 10_000 + 1e6 / 30);
+      assert.equal(frameDurationUs, 1e6 / 30);
+      return new Promise(resolve => { resolveWarmup = resolve; });
+    },
+  });
+  await flushMicrotasks();
+  clock = 1300;
+  resolveWarmup(500);
+  await flushMicrotasks();
+  assert.deepEqual(metrics.warmupMs, []);
+  clock = 1500;
+  resolvePrefetch();
+  await flushMicrotasks();
+  assert.deepEqual(metrics.warmupMs, [1400]);
+  assert.deepEqual(warmed, [['cut-1', 1400]]);
+  assert.equal(scheduler.state().leadInSeconds, 2.1);
+  scheduler.dispose();
+});
+
+test('scheduler without lookahead still completes session warmup', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 10 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids);
+  runtime.lookahead.clear();
+  const scheduler = createScheduler(timeline, ids, runtime);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.equal(scheduler.state().coverage.warmed, 1);
+  scheduler.dispose();
 });
