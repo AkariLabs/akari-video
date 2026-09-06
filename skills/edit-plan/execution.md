@@ -9,7 +9,7 @@
 
 ## 原則
 
-このファイルは Checkpoint 3 の明示承認後だけ読む。承認された manifest を、該当行の Edit か
+このファイルは `autonomy: collaborative` では Checkpoint 3 の明示承認後に、それ以外の autonomy では edit.json を書く前に読む。承認された manifest を、該当行の Edit か
 edit-store のスクリプト API で [M1〜M4 契約](../../docs/contract-2026-07-13-m1-m4.md) の
 `edit.json` と authoring 規約へ忠実に変換し、表現できない計画を独自フィールドで補わない。使って
 よいのは公開契約が定めたフィールドだけである（[SKILL.md](SKILL.md) のハードルール）。
@@ -159,13 +159,19 @@ Checkpoint 3 まで `edit.json` を変更しない。
 
 ## 4. 字幕（captions.json）の表示区間を作る
 
-字幕を持つ計画では、各 caption の表示区間を**実発話区間**に一致させる。segment 境界を敷き詰めた（`end = 次の caption の start`）字幕は、ポーズ・無音・フィラー間にも字幕を残し、実発話より早く出る／長く残る。ハードルール:
+字幕を持つ計画では、次の CLI で表示区間を作る。手で区間を組まない。
 
-- **`caption.start` = 先頭語（`words[0]`）の実測 start / `caption.end` = 末尾語（`words[-1]`）の実測 end + 読み切り猶予**。読み切り猶予は既定 **0.2〜0.4 秒**（採用値は `decision-log.md` に記す）。
-- **次 caption の start まで引き伸ばさない**（敷き詰め禁止）。**無発話区間（発話 `words` が無い区間）は無字幕**とする。隙間が生まれるのが正であり、隙間を字幕で埋めない。
+```sh
+akari captions <project-dir>
+```
+
+- **`caption.start` = 先頭語（`words[0]`）の実測 start / `caption.end` = 末尾語（`words[-1]`）の実測 end + 読み切り猶予**。`--readout` の既定は **0.3 秒**（採用値は `decision-log.md` に記す）。次 caption の start を超えるときだけ丸める。
+- **次 caption の start まで引き伸ばさない**（敷き詰め禁止）。**無発話区間は無字幕**とし、隙間を字幕で埋めない。短い字幕は次 caption を超えない範囲で既定 1.0 秒の床まで延ばし、床に届かない場合は warning を確認する。
 - caption の start / end は source 秒アンカー（§1）。`words[]` も同じ source 秒で持つ。
-- **按分 fallback（`words` が取れず segment の start/end を文字数比で分配する推定）を使うときも、敷き詰め禁止は同じ**。按分は末尾語 end の**時刻の推定**であって**区間の拡張ではない**ので、推定した末尾 end + 読み切り猶予で閉じ、次 caption まで伸ばさない。
-- 参照挙動: 旧 Akari-OS（video-on-os）の字幕表示。字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
+
+`--max-chars` は方針で文字数上限を決めたときだけ指定する。複数素材では `--source <sources[].id>` で対象を選ぶ。
+按分 fallback は CLI が内包する（語時刻が無い場合は segment 境界を使い、分割せず読み切り猶予を加える）。
+字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
 
 ### 字幕スタイルを適用する
 
@@ -195,6 +201,7 @@ node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 
 ## よくある間違い
 
+- `akari captions` を使わず手で表示区間を組む（§4）。
 - 新規の `edit.json` を v0 / v1 で作る（新規は v2）。
 - 静止画を並べるために ffmpeg で連結する（画像は visual 段へ item として置く）。
 - 旧 `cuts` / `layers` / `overlays` キーや、v2 トップレベルに無い独自 field を足す。

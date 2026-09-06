@@ -64,6 +64,20 @@ Overlays without `role` behave exactly as before. What the schema cannot express
 (locked-knob overrides via `vars`, overlapping background intervals) is checked by
 `edit-lint`.
 
+## Create captions (akari captions)
+
+Run this in a project that has already been transcribed.
+
+```sh
+akari captions <project-dir>
+```
+
+- Preserve gaps: use word timestamps without filling silent gaps with captions.
+- Reading allowance: add 0.3 seconds to the final word's end by default, capped at the next caption's start.
+- Minimum duration: extend short captions to 1.0 second where the next caption permits; otherwise return a warning.
+
+Make corrections in the script panel or edit `captions.json` directly.
+
 ## Example requests
 
 - "A title card at the start, TV-show style — white knockout text, sliding in from below"
