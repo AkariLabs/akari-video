@@ -636,7 +636,7 @@ test('cuts without motion retain serialized fit-basis and layerStyle visuals', (
 
 test('runtime known-key inventories exactly expose the declared frame-engine shapes', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'adjust', 'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'opacity', 'out', 'perspective',
+    'adjust', 'at', 'audio', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'mute', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [

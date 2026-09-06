@@ -31,26 +31,14 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("generated keys have capability rows or the explicit cut-audio runtime rejection", () => {
+test("generated keys have capability rows including cut audio ownership", () => {
   assert.equal(canonicalPaths.size, 71);
-  const covered = new Set(table.fields.map((field) => field.path));
+  const covered = new Set(table.fields.map(field => field.path));
   assert.ok(covered.has('tracks[].items[].adjust.fx'));
-  // contract-2026-09-06-cut-audio-split-v0.md, first task: these three added keys
-  // cannot reach an engine yet. Preserve coverage for all 68 executable keys and
-  // require an actual default-reader rejection for each temporarily uncovered key.
-  const gated = [
-    [0, 'audio', false], [1, 'link', 'cut'], [1, 'mute', false],
-  ];
-  assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)).sort(),
-    gated.map(([, key]) => `tracks[].items[].${key}`).sort());
-  for (const [track, key, value] of gated) {
-    const doc = JSON.parse(readFileSync(join(packageRoot, 'examples/edit-v2-cut-audio-split-valid/edit.json'), 'utf8'));
-    delete doc.tracks[0].items[0].audio;
-    for (const field of ['role', 'link', 'mute']) delete doc.tracks[1].items[0][field];
-    doc.tracks[track].items[0][key] = value;
-    assert.doesNotThrow(() => readEditV2(doc));
-    assert.throws(() => readInternalEdit(doc), /未対応: 本編音声の分離.*次の便/u);
-  }
+  assert.deepEqual([...canonicalPaths].filter(path => !covered.has(path)), []);
+  for (const key of ['audio', 'link', 'mute']) assert.ok(covered.has(`tracks[].items[].${key}`));
+  const doc = JSON.parse(readFileSync(join(packageRoot, 'examples/edit-v2-cut-audio-split-valid/edit.json'), 'utf8'));
+  assert.doesNotThrow(() => readInternalEdit(doc));
 });
 
 test("capability rows cannot invent paths outside the generated v2 key inventory", () => {

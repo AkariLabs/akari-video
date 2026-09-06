@@ -8,6 +8,7 @@ export interface LegacyAudioView {
     bgm?: LegacyAudioDeclaration;
     sfx: LegacyAudioDeclaration[];
     narration: LegacyAudioDeclaration[];
+    speech?: LegacyAudioDeclaration[];
 }
 /**
  * 内部表現の audio item だけから legacy audio 形を組み立てる純関数。

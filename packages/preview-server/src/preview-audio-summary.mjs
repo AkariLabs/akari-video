@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
+import { projectSpeechDeclarations, isAudioItemAudible } from '../../edit-store/lib/index.js';
 import { hasAudioClipFx } from '../../media-bin/src/preview-audio-sidecar.mjs';
 
 const DECODED_BYTES_THRESHOLD = 64 * 1024 * 1024;
@@ -65,9 +65,10 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
   }
   const prepareRegular = (raw, kind, fallbackId) => {
     if (!raw || typeof raw !== 'object' || typeof raw.path !== 'string' || !raw.path) return raw;
+    if (!isAudioItemAudible(undefined, raw)) return raw;
     const sourcePath = sourcePathOf(raw.path);
     const clipFx = {
-      ...(kind !== 'narration' && Number.isFinite(raw.speed) ? { speed: raw.speed } : {}),
+      ...(kind !== 'narration' && kind !== 'speech-item' && Number.isFinite(raw.speed) ? { speed: raw.speed } : {}),
       ...(kind !== 'narration' && Number.isFinite(raw.pitch_semitones) ? { pitch_semitones: raw.pitch_semitones } : {}),
       ...(kind !== 'narration' && (raw.formant === 'preserve' || raw.formant === 'shift') ? { formant: raw.formant } : {}),
       ...(raw.denoise && typeof raw.denoise === 'object' ? { denoise: raw.denoise } : {}),
@@ -97,6 +98,9 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
     if (Array.isArray(audio[kind])) audio[kind] = audio[kind].map((item, index) =>
       prepareRegular(item, kind, `${kind}-${index + 1}`));
   }
+  const independentSpeech = Array.isArray(audio.speech) && audio.speech.some(item => item.role === 'speech');
+  if (independentSpeech) audio.speech = audio.speech.map((item, index) =>
+    prepareRegular(item, 'speech-item', `speech-${index + 1}`));
   requests.sort((a, b) => a.at - b.at);
   for (const { target, kind, id, at, options, fallback } of requests) {
     let result;
@@ -116,7 +120,7 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
     const durationSec = kind === 'bgm' ? undefined : kind === 'speech'
       ? target.durationSec ?? (options.outSec - options.inSec) / options.speed
       : options.outSec === undefined ? undefined : options.outSec - options.inSec;
-    const item = { kind, id, key: result.key ?? null, state, at,
+    const item = { kind, id, ...(kind === 'speech-item' ? { label: '本編音声（分離）' } : {}), key: result.key ?? null, state, at,
       ...(durationSec !== undefined ? { durationSec } : {}) };
     items.push(item);
     priority.push({ ...item, sourcePath: options.sourcePath });
@@ -135,5 +139,5 @@ export function prepareFrameEngineAudioSummary(readData, deps) {
       warn(`${fallback}: ${result.reason ?? result.state}`);
     }
   }
-  return { audio: { ...audio, speech }, warnings, keepKeys: [...keepKeys], keepProbes: [...keepProbes], items, priority };
+  return { audio: { ...audio, ...(independentSpeech ? { embeddedSpeech: speech } : { speech }) }, warnings, keepKeys: [...keepKeys], keepProbes: [...keepProbes], items, priority };
 }

@@ -61,7 +61,7 @@ export interface InternalCaptionSource {
 }
 export type InternalItemSource = InternalMediaSource | InternalHtmlSource | InternalTelopSource | InternalFilterSource | InternalGroupSource | InternalCaptionsSource | InternalCaptionSource;
 /** 旧 edit.json の種別別配列の名前。v2 の `tracks[].items[]` は 'items'。 */
-export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'items';
+export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'speech' | 'items';
 /**
  * renderer 互換ビューとの対応。
  */
@@ -175,7 +175,7 @@ export interface InternalEdit {
     declaration: InternalEditDeclaration;
 }
 export interface InternalReadOptions {
-    /** 検証用の opt-in。供給経路が対応するまでは新しい音声分離語彙を既定で拒否する。 */
+    /** @deprecated Accepted for compatibility; split audio is always enabled. */
     allowCutAudioSplit?: boolean;
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
@@ -233,6 +233,7 @@ export interface LegacyEditView {
     layers: EditLayer[];
     audioSfx: EditAudioSfx[];
     audioNarration: EditAudioNarration[];
+    audioSpeech?: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
     timeline?: {
         tracks: EditTimelineTrack[];

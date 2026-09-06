@@ -3,6 +3,9 @@ import type { EditCut } from './edit-store';
 export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 export interface WebAudioDecodedItem {
     id?: string;
+    mute?: unknown;
+    duckKey?: boolean;
+    duration?: number;
     durationSec: number;
     t?: unknown;
     in?: unknown;

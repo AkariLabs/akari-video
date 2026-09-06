@@ -11,7 +11,6 @@ import { compatibilityFixtures, compatibilityBytes, repositoryRoot } from './hel
 const fixture = async (suffix = 'split-valid') => JSON.parse(await readFile(join(
   repositoryRoot, `packages/schemas/examples/edit-v2-cut-audio-${suffix}/edit.json`,
 ), 'utf8'));
-const unsupported = '未対応: 本編音声の分離（audio:false / link / mute / role:speech）は次の便で有効化されます。この edit.json は現在のエンジンでは再生・書き出しできません。';
 
 test('cut audio vocabulary passes structural reads; link integrity belongs to lint', async () => {
   for (const suffix of ['split-valid', 'link-missing-invalid', 'link-not-media-invalid', 'link-duplicate-invalid']) {
@@ -22,7 +21,7 @@ test('cut audio vocabulary passes structural reads; link integrity belongs to li
   assert.throws(() => readEditV2(invalid), /\.audio.*false/u);
 });
 
-test('runtime rejects each new field independently, including mute:false; opt-in accepts it', async () => {
+test('runtime accepts each new field by default, including mute:false and deprecated options', async () => {
   for (const [track, field, value] of [[0, 'audio', false], [1, 'link', 'cut'], [1, 'mute', false], [1, 'mute', true], [1, 'role', 'speech']]) {
     const doc = await fixture();
     delete doc.tracks[0].items[0].audio;
@@ -31,7 +30,7 @@ test('runtime rejects each new field independently, including mute:false; opt-in
     const before = JSON.stringify(doc);
     for (const input of [doc, before]) {
       for (const options of [undefined, {}, { allowCutAudioSplit: false }]) {
-        assert.throws(() => readInternalEdit(input, options), { message: unsupported });
+        assert.doesNotThrow(() => readInternalEdit(input, options));
       }
       assert.doesNotThrow(() => readInternalEdit(input, { allowCutAudioSplit: true }));
     }
@@ -39,7 +38,7 @@ test('runtime rejects each new field independently, including mute:false; opt-in
   }
 });
 
-test('runtime detects nested split media even on hidden, locked, muted tracks', async () => {
+test('runtime accepts nested split media even on hidden, locked, muted tracks', async () => {
   const doc = await fixture();
   doc.tracks.pop();
   const child = doc.tracks[0].items[0];
@@ -47,7 +46,7 @@ test('runtime detects nested split media even on hidden, locked, muted tracks', 
   doc.tracks[0].items = [{ id: 'group', at: 0, duration: 90, hidden: true, locked: true,
     source: { kind: 'group' }, items: [child] }];
   assert.doesNotThrow(() => readEditV2(doc));
-  assert.throws(() => readInternalEdit(doc), { message: unsupported });
+  assert.doesNotThrow(() => readInternalEdit(doc));
   assert.doesNotThrow(() => readInternalEdit(doc, { allowCutAudioSplit: true }));
 });
 
@@ -57,10 +56,11 @@ test('speech remains explicit and is never projected as legacy sfx', async () =>
   const speech = internal.tracks[1].items[0];
   assert.equal(speech.declaration.role, 'speech');
   assert.notEqual(speech.legacy.collection, 'sfx');
-  assert.deepEqual(projectLegacyAudioView(internal), { sfx: [], narration: [] });
-  // The view must also defend against a legacy-shaped speech declaration.
-  speech.legacy = { collection: 'sfx', index: 0, value: { id: 'voice' } };
-  assert.deepEqual(projectLegacyAudioView(internal), { sfx: [], narration: [] });
+  const view = projectLegacyAudioView(internal);
+  assert.deepEqual(view.sfx, []);
+  assert.deepEqual(view.narration, []);
+  assert.equal(view.speech.length, 1);
+  assert.equal(view.speech[0].role, 'speech');
 });
 
 test('structural reader enforces exact field types and visual-media-only audio', async () => {

@@ -44,6 +44,7 @@ __exportStar(require("./transition-visual"), exports);
 __exportStar(require("./ducking"), exports);
 __exportStar(require("./envelope"), exports);
 __exportStar(require("./audio-schedule"), exports);
+__exportStar(require("./audio-ownership"), exports);
 __exportStar(require("./canonical"), exports);
 __exportStar(require("./tree-ops"), exports);
 __exportStar(require("./item-anchor"), exports);

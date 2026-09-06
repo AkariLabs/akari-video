@@ -90,6 +90,7 @@ export function projectSpeechKeyIntervals(
     for (const segment of map.segments) {
         if (segment.kind !== 'src' || typeof segment.in !== 'number' || typeof segment.out !== 'number') continue;
         if (hasExplicitSources && segment.src !== options.sourceId) continue;
+        if (segment.cutIndex !== null && normalizedCuts[segment.cutIndex]?.audio === false) continue;
         const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
         for (const entry of transcript) {
             if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start) continue;
