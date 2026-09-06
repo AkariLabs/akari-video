@@ -7416,7 +7416,7 @@ var require_audio_schedule = __commonJS({
           id,
           kind,
           t: spec.t,
-          track: normalizedTrack2(spec.track),
+          track: normalizedTrack(spec.track),
           materialDurationSec: spec.durationSec,
           sourceOffsetSec: trim.sourceOffsetSec,
           itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
@@ -7517,7 +7517,7 @@ var require_audio_schedule = __commonJS({
       return {
         kind: "bgm",
         id: typeof spec.id === "string" && spec.id ? spec.id : "bgm",
-        track: normalizedTrack2(spec.track),
+        track: normalizedTrack(spec.track),
         timelineStartSec,
         timelineEndSec: timelineStartSec + durationSec,
         delaySec,
@@ -7575,7 +7575,7 @@ var require_audio_schedule = __commonJS({
       return {
         kind: "speech",
         id,
-        track: normalizedTrack2(spec.track),
+        track: normalizedTrack(spec.track),
         timelineStartSec,
         timelineEndSec: timelineStartSec + durationSec,
         delaySec,
@@ -7698,7 +7698,7 @@ var require_audio_schedule = __commonJS({
         outSec,
         speed: input.speed,
         gainDb: input.gainDb,
-        track: normalizedTrack2(input.track),
+        track: normalizedTrack(input.track),
         materialDurationSec: outSec
       });
     }
@@ -7874,7 +7874,7 @@ var require_audio_schedule = __commonJS({
     function finiteRange(value, minimum, maximum) {
       return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : void 0;
     }
-    function normalizedTrack2(value) {
+    function normalizedTrack(value) {
       return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
     }
     function finitePositive3(value) {
@@ -25498,6 +25498,7 @@ function createPreviewAudioSupply(options) {
   const offlineContextFactory = options.offlineContextFactory ?? defaultOfflineContextFactory;
   const now = options.nowImpl ?? nowMs;
   const watchdogMs = options.pauseWatchdogMs === false ? false : finitePositive2(options.pauseWatchdogMs) ? options.pauseWatchdogMs : false;
+  const explicitWindowStartupWaitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs : null;
   let context = null;
   if (timelineDurationSec > 0 && (declarations.length > 0 || speech.length > 0)) {
     try {
@@ -25513,7 +25514,6 @@ function createPreviewAudioSupply(options) {
   let overBudgetWarned = false;
   let prefetchInFlight = null;
   let activePrefetchQueue = null;
-  let wakePrefetch = null;
   let disposed = false;
   let decodedRevision = 0;
   let prefetchEverRan = false;
@@ -25528,20 +25528,15 @@ function createPreviewAudioSupply(options) {
   let regularDecoded = [];
   let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
-  const activeItemGains = /* @__PURE__ */ new Set();
-  let mutedCutTracks = /* @__PURE__ */ new Set();
-  let mutedAudioTracks = /* @__PURE__ */ new Set();
-  let allCutsMuted = false;
-  let allAudioMuted = false;
-  const trackMuted = (kind, track) => kind === "speech" ? allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
-  const itemMuted = (item) => trackMuted(item.kind, item.track);
   const windowSources = /* @__PURE__ */ new Map();
-  const windowStops = /* @__PURE__ */ new Set();
+  const windowStops = /* @__PURE__ */ new Map();
+  const windowItems = /* @__PURE__ */ new Map();
   const windowFailures = /* @__PURE__ */ new Set();
-  let windowController = null;
+  const windowControllers = /* @__PURE__ */ new Set();
   let startingWindowController = null;
   let bufferedUntil = {};
   let generation = 0;
+  let playbackEpoch = 0;
   let starting = false;
   let replanPending = false;
   let gate = {
@@ -25560,6 +25555,7 @@ function createPreviewAudioSupply(options) {
   let lastRenderedTimelineSec = null;
   let lastAudioPositionAtRenderSec = null;
   let lastSchedule = [];
+  let lastPlanStartAtSec = 0;
   let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
   let rate = 1;
   const masterGain = context?.createGain() ?? null;
@@ -25584,7 +25580,19 @@ function createPreviewAudioSupply(options) {
     0,
     Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
   );
-  const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+  const positionAtContextTime = (seconds) => context && playing ? clamp5(anchorTimelineSec + Math.max(0, seconds - anchorContextSec) * rate) : latestRequestedSec;
+  const contextPosition = () => positionAtContextTime(context?.currentTime ?? 0);
+  const audioPosition = () => {
+    let outputContextTime = context?.currentTime ?? 0;
+    try {
+      if (typeof context?.getOutputTimestamp === "function") {
+        const timestamp = context.getOutputTimestamp();
+        if (finiteNonNegative(timestamp?.contextTime)) outputContextTime = timestamp.contextTime;
+      }
+    } catch {
+    }
+    return positionAtContextTime(outputContextTime);
+  };
   const warnPitchUnavailable = (reason) => {
     if (workletWarningEmitted) return;
     workletWarningEmitted = true;
@@ -25638,32 +25646,31 @@ function createPreviewAudioSupply(options) {
       warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
     }
   }
+  const stopActiveSource = (item) => {
+    active = active.filter((candidate) => candidate !== item);
+    item.source.onended = null;
+    try {
+      item.source.stop();
+    } catch {
+    }
+    try {
+      item.source.disconnect();
+    } catch {
+    }
+    for (const gain of item.gains) try {
+      gain.disconnect();
+    } catch {
+    }
+  };
   const stopSources = () => {
     startingWindowController?.abort();
     startingWindowController = null;
-    windowController?.abort();
-    windowController = null;
-    for (const stop of [...windowStops]) stop();
+    for (const controller of windowControllers) controller.abort();
+    windowControllers.clear();
+    for (const stop of [...windowStops.values()]) stop();
     windowStops.clear();
-    for (const entry of activeItemGains) entry.remove();
     bufferedUntil = {};
-    const sources = active;
-    active = [];
-    for (const item of sources) {
-      item.source.onended = null;
-      try {
-        item.source.stop();
-      } catch {
-      }
-      try {
-        item.source.disconnect();
-      } catch {
-      }
-      for (const gain of item.gains) try {
-        gain.disconnect();
-      } catch {
-      }
-    }
+    for (const item of [...active]) stopActiveSource(item);
   };
   const noteDecodedBytes = (entry, buffer) => {
     entry.bytes = buffer.length * buffer.numberOfChannels * 4;
@@ -25758,7 +25765,7 @@ function createPreviewAudioSupply(options) {
       `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
     );
     let usedSidecar = Boolean(sidecar && buffer);
-    if (!buffer && sidecar && declaration.sourceUrl && !trackMuted(declaration.kind, declaration.spec.track)) {
+    if (!buffer && sidecar && declaration.sourceUrl) {
       buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
@@ -25790,7 +25797,7 @@ function createPreviewAudioSupply(options) {
     const bakedPath = sidecar?.path ?? legacy?.path;
     let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
     let usedSidecar = Boolean(bakedPath && buffer);
-    if (!buffer && !trackMuted("speech", declaration.track)) {
+    if (!buffer) {
       buffer = await decodeUrl(
         declaration.url,
         `speech ${declaration.src}`,
@@ -25820,8 +25827,8 @@ function createPreviewAudioSupply(options) {
   const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
   const taskState = (state) => state === "queued" || state === "generating" ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
   const prepareWindowedTask = (task, pcm) => {
-    if (pcm && task.state === "decode") task.state = "windowed";
-    if (task.state === "windowed" && !task.muted() && !task.resolved()) {
+    if (pcm && task.state === "decode") {
+      task.state = "windowed";
       void task.run().catch((reason) => {
         task.failedAtMs = now();
         warn(`[frame-engine] ${task.key} PCM metadata unavailable`, reason);
@@ -25834,7 +25841,6 @@ function createPreviewAudioSupply(options) {
     at: firstUseRegular(item),
     failedAtMs: null,
     state: taskState(item.spec.sidecarState),
-    muted: () => trackMuted(item.kind, item.spec.track),
     run: () => resolveRegular(item),
     resolved: () => regularResolved(item)
   }, validSidecar(item.spec.sidecar)?.format === "pcm-s16le");
@@ -25843,7 +25849,6 @@ function createPreviewAudioSupply(options) {
     at: firstUseSpeech(item),
     failedAtMs: null,
     state: taskState(item.sidecarState),
-    muted: () => trackMuted("speech", item.track),
     run: () => resolveSpeech(item),
     resolved: () => speechDecoded.has(item.id)
   }, item.sidecar?.format === "pcm-s16le");
@@ -25853,61 +25858,31 @@ function createPreviewAudioSupply(options) {
   ].sort((left, right) => left.at - right.at);
   const pendingTasks = () => {
     const at2 = now();
-    return tasks.filter((task) => !task.muted() && task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+    return tasks.filter((task) => task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
   };
   const runPrefetch = async (queue) => {
     activePrefetchQueue = queue;
-    for (const task of queue) task.queued = true;
     prefetchPending = queue.length;
     let cursor = 0;
-    let workers = 2;
-    let failed = false;
-    let failure;
-    const idle = /* @__PURE__ */ new Set();
-    const wake = () => {
-      const waiters = [...idle];
-      idle.clear();
-      for (const resume of waiters) resume();
-    };
-    wakePrefetch = wake;
     const worker = async () => {
-      try {
-        while (!disposed && !failed) {
-          if (cursor >= queue.length) {
-            if (idle.size === workers - 1) return;
-            await new Promise((resolve) => idle.add(resolve));
-            continue;
-          }
-          const task = queue[cursor++];
-          if (!task) break;
-          try {
-            if (!tasks.includes(task) || task.muted()) continue;
-            await task.run();
-            task.failedAtMs = task.resolved() || task.muted() ? null : now();
-          } catch (reason) {
-            task.failedAtMs = now();
-            warn(`[frame-engine] ${task.key} prefetch failed`, reason);
-          } finally {
-            task.queued = false;
-            prefetchPending -= 1;
-            notifyTaskSettled();
-            if (task.updated && !disposed) replanIfNeeded();
-          }
+      while (cursor < queue.length) {
+        const task = queue[cursor++];
+        if (!task) break;
+        try {
+          if (disposed || !tasks.includes(task)) continue;
+          await task.run();
+          task.failedAtMs = task.resolved() ? null : now();
+        } catch (reason) {
+          task.failedAtMs = now();
+          warn(`[frame-engine] ${task.key} prefetch failed`, reason);
+        } finally {
+          prefetchPending -= 1;
+          notifyTaskSettled();
+          if (task.updated && !disposed) replanIfNeeded();
         }
-      } catch (reason) {
-        failed = true;
-        failure = reason;
-      } finally {
-        workers -= 1;
-        wake();
       }
     };
-    try {
-      await Promise.all([worker(), worker()]);
-      if (failed) throw failure;
-    } finally {
-      for (const task of queue) task.queued = false;
-    }
+    await Promise.all([worker(), worker()]);
   };
   const taskWaiters = /* @__PURE__ */ new Set();
   const notifyTaskSettled = () => {
@@ -25915,17 +25890,7 @@ function createPreviewAudioSupply(options) {
   };
   const ensureDecoded = () => {
     if (disposed) return Promise.resolve();
-    for (const task of tasks) prepareWindowedTask(task, false);
-    if (prefetchInFlight) {
-      if (activePrefetchQueue) for (const task of pendingTasks()) {
-        if (task.queued) continue;
-        task.queued = true;
-        activePrefetchQueue.push(task);
-        prefetchPending += 1;
-      }
-      wakePrefetch?.();
-      return prefetchInFlight;
-    }
+    if (prefetchInFlight) return prefetchInFlight;
     const queue = pendingTasks();
     if (queue.length === 0) return Promise.resolve();
     const first = !prefetchEverRan;
@@ -25936,7 +25901,6 @@ function createPreviewAudioSupply(options) {
       prefetchPending = 0;
       prefetchInFlight = null;
       activePrefetchQueue = null;
-      wakePrefetch = null;
       replanIfNeeded();
     });
     return prefetchInFlight;
@@ -25993,9 +25957,34 @@ function createPreviewAudioSupply(options) {
       return;
     }
     if (decodedCount <= scheduledDecodedCount) return;
-    launch(audioPosition(), { pinStart: true });
+    launch(contextPosition(), { pinStart: true });
   };
-  const applyGainEvents = (param, events, startTime, playbackRate) => {
+  const remainingGainEvents = (events, elapsed) => {
+    if (events.length === 0) return [];
+    let value = events[0].value;
+    let previous = events[0];
+    for (const event of events) {
+      if (event.offsetSec > elapsed) {
+        const fraction = Math.max(0, (elapsed - previous.offsetSec) / (event.offsetSec - previous.offsetSec));
+        if (event.method === "linear") value = previous.value + (event.value - previous.value) * fraction;
+        else if (event.method === "exponential" && previous.value > 0 && event.value > 0) {
+          value = previous.value * (event.value / previous.value) ** fraction;
+        }
+        break;
+      }
+      value = event.value;
+      previous = event;
+    }
+    return [
+      { offsetSec: 0, value, method: "set" },
+      ...events.filter((event) => event.offsetSec > elapsed).map((event) => ({ ...event, offsetSec: event.offsetSec - elapsed }))
+    ];
+  };
+  const applyGainEvents = (param, events, startTime, playbackRate, lateSec = 0) => {
+    if (lateSec > 0) {
+      events = remainingGainEvents(events, lateSec * playbackRate);
+      startTime += lateSec;
+    }
     if (events.length === 0) {
       param.setValueAtTime(1, startTime);
       return;
@@ -26008,26 +25997,15 @@ function createPreviewAudioSupply(options) {
       else param.setValueAtTime(event.value, at2);
     }
   };
-  const registerItemGain = (item, baseGain, startTime, transportRate) => {
-    const entry = {
-      kind: item.kind,
-      track: normalizedTrack(item.track),
-      baseGain,
-      gainEvents: item.gainEvents,
-      startTime,
-      transportRate,
-      remove: () => {
-        activeItemGains.delete(entry);
-      }
-    };
-    activeItemGains.add(entry);
-    return entry;
-  };
   const startItem = (item, contextStart) => {
     if (!context) return false;
     const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
     const buffer = regular?.buffer ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : void 0);
     if (!buffer) return false;
+    const when = contextStart + item.delaySec / rate;
+    const late = Math.max(0, context.currentTime - when);
+    const consumed = late * item.playbackRate * rate;
+    if (item.sourceDurationSec - consumed <= 0) return false;
     try {
       const source = context.createBufferSource();
       const baseGain = context.createGain();
@@ -26046,17 +26024,16 @@ function createPreviewAudioSupply(options) {
           envelopeGain.gain,
           item.envelopeEvents,
           contextStart + item.delaySec / rate,
-          rate
+          rate,
+          late
         );
       }
       tail.connect(masterGain ?? context.destination);
-      applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
-      source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
-      const gainEntry = registerItemGain(item, baseGain, contextStart + item.delaySec / rate, rate);
-      const activeItem = { source, gains };
+      applyGainEvents(baseGain.gain, item.gainEvents, when, rate, late);
+      source.start(Math.max(when, context.currentTime), item.sourceOffsetSec + consumed, item.sourceDurationSec - consumed);
+      const activeItem = { source, gains, key: `${item.kind}:${item.id}`, material: buffer, item, rate };
       active.push(activeItem);
       source.onended = () => {
-        gainEntry.remove();
         active = active.filter((candidate) => candidate !== activeItem);
         try {
           source.disconnect();
@@ -26074,6 +26051,24 @@ function createPreviewAudioSupply(options) {
     }
   };
   const windowedFor = (item) => item.kind === "speech" ? speechDecoded.get(item.id)?.windowed : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind)?.windowed;
+  const canKeepItem = (item) => {
+    const key = `${item.kind}:${item.id}`;
+    const live = windowItems.get(key) ?? active.find((candidate) => candidate.key === key);
+    if (!live) return false;
+    const material = windowedFor(item) ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind)?.buffer);
+    const old = live.item;
+    if (live.material !== material || live.rate !== rate || old.loop !== item.loop || old.playbackRate !== item.playbackRate || old.gainDb !== item.gainDb || old.timelineEndSec !== item.timelineEndSec) return false;
+    const elapsed = item.timelineStartSec - old.timelineStartSec;
+    const sameEvents = (before, after) => {
+      const remaining = remainingGainEvents(before, elapsed);
+      const next = remainingGainEvents(after, 0);
+      return remaining.length === next.length && remaining.every((event, index) => {
+        const other = next[index];
+        return event.method === other.method && Math.abs(event.offsetSec - other.offsetSec) < 1e-6 && Math.abs(event.value - other.value) < 1e-6;
+      });
+    };
+    return sameEvents(old.gainEvents, item.gainEvents) && sameEvents(old.envelopeEvents, item.envelopeEvents);
+  };
   const frameSeconds = (frame, sampleRate, end) => {
     const seconds = frame / sampleRate;
     const adjustment = Number.EPSILON * Math.max(1, Math.abs(seconds));
@@ -26114,9 +26109,8 @@ function createPreviewAudioSupply(options) {
       release
     };
   };
-  const waitForFirstWindows = (windows, signal) => {
+  const waitForFirstWindows = (windows, signal, waitMs) => {
     if (windows.length === 0 || signal.aborted) return Promise.resolve();
-    const waitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs : 1500;
     return new Promise((resolve) => {
       const finish = () => {
         clearTimeout(timer);
@@ -26128,11 +26122,11 @@ function createPreviewAudioSupply(options) {
       void Promise.all(windows.map((window2) => window2.result)).then(finish);
     });
   };
-  const startWindowedItem = (item, contextStart, itemGeneration, prepared) => {
+  const startWindowedItem = (item, contextStart, itemEpoch, controller, prepared) => {
     const windowed = windowedFor(item);
-    if (!context || !windowed || !windowController) return false;
+    if (!context || !windowed) return false;
     const audioContext = context;
-    const signal = windowController.signal;
+    const signal = controller.signal;
     const key = `${item.kind}:${item.id}`;
     if (windowFailures.has(key)) {
       prepared?.release();
@@ -26141,6 +26135,7 @@ function createPreviewAudioSupply(options) {
     const transportRate = rate;
     const playbackRate = item.playbackRate * transportRate;
     const itemStart = contextStart + item.delaySec / transportRate;
+    const late = Math.max(0, audioContext.currentTime - itemStart);
     const baseGain = audioContext.createGain();
     const gains = [baseGain];
     let tail = baseGain;
@@ -26149,18 +26144,17 @@ function createPreviewAudioSupply(options) {
       baseGain.connect(envelopeGain);
       tail = envelopeGain;
       gains.push(envelopeGain);
-      applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate);
+      applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate, late);
     }
     tail.connect(masterGain ?? audioContext.destination);
-    applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate);
-    const gainEntry = registerItemGain(item, baseGain, itemStart, transportRate);
+    applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate, late);
     let consumed = 0;
     let failures = 0;
     let timer = null;
     let stopped = false;
     let filling = false;
     const nodes = /* @__PURE__ */ new Map();
-    const current = () => !stopped && !signal.aborted && generation === itemGeneration;
+    const current = () => !stopped && !signal.aborted && playbackEpoch === itemEpoch;
     const disconnectGains = () => {
       for (const gain of gains) try {
         gain.disconnect();
@@ -26170,7 +26164,6 @@ function createPreviewAudioSupply(options) {
     const stop = () => {
       if (stopped) return;
       stopped = true;
-      gainEntry.remove();
       if (timer !== null) clearTimeout(timer);
       prepared?.release();
       for (const [source, release] of nodes) {
@@ -26187,9 +26180,16 @@ function createPreviewAudioSupply(options) {
       }
       nodes.clear();
       disconnectGains();
-      windowStops.delete(stop);
+      windowStops.delete(key);
+      windowItems.delete(key);
+      delete bufferedUntil[key];
+      if (!starting && ![...windowItems.values()].some((entry) => entry.controller === controller)) {
+        windowControllers.delete(controller);
+        controller.abort();
+      }
     };
-    windowStops.add(stop);
+    windowStops.set(key, stop);
+    windowItems.set(key, { key, material: windowed, item, rate: transportRate, controller });
     const arm = (delay) => {
       if (current()) timer = setTimeout(() => {
         timer = null;
@@ -26197,11 +26197,11 @@ function createPreviewAudioSupply(options) {
       }, delay);
     };
     const fill = async () => {
-      if (!current() || filling || itemMuted(item)) return;
+      if (!current() || filling) return;
       filling = true;
       let retryDelay = null;
       try {
-        while (current() && !itemMuted(item)) {
+        while (current()) {
           const slice = windowSlice(item, windowed, consumed);
           if (!slice) {
             if (nodes.size === 0) stop();
@@ -26212,7 +26212,7 @@ function createPreviewAudioSupply(options) {
           const request = prepared ?? prepareWindow(windowed, slice, signal);
           prepared = void 0;
           const result = await request.result;
-          if (!current() || itemMuted(item)) {
+          if (!current()) {
             request.release();
             return;
           }
@@ -26273,7 +26273,7 @@ function createPreviewAudioSupply(options) {
         }
       } finally {
         filling = false;
-        if (current() && !itemMuted(item) && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
+        if (current() && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
           arm(retryDelay ?? WINDOW_REFILL_MS);
         }
       }
@@ -26282,28 +26282,22 @@ function createPreviewAudioSupply(options) {
     return true;
   };
   const regularScheduleDeclaration = () => {
-    const mutedUnresolved = declarations.filter((item) => trackMuted(item.kind, item.spec.track) && item.spec.sidecarState !== "no-audio" && !regularResolved(item)).map((item) => ({
-      ...item,
-      sidecar: Boolean(validSidecar(item.spec.sidecar)),
-      durationSec: [item.spec.durationSec, validSidecar(item.spec.sidecar)?.durationSec].find(finitePositive2) ?? timelineDurationSec
-    }));
-    const scheduled = [...regularDecoded, ...mutedUnresolved];
-    const normalized = scheduled.map((item) => ({
+    const normalized = regularDecoded.map((item) => ({
       ...item.spec,
       id: item.id,
       durationSec: item.durationSec,
       ...!item.sidecar ? { sidecar: void 0 } : {}
     }));
-    const bgm = normalized.find((_3, index) => scheduled[index]?.kind === "bgm");
+    const bgm = normalized.find((_3, index) => regularDecoded[index]?.kind === "bgm");
     return {
       ...bgm ? { bgm } : {},
-      sfx: normalized.filter((_3, index) => scheduled[index]?.kind === "sfx"),
-      narration: normalized.filter((_3, index) => scheduled[index]?.kind === "narration")
+      sfx: normalized.filter((_3, index) => regularDecoded[index]?.kind === "sfx"),
+      narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
   const supplyKeysAt = (positionSec, asPlaying) => {
     const requiredTasks = tasks.filter((task) => {
-      if (task.muted() || task.at > positionSec || task.state === "no-audio") return false;
+      if (task.at > positionSec || task.state === "no-audio") return false;
       const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
       if (regular) {
         if (regular.kind === "bgm") return positionSec < timelineDurationSec;
@@ -26372,6 +26366,8 @@ function createPreviewAudioSupply(options) {
   };
   const startFrom = async (seconds, options2 = {}) => {
     if (!context) return;
+    const replanning = playing;
+    if (!replanning) playbackEpoch += 1;
     const thisGeneration = ++generation;
     startingWindowController?.abort();
     const controller = new AbortController();
@@ -26417,7 +26413,7 @@ function createPreviewAudioSupply(options) {
       }
       const speechForSchedule = speech.flatMap((item) => {
         const resolved = speechDecoded.get(item.id);
-        if (!resolved) return item.sidecarState !== "no-audio" && trackMuted("speech", item.track) ? [item] : [];
+        if (!resolved) return [];
         return [{
           ...item,
           ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
@@ -26425,43 +26421,67 @@ function createPreviewAudioSupply(options) {
         }];
       });
       const planDecodedCount = decodedRevision;
-      const plan = scheduleBuilder({
+      const scheduleAudio = { ...regularScheduleDeclaration(), speech: speechForSchedule };
+      let plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
-        audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
+        audio: scheduleAudio
       });
-      for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-      if (plan.items.length === 0) {
+      const planWarnings = new Set(plan.warnings);
+      for (const warning of planWarnings) warn(`[frame-engine] audio: ${warning}`);
+      if (plan.items.length === 0 && !replanning) {
         outcome = "empty";
         emptyPlanDecodedCount = decodedRevision;
         return;
       }
       const firstWindows = /* @__PURE__ */ new Map();
       for (const item of plan.items) {
-        if (itemMuted(item)) continue;
+        if (replanning && canKeepItem(item)) continue;
         const windowed = windowedFor(item);
         if (!windowed || item.delaySec > 0 || windowFailures.has(`${item.kind}:${item.id}`)) continue;
         const slice = windowSlice(item, windowed, 0);
         if (slice) firstWindows.set(item, prepareWindow(windowed, slice, controller.signal));
       }
-      await waitForFirstWindows([...firstWindows.values()], controller.signal);
+      const waitMs = explicitWindowStartupWaitMs ?? (gate.holding && gateGeneration === thisGeneration ? Math.max(0, gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now()) : 1500);
+      await waitForFirstWindows([...firstWindows.values()], controller.signal, waitMs);
       if (thisGeneration !== generation) return;
+      const effectiveStart = clamp5(options2.pinStart && playing ? seconds : latestRequestedSec);
+      if (Math.abs(effectiveStart - plan.startAtSec) > 1e-6) {
+        plan = scheduleBuilder({ timelineDurationSec, startAtSec: effectiveStart, audio: scheduleAudio });
+        for (const warning of plan.warnings) {
+          if (!planWarnings.has(warning)) {
+            planWarnings.add(warning);
+            warn(`[frame-engine] audio: ${warning}`);
+          }
+        }
+        for (const prepared of firstWindows.values()) prepared.release();
+        firstWindows.clear();
+      }
       startingWindowController = null;
-      stopSources();
-      windowController = controller;
-      const contextStart = context.currentTime + 0.02;
-      anchorTimelineSec = plan.startAtSec;
-      anchorContextSec = contextStart;
+      const kept = new Set(replanning ? plan.items.filter(canKeepItem).map((item) => `${item.kind}:${item.id}`) : []);
+      if (replanning) {
+        for (const item of [...active]) if (!kept.has(item.key)) stopActiveSource(item);
+        for (const [key, stop] of [...windowStops]) if (!kept.has(key)) stop();
+      } else {
+        stopSources();
+      }
+      windowControllers.add(controller);
+      const contextStart = replanning ? anchorContextSec + (plan.startAtSec - anchorTimelineSec) / rate : context.currentTime + 0.02;
+      if (!replanning) {
+        anchorTimelineSec = plan.startAtSec;
+        anchorContextSec = contextStart;
+      }
+      lastPlanStartAtSec = plan.startAtSec;
       lastSchedule = plan.items;
       scheduledDecodedCount = planDecodedCount;
       lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
       const skipped = [];
       for (const item of lastSchedule) {
-        if (itemMuted(item)) {
+        if (kept.has(`${item.kind}:${item.id}`)) {
           firstWindows.get(item)?.release();
           continue;
         }
-        const started = windowedFor(item) ? startWindowedItem(item, contextStart, thisGeneration, firstWindows.get(item)) : startItem(item, contextStart);
+        const started = windowedFor(item) ? startWindowedItem(item, contextStart, playbackEpoch, controller, firstWindows.get(item)) : startItem(item, contextStart);
         if (!started) skipped.push(`${item.kind}:${item.id}`);
       }
       skippedAtSchedule = skipped;
@@ -26472,7 +26492,13 @@ function createPreviewAudioSupply(options) {
       outcome = "started";
     } finally {
       if (startingWindowController === controller) startingWindowController = null;
-      if (windowController !== controller) controller.abort();
+      for (const adopted of windowControllers) {
+        if (![...windowItems.values()].some((item) => item.controller === adopted)) {
+          windowControllers.delete(adopted);
+          adopted.abort();
+        }
+      }
+      if (!windowControllers.has(controller)) controller.abort();
       if (thisGeneration === generation) {
         if (outcome !== "started") releaseGate();
         if (outcome === "failed") gateIntent = null;
@@ -26493,8 +26519,9 @@ function createPreviewAudioSupply(options) {
   };
   const restartAllowed = () => lastStartOutcome === null || now() - lastStartAttemptMs >= RESTART_BACKOFF_MS;
   const pause = () => {
-    if (playing) latestRequestedSec = audioPosition();
+    if (playing) latestRequestedSec = contextPosition();
     generation += 1;
+    playbackEpoch += 1;
     releaseGate();
     gateIntent = null;
     playing = false;
@@ -26509,6 +26536,7 @@ function createPreviewAudioSupply(options) {
     pauseTimer = setTimeout(pause, watchdogMs);
   };
   const debug = () => {
+    const latencies = [context?.baseLatency, context?.outputLatency].filter((value) => typeof value === "number" && Number.isFinite(value));
     const sidecars = uniqueSidecars();
     const audioPositionSec = lastAudioPositionAtRenderSec;
     const perSource = sourceOrder.flatMap((src) => {
@@ -26528,15 +26556,10 @@ function createPreviewAudioSupply(options) {
         failed,
         noAudio,
         bufferedUntil: { ...bufferedUntil },
-        mutedTracks: {
-          cuts: [...mutedCutTracks].sort((a, b) => a - b),
-          audio: [...mutedAudioTracks].sort((a, b) => a - b),
-          allCuts: allCutsMuted,
-          allAudio: allAudioMuted
-        },
         gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
       },
       contextState: context?.state ?? "unavailable",
+      outputLatencyMs: latencies.length > 0 ? latencies.reduce((sum, value) => sum + value, 0) * 1e3 : null,
       renderedTimelineSec: lastRenderedTimelineSec,
       audioPositionSec,
       driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
@@ -26545,7 +26568,7 @@ function createPreviewAudioSupply(options) {
       pitchPreserved: rate === 1 || stretcher === "worklet",
       stretcher,
       scheduled: {
-        startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
+        startAtSec: lastSchedule.length > 0 ? lastPlanStartAtSec : null,
         itemCount: lastSchedule.length,
         bgm: lastSchedule.filter((item) => item.kind === "bgm").length,
         sfx: lastSchedule.filter((item) => item.kind === "sfx").length,
@@ -26595,7 +26618,6 @@ function createPreviewAudioSupply(options) {
     replacement.updated = true;
     tasks[index] = replacement;
     if (activePrefetchQueue && replacement.state === "decode") {
-      replacement.queued = true;
       activePrefetchQueue.push(replacement);
       prefetchPending += 1;
     }
@@ -26654,36 +26676,6 @@ function createPreviewAudioSupply(options) {
   };
   return {
     updateAudio,
-    setMutedTracks(muted) {
-      if (disposed) return;
-      const cuts = muted.cuts === void 0 ? mutedCutTracks : new Set([...muted.cuts].map(normalizedTrack));
-      const audio = muted.audio === void 0 ? mutedAudioTracks : new Set([...muted.audio].map(normalizedTrack));
-      const allCuts = muted.allCuts ?? allCutsMuted;
-      const allAudio = muted.allAudio ?? allAudioMuted;
-      const equal = (left, right) => left.size === right.size && [...left].every((track) => right.has(track));
-      if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks) && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
-      const released = (before, after, allBefore, allAfter) => !allAfter && (allBefore || [...before].some((track) => !after.has(track)));
-      const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts) || released(mutedAudioTracks, audio, allAudioMuted, allAudio);
-      const previous = new Map([...activeItemGains].map((entry) => [entry, trackMuted(entry.kind, entry.track)]));
-      mutedCutTracks = cuts;
-      mutedAudioTracks = audio;
-      allCutsMuted = allCuts;
-      allAudioMuted = allAudio;
-      if (context) for (const entry of activeItemGains) {
-        const silent = trackMuted(entry.kind, entry.track);
-        if (silent === previous.get(entry)) continue;
-        entry.baseGain.gain.cancelScheduledValues(context.currentTime);
-        if (silent) entry.baseGain.gain.setValueAtTime(0, context.currentTime);
-        else applyGainEvents(entry.baseGain.gain, entry.gainEvents, entry.startTime, entry.transportRate);
-      }
-      notifyTaskSettled();
-      if (unmuted && (playing || starting)) {
-        void ensureDecoded().then(() => ensureDecoded()).catch((reason) => {
-          warn("[frame-engine] audio unmute failed", reason);
-        });
-        launch(audioPosition(), { pinStart: true });
-      }
-    },
     prime() {
       ensureDecoded().catch((reason) => {
         warn("[frame-engine] audio prefetch failed", reason);
@@ -26724,6 +26716,7 @@ function createPreviewAudioSupply(options) {
     seek(seconds, continuePlaying = false) {
       latestRequestedSec = clamp5(seconds);
       generation += 1;
+      playbackEpoch += 1;
       releaseGate();
       playing = false;
       starting = false;
@@ -26742,7 +26735,8 @@ function createPreviewAudioSupply(options) {
       if (nextRate === rate) return;
       const wasPlaying = playing;
       const wasStarting = starting;
-      const position = wasPlaying ? audioPosition() : latestRequestedSec;
+      const position = wasPlaying ? contextPosition() : latestRequestedSec;
+      playbackEpoch += 1;
       rate = nextRate;
       latestRequestedSec = position;
       routeMasterBus();
@@ -26774,7 +26768,6 @@ function createPreviewAudioSupply(options) {
     debug,
     dispose() {
       disposed = true;
-      wakePrefetch?.();
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
@@ -26794,9 +26787,6 @@ function createPreviewAudioSupply(options) {
       void context?.close().catch(() => void 0);
     }
   };
-}
-function normalizedTrack(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 function validSidecar(value) {
   if (!value || typeof value !== "object") return void 0;

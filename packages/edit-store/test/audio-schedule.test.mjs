@@ -92,6 +92,36 @@ test('trim / fade / gain / track / ducking を一つの決定論的予定表へ�
   assert.equal(narration.durationSec, 2);
 });
 
+test('非ゼロ in の narration は trim 済み sidecar の先頭を t に配置する', () => {
+  const inSec = 13.033;
+  const outSec = 5322.94;
+  // The sidecar producer has already removed [0, inSec) and everything after outSec.
+  const durationSec = outSec - inSec;
+  for (const t of [0, 7]) {
+    const result = buildWebAudioSchedule({
+      timelineDurationSec: 5400,
+      startAtSec: 0,
+      audio: {
+        narration: [{
+          id: 'a-main', t, in: inSec, out: outSec, durationSec,
+          sidecar: {
+            path: 'cache/a-main.flac', durationSec, padBeforeSec: 0, padAfterSec: 0,
+          },
+        }],
+      },
+    });
+    assert.deepEqual(result.warnings, []);
+    assert.equal(result.items.length, 1);
+    const narration = result.items[0];
+    assert.equal(narration.kind, 'narration');
+    assert.equal(narration.sourceOffsetSec, 0, 'in is applied by the producer, not again by the schedule');
+    assert.equal(narration.timelineStartSec, t);
+    assert.equal(narration.delaySec, t);
+    closeTo(narration.durationSec, durationSec);
+    closeTo(narration.timelineEndSec, t + durationSec);
+  }
+});
+
 test('途中シークは BGM loop offset と進行中 timed item の source offset を合成する', () => {
   const result = buildWebAudioSchedule({
     timelineDurationSec: 12,

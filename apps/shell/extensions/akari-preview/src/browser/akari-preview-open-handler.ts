@@ -3,6 +3,7 @@ import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchCl
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
+import { previewAudioTrimOf } from '../common/preview-audio-trim';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -515,8 +516,8 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     id: string;
     t: number;
     track?: number;
-    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (sfx only; narration is unaffected):
-    // playback window = material's [in, out). Omitted in/out are resolved against the decoded
+    // SFX and narration both have a playback window = material's [in, out).
+    // Omitted in/out are resolved against the decoded
     // buffer's real duration in the injected preview script (createPreviewAudio's decodeOne).
     in?: number;
     out?: number;
@@ -4538,29 +4539,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (normalizedGain === undefined) {
                     return undefined;
                 }
-                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx-only playback window
+                // SFX and narration share a playback window
                 // (material's [in, out)). Malformed values are warned-and-ignored (treated as
                 // omitted) rather than dropping the whole item, matching gain_db/fadeIn/fadeOut's
                 // existing tolerance pattern in this function. Real-duration clamping (実尺越え) can
                 // only happen once the buffer is decoded, so it happens later in decodeOne.
-                let trimIn: number | undefined;
-                let trimOut: number | undefined;
-                if (kind === 'sfx') {
-                    if (item.in !== undefined) {
-                        if (typeof item.in === 'number' && Number.isFinite(item.in) && item.in >= 0) {
-                            trimIn = item.in;
-                        } else {
-                            console.warn(`[akari-preview] ${label}.in を無視しました（0以上の有限 number ではありません）`, item.in);
-                        }
-                    }
-                    if (item.out !== undefined) {
-                        if (typeof item.out === 'number' && Number.isFinite(item.out) && item.out > 0) {
-                            trimOut = item.out;
-                        } else {
-                            console.warn(`[akari-preview] ${label}.out を無視しました（0より大きい有限 number ではありません）`, item.out);
-                        }
-                    }
-                }
+                const { inSec: trimIn, outSec: trimOut } = previewAudioTrimOf(item, label, console.warn);
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
@@ -4598,11 +4582,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     gainDb: normalizedGain,
                     ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
+                    ...(trimIn !== undefined ? { in: trimIn } : {}),
+                    ...(trimOut !== undefined ? { out: trimOut } : {}),
                     ...(kind === 'sfx'
                         ? {
                             ...duckOptions(item, label),
-                            ...(trimIn !== undefined ? { in: trimIn } : {}),
-                            ...(trimOut !== undefined ? { out: trimOut } : {}),
                             ...(fadeIn !== undefined ? { fadeIn } : {}),
                             ...(fadeOut !== undefined ? { fadeOut } : {})
                         }
