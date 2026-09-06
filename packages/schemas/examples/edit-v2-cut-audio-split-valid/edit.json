@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "assets/main.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "visual",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 3
+          },
+          "audio": false
+        }
+      ]
+    },
+    {
+      "id": "speech",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "voice",
+          "at": 0,
+          "duration": 90,
+          "role": "speech",
+          "link": "cut",
+          "mute": false,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 3
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -10,10 +10,10 @@ const SHAPE_KINDS = new Set([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'source'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'source', 'audio'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'source', 'gain_db', 'keyframes',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
     'denoise', 'lowcut_hz', 'script', 'reading', 'provenance'
 ]);
@@ -167,8 +167,13 @@ function validateAudioItem(value, path, ids, sourceIds) {
     validateItemMetadata(value, path);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
-    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
-        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
+    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm' && value.role !== 'speech') {
+        throw invalid(`${path}.role`, 'sfx/narration/bgm/speech のいずれかである必要があります');
+    }
+    if (hasOwn(value, 'link'))
+        requireText(value.link, `${path}.link`);
+    if (hasOwn(value, 'mute') && typeof value.mute !== 'boolean') {
+        throw invalid(`${path}.mute`, 'boolean である必要があります');
     }
     if (hasOwn(value, 'gain_db'))
         requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
@@ -279,6 +284,12 @@ function validateItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'audio')) {
+        if (value.source.kind !== 'media')
+            throw invalid(`${path}.audio`, 'media item だけが指定できます');
+        if (value.audio !== false)
+            throw invalid(`${path}.audio`, 'false である必要があります');
+    }
     if (hasOwn(value, 'mask')) {
         if (value.source.kind !== 'media')
             throw invalid(`${path}.mask`, 'media item だけが指定できます');

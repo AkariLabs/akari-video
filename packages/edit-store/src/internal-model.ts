@@ -200,6 +200,8 @@ export interface InternalEdit {
 }
 
 export interface InternalReadOptions {
+    /** 検証用の opt-in。供給経路が対応するまでは新しい音声分離語彙を既定で拒否する。 */
+    allowCutAudioSplit?: boolean;
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
     /** 行アンカーを再解決するときの字幕。省略時はキャッシュ済み at / duration をそのまま読む。 */
@@ -222,6 +224,20 @@ export function readInternalEdit(source: string | unknown, options?: InternalRea
     const record = raw as Record<string, unknown>;
     if (record.version !== 2) {
         throw new LegacyEditVersionError(typeof record.version === 'number' ? record.version : -1);
+    }
+    if (options?.allowCutAudioSplit !== true) {
+        const hasSplit = (items: unknown, lane: unknown): boolean => Array.isArray(items) && items.some(item => {
+            if (!item || typeof item !== 'object') return false;
+            const split = lane === 'visual'
+                ? item.source?.kind === 'media' && item.audio === false
+                : lane === 'audio' && (Object.prototype.hasOwnProperty.call(item, 'link')
+                    || Object.prototype.hasOwnProperty.call(item, 'mute') || item.role === 'speech');
+            return split || hasSplit(item.items, lane);
+        });
+        if (Array.isArray(record.tracks) && record.tracks.some(track =>
+            track && typeof track === 'object' && hasSplit(track.items, track.lane))) {
+            throw new Error('未対応: 本編音声の分離（audio:false / link / mute / role:speech）は次の便で有効化されます。この edit.json は現在のエンジンでは再生・書き出しできません。');
+        }
     }
     const resolved = options?.captions === undefined
         ? record
@@ -1119,6 +1135,15 @@ function buildV2AudioItem(
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? 'sfx';
+
+    if (role === 'speech') {
+        // 検証用 opt-in だけが到達する。供給対応前なので sfx の互換値へは射影しない。
+        return { item: {
+            id: item.id, atFrames, durationFrames, at, duration, children: [], source,
+            declaration: structuredClone(item) as unknown as Record<string, unknown>,
+            legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+        } };
+    }
 
     if (role === 'narration') {
         const value: EditAudioNarration = {

@@ -20,6 +20,9 @@ export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView 
     const ordered = internal.tracks
         .filter(track => !(track.lane === 'audio' && track.muted === true))
         .flatMap(track => track.items)
+        // speech は第1票の legacy view に含めない。通常の実行用 readInternalEdit は
+        // 先に拒否するため到達せず、検証用 opt-in でも sfx に暗黙変換しない。
+        .filter(item => item.declaration.role !== 'speech')
         .filter(item => item.legacy.collection === 'sfx'
             || item.legacy.collection === 'narration'
             || item.legacy.collection === 'bgm')
