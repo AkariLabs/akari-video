@@ -21,6 +21,8 @@ import {
     AppendReviewSessionStrokeRequest,
     AssetStreamRequest,
     AkariPreviewService,
+    BuildWaveformPeaksRequest,
+    BuildWaveformPeaksResult,
     EndReviewSessionRequest,
     LintEditCandidateRequest,
     LintEditCandidateResult,
@@ -289,6 +291,12 @@ const TRANSCODABLE_AUDIO_MIME_TYPES = new Map<string, string>([
 const MAX_TRANSCODE_INPUT_BYTES = 50 * 1024 * 1024;
 const MAX_TRANSCODE_OUTPUT_BYTES = 200 * 1024 * 1024;
 const TRANSCODE_TIMEOUT_MS = 30_000;
+const WAVEFORM_PEAKS_TIMEOUT_MS = 10 * 60 * 1000;
+
+function waveformFfmpegArgs(assetPath: string): string[] {
+    return ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', assetPath,
+        '-vn', '-ac', '1', '-ar', '8000', '-f', 's16le', '-'];
+}
 
 interface StaticAsset {
     body: Buffer;
@@ -649,6 +657,108 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return rewritePreviewFragmentAssets(request.html, {
             projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
         }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }));
+    }
+
+    protected async resolveWaveformFfmpegCommand(): Promise<{ command: string; prefixArgs: string[] }> {
+        return { command: await resolveFfmpegPath() ?? 'ffmpeg', prefixArgs: [] };
+    }
+
+    async buildWaveformPeaks(request: BuildWaveformPeaksRequest): Promise<BuildWaveformPeaksResult> {
+        try {
+            if (!request || typeof request !== 'object' || typeof request.assetUri !== 'string') {
+                return { ok: false, reason: 'invalid waveform peaks request' };
+            }
+            const buckets = Math.min(20000, Math.max(64, Math.round(
+                typeof request.buckets === 'number' && !Number.isNaN(request.buckets) ? request.buckets : 4000
+            )));
+            const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+            const assetPath = await realpath(this.filePath(request.assetUri));
+            if (!roots.some(root => this.contains(root, assetPath))) {
+                return { ok: false, reason: 'waveform source must stay inside an open workspace' };
+            }
+            const { command, prefixArgs } = await this.resolveWaveformFfmpegCommand();
+            return await new Promise<BuildWaveformPeaksResult>(resolveResult => {
+                const peaks = new Float64Array(buckets);
+                let samplesPerBucket = 1024;
+                let totalSamples = 0;
+                let carry: number | undefined;
+                let stderrTail = Buffer.alloc(0);
+                let settled = false;
+                const child = spawn(command, [...prefixArgs, ...waveformFfmpegArgs(assetPath)], { stdio: ['ignore', 'pipe', 'pipe'] });
+                const settle = (result: BuildWaveformPeaksResult): void => {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(timeout);
+                    resolveResult(result);
+                };
+                const timeout = setTimeout(() => {
+                    child.kill('SIGKILL');
+                    settle({ ok: false, reason: 'waveform peak extraction timed out' });
+                }, WAVEFORM_PEAKS_TIMEOUT_MS);
+                const addSample = (sample: number): void => {
+                    let bucket = Math.floor(totalSamples / samplesPerBucket);
+                    if (bucket === buckets) {
+                        const half = buckets >> 1;
+                        for (let i = 0; i < half; i += 1) {
+                            peaks[i] = Math.max(peaks[2 * i], peaks[2 * i + 1]);
+                        }
+                        // 奇数個なら末尾は新バケットの前半として残す。
+                        if (buckets % 2 !== 0) {
+                            peaks[half] = peaks[buckets - 1];
+                        }
+                        peaks.fill(0, Math.ceil(buckets / 2));
+                        samplesPerBucket *= 2;
+                        bucket = Math.floor(bucket / 2);
+                    }
+                    peaks[bucket] = Math.max(peaks[bucket], Math.abs(sample) / 32768);
+                    totalSamples += 1;
+                };
+                child.stdout.on('data', (chunk: Buffer) => {
+                    if (settled || chunk.length === 0) {
+                        return;
+                    }
+                    let offset = 0;
+                    if (carry !== undefined) {
+                        const sample = carry | (chunk[0] << 8);
+                        addSample(sample >= 32768 ? sample - 65536 : sample);
+                        carry = undefined;
+                        offset = 1;
+                    }
+                    for (; offset + 1 < chunk.length; offset += 2) {
+                        addSample(chunk.readInt16LE(offset));
+                    }
+                    if (offset < chunk.length) {
+                        carry = chunk[offset];
+                    }
+                });
+                child.stderr.on('data', (chunk: Buffer) => {
+                    stderrTail = Buffer.concat([stderrTail, chunk.subarray(-4096)]).subarray(-4096);
+                });
+                const streamFailed = (error: Error): void => {
+                    const lastLine = stderrTail.toString('utf8').split(/\r?\n/).map(line => line.trim()).filter(Boolean).pop();
+                    child.kill('SIGKILL');
+                    settle({ ok: false, reason: (lastLine || error.message).slice(0, 200) });
+                };
+                child.stdout.once('error', streamFailed);
+                child.stderr.once('error', streamFailed);
+                child.once('error', () => settle({ ok: false, reason: 'ffmpeg not found' }));
+                child.once('close', () => {
+                    if (settled) {
+                        return;
+                    }
+                    if (totalSamples === 0) {
+                        settle({ ok: false, reason: 'no audio stream' });
+                        return;
+                    }
+                    const resultPeaks = Array.from(peaks.subarray(0, Math.min(buckets, Math.ceil(totalSamples / samplesPerBucket))));
+                    settle({ ok: true, peaks: resultPeaks, durationSec: totalSamples / 8000, buckets: resultPeaks.length });
+                });
+            });
+        } catch (error) {
+            return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+        }
     }
 
     private async validatePreviewAudioSidecarRequest(request: PrepareSpeechAtempoRequest): Promise<{

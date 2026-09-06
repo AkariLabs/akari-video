@@ -1558,6 +1558,7 @@
             "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
+            "muted": { "type": "boolean" },
             "items": { "type": "array" }
           }
         },
@@ -1569,11 +1570,12 @@
             "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
+            "muted": { "type": "boolean" },
             "content": { "$ref": "#/$defs/captionTrackContentV2" }
           }
         }
       ],
-      "$comment": "deprecated: tracks[].content は tolerant reader のためだけに残す。lane は visual/audio の 2 値。audio lane の items は itemV2AudioMedia、visual lane の items は itemV2 を使う。items と字幕 content は閉じた oneOf により必ず排他。"
+      "$comment": "deprecated: tracks[].content は tolerant reader のためだけに残す。lane は visual/audio の 2 値。audio lane の items は itemV2AudioMedia、visual lane の items は itemV2 を使う。items と字幕 content は閉じた oneOf により必ず排他。muted はトラックの音声をミュート。visual トラックなら cut の埋め込み音声、audio トラックなら item を書き出し・プレビューから除外。"
     },
     "editV0": {
       "type": "object",

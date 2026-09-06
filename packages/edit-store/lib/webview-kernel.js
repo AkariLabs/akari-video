@@ -1864,7 +1864,7 @@ var AkariEditKernel = (() => {
   function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "items", "content"]), path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
     trackIds.add(value.id);
@@ -1873,6 +1873,9 @@ var AkariEditKernel = (() => {
     }
     if (hasOwn(value, "name") && typeof value.name !== "string") {
       throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "muted") && typeof value.muted !== "boolean") {
+      throw invalid(`${path}.muted`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
     const hasItems = hasOwn(value, "items");
     const hasContent = hasOwn(value, "content");
@@ -2554,6 +2557,7 @@ var AkariEditKernel = (() => {
         lane: track.lane,
         z: track.z,
         ...track.name !== void 0 ? { name: track.name } : {},
+        ...track.muted === void 0 ? {} : { muted: track.muted },
         origin: "declared",
         ..."content" in track ? { content: { from: "captions.json" } } : {},
         items,
@@ -3388,6 +3392,7 @@ var AkariEditKernel = (() => {
     const audioNarration = [];
     let audioBgm;
     for (const track of internal.tracks) {
+      if (track.lane === "audio" && track.muted === true) continue;
       for (const item of track.items) {
         const value = item.legacy.value;
         if (value === void 0) {
@@ -3412,7 +3417,10 @@ var AkariEditKernel = (() => {
                 layers.push({ index: item.legacy.index, value });
                 break;
               default:
-                cuts.push({ index: item.legacy.index, value });
+                cuts.push({
+                  index: item.legacy.index,
+                  value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value
+                });
                 break;
             }
             break;

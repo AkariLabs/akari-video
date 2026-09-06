@@ -11,7 +11,7 @@ const ITEM_KEY_ORDER = [
     'blend', 'crop', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'items'
 ] as const;
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'] as const;
-const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'items', 'content'] as const;
+const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'muted', 'items', 'content'] as const;
 const CAPTION_KEY_ORDER = [
     'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'time_domain', 'text_style'
 ] as const;

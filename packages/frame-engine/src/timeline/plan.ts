@@ -20,6 +20,7 @@ import type {
 import type { ParsedCubeLut } from '../look/cube.js';
 import { bakeItemAdjustLut, isItemAdjustIdentity } from '../adjust/bake.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
+import { motionVisualAt, type MotionV0, type MotionVisual } from './item-motion.js';
 
 export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
 
@@ -51,6 +52,7 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'
    */
   crop?: { x: number; y: number; w: number; h: number };
   keyframes?: readonly LayerKeyframe[];
+  motion?: MotionV0;
   perspective?: { corners: readonly (readonly [number, number])[] };
   adjust?: FrameEngineAdjust;
 }
@@ -66,6 +68,7 @@ export interface FrameEngineLayer {
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
   keyframes?: readonly LayerKeyframe[];
+  motion?: MotionV0;
   opacity?: number;
   blend?: ResolvedLayerBlendMode;
   adjust?: FrameEngineAdjust;
@@ -77,12 +80,12 @@ export interface FrameEngineLayer {
 
 const KNOWN_CUT_KEY_LIST = [
   'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
-  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust'
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion'
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
-  'keyframes', 'opacity', 'blend', 'filter', 'adjust'
+  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion'
 ] as const;
 
 const KNOWN_KEYFRAME_KEY_LIST = [
@@ -186,8 +189,9 @@ function usableKeyframeCount(keyframes: FrameEngineCut['keyframes']): number {
  * the shell preview (`cutHasLayerStyleVisual`) and legacy render-cut (`hasCutLayerStyleVisual`) use.
  * transform / opacity alone keep the fit-basis path untouched.
  */
-export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes'>): boolean {
-  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes' | 'motion'>): boolean {
+  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2
+    || cut.motion?.in?.preset === 'wipe' || cut.motion?.out?.preset === 'wipe';
 }
 
 function cutDeclaresPerspective(cut: FrameEngineCut): boolean {
@@ -409,14 +413,53 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
   };
 }
 
+function motionTransform(transform: ResolvedCutVisual['transform'], motion: MotionVisual): ResolvedCutVisual['transform'] {
+  return {
+    x: transform.x + motion.dx, y: transform.y + motion.dy,
+    scale: transform.scale * motion.scale, rotateDegrees: transform.rotateDegrees + motion.rotate
+  };
+}
+
+/** Reveal coordinates are relative to the already resolved crop window. */
+function motionCrop(
+  crop: { x: number; y: number; width: number; height: number },
+  reveal: NonNullable<MotionVisual['reveal']>
+): typeof crop {
+  return {
+    x: crop.x + crop.width * reveal.x, y: crop.y + crop.height * reveal.y,
+    // Keep downstream geometry nondegenerate; motionOpacity preserves a closed wipe's transparency.
+    width: Math.max(Number.EPSILON, crop.width * reveal.w),
+    height: Math.max(Number.EPSILON, crop.height * reveal.h)
+  };
+}
+
+function motionOpacity(opacity: number, motion: MotionVisual): number {
+  // Geometry consumers may clamp a zero crop to epsilon. A closed wipe must remain fully transparent.
+  return motion.reveal && (motion.reveal.w === 0 || motion.reveal.h === 0) ? 0 : opacity * motion.opacity;
+}
+
+function cutMotionVisual(visual: ResolvedCutVisual, motion: MotionVisual | null): ResolvedCutVisual {
+  if (!motion) return visual;
+  return {
+    ...visual,
+    transform: motionTransform(visual.transform, motion),
+    opacity: motionOpacity(visual.opacity, motion),
+    ...(visual.layerStyle && motion.reveal
+      ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion.reveal) } } : {})
+  };
+}
+
 function visualAt(
   cut: FrameEngineCut,
   playbackSeconds: number,
   localSeconds: number,
+  fps: number,
   adjustLut?: ParsedCubeLut
 ): ResolvedCutVisual {
+  const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+  const motion = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
   if (hasCutLayerStyleVisual(cut)) {
-    const visual = layerStyleVisualAt(cut, localSeconds);
+    const visual = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion);
     return adjustLut ? { ...visual, adjustLut } : visual;
   }
   let framing = DEFAULT_VISUAL.framing;
@@ -456,14 +499,16 @@ function visualAt(
     },
     opacity: clamp(finite(cut.opacity, 1), 0, 1)
   };
-  return adjustLut ? { ...visual, adjustLut } : visual;
+  const composed = cutMotionVisual(visual, motion);
+  return adjustLut ? { ...composed, adjustLut } : composed;
 }
 
 function layerFromPlacement(
   placement: ResolvedCutPlacement,
   cutIndex: number,
   outputSeconds: number,
-  sources: TimelineSourceRegistry
+  sources: TimelineSourceRegistry,
+  fps: number
 ): EvaluationPlan['base'][number] {
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
@@ -471,7 +516,7 @@ function layerFromPlacement(
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   // 出力ローカル秒: freeze で絵が止まっている間も進む（layer-style keyframes の時計）。
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
@@ -617,11 +662,18 @@ function resolvedCompositeLayers(
     visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
+    const motion = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
+    let opacity = clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1);
+    if (motion) {
+      visual.transform = motionTransform(visual.transform, motion);
+      if (motion.reveal) visual.crop = motionCrop(visual.crop, motion.reveal);
+      opacity = motionOpacity(opacity, motion);
+    }
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
     const adjustLut = timeline.layerAdjustLuts[index];
     const common = {
       id, visual,
-      blend, opacity: clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1),
+      blend, opacity,
       ...(adjustLut ? { adjustLut } : {})
     };
     if (isStillImageSourcePath(layer.src)) {
@@ -675,8 +727,8 @@ export function evaluationPlanFromResolvedTimeline(
     return {
       timeUs,
       base: [
-        layerFromPlacement(timeline.cuts[outgoingIndex]!, outgoingIndex, outputSeconds, sources),
-        layerFromPlacement(timeline.cuts[incomingIndex]!, incomingIndex, outputSeconds, sources)
+        layerFromPlacement(timeline.cuts[outgoingIndex]!, outgoingIndex, outputSeconds, sources, timeline.fps),
+        layerFromPlacement(timeline.cuts[incomingIndex]!, incomingIndex, outputSeconds, sources, timeline.fps)
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
@@ -689,7 +741,7 @@ export function evaluationPlanFromResolvedTimeline(
   const resolved = outputToSource(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
   const base = resolved.segment?.kind === 'src' && cutIndex != null
-    ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources)]
+    ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources, timeline.fps)]
     : [];
   return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
 }

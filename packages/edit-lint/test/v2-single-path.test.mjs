@@ -42,6 +42,25 @@ test('v2 is projected to the single compatibility view and passes existing check
   assert.equal(result.verdict, 'pass', JSON.stringify(result.findings));
 });
 
+test('v2 track muted adds no findings for visual, audio, and content tracks', async () => {
+  const root = await project();
+  const editPath = join(root, 'edit.json');
+  const edit = JSON.parse(await readFile(editPath, 'utf8'));
+  edit.tracks.push({ id: 'audio', lane: 'audio', items: [{
+    id: 'hit', at: 0, duration: 30,
+    source: { kind: 'media', src: 'main', in: 0, out: 1 },
+  }] });
+  await writeFile(editPath, JSON.stringify(edit));
+  const baseline = await lintProject(root, { writeReports: false });
+  for (const muted of [true, false]) {
+    for (const track of edit.tracks) track.muted = muted;
+    await writeFile(editPath, JSON.stringify(edit));
+    const result = await lintProject(root, { writeReports: false });
+    assert.equal(result.verdict, baseline.verdict);
+    assert.deepEqual(result.findings, baseline.findings);
+  }
+});
+
 test('v2 mask must reference an existing video source', async () => {
   const root = await project();
   const editPath = join(root, 'edit.json');

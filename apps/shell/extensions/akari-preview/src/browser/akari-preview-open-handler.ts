@@ -3,6 +3,7 @@ import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchCl
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
+import { previewAudioTrimOf } from '../common/preview-audio-trim';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -106,6 +107,7 @@ import {
     LayerCropSummary,
     LayerKeyframesSummary,
     LayerPerspectiveSummary,
+    MotionSummary,
     normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
@@ -198,10 +200,11 @@ interface EditSummaryLayer {
     src?: string;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
-    /** task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面でアルファ層（.webm / .mov）を media-bin
+    /** v2 item.mask の動画ソース、または alpha intake が生成するマスクの asset stream URL。
+     * frame-engine 面でアルファ層（.webm / .mov）を media-bin
      * alpha-intake に通したとき、src（色 mp4）と対になるマスク mp4 の asset stream URL。webview の engine
      * bootstrap はこれをマスクソースとして登録し、engine が kind 'matte' として色×マスク合成する
-     * （Web UI の frameEngine.intake と同型）。legacy 面では付けない。 */
+     * （Web UI の frameEngine.intake と同型）。両方ある場合は alpha intake を優先する。 */
     mask?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
@@ -224,6 +227,7 @@ interface EditSummaryLayer {
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
     adjust?: EditSummaryAdjust;
 }
 
@@ -252,6 +256,8 @@ interface EditSummaryAdjust {
 // 独立した関数として export しているのは webview 生成 HTML の外（この TS モジュール自身）から
 // node --test で直接叩けるようにするため（test/image-layer-source.test.mjs）。
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
+// ブラウザで decodeAudioData してよい上限。sidecar の decodedBytesThreshold と同じ考え方。
+const WAVEFORM_INLINE_DECODE_LIMIT_BYTES = 64 * 1024 * 1024;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 const PREVIEW_COLOR_KEYWORDS = new Set([
@@ -353,6 +359,7 @@ interface EditSummaryCut {
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
     speed?: number;
     gain_db?: number;
     gainDb?: number;
@@ -513,8 +520,8 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     id: string;
     t: number;
     track?: number;
-    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (sfx only; narration is unaffected):
-    // playback window = material's [in, out). Omitted in/out are resolved against the decoded
+    // SFX and narration both have a playback window = material's [in, out).
+    // Omitted in/out are resolved against the decoded
     // buffer's real duration in the injected preview script (createPreviewAudio's decodeOne).
     in?: number;
     out?: number;
@@ -4048,6 +4055,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
+                const maskSourceId = rawVersion === 2 ? base.mask : undefined;
+                // Summary ids must never leak into the layer's URL seat, including early returns.
+                delete base.mask;
                 if (deferredTelop) {
                     return {
                         kind: 'layer',
@@ -4063,6 +4073,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     console.warn(`[akari-preview] ${label} を無視しました（src を解決できません）`, error);
                     return { kind: 'skip', unsupportedBlend };
                 }
+                const resolveLayerMask = async (): Promise<string | undefined> => {
+                    if (!maskSourceId) return undefined;
+                    const maskSource = sourcesById.get(maskSourceId);
+                    try {
+                        // The internal projection normally resolves mask ids to project-relative paths.
+                        const maskUri = maskSource
+                            ? this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
+                            : this.resolveEditAssetUri(maskSourceId, editUri);
+                        if (isImageLayerSrc(maskUri.path.toString()) || isImageLayerSrc(value.src)) {
+                            console.warn(`[akari-preview] ${label}.mask を無視しました（静止画には対応していません）`);
+                            return undefined;
+                        }
+                        return (await ensureAssetStream(maskUri.toString(), maskUri)).url;
+                    } catch {
+                        console.warn(`[akari-preview] ${label}.mask を無視しました（sources の id / パスとして解決・配信できません）`);
+                        return undefined;
+                    }
+                };
                 if (value.kind === 'baked') {
                     // 'baked' は常に previewProxyUri() の .preview.webm サイドカーを配信する（元の
                     // value.src の拡張子に関わらず）ため、isImage は常に false — このブランチの
@@ -4081,10 +4109,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
+                    const mask = await resolveLayerMask();
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        layer: { ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false }
+                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}), proxyMissing: !src, isImage: false }
                     };
                 }
 
@@ -4114,6 +4143,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         };
                     }
                     if (intake?.status === 'alpha') {
+                        if (maskSourceId) {
+                            console.warn(`[akari-preview] ${label}.mask を無視しました（alpha intake のマスクを優先します）`);
+                        }
                         const colorUri = new URI(intake.colorUri);
                         const maskUri = new URI(intake.maskUri);
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
@@ -4138,12 +4170,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
+                    const mask = await resolveLayerMask();
                     return {
                         kind: 'layer',
                         unsupportedBlend,
                         layer: {
                             ...base,
                             src: stream.url,
+                            ...(mask ? { mask } : {}),
                             ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
                             proxyMissing: false,
                             isImage
@@ -4549,29 +4583,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (normalizedGain === undefined) {
                     return undefined;
                 }
-                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx-only playback window
+                // SFX and narration share a playback window
                 // (material's [in, out)). Malformed values are warned-and-ignored (treated as
                 // omitted) rather than dropping the whole item, matching gain_db/fadeIn/fadeOut's
                 // existing tolerance pattern in this function. Real-duration clamping (実尺越え) can
                 // only happen once the buffer is decoded, so it happens later in decodeOne.
-                let trimIn: number | undefined;
-                let trimOut: number | undefined;
-                if (kind === 'sfx') {
-                    if (item.in !== undefined) {
-                        if (typeof item.in === 'number' && Number.isFinite(item.in) && item.in >= 0) {
-                            trimIn = item.in;
-                        } else {
-                            console.warn(`[akari-preview] ${label}.in を無視しました（0以上の有限 number ではありません）`, item.in);
-                        }
-                    }
-                    if (item.out !== undefined) {
-                        if (typeof item.out === 'number' && Number.isFinite(item.out) && item.out > 0) {
-                            trimOut = item.out;
-                        } else {
-                            console.warn(`[akari-preview] ${label}.out を無視しました（0より大きい有限 number ではありません）`, item.out);
-                        }
-                    }
-                }
+                const { inSec: trimIn, outSec: trimOut } = previewAudioTrimOf(item, label, console.warn);
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
@@ -4609,11 +4626,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     gainDb: normalizedGain,
                     ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
+                    ...(trimIn !== undefined ? { in: trimIn } : {}),
+                    ...(trimOut !== undefined ? { out: trimOut } : {}),
                     ...(kind === 'sfx'
                         ? {
                             ...duckOptions(item, label),
-                            ...(trimIn !== undefined ? { in: trimIn } : {}),
-                            ...(trimOut !== undefined ? { out: trimOut } : {}),
                             ...(fadeIn !== undefined ? { fadeIn } : {}),
                             ...(fadeOut !== undefined ? { fadeOut } : {})
                         }
@@ -5411,6 +5428,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!videoUri) {
                 throw new Error('波形を生成する動画がありません');
             }
+            const stat = await this.fileService.resolve(videoUri, { resolveMetadata: true });
+            if (stat.size > WAVEFORM_INLINE_DECODE_LIMIT_BYTES) {
+                const result = await this.previewService.buildWaveformPeaks({
+                    assetUri: videoUri.toString(),
+                    workspaceRoots: await this.currentWorkspaceRoots()
+                });
+                if (result.ok === false) { throw new Error(result.reason); }
+                widget.sendMessage({
+                    type: 'akari-preview-waveform-fetch-response',
+                    requestId: request.requestId,
+                    ok: true,
+                    peaks: result.peaks,
+                    durationSec: result.durationSec
+                });
+                return;
+            }
             const content = await this.fileService.readFile(videoUri);
             widget.sendMessage({
                 type: 'akari-preview-waveform-fetch-response',
@@ -5419,11 +5452,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 dataBase64: this.toBase64(content.value.buffer)
             });
         } catch (error) {
+            const reason = (error instanceof Error ? error.message : String(error)).replace(/[\r\n]+/g, ' ').trim();
             widget.sendMessage({
                 type: 'akari-preview-waveform-fetch-response',
                 requestId: request.requestId,
                 ok: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: reason.startsWith('波形を作れませんでした') ? reason : `波形を作れませんでした（${reason}）`
             });
         }
     }
@@ -6947,12 +6981,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 try {
+                    if (Array.isArray(message.peaks)) {
+                        request.resolve({ peaks: message.peaks, durationSec: Number(message.durationSec) || 0 });
+                        return;
+                    }
                     const binary = atob(String(message.dataBase64 || ''));
                     const bytes = new Uint8Array(binary.length);
                     for (let index = 0; index < binary.length; index += 1) {
                         bytes[index] = binary.charCodeAt(index);
                     }
-                    request.resolve(bytes.buffer);
+                    request.resolve({ bytes: bytes.buffer });
                 } catch (error) {
                     request.reject(error);
                 }
@@ -7603,13 +7641,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const sources = new Map([...lookahead, ...images]);
 
-                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
-                for (const layer of engineLayers) {
-                    const maskUrl = layer && layer.mask;
-                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
-                        sourceUrls.set(maskUrl, maskUrl);
+                const registerLayerMasks = layers => {
+                    for (const layer of layers) {
+                        const maskUrl = layer && layer.mask;
+                        if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                            sourceUrls.set(maskUrl, maskUrl);
+                        }
                     }
-                }
+                };
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
+                registerLayerMasks(engineLayers);
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
@@ -7796,6 +7837,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                     return { declarations, speech };
                 };
+                const normalizedMutedTracks = muted => ({
+                    cuts: Array.isArray(muted && muted.cuts) ? muted.cuts : [],
+                    audio: Array.isArray(muted && muted.audio) ? muted.audio : [],
+                    allCuts: typeof (muted && muted.allCuts) === 'boolean' ? muted.allCuts : false,
+                    allAudio: typeof (muted && muted.allAudio) === 'boolean' ? muted.allAudio : false
+                });
                 const createAudioSupplyForSummary = (value, cuts, duration) => {
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
@@ -7804,6 +7851,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         pitchShiftWorkletUrl: initial.previewAudioWorkletUrl || undefined
                     });
                     supply.setRate(rate);
+                    const initialAllMuted = Array.isArray(initial.allTracksMutedScopes) ? initial.allTracksMutedScopes : [];
+                    supply.setMutedTracks(normalizedMutedTracks(window.akari.frameEngineMutedTracks || {
+                        cuts: initial.mutedTracksByScope && initial.mutedTracksByScope.cuts,
+                        audio: initial.mutedTracksByScope && initial.mutedTracksByScope.audio,
+                        allCuts: initialAllMuted.includes('cuts'),
+                        allAudio: initialAllMuted.includes('audio')
+                    }));
                     return supply;
                 };
                 audioSupply = createAudioSupplyForSummary(engineSummary, normalizedCuts, totalDuration);
@@ -7830,6 +7884,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateAudioStatus();
                 };
                 window.akari.frameEngineUpdateAudio = updateAudio;
+                const setMutedTracks = muted => {
+                    if (disposed) return;
+                    audioSupply.setMutedTracks(normalizedMutedTracks(muted));
+                    updateAudioStatus();
+                };
+                window.akari.frameEngineSetMutedTracks = setMutedTracks;
                 const pendingAudio = window.akari.frameEnginePendingAudio;
                 if (pendingAudio) {
                     delete window.akari.frameEnginePendingAudio;
@@ -8113,6 +8173,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const effectiveSummary = applyAdjustBypassFn(nextSummary, [...adjustBypassIds]);
                         const nextCuts = normalizeSummaryCuts(effectiveSummary);
                         const nextLayers = engineLayersForSummary(effectiveSummary);
+                        registerLayerMasks(nextLayers);
                         const nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
                             fps,
                             layers: nextLayers
@@ -8210,6 +8271,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     delete window.akariFrameEngineAudioAnalyser;
                     if (window.akari.frameEngineUpdateAudio === updateAudio) delete window.akari.frameEngineUpdateAudio;
+                    if (window.akari.frameEngineSetMutedTracks === setMutedTracks) delete window.akari.frameEngineSetMutedTracks;
                     clearInterval(audioStatusTimer);
                     window.akari.attachAudioMeter(null, 'frame-engine');
                     clearInterval(audioPriorityInterval);
@@ -8380,6 +8442,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 audio: initialAllTracksMutedScopes.includes('audio'),
                 layers: initialAllTracksMutedScopes.includes('layers')
             };
+            const frameEngineMutedTracksPayload = () => ({
+                cuts: [...mutedTracksByScope.cuts],
+                audio: [...mutedTracksByScope.audio],
+                allCuts: allTracksMutedByScope.cuts,
+                allAudio: allTracksMutedByScope.audio
+            });
+            const syncFrameEngineMutedTracks = () => {
+                // 後から起動する frame-engine と、summary 更新時の supply 再作成にも同じ状態を渡す。
+                const muted = frameEngineMutedTracksPayload();
+                window.akari.frameEngineMutedTracks = muted;
+                if (window.akari.frameEngineSetMutedTracks) window.akari.frameEngineSetMutedTracks(muted);
+            };
+            syncFrameEngineMutedTracks();
             let globalMuted = initial.muted === true;
             let previewRate = 1;
             previewRate = clampPreviewPlaybackRate(initial.initialPlaybackRate);
@@ -8528,6 +8603,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let suppressClick = false;
             let waveformState = 'idle';
             let waveformAudioBuffer = null;
+            let waveformSourcePeaks = null;
             let waveformPeaks = null;
             let waveformResizeTimer = 0;
             let waveformDragPointer = null;
@@ -11399,6 +11475,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             crop: cut ? cut.crop : undefined,
                             perspective: cut ? cut.perspective : undefined,
                             keyframes: cut ? cut.keyframes : undefined,
+                            motion: cut ? cut.motion : undefined,
                             adjust: cut ? cut.adjust : undefined,
                             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
                             // 同じ理由（写像には関与しない見た目/再生情報）で元 cuts から補う。
@@ -12014,6 +12091,31 @@ body { display: grid; place-items: center; padding: 32px; }
                 return Math.max(96, Math.round(raw / 8) * 8);
             };
             const aggregateWaveform = widthBins => {
+                if (waveformSourcePeaks) {
+                    const total = waveformSourcePeaks.length;
+                    if (total === 0 || widthBins <= 0) return null;
+                    const peaks = new Float32Array(widthBins);
+                    const rms = new Float32Array(widthBins);
+                    let globalMax = 0;
+                    let rmsMax = 0;
+                    for (let bin = 0; bin < widthBins; bin += 1) {
+                        const start = Math.min(total - 1, Math.floor(bin * total / widthBins));
+                        const end = Math.min(total, Math.max(start + 1, Math.floor((bin + 1) * total / widthBins)));
+                        let peak = 0;
+                        let sumSquares = 0;
+                        for (let index = start; index < end; index += 1) {
+                            const value = waveformSourcePeaks[index];
+                            peak = Math.max(peak, value);
+                            sumSquares += value * value;
+                        }
+                        const rootMeanSquare = Math.sqrt(sumSquares / (end - start));
+                        peaks[bin] = peak;
+                        rms[bin] = rootMeanSquare;
+                        globalMax = Math.max(globalMax, peak);
+                        rmsMax = Math.max(rmsMax, rootMeanSquare);
+                    }
+                    return { peaks, rms, globalMax, rmsMax };
+                }
                 if (!waveformAudioBuffer || widthBins <= 0) return null;
                 const total = waveformAudioBuffer.length;
                 const samplesPerBin = total / widthBins;
@@ -12121,11 +12223,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 let context = null;
                 try {
                     await waitForWaveformMetadata();
-                    const bytes = await window.akari.engine.readWaveformBytes();
-                    context = new AudioContext();
-                    waveformAudioBuffer = await context.decodeAudioData(bytes.slice(0));
-                    await context.close().catch(() => undefined);
-                    context = null;
+                    const payload = await window.akari.engine.readWaveformBytes();
+                    if (payload && Array.isArray(payload.peaks)) {
+                        waveformSourcePeaks = Float32Array.from(payload.peaks, value => Math.min(1, Math.max(0, Number(value) || 0)));
+                        waveformAudioBuffer = null;
+                    } else {
+                        context = new AudioContext();
+                        waveformAudioBuffer = await context.decodeAudioData(payload.bytes.slice(0));
+                        await context.close().catch(() => undefined);
+                        context = null;
+                        waveformSourcePeaks = null;
+                    }
                     waveformPeaks = aggregateWaveform(waveformBinCount());
                     if (!waveformPeaks) throw new Error('waveform contains no audio samples');
                     waveformState = 'ready';
@@ -12133,6 +12241,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 } catch (error) {
                     if (context) await context.close().catch(() => undefined);
                     waveformAudioBuffer = null;
+                    waveformSourcePeaks = null;
                     waveformPeaks = null;
                     waveformState = 'error';
                     drawWaveform();
@@ -14198,6 +14307,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncScope('cuts', tracks.cuts);
                 syncScope('layers', tracks.layers);
                 syncScope('audio', tracks.audio);
+                syncFrameEngineMutedTracks();
             };
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
@@ -14365,6 +14475,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             else mutedTracksByScope[scope].delete(track);
                         }
                     }
+                    syncFrameEngineMutedTracks();
                     if (window.akari.previewAudio) {
                         window.akari.previewAudio.setMutedTracks(
                             mutedTracksByScope.audio, allTracksMutedByScope.audio
@@ -14379,6 +14490,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     hiddenTracksByScope.layers = new Set(Array.isArray(message.hiddenLayers) ? message.hiddenLayers : []);
                     mutedTracksByScope.layers = new Set(Array.isArray(message.mutedLayers) ? message.mutedLayers : []);
                     mutedTracksByScope.audio = new Set(Array.isArray(message.mutedAudio) ? message.mutedAudio : []);
+                    syncFrameEngineMutedTracks();
                     if (window.akari.previewAudio) {
                         window.akari.previewAudio.setMutedTracks(mutedTracksByScope.audio, allTracksMutedByScope.audio);
                     }

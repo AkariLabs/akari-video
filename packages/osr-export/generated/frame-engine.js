@@ -4449,7 +4449,7 @@ ${indent}`);
       function validateTrack(value, index, trackIds, itemIds, sourceIds) {
         const path = `edit.json.tracks[${index}]`;
         requireRecord(value, path);
-        requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "items", "content"]), path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
         requireText(value.id, `${path}.id`);
         if (trackIds.has(value.id))
           throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -4459,6 +4459,9 @@ ${indent}`);
         }
         if (hasOwn(value, "name") && typeof value.name !== "string") {
           throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+        if (hasOwn(value, "muted") && typeof value.muted !== "boolean") {
+          throw invalid(`${path}.muted`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
         const hasItems = hasOwn(value, "items");
         const hasContent = hasOwn(value, "content");
@@ -5651,6 +5654,7 @@ ${indent}`);
             lane: track.lane,
             z: track.z,
             ...track.name !== void 0 ? { name: track.name } : {},
+            ...track.muted === void 0 ? {} : { muted: track.muted },
             origin: "declared",
             ..."content" in track ? { content: { from: "captions.json" } } : {},
             items,
@@ -6481,6 +6485,8 @@ ${indent}`);
         const audioNarration = [];
         let audioBgm;
         for (const track of internal.tracks) {
+          if (track.lane === "audio" && track.muted === true)
+            continue;
           for (const item of track.items) {
             const value = item.legacy.value;
             if (value === void 0) {
@@ -6505,7 +6511,10 @@ ${indent}`);
                     layers.push({ index: item.legacy.index, value });
                     break;
                   default:
-                    cuts.push({ index: item.legacy.index, value });
+                    cuts.push({
+                      index: item.legacy.index,
+                      value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value
+                    });
                     break;
                 }
                 break;
@@ -6571,7 +6580,7 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.projectLegacyAudioView = projectLegacyAudioView;
       function projectLegacyAudioView(internal) {
-        const ordered = internal.tracks.flatMap((track) => track.items).filter((item) => item.legacy.collection === "sfx" || item.legacy.collection === "narration" || item.legacy.collection === "bgm").sort((left, right) => left.legacy.index - right.legacy.index);
+        const ordered = internal.tracks.filter((track) => !(track.lane === "audio" && track.muted === true)).flatMap((track) => track.items).filter((item) => item.legacy.collection === "sfx" || item.legacy.collection === "narration" || item.legacy.collection === "bgm").sort((left, right) => left.legacy.index - right.legacy.index);
         const sfx = [];
         const narration = [];
         let bgm;
@@ -7424,7 +7433,7 @@ ${indent}`);
             id,
             kind,
             t: spec.t,
-            track: normalizedTrack(spec.track),
+            track: normalizedTrack2(spec.track),
             materialDurationSec: spec.durationSec,
             sourceOffsetSec: trim.sourceOffsetSec,
             itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
@@ -7525,7 +7534,7 @@ ${indent}`);
         return {
           kind: "bgm",
           id: typeof spec.id === "string" && spec.id ? spec.id : "bgm",
-          track: normalizedTrack(spec.track),
+          track: normalizedTrack2(spec.track),
           timelineStartSec,
           timelineEndSec: timelineStartSec + durationSec,
           delaySec,
@@ -7583,7 +7592,7 @@ ${indent}`);
         return {
           kind: "speech",
           id,
-          track: normalizedTrack(spec.track),
+          track: normalizedTrack2(spec.track),
           timelineStartSec,
           timelineEndSec: timelineStartSec + durationSec,
           delaySec,
@@ -7706,7 +7715,7 @@ ${indent}`);
           outSec,
           speed: input.speed,
           gainDb: input.gainDb,
-          track: normalizedTrack(input.track),
+          track: normalizedTrack2(input.track),
           materialDurationSec: outSec
         });
       }
@@ -7882,7 +7891,7 @@ ${indent}`);
       function finiteRange(value, minimum, maximum) {
         return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : void 0;
       }
-      function normalizedTrack(value) {
+      function normalizedTrack2(value) {
         return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
       }
       function finitePositive4(value) {
@@ -8198,7 +8207,7 @@ ${indent}`);
         "items"
       ];
       var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
-      var TRACK_KEY_ORDER = ["id", "lane", "name", "items", "content"];
+      var TRACK_KEY_ORDER = ["id", "lane", "name", "muted", "items", "content"];
       var CAPTION_KEY_ORDER = [
         "id",
         "start",
@@ -16997,6 +17006,8 @@ ${indent}`);
     KNOWN_LAYER_KEYS: () => KNOWN_LAYER_KEYS,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
+    MOTION_IN_OUT_PRESETS: () => MOTION_IN_OUT_PRESETS,
+    MOTION_LOOP_PRESETS: () => MOTION_LOOP_PRESETS,
     PitchShiftKernel: () => PitchShiftKernel,
     RangeMp4Source: () => RangeMp4Source,
     RefusalError: () => RefusalError,
@@ -17047,6 +17058,7 @@ ${indent}`);
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     downmixToMono: () => downmixToMono,
+    easeValue: () => easeValue,
     encodedChunkInitForSample: () => encodedChunkInitForSample,
     estimateDecodedBytes: () => estimateDecodedBytes,
     evaluateCodecSupport: () => evaluateCodecSupport,
@@ -17074,6 +17086,7 @@ ${indent}`);
     isItemAdjustIdentity: () => isItemAdjustIdentity,
     isLayerActiveAt: () => isLayerActiveAt,
     mergeByteRanges: () => mergeByteRanges,
+    motionVisualAt: () => motionVisualAt,
     needsCodecProbe: () => needsCodecProbe,
     normalizeAdjustBasic: () => normalizeAdjustBasic,
     normalizeAdjustCurves: () => normalizeAdjustCurves,
@@ -18218,7 +18231,7 @@ void main() {
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
       ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
-        (name, unit) => gl.uniform1i(gl.getUniformLocation(program, name), unit)
+        (name, unit2) => gl.uniform1i(gl.getUniformLocation(program, name), unit2)
       );
       const cutUniforms = [0, 1].map((index) => ({
         framing: gl.getUniformLocation(program, `framing${index}`),
@@ -18249,12 +18262,12 @@ void main() {
       this.basePrograms.set(type, state);
       return state;
     }
-    bind(unit, texture) {
-      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    bind(unit2, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
       this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
     }
-    bind3d(unit, texture) {
-      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    bind3d(unit2, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
       this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
     }
     lookTexture(lut, allocationUnit = LUT_UNIT) {
@@ -18323,7 +18336,7 @@ void main() {
       this.stats.directUploadFallbackReason ??= reason;
       throw new DirectUploadFallbackError(reason);
     }
-    uploadVideoFrameTexture(texture, unit, frame, uniforms) {
+    uploadVideoFrameTexture(texture, unit2, frame, uniforms) {
       if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
         this.failDirectUpload("direct upload is disabled for this session");
       if (!isDirectUploadableFormat(frame.format))
@@ -18336,7 +18349,7 @@ void main() {
         this.failDirectUpload(`invalid display size ${width}x${height}`);
       const gl = this.gl;
       while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
-      this.bind(unit, texture);
+      this.bind(unit2, texture);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
@@ -18471,7 +18484,7 @@ void main() {
         this.gl.uniform2f(u2.box, 1, 1);
       }
     }
-    configureAdjustLut(lut, unit, uniforms) {
+    configureAdjustLut(lut, unit2, uniforms) {
       const gl = this.gl;
       gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
       if (!lut) {
@@ -18481,7 +18494,7 @@ void main() {
         gl.uniform1f(uniforms.adjustLutIntensity, 0);
         return;
       }
-      this.bind3d(unit, this.lookTexture(lut, unit));
+      this.bind3d(unit2, this.lookTexture(lut, unit2));
       gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
       gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
       gl.uniform1f(uniforms.adjustLutSize, lut.size);
@@ -18551,9 +18564,9 @@ void main() {
       return texture;
     }
     /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
-    uploadStillBaseTexture(value, unit, uniforms) {
+    uploadStillBaseTexture(value, unit2, uniforms) {
       const texture = this.stillTexture(value);
-      this.bind(unit, texture);
+      this.bind(unit2, texture);
       if (uniforms) {
         this.gl.uniform1i(uniforms.format, 2);
         this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
@@ -19196,8 +19209,8 @@ void main() {
     }
     if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
     const p2 = [0, 1, 2].map((index) => {
-      const unit = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
-      return clamp(unit) * (lut.size - 1);
+      const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+      return clamp(unit2) * (lut.size - 1);
     });
     const lo = p2.map(Math.floor);
     const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
@@ -19572,6 +19585,150 @@ void main() {
     return result;
   }
 
+  // packages/frame-engine/src/timeline/item-motion.ts
+  var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"];
+  var MOTION_LOOP_PRESETS = ["pulse", "float", "spin"];
+  var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
+  var loopPresets = new Set(MOTION_LOOP_PRESETS);
+  var unit = (u2) => Math.max(0, Math.min(1, u2));
+  var finite3 = (value) => typeof value === "number" && Number.isFinite(value);
+  var identity = () => ({ dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 });
+  function bounce(u2) {
+    const n2 = 7.5625;
+    const d2 = 2.75;
+    if (u2 < 1 / d2) return n2 * u2 * u2;
+    if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+    if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+    return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+  }
+  function easeValue(name, u2) {
+    u2 = unit(u2);
+    if (name === "hold") return u2 < 1 ? 0 : 1;
+    if (u2 === 0 || u2 === 1) return u2;
+    const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
+    if (polynomial) {
+      const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
+      if (polynomial[1] === "in") return u2 ** power;
+      if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
+      return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
+    }
+    const back = 1.70158;
+    switch (name) {
+      case "ease-in-out":
+        return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+      case "in-expo":
+        return 2 ** (10 * u2 - 10);
+      case "out-expo":
+        return 1 - 2 ** (-10 * u2);
+      case "in-out-expo":
+        return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+      case "in-back":
+        return (back + 1) * u2 ** 3 - back * u2 ** 2;
+      case "out-back":
+        return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
+      case "in-out-back": {
+        const c = back * 1.525;
+        return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+      }
+      case "out-bounce":
+        return bounce(u2);
+      case "out-elastic":
+        return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
+    }
+    const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
+    if (bezier) {
+      const values = bezier.slice(1).map((value) => value.trim() ? Number(value) : NaN);
+      const [x1, y1, x22, y2] = values;
+      if (values.every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+        const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+        let low = 0;
+        let high = 1;
+        for (let iteration = 0; iteration < 48; iteration += 1) {
+          const t = (low + high) / 2;
+          if (coordinate(t, x1, x22) < u2) low = t;
+          else high = t;
+        }
+        return coordinate((low + high) / 2, y1, y2);
+      }
+    }
+    return u2;
+  }
+  function compose(target, effect) {
+    target.dx += effect.dx;
+    target.dy += effect.dy;
+    target.scale *= effect.scale;
+    target.rotate += effect.rotate;
+    target.opacity *= effect.opacity;
+    if (effect.reveal) {
+      const a = target.reveal ?? { x: 0, y: 0, w: 1, h: 1 };
+      const b = effect.reveal;
+      const x3 = Math.max(a.x, b.x);
+      const y2 = Math.max(a.y, b.y);
+      target.reveal = {
+        x: x3,
+        y: y2,
+        w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
+        h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
+      };
+    }
+  }
+  function motionVisualAt(motion2, localSeconds, itemDurationSeconds, fps) {
+    if (!motion2 || !finite3(localSeconds) || !finite3(itemDurationSeconds) || itemDurationSeconds <= 0 || !finite3(fps) || fps <= 0) return null;
+    const result = identity();
+    let applied = false;
+    for (const seat of ["in", "out"]) {
+      const entry = motion2[seat];
+      if (!entry || !inOutPresets.has(entry.preset) || !finite3(entry.duration) || entry.duration <= 0) continue;
+      const span = entry.duration / fps;
+      if (!finite3(span) || span <= 0) continue;
+      applied = true;
+      const progress = seat === "in" ? localSeconds / span : 1 - (itemDurationSeconds - localSeconds) / span;
+      const eased = easeValue(entry.ease, progress);
+      const hidden = seat === "in" ? 1 - eased : eased;
+      const amount = finite3(entry.amount) ? entry.amount : entry.preset === "scale" ? 0.2 : 40;
+      const effect = identity();
+      switch (entry.preset) {
+        case "fade":
+          effect.opacity = unit(1 - hidden);
+          break;
+        case "slide-up":
+          effect.dy = hidden * amount;
+          break;
+        case "slide-down":
+          effect.dy = -hidden * amount;
+          break;
+        case "slide-left":
+          effect.dx = hidden * amount;
+          break;
+        case "slide-right":
+          effect.dx = -hidden * amount;
+          break;
+        case "scale":
+          effect.scale = 1 - hidden * amount;
+          break;
+        case "wipe":
+          effect.reveal = { x: 0, y: 0, w: unit(1 - hidden), h: 1 };
+          break;
+      }
+      compose(result, effect);
+    }
+    const loop = motion2.loop;
+    if (loop && loopPresets.has(loop.preset) && finite3(loop.period) && loop.period > 0) {
+      const span = loop.period / fps;
+      if (finite3(span) && span > 0) {
+        applied = true;
+        const phase = easeValue(loop.ease, (localSeconds % span + span) % span / span);
+        const amount = finite3(loop.amount) ? loop.amount : loop.preset === "pulse" ? 0.05 : loop.preset === "float" ? 6 : 1;
+        const effect = identity();
+        if (loop.preset === "pulse") effect.scale = 1 + amount * Math.sin(2 * Math.PI * phase);
+        if (loop.preset === "float") effect.dy = amount * Math.sin(2 * Math.PI * phase);
+        if (loop.preset === "spin") effect.rotate = 360 * phase * amount;
+        compose(result, effect);
+      }
+    }
+    return applied ? result : null;
+  }
+
   // packages/frame-engine/src/timeline/plan.ts
   var KNOWN_CUT_KEY_LIST = [
     "in",
@@ -19590,7 +19747,8 @@ void main() {
     "crop",
     "keyframes",
     "perspective",
-    "adjust"
+    "adjust",
+    "motion"
   ];
   var KNOWN_LAYER_KEY_LIST = [
     "id",
@@ -19606,7 +19764,8 @@ void main() {
     "opacity",
     "blend",
     "filter",
-    "adjust"
+    "adjust",
+    "motion"
   ];
   var KNOWN_KEYFRAME_KEY_LIST = [
     "t",
@@ -19625,7 +19784,7 @@ void main() {
     transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
     opacity: 1
   };
-  function finite3(value, fallback) {
+  function finite4(value, fallback) {
     return typeof value === "number" && Number.isFinite(value) ? value : fallback;
   }
   function clamp3(value, minimum, maximum) {
@@ -19650,7 +19809,7 @@ void main() {
     return Array.isArray(keyframes) ? keyframes.filter((point) => Boolean(point) && typeof point === "object" && Number.isFinite(point.t) && point.t >= 0).length : 0;
   }
   function hasCutLayerStyleVisual(cut) {
-    return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+    return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2 || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe";
   }
   function cutDeclaresPerspective(cut) {
     return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
@@ -19690,8 +19849,8 @@ void main() {
       throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
     }
     const virtualCuts = cuts.map((cut) => {
-      const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
-      const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
+      const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+      const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
       return {
         ...cut,
         out: cut.out + freezeDuration * speed,
@@ -19703,10 +19862,10 @@ void main() {
     const placements = cuts.map((cut, index) => {
       const segment = trackSegments[index];
       if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-      const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+      const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
       const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-      const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
-      const freezeAt = cut.freeze ? clamp3(finite3(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+      const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+      const freezeAt = cut.freeze ? clamp3(finite4(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
       const adjustLut = resolveAdjustLut(cut.adjust);
       return {
         cut,
@@ -19743,7 +19902,7 @@ void main() {
         maskSources.set(layer.src, null);
       }
     }
-    const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
+    const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))), 0);
     return {
       map,
       cuts: placements,
@@ -19752,13 +19911,13 @@ void main() {
       layerAdjustLuts,
       maskSources,
       warn,
-      fps: finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+      fps: finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
     };
   }
   function isLayerActiveAt(layer, timeUs, fps) {
     const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
-    const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
-    const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
+    const startFrame = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const endFrame = Math.max(startFrame, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
     return frame >= startFrame && frame < endFrame;
   }
   function playbackSecondsAt(placement, outputSeconds) {
@@ -19793,27 +19952,27 @@ void main() {
     const amount = right.t > left.t ? clamp3((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
     const lerp3 = (a, b) => a + (b - a) * amount;
     return {
-      scale: Math.max(1, lerp3(finite3(left.scale, 1), finite3(right.scale, 1))),
-      centerX: clamp3(lerp3(finite3(left.cx, 0.5), finite3(right.cx, 0.5)), 0, 1),
-      centerY: clamp3(lerp3(finite3(left.cy, 0.5), finite3(right.cy, 0.5)), 0, 1)
+      scale: Math.max(1, lerp3(finite4(left.scale, 1), finite4(right.scale, 1))),
+      centerX: clamp3(lerp3(finite4(left.cx, 0.5), finite4(right.cx, 0.5)), 0, 1),
+      centerY: clamp3(lerp3(finite4(left.cy, 0.5), finite4(right.cy, 0.5)), 0, 1)
     };
   }
   function layerStyleVisualAt(cut, localSeconds) {
     const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
     const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const crop = animated?.crop ?? {
-      x: finite3(staticCrop.x, 0),
-      y: finite3(staticCrop.y, 0),
-      width: finite3(staticCrop.w, 1),
-      height: finite3(staticCrop.h, 1)
+      x: finite4(staticCrop.x, 0),
+      y: finite4(staticCrop.y, 0),
+      width: finite4(staticCrop.w, 1),
+      height: finite4(staticCrop.h, 1)
     };
     const width = clamp3(crop.width, Number.EPSILON, 1);
     const height = clamp3(crop.height, Number.EPSILON, 1);
     const transform = animated?.transform ?? {
-      x: finite3(cut.transform?.x, 0),
-      y: finite3(cut.transform?.y, 0),
-      scale: finite3(cut.transform?.scale, 1),
-      rotateDegrees: finite3(cut.transform?.rotate, 0)
+      x: finite4(cut.transform?.x, 0),
+      y: finite4(cut.transform?.y, 0),
+      scale: finite4(cut.transform?.scale, 1),
+      rotateDegrees: finite4(cut.transform?.rotate, 0)
     };
     return {
       framing: DEFAULT_VISUAL.framing,
@@ -19823,15 +19982,46 @@ void main() {
         scale: Math.max(Number.EPSILON, transform.scale),
         rotateDegrees: transform.rotateDegrees
       },
-      opacity: clamp3(animated?.opacity ?? finite3(cut.opacity, 1), 0, 1),
+      opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
       layerStyle: {
         crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
       }
     };
   }
-  function visualAt(cut, playbackSeconds, localSeconds, adjustLut) {
+  function motionTransform(transform, motion2) {
+    return {
+      x: transform.x + motion2.dx,
+      y: transform.y + motion2.dy,
+      scale: transform.scale * motion2.scale,
+      rotateDegrees: transform.rotateDegrees + motion2.rotate
+    };
+  }
+  function motionCrop(crop, reveal) {
+    return {
+      x: crop.x + crop.width * reveal.x,
+      y: crop.y + crop.height * reveal.y,
+      // Keep downstream geometry nondegenerate; motionOpacity preserves a closed wipe's transparency.
+      width: Math.max(Number.EPSILON, crop.width * reveal.w),
+      height: Math.max(Number.EPSILON, crop.height * reveal.h)
+    };
+  }
+  function motionOpacity(opacity, motion2) {
+    return motion2.reveal && (motion2.reveal.w === 0 || motion2.reveal.h === 0) ? 0 : opacity * motion2.opacity;
+  }
+  function cutMotionVisual(visual, motion2) {
+    if (!motion2) return visual;
+    return {
+      ...visual,
+      transform: motionTransform(visual.transform, motion2),
+      opacity: motionOpacity(visual.opacity, motion2),
+      ...visual.layerStyle && motion2.reveal ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion2.reveal) } } : {}
+    };
+  }
+  function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut) {
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const motion2 = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
     if (hasCutLayerStyleVisual(cut)) {
-      const visual2 = layerStyleVisualAt(cut, localSeconds);
+      const visual2 = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion2);
       return adjustLut ? { ...visual2, adjustLut } : visual2;
     }
     let framing = DEFAULT_VISUAL.framing;
@@ -19849,41 +20039,42 @@ void main() {
       };
     } else if (cut.framing?.crop) {
       const crop = cut.framing.crop;
-      const width = clamp3(finite3(crop.w, 1), Number.EPSILON, 1);
-      const height = clamp3(finite3(crop.h, 1), Number.EPSILON, 1);
+      const width = clamp3(finite4(crop.w, 1), Number.EPSILON, 1);
+      const height = clamp3(finite4(crop.h, 1), Number.EPSILON, 1);
       framing = {
-        x: clamp3(finite3(crop.x, 0), 0, 1 - width),
-        y: clamp3(finite3(crop.y, 0), 0, 1 - height),
+        x: clamp3(finite4(crop.x, 0), 0, 1 - width),
+        y: clamp3(finite4(crop.y, 0), 0, 1 - height),
         width,
         height,
         scale: Math.max(1 / width, 1 / height),
-        centerX: clamp3(finite3(crop.x, 0) + width / 2, 0, 1),
-        centerY: clamp3(finite3(crop.y, 0) + height / 2, 0, 1)
+        centerX: clamp3(finite4(crop.x, 0) + width / 2, 0, 1),
+        centerY: clamp3(finite4(crop.y, 0) + height / 2, 0, 1)
       };
     }
     const visual = {
       framing,
       transform: {
-        x: finite3(cut.transform?.x, 0),
-        y: finite3(cut.transform?.y, 0),
-        scale: Math.max(Number.EPSILON, finite3(cut.transform?.scale, 1)),
-        rotateDegrees: finite3(cut.transform?.rotate, 0)
+        x: finite4(cut.transform?.x, 0),
+        y: finite4(cut.transform?.y, 0),
+        scale: Math.max(Number.EPSILON, finite4(cut.transform?.scale, 1)),
+        rotateDegrees: finite4(cut.transform?.rotate, 0)
       },
-      opacity: clamp3(finite3(cut.opacity, 1), 0, 1)
+      opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
     };
-    return adjustLut ? { ...visual, adjustLut } : visual;
+    const composed = cutMotionVisual(visual, motion2);
+    return adjustLut ? { ...composed, adjustLut } : composed;
   }
-  function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
+  function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
     const cut = placement.cut;
     if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
     const source = sources.get(cut.src);
     const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
     const localSeconds = Math.max(0, outputSeconds - placement.at);
-    const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
+    const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
     const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
     if (image) return image;
     if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
-    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
     return {
       id: `cut-${cutIndex}`,
       source,
@@ -19954,7 +20145,7 @@ void main() {
     const resolved = [];
     timeline.layers.forEach((layer, index) => {
       if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
-      const localSeconds = Math.max(0, seconds - finite3(layer.t, 0));
+      const localSeconds = Math.max(0, seconds - finite4(layer.t, 0));
       const id = String(layer.id ?? `layer-${index}`);
       if (layer.kind === "filter") {
         if (!validFilter(layer.filter)) {
@@ -19966,7 +20157,7 @@ void main() {
           kind: "filter",
           filter: layer.filter,
           corners: filterQuadCornersAt(layer, localSeconds),
-          opacity: clamp3(finite3(layer.opacity, 1), 0, 1)
+          opacity: clamp3(finite4(layer.opacity, 1), 0, 1)
         });
         return;
       }
@@ -19981,30 +20172,37 @@ void main() {
       const staticTransform = layer.transform ?? {};
       const visual = {
         crop: animated?.crop ?? {
-          x: clamp3(finite3(staticCrop.x, 0), 0, 1),
-          y: clamp3(finite3(staticCrop.y, 0), 0, 1),
-          width: clamp3(finite3(staticCrop.w, 1), Number.EPSILON, 1),
-          height: clamp3(finite3(staticCrop.h, 1), Number.EPSILON, 1)
+          x: clamp3(finite4(staticCrop.x, 0), 0, 1),
+          y: clamp3(finite4(staticCrop.y, 0), 0, 1),
+          width: clamp3(finite4(staticCrop.w, 1), Number.EPSILON, 1),
+          height: clamp3(finite4(staticCrop.h, 1), Number.EPSILON, 1)
         },
         perspective: animated?.perspective ?? (layer.perspective ?? null),
         transform: animated?.transform ?? {
-          x: finite3(staticTransform.x, 0),
-          y: finite3(staticTransform.y, 0),
-          scale: Math.max(Number.EPSILON, finite3(staticTransform.scale, 1)),
-          rotateDegrees: finite3(staticTransform.rotate, 0)
+          x: finite4(staticTransform.x, 0),
+          y: finite4(staticTransform.y, 0),
+          scale: Math.max(Number.EPSILON, finite4(staticTransform.scale, 1)),
+          rotateDegrees: finite4(staticTransform.rotate, 0)
         }
       };
       visual.crop.width = clamp3(visual.crop.width, Number.EPSILON, 1);
       visual.crop.height = clamp3(visual.crop.height, Number.EPSILON, 1);
       visual.crop.x = clamp3(visual.crop.x, 0, 1 - visual.crop.width);
       visual.crop.y = clamp3(visual.crop.y, 0, 1 - visual.crop.height);
+      const motion2 = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
+      let opacity = clamp3(animated?.opacity ?? finite4(layer.opacity, 1), 0, 1);
+      if (motion2) {
+        visual.transform = motionTransform(visual.transform, motion2);
+        if (motion2.reveal) visual.crop = motionCrop(visual.crop, motion2.reveal);
+        opacity = motionOpacity(opacity, motion2);
+      }
       const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
       const adjustLut = timeline.layerAdjustLuts[index];
       const common = {
         id,
         visual,
         blend,
-        opacity: clamp3(animated?.opacity ?? finite3(layer.opacity, 1), 0, 1),
+        opacity,
         ...adjustLut ? { adjustLut } : {}
       };
       if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
@@ -20052,8 +20250,8 @@ void main() {
       return {
         timeUs,
         base: [
-          layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources),
-          layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources)
+          layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources, timeline.fps),
+          layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources, timeline.fps)
         ],
         layers: resolvedCompositeLayers(timeline, timeUs, sources),
         transition: {
@@ -20065,7 +20263,7 @@ void main() {
     }
     const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
-    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
+    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
     return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
@@ -25822,6 +26020,7 @@ void main() {
     const offlineContextFactory = options.offlineContextFactory ?? defaultOfflineContextFactory;
     const now = options.nowImpl ?? nowMs;
     const watchdogMs = options.pauseWatchdogMs === false ? false : finitePositive2(options.pauseWatchdogMs) ? options.pauseWatchdogMs : false;
+    const explicitWindowStartupWaitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs : null;
     let context = null;
     if (timelineDurationSec > 0 && (declarations.length > 0 || speech.length > 0)) {
       try {
@@ -25837,6 +26036,7 @@ void main() {
     let overBudgetWarned = false;
     let prefetchInFlight = null;
     let activePrefetchQueue = null;
+    let wakePrefetch = null;
     let disposed = false;
     let decodedRevision = 0;
     let prefetchEverRan = false;
@@ -25851,13 +26051,22 @@ void main() {
     let regularDecoded = [];
     let speechDecoded = /* @__PURE__ */ new Map();
     let active = [];
+    const activeItemGains = /* @__PURE__ */ new Set();
+    let mutedCutTracks = /* @__PURE__ */ new Set();
+    let mutedAudioTracks = /* @__PURE__ */ new Set();
+    let allCutsMuted = false;
+    let allAudioMuted = false;
+    const trackMuted = (kind, track) => kind === "speech" ? allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
+    const itemMuted = (item) => trackMuted(item.kind, item.track);
     const windowSources = /* @__PURE__ */ new Map();
-    const windowStops = /* @__PURE__ */ new Set();
+    const windowStops = /* @__PURE__ */ new Map();
+    const windowItems = /* @__PURE__ */ new Map();
     const windowFailures = /* @__PURE__ */ new Set();
-    let windowController = null;
+    const windowControllers = /* @__PURE__ */ new Set();
     let startingWindowController = null;
     let bufferedUntil = {};
     let generation = 0;
+    let playbackEpoch = 0;
     let starting = false;
     let replanPending = false;
     let gate = {
@@ -25876,6 +26085,7 @@ void main() {
     let lastRenderedTimelineSec = null;
     let lastAudioPositionAtRenderSec = null;
     let lastSchedule = [];
+    let lastPlanStartAtSec = 0;
     let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
     let rate = 1;
     const masterGain = context?.createGain() ?? null;
@@ -25900,7 +26110,19 @@ void main() {
       0,
       Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
     );
-    const audioPosition = () => context && playing ? clamp5(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec) * rate) : latestRequestedSec;
+    const positionAtContextTime = (seconds) => context && playing ? clamp5(anchorTimelineSec + Math.max(0, seconds - anchorContextSec) * rate) : latestRequestedSec;
+    const contextPosition = () => positionAtContextTime(context?.currentTime ?? 0);
+    const audioPosition = () => {
+      let outputContextTime = context?.currentTime ?? 0;
+      try {
+        if (typeof context?.getOutputTimestamp === "function") {
+          const timestamp = context.getOutputTimestamp();
+          if (finiteNonNegative(timestamp?.contextTime)) outputContextTime = timestamp.contextTime;
+        }
+      } catch {
+      }
+      return positionAtContextTime(outputContextTime);
+    };
     const warnPitchUnavailable = (reason) => {
       if (workletWarningEmitted) return;
       workletWarningEmitted = true;
@@ -25954,31 +26176,32 @@ void main() {
         warnPitchUnavailable(new Error("AudioContext.audioWorklet is unavailable"));
       }
     }
+    const stopActiveSource = (item) => {
+      active = active.filter((candidate) => candidate !== item);
+      item.source.onended = null;
+      try {
+        item.source.stop();
+      } catch {
+      }
+      try {
+        item.source.disconnect();
+      } catch {
+      }
+      for (const gain of item.gains) try {
+        gain.disconnect();
+      } catch {
+      }
+    };
     const stopSources = () => {
       startingWindowController?.abort();
       startingWindowController = null;
-      windowController?.abort();
-      windowController = null;
-      for (const stop of [...windowStops]) stop();
+      for (const controller of windowControllers) controller.abort();
+      windowControllers.clear();
+      for (const stop of [...windowStops.values()]) stop();
       windowStops.clear();
+      for (const entry of activeItemGains) entry.remove();
       bufferedUntil = {};
-      const sources = active;
-      active = [];
-      for (const item of sources) {
-        item.source.onended = null;
-        try {
-          item.source.stop();
-        } catch {
-        }
-        try {
-          item.source.disconnect();
-        } catch {
-        }
-        for (const gain of item.gains) try {
-          gain.disconnect();
-        } catch {
-        }
-      }
+      for (const item of [...active]) stopActiveSource(item);
     };
     const noteDecodedBytes = (entry, buffer) => {
       entry.bytes = buffer.length * buffer.numberOfChannels * 4;
@@ -26073,7 +26296,7 @@ void main() {
         `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
       );
       let usedSidecar = Boolean(sidecar && buffer);
-      if (!buffer && sidecar && declaration.sourceUrl) {
+      if (!buffer && sidecar && declaration.sourceUrl && !trackMuted(declaration.kind, declaration.spec.track)) {
         buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
         usedSidecar = false;
       }
@@ -26105,7 +26328,7 @@ void main() {
       const bakedPath = sidecar?.path ?? legacy?.path;
       let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
       let usedSidecar = Boolean(bakedPath && buffer);
-      if (!buffer) {
+      if (!buffer && !trackMuted("speech", declaration.track)) {
         buffer = await decodeUrl(
           declaration.url,
           `speech ${declaration.src}`,
@@ -26135,8 +26358,8 @@ void main() {
     const regularResolved = (item) => regularDecoded.some((candidate) => candidate.kind === item.kind && candidate.id === item.id);
     const taskState = (state) => state === "queued" || state === "generating" ? "pending-sidecar" : state === "no-audio" ? "no-audio" : "decode";
     const prepareWindowedTask = (task, pcm) => {
-      if (pcm && task.state === "decode") {
-        task.state = "windowed";
+      if (pcm && task.state === "decode") task.state = "windowed";
+      if (task.state === "windowed" && !task.muted() && !task.resolved()) {
         void task.run().catch((reason) => {
           task.failedAtMs = now();
           warn(`[frame-engine] ${task.key} PCM metadata unavailable`, reason);
@@ -26149,6 +26372,7 @@ void main() {
       at: firstUseRegular(item),
       failedAtMs: null,
       state: taskState(item.spec.sidecarState),
+      muted: () => trackMuted(item.kind, item.spec.track),
       run: () => resolveRegular(item),
       resolved: () => regularResolved(item)
     }, validSidecar(item.spec.sidecar)?.format === "pcm-s16le");
@@ -26157,6 +26381,7 @@ void main() {
       at: firstUseSpeech(item),
       failedAtMs: null,
       state: taskState(item.sidecarState),
+      muted: () => trackMuted("speech", item.track),
       run: () => resolveSpeech(item),
       resolved: () => speechDecoded.has(item.id)
     }, item.sidecar?.format === "pcm-s16le");
@@ -26166,31 +26391,61 @@ void main() {
     ].sort((left, right) => left.at - right.at);
     const pendingTasks = () => {
       const at2 = now();
-      return tasks.filter((task) => task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+      return tasks.filter((task) => !task.muted() && task.state === "decode" && !task.resolved() && (task.failedAtMs === null || at2 - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
     };
     const runPrefetch = async (queue) => {
       activePrefetchQueue = queue;
+      for (const task of queue) task.queued = true;
       prefetchPending = queue.length;
       let cursor = 0;
+      let workers = 2;
+      let failed = false;
+      let failure;
+      const idle = /* @__PURE__ */ new Set();
+      const wake = () => {
+        const waiters = [...idle];
+        idle.clear();
+        for (const resume of waiters) resume();
+      };
+      wakePrefetch = wake;
       const worker = async () => {
-        while (cursor < queue.length) {
-          const task = queue[cursor++];
-          if (!task) break;
-          try {
-            if (disposed || !tasks.includes(task)) continue;
-            await task.run();
-            task.failedAtMs = task.resolved() ? null : now();
-          } catch (reason) {
-            task.failedAtMs = now();
-            warn(`[frame-engine] ${task.key} prefetch failed`, reason);
-          } finally {
-            prefetchPending -= 1;
-            notifyTaskSettled();
-            if (task.updated && !disposed) replanIfNeeded();
+        try {
+          while (!disposed && !failed) {
+            if (cursor >= queue.length) {
+              if (idle.size === workers - 1) return;
+              await new Promise((resolve) => idle.add(resolve));
+              continue;
+            }
+            const task = queue[cursor++];
+            if (!task) break;
+            try {
+              if (!tasks.includes(task) || task.muted()) continue;
+              await task.run();
+              task.failedAtMs = task.resolved() || task.muted() ? null : now();
+            } catch (reason) {
+              task.failedAtMs = now();
+              warn(`[frame-engine] ${task.key} prefetch failed`, reason);
+            } finally {
+              task.queued = false;
+              prefetchPending -= 1;
+              notifyTaskSettled();
+              if (task.updated && !disposed) replanIfNeeded();
+            }
           }
+        } catch (reason) {
+          failed = true;
+          failure = reason;
+        } finally {
+          workers -= 1;
+          wake();
         }
       };
-      await Promise.all([worker(), worker()]);
+      try {
+        await Promise.all([worker(), worker()]);
+        if (failed) throw failure;
+      } finally {
+        for (const task of queue) task.queued = false;
+      }
     };
     const taskWaiters = /* @__PURE__ */ new Set();
     const notifyTaskSettled = () => {
@@ -26198,7 +26453,17 @@ void main() {
     };
     const ensureDecoded = () => {
       if (disposed) return Promise.resolve();
-      if (prefetchInFlight) return prefetchInFlight;
+      for (const task of tasks) prepareWindowedTask(task, false);
+      if (prefetchInFlight) {
+        if (activePrefetchQueue) for (const task of pendingTasks()) {
+          if (task.queued) continue;
+          task.queued = true;
+          activePrefetchQueue.push(task);
+          prefetchPending += 1;
+        }
+        wakePrefetch?.();
+        return prefetchInFlight;
+      }
       const queue = pendingTasks();
       if (queue.length === 0) return Promise.resolve();
       const first = !prefetchEverRan;
@@ -26209,6 +26474,7 @@ void main() {
         prefetchPending = 0;
         prefetchInFlight = null;
         activePrefetchQueue = null;
+        wakePrefetch = null;
         replanIfNeeded();
       });
       return prefetchInFlight;
@@ -26265,9 +26531,34 @@ void main() {
         return;
       }
       if (decodedCount <= scheduledDecodedCount) return;
-      launch(audioPosition(), { pinStart: true });
+      launch(contextPosition(), { pinStart: true });
     };
-    const applyGainEvents = (param, events, startTime, playbackRate) => {
+    const remainingGainEvents = (events, elapsed) => {
+      if (events.length === 0) return [];
+      let value = events[0].value;
+      let previous = events[0];
+      for (const event of events) {
+        if (event.offsetSec > elapsed) {
+          const fraction = Math.max(0, (elapsed - previous.offsetSec) / (event.offsetSec - previous.offsetSec));
+          if (event.method === "linear") value = previous.value + (event.value - previous.value) * fraction;
+          else if (event.method === "exponential" && previous.value > 0 && event.value > 0) {
+            value = previous.value * (event.value / previous.value) ** fraction;
+          }
+          break;
+        }
+        value = event.value;
+        previous = event;
+      }
+      return [
+        { offsetSec: 0, value, method: "set" },
+        ...events.filter((event) => event.offsetSec > elapsed).map((event) => ({ ...event, offsetSec: event.offsetSec - elapsed }))
+      ];
+    };
+    const applyGainEvents = (param, events, startTime, playbackRate, lateSec = 0) => {
+      if (lateSec > 0) {
+        events = remainingGainEvents(events, lateSec * playbackRate);
+        startTime += lateSec;
+      }
       if (events.length === 0) {
         param.setValueAtTime(1, startTime);
         return;
@@ -26280,11 +26571,30 @@ void main() {
         else param.setValueAtTime(event.value, at2);
       }
     };
+    const registerItemGain = (item, baseGain, startTime, transportRate) => {
+      const entry = {
+        kind: item.kind,
+        track: normalizedTrack(item.track),
+        baseGain,
+        gainEvents: item.gainEvents,
+        startTime,
+        transportRate,
+        remove: () => {
+          activeItemGains.delete(entry);
+        }
+      };
+      activeItemGains.add(entry);
+      return entry;
+    };
     const startItem = (item, contextStart) => {
       if (!context) return false;
       const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
       const buffer = regular?.buffer ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : void 0);
       if (!buffer) return false;
+      const when = contextStart + item.delaySec / rate;
+      const late = Math.max(0, context.currentTime - when);
+      const consumed = late * item.playbackRate * rate;
+      if (item.sourceDurationSec - consumed <= 0) return false;
       try {
         const source = context.createBufferSource();
         const baseGain = context.createGain();
@@ -26303,15 +26613,18 @@ void main() {
             envelopeGain.gain,
             item.envelopeEvents,
             contextStart + item.delaySec / rate,
-            rate
+            rate,
+            late
           );
         }
         tail.connect(masterGain ?? context.destination);
-        applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec / rate, rate);
-        source.start(contextStart + item.delaySec / rate, item.sourceOffsetSec, item.sourceDurationSec);
-        const activeItem = { source, gains };
+        applyGainEvents(baseGain.gain, item.gainEvents, when, rate, late);
+        source.start(Math.max(when, context.currentTime), item.sourceOffsetSec + consumed, item.sourceDurationSec - consumed);
+        const gainEntry = registerItemGain(item, baseGain, when, rate);
+        const activeItem = { source, gains, key: `${item.kind}:${item.id}`, material: buffer, item, rate };
         active.push(activeItem);
         source.onended = () => {
+          gainEntry.remove();
           active = active.filter((candidate) => candidate !== activeItem);
           try {
             source.disconnect();
@@ -26329,6 +26642,25 @@ void main() {
       }
     };
     const windowedFor = (item) => item.kind === "speech" ? speechDecoded.get(item.id)?.windowed : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind)?.windowed;
+    const canKeepItem = (item) => {
+      const key = `${item.kind}:${item.id}`;
+      const live = windowItems.get(key) ?? active.find((candidate) => candidate.key === key);
+      if (!live) return false;
+      if (live.suspended) return false;
+      const material = windowedFor(item) ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind)?.buffer);
+      const old = live.item;
+      if (live.material !== material || live.rate !== rate || old.loop !== item.loop || old.playbackRate !== item.playbackRate || old.gainDb !== item.gainDb || old.timelineEndSec !== item.timelineEndSec) return false;
+      const elapsed = item.timelineStartSec - old.timelineStartSec;
+      const sameEvents = (before, after) => {
+        const remaining = remainingGainEvents(before, elapsed);
+        const next = remainingGainEvents(after, 0);
+        return remaining.length === next.length && remaining.every((event, index) => {
+          const other = next[index];
+          return event.method === other.method && Math.abs(event.offsetSec - other.offsetSec) < 1e-6 && Math.abs(event.value - other.value) < 1e-6;
+        });
+      };
+      return sameEvents(old.gainEvents, item.gainEvents) && sameEvents(old.envelopeEvents, item.envelopeEvents);
+    };
     const frameSeconds = (frame, sampleRate, end) => {
       const seconds = frame / sampleRate;
       const adjustment = Number.EPSILON * Math.max(1, Math.abs(seconds));
@@ -26369,9 +26701,8 @@ void main() {
         release
       };
     };
-    const waitForFirstWindows = (windows, signal) => {
+    const waitForFirstWindows = (windows, signal, waitMs) => {
       if (windows.length === 0 || signal.aborted) return Promise.resolve();
-      const waitMs = finiteNonNegative(options.windowStartupWaitMs) ? options.windowStartupWaitMs : 1500;
       return new Promise((resolve) => {
         const finish = () => {
           clearTimeout(timer);
@@ -26383,11 +26714,11 @@ void main() {
         void Promise.all(windows.map((window2) => window2.result)).then(finish);
       });
     };
-    const startWindowedItem = (item, contextStart, itemGeneration, prepared) => {
+    const startWindowedItem = (item, contextStart, itemEpoch, controller, prepared) => {
       const windowed = windowedFor(item);
-      if (!context || !windowed || !windowController) return false;
+      if (!context || !windowed) return false;
       const audioContext = context;
-      const signal = windowController.signal;
+      const signal = controller.signal;
       const key = `${item.kind}:${item.id}`;
       if (windowFailures.has(key)) {
         prepared?.release();
@@ -26396,6 +26727,7 @@ void main() {
       const transportRate = rate;
       const playbackRate = item.playbackRate * transportRate;
       const itemStart = contextStart + item.delaySec / transportRate;
+      const late = Math.max(0, audioContext.currentTime - itemStart);
       const baseGain = audioContext.createGain();
       const gains = [baseGain];
       let tail = baseGain;
@@ -26404,17 +26736,18 @@ void main() {
         baseGain.connect(envelopeGain);
         tail = envelopeGain;
         gains.push(envelopeGain);
-        applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate);
+        applyGainEvents(envelopeGain.gain, item.envelopeEvents, itemStart, transportRate, late);
       }
       tail.connect(masterGain ?? audioContext.destination);
-      applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate);
+      applyGainEvents(baseGain.gain, item.gainEvents, itemStart, transportRate, late);
+      const gainEntry = registerItemGain(item, baseGain, itemStart, transportRate);
       let consumed = 0;
       let failures = 0;
       let timer = null;
       let stopped = false;
       let filling = false;
       const nodes = /* @__PURE__ */ new Map();
-      const current = () => !stopped && !signal.aborted && generation === itemGeneration;
+      const current = () => !stopped && !signal.aborted && playbackEpoch === itemEpoch;
       const disconnectGains = () => {
         for (const gain of gains) try {
           gain.disconnect();
@@ -26424,6 +26757,7 @@ void main() {
       const stop = () => {
         if (stopped) return;
         stopped = true;
+        gainEntry.remove();
         if (timer !== null) clearTimeout(timer);
         prepared?.release();
         for (const [source, release] of nodes) {
@@ -26440,21 +26774,34 @@ void main() {
         }
         nodes.clear();
         disconnectGains();
-        windowStops.delete(stop);
+        windowStops.delete(key);
+        windowItems.delete(key);
+        delete bufferedUntil[key];
+        if (!starting && ![...windowItems.values()].some((entry) => entry.controller === controller)) {
+          windowControllers.delete(controller);
+          controller.abort();
+        }
       };
-      windowStops.add(stop);
+      windowStops.set(key, stop);
       const arm = (delay) => {
         if (current()) timer = setTimeout(() => {
           timer = null;
           void fill();
         }, delay);
       };
+      windowItems.set(key, { key, material: windowed, item, rate: transportRate, controller, resume: () => {
+        if (timer === null) arm(0);
+      } });
       const fill = async () => {
-        if (!current() || filling) return;
+        if (itemMuted(item)) {
+          const entry = windowItems.get(key);
+          if (entry) entry.suspended = true;
+        }
+        if (!current() || filling || itemMuted(item)) return;
         filling = true;
         let retryDelay = null;
         try {
-          while (current()) {
+          while (current() && !itemMuted(item)) {
             const slice = windowSlice(item, windowed, consumed);
             if (!slice) {
               if (nodes.size === 0) stop();
@@ -26465,7 +26812,7 @@ void main() {
             const request = prepared ?? prepareWindow(windowed, slice, signal);
             prepared = void 0;
             const result = await request.result;
-            if (!current()) {
+            if (!current() || itemMuted(item)) {
               request.release();
               return;
             }
@@ -26526,7 +26873,7 @@ void main() {
           }
         } finally {
           filling = false;
-          if (current() && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
+          if (current() && !itemMuted(item) && !windowFailures.has(key) && windowSlice(item, windowed, consumed)) {
             arm(retryDelay ?? WINDOW_REFILL_MS);
           }
         }
@@ -26535,22 +26882,28 @@ void main() {
       return true;
     };
     const regularScheduleDeclaration = () => {
-      const normalized = regularDecoded.map((item) => ({
+      const mutedUnresolved = declarations.filter((item) => trackMuted(item.kind, item.spec.track) && item.spec.sidecarState !== "no-audio" && !regularResolved(item)).map((item) => ({
+        ...item,
+        sidecar: Boolean(validSidecar(item.spec.sidecar)),
+        durationSec: [item.spec.durationSec, validSidecar(item.spec.sidecar)?.durationSec].find(finitePositive2) ?? timelineDurationSec
+      }));
+      const scheduled = [...regularDecoded, ...mutedUnresolved];
+      const normalized = scheduled.map((item) => ({
         ...item.spec,
         id: item.id,
         durationSec: item.durationSec,
         ...!item.sidecar ? { sidecar: void 0 } : {}
       }));
-      const bgm = normalized.find((_3, index) => regularDecoded[index]?.kind === "bgm");
+      const bgm = normalized.find((_3, index) => scheduled[index]?.kind === "bgm");
       return {
         ...bgm ? { bgm } : {},
-        sfx: normalized.filter((_3, index) => regularDecoded[index]?.kind === "sfx"),
-        narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
+        sfx: normalized.filter((_3, index) => scheduled[index]?.kind === "sfx"),
+        narration: normalized.filter((_3, index) => scheduled[index]?.kind === "narration")
       };
     };
     const supplyKeysAt = (positionSec, asPlaying) => {
       const requiredTasks = tasks.filter((task) => {
-        if (task.at > positionSec || task.state === "no-audio") return false;
+        if (task.muted() || task.at > positionSec || task.state === "no-audio") return false;
         const regular = declarations.find((item) => `${item.kind}:${item.id}` === task.key);
         if (regular) {
           if (regular.kind === "bgm") return positionSec < timelineDurationSec;
@@ -26619,6 +26972,8 @@ void main() {
     };
     const startFrom = async (seconds, options2 = {}) => {
       if (!context) return;
+      const replanning = playing;
+      if (!replanning) playbackEpoch += 1;
       const thisGeneration = ++generation;
       startingWindowController?.abort();
       const controller = new AbortController();
@@ -26664,7 +27019,7 @@ void main() {
         }
         const speechForSchedule = speech.flatMap((item) => {
           const resolved = speechDecoded.get(item.id);
-          if (!resolved) return [];
+          if (!resolved) return item.sidecarState !== "no-audio" && trackMuted("speech", item.track) ? [item] : [];
           return [{
             ...item,
             ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
@@ -26672,38 +27027,68 @@ void main() {
           }];
         });
         const planDecodedCount = decodedRevision;
-        const plan = scheduleBuilder({
+        const scheduleAudio = { ...regularScheduleDeclaration(), speech: speechForSchedule };
+        let plan = scheduleBuilder({
           timelineDurationSec,
           startAtSec: clamp5(options2.pinStart ? seconds : latestRequestedSec),
-          audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
+          audio: scheduleAudio
         });
-        for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-        if (plan.items.length === 0) {
+        const planWarnings = new Set(plan.warnings);
+        for (const warning of planWarnings) warn(`[frame-engine] audio: ${warning}`);
+        if (plan.items.length === 0 && !replanning) {
           outcome = "empty";
           emptyPlanDecodedCount = decodedRevision;
           return;
         }
         const firstWindows = /* @__PURE__ */ new Map();
         for (const item of plan.items) {
+          if (itemMuted(item)) continue;
+          if (replanning && canKeepItem(item)) continue;
           const windowed = windowedFor(item);
           if (!windowed || item.delaySec > 0 || windowFailures.has(`${item.kind}:${item.id}`)) continue;
           const slice = windowSlice(item, windowed, 0);
           if (slice) firstWindows.set(item, prepareWindow(windowed, slice, controller.signal));
         }
-        await waitForFirstWindows([...firstWindows.values()], controller.signal);
+        const waitMs = explicitWindowStartupWaitMs ?? (gate.holding && gateGeneration === thisGeneration ? Math.max(0, gate.sinceMs + PLAY_GATE_MAX_HOLD_SEC * 1e3 - now()) : 1500);
+        await waitForFirstWindows([...firstWindows.values()], controller.signal, waitMs);
         if (thisGeneration !== generation) return;
+        const effectiveStart = clamp5(options2.pinStart && playing ? seconds : latestRequestedSec);
+        if (Math.abs(effectiveStart - plan.startAtSec) > 1e-6) {
+          plan = scheduleBuilder({ timelineDurationSec, startAtSec: effectiveStart, audio: scheduleAudio });
+          for (const warning of plan.warnings) {
+            if (!planWarnings.has(warning)) {
+              planWarnings.add(warning);
+              warn(`[frame-engine] audio: ${warning}`);
+            }
+          }
+          for (const prepared of firstWindows.values()) prepared.release();
+          firstWindows.clear();
+        }
         startingWindowController = null;
-        stopSources();
-        windowController = controller;
-        const contextStart = context.currentTime + 0.02;
-        anchorTimelineSec = plan.startAtSec;
-        anchorContextSec = contextStart;
+        const kept = new Set(replanning ? plan.items.filter(canKeepItem).map((item) => `${item.kind}:${item.id}`) : []);
+        if (replanning) {
+          for (const item of [...active]) if (!kept.has(item.key)) stopActiveSource(item);
+          for (const [key, stop] of [...windowStops]) if (!kept.has(key)) stop();
+        } else {
+          stopSources();
+        }
+        windowControllers.add(controller);
+        const contextStart = replanning ? anchorContextSec + (plan.startAtSec - anchorTimelineSec) / rate : context.currentTime + 0.02;
+        if (!replanning) {
+          anchorTimelineSec = plan.startAtSec;
+          anchorContextSec = contextStart;
+        }
+        lastPlanStartAtSec = plan.startAtSec;
         lastSchedule = plan.items;
         scheduledDecodedCount = planDecodedCount;
         lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
         const skipped = [];
         for (const item of lastSchedule) {
-          const started = windowedFor(item) ? startWindowedItem(item, contextStart, thisGeneration, firstWindows.get(item)) : startItem(item, contextStart);
+          if (itemMuted(item) || kept.has(`${item.kind}:${item.id}`)) {
+            firstWindows.get(item)?.release();
+            continue;
+          }
+          const started = windowedFor(item) ? startWindowedItem(item, contextStart, playbackEpoch, controller, firstWindows.get(item)) : startItem(item, contextStart);
           if (!started) skipped.push(`${item.kind}:${item.id}`);
         }
         skippedAtSchedule = skipped;
@@ -26714,7 +27099,13 @@ void main() {
         outcome = "started";
       } finally {
         if (startingWindowController === controller) startingWindowController = null;
-        if (windowController !== controller) controller.abort();
+        for (const adopted of windowControllers) {
+          if (![...windowItems.values()].some((item) => item.controller === adopted)) {
+            windowControllers.delete(adopted);
+            adopted.abort();
+          }
+        }
+        if (!windowControllers.has(controller)) controller.abort();
         if (thisGeneration === generation) {
           if (outcome !== "started") releaseGate();
           if (outcome === "failed") gateIntent = null;
@@ -26735,8 +27126,9 @@ void main() {
     };
     const restartAllowed = () => lastStartOutcome === null || now() - lastStartAttemptMs >= RESTART_BACKOFF_MS;
     const pause = () => {
-      if (playing) latestRequestedSec = audioPosition();
+      if (playing) latestRequestedSec = contextPosition();
       generation += 1;
+      playbackEpoch += 1;
       releaseGate();
       gateIntent = null;
       playing = false;
@@ -26751,6 +27143,7 @@ void main() {
       pauseTimer = setTimeout(pause, watchdogMs);
     };
     const debug = () => {
+      const latencies = [context?.baseLatency, context?.outputLatency].filter((value) => typeof value === "number" && Number.isFinite(value));
       const sidecars = uniqueSidecars();
       const audioPositionSec = lastAudioPositionAtRenderSec;
       const perSource = sourceOrder.flatMap((src) => {
@@ -26770,9 +27163,16 @@ void main() {
           failed,
           noAudio,
           bufferedUntil: { ...bufferedUntil },
+          mutedTracks: {
+            cuts: [...mutedCutTracks].sort((a, b) => a - b),
+            audio: [...mutedAudioTracks].sort((a, b) => a - b),
+            allCuts: allCutsMuted,
+            allAudio: allAudioMuted
+          },
           gate: { holding, startSec: holding ? gate2.startSec : 0, heldMs: holding ? now() - gate2.sinceMs : 0, reason: holding ? gate2.reason : null }
         },
         contextState: context?.state ?? "unavailable",
+        outputLatencyMs: latencies.length > 0 ? latencies.reduce((sum, value) => sum + value, 0) * 1e3 : null,
         renderedTimelineSec: lastRenderedTimelineSec,
         audioPositionSec,
         driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
@@ -26781,7 +27181,7 @@ void main() {
         pitchPreserved: rate === 1 || stretcher === "worklet",
         stretcher,
         scheduled: {
-          startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
+          startAtSec: lastSchedule.length > 0 ? lastPlanStartAtSec : null,
           itemCount: lastSchedule.length,
           bgm: lastSchedule.filter((item) => item.kind === "bgm").length,
           sfx: lastSchedule.filter((item) => item.kind === "sfx").length,
@@ -26831,6 +27231,7 @@ void main() {
       replacement.updated = true;
       tasks[index] = replacement;
       if (activePrefetchQueue && replacement.state === "decode") {
+        replacement.queued = true;
         activePrefetchQueue.push(replacement);
         prefetchPending += 1;
       }
@@ -26889,6 +27290,39 @@ void main() {
     };
     return {
       updateAudio,
+      setMutedTracks(muted) {
+        if (disposed) return;
+        const cuts = muted.cuts === void 0 ? mutedCutTracks : new Set([...muted.cuts].map(normalizedTrack));
+        const audio = muted.audio === void 0 ? mutedAudioTracks : new Set([...muted.audio].map(normalizedTrack));
+        const allCuts = muted.allCuts ?? allCutsMuted;
+        const allAudio = muted.allAudio ?? allAudioMuted;
+        const equal = (left, right) => left.size === right.size && [...left].every((track) => right.has(track));
+        if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks) && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
+        const released = (before, after, allBefore, allAfter) => !allAfter && (allBefore || [...before].some((track) => !after.has(track)));
+        const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts) || released(mutedAudioTracks, audio, allAudioMuted, allAudio);
+        const previous = new Map([...activeItemGains].map((entry) => [entry, trackMuted(entry.kind, entry.track)]));
+        mutedCutTracks = cuts;
+        mutedAudioTracks = audio;
+        allCutsMuted = allCuts;
+        allAudioMuted = allAudio;
+        if (context) for (const entry of activeItemGains) {
+          const silent = trackMuted(entry.kind, entry.track);
+          if (silent === previous.get(entry)) continue;
+          entry.baseGain.gain.cancelScheduledValues(context.currentTime);
+          if (silent) entry.baseGain.gain.setValueAtTime(0, context.currentTime);
+          else applyGainEvents(entry.baseGain.gain, entry.gainEvents, entry.startTime, entry.transportRate);
+        }
+        notifyTaskSettled();
+        if (unmuted) {
+          for (const entry of windowItems.values()) if (!itemMuted(entry.item)) entry.resume?.();
+        }
+        if (unmuted && (playing || starting)) {
+          void ensureDecoded().then(() => ensureDecoded()).catch((reason) => {
+            warn("[frame-engine] audio unmute failed", reason);
+          });
+          launch(audioPosition(), { pinStart: true });
+        }
+      },
       prime() {
         ensureDecoded().catch((reason) => {
           warn("[frame-engine] audio prefetch failed", reason);
@@ -26929,6 +27363,7 @@ void main() {
       seek(seconds, continuePlaying = false) {
         latestRequestedSec = clamp5(seconds);
         generation += 1;
+        playbackEpoch += 1;
         releaseGate();
         playing = false;
         starting = false;
@@ -26947,7 +27382,8 @@ void main() {
         if (nextRate === rate) return;
         const wasPlaying = playing;
         const wasStarting = starting;
-        const position = wasPlaying ? audioPosition() : latestRequestedSec;
+        const position = wasPlaying ? contextPosition() : latestRequestedSec;
+        playbackEpoch += 1;
         rate = nextRate;
         latestRequestedSec = position;
         routeMasterBus();
@@ -26979,6 +27415,7 @@ void main() {
       debug,
       dispose() {
         disposed = true;
+        wakePrefetch?.();
         if (pauseTimer !== null) clearTimeout(pauseTimer);
         pauseTimer = null;
         pause();
@@ -26998,6 +27435,9 @@ void main() {
         void context?.close().catch(() => void 0);
       }
     };
+  }
+  function normalizedTrack(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
   }
   function validSidecar(value) {
     if (!value || typeof value !== "object") return void 0;
@@ -27758,7 +28198,7 @@ void main() {
     { location: 3, size: 3, offset: 6 },
     { location: 4, size: 2, offset: 9 }
   ];
-  function finite4(value, fallback, label) {
+  function finite5(value, fallback, label) {
     const resolved = value ?? fallback;
     if (!Number.isFinite(resolved)) throw new Error(`${label} must be finite`);
     return resolved;
@@ -27769,12 +28209,12 @@ void main() {
     }
     return {
       id: draw.id,
-      opacity: Math.max(0, Math.min(1, finite4(draw.opacity, 1, "opacity"))),
-      translateX: finite4(draw.translateX, 0, "translateX"),
-      translateY: finite4(draw.translateY, 0, "translateY"),
-      scaleX: finite4(draw.scaleX, 1, "scaleX"),
-      scaleY: finite4(draw.scaleY, 1, "scaleY"),
-      rotateDeg: finite4(draw.rotateDeg, 0, "rotateDeg")
+      opacity: Math.max(0, Math.min(1, finite5(draw.opacity, 1, "opacity"))),
+      translateX: finite5(draw.translateX, 0, "translateX"),
+      translateY: finite5(draw.translateY, 0, "translateY"),
+      scaleX: finite5(draw.scaleX, 1, "scaleX"),
+      scaleY: finite5(draw.scaleY, 1, "scaleY"),
+      rotateDeg: finite5(draw.rotateDeg, 0, "rotateDeg")
     };
   }
   function normalizeSpriteTile(tile) {
@@ -27786,14 +28226,14 @@ void main() {
       y: tile.y,
       width: tile.width,
       height: tile.height,
-      mix: Math.max(0, Math.min(1, finite4(tile.mix, 0, "tile mix"))),
+      mix: Math.max(0, Math.min(1, finite5(tile.mix, 0, "tile mix"))),
       visible: tile.visible ?? true,
-      opacity: Math.max(0, Math.min(1, finite4(tile.opacity, 1, "tile opacity"))),
-      translateX: finite4(tile.translateX, 0, "tile translateX"),
-      translateY: finite4(tile.translateY, 0, "tile translateY"),
-      scaleX: finite4(tile.scaleX, 1, "tile scaleX"),
-      scaleY: finite4(tile.scaleY, 1, "tile scaleY"),
-      rotateDeg: finite4(tile.rotateDeg, 0, "tile rotateDeg")
+      opacity: Math.max(0, Math.min(1, finite5(tile.opacity, 1, "tile opacity"))),
+      translateX: finite5(tile.translateX, 0, "tile translateX"),
+      translateY: finite5(tile.translateY, 0, "tile translateY"),
+      scaleX: finite5(tile.scaleX, 1, "tile scaleX"),
+      scaleY: finite5(tile.scaleY, 1, "tile scaleY"),
+      rotateDeg: finite5(tile.rotateDeg, 0, "tile rotateDeg")
     };
   }
   function normalizeSpriteTextureRect(rect, canvasWidth, canvasHeight) {
@@ -28075,8 +28515,8 @@ void main() {
       if (!instanceCanvasLocation) throw new Error("sprite instance compositor uniform is unavailable: uCanvas");
       this.instanceCanvasLocation = instanceCanvasLocation;
       gl.useProgram(instanceProgram);
-      for (let unit = 0; unit < this.textureUnitCount; unit += 1) {
-        gl.uniform1i(gl.getUniformLocation(instanceProgram, `uTexture${unit}`), unit);
+      for (let unit2 = 0; unit2 < this.textureUnitCount; unit2 += 1) {
+        gl.uniform1i(gl.getUniformLocation(instanceProgram, `uTexture${unit2}`), unit2);
       }
       const plainInstanceVertex = compileShader2(gl, gl.VERTEX_SHADER, `#version 300 es
       layout(location = 0) in vec2 position;
@@ -28144,8 +28584,8 @@ void main() {
       }
       gl.bindVertexArray(null);
       gl.useProgram(plainInstanceProgram);
-      for (let unit = 0; unit < this.textureUnitCount; unit += 1) {
-        gl.uniform1i(gl.getUniformLocation(plainInstanceProgram, `uTexture${unit}`), unit);
+      for (let unit2 = 0; unit2 < this.textureUnitCount; unit2 += 1) {
+        gl.uniform1i(gl.getUniformLocation(plainInstanceProgram, `uTexture${unit2}`), unit2);
       }
       this.baseTexture = createTexture(gl);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -28284,11 +28724,11 @@ void main() {
         }
         const base = this.sprites.get(draw.id);
         if (!base) throw new Error(`unknown sprite: ${draw.id}`);
-        const unit = normalizeSpriteDraw(draw);
+        const unit2 = normalizeSpriteDraw(draw);
         if (kind === "plain") {
           run.instances.push({
-            transform: spriteTransformMatrix(unit, this.canvas.width, this.canvas.height),
-            opacity: unit.opacity,
+            transform: spriteTransformMatrix(unit2, this.canvas.width, this.canvas.height),
+            opacity: unit2.opacity,
             texture: base
           });
           continue;
@@ -28305,7 +28745,7 @@ void main() {
           this.canvas.height
         );
         const tiles = draw.tiles !== void 0 ? draw.tiles : draw.textureRect !== void 0 ? [{ ...draw.textureRect }] : [{ x: 0, y: 0, width: this.canvas.width, height: this.canvas.height }];
-        const unitTransform = spriteTransformMatrix(unit, this.canvas.width, this.canvas.height);
+        const unitTransform = spriteTransformMatrix(unit2, this.canvas.width, this.canvas.height);
         for (const tile of tiles) {
           const value = normalizeSpriteTile(tile);
           if (!value.visible) continue;
@@ -28315,7 +28755,7 @@ void main() {
             unitTransform,
             tileTransform: spriteTileMatrix(value, this.canvas.width, this.canvas.height),
             mix: value.mix,
-            opacity: unit.opacity * value.opacity,
+            opacity: unit2.opacity * value.opacity,
             base,
             highlight
           });
@@ -28428,8 +28868,8 @@ void main() {
     }
     planRunChunks(runs, state) {
       const simulated = Array(this.textureUnitCount).fill(null);
-      for (const [unit, texture] of state.textures) {
-        if (unit >= 0 && unit < simulated.length) simulated[unit] = texture;
+      for (const [unit2, texture] of state.textures) {
+        if (unit2 >= 0 && unit2 < simulated.length) simulated[unit2] = texture;
       }
       const chunks = [];
       let plainStart = 0;
@@ -28458,20 +28898,20 @@ void main() {
           const units = /* @__PURE__ */ new Map();
           const used = /* @__PURE__ */ new Set();
           for (const texture of value.textures) {
-            const unit = simulated.indexOf(texture);
-            if (unit >= 0) {
-              units.set(texture, unit);
-              used.add(unit);
+            const unit2 = simulated.indexOf(texture);
+            if (unit2 >= 0) {
+              units.set(texture, unit2);
+              used.add(unit2);
             }
           }
           for (const texture of value.textures) {
             if (units.has(texture)) continue;
-            let unit = simulated.findIndex((entry, index) => entry === null && !used.has(index));
-            if (unit < 0) unit = simulated.findIndex((_entry, index) => !used.has(index));
-            if (unit < 0) throw new Error("sprite compositor texture unit capacity is insufficient");
-            units.set(texture, unit);
-            used.add(unit);
-            simulated[unit] = texture;
+            let unit2 = simulated.findIndex((entry, index) => entry === null && !used.has(index));
+            if (unit2 < 0) unit2 = simulated.findIndex((_entry, index) => !used.has(index));
+            if (unit2 < 0) throw new Error("sprite compositor texture unit capacity is insufficient");
+            units.set(texture, unit2);
+            used.add(unit2);
+            simulated[unit2] = texture;
           }
           const start = run.kind === "plain" ? plainStart : tileStart;
           chunks.push({
@@ -28522,21 +28962,21 @@ void main() {
         );
       }
     }
-    bindTexture(unit, texture, state) {
+    bindTexture(unit2, texture, state) {
       const gl = this.gl;
-      if (state.textures.get(unit) === texture) return;
-      const switchActiveTexture = state.activeTextureUnit !== unit;
+      if (state.textures.get(unit2) === texture) return;
+      const switchActiveTexture = state.activeTextureUnit !== unit2;
       if (this.probe) {
         this.probe.section("bindTexture", () => {
-          if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit);
+          if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit2);
           gl.bindTexture(gl.TEXTURE_2D, texture);
         });
       } else {
-        if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit);
+        if (switchActiveTexture) gl.activeTexture(gl.TEXTURE0 + unit2);
         gl.bindTexture(gl.TEXTURE_2D, texture);
       }
-      if (switchActiveTexture) state.activeTextureUnit = unit;
-      state.textures.set(unit, texture);
+      if (switchActiveTexture) state.activeTextureUnit = unit2;
+      state.textures.set(unit2, texture);
     }
     usePipeline(program, vertexArray, state) {
       const switchProgram = state.program !== program;
@@ -28581,7 +29021,7 @@ void main() {
   };
 
   // packages/frame-engine/src/timeline/caption-words.ts
-  var identity = () => ({
+  var identity2 = () => ({
     mix: 0,
     visible: true,
     opacity: 1,
@@ -28629,7 +29069,7 @@ void main() {
     return lerp(middle, end, ease2((progress - 0.5) * 2));
   }
   function captionWordStateAt(timing, localSeconds) {
-    const state = identity();
+    const state = identity2();
     const progress = progressAt(timing, localSeconds);
     const emPx = Math.max(0, Number.isFinite(timing.emPx) ? Number(timing.emPx) : 0);
     switch (timing.role) {
@@ -28796,7 +29236,7 @@ void main() {
   }
 
   // packages/frame-engine/src/timeline/caption-motion.ts
-  var identity2 = () => ({
+  var identity3 = () => ({
     opacity: 1,
     translateX: 0,
     translateY: 0,
@@ -28968,7 +29408,7 @@ void main() {
       const progress = Math.max(0, Math.min(1, local / 0.18));
       const eased = applyEase(progress, "ease-out");
       return {
-        ...identity2(),
+        ...identity3(),
         opacity: eased,
         translateY: 0.18 * em * (1 - eased)
       };
@@ -28989,7 +29429,7 @@ void main() {
       const delay = Math.max(0, cueDuration - duration);
       if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
     }
-    return states.reduce(combine, identity2());
+    return states.reduce(combine, identity3());
   }
   function slotDuration(slot, cueDuration, fallback) {
     return Math.min(positiveDuration(slot.durationSec ?? slot.duration_sec, fallback), Math.max(0.05, cueDuration));

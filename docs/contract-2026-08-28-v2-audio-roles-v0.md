@@ -133,6 +133,12 @@ ms へ換算し、絶対値で集計する。全 59 点の最大は 16.667 ms、
 `mute: true` は speech 宣言そのものを作らず、プレビューのサイドカー要求も PCM 化のコストも消える。
 書き出しは無音区間で尺を保つ。キー無しの既定値は従来と完全同一で、既存案件の出力は変わらない。
 
+### 6.1 トラック単位の `tracks[].muted`
+
+`muted?: boolean` は省略時 false。visual トラックの `muted: true` は cut の埋め込み音声を anullsrc に置き換え、尺は保つ（video layer は対象外）。
+audio トラックの `muted: true` は item を書き出し・プレビューの mix から除外し、ducking の対象からも外れる。
+トラックの `hidden` / `locked` は従来どおり storage 側で保持し、edit.json には出ない。
+
 ## 7. 速度変更した台詞のピッチ保持サイドカー
 
 `speed` が 1 以外の撮影素材の台詞は、Web Audio の `playbackRate` による近似から外す。

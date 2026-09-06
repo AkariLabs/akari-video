@@ -45,6 +45,17 @@ export function projectRendererCompatibilityEdit(
   projectRootOverride,
   { expandParts = true, onWarning } = {},
 ) {
+  const mutedAudioItemIds = new Set();
+  const mutedVisualItemIds = new Set();
+  const collectMutedItemIds = (item, ids) => {
+    if (item?.source?.kind === "media") ids.add(String(item.id));
+    for (const child of item?.children ?? []) collectMutedItemIds(child, ids);
+  };
+  for (const track of internal.tracks) {
+    if (track.muted !== true) continue;
+    const ids = track.lane === "audio" ? mutedAudioItemIds : mutedVisualItemIds;
+    for (const item of track.items) collectMutedItemIds(item, ids);
+  }
   const ordered = internal.tracks.flatMap(track => track.items)
     .sort((left, right) => left.legacy.index - right.legacy.index);
   const cuts = [];
@@ -60,7 +71,7 @@ export function projectRendererCompatibilityEdit(
   const narration = [];
   let bgm;
   for (const item of ordered) {
-    if (item.legacy.value !== undefined) {
+    if (item.legacy.value !== undefined && !mutedAudioItemIds.has(String(item.id))) {
       switch (item.legacy.collection) {
         case "sfx": sfx.push(projectAudioDeclaration(item, internal.output.fps)); break;
         case "narration": narration.push(projectAudioDeclaration(item, internal.output.fps)); break;
@@ -69,7 +80,11 @@ export function projectRendererCompatibilityEdit(
       }
     }
     switch (renderItemKind(item)) {
-      case "cut": cuts.push(renderItemDeclaration(item, temporaryDirectory)); break;
+      case "cut": {
+        const declaration = renderItemDeclaration(item, temporaryDirectory);
+        cuts.push(mutedVisualItemIds.has(String(item.id)) ? { ...declaration, mute: true } : declaration);
+        break;
+      }
       case "html": break;
       case "layer": layers.push(renderItemDeclaration(item, temporaryDirectory)); break;
       default: break;

@@ -50,6 +50,8 @@ const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(
 
 const VERSION = 1;
 const EPSILON = 1e-6;
+const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"]);
+const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin"]);
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
   new URL("../../schemas/captions.schema.json", import.meta.url),
@@ -1074,6 +1076,18 @@ function validateEditV2(edit, findings) {
           });
         }
         if (isRecord(item.motion)) {
+          for (const seat of ["in", "out", "loop"]) {
+            const entry = item.motion[seat];
+            const presets = seat === "loop" ? MOTION_LOOP_PRESETS : MOTION_IN_OUT_PRESETS;
+            if (isRecord(entry) && typeof entry.preset === "string" && !presets.has(entry.preset)) {
+              addFinding(findings, {
+                severity: "warning",
+                check: "motion.unknown-preset",
+                message: `unknown motion ${seat} preset: ${entry.preset}; ignored when rendering`,
+                path: `${itemPath}.motion.${seat}`,
+              });
+            }
+          }
           const inDuration = isRecord(item.motion.in) && Number.isInteger(item.motion.in.duration)
             ? item.motion.in.duration : 0;
           const outDuration = isRecord(item.motion.out) && Number.isInteger(item.motion.out.duration)

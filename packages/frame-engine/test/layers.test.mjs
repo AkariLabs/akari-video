@@ -131,6 +131,69 @@ test('timeline resolves z order, local source time, static and animated visuals'
   assert.equal(plan.layers[1].opacity, .5);
 });
 
+test('layer motion composes with keyframes at output-local seconds and timeline fps', () => {
+  const source = { decode: async () => { throw new Error('unused'); } };
+  const layer = {
+    id: 'moving', t: 2, duration: 2, src: 'video',
+    keyframes: [
+      { t: 0, transform: { x: 10, y: 20, scale: 2, rotate: 15 }, opacity: 0.4 },
+      { t: 2, transform: { x: 30, y: 40, scale: 4, rotate: 35 }, opacity: 0.8 },
+    ],
+    motion: { in: { preset: 'slide-up', duration: 24 }, out: { preset: 'fade', duration: 24 },
+      loop: { preset: 'pulse', period: 48 } },
+  };
+  const timeline = buildResolvedTimelinePlan([], { fps: 24, layers: [layer] });
+  const at = seconds => evaluationPlanFromResolvedTimeline(timeline, seconds * 1e6,
+    new Map([['video', source]]), { width: 320, height: 180, colorSpace: 'bt709-limited' }).layers[0];
+  assert.deepEqual(at(2.5).visual.transform, { x: 15, y: 45, scale: 2.625, rotateDegrees: 20 });
+  assert.equal(at(2.5).opacity, 0.5);
+  const { scale, ...transform } = at(3.5).visual.transform;
+  assert.deepEqual(transform, { x: 25, y: 35, rotateDegrees: 30 });
+  assert.ok(Math.abs(scale - 3.325) < 1e-12);
+  assert.ok(Math.abs(at(3.5).opacity - 0.35) < 1e-12);
+  assert.equal(at(2.5).sourceTimeUs, 500_000);
+});
+
+test('layers without motion retain the serialized static and keyframed evaluation', () => {
+  const source = { decode: async () => { throw new Error('unused'); } };
+  const layers = [
+    { id: 'static', t: 1, duration: 2, src: 'video', crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6 },
+      transform: { x: 12, y: -4, scale: 0.5, rotate: 30 }, opacity: 0.6, blend: 'multiply' },
+    { id: 'animated', t: 1, duration: 2, src: 'video', keyframes: [
+      { t: 0, transform: { x: 10, scale: 1 }, opacity: 0.2 },
+      { t: 2, transform: { x: 30, scale: 2 }, opacity: 0.6 },
+    ] },
+  ];
+  const at = declarations => evaluationPlanFromResolvedTimeline(
+    buildResolvedTimelinePlan([], { layers: declarations }), 2e6, new Map([['video', source]]),
+    { width: 320, height: 180, colorSpace: 'bt709-limited' });
+  const expected = [
+    { id: 'static', visual: { crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.6 }, perspective: null,
+      transform: { x: 12, y: -4, scale: 0.5, rotateDegrees: 30 } }, blend: 'multiply', opacity: 0.6,
+      kind: 'video', source, sourceTimeUs: 1e6, mask: null },
+    { id: 'animated', visual: { crop: { x: 0, y: 0, width: 1, height: 1 }, perspective: null,
+      transform: { x: 20, y: 0, scale: 1.5, rotateDegrees: 0 } }, blend: 'normal', opacity: 0.4,
+      kind: 'video', source, sourceTimeUs: 1e6, mask: null },
+  ];
+  assert.equal(JSON.stringify(at(layers).layers), JSON.stringify(expected));
+  assert.equal(JSON.stringify(at(layers)), JSON.stringify(at(layers.map(layer => ({ ...layer, motion: undefined })))));
+});
+
+test('layer wipe reveals within its crop and keeps the closed endpoint transparent and nondegenerate', () => {
+  const source = { decode: async () => { throw new Error('unused'); } };
+  const timeline = buildResolvedTimelinePlan([], { fps: 30, layers: [
+    { id: 'wipe', t: 1, duration: 2, src: 'video', crop: { x: 0.2, y: 0.1, w: 0.6, h: 0.8 },
+      opacity: 0.7, motion: { in: { preset: 'wipe', duration: 30 } } },
+  ] });
+  const at = seconds => evaluationPlanFromResolvedTimeline(timeline, seconds * 1e6,
+    new Map([['video', source]]), { width: 320, height: 180, colorSpace: 'bt709-limited' }).layers[0];
+  assert.deepEqual(at(1).visual.crop, { x: 0.2, y: 0.1, width: Number.EPSILON, height: 0.8 });
+  assert.equal(at(1).opacity, 0);
+  assert.deepEqual(at(1.5).visual.crop, { x: 0.2, y: 0.1, width: 0.3, height: 0.8 });
+  assert.equal(at(1.5).opacity, 0.7);
+  assert.equal(at(2).visual.crop.width, 0.6);
+});
+
 test('matte layers resolve masks once per source and degrade missing or failed masks to warnings', () => {
   const video = { decode: async () => { throw new Error('unused'); } };
   const mask = { decode: async () => { throw new Error('unused'); } };
