@@ -18,6 +18,7 @@ const ASSET_MARKERS = {
   probeFrameScript: ['packages', 'akari-tools', 'bin', 'probe-frame.mjs'],
   renderWhenIdleScript: ['packages', 'akari-tools', 'bin', 'render-when-idle.sh'],
   eyeBarScript: ['packages', 'akari-tools', 'bin', 'eye-bar.mjs'],
+  captionsScript: ['packages', 'akari-tools', 'bin', 'captions.mjs'],
   mediaScript: ['packages', 'akari-tools', 'bin', 'media.mjs']
 };
 

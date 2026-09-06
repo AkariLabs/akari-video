@@ -33,6 +33,7 @@ const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup',
 const ASSET_RESOLVER_CLI_RELATIVE = path.join('packages', 'asset-resolver', 'bin', 'akari-assets.mjs');
 const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
 const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
+const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
 const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
 const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
 const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
@@ -69,6 +70,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     assetResolverCliPath: existsSync(assetResolverCliPath) ? assetResolverCliPath : null,
     beatmapScript: existsSync(beatmapScript) ? beatmapScript : null,
     probeFrameScript: existsSync(probeFrameScript) ? probeFrameScript : null,
+    captionsScript: existsSync(path.join(repoRoot, CAPTIONS_SCRIPT_RELATIVE)) ? path.join(repoRoot, CAPTIONS_SCRIPT_RELATIVE) : null,
     captureScript: existsSync(path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE)) ? path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE) : null,
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
     eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
@@ -105,6 +107,7 @@ export function resolveLauncherAssets({
     probeFrameScript: candidate.probeFrameScript ?? vendor.probeFrameScript,
     // 既存の部分資産 fixture に capture marker が無いため、未解決時だけキー自体を省く。
     ...(candidate.captureScript ?? vendor.captureScript ? { captureScript: candidate.captureScript ?? vendor.captureScript } : {}),
+    ...(candidate.captionsScript ?? vendor.captionsScript ? { captionsScript: candidate.captionsScript ?? vendor.captionsScript } : {}),
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
     eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
     mediaScript: candidate.mediaScript ?? vendor.mediaScript,
