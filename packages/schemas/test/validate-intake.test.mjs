@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,4 +81,18 @@ test("missing input file fails with a clear message", () => {
   );
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /intake\.json が見つかりません/);
+});
+
+test("autonomy labels cover the three stable IDs separately from task labels", () => {
+  const schema = JSON.parse(readFileSync(join(packageRoot, "intake.schema.json"), "utf8"));
+  const { $comment, ...labels } = schema["x-akari-autonomy-labels"];
+  assert.deepEqual(labels, {
+    "full-auto": "そのまま",
+    checkpoint: "提案つき",
+    collaborative: "一緒に作る",
+  });
+  assert.deepEqual(Object.keys(labels), schema.properties.autonomy.enum);
+  for (const id of Object.keys(labels)) {
+    assert.equal(Object.hasOwn(schema["x-akari-labels"], id), false);
+  }
 });

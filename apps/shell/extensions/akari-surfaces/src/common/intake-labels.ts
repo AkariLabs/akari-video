@@ -1,12 +1,9 @@
 /**
  * 進め方フォーム（intake サーフェス）の表示ラベル定数。
  *
- * 単一の正典は `packages/schemas/intake.schema.json` の `x-akari-labels`
- * （安定 ID ↔ 日本語ラベル）。このファイルはその内容の手動ミラーであり、
- * 二重の「判定ロジック」ではなく単なる表示文字列の複製である
- * （`packages/schemas/**` は本タスクの編集境界外のため、ビルド時 import で
- * 参照する構成は採らなかった。ラベルが増減した場合はスキーマ側と
- * このファイルの両方を更新する必要がある — 既知の制約として report に記載）。
+ * 表示語の正典は `packages/schemas/intake.schema.json` の
+ * `x-akari-labels`（tasks）と `x-akari-autonomy-labels`（autonomy）。
+ * このファイルは手動ミラーであり、表示語の変更時は両方を更新する。
  */
 
 export type IntakeTaskId =
@@ -69,9 +66,15 @@ export function durationChoiceToTarget(choice: IntakeDurationChoice): { duration
 export type IntakeAutonomy = 'full-auto' | 'checkpoint' | 'collaborative';
 
 export const INTAKE_AUTONOMY_LABELS: Readonly<Record<IntakeAutonomy, string>> = {
-    'full-auto': '全部おまかせ',
-    checkpoint: '要所で確認してほしい',
-    collaborative: '一緒に細かく決めたい'
+    'full-auto': 'そのまま',
+    checkpoint: '提案つき',
+    collaborative: '一緒に作る'
+};
+
+export const INTAKE_AUTONOMY_DESCRIPTIONS: Readonly<Record<IntakeAutonomy, string>> = {
+    'full-auto': '言った通りに入れて、見ずに書き出す',
+    checkpoint: '良さそうな物も入れて見せる。要らなければ消す。判子は書き出しの 1 回',
+    collaborative: '方針・素材・実行の要所で確認する'
 };
 
 export const INTAKE_AUTONOMY_ORDER: readonly IntakeAutonomy[] = ['full-auto', 'checkpoint', 'collaborative'];
