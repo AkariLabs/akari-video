@@ -2102,6 +2102,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
+        const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
+        const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
         const draggable = !entry.unorganized
@@ -2152,11 +2155,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />
                         : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {(entry.kind === 'video' || entry.kind === 'audio') && (
-                        <span data-akari-transcript-state={this.transcriptStateByPath[entry.relativePath] ?? 'none'}
-                            style={{ position: 'absolute', bottom: '4px', left: '4px', padding: '0 6px',
-                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '18px',
+                        <span data-akari-transcript-state={transcriptState}
+                            title={transcriptLabel} aria-label={transcriptLabel}
+                            style={{ position: 'absolute', bottom: '4px', right: '4px', padding: '0 6px',
+                                display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap',
+                                maxWidth: 'calc(100% - 30px)', boxSizing: 'border-box',
+                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
                                 background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>
-                            文字起こし {{ none: '未', running: '実行中', done: '済' }[this.transcriptStateByPath[entry.relativePath] ?? 'none']}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>文字起こし</span>{' '}
+                            <span style={{ flexShrink: 0 }}>{transcriptStatus}</span>
                         </span>
                     )}
                     {entry.unorganized && (
