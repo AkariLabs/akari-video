@@ -91,6 +91,11 @@ import {
     moveInspectorAdjustFx, updateInspectorAdjustFxParam
 } from './inspector/adjust-fx-fields';
 import {
+    INSPECTOR_ANIMATOR_BASES, INSPECTOR_ANIMATOR_SHAPES, INSPECTOR_ANIMATOR_NUMBER_FIELDS,
+    normalizeInspectorAnimators, addInspectorAnimator, removeInspectorAnimator, moveInspectorAnimator,
+    updateInspectorAnimator, type InspectorAnimator, type InspectorAnimatorAmountKey
+} from './inspector/animator-fields';
+import {
     composeInspectorSections,
     InspectorSectionDef,
     InspectorSectionState
@@ -133,8 +138,9 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
-    inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'color' | 'text' | 'media';
+    inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
+    optionTitles?: Readonly<Record<string, string>>;
     scrubStep?: number;
     min?: number;
     max?: number;
@@ -1853,6 +1859,90 @@ function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
+    // raw item → snapshot への animator 受け渡しは所有外ファイル
+    // （akari-annotations-widget.ts / timeline-selection-model.ts）のため別票。
+    const animators = normalizeInspectorAnimators((snapshot as { animator?: unknown }).animator);
+    const writeAnimator = async (update: () => InspectorAnimator[]): Promise<InspectorWriteResult> => {
+        try {
+            const value = normalizeInspectorAnimators(update());
+            const request: { kind: 'item-field'; id: string; path: 'animator'; value: InspectorAnimator[] | null } = {
+                kind: 'item-field', id: snapshot.id, path: 'animator', value: value.length ? value : null
+            };
+            // 書き込み要求型への animator 追加も所有外（timeline-selection-model.ts）のため別票。
+            return await requestWrite(request as unknown as InspectorWriteRequest);
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : 'アニメーターを変更できませんでした。' };
+        }
+    };
+    const animatorFields: InspectorFieldDef[] = [{
+        name: 'animator-add', label: 'アニメーターを追加', inputKind: 'select',
+        options: ['選択…', 'アニメーター'], getValue: () => '選択…', getEditValue: () => '選択…',
+        keyframeDisabled: true,
+        write: async (_snapshot, value) => {
+            if (value === '選択…') return { ok: true };
+            if (value !== 'アニメーター') return { ok: false, message: '一覧からアニメーターを選択してください。' };
+            return writeAnimator(() => addInspectorAnimator(animators));
+        }
+    }];
+    animators.forEach((animator, index) => {
+        // 外部で付けた id に区切り文字があってもフィールド名が衝突しない。
+        const name = `animator-${animator.id.replace(/[^a-z0-9]/gi, character => `_${character.charCodeAt(0)}_`)}`;
+        animatorFields.push({
+            name: `${name}-heading`, label: animator.id, getValue: () => '', keyframeDisabled: true,
+            actions: [{
+                name: 'up', label: '↑', title: `${animator.id}を上へ`, disabled: index === 0,
+                action: () => writeAnimator(() => moveInspectorAnimator(animators, index, -1))
+            }, {
+                name: 'down', label: '↓', title: `${animator.id}を下へ`, disabled: index === animators.length - 1,
+                action: () => writeAnimator(() => moveInspectorAnimator(animators, index, 1))
+            }, {
+                name: 'remove', label: '削除', title: `${animator.id}を削除`,
+                action: () => writeAnimator(() => removeInspectorAnimator(animators, index))
+            }]
+        });
+        for (const [key, label, options] of [
+            ['basis', '単位', INSPECTOR_ANIMATOR_BASES], ['shape', '形', INSPECTOR_ANIMATOR_SHAPES]
+        ] as const) {
+            const selected = options.find(option => option.id === animator[key])!;
+            animatorFields.push({
+                name: `${name}-${key}`, label, inputKind: 'select', options: options.map(option => option.label),
+                optionTitles: Object.fromEntries(options.map(option => [option.label, 'title' in option ? option.title : ''])),
+                getValue: () => selected.label, getEditValue: () => selected.label, keyframeDisabled: true,
+                write: (_snapshot, value) => writeAnimator(() => updateInspectorAnimator(
+                    animators, index, key, options.find(option => option.label === value)?.id ?? value
+                )),
+                reset: () => writeAnimator(() => updateInspectorAnimator(animators, index, key, null))
+            });
+        }
+        for (const field of INSPECTOR_ANIMATOR_NUMBER_FIELDS) {
+            if (field.key === 'randomize.seed') {
+                animatorFields.push({
+                    name: `${name}-ease`, label: 'イージング', inputKind: 'select', options: MOTION_EASES,
+                    getValue: () => animator.ease ?? 'linear', getEditValue: () => animator.ease ?? 'linear',
+                    keyframeDisabled: true,
+                    write: (_snapshot, value) => writeAnimator(() => updateInspectorAnimator(animators, index, 'ease', value)),
+                    reset: () => writeAnimator(() => updateInspectorAnimator(animators, index, 'ease', null))
+                });
+            }
+            const key = field.key;
+            const value = key === 'randomize.seed' ? animator.randomize?.seed ?? null
+                : key === 'start' || key === 'end' || key === 'offset' ? animator[key]
+                    : animator.amount[key.slice(7) as InspectorAnimatorAmountKey] ?? field.default;
+            animatorFields.push({
+                name: `${name}-${key.replace('.', '-')}`, label: field.label,
+                inputKind: key === 'randomize.seed' ? 'number' : 'scrub-number',
+                getValue: () => value === null ? '' : `${Number((value * field.displayScale).toFixed(1))} ${field.unit}`,
+                getEditValue: () => value === null ? '' : String(value),
+                min: field.min, max: field.max, scrubStep: field.step, unit: field.unit, displayScale: field.displayScale,
+                displayPrecision: field.step * field.displayScale < 1 ? 1 : 0,
+                keyframeDisabled: true, title: field.title,
+                write: (_snapshot, input) => writeAnimator(() => updateInspectorAnimator(
+                    animators, index, key, input.trim() ? Number(input) : key === 'randomize.seed' ? null : NaN
+                )),
+                reset: () => writeAnimator(() => updateInspectorAnimator(animators, index, key, null))
+            });
+        }
+    });
     const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
@@ -1904,6 +1994,9 @@ function TREE_ITEM_SECTIONS(
         ...(snapshot.sourceKind === 'html' ? [] : [{
             id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
         }]),
+        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [{
+            id: 'animator', label: 'アニメーター', collapsedByDefault: true, fields: animatorFields
+        }] : []),
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),
@@ -3412,6 +3505,7 @@ export class AkariInspectorWidget extends BaseWidget {
             for (const optionValue of options) {
                 const option = document.createElement('option');
                 option.value = optionValue;
+                if (field.optionTitles?.[optionValue]) option.title = field.optionTitles[optionValue];
                 option.textContent = field.inputKind === 'boolean-select'
                     ? (optionValue === 'true' ? 'ON' : 'OFF')
                     : optionValue;
@@ -3427,7 +3521,13 @@ export class AkariInspectorWidget extends BaseWidget {
             input = select;
         } else {
             const textInput = document.createElement('input');
-            textInput.type = 'text';
+            // seed は空欄 = 未設定を保つため、空を 0 に変換する scrub-number を通さない。
+            textInput.type = field.inputKind === 'number' ? 'number' : 'text';
+            if (field.inputKind === 'number') {
+                textInput.step = String(field.scrubStep ?? 1);
+                if (field.min !== undefined) textInput.min = String(field.min);
+                if (field.max !== undefined) textInput.max = String(field.max);
+            }
             textInput.className = 'akari-inspector-row-input';
             textInput.value = editValue;
             input = textInput;

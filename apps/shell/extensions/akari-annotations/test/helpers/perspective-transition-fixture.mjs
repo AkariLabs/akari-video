@@ -6,6 +6,7 @@ import * as perspective from '../../lib/browser/inspector/perspective-fields.js'
 import * as transition from '../../lib/browser/inspector/transition-fields.js';
 import * as mask from '../../lib/browser/inspector/mask-fields.js';
 import * as motion from '../../lib/browser/inspector/motion-fields.js';
+import * as animator from '../../lib/browser/inspector/animator-fields.js';
 import * as crop from '../../lib/browser/inspector/crop-fields.js';
 import * as framing from '../../lib/browser/inspector/framing-fields.js';
 import * as freeze from '../../lib/browser/inspector/freeze-fields.js';
@@ -31,7 +32,7 @@ for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE']) {
     assert.ok(node, name);
     declarations.push(node.getText(ast));
 }
-const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...crop, ...framing, ...freeze, ...mappings,
+const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...animator, ...crop, ...framing, ...freeze, ...mappings,
     TRANSITION_VOCABULARY, composeInspectorSections };
 delete dependencies.default;
 delete dependencies['module.exports'];
