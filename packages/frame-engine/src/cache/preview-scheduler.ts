@@ -44,6 +44,7 @@ export interface PreviewScheduler {
   notePresented(timeUs: number, options?: { reason?: 'playback' | 'seek' }): void;
   primeHeaders(): void;
   warmupNextBoundary(fromSeconds?: number): void;
+  invalidateSource(sourceId: string): void;
   isWarmed(streamId: string): boolean;
   state(): PreviewSchedulerState;
   reset(): void;
@@ -185,7 +186,7 @@ export function createPreviewScheduler({
   const boundaryRequirements = new Map<number, readonly Requirement[]>();
   const warned = new Set<string>();
   const warmed = new Set<string>();
-  const inFlight = new Set<string>();
+  const inFlight = new Map<string, symbol>();
   const live = new Map<string, LiveDecoder>();
   const headerMs: number[] = [];
   let latestTimeSeconds = 0;
@@ -352,19 +353,20 @@ export function createPreviewScheduler({
       streamId: requirement.streamId,
       nextUseSeconds: boundarySeconds,
     });
-    inFlight.add(requirement.key);
+    const attempt = Symbol();
+    inFlight.set(requirement.key, attempt);
     metrics.onChanged?.();
     void pool.getSession(requirement.streamId)
       .then(session => session.warmup(requirement.sourceTimeUs + 1e6 / fps, 1e6 / fps))
       .then(() => {
-        if (disposed || !live.has(requirement.key)) return;
+        if (disposed || inFlight.get(requirement.key) !== attempt || !live.has(requirement.key)) return;
         return lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, {
           streamId: requirement.streamId,
           pin: true,
         });
       })
       .then(() => {
-        if (disposed) return;
+        if (disposed || inFlight.get(requirement.key) !== attempt) return;
         inFlight.delete(requirement.key);
         if (!live.has(requirement.key)) return;
         warmed.add(requirement.key);
@@ -373,6 +375,7 @@ export function createPreviewScheduler({
         metrics.onWarmed?.(requirement.streamId, elapsedMs);
         metrics.onChanged?.();
       }, error => {
+        if (inFlight.get(requirement.key) !== attempt) return;
         inFlight.delete(requirement.key);
         live.delete(requirement.key);
         warnOnce(`warmup ${requirement.streamId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -458,6 +461,17 @@ export function createPreviewScheduler({
     metrics.onChanged?.();
   };
 
+  const invalidateSource = (sourceId: string): void => {
+    for (const entries of [live, warmed, inFlight]) {
+      for (const key of entries.keys()) {
+        if (key.slice(0, key.lastIndexOf('::')) === sourceId) entries.delete(key);
+      }
+    }
+    // Source choices replace pools in place; stale attempts must not complete the retry.
+    if (!disposed) warmupNextBoundary(latestTimeSeconds);
+    if (disposed || !boundaries.some(boundary => boundary > latestTimeSeconds)) metrics.onChanged?.();
+  };
+
   const state = (): PreviewSchedulerState => {
     const nextBoundary = boundaries.find(boundary => boundary > latestTimeSeconds) ?? null;
     const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
@@ -523,6 +537,7 @@ export function createPreviewScheduler({
     notePresented,
     primeHeaders,
     warmupNextBoundary,
+    invalidateSource,
     isWarmed: streamId => [...warmed].some(key => key.endsWith(`::${streamId}`)),
     state,
     reset,

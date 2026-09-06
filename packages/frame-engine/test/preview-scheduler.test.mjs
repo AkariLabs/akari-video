@@ -571,3 +571,165 @@ test('scheduler without lookahead still completes session warmup', async () => {
   assert.equal(scheduler.state().coverage.warmed, 1);
   scheduler.dispose();
 });
+
+for (const staleResult of ['warmup resolve', 'prefetch resolve', 'warmup reject']) {
+  test(`invalidateSource replaces pending work and ignores stale ${staleResult}`, async () => {
+    const ids = ['a', 'b'];
+    const timeline = timelineFixture({ cuts: [
+      { src: 'a', in: 0, out: 10 }, { src: 'b', in: 0, out: 10 },
+    ] });
+    const runtime = fakeRuntime(ids);
+    let finishOld;
+    const oldPending = new Promise((resolve, reject) => {
+      finishOld = () => staleResult === 'warmup reject'
+        ? reject(new Error('old source unavailable')) : resolve(12);
+    });
+    runtime.pools.set('b', {
+      async getSession() {
+        return { id: 'old', warmup: () => staleResult === 'prefetch resolve' ? Promise.resolve(12) : oldPending };
+      },
+    });
+    runtime.lookahead.set('b', { prefetch: () => oldPending });
+    const warnings = [];
+    let changed = 0;
+    const metrics = { warmupMs: [], onWarning: message => warnings.push(message), onChanged: () => changed++ };
+    const scheduler = createScheduler(timeline, ids, runtime, metrics);
+    scheduler.notePresented(2e6, { reason: 'seek' });
+    scheduler.warmupNextBoundary();
+    await flushMicrotasks();
+
+    const replacement = fakeRuntime(['b'], { pendingWarmups: true });
+    let finishPin;
+    replacement.lookahead.set('b', {
+      prefetch(sourceTimeUs, request) {
+        replacement.prefetched.push({ sourceTimeUs, request });
+        return new Promise(resolve => { finishPin = resolve; });
+      },
+    });
+    // The scheduler retains these same maps while the client replaces their entries.
+    runtime.pools.set('b', replacement.pools.get('b'));
+    runtime.lookahead.set('b', replacement.lookahead.get('b'));
+    const beforeChanged = changed;
+    scheduler.invalidateSource('b');
+    assert.ok(changed > beforeChanged);
+    assert.equal(replacement.getSessionCalls(), 1, 'retry starts immediately, even after seek outside lead-in');
+    await flushMicrotasks();
+    finishOld();
+    await flushMicrotasks();
+    assert.deepEqual(scheduler.state().coverage, { warmed: 0, needed: 1, boundarySeconds: 10 });
+    assert.equal(scheduler.isWarmed('cut-1'), false);
+    assert.deepEqual(metrics.warmupMs, []);
+    assert.deepEqual(replacement.prefetched, [], 'stale work cannot prefetch into the new lookahead');
+    scheduler.warmupNextBoundary();
+    assert.equal(replacement.getSessionCalls(), 1, 'stale completion must preserve the new in-flight entry');
+    replacement.warmupResolvers[0]();
+    await flushMicrotasks();
+    assert.deepEqual(replacement.prefetched, [{
+      sourceTimeUs: 33_333, request: { streamId: 'cut-1', pin: true },
+    }]);
+    assert.equal(scheduler.state().coverage.warmed, 0);
+    finishPin();
+    await flushMicrotasks();
+    assert.deepEqual(scheduler.state().coverage, { warmed: 1, needed: 1, boundarySeconds: 10 });
+    assert.equal(metrics.warmupMs.length, 1);
+    assert.deepEqual(warnings, []);
+    scheduler.dispose();
+  });
+}
+
+test('invalidateSource retries a rejected warmup after one warning without marking it warmed', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 10 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids);
+  runtime.pools.set('b', {
+    async getSession() {
+      return { id: 'failed', async warmup() { throw new Error('source unavailable'); } };
+    },
+  });
+  const warnings = [];
+  const metrics = { warmupMs: [], onWarning: message => warnings.push(message) };
+  const scheduler = createScheduler(timeline, ids, runtime, metrics);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.deepEqual(warnings, ['warmup cut-1: source unavailable']);
+  assert.equal(scheduler.state().coverage.warmed, 0);
+  assert.equal(scheduler.state().liveDecoders, 0);
+  assert.equal(scheduler.isWarmed('cut-1'), false);
+  assert.deepEqual(metrics.warmupMs, []);
+  assert.deepEqual(runtime.prefetched, []);
+  const replacement = fakeRuntime(['b']);
+  runtime.pools.set('b', replacement.pools.get('b'));
+  runtime.lookahead.set('b', replacement.lookahead.get('b'));
+  scheduler.invalidateSource('b');
+  await flushMicrotasks();
+  assert.equal(replacement.getSessionCalls(), 1);
+  assert.deepEqual(replacement.prefetched, [
+    { sourceId: 'b', streamId: 'cut-1', sourceTimeUs: 33_333, pin: true },
+  ]);
+  assert.deepEqual(scheduler.state().coverage, { warmed: 1, needed: 1, boundarySeconds: 10 });
+  assert.equal(warnings.length, 1);
+  scheduler.dispose();
+});
+
+test('invalidateSource clears all matching streams while preserving other sources warmed, live, and in-flight', async () => {
+  const ids = ['a', 'b', 'bb', 'b::variant'];
+  const timeline = timelineFixture({
+    cuts: [{ src: 'a', in: 0, out: 10 }, { src: 'b', in: 0, out: 10 }],
+    layers: [
+      { id: 'same', src: 'b', kind: 'video', t: 10, duration: 5 },
+      { id: 'prefix', src: 'bb', kind: 'video', t: 10, duration: 5 },
+      { id: 'separator', src: 'b::variant', kind: 'video', t: 10, duration: 5 },
+    ],
+  });
+  const runtime = fakeRuntime(ids, { pendingWarmups: true });
+  const scheduler = createScheduler(timeline, ids, runtime);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  assert.equal(runtime.started.length, 4);
+  runtime.started.forEach((item, index) => {
+    if (item.sourceId !== 'b::variant') runtime.warmupResolvers[index]();
+  });
+  await flushMicrotasks();
+  assert.equal(scheduler.state().coverage.warmed, 3);
+  const replacement = fakeRuntime(['b'], { pendingWarmups: true });
+  runtime.pools.set('b', replacement.pools.get('b'));
+  runtime.lookahead.set('b', replacement.lookahead.get('b'));
+  scheduler.invalidateSource('b');
+  await flushMicrotasks();
+  assert.equal(scheduler.state().coverage.warmed, 1);
+  assert.equal(scheduler.state().liveDecoders, 4);
+  assert.equal(scheduler.isWarmed('layer-prefix'), true);
+  assert.equal(scheduler.isWarmed('cut-1'), false);
+  assert.equal(scheduler.isWarmed('layer-same'), false);
+  assert.deepEqual(replacement.started.map(item => item.streamId), ['cut-1', 'layer-same']);
+  assert.equal(runtime.started.length, 4, 'other sources must not restart');
+  runtime.warmupResolvers[runtime.started.findIndex(item => item.sourceId === 'b::variant')]();
+  await flushMicrotasks();
+  assert.equal(scheduler.state().coverage.warmed, 2, 'other source remains in flight');
+  for (const resolve of replacement.warmupResolvers) resolve();
+  await flushMicrotasks();
+  assert.deepEqual(scheduler.state().coverage, { warmed: 4, needed: 4, boundarySeconds: 10 });
+  assert.deepEqual(runtime.released, []);
+  scheduler.dispose();
+});
+
+test('invalidateSource does not start warmup after dispose', async () => {
+  const ids = ['a', 'b'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'a', in: 0, out: 10 }, { src: 'b', in: 0, out: 10 },
+  ] });
+  const runtime = fakeRuntime(ids, { pendingWarmups: true });
+  const scheduler = createScheduler(timeline, ids, runtime);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  scheduler.dispose();
+  scheduler.invalidateSource('b');
+  runtime.warmupResolvers[0]();
+  await flushMicrotasks();
+  assert.equal(runtime.getSessionCalls(), 1);
+  assert.deepEqual(runtime.prefetched, []);
+  assert.equal(scheduler.state().liveDecoders, 0);
+  assert.equal(scheduler.state().coverage.warmed, 0);
+});
