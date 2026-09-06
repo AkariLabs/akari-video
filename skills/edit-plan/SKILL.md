@@ -26,7 +26,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
   常に追記する。`decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート
   （[report-guide §decision_log](report-guide.md#decision_log)）は決定 UI を持たない記録の写しであり、
   この原則の例外ではない。
-- **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。
+- **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。`autonomy: full-auto`（[autonomy.md](autonomy.md)）は除く。
 - Checkpoint 1 で semantic keep/drop を明示承認した後、pause 候補が必要な場合だけ
   [workflow.md](workflow.md) の cut candidate bridge を使う。bridge の全候補は
   `REVIEW_REQUIRED` であり、`approved_to_apply:false` の report を作るだけである。
@@ -47,6 +47,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
 
 ## 実行順と目次
 
+0. [autonomy.md](autonomy.md) を読み、`.akari/intake.json` の `autonomy` でモードを決める。`full-auto` なら autonomy.md §2 の手順で進み、以下 1〜11 の承認手順は読まない（execution.md / beats.md / emphasis-detection.md 等の**出力ルール**は autonomy.md から参照する）。それ以外は 1 から。
 1. [workflow.md](workflow.md) を読み、分析の収集・並列実行・統合モードを決める。素材がある
    場合は [analyze-project](../analyze-project/SKILL.md) の分析レポート（無ければ先に生成を
    依頼する）を一次証拠として読む。素材がゼロの場合はこの時点で [plan-json.md](plan-json.md) を
