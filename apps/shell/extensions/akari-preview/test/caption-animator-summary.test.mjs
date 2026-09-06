@@ -4,6 +4,83 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { buildCaptionAnimatorSummaryFields as project } from '../lib/common/edit-summary-fields.js';
 import { readPreviewInternalEdit } from '../lib/common/preview-items.js';
+import { cutFixture, captionHost } from './caption-animator-cut-fixture.mjs';
+import { collectTrackZByItemId, resolveRecordTrackZ } from '../../../../../packages/edit-store/lib/index.js';
+
+test('GPU / OSR の実際の射影と animator・点・開始秒が一致する', () => {
+    const fixture = cutFixture({ at: 60 });
+    for (const exit of ['gpu-export', 'osr-export']) {
+        const source = readFileSync(new URL(`../../../../../packages/${exit}/src/page-builder.mjs`, import.meta.url), 'utf8');
+        const start = source.indexOf('function projectCaptionAnimators(');
+        const end = source.indexOf('\n}', start);
+        assert.ok(start >= 0 && end > start);
+        const projectExit = vm.runInNewContext('(' + source.slice(start, end + 2) + ')', {
+            collectTrackZByItemId, resolveRecordTrackZ
+        });
+        const [cue] = projectExit(fixture.captions, fixture.captions, fixture.internal,
+            collectTrackZByItemId(fixture.internal.tracks)).captions;
+        for (const field of ['animator', 'animatorKeyframes', 'animatorStart']) {
+            assert.deepEqual(JSON.parse(JSON.stringify(cue[field])), fixture.projected[0][field], `${exit}: ${field}`);
+        }
+    }
+});
+
+test('公式 v2 作例 + 動画 cut: fps と袋の output 開始秒を保持して点を復元する', async () => {
+    for (const fps of [24, 30, 60]) {
+        for (const sourceDomain of [false, true]) {
+            const fixture = cutFixture({ fps, at: 60, sourceDomain });
+            const bag = fixture.internal.tracks[1].items[0];
+            assert.equal(fixture.internal.output.fps, fps);
+            assert.deepEqual(bag.declaration.keyframes.map(point => point.t), [0, 15 / fps]);
+            assert.equal(fixture.projected.length, sourceDomain ? 2 : 1);
+            for (const caption of fixture.projected) {
+                assert.deepEqual(caption.animatorKeyframes, fixture.bag.keyframes);
+                assert.equal(caption.animatorStart, bag.at);
+                assert.equal(caption.animatorStart, 60 / fps);
+                assert.equal(caption.clockDomain, 'output');
+            }
+            const { load, warnings } = captionHost(fixture);
+            const model = await load();
+            assert.deepEqual(model.captions, fixture.projected);
+            assert.equal(warnings.length, 0, JSON.stringify(warnings));
+        }
+    }
+});
+
+for (const prior of ['undefined', 'empty', 'static']) {
+    test(`字幕がフルモデルより先着しても最新の点を送る（旧 internal: ${prior}）`, async () => {
+        const fixture = cutFixture();
+        const { host, load } = captionHost(fixture);
+        const stale = structuredClone(fixture.internal);
+        delete stale.tracks[1].items[0].declaration.keyframes;
+        let completeRead;
+        const rawCaptionsReady = new Promise(resolve => { completeRead = resolve; });
+        host.readText = async () => { await rawCaptionsReady; return ''; };
+        const messages = [];
+        const events = [];
+        const widget = {
+            akariPreviewCaptionAnimatorInternal: prior === 'undefined' ? undefined
+                : prior === 'empty' ? { output: fixture.edit.output, tracks: [] } : stale,
+            sendMessage: value => { events.push('send'); messages.push(value); }
+        };
+        widget.akariPreviewRefresh = load().then(model => {
+            events.push('model');
+            widget.akariPreviewCaptionAnimatorInternal = model.captionAnimatorInternal;
+            widget.akariPreviewSummary = model.summary;
+        });
+        host.loadPreviewCaptions = async () => { events.push('captions'); return { captions: fixture.captions }; };
+        host.queueCaptionsUpdate(widget);
+        await new Promise(resolve => setImmediate(resolve));
+        const earlyMessages = messages.length;
+        completeRead();
+        await Promise.all([widget.akariPreviewRefresh, widget.akariPreviewCaptionsUpdate]);
+        assert.equal(earlyMessages, 0, '字幕だけを旧モデルで送信してはいけない');
+        assert.ok(events.indexOf('captions') < events.indexOf('model'));
+        assert.ok(events.indexOf('model') < events.indexOf('send'));
+        assert.deepEqual(messages[0].captions[0].animatorKeyframes, fixture.bag.keyframes);
+        assert.equal(messages[0].captions[0].animatorStart, 0);
+    });
+}
 
 const animator = [{ id: 'a1', basis: 'chars', shape: 'ramp', start: 0, end: 0.3, offset: -0.3, amount: { opacity: -1 } }];
 const keyframes = [{ t: 0, animator: { a1: { offset: -0.3 } } },

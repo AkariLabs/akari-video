@@ -2,6 +2,48 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { harness } from './caption-animator-webview-harness.mjs';
+import { cutFixture, captionHost } from './caption-animator-cut-fixture.mjs';
+import { applyCaptionAnimatorDom } from '../../../../../packages/frame-engine/dist/timeline/caption-animator-dom.js';
+
+test('停止中の frameEngineClock.seek 単独でも実データの字幕を更新する', async () => {
+    const fixture = cutFixture();
+    const model = await captionHost(fixture).load();
+    const view = harness({ cues: model.captions, applyAnimator: applyCaptionAnimatorDom, output: model.summary.output });
+    const clock = view.installEngineSeek();
+    view.tick(0);
+    const opacity = () => chars(view).map(node => Number(node.style.opacity));
+    assert.deepEqual(opacity(), Array(9).fill(0));
+    const before = view.calls.length;
+    clock.seek(0.2);
+    assert.equal(view.calls.length, before + 1, 'low-level seek must render without a playing rAF or caller tick');
+    assert.deepEqual(opacity(), [1, 1, 0.807407, 0.437037, 0.066667, 0, 0, 0, 0]);
+    // The accepted ramp evaluator gives two fully visible chars, two partial chars,
+    // then < 0.1. Making every char after the first two < 0.1 would change its contract.
+    assert.ok(opacity().slice(0, 2).every(value => value > 0.5));
+    assert.ok(opacity().slice(4).every(value => value < 0.1));
+    clock.seek(0.6);
+    assert.ok(opacity().every(value => value >= 0.99));
+    assert.ok(chars(view).every(node => node.style.transform.includes('0.000000px, 0.000000px')));
+    clock.seek(1);
+    assert.deepEqual(opacity(), Array(9).fill(1));
+    clock.seek(0.2);
+    assert.deepEqual(opacity(), [1, 1, 0.807407, 0.437037, 0.066667, 0, 0, 0, 0]);
+    assert.deepEqual(view.calls.slice(1).map(call => call.declaration.cueLocalSeconds), [0.2, 0.6, 1, 0.2]);
+    assert.ok(view.calls.every(call => call.declaration.keyframeOffsetSeconds === 0));
+});
+
+test('cut 射影後の cue 開始と袋開始は output 秒であり、後半でも点の時計をリセットしない', () => {
+    const fixture = cutFixture({ at: 60, sourceDomain: true });
+    const view = harness({ cues: fixture.projected, applyAnimator: applyCaptionAnimatorDom, output: fixture.edit.output });
+    for (const time of [2.2, 2.6, 3.2]) view.seek(time);
+    assert.deepEqual(view.calls.map(call => call.declaration.keyframeOffsetSeconds), [0, 0, 1]);
+    for (const [index, time] of [2.2, 2.6, 3.2].entries()) {
+        const d = view.calls[index].declaration;
+        assert.ok(Math.abs(d.cueLocalSeconds + d.keyframeOffsetSeconds - (time - 2)) < 1e-9);
+        assert.deepEqual(d.keyframes, fixture.bag.keyframes);
+    }
+    assert.ok(chars(view).every(node => Number(node.style.opacity) >= 0.99));
+});
 
 const animator = [{ id: 'a1', basis: 'chars', amount: { opacity: -1, y: 24 } }];
 const cue = { id: 'c1', start: 3, end: 8, text: 'が👨‍👩‍👧‍👦<&', animator,

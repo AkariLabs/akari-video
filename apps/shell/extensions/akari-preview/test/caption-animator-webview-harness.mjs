@@ -16,11 +16,13 @@ function section(text, from, to) {
     return vm.runInNewContext('`' + text.slice(start, end) + '`', visual);
 }
 
-export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [] } = {}) {
+export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output } = {}) {
     const calls = [];
     const warnings = [];
     let html = '';
     let writes = 0;
+    let nodes = [];
+    const listeners = new Map();
     const animations = [{ pause() {}, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 0 }) } }];
     const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
     const plate = {
@@ -28,25 +30,45 @@ export function harness({ text = source, cues = [], engine = true, available = t
         style: { removeProperty() {}, setProperty() {} },
         classList: { toggle() {} },
         get innerHTML() { return html; },
-        set innerHTML(value) { html = value; writes++; },
-        set textContent(value) { html = escape(value); writes++; },
+        set innerHTML(value) { html = value; nodes = []; writes++; },
+        set textContent(value) { html = escape(value); nodes = []; writes++; },
         getAnimations: () => animations,
         querySelectorAll(selector) {
             assert.equal(selector, '.akari-caption__char');
-            return [...html.matchAll(/<span class="akari-caption__char" data-akari-char="(\d+)">([\s\S]*?)<\/span>/g)]
-                .map(match => ({ index: Number(match[1]), html: match[2] }));
+            if (!nodes.length) nodes = [...html.matchAll(/<span class="akari-caption__char" data-akari-char="(\d+)">([\s\S]*?)<\/span>/g)]
+                .map(match => {
+                    const node = { index: Number(match[1]), html: match[2] };
+                    if (applyAnimator) {
+                        const values = {};
+                        node.style = new Proxy(values, { get: (target, key) => {
+                            if (key === 'getPropertyPriority') return () => '';
+                            if (key === 'setProperty') return (name, value) => { target[name] = value; };
+                            if (key === 'removeProperty') return name => { delete target[name]; };
+                            return target[key] ?? '';
+                        } });
+                        node.tagName = 'span';
+                        node.parentElement = plate;
+                        node.closest = selector => selector === '.akari-caption__char' ? node : null;
+                        node.ownerDocument = { defaultView: { getComputedStyle: () => ({ opacity: node.style.opacity || '1' }) } };
+                    }
+                    return node;
+                });
+            return nodes;
         }
     };
     const noop = () => {};
-    const summary = { output: { width: 1920, height: 1080, fps: 30 } };
+    const summary = { output: output ?? { width: 1920, height: 1080, fps: 30 } };
     const clock = { tick: time => time, seek: time => time, totalDuration: 60 };
     const context = vm.createContext({
         console: { warn: (...values) => warnings.push(values) },
         document: { getElementById: id => id === 'caption-plate' ? plate : null },
         window: {
+            addEventListener: (type, listener) => listeners.set(type, listener),
+            dispatchEvent: event => { listeners.get(event.type)?.(event); },
             AkariEditKernel: { findActiveCaption: (values, time) => values.find(cue => time >= cue.start && time < cue.end) },
             ...(available ? { AkariFrameEngine: { applyCaptionAnimatorDom: (root, declaration) => {
                 calls.push({ root, declaration, animationTime: animations[0].currentTime });
+                applyAnimator?.(root, declaration);
             } } } : {}),
             akari: { ...(engine ? { frameEngineClock: clock } : {}), runtime: { tick: noop },
                 playbackTick: noop, audioMeterTick: noop, reviewTransport: noop }
@@ -74,6 +96,21 @@ export function harness({ text = source, cues = [], engine = true, available = t
         plate, calls, warnings, context,
         get writes() { return writes; },
         run: code => vm.runInContext(code, context),
+        // Execute the real low-level seek body, without seekTimelineTime's extra tick.
+        installEngineSeek() {
+            const start = text.indexOf('seek(seconds, continuePlaying = playing) {');
+            const end = text.indexOf('play(seconds) {', start);
+            assert.ok(start >= 0 && end > start);
+            Object.assign(context, {
+                position: 0, playing: false, totalDuration: 60, playAnchorMs: 0, playAnchorPosition: 0,
+                performance: { now: () => 0 }, requestSeek: seconds => seconds,
+                audioSupply: { seek: noop }, updateAudioStatus: noop, requestAudioPriority: noop,
+                CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
+            });
+            clock.seek = vm.runInContext('({' + text.slice(start, end) + '}).seek', context);
+            clock.tick = () => context.position;
+            return clock;
+        },
         tick(time) { context.outputTime = time; context.video.currentTime = time; vm.runInContext('tick();', context); },
         seek(time) { context.seekTarget = time; vm.runInContext('seekTimelineTime(seekTarget); tick(true);', context); }
     };

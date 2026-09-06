@@ -2875,6 +2875,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
             const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            // 字幕 RPC が先着しても、同時に読込中の edit の宣言・cut 時計を使う。
+            // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
+            await widget.akariPreviewRefresh;
+            if (widget.isDisposed) return;
             const captions = normalizePreviewCaptionClock(
                 loaded.captions,
                 this.previewCaptionTimelineSegments(
@@ -8100,6 +8104,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         playing = continuePlaying && position < totalDuration;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
+                        // 停止中は preview の rAF が無い。clock を直接 seek した場合も
+                        // DOM 字幕へ output 時計を通知して同じ位置を描く。
+                        window.dispatchEvent(new CustomEvent('akari-frame-engine-seek', { detail: { time: position } }));
                         return position;
                     },
                     play(seconds) {
@@ -12702,6 +12709,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
+            window.addEventListener('akari-frame-engine-seek', event => {
+                const time = event.detail?.time;
+                if (!Number.isFinite(time)) return;
+                outputTime = time;
+                renderCaption();
+            });
             const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
             let activeTransitionWindowKey = null;
             let activeTransitionOutgoingIsStill = false;
