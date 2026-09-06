@@ -4,6 +4,7 @@ import {
     INSPECTOR_HUE_CHANNELS, INSPECTOR_ADJUST_WHEELS, sortCurvePoints, sortHuePoints,
     clampCurvePoint, clampHuePoint, isCurveChannelIdentity, isHueChannelIdentity, wheelRange
 } from './adjust-editor-model';
+import { InspectorAdjustFx, normalizeInspectorAdjustFx } from './adjust-fx-fields';
 
 export type InspectorCurveChannel = typeof INSPECTOR_CURVE_CHANNELS[number]['key'];
 export type InspectorHueChannel = typeof INSPECTOR_HUE_CHANNELS[number]['key'];
@@ -19,10 +20,11 @@ export type InspectorAdjustBasicKey =
     | 'vibrance'
     | 'saturation';
 
-export type InspectorAdjustSectionKey = 'basic' | 'lut' | 'curves' | 'wheels' | 'hue';
+export type InspectorAdjustSectionKey = 'basic' | 'lut' | 'curves' | 'wheels' | 'hue' | 'fx';
 
 export type InspectorAdjustPath =
     | 'adjust'
+    | 'adjust.fx'
     | `adjust.basic.${InspectorAdjustBasicKey}`
     | 'adjust.lut.lut'
     | 'adjust.lut.intensity'
@@ -33,6 +35,7 @@ export type InspectorAdjustPath =
     | `adjust.sections.${InspectorAdjustSectionKey}`;
 
 export type InspectorAdjustValue = number | string | boolean | null
+    | InspectorAdjustFx[]
     | { basic?: Record<string, number>; wheels?: Record<string, { r?: number; g?: number; b?: number }> }
     | AdjustCurvePointV1[] | AdjustHuePointV1[] | { r?: number; g?: number; b?: number };
 
@@ -49,6 +52,7 @@ export interface InspectorAdjustBasicField {
 }
 
 export interface InspectorAdjustSnapshot {
+    fx: InspectorAdjustFx[];
     basic: Record<InspectorAdjustBasicKey, number>;
     lut?: { lut: string; intensity: number };
     curves: Record<InspectorCurveChannel, AdjustCurvePointV1[]>;
@@ -141,6 +145,7 @@ export function readInspectorAdjustSnapshot(value: unknown): InspectorAdjustSnap
     const lutId = typeof lut.lut === 'string' && lut.lut.length > 0 ? lut.lut : undefined;
     return {
         basic: basicValues,
+        fx: normalizeInspectorAdjustFx(adjust.fx),
         curves: Object.fromEntries(INSPECTOR_CURVE_CHANNELS.map(({ key }) => [key,
             sortCurvePoints((record(adjust.curves)[key] as AdjustCurvePointV1[] | undefined) ?? IDENTITY_CURVE_POINTS)
         ])) as InspectorAdjustSnapshot['curves'],
@@ -159,7 +164,8 @@ export function readInspectorAdjustSnapshot(value: unknown): InspectorAdjustSnap
             lut: sections.lut !== false,
             curves: sections.curves !== false,
             wheels: sections.wheels !== false,
-            hue: sections.hue !== false
+            hue: sections.hue !== false,
+            fx: sections.fx !== false
         }
     };
 }
@@ -187,9 +193,10 @@ function hasOwnKeys(value: Record<string, unknown>): boolean {
 /** sections だけでは映像へ効果が無いため、既知の効果値が無い正規形は field 省略にする。 */
 export function isInspectorAdjustIdentity(value: unknown): boolean {
     const adjust = record(value);
-    if (Object.keys(adjust).some(key => !['basic', 'lut', 'sections', 'curves', 'wheels', 'hue'].includes(key))) {
+    if (Object.keys(adjust).some(key => !['basic', 'lut', 'sections', 'curves', 'wheels', 'hue', 'fx'].includes(key))) {
         return false;
     }
+    if (adjust.fx !== undefined && (!Array.isArray(adjust.fx) || adjust.fx.length > 0)) return false;
     const basic = record(adjust.basic);
     for (const [key, raw] of Object.entries(basic)) {
         if (!BASIC_FIELD_BY_KEY.has(key as InspectorAdjustBasicKey) || finiteNumber(raw, 0) !== 0) {
@@ -200,7 +207,7 @@ export function isInspectorAdjustIdentity(value: unknown): boolean {
     if (typeof lut.lut === 'string' && lut.lut.length > 0) return false;
     if (Object.keys(lut).some(key => key !== 'lut' && key !== 'intensity')) return false;
     const sections = record(adjust.sections);
-    if (Object.keys(sections).some(key => !['basic', 'lut', 'curves', 'wheels', 'hue'].includes(key))) return false;
+    if (Object.keys(sections).some(key => !['basic', 'lut', 'curves', 'wheels', 'hue', 'fx'].includes(key))) return false;
     for (const [key, points] of Object.entries(record(adjust.curves))) {
         if (!INSPECTOR_CURVE_CHANNELS.some(ch => ch.key === key) || !validPointKeys(points, 'in', 'out')
             || !isCurveChannelIdentity(points)) return false;
@@ -319,6 +326,11 @@ export function updateInspectorAdjust(
                 updateWheel(next, key, undefined, wheel as InspectorAdjustValue);
             }
         }
+    } else if (path === 'adjust.fx') {
+        if (value !== null && !Array.isArray(value)) throw new Error('効果は配列で指定してください。');
+        const fx = normalizeInspectorAdjustFx(value);
+        if (fx.length) next.fx = fx;
+        else delete next.fx;
     } else if (path.startsWith('adjust.curves.') || path.startsWith('adjust.hue.')) {
         const [, section, key] = path.split('.');
         updatePointChannel(next, section as 'curves' | 'hue', key, value);
@@ -360,7 +372,7 @@ export function updateInspectorAdjust(
         next.lut = lut;
     } else {
         const key = path.slice('adjust.sections.'.length) as InspectorAdjustSectionKey;
-        if (!['basic', 'lut', 'curves', 'wheels', 'hue'].includes(key)) throw new Error(`未対応の調整セクションです: ${key}`);
+        if (!['basic', 'lut', 'curves', 'wheels', 'hue', 'fx'].includes(key)) throw new Error(`未対応の調整セクションです: ${key}`);
         const sections = { ...record(next.sections) };
         if (value === null || value === true) delete sections[key];
         else if (value === false) sections[key] = false;

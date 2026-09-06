@@ -211,7 +211,8 @@ test('sections OFF は値を保持して snapshot の行を無効化し、ON は
     curves: Object.fromEntries(['master', 'r', 'g', 'b'].map(ch => [ch, IDENTITY_CURVE_POINTS])),
     wheels: Object.fromEntries(['lift', 'gamma', 'gain', 'offset'].map(w => [w, { r: 0, g: 0, b: 0 }])),
     hue: Object.fromEntries(['hue', 'sat', 'luma'].map(ch => [ch, DEFAULT_HUE_POINTS])),
-    sections: { basic: false, lut: true, curves: true, wheels: true, hue: true }
+    fx: [],
+    sections: { basic: false, lut: true, curves: true, wheels: true, hue: true, fx: true }
   });
   assert.deepEqual(
     updateInspectorAdjust(disabled, 'adjust.sections.basic', null),
@@ -244,10 +245,11 @@ test('v2 tree item へ露出を書き、既定へ戻すと adjust field が消�
   assert.equal(Object.hasOwn(item(), 'adjust'), false);
 });
 
-test('実働 5 セクションは近日 1 セクションより先に描かれ、OFF 行と KF 席を無効化する', () => {
+test('実働 6 セクションを描き、OFF 行と KF 席を無効化する', () => {
   const adjustFactory = sourceBetween(inspectorSource, 'function ADJUST_SECTIONS(', '/**\n * タイムラインの選択内容');
   assert.match(adjustFactory, /id: 'adjust:basic'/u);
   assert.match(adjustFactory, /id: 'adjust:lut'/u);
+  assert.match(adjustFactory, /id: 'adjust:fx'/u);
   assert.match(adjustFactory, /INSPECTOR_ADJUST_BASIC_FIELDS\.map/u);
   assert.match(adjustFactory, /disabled: !basicEnabled/u);
   assert.match(adjustFactory, /keyframeDisabled: true/u);

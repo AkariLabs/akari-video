@@ -7,6 +7,8 @@ import { updateInspectorAdjust } from '../lib/browser/inspector/adjust-fields.js
 import { buildLutOptions, lutOptionLabel } from '../lib/browser/inspector/lut-options.js';
 import { nextAdjustCompareState } from '../lib/browser/inspector/adjust-compare.js';
 import * as fields from '../lib/browser/inspector/adjust-fields.js';
+import { INSPECTOR_ADJUST_FX } from '../lib/browser/inspector/adjust-fx-fields.js';
+import { ACTIVE_ADJUST_SECTIONS } from '../lib/browser/inspector/tab-model.js';
 
 const root = new URL('../../../../../presets/looks/', import.meta.url);
 const catalog = readFileSync(new URL('index.jsonl', root), 'utf8').trim().split(/\r?\n/u)
@@ -76,7 +78,7 @@ test('look row sends exactly one replacement request and custom sends none', asy
     formatInspectorAdjustValue: fields.formatInspectorAdjustValue,
     createInspectorAdjustWriteRequest: fields.createInspectorAdjustWriteRequest,
     INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
-    ACTIVE_ADJUST_SECTIONS: ['基本補正', 'RGB', 'ホイール', 'Hue', 'LUT'] };
+    INSPECTOR_ADJUST_FX, ACTIVE_ADJUST_SECTIONS };
   const js = ts.transpileModule(factory, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   const sections = new Function(...Object.keys(dependencies), js + '; return ADJUST_SECTIONS;')(...Object.values(dependencies));
   const writes = [];

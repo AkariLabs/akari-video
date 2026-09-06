@@ -329,11 +329,11 @@ test('節合成は時間→変形→外観→種別固有→情報の順に固�
   ]);
 });
 
-test('調整タブは実働 5 セクションを先に、近日 1 セクションを後に描く', () => {
+test('調整タブは実働 6 セクションを順番に描き、近日の空配列も扱う', () => {
   const factory = sourceBetween('function ADJUST_SECTIONS(', '/**\n * タイムラインの選択内容');
-  assert.equal((factory.match(/id: 'adjust:(?:basic|lut|curves|wheels|hue)'/gu) ?? []).length, 5);
-  assert.match(factory, /id: 'adjust:basic'[\s\S]*id: 'adjust:curves'[\s\S]*id: 'adjust:wheels'[\s\S]*id: 'adjust:hue'[\s\S]*id: 'adjust:lut'/u);
-  assert.equal((factory.match(/enable: \{/gu) ?? []).length, 5);
+  assert.equal((factory.match(/id: 'adjust:(?:basic|lut|curves|wheels|hue|fx)'/gu) ?? []).length, 6);
+  assert.match(factory, /id: 'adjust:basic'[\s\S]*id: 'adjust:curves'[\s\S]*id: 'adjust:wheels'[\s\S]*id: 'adjust:hue'[\s\S]*id: 'adjust:lut'[\s\S]*id: 'adjust:fx'/u);
+  assert.equal((factory.match(/enable: \{/gu) ?? []).length, 6);
 
   const branch = sourceBetween(
     "if (activeTab === 'adjust') {",
