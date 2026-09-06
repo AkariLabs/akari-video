@@ -9070,14 +9070,16 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const setAdjustBaseFilter = (element, item) => {
                 if (frameEngineMediaIdle || !element) return;
-                const visual = computeAdjustCssVisualFn(adjustOfItem(item));
+                // stage の CSS 幅 = output.width、filter は transform 前に効くため blurScale = 1。
+                const visual = computeAdjustCssVisualFn(adjustOfItem(item), undefined, 1);
                 if (!visual) return;
                 element.dataset.akariAdjustFilter = visual.filter;
                 element.style.filter = visual.filter;
             };
             const setAdjustTransitionFilter = (element, item, transitionFilter) => {
                 if (frameEngineMediaIdle || !element) return;
-                const visual = computeAdjustCssVisualFn(adjustOfItem(item), transitionFilter);
+                // stage の CSS 幅 = output.width、filter は transform 前に効くため blurScale = 1。
+                const visual = computeAdjustCssVisualFn(adjustOfItem(item), transitionFilter, 1);
                 if (visual) element.style.filter = visual.filter;
             };
             const applyCutVisual = segment => {

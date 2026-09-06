@@ -16,6 +16,13 @@ test('akari-preview re-exports the edit-store function by reference', () => {
   assert.equal(computeAdjustCssVisual, sharedComputeAdjustCssVisual);
 });
 
+test('re-export 経由でも fx の blur と縮尺を CSS filter に反映する', () => {
+  const adjust = { fx: [{ id: 'blur', px: 8 }] };
+  assert.deepEqual(computeAdjustCssVisual(adjust), { filter: 'blur(8.00px)', hasApproximation: false });
+  assert.deepEqual(computeAdjustCssVisual(adjust, 'opacity(0.5)', 0.5),
+    { filter: 'blur(4.00px) opacity(0.5)', hasApproximation: false });
+});
+
 test('adjust を基底に transition filter を空要素なしで連結する', () => {
   assert.equal(
     computeAdjustCssVisual({ basic: { exposure: 1 } }, 'blur(4px)')?.filter,

@@ -6,11 +6,15 @@ exports.computeAdjustCssVisual = computeAdjustCssVisual;
  * CSS `filter` seat used by DOM preview media. Returns null only when neither input owns that
  * seat. A basic section with all-zero values deliberately returns `{ filter: '' }`, allowing an
  * edit refresh to clear a previously active adjustment without inventing a CSS no-op.
+ * Active fx approximate only blur with CSS, after basic filters and before the transition.
+ * Other fx are not applied and are disclosed through hasApproximation.
  */
-function computeAdjustCssVisual(adjust, transitionFilter) {
+function computeAdjustCssVisual(adjust, transitionFilter, blurScale = 1) {
     const source = adjust && typeof adjust === 'object' && !Array.isArray(adjust) ? adjust : null;
     const rawBasic = source && source.sections?.basic !== false ? source.basic : null;
     const basic = rawBasic && typeof rawBasic === 'object' && !Array.isArray(rawBasic) ? rawBasic : null;
+    const rawFx = source && source.sections?.fx !== false ? source.fx : null;
+    const fx = Array.isArray(rawFx) ? rawFx : [];
     const rawTransition = typeof transitionFilter === 'string' ? transitionFilter.trim() : '';
     const transition = rawTransition === 'none' ? '' : rawTransition;
     // Match kernel normalization and identity tolerances without a runtime dependency.
@@ -33,8 +37,8 @@ function computeAdjustCssVisual(adjust, transitionFilter) {
         });
     const hasHue = source?.sections?.hue !== false
         && ['hue', 'sat', 'luma'].some(channel => (source?.hue?.[channel] ?? []).some(point => Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
-    const hasUnsupportedSection = hasWheels || hasCurves || hasHue;
-    if (!basic && !transition && !hasUnsupportedSection)
+    const hasUnsupportedSection = hasWheels || hasCurves || hasHue || fx.some(effect => effect.id !== 'blur');
+    if (!basic && !transition && !hasUnsupportedSection && fx.length === 0)
         return null;
     const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;
     const contrast = basic && Number.isFinite(basic.contrast) ? basic.contrast : 0;
@@ -55,6 +59,14 @@ function computeAdjustCssVisual(adjust, transitionFilter) {
     }
     else if (temperature < -0.005) {
         parts.push('hue-rotate(' + (-temperature * 20).toFixed(0) + 'deg)');
+    }
+    const scale = Number.isFinite(blurScale) ? blurScale : 1;
+    for (const effect of fx) {
+        if (effect.id === 'blur') {
+            const px = typeof effect.px === 'number' && Number.isFinite(effect.px) ? effect.px : 8; // 契約 §2 の既定（px 省略時 8・エンジンの normalizeAdjustFx と同じ板）
+            if (px > 0)
+                parts.push('blur(' + (px * scale).toFixed(2) + 'px)');
+        }
     }
     if (transition)
         parts.push(transition);
