@@ -1,0 +1,572 @@
+{
+  "before": {
+    "mode": "before",
+    "at": "2026-09-05T20:59:54.819Z",
+    "electron": "Chrome/142.0.7444.265",
+    "phoneAt2": {
+      "present": true,
+      "status": "error",
+      "videoTextures": 0,
+      "animationClips": 0,
+      "materialOverrides": [],
+      "fallbackVisible": true,
+      "fallbackHiddenAttr": false,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 300,
+        "height": 150
+      },
+      "declaredTextures": {
+        "ScreenMaterial": "http://127.0.0.1:64618/asset/53eea746d6f79087d67d748e7f73185e06c553d24322c048894653ed3a3d5a0e"
+      },
+      "declaredModel": "http://127.0.0.1:64618/asset/4c5924a5d5f0ebc673d7e900196ebecb48576706f487039dd129b10e24dd7b0a",
+      "overlayStart": 1,
+      "timelineTime": 2
+    },
+    "appiconAt2": {
+      "present": true,
+      "status": "ready",
+      "videoTextures": 0,
+      "animationClips": 1,
+      "materialOverrides": [
+        {
+          "name": "IconFaceMaterial",
+          "applied": true,
+          "resolvedFrom": "literal",
+          "brightness": 1,
+          "emissiveIntensity": 1,
+          "video": false
+        }
+      ],
+      "fallbackVisible": false,
+      "fallbackHiddenAttr": true,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 405,
+        "height": 720
+      },
+      "declaredTextures": {
+        "IconFaceMaterial": "http://127.0.0.1:64618/asset/60df012bf614410e4c62628885f30d5da7bc1643571c425cb63bc9ee811d6d11"
+      },
+      "declaredModel": "http://127.0.0.1:64618/asset/5dcce19f888c0d2003c29ca23ee2fa2a3684dfec5b51f424eaa8de2a13af7a0e",
+      "overlayStart": 1,
+      "timelineTime": 2
+    },
+    "phoneAt35": {
+      "present": true,
+      "status": "error",
+      "videoTextures": 0,
+      "animationClips": 0,
+      "materialOverrides": [],
+      "fallbackVisible": true,
+      "fallbackHiddenAttr": false,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 300,
+        "height": 150
+      },
+      "declaredTextures": {
+        "ScreenMaterial": "http://127.0.0.1:64618/asset/53eea746d6f79087d67d748e7f73185e06c553d24322c048894653ed3a3d5a0e"
+      },
+      "declaredModel": "http://127.0.0.1:64618/asset/4c5924a5d5f0ebc673d7e900196ebecb48576706f487039dd129b10e24dd7b0a",
+      "overlayStart": 1,
+      "timelineTime": 3.5
+    },
+    "stageAt2": {
+      "frameEngineActive": true,
+      "from": "frame-engine-canvas",
+      "pixels": {
+        "nonBlack": 45440,
+        "total": 45440
+      },
+      "video": {
+        "readyState": 0,
+        "videoWidth": 0,
+        "videoHeight": 0,
+        "currentTime": 0,
+        "error": null
+      },
+      "stageCanvasSize": {
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    "stageAt35": {
+      "frameEngineActive": true,
+      "from": "frame-engine-canvas",
+      "pixels": {
+        "nonBlack": 45440,
+        "total": 45440
+      },
+      "video": {
+        "readyState": 0,
+        "videoWidth": 0,
+        "videoHeight": 0,
+        "currentTime": 0,
+        "error": null
+      },
+      "stageCanvasSize": {
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    "canvasAt2": {
+      "hash": "8c1ab045",
+      "nonTransparent": 0,
+      "width": 300,
+      "height": 150
+    },
+    "canvasAt35": {
+      "hash": "8c1ab045",
+      "nonTransparent": 0,
+      "width": 300,
+      "height": 150,
+      "png": null
+    },
+    "canvasHashesDiffer": false,
+    "threeConsoleLines": [
+      {
+        "level": "error",
+        "text": "[akari-three] 3D scene の読み込みに失敗しました Event"
+      }
+    ],
+    "pageConsoleAkariThree": [
+      {
+        "level": "error",
+        "text": "2026-09-05T21:02:56.214Z root ERROR [webview: akari-output-preview-1pbs8pa] [akari-three] 3D scene の読み込みに失敗しました [object Object]"
+      }
+    ],
+    "ok": true,
+    "log": [
+      {
+        "at": "2026-09-05T21:00:58.212Z",
+        "step": "fixture-ready",
+        "scratch": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari l1 検証-OpPvpe",
+        "project": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari l1 検証-OpPvpe/プレビュー 検証プロジェクト"
+      },
+      {
+        "at": "2026-09-05T21:01:09.380Z",
+        "step": "cdp-up",
+        "product": "Chrome/142.0.7444.265"
+      },
+      {
+        "at": "2026-09-05T21:02:04.743Z",
+        "step": "main-page-ready",
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=64593#<TMPDIR>/akari%20l1%20%E6%A4%9C%E8%A8%BC-OpPvpe/%E3%83%97%E3%83%AC%E3%83%93%E3%83%A5%E3%83%BC%20%E6%A4%9C%E8%A8%BC%E3%83%97%E3%83%AD%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88"
+      },
+      {
+        "at": "2026-09-05T21:02:25.869Z",
+        "step": "theia-interactive-wait",
+        "waitedMs": 19383,
+        "ready": true
+      },
+      {
+        "at": "2026-09-05T21:02:26.460Z",
+        "step": "edit-json-click-attempt",
+        "via": "assets-panel-real-mouse",
+        "attempt": 1,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:02:51.760Z",
+        "step": "edit-json-opened",
+        "via": "assets-panel-real-mouse",
+        "attempt": 1,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:02:51.816Z",
+        "step": "preview-frame-found",
+        "url": "http://96c7980d-ec49-5c84-87a3-429ae2f1aae7.webview.localhost:64593/webview/fake"
+      },
+      {
+        "at": "2026-09-05T21:03:15.421Z",
+        "step": "three-status-settled",
+        "status": "error"
+      },
+      {
+        "at": "2026-09-05T21:03:21.583Z",
+        "step": "measured",
+        "phone": {
+          "present": true,
+          "status": "error",
+          "videoTextures": 0,
+          "animationClips": 0,
+          "materialOverrides": [],
+          "fallbackVisible": true,
+          "fallbackHiddenAttr": false,
+          "containerVisible": true,
+          "canvasSize": {
+            "width": 300,
+            "height": 150
+          },
+          "declaredTextures": {
+            "ScreenMaterial": "http://127.0.0.1:64618/asset/53eea746d6f79087d67d748e7f73185e06c553d24322c048894653ed3a3d5a0e"
+          },
+          "declaredModel": "http://127.0.0.1:64618/asset/4c5924a5d5f0ebc673d7e900196ebecb48576706f487039dd129b10e24dd7b0a",
+          "overlayStart": 1,
+          "timelineTime": 2
+        },
+        "appicon": {
+          "present": true,
+          "status": "ready",
+          "videoTextures": 0,
+          "animationClips": 1,
+          "materialOverrides": [
+            {
+              "name": "IconFaceMaterial",
+              "applied": true,
+              "resolvedFrom": "literal",
+              "brightness": 1,
+              "emissiveIntensity": 1,
+              "video": false
+            }
+          ],
+          "fallbackVisible": false,
+          "fallbackHiddenAttr": true,
+          "containerVisible": true,
+          "canvasSize": {
+            "width": 405,
+            "height": 720
+          },
+          "declaredTextures": {
+            "IconFaceMaterial": "http://127.0.0.1:64618/asset/60df012bf614410e4c62628885f30d5da7bc1643571c425cb63bc9ee811d6d11"
+          },
+          "declaredModel": "http://127.0.0.1:64618/asset/5dcce19f888c0d2003c29ca23ee2fa2a3684dfec5b51f424eaa8de2a13af7a0e",
+          "overlayStart": 1,
+          "timelineTime": 2
+        },
+        "stageFrom": "frame-engine-canvas",
+        "threeLines": [
+          {
+            "level": "error",
+            "text": "[akari-three] 3D scene の読み込みに失敗しました Event"
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "mode": "after",
+    "at": "2026-09-05T21:34:26.092Z",
+    "electron": "Chrome/142.0.7444.265",
+    "phoneAt2": {
+      "present": true,
+      "status": "ready",
+      "videoTextures": 1,
+      "animationClips": 1,
+      "materialOverrides": [
+        {
+          "name": "ScreenMaterial",
+          "applied": true,
+          "resolvedFrom": "literal",
+          "brightness": 1,
+          "emissiveIntensity": 1,
+          "video": true
+        }
+      ],
+      "fallbackVisible": false,
+      "fallbackHiddenAttr": true,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 405,
+        "height": 720
+      },
+      "declaredTextures": {
+        "ScreenMaterial": "http://127.0.0.1:49507/asset/f8fccc767d5584b5b893ce033f099d3f265e5e3f689bae32a4c956035f262ca2.mp4"
+      },
+      "declaredModel": "http://127.0.0.1:49507/asset/2f4dee07f2d9f50cce4c7198429ac7e552db6fd0a9a2651daadb1db7a51457ca.glb",
+      "overlayStart": 1,
+      "timelineTime": 2
+    },
+    "appiconAt2": {
+      "present": true,
+      "status": "ready",
+      "videoTextures": 0,
+      "animationClips": 1,
+      "materialOverrides": [
+        {
+          "name": "IconFaceMaterial",
+          "applied": true,
+          "resolvedFrom": "literal",
+          "brightness": 1,
+          "emissiveIntensity": 1,
+          "video": false
+        }
+      ],
+      "fallbackVisible": false,
+      "fallbackHiddenAttr": true,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 405,
+        "height": 720
+      },
+      "declaredTextures": {
+        "IconFaceMaterial": "http://127.0.0.1:49507/asset/fd74774f02710ea2a31e2337e9a6ffec860aa8a52ad0af9eedf3638e145a228a.png"
+      },
+      "declaredModel": "http://127.0.0.1:49507/asset/8bf6d7ed3a562f4ba8ec103c9d77e6efe2902980c6bc1111e3cad4af802f4781.glb",
+      "overlayStart": 1,
+      "timelineTime": 2
+    },
+    "phoneAt35": {
+      "present": true,
+      "status": "ready",
+      "videoTextures": 1,
+      "animationClips": 1,
+      "materialOverrides": [
+        {
+          "name": "ScreenMaterial",
+          "applied": true,
+          "resolvedFrom": "literal",
+          "brightness": 1,
+          "emissiveIntensity": 1,
+          "video": true
+        }
+      ],
+      "fallbackVisible": false,
+      "fallbackHiddenAttr": true,
+      "containerVisible": true,
+      "canvasSize": {
+        "width": 405,
+        "height": 720
+      },
+      "declaredTextures": {
+        "ScreenMaterial": "http://127.0.0.1:49507/asset/f8fccc767d5584b5b893ce033f099d3f265e5e3f689bae32a4c956035f262ca2.mp4"
+      },
+      "declaredModel": "http://127.0.0.1:49507/asset/2f4dee07f2d9f50cce4c7198429ac7e552db6fd0a9a2651daadb1db7a51457ca.glb",
+      "overlayStart": 1,
+      "timelineTime": 3.5
+    },
+    "stageAt2": {
+      "frameEngineActive": true,
+      "from": "frame-engine-canvas",
+      "pixels": {
+        "nonBlack": 45440,
+        "total": 45440
+      },
+      "video": {
+        "readyState": 0,
+        "videoWidth": 0,
+        "videoHeight": 0,
+        "currentTime": 0,
+        "error": null
+      },
+      "stageCanvasSize": {
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    "stageAt35": {
+      "frameEngineActive": true,
+      "from": "frame-engine-canvas",
+      "pixels": {
+        "nonBlack": 45440,
+        "total": 45440
+      },
+      "video": {
+        "readyState": 0,
+        "videoWidth": 0,
+        "videoHeight": 0,
+        "currentTime": 0,
+        "error": null
+      },
+      "stageCanvasSize": {
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    "canvasAt2": {
+      "hash": "a00ea46b",
+      "nonTransparent": 35095,
+      "width": 405,
+      "height": 720
+    },
+    "canvasAt35": {
+      "hash": "735defbb",
+      "nonTransparent": 35296,
+      "width": 405,
+      "height": 720,
+      "png": null
+    },
+    "canvasHashesDiffer": true,
+    "threeConsoleLines": [],
+    "pageConsoleAkariThree": [],
+    "ok": true,
+    "log": [
+      {
+        "at": "2026-09-05T21:36:58.987Z",
+        "step": "fixture-ready",
+        "scratch": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari l1 検証-znhGTp",
+        "project": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari l1 検証-znhGTp/プレビュー 検証プロジェクト"
+      },
+      {
+        "at": "2026-09-05T21:37:38.126Z",
+        "step": "cdp-up",
+        "product": "Chrome/142.0.7444.265"
+      },
+      {
+        "at": "2026-09-05T21:41:05.862Z",
+        "step": "main-page-ready",
+        "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=49451#<TMPDIR>/akari%20l1%20%E6%A4%9C%E8%A8%BC-znhGTp/%E3%83%97%E3%83%AC%E3%83%93%E3%83%A5%E3%83%BC%20%E6%A4%9C%E8%A8%BC%E3%83%97%E3%83%AD%E3%82%B8%E3%82%A7%E3%82%AF%E3%83%88"
+      },
+      {
+        "at": "2026-09-05T21:41:49.697Z",
+        "step": "theia-interactive-wait",
+        "waitedMs": 33084,
+        "ready": true
+      },
+      {
+        "at": "2026-09-05T21:41:50.021Z",
+        "step": "edit-json-click-attempt",
+        "via": "assets-panel-real-mouse",
+        "attempt": 1,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:42:50.137Z",
+        "step": "assets-panel-real-mouse-failed",
+        "attempt": 1,
+        "error": "Error: timed out waiting for クリック後の preview webview 出現: false"
+      },
+      {
+        "at": "2026-09-05T21:42:50.321Z",
+        "step": "theia-interactive-wait",
+        "waitedMs": 72,
+        "ready": true
+      },
+      {
+        "at": "2026-09-05T21:42:50.670Z",
+        "step": "edit-json-click-attempt",
+        "via": "assets-panel-real-mouse",
+        "attempt": 2,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:43:50.952Z",
+        "step": "assets-panel-real-mouse-failed",
+        "attempt": 2,
+        "error": "Error: timed out waiting for クリック後の preview webview 出現: false"
+      },
+      {
+        "at": "2026-09-05T21:43:51.030Z",
+        "step": "theia-interactive-wait",
+        "waitedMs": 10,
+        "ready": true
+      },
+      {
+        "at": "2026-09-05T21:43:51.549Z",
+        "step": "edit-json-click-attempt",
+        "via": "assets-panel-real-mouse",
+        "attempt": 3,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:44:51.861Z",
+        "step": "assets-panel-real-mouse-failed",
+        "attempt": 3,
+        "error": "Error: timed out waiting for クリック後の preview webview 出現: false"
+      },
+      {
+        "at": "2026-09-05T21:44:51.942Z",
+        "step": "theia-interactive-wait",
+        "waitedMs": 15,
+        "ready": true
+      },
+      {
+        "at": "2026-09-05T21:44:52.265Z",
+        "step": "edit-json-click-attempt",
+        "via": "assets-panel-real-mouse",
+        "attempt": 4,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:45:23.847Z",
+        "step": "edit-json-opened",
+        "via": "assets-panel-real-mouse",
+        "attempt": 4,
+        "x": 130.45703125,
+        "y": 413.4296875
+      },
+      {
+        "at": "2026-09-05T21:45:23.903Z",
+        "step": "preview-frame-found",
+        "url": "http://8bf9d614-775c-5bb9-b7a7-3fdcf54a58db.webview.localhost:49451/webview/fake"
+      },
+      {
+        "at": "2026-09-05T21:46:01.451Z",
+        "step": "three-status-settled",
+        "status": "ready"
+      },
+      {
+        "at": "2026-09-05T21:46:08.760Z",
+        "step": "measured",
+        "phone": {
+          "present": true,
+          "status": "ready",
+          "videoTextures": 1,
+          "animationClips": 1,
+          "materialOverrides": [
+            {
+              "name": "ScreenMaterial",
+              "applied": true,
+              "resolvedFrom": "literal",
+              "brightness": 1,
+              "emissiveIntensity": 1,
+              "video": true
+            }
+          ],
+          "fallbackVisible": false,
+          "fallbackHiddenAttr": true,
+          "containerVisible": true,
+          "canvasSize": {
+            "width": 405,
+            "height": 720
+          },
+          "declaredTextures": {
+            "ScreenMaterial": "http://127.0.0.1:49507/asset/f8fccc767d5584b5b893ce033f099d3f265e5e3f689bae32a4c956035f262ca2.mp4"
+          },
+          "declaredModel": "http://127.0.0.1:49507/asset/2f4dee07f2d9f50cce4c7198429ac7e552db6fd0a9a2651daadb1db7a51457ca.glb",
+          "overlayStart": 1,
+          "timelineTime": 2
+        },
+        "appicon": {
+          "present": true,
+          "status": "ready",
+          "videoTextures": 0,
+          "animationClips": 1,
+          "materialOverrides": [
+            {
+              "name": "IconFaceMaterial",
+              "applied": true,
+              "resolvedFrom": "literal",
+              "brightness": 1,
+              "emissiveIntensity": 1,
+              "video": false
+            }
+          ],
+          "fallbackVisible": false,
+          "fallbackHiddenAttr": true,
+          "containerVisible": true,
+          "canvasSize": {
+            "width": 405,
+            "height": 720
+          },
+          "declaredTextures": {
+            "IconFaceMaterial": "http://127.0.0.1:49507/asset/fd74774f02710ea2a31e2337e9a6ffec860aa8a52ad0af9eedf3638e145a228a.png"
+          },
+          "declaredModel": "http://127.0.0.1:49507/asset/8bf6d7ed3a562f4ba8ec103c9d77e6efe2902980c6bc1111e3cad4af802f4781.glb",
+          "overlayStart": 1,
+          "timelineTime": 2
+        },
+        "stageFrom": "frame-engine-canvas",
+        "threeLines": []
+      }
+    ]
+  }
+}

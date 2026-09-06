@@ -11,6 +11,21 @@ import {
   runChecked,
 } from "../src/rasterize.mjs";
 
+test("fragment-backed sheets embed images and pathless sheets retain literal references", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "rasterize-fragment-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  await mkdir(join(projectRoot, "assets"));
+  await writeFile(join(projectRoot, "assets", "logo.png"), "logo");
+  const html = '<img src="../assets/logo.png">';
+  const overlay = { id: "logo", start: 0, duration: 1, html };
+  const input = { edit: { output: { width: 320, height: 180, fps: 30 } }, projectRoot, duration: 1 };
+  const sheet = renderOverlaySheet({ ...input, overlays: [{ ...overlay, htmlPath: "overlays/fragment.html" }] });
+  const literal = renderOverlaySheet({ ...input, overlays: [overlay] });
+  assert.ok(literal.includes(html));
+  assert.equal(sheet, literal.replace("../assets/logo.png", "data:image/png;base64,bG9nbw=="));
+  assert.equal(literal, renderOverlaySheet({ ...input, overlays: [{ ...overlay, htmlPath: undefined }] }));
+});
+
 test("renderOverlaySheet embeds declared overlays deterministically", () => {
   const input = {
     overlays: [{ id: "o1", start: 0, duration: 1, html: "<div>Hello</div>" }],

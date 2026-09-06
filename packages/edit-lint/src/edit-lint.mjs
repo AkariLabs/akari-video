@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, readFileSync, statSync } from "node:fs";
+import { constants as fsConstants, readFileSync, realpathSync, statSync } from "node:fs";
 import {
   access,
   mkdir,
@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
+import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
@@ -49,6 +50,8 @@ const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(
 
 const VERSION = 1;
 const EPSILON = 1e-6;
+const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"]);
+const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin"]);
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
   new URL("../../schemas/captions.schema.json", import.meta.url),
@@ -1073,6 +1076,18 @@ function validateEditV2(edit, findings) {
           });
         }
         if (isRecord(item.motion)) {
+          for (const seat of ["in", "out", "loop"]) {
+            const entry = item.motion[seat];
+            const presets = seat === "loop" ? MOTION_LOOP_PRESETS : MOTION_IN_OUT_PRESETS;
+            if (isRecord(entry) && typeof entry.preset === "string" && !presets.has(entry.preset)) {
+              addFinding(findings, {
+                severity: "warning",
+                check: "motion.unknown-preset",
+                message: `unknown motion ${seat} preset: ${entry.preset}; ignored when rendering`,
+                path: `${itemPath}.motion.${seat}`,
+              });
+            }
+          }
           const inDuration = isRecord(item.motion.in) && Number.isInteger(item.motion.in.duration)
             ? item.motion.in.duration : 0;
           const outDuration = isRecord(item.motion.out) && Number.isInteger(item.motion.out.duration)
@@ -1583,7 +1598,7 @@ function validateAdjust(value, findings, path) {
       });
     }
   };
-  reportUnknownKeys(value, new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]), path);
+  reportUnknownKeys(value, new Set(["basic", "lut", "sections", "curves", "wheels", "hue", "fx"]), path);
 
   if (Object.hasOwn(value, "basic")) {
     const basicPath = `${path}.basic`;
@@ -1645,7 +1660,7 @@ function validateAdjust(value, findings, path) {
         severity: "error", check: "adjust.sections.structure", message: "sections must be an object", path: sectionsPath,
       });
     } else {
-      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue"]);
+      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue", "fx"]);
       reportUnknownKeys(value.sections, sectionKeys, sectionsPath);
       for (const key of sectionKeys) {
         if (Object.hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
@@ -2425,6 +2440,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
     );
     if (!isHtmlFile) continue;
 
+    validateOverlayFragmentAssets(html, overlay, paths, findings);
     const fragment = inspectHtmlFragment(html);
     if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
       addFinding(findings, {
@@ -2484,6 +2500,41 @@ async function validateOverlays(overlays, timeline, findings, paths) {
         });
       }
     }
+  }
+}
+
+function validateOverlayFragmentAssets(html, overlay, paths, findings) {
+  if (overlay.html.trimStart().startsWith("<")) return;
+  const root = realpathSync(paths.projectRoot);
+  const outside = target => {
+    const local = relative(root, target).replaceAll("\\", "/");
+    return local === ".." || local.startsWith("../") || isAbsolute(local);
+  };
+  const finding = (reference, check, detail) => addFinding(findings, {
+    severity: "error", check: `overlay-fragment-asset-${check}`,
+    message: `overlay:${overlay.id} fragment ${overlay.html} の参照 "${reference.raw}"${check === "missing" ? " " : ": "}${detail}`,
+    path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
+  });
+  for (const reference of extractAbsoluteFragmentAssetReferences(html, overlay.html)) {
+    finding(reference, "absolute-path", "断片からの相対パスで書く");
+  }
+  for (const reference of extractFragmentAssetReferences(html, overlay.html, overlay.id)) {
+    const target = resolve(root, reference.path);
+    let actual = target;
+    try { actual = realpathSync(target); } catch { /* Missing files are checked below. */ }
+    if (outside(target) || outside(actual)) {
+      finding(reference, "escapes-project", "escapes the project root");
+      continue;
+    }
+    if (isRegularFileSync(target)) continue;
+    const fallback = resolveLibraryFallback({
+      projectRoot: paths.projectRoot, declaredPath: reference.path,
+      references: paths.assetReferences, akariAssetsDir: paths.akariAssetsDir,
+    });
+    if (fallback.path !== null) continue;
+    finding(reference, "missing", "が見つからない。" + describeFragmentAssetHint({
+      projectRoot: paths.projectRoot, htmlPath: overlay.html, ...reference,
+    }));
   }
 }
 
@@ -6390,6 +6441,37 @@ function validateAdjustV1Sections(value, findings, path) {
   const number = (v, min, max, section, at) => {
     if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
   };
+  if (Object.hasOwn(value, 'fx')) {
+    const at = path + '.fx';
+    if (!Array.isArray(value.fx)) {
+      report('fx', 'structure', at, 'must be an array');
+    } else {
+      if (value.fx.length > 8) report('fx', 'max-items', at, 'must contain at most 8 effects');
+      const ranges = {
+        vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+        blur: { px: [0, 50] },
+        grain: { amount: [0, 1], size: [0.5, 4] },
+        sharpen: { amount: [0, 1] },
+      };
+      const seen = new Set();
+      for (const [index, fx] of value.fx.entries()) {
+        const fxPath = at + '[' + index + ']';
+        if (!isRecord(fx)) { report('fx', 'structure', fxPath, 'must be an object'); continue; }
+        if (typeof fx.id !== 'string' || !Object.hasOwn(ranges, fx.id)) {
+          report('fx', 'id', fxPath + '.id', 'unknown effect id'); continue;
+        }
+        if (seen.has(fx.id)) report('fx', 'duplicate-id', fxPath + '.id', 'duplicate effect id: ' + fx.id);
+        seen.add(fx.id);
+        const params = ranges[fx.id];
+        for (const key of Object.keys(fx)) {
+          if (key !== 'id' && !Object.hasOwn(params, key)) addFinding(findings, { severity: 'error', check: 'adjust.unknown-key', path: fxPath + '.' + key, message: key + ' is not defined for ' + fx.id });
+        }
+        for (const [key, [min, max]] of Object.entries(params)) {
+          if (Object.hasOwn(fx, key)) number(fx[key], min, max, 'fx', fxPath + '.' + key);
+        }
+      }
+    }
+  }
   for (const section of ['curves', 'hue']) {
     if (!Object.hasOwn(value, section)) continue;
     const channels = value[section], at = path + '.' + section;
@@ -6428,4 +6510,3 @@ function validateAdjustV1Sections(value, findings, path) {
     }
   }
 }
-

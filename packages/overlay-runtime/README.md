@@ -158,6 +158,17 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
    （`summary` = `EditSummary`。下記参照）。以降はタイムライン更新のたびに
    `window.akari.runtime.tick(t, playing)` を呼ぶ
 
+vgpu は他の宣言型ランタイムと同じく `runtimes.mjs` に登録され、マニフェスト経由で自動的に読み込まれる。
+書き出しは `prepare`（`probe`）を await してから container ごとに
+`render(container, localTimeSeconds, { fps: edit.output.fps })` を呼び、`inspect(container).status` が
+`ready` であることを確認する。プレビューは `render(container, localTimeSeconds, { previewScale: 0.5, fps })` を呼び、
+非表示化と unmount で `dispose(container)` を呼ぶ。非対応環境の警告はランタイムが 1 回にまとめる。
+共有 device は container の破棄時には落とさない。
+`mode: "stateful"` の断片では `render(container, localTimeSeconds, { fps })` の `fps`（= `edit.output.fps`）が必須で、省略すると TypeError になる。
+stateful のプレビューは上の options にも `fps` を加え、`{ previewScale: 0.5, fps }` を渡す。
+逆戻りシークは reset + 固定ステップ replay で追従し、`maxReplaySteps` 超過は `VGPU-REPLAY-LIMIT` で失敗する。
+宣言と純関数・解像度の約束は [vgpu v0 契約](../../docs/contract-2026-09-06-vgpu-layer-v0.md) を参照。
+
 ## ホストアダプタ契約（新シェル実装者向け — 本パッケージへの入力）
 
 本パッケージの各スクリプトは `window.akari` 名前空間の以下のプロパティを
@@ -333,6 +344,8 @@ Web UI（preview-server）は `slot-params.js` を `/slot-params.js` で配り�
 src/
   vendor/three-bundle.js  Three.js core + GLTFLoader + RoomEnvironment の単一 IIFE
   vendor/three-LICENSE.txt  Three.js の MIT License
+  vendor/vgpu-bundle.js  vgpu 0.4.0 browser entry の単一 IIFE
+  vendor/vgpu-LICENSE.txt  vgpu の MIT License
   vendor/vendor-3d-text-bundle.js  troika-three-text + opentype.js + matter-js + poly-decomp の単一 IIFE
   vendor/troika-three-text-LICENSE.txt  troika-three-text の MIT License
   vendor/opentype.js-LICENSE.txt        opentype.js の MIT License
@@ -603,3 +616,55 @@ npm グローバルインストール禁止の制約内で完結するよう、�
 ブラウザ専用の末尾登録を除いた描画本体を返す。プレビューは登録を含むファイル全体を読む。
 `exportSceneLabel` と `exportRenderOptions` は既存のログ文言・引数表記を保持するための宣言で、
 新規エントリでは省略できる（ID をログに使用し、描画の第 3 引数は `{}`）。
+`exportRenderOptions(edit)` を関数で指定すると、返した JavaScript 式を描画 options に使う。
+`prepare` を指定したランタイムは seek ごとにそのメソッドを await し、render 直後に ready を確認する。
+この場合、t=0 の事前描画と ready ポーリングは生成しない。
+
+## vgpu vendor の固定と再生成
+
+`src/vendor/vgpu-bundle.js` は `vgpu@0.4.0` の browser entry を `esbuild@0.24.2` で
+単一 IIFE にしたもの。実行時に npm/CDN/外部 origin を参照しない。
+取得した tarball の integrity は以下に固定する。
+
+- `vgpu@0.4.0`: `sha512-U8ofyb2FdiLpbkMJrGSu2PWu/fmiKsXYYpp3agFE3TjM5+6o7aZFD1PBl8XxxnSeN7br/Izmow7fcEmYJTpxSw==`
+- `@vgpu/core@0.4.0`: `sha512-yBkqlNzTRYaRRzOAsootOmppzsDZytL5Xe09rZfV60zJc4FTr5jWZmGCrm/zlWM/1wEKocDtKloVKfKD+2TNPw==`
+- `@vgpu/wgsl@0.4.0`: `sha512-19aESov4jNukukAlbE9VH34T/2VcIzmQPZ45WyphtrUMevFacAqTVU6qJVAP/YGX3rjQaL7Eq4jdvEhtOxNEPg==`
+- `@vgpu/wgsl-std@0.4.0`: `sha512-a0EkK1y5VeA1jCEjPxe7BW7zTebL1UKLIQlEdxqrb8T1Zr+xO7VBe5mTNsuJtKWxgF+lANUqLwScyN+Fs4ooFw==`
+- `@vgpu/adapter-mock@0.4.0`: `sha512-fqOEHCZAt+mMyOpgAA5inFWSoB9siO1LQIq9t+i6iemLbp2VBEEWlhZXCh3Hf+UDqbkut8kQaDrMPLt2J9LpvA==`
+- `esbuild@0.24.2`: `sha512-+9egpBW8I3CD5XPe0n6BfT5fxLzxrlDzqydF3aviG+9ni1lDC/OvMHcxqEFV0+LANZG5R1bFMWfUrjVsdwxJvA==`
+- `@esbuild/darwin-arm64@0.24.2`: `sha512-kj3AnYWc+CekmZnS5IPu9D+HWtUI49hbnyqk0FLEJDbzCIQt7hg7ucF1SQAilhtYpIujfaHr6O0UHlzzSPdOeA==`
+
+entry `akari-vgpu-entry.js`:
+
+```js
+import { init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError } from "vgpu";
+window.AkariVgpu = Object.freeze({ init, effect, surface, target, frame, sampler, uniforms, clock, compute, pingPong, pingPongStorage, storage, VGPUError });
+```
+
+再生成（空の一時ディレクトリ、macOS arm64。リポの package.json / lock は変更しない）:
+
+```sh
+npm pack vgpu@0.4.0 @vgpu/core@0.4.0 @vgpu/wgsl@0.4.0 @vgpu/wgsl-std@0.4.0 @vgpu/adapter-mock@0.4.0 --ignore-scripts
+npm pack esbuild@0.24.2 @esbuild/darwin-arm64@0.24.2 --ignore-scripts
+mkdir -p node_modules/vgpu node_modules/@vgpu/core node_modules/@vgpu/wgsl node_modules/@vgpu/wgsl-std node_modules/@vgpu/adapter-mock node_modules/esbuild node_modules/@esbuild/darwin-arm64
+tar -xzf vgpu-0.4.0.tgz -C node_modules/vgpu --strip-components=1
+tar -xzf vgpu-core-0.4.0.tgz -C node_modules/@vgpu/core --strip-components=1
+tar -xzf vgpu-wgsl-0.4.0.tgz -C node_modules/@vgpu/wgsl --strip-components=1
+tar -xzf vgpu-wgsl-std-0.4.0.tgz -C node_modules/@vgpu/wgsl-std --strip-components=1
+tar -xzf vgpu-adapter-mock-0.4.0.tgz -C node_modules/@vgpu/adapter-mock --strip-components=1
+tar -xzf esbuild-0.24.2.tgz -C node_modules/esbuild --strip-components=1
+tar -xzf esbuild-darwin-arm64-0.24.2.tgz -C node_modules/@esbuild/darwin-arm64 --strip-components=1
+node node_modules/esbuild/bin/esbuild akari-vgpu-entry.js \
+  --bundle --format=iife --platform=browser --target=es2020 --minify \
+  --legal-comments=inline --metafile=meta.json --outfile=vgpu-bundle.js
+cp node_modules/vgpu/LICENSE vgpu-LICENSE.txt
+grep -cE '@modelcontextprotocol/server|zod|pngjs|pixelmatch|@vgpu/adapter-node|@vgpu/adapter-mock' vgpu-bundle.js || true
+wc -c vgpu-bundle.js
+shasum -a 256 vgpu-bundle.js
+```
+
+実測: **156447 bytes** / SHA-256 `adf071ead35c31bdaabaa2c65ea18c8a5a2502b5ed122c61a7ff88048615f8a3`。
+metafile の npm 入力は `vgpu` / `@vgpu/core` / `@vgpu/wgsl` の 3 パッケージのみ。
+上記 grep は **0 件**。`vgpu/node` / `vgpu/three` / `vgpu/mock` の entry は使用しない。
+唯一の URL 文字列 `https://github.com/vercel-labs/vgpu/issues/294` はエラーメッセージの参照先で、実行時 fetch ではない。
+MIT License（Copyright (c) 2025 Vercel, Inc.）全文は `src/vendor/vgpu-LICENSE.txt` に保持する。

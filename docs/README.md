@@ -124,6 +124,7 @@ All contracts follow the
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | Whole-page Electron OSR export v0 — page layers, seek/paint verification handshake, launcher fallback, and memory limits (Japanese) |
 | [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU-direct export v0 — eligibility, zero-readback WebCodecs path, incremental MP4 mux (moov reserved up front, no temp file, no ffmpeg process), fallback, and determinism gates (Japanese) |
 | [contract-2026-08-28-v2-approximation-ledger.md](./contract-2026-08-28-v2-approximation-ledger.md) | Engine v2 approximation ledger — resolved items with golden or measured evidence, retained approximations, and separately tracked work (Japanese) |
+| [contract-2026-09-06-vgpu-layer-v0.md](./contract-2026-09-06-vgpu-layer-v0.md) | vgpu layer v0 — pure WebGPU fragment passes, shared overlay sheet, preview scaling, GPU-direct export, eligibility, and failure handling (Japanese) |
 
 ### Assets & personal layer
 

@@ -10,6 +10,8 @@ import { FileHandle, lstat, mkdtemp, open, readFile, realpath, rm, rmdir, stat, 
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { rewritePreviewFragmentAssets } from './fragment-assets';
+import { FragmentAssetPreviewRequest, FragmentAssetPreviewResult } from '../common/akari-preview-protocol';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
 import { PromotePreviewAudioSidecarsRequest, PromotePreviewAudioSidecarsResult } from '../common/preview-audio-priority';
@@ -19,7 +21,11 @@ import {
     AppendReviewSessionStrokeRequest,
     AssetStreamRequest,
     AkariPreviewService,
+    BuildWaveformPeaksRequest,
+    BuildWaveformPeaksResult,
     EndReviewSessionRequest,
+    GpuPreferenceState,
+    SetHighPerformanceGpuResult,
     LintEditCandidateRequest,
     LintEditCandidateResult,
     ListReviewSessionsRequest,
@@ -60,6 +66,7 @@ import { ReviewSessionWriter } from './review-session-writer';
 interface StreamTarget {
     path: string;
     mimeType: string;
+    extension: string;
     workspaceRoots: string[];
 }
 
@@ -68,7 +75,7 @@ interface ByteRange {
     end: number;
 }
 
-interface TranscodedAudioStreamTarget extends StreamTarget {
+interface TranscodedAudioStreamTarget extends Omit<StreamTarget, 'extension'> {
     temporaryDirectory: string;
 }
 
@@ -199,6 +206,19 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
   Object.defineProperty(runtime, '__akariItemKeyframesSoftReload', { value: true });
 })();`;
 
+interface GpuPreferenceRegistry {
+    command: string;
+    read(executable: string): string | null;
+    write(executable: string, value: string): void;
+    remove(executable: string): void;
+}
+
+interface GpuPreferenceModule {
+    HIGH_PERFORMANCE_GPU_PREFERENCE: string;
+    normalizeGpuPreferenceExecutable(executable: string): string;
+    createRegistryAccess(): GpuPreferenceRegistry;
+}
+
 type SpeechAtempoModule = {
     requestPreviewAudioSidecar(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
     previewAudioSidecarStatus(options: PreviewAudioSidecarOptions): PreviewAudioSidecarModuleResult;
@@ -260,6 +280,8 @@ const ASSET_MIME_TYPES = new Map<string, string>([
     ['.wav', 'audio/wav'],
     ['.glb', 'model/gltf-binary'],
     ['.otf', 'font/otf'],
+    ['.woff', 'font/woff'],
+    ['.woff2', 'font/woff2'],
     ['.ttf', 'font/ttf'],
     ['.avif', 'image/avif'],
     ['.bmp', 'image/bmp'],
@@ -284,6 +306,12 @@ const TRANSCODABLE_AUDIO_MIME_TYPES = new Map<string, string>([
 const MAX_TRANSCODE_INPUT_BYTES = 50 * 1024 * 1024;
 const MAX_TRANSCODE_OUTPUT_BYTES = 200 * 1024 * 1024;
 const TRANSCODE_TIMEOUT_MS = 30_000;
+const WAVEFORM_PEAKS_TIMEOUT_MS = 10 * 60 * 1000;
+
+function waveformFfmpegArgs(assetPath: string): string[] {
+    return ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', assetPath,
+        '-vn', '-ac', '1', '-ar', '8000', '-f', 's16le', '-'];
+}
 
 interface StaticAsset {
     body: Buffer;
@@ -330,6 +358,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // 台帳で一度裏取りできた要求 root（realpath 済みの絶対パス）。resolveAllowedWorkspaceRoots() を参照。
     protected readonly confirmedWorkspaceRoots = new Set<string>();
     protected speechAtempoModule: Promise<SpeechAtempoModule> | undefined;
+    protected gpuPreferenceModule: Promise<GpuPreferenceModule> | undefined;
 
     constructor() {
         process.once('exit', () => {
@@ -633,8 +662,119 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         this.assetStreams.set(id, target);
         return {
             id,
-            url: `http://127.0.0.1:${port}/asset/${id}`
+            url: `http://127.0.0.1:${port}/asset/${id}${target.extension}`
         };
+    }
+
+    async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {
+        const projectRoot = await realpath(this.filePath(request.projectRootUri));
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        if (!roots.some(root => this.contains(root, projectRoot))) throw new Error('Project is outside the workspace');
+        return rewritePreviewFragmentAssets(request.html, {
+            projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
+        }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }));
+    }
+
+    protected async resolveWaveformFfmpegCommand(): Promise<{ command: string; prefixArgs: string[] }> {
+        return { command: await resolveFfmpegPath() ?? 'ffmpeg', prefixArgs: [] };
+    }
+
+    async buildWaveformPeaks(request: BuildWaveformPeaksRequest): Promise<BuildWaveformPeaksResult> {
+        try {
+            if (!request || typeof request !== 'object' || typeof request.assetUri !== 'string') {
+                return { ok: false, reason: 'invalid waveform peaks request' };
+            }
+            const buckets = Math.min(20000, Math.max(64, Math.round(
+                typeof request.buckets === 'number' && !Number.isNaN(request.buckets) ? request.buckets : 4000
+            )));
+            const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+            const assetPath = await realpath(this.filePath(request.assetUri));
+            if (!roots.some(root => this.contains(root, assetPath))) {
+                return { ok: false, reason: 'waveform source must stay inside an open workspace' };
+            }
+            const { command, prefixArgs } = await this.resolveWaveformFfmpegCommand();
+            return await new Promise<BuildWaveformPeaksResult>(resolveResult => {
+                const peaks = new Float64Array(buckets);
+                let samplesPerBucket = 1024;
+                let totalSamples = 0;
+                let carry: number | undefined;
+                let stderrTail = Buffer.alloc(0);
+                let settled = false;
+                const child = spawn(command, [...prefixArgs, ...waveformFfmpegArgs(assetPath)], { stdio: ['ignore', 'pipe', 'pipe'] });
+                const settle = (result: BuildWaveformPeaksResult): void => {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(timeout);
+                    resolveResult(result);
+                };
+                const timeout = setTimeout(() => {
+                    child.kill('SIGKILL');
+                    settle({ ok: false, reason: 'waveform peak extraction timed out' });
+                }, WAVEFORM_PEAKS_TIMEOUT_MS);
+                const addSample = (sample: number): void => {
+                    let bucket = Math.floor(totalSamples / samplesPerBucket);
+                    if (bucket === buckets) {
+                        const half = buckets >> 1;
+                        for (let i = 0; i < half; i += 1) {
+                            peaks[i] = Math.max(peaks[2 * i], peaks[2 * i + 1]);
+                        }
+                        // 奇数個なら末尾は新バケットの前半として残す。
+                        if (buckets % 2 !== 0) {
+                            peaks[half] = peaks[buckets - 1];
+                        }
+                        peaks.fill(0, Math.ceil(buckets / 2));
+                        samplesPerBucket *= 2;
+                        bucket = Math.floor(bucket / 2);
+                    }
+                    peaks[bucket] = Math.max(peaks[bucket], Math.abs(sample) / 32768);
+                    totalSamples += 1;
+                };
+                child.stdout.on('data', (chunk: Buffer) => {
+                    if (settled || chunk.length === 0) {
+                        return;
+                    }
+                    let offset = 0;
+                    if (carry !== undefined) {
+                        const sample = carry | (chunk[0] << 8);
+                        addSample(sample >= 32768 ? sample - 65536 : sample);
+                        carry = undefined;
+                        offset = 1;
+                    }
+                    for (; offset + 1 < chunk.length; offset += 2) {
+                        addSample(chunk.readInt16LE(offset));
+                    }
+                    if (offset < chunk.length) {
+                        carry = chunk[offset];
+                    }
+                });
+                child.stderr.on('data', (chunk: Buffer) => {
+                    stderrTail = Buffer.concat([stderrTail, chunk.subarray(-4096)]).subarray(-4096);
+                });
+                const streamFailed = (error: Error): void => {
+                    const lastLine = stderrTail.toString('utf8').split(/\r?\n/).map(line => line.trim()).filter(Boolean).pop();
+                    child.kill('SIGKILL');
+                    settle({ ok: false, reason: (lastLine || error.message).slice(0, 200) });
+                };
+                child.stdout.once('error', streamFailed);
+                child.stderr.once('error', streamFailed);
+                child.once('error', () => settle({ ok: false, reason: 'ffmpeg not found' }));
+                child.once('close', () => {
+                    if (settled) {
+                        return;
+                    }
+                    if (totalSamples === 0) {
+                        settle({ ok: false, reason: 'no audio stream' });
+                        return;
+                    }
+                    const resultPeaks = Array.from(peaks.subarray(0, Math.min(buckets, Math.ceil(totalSamples / samplesPerBucket))));
+                    settle({ ok: true, peaks: resultPeaks, durationSec: totalSamples / 8000, buckets: resultPeaks.length });
+                });
+            });
+        } catch (error) {
+            return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+        }
     }
 
     private async validatePreviewAudioSidecarRequest(request: PrepareSpeechAtempoRequest): Promise<{
@@ -835,6 +975,90 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             keys: Array.isArray(request.keys) ? request.keys.filter(key => typeof key === 'string') : [],
             sourcePaths
         });
+    }
+
+    protected gpuPreferencePlatform(): string { return process.platform; }
+
+    protected gpuPreferenceExecutable(): string { return process.execPath; }
+
+    protected createGpuPreferenceRegistry(module: GpuPreferenceModule): GpuPreferenceRegistry {
+        return module.createRegistryAccess();
+    }
+
+    async getGpuPreferenceState(): Promise<GpuPreferenceState> {
+        const platform = this.gpuPreferencePlatform();
+        const unavailable: GpuPreferenceState = {
+            platform, supported: false, executable: null, current: 'unknown', raw: null
+        };
+        if (platform !== 'win32') return unavailable;
+        let module: GpuPreferenceModule;
+        let executable: string;
+        try {
+            module = await this.loadGpuPreferenceModule();
+            executable = module.normalizeGpuPreferenceExecutable(this.gpuPreferenceExecutable());
+        } catch {
+            return unavailable;
+        }
+        try {
+            const raw = this.createGpuPreferenceRegistry(module).read(executable);
+            const current = raw === null ? 'unset'
+                : raw === module.HIGH_PERFORMANCE_GPU_PREFERENCE ? 'high-performance'
+                    : raw === 'GpuPreference=1;' ? 'power-saving' : 'other';
+            return { platform, supported: true, executable, current, raw };
+        } catch {
+            return { ...unavailable, executable };
+        }
+    }
+
+    async setHighPerformanceGpu(enabled: boolean): Promise<SetHighPerformanceGpuResult> {
+        const state = await this.getGpuPreferenceState();
+        if (state.supported !== true) return { ok: false, reason: 'unsupported', state };
+        if (state.current === 'power-saving' || state.current === 'other') {
+            return { ok: false, reason: 'user-preference', state };
+        }
+        if ((enabled === true && state.current === 'high-performance')
+            || (enabled === false && state.current === 'unset')) {
+            return { ok: true, state };
+        }
+        // 「自分が書いた 2」の判定は sidecar を持たず「値が GpuPreference=2; かつ設定がオン」で
+        // 自分のものとみなす簡略化（司令塔裁定 2026-09-06）。オフへの変更時はその 2 を削除する。
+        try {
+            const module = await this.loadGpuPreferenceModule();
+            const registry = this.createGpuPreferenceRegistry(module);
+            if (enabled === true) {
+                registry.write(state.executable, module.HIGH_PERFORMANCE_GPU_PREFERENCE);
+            } else {
+                registry.remove(state.executable);
+            }
+        } catch (error) {
+            const reason = enabled === true ? 'registry-write-failed' : 'registry-remove-failed';
+            return { ok: false, reason: `${reason}: ${error instanceof Error ? error.message : String(error)}`, state };
+        }
+        return { ok: true, state: await this.getGpuPreferenceState() };
+    }
+
+    protected loadGpuPreferenceModule(): Promise<GpuPreferenceModule> {
+        if (this.gpuPreferenceModule) return this.gpuPreferenceModule;
+        this.gpuPreferenceModule = (async () => {
+            const candidates: string[] = [];
+            if (typeof process.resourcesPath === 'string') {
+                candidates.push(resolve(process.resourcesPath,
+                    'packages', 'osr-export', 'src', 'gpu-preference.mjs'));
+            }
+            let ancestor = resolve(__dirname);
+            for (let depth = 0; depth < 10; depth += 1) {
+                candidates.push(resolve(ancestor, 'packages', 'osr-export', 'src', 'gpu-preference.mjs'));
+                const parent = dirname(ancestor);
+                if (parent === ancestor) break;
+                ancestor = parent;
+            }
+            const candidate = candidates.find(value => this.isFile(value));
+            if (!candidate) throw new Error('GPU preference helper could not be found');
+            const importModule = Function('specifier', 'return import(specifier)') as
+                (specifier: string) => Promise<GpuPreferenceModule>;
+            return importModule(pathToFileURL(candidate).toString());
+        })();
+        return this.gpuPreferenceModule;
     }
 
     protected loadSpeechAtempoModule(): Promise<SpeechAtempoModule> {
@@ -1276,7 +1500,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         kind: 'Video' | 'Asset',
         requestRoots?: string[]
     ): Promise<StreamTarget> {
-        const mimeType = mimeTypes.get(extname(this.filePath(uri)).toLowerCase());
+        const extension = extname(this.filePath(uri)).toLowerCase();
+        const mimeType = mimeTypes.get(extension);
         if (!mimeType) {
             throw new Error(`Unsupported ${kind.toLowerCase()} format`);
         }
@@ -1289,7 +1514,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!targetStat.isFile()) {
             throw new Error('The stream target is not a file');
         }
-        return { path: targetPath, mimeType, workspaceRoots: roots };
+        return { path: targetPath, mimeType, extension, workspaceRoots: roots };
     }
 
     protected async resolveWorkspaceRoots(requestRoots?: string[]): Promise<string[]> {
@@ -1439,7 +1664,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return;
         }
         const mediaMatch = /^\/media\/([a-f0-9]{64})$/.exec(request.url ?? '');
-        const assetMatch = /^\/asset\/([a-f0-9]{64})$/.exec(request.url ?? '');
+        const assetMatch = /^\/asset\/([a-f0-9]{64})(\.[a-z0-9]+)?$/.exec(request.url ?? '');
         const transcodedAudioMatch = /^\/transcoded-audio\/([a-f0-9]{64})$/.exec(request.url ?? '');
         const target = mediaMatch
             ? this.videoStreams.get(mediaMatch[1])
@@ -1449,6 +1674,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     ? this.transcodedAudioStreams.get(transcodedAudioMatch[1])
                     : undefined;
         if (!target) {
+            this.respond(response, 404);
+            return;
+        }
+        if (assetMatch?.[2] && assetMatch[2] !== this.assetStreams.get(assetMatch[1])?.extension) {
             this.respond(response, 404);
             return;
         }

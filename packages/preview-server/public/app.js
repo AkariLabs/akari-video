@@ -3629,6 +3629,7 @@ const PREVIEW_3D_MAX_RENDER_SIZE = 720;
 
 // --- Overlay runtime ---
 function createOverlayRuntime() {
+  const PREVIEW_VGPU_SCALE = 0.5; // 辺あたり半分。座標・時刻・ツマミ値は等倍の書き出しと共有する（vgpu契約§4）
   const overlays = [];
   let mountGeneration = 0;
   function unmount() {
@@ -3799,7 +3800,7 @@ function createOverlayRuntime() {
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
       const runtimes = (window.akari?.runtimes?.forContainer(o.el) ?? []).filter(runtime => o.runtimeIds.has(runtime.id));
-      for (const runtime of runtimes) runtime.render(o.el, ms / 1000, {syncVideos: true, maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE});
+      for (const runtime of runtimes) runtime.render(o.el, ms / 1000, {syncVideos: true, maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE, previewScale: PREVIEW_VGPU_SCALE, fps: o.fps || fps || 30});
       if (o.hitPolicyPending) {
         window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
         o.hitPolicyPending = false;

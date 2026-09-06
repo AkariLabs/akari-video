@@ -120,7 +120,7 @@ function validateEditSource(value, index, ids) {
 function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'muted', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id))
         throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
@@ -130,6 +130,9 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     }
     if (hasOwn(value, 'name') && typeof value.name !== 'string') {
         throw invalid(`${path}.name`, '文字列である必要があります');
+    }
+    if (hasOwn(value, 'muted') && typeof value.muted !== 'boolean') {
+        throw invalid(`${path}.muted`, 'boolean である必要があります');
     }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');
@@ -465,7 +468,36 @@ function validateCrop(value, path) {
 }
 function validateAdjust(value, path) {
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['basic', 'lut', 'sections', 'curves', 'wheels', 'hue']), path);
+    requireExactKeys(value, new Set(['basic', 'lut', 'sections', 'curves', 'wheels', 'hue', 'fx']), path);
+    if (hasOwn(value, 'fx')) {
+        const fxPath = path + '.fx';
+        if (!Array.isArray(value.fx) || value.fx.length > 8) {
+            throw invalid(fxPath, 'adjust.fx.structure: must be an array of at most 8 effects');
+        }
+        const ranges = {
+            vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+            blur: { px: [0, 50] },
+            grain: { amount: [0, 1], size: [0.5, 4] },
+            sharpen: { amount: [0, 1] },
+        };
+        const seen = new Set();
+        for (const [index, fx] of value.fx.entries()) {
+            const at = fxPath + '[' + index + ']';
+            requireRecord(fx, at);
+            if (typeof fx.id !== 'string' || !hasOwn(ranges, fx.id)) {
+                throw invalid(at + '.id', 'adjust.fx.id: unknown effect id');
+            }
+            if (seen.has(fx.id))
+                throw invalid(at + '.id', 'adjust.fx.duplicate-id: ' + fx.id);
+            seen.add(fx.id);
+            const params = ranges[fx.id];
+            requireExactKeys(fx, new Set(['id', ...Object.keys(params)]), at);
+            for (const [key, [min, max]] of Object.entries(params)) {
+                if (hasOwn(fx, key))
+                    requireRange(fx[key], min, max, at + '.' + key);
+            }
+        }
+    }
     for (const section of ['curves', 'hue']) {
         if (!hasOwn(value, section))
             continue;
@@ -529,7 +561,7 @@ function validateAdjust(value, path) {
     }
     if (hasOwn(value, 'sections')) {
         requireRecord(value.sections, `${path}.sections`);
-        const sectionKeys = new Set(['basic', 'lut', 'curves', 'wheels', 'hue']);
+        const sectionKeys = new Set(['basic', 'lut', 'curves', 'wheels', 'hue', 'fx']);
         requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
         for (const key of sectionKeys) {
             if (hasOwn(value.sections, key) && typeof value.sections[key] !== 'boolean') {

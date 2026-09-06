@@ -8,6 +8,31 @@ import { createRequire } from "node:module";
 import { parseElectronArguments } from "../src/electron-main.mjs";
 import { buildOsrPage, loadAndBuildOsrPage } from "../src/page-builder.mjs";
 
+test("file-backed overlay images embed before page construction", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "page-fragment-assets-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  await mkdir(join(projectRoot, "overlays"));
+  await mkdir(join(projectRoot, "assets"));
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+  const html = '<img src="../assets/x.png">';
+  const embedded = '<img src="data:image/png;base64,' + png.toString("base64") + '">';
+  await writeFile(join(projectRoot, "assets", "x.png"), png);
+  await writeFile(join(projectRoot, "overlays", "fragment.html"), html);
+  await writeFile(join(projectRoot, "edit.json"), JSON.stringify({
+    version: 2, output: { width: 64, height: 36, fps: 30 }, sources: [],
+    tracks: [{ id: "visual", lane: "visual", items: [
+      { id: "logo", at: 0, duration: 30, source: { kind: "html", path: "overlays/fragment.html" } },
+    ] }],
+  }));
+  const built = await loadAndBuildOsrPage({ projectRoot, duration: 1 });
+  assert.ok(built.overlaySheetHtml.includes(embedded));
+  assert.ok(built.overlaySheetHtml.includes("data:image/png;base64,"));
+  await rm(join(projectRoot, "assets", "x.png"));
+  await assert.rejects(loadAndBuildOsrPage({ projectRoot, duration: 1 }), error =>
+    error.constructor.name === "RenderInputError"
+      && ["overlay:logo", "overlays/fragment.html", "../assets/x.png"].every(value => error.message.includes(value)));
+});
+
 const require = createRequire(import.meta.url);
 const { TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 

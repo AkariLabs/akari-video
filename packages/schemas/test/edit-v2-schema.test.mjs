@@ -15,6 +15,20 @@ function fixture(name) {
   return JSON.parse(readFileSync(join(examplesRoot, name, "edit.json"), "utf8"));
 }
 
+test("track muted accepts booleans and rejects other types in both items and content branches", () => {
+  for (const trackIndex of [0, 3, 4]) {
+    for (const muted of [true, false, 1, "yes", null]) {
+      const value = fixture("edit-v2-valid");
+      value.tracks[trackIndex].muted = muted;
+      assert.equal(validate(value), typeof muted === "boolean", JSON.stringify(validate.errors));
+      if (typeof muted !== "boolean") {
+        assert.ok(validate.errors.some(error => error.instancePath === `/tracks/${trackIndex}/muted`
+          && error.keyword === "type"));
+      }
+    }
+  }
+});
+
 test("visual media source validates embedded speech gain and mute", () => {
   const value = fixture("edit-v2-valid");
   Object.assign(value.tracks[3].items[0].source, { gain_db: -12, mute: true });

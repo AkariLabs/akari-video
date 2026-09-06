@@ -5,6 +5,8 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CAPTION_FONT_REPOSITORY_RELATIVE_PATH, CAPTION_FONT_ROLE } from "./caption-font.mjs";
+import { extractFragmentAssetReferences } from "./fragment-assets.mjs";
+import { stripHtmlComments } from "./html-scan.mjs";
 import {
   resolveAkariAssetsDir,
   resolveLibraryFallback,
@@ -63,7 +65,18 @@ export async function enumerateDeclaredRenderInputs({
     for (const reference of extractRuntimeAssetReferences(html, overlaySourcePath(overlay), role)) {
       addInput(`${role}:${reference.role}`, reference.path);
     }
-    assertNoUndeclaredHtmlAssets(html, role);
+    const fragmentReferences = extractFragmentAssetReferences(html, overlaySourcePath(overlay), role);
+    for (const reference of fragmentReferences) {
+      try {
+        addInput(`${role}:fragment-asset`, reference.path);
+      } catch (error) {
+        if (error instanceof RenderInputError) {
+          error.message = `${role} fragment ${overlaySourcePath(overlay)} の参照 "${reference.raw}": ${error.message}`;
+        }
+        throw error;
+      }
+    }
+    assertNoUndeclaredHtmlAssets(html, role, fragmentReferences);
   }
 
   const bgm = audioPath(edit.audio?.bgm);
@@ -276,12 +289,15 @@ function addAkariInput(inputs, role, absolute) {
   });
 }
 
-function assertNoUndeclaredHtmlAssets(html, overlayLabel) {
+function assertNoUndeclaredHtmlAssets(html, overlayLabel, fragmentReferences = []) {
+  const declared = new Set(fragmentReferences.map((reference) => reference.raw));
+  const activeHtml = stripHtmlComments(html);
   let match;
   EXTERNAL_HTML_REFERENCE_PATTERN.lastIndex = 0;
-  while ((match = EXTERNAL_HTML_REFERENCE_PATTERN.exec(html)) !== null) {
+  while ((match = EXTERNAL_HTML_REFERENCE_PATTERN.exec(activeHtml)) !== null) {
     const reference = (match[1] ?? match[2] ?? "").trim();
     if (reference === "" || reference.startsWith("#") || reference.startsWith("data:")) continue;
+    if (!/^href\b/iu.test(match[0]) && declared.has(reference)) continue;
     throw new RenderInputError(`${overlayLabel} contains an undeclared local/network asset reference: ${reference}`);
   }
 }

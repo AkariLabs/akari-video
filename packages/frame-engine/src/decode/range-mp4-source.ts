@@ -41,6 +41,8 @@ export interface RangeFetchStats {
   maxFutureFrames: number;
   /** GOP を供給し切って出力を 250 ms 待った回数（デコーダが詰まった兆候）。 */
   graceWaits: number;
+  /** 素材末尾まで供給済みで出力猶予を飛ばして flush へ進んだ回数。 */
+  eosFlushes: number;
   /** target より後のフレームが先に出て「target は来ない」と即断した回数（デコーダがフレームを落とした兆候）。 */
   targetSkips: number;
   /** target が出ず sync から再シークした回数。 */
@@ -174,6 +176,7 @@ class HttpRangeReader {
     fullBodyBytes: 0,
     maxFutureFrames: 0,
     graceWaits: 0,
+    eosFlushes: 0,
     targetSkips: 0,
     droppedTargets: 0,
   };
@@ -848,6 +851,12 @@ export class RangeMp4Source {
     let outputGraceExpired = false;
     try {
       const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
+      // 素材末尾の並べ替え窓（最後の maxReorderFrames + 1 枚）だけは flush しないと出ない。
+      // それより前の target は供給し切った後もデコーダが非同期に出すので、従来どおり猶予を待つ
+      // （即 flush すると最終 GOP の残り全部が一度に出て futureFrames の上限を超え、以後の
+      // フレームが sync からの再デコードになる。実機 2026-09-06: GOP 250 の素材で late が急増）。
+      const inReorderTail = targetSample.presentationIndex
+        >= table.samples.length - (table.maxReorderFrames + 1);
       try {
         await withTimeout((async () => {
           let postTargetBudget = postTargetLimit;
@@ -887,6 +896,7 @@ export class RangeMp4Source {
                 decoder,
                 waiter,
                 this.nextDecodeIndex <= decodeCeiling,
+                inReorderTail && this.nextDecodeIndex >= table.samples.length,
               );
               if (waitResult === 'needs-supply') break;
               if (waitResult === 'grace-expired') {
@@ -983,6 +993,7 @@ export class RangeMp4Source {
     decoder: VideoDecoder,
     waiter: OutputWaiter,
     canSupply: boolean,
+    atEos: boolean,
   ): Promise<'target-or-dequeue' | 'needs-supply' | 'grace-expired'> {
     if (waiter.isSettled()) return 'target-or-dequeue';
     if (decoder.decodeQueueSize === 0) {
@@ -990,6 +1001,12 @@ export class RangeMp4Source {
       // GOP を供給し切り、かつ target より後のフレームが既に出ているなら、待っても target は
       // 出てこない（並べ替え中なら flush で出る）。猶予 250 ms を飛ばして flush へ進む。
       if (waiter.laterFrames > 0) return 'grace-expired';
+      // 素材末尾まで供給済みなら、並べ替え中の最終フレームを出す手段は flush だけ。
+      // 追加サンプルは来ないので、出力猶予 250 ms を待たずに既存の flush 経路へ進む。
+      if (atEos) {
+        this.shared.reader.stats.eosFlushes += 1;
+        return 'grace-expired';
+      }
       this.shared.reader.stats.graceWaits += 1;
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       const graceExpired = new Promise<'grace-expired'>(resolve => {

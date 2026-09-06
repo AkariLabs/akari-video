@@ -23,6 +23,21 @@ accepted when its resolved target is a regular file inside the real project root
 resolves outside the project is rejected; use the declared asset-library fallback when an external
 library asset is intended.
 
+### Overlay fragment assets
+
+Relative asset references inside an overlay fragment resolve from **the fragment file's directory**.
+For example, `overlays/lower-third/fragment.html` resolves `../../assets/logo.png` to
+`assets/logo.png` (`../assets/logo.png` resolves to `overlays/assets/logo.png`). During export,
+images and fonts are embedded as data URIs; video and audio are served through `/media/`.
+Existing `/media/…` and `data:` references are left unchanged. Inline HTML without a fragment
+file path retains its existing behavior.
+Preview resolves asset URLs from the same fragment directory.
+`edit-lint` reports missing, escaping, and absolute local fragment asset references as errors.
+
+Missing assets stop export with the overlay ID, fragment path, and reference in the error.
+Embedded files must be at most 16 MiB; reduce larger assets or use video. Video and audio must
+be inside the project, even when an asset-library fallback exists.
+
 ## Default output name
 
 Without `--out`, render-cut writes to `exports/` and chooses the stem in this order:

@@ -1,0 +1,22 @@
+<div class="vgpu-fx" style="position:absolute;inset:0">
+<!-- Adapted from vgpu gradient. MIT License / Copyright (c) 2025 Vercel, Inc. -->
+<canvas></canvas>
+<script type="application/json" data-akari-vgpu-scene>
+{
+  "version": 0,
+  "mode": "pure",
+  "alphaMode": "premultiplied",
+  "uniforms": {
+    "speed": 1
+  },
+  "passes": [
+    {
+      "id": "main",
+      "wgsl": "struct Params { speed: f32 };\n@group(0) @binding(1) var<uniform> params: Params;\n@fragment\nfn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {\n  let vignette = smoothstep(1.2, 0.2, distance(uv, vec2f(0.5)));\n  return vec4f(uv.x, uv.y, 0.46 + 0.16 * vignette + 0.12 * sin(akari.time * params.speed), 1.0);\n}\n",
+      "inputs": [],
+      "scale": 1
+    }
+  ]
+}
+</script>
+</div>

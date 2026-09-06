@@ -46,6 +46,9 @@ export interface LayerPerspectiveSummary {
 // place for them to drift out of sync.
 export type LayerKeyframesSummary = unknown[];
 
+/** Light object gate only; preset/span validation belongs to the frame engine and edit-lint. */
+export type MotionSummary = Record<string, unknown>;
+
 export interface ChromaKeySummary {
     color: string;
     similarity: number;
@@ -65,7 +68,10 @@ export interface LayerSummaryBase {
     chromaKey?: ChromaKeySummary;
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
+    /** Declared sources id; the caller resolves it to an asset stream URL. */
+    mask?: string;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
 }
 
 export interface LayerSummaryBaseResult {
@@ -90,6 +96,7 @@ export interface CutSummaryFields {
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
+    motion?: MotionSummary;
     speed?: number;
     transitionOut?: CutSummaryTransitionOut;
     at?: number;
@@ -284,6 +291,14 @@ export function buildLayerSummaryBase(
             warn(`[akari-preview] ${label}.perspective を無視しました（corners が不正/退化四角形です）`, record.perspective);
         }
     }
+    if (record.mask !== undefined) {
+        if (typeof record.mask === 'string' && record.mask.trim()) {
+            base.mask = record.mask;
+        } else {
+            warn(`[akari-preview] ${label}.mask を無視しました（非空文字列ではありません）`, record.mask);
+        }
+    }
+    if (isPlainObject(record.motion)) base.motion = record.motion;
     if (record.keyframes !== undefined) {
         const keyframes = normalizeLayerKeyframesForSummary(record.keyframes);
         if (keyframes) {
@@ -383,6 +398,7 @@ export function buildCutSummaryFields(
             warn('[akari-preview] cut.perspective を無視しました（corners が不正/退化四角形です）', record.perspective);
         }
     }
+    if (isPlainObject(record?.motion)) fields.motion = record.motion;
     if (record?.keyframes !== undefined) {
         const keyframes = normalizeLayerKeyframesForSummary(record.keyframes);
         if (keyframes) {

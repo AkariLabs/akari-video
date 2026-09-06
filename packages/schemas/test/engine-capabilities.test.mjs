@@ -19,6 +19,8 @@ const canonicalPaths = new Set([
   ...ITEM_SOURCE_V2_KEYS.map((key) => `tracks[].items[].source.${key}`),
   ...KEYFRAME_V2_KEYS.map((key) => `tracks[].items[].keyframes[].${key}`),
 ]);
+// Spatial effects have a dedicated nested capability below the generated item-level adjust key.
+const capabilityPaths = new Set([...canonicalPaths, 'tracks[].items[].adjust.fx']);
 const appliesToVocabulary = new Set(["cuts", "layers", "overlays", "baked", "audio", "captions", "group"]);
 
 test("engine capability table declares the version, engines, and status vocabulary", () => {
@@ -27,14 +29,15 @@ test("engine capability table declares the version, engines, and status vocabula
   assert.deepEqual(table.statuses, ["consumed", "partial", "ignored", "other-subsystem"]);
 });
 
-test("all 66 generated item, source, and keyframe keys have a capability row", () => {
-  assert.equal(canonicalPaths.size, 66);
+test("all 68 generated item, source, and keyframe keys have a capability row", () => {
+  assert.equal(canonicalPaths.size, 68);
   const covered = new Set(table.fields.map((field) => field.path));
+  assert.ok(covered.has('tracks[].items[].adjust.fx'));
   assert.deepEqual([...canonicalPaths].filter((path) => !covered.has(path)), []);
 });
 
 test("capability rows cannot invent paths outside the generated v2 key inventory", () => {
-  assert.deepEqual(table.fields.filter((field) => !canonicalPaths.has(field.path)), []);
+  assert.deepEqual(table.fields.filter((field) => !capabilityPaths.has(field.path)), []);
 });
 
 test("every capability row uses only declared engine status values", () => {

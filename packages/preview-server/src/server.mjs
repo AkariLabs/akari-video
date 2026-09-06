@@ -473,7 +473,7 @@ async function readFrameEnginePreviewEdit(filePath) {
     warn: warning => console.warn('[preview] ' + warning),
   });
   latestPreviewAudioSummary = audioSummary;
-  const speechWarnings = audioSummary.warnings;
+  const speechWarnings = [...audioSummary.warnings, ...(read.data.frameEngine?.warnings ?? [])];
   prepared.warnings.push(...speechWarnings);
   const intake = {};
   const skipped = [];

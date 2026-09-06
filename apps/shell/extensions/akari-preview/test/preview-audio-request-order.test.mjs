@@ -73,9 +73,17 @@ function harness(resultFor = () => ({ state: 'queued' }), streamFor) {
     const Host = vm.runInNewContext(`(class { ${body} })`, {
         ...bindings,
         console: { warn: (...args) => warnings.push(args) },
-        // No captions or visual overlays in this audio fixture.
-        exports: { normalizePreviewCaptionClock: captions => captions },
+        // No captions or visual overlays in these fixtures; retain the real image classifier for layers.
+        exports: {
+            normalizePreviewCaptionClock: captions => captions,
+            isImageLayerSrc: vm.runInNewContext([
+                compiled.match(/^const IMAGE_LAYER_SRC_PATTERN = .*$/mu)[0],
+                compiled.match(/^const isImageLayerSrc = .*$/mu)[0],
+                'isImageLayerSrc;'
+            ].join('\n'))
+        },
         EMPTY_SUMMARY: { output: { width: 1280, height: 720, fps: 30 } },
+        LAYER_BLEND_TO_CSS: new Map([['normal', 'normal']]),
         setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; },
         clearTimeout: id => timers.delete(id)
     });
@@ -121,6 +129,31 @@ function harness(resultFor = () => ({ state: 'queued' }), streamFor) {
     };
     return { host, calls, requests, warnings, load, timers, poll };
 }
+
+test('loadPreviewModel streams a projected relative mask path into layer.mask and retains the asset', async () => {
+    const streams = [];
+    const f = harness(() => ({ state: 'not-needed' }), request => {
+        streams.push(request.assetUri);
+        return { id: request.assetUri, url: `stream://asset/${streams.length}` };
+    });
+    f.host.resolveStreamVideoUri = async uri => uri;
+    const edit = toV2Edit({
+        version: 1,
+        output: { width: 1280, height: 720, fps: 30 },
+        sources: [{ id: 'camera', path: 'camera.mp4' }, { id: 'maskgrad', path: 'assets/mask.mp4' }],
+        cuts: [{ src: 'camera', in: 0, out: 4 }],
+        layers: [{ id: 'masked', t: 0, duration: 4, kind: 'video',
+            src: 'assets/red.mp4', mask: 'assets/mask.mp4' }],
+        overlays: [], audio: {}
+    });
+    const model = await f.load(edit);
+    const maskUri = 'file:///project/assets/mask.mp4';
+    const maskIndex = streams.indexOf(maskUri);
+    assert.ok(maskIndex >= 0, JSON.stringify(f.warnings));
+    assert.equal(model.summary.layers.find(layer => layer.id === 'masked').mask, `stream://asset/${maskIndex + 1}`);
+    assert.ok(model.assetUris.some(uri => uri.toString() === maskUri));
+    assert.equal(f.warnings.length, 0, JSON.stringify(f.warnings));
+});
 
 test('loadPreviewModel issues the combined fixture in first-use order and retains pending metadata', async () => {
     const f = harness(name => ({ state: 'queued', key: name, probe: { fingerprint: `probe:${name}` } }));

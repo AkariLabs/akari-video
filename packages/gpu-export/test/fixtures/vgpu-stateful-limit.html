@@ -1,0 +1,63 @@
+<div class="vgpu-fx" style="position:absolute;inset:0">
+<!-- AKARI original deterministic trail shader; replay limit fixture. -->
+<canvas></canvas>
+<div data-akari-vgpu-fallback style="display:none">WebGPU effect unavailable</div>
+<script type="application/json" data-akari-vgpu-scene>
+{
+  "version": 0,
+  "mode": "stateful",
+  "alphaMode": "premultiplied",
+  "seed": 1234,
+  "maxReplaySteps": 5,
+  "uniforms": {
+    "stir": 1
+  },
+  "state": [
+    {
+      "id": "trail",
+      "kind": "buffer",
+      "bytes": 4096
+    }
+  ],
+  "passes": [
+    {
+      "id": "init",
+      "kind": "init",
+      "writes": [
+        "trail"
+      ],
+      "dispatch": [
+        16,
+        1,
+        1
+      ],
+      "wgsl": "@compute @workgroup_size(64)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (id.x >= 1024u) { return; }\n  let x = (f32(id.x) + 0.5) / 1024.0;\n  let center = 0.5 + 0.15 * sin(akari.seed);\n  trail_out[id.x] = exp(-pow((x - center) * 24.0, 2.0));\n}"
+    },
+    {
+      "id": "advect",
+      "kind": "compute",
+      "reads": [
+        "trail"
+      ],
+      "writes": [
+        "trail"
+      ],
+      "dispatch": [
+        16,
+        1,
+        1
+      ],
+      "wgsl": "struct Params { stir: f32 };\n@group(0) @binding(1) var<uniform> params: Params;\n@compute @workgroup_size(64)\nfn main(@builtin(global_invocation_id) id: vec3u) {\n  if (id.x >= 1024u) { return; }\n  let x = (f32(id.x) + 0.5) / 1024.0;\n  let center = 0.5 + 0.32 * sin(akari.time * 2.0 + akari.seed * 0.001);\n  trail_out[id.x] = trail_in[id.x] * exp(-akari_state.dt * 2.0)\n    + params.stir * akari_state.dt * 3.0 * exp(-pow((x - center) * 32.0, 2.0));\n}"
+    },
+    {
+      "id": "display",
+      "kind": "fragment",
+      "reads": [
+        "trail"
+      ],
+      "wgsl": "@fragment fn fs_main(@builtin(position) p: vec4f) -> @location(0) vec4f {\n  let uv = akari_uv(p);\n  let density = trail_in[min(u32(uv.x * 1024.0), 1023u)];\n  let alpha = clamp(density * exp(-pow((uv.y - 0.5) * 8.0, 2.0)), 0.0, 1.0);\n  return vec4f(vec3f(0.15, 0.7, 1.0) * alpha, alpha);\n}"
+    }
+  ]
+}
+</script>
+</div>

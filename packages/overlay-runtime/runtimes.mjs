@@ -66,6 +66,21 @@ export const runtimes = [
       else ctx.validateReference(backdrop);
     },
   },
+  {
+    id: "vgpu", declaration: { attr: "data-akari-vgpu-scene" }, browserGlobal: "vgpuRuntime",
+    scripts: [
+      { path: "src/vendor/vgpu-bundle.js" },
+      { path: "src/vgpu-runtime.js", exportSource: exportDrawingSource },
+    ],
+    usesVideoTextures: false,
+    exportRenderOptions: edit => `{ fps: ${edit.output.fps} }`,
+    prepare: "probe",
+    appliesTo: () => true,
+    validate(descriptor, ctx) {
+      // JSON object validation is shared; only one declaration is allowed.
+      if (!ctx.first) { ctx.fail("data-akari-vgpu-scene は1個までです"); return; }
+    },
+  },
 ];
 // Shared by the asset CLI and in-process callers (including test-only entries).
 export function validateRuntimeDeclarations(html, ctx) {

@@ -62,3 +62,8 @@ export async function launchGpuExport(launcher, options, dependencies = {}) {
     argumentBuilder: dependencies.argumentBuilder ?? buildGpuElectronArguments,
   });
 }
+
+// WebGPU failures must retain their cause instead of selecting the unverified OSR path.
+export function isVgpuFailure(error) {
+  return /VGPU-/.test(String(error?.message ?? error));
+}

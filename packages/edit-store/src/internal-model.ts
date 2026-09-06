@@ -431,6 +431,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
             lane: track.lane,
             z: track.z,
             ...(track.name !== undefined ? { name: track.name } : {}),
+            ...(track.muted === undefined ? {} : { muted: track.muted }),
             origin: 'declared' as const,
             ...('content' in track ? { content: { from: 'captions.json' as const } } : {}),
             items,
@@ -1397,6 +1398,7 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
     let audioBgm: EditAudioBgm | undefined;
 
     for (const track of internal.tracks) {
+        if (track.lane === 'audio' && track.muted === true) continue;
         for (const item of track.items) {
             const value = item.legacy.value;
             if (value === undefined) {
@@ -1426,7 +1428,11 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                             layers.push({ index: item.legacy.index, value: value as EditLayer });
                             break;
                         default:
-                            cuts.push({ index: item.legacy.index, value: value as EditCut });
+                            cuts.push({
+                                index: item.legacy.index,
+                                value: (track.lane === 'visual' && track.muted === true
+                                    ? { ...value, mute: true } : value) as EditCut
+                            });
                             break;
                     }
                     break;

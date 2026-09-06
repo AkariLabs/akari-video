@@ -143,7 +143,7 @@ function validateAdjust(value, label) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  const allowedKeys = new Set(["basic", "lut", "sections", "curves", "wheels", "hue"]);
+  const allowedKeys = new Set(["basic", "lut", "sections", "curves", "wheels", "hue", "fx"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
   }
@@ -190,7 +190,7 @@ function validateAdjust(value, label) {
     if (!isPlainObject(sections)) {
       fail(`${label}.sections は object である必要があります`);
     } else {
-      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue"]);
+      const sectionKeys = new Set(["basic", "lut", "curves", "wheels", "hue", "fx"]);
       for (const key of Object.keys(sections)) {
         if (!sectionKeys.has(key)) fail(`${label}.sections に未知のキーがあります: ${key}`);
       }
@@ -206,7 +206,7 @@ function validateAdjust(value, label) {
 // Intentional dependency-free duplicate of the closed adjustV1 structure.
 function validateAdjustV1Sections(value, path) {
   if (!isPlainObject(value)) return;
-  const report = (section, check, at, message) => fail(at + ' ' + message);
+  const report = (section, check, at, message) => fail(at + ' ' + (section === 'fx' ? 'adjust.fx.' + check + ': ' : '') + message);
   const object = (v, keys, section, at) => {
     if (!isPlainObject(v)) { report(section, 'structure', at, 'は object である必要があります'); return false; }
     for (const key of Object.keys(v)) if (!keys.includes(key)) report(section, 'unknown-key', at + '.' + key, 'は未知のキーです');
@@ -215,6 +215,37 @@ function validateAdjustV1Sections(value, path) {
   const number = (v, min, max, section, at) => {
     if (!isFiniteNumber(v) || v < min || v > max) report(section, 'range', at, 'は ' + min + ' から ' + max + ' の範囲の有限数である必要があります');
   };
+  if (Object.hasOwn(value, 'fx')) {
+    const at = path + '.fx';
+    if (!Array.isArray(value.fx)) {
+      report('fx', 'structure', at, 'must be an array');
+    } else {
+      if (value.fx.length > 8) report('fx', 'max-items', at, 'must contain at most 8 effects');
+      const ranges = {
+        vignette: { amount: [-1, 1], midpoint: [0, 1], roundness: [-1, 1], feather: [0, 1] },
+        blur: { px: [0, 50] },
+        grain: { amount: [0, 1], size: [0.5, 4] },
+        sharpen: { amount: [0, 1] },
+      };
+      const seen = new Set();
+      for (const [index, fx] of value.fx.entries()) {
+        const fxPath = at + '[' + index + ']';
+        if (!isPlainObject(fx)) { report('fx', 'structure', fxPath, 'must be an object'); continue; }
+        if (typeof fx.id !== 'string' || !Object.hasOwn(ranges, fx.id)) {
+          report('fx', 'id', fxPath + '.id', 'unknown effect id'); continue;
+        }
+        if (seen.has(fx.id)) report('fx', 'duplicate-id', fxPath + '.id', 'duplicate effect id: ' + fx.id);
+        seen.add(fx.id);
+        const params = ranges[fx.id];
+        for (const key of Object.keys(fx)) {
+          if (key !== 'id' && !Object.hasOwn(params, key)) report('fx', 'unknown-key', fxPath + '.' + key, 'unknown effect parameter');
+        }
+        for (const [key, [min, max]] of Object.entries(params)) {
+          if (Object.hasOwn(fx, key)) number(fx[key], min, max, 'fx', fxPath + '.' + key);
+        }
+      }
+    }
+  }
   for (const section of ['curves', 'hue']) {
     if (!Object.hasOwn(value, section)) continue;
     const channels = value[section], at = path + '.' + section;

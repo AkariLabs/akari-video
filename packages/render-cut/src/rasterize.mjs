@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
+import { embedFragmentAssets } from "./fragment-assets.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -25,25 +26,36 @@ const MOTION_VOCAB_CSS_PATH = resolve(
 );
 // One builder owns export spelling and whitespace for every manifest entry.
 // Stable per-id names preserve existing sheet bytes and diagnostic consumers.
-function buildRuntimeBlocks(entry) {
+function buildRuntimeBlocks(entry, edit) {
   const id = entry.id;
   if (!/^[a-z][A-Za-z0-9_]*$/.test(id) || !/^[A-Za-z_$][\w$]*$/.test(entry.browserGlobal)) {
     throw new TypeError("runtime export identifiers must be JavaScript identifiers");
   }
   const title = id[0].toUpperCase() + id.slice(1);
   const sceneLabel = entry.exportSceneLabel ?? id;
-  const drawOptions = entry.exportRenderOptions === false ? "" : ", {}";
+  const drawOptions = entry.exportRenderOptions === false ? ""
+    : typeof entry.exportRenderOptions === "function" ? `, ${entry.exportRenderOptions(edit)}`
+    : ", {}";
+  const prepareStep = entry.prepare
+    ? `\n      await window.akari.${entry.browserGlobal}.${entry.prepare}();`
+    : "";
+  const readyCheck = entry.prepare
+    ? `\n        if (window.akari.${entry.browserGlobal}.inspect(${id}Container).status !== 'ready') {\n          throw new Error('${id.toUpperCase()}-RENDER: overlay is not ready');\n        }`
+    : "";
   return {
     seekCollector: `\n      const pending${title}Draws = [];`,
     seekBranch: `\n        const ${id}Container = container.querySelector(':scope > .scene-content');\n        if (active && ${id}Container?.querySelector('script[type="application/json"][${entry.declaration.attr}]')) {\n          pending${title}Draws.push([${id}Container, seconds - start]);\n        }`,
-    drawStep: `\n      for (const [${id}Container, localSeconds] of pending${title}Draws) {\n        window.akari.${entry.browserGlobal}.render(${id}Container, localSeconds${drawOptions});\n      }`,
-    readySetup: `\n    const ${id}Containers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][${entry.declaration.attr}]')\n    );\n    for (const container of ${id}Containers) {\n      window.akari.${entry.browserGlobal}.render(container, 0);\n    }\n    async function waitFor${title}Container(container) {\n      while (true) {\n        const status = window.akari.${entry.browserGlobal}.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-${id}] ${sceneLabel} scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-${id}] ${sceneLabel} scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`,
-    readyWait: `\n      await Promise.all(${id}Containers.map(waitFor${title}Container));`,
+    drawStep: `${prepareStep}\n      for (const [${id}Container, localSeconds] of pending${title}Draws) {\n        window.akari.${entry.browserGlobal}.render(${id}Container, localSeconds${drawOptions});${readyCheck}\n      }`,
+    readySetup: entry.prepare ? "" : `\n    const ${id}Containers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][${entry.declaration.attr}]')\n    );\n    for (const container of ${id}Containers) {\n      window.akari.${entry.browserGlobal}.render(container, 0);\n    }\n    async function waitFor${title}Container(container) {\n      while (true) {\n        const status = window.akari.${entry.browserGlobal}.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-${id}] ${sceneLabel} scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-${id}] ${sceneLabel} scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`,
+    readyWait: entry.prepare ? "" : `\n      await Promise.all(${id}Containers.map(waitFor${title}Container));`,
   };
 }
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const orderedOverlays = orderOverlaysByTrack(overlays);
+  const orderedOverlays = orderOverlaysByTrack(overlays).map((overlay) => overlay.htmlPath ? {
+    ...overlay,
+    html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
+  } : overlay);
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
@@ -126,7 +138,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     ? `\n  <script>${inlineScript(readFileSync(SLOT_PARAMS_PATH, "utf8"))}</script>`
       + `\n  <script>(function(){for(const content of document.querySelectorAll('.akari-overlay-container[data-akari-params] > .scene-content')){const params=JSON.parse(content.parentElement.dataset.akariParams);content.replaceWith(window.akari.slotParams.renderTextSlots(content,params));}})();</script>`
     : "";
-  const blocks = activeRuntimes.map(buildRuntimeBlocks);
+  const blocks = activeRuntimes.map(entry => buildRuntimeBlocks(entry, edit));
   const runtimeSeekCollector = blocks.map(block => block.seekCollector).join("");
   const runtimeSeekBranch = blocks.map(block => block.seekBranch).join("");
   const runtimeDrawStep = blocks.map(block => block.drawStep).join("");

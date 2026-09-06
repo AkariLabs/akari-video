@@ -112,8 +112,8 @@ test('tick: CSS 同期を通したうえで three の描画も従来どおり呼
     return calls;
   });
   assert.deepEqual(observations,[
-    {id:'probe',seconds:1.5,options:{syncVideos:true,maxRenderSize:720},cssTimes:[1500]},
-    {id:'probe',seconds:0.5,options:{syncVideos:true,maxRenderSize:720},cssTimes:[500]},
+    {id:'probe',seconds:1.5,options:{syncVideos:true,maxRenderSize:720,previewScale:0.5,fps:30},cssTimes:[1500]},
+    {id:'probe',seconds:0.5,options:{syncVideos:true,maxRenderSize:720,previewScale:0.5,fps:30},cssTimes:[500]},
   ]);
   assert.deepEqual(errors,[]);
 });

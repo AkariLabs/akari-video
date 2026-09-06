@@ -14,6 +14,7 @@ import type {
 } from '../types.js';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import type { ParsedCubeLut } from '../look/cube.js';
+import type { ResolvedAdjustFx } from '../adjust/fx.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
 import { dissolveNoiseField } from './dissolve-noise.js';
 
@@ -160,7 +161,14 @@ class WebGLSurface implements GPUFrameSurface {
   }
 }
 
-interface CutUniforms {
+interface AdjustFxUniforms {
+  fxCount: WebGLUniformLocation | null;
+  fxKinds: WebGLUniformLocation | null;
+  fxParams: WebGLUniformLocation | null;
+  fxSpatial: WebGLUniformLocation | null;
+}
+
+interface CutUniforms extends AdjustFxUniforms {
   framing: WebGLUniformLocation | null;
   transform: WebGLUniformLocation | null;
   opacity: WebGLUniformLocation | null;
@@ -191,6 +199,7 @@ interface BaseProgramState {
   program: WebGLProgram;
   cutUniforms: readonly CutUniforms[];
   output: WebGLUniformLocation;
+  frameIndex: WebGLUniformLocation | null;
   progress: WebGLUniformLocation | null;
   dissolveNoise: WebGLUniformLocation | null;
   secondary: boolean;
@@ -255,6 +264,139 @@ vec3 yuv709Unclamped(float y, vec2 chroma) {
 vec3 yuv709(float y, vec2 chroma) {
   return clamp(yuv709Unclamped(y, chroma), 0.0, 1.0);
 }`;
+
+// Kind is also the enable flag: 0 bypass, 1 vignette, 2 blur, 3 grain, 4 sharpen.
+// The schema allows each id once, hence at most two spatial stages. Evaluate preceding
+// stages at every neighbour as well as the centre: a later blur must also blur earlier
+// grain/vignette/sharpen. This bounds the call graph without recursion or another FBO.
+function adjustFxGlsl(suffix = ''): string {
+  return `
+uniform int fxCount;
+uniform int fxKinds[8];
+uniform vec4 fxParams[8];
+uniform ivec2 fxSpatial;
+uint fxHash(uint value) {
+  value ^= value >> 16u;
+  value *= 0x7feb352du;
+  value ^= value >> 15u;
+  value *= 0x846ca68bu;
+  return value ^ (value >> 16u);
+}
+vec2 fxClamp(vec2 sourceUv) {
+  vec4 rect = fxCropRect();
+  // Keep bilinear footprints inside the crop, including on sub-texel crops.
+  vec2 inset = min(0.5 / fxSourceSize(), rect.zw * 0.5);
+  return clamp(sourceUv, rect.xy + inset, rect.xy + rect.zw - inset);
+}
+vec2 fxLocal(vec2 sourceUv) {
+  vec4 rect = fxCropRect();
+  return (sourceUv - rect.xy) / max(rect.zw, vec2(0.000001));
+}
+vec3 fxPoints(vec3 rgb, vec2 sourceUv, vec2 local, int start, int end) {
+  for (int i = 0; i < 8; i++) {
+    if (i < start) continue;
+    if (i >= end) break;
+    vec4 params = fxParams[i];
+    if (fxKinds[i] == 1) {
+      vec4 rect = fxCropRect();
+      vec2 box = rect.zw * fxSourceSize();
+      vec2 delta = abs(local - 0.5) * 2.0;
+      float roundness = (params.z + 1.0) * 0.5;
+      vec2 aspect = mix(vec2(1.0), box / max(min(box.x, box.y), 0.000001), roundness);
+      float distance = mix(max(delta.x, delta.y), length(delta * aspect), roundness);
+      float falloff = params.w == 0.0 ? step(params.y, distance)
+        : smoothstep(params.y, params.y + params.w, distance);
+      rgb = clamp(rgb - vec3(params.x * falloff), 0.0, 1.0);
+    } else if (fxKinds[i] == 3) {
+      vec2 outputPixel = fxSourceToPixel(sourceUv);
+      uvec2 cell = uvec2(ivec2(floor(outputPixel / params.y))) + uvec2(frameIndex);
+      uint bits = fxHash(cell.x ^ fxHash(cell.y));
+      float noise = float(bits >> 8u) / 16777215.0 * 2.0 - 1.0;
+      rgb = clamp(rgb + vec3(noise * params.x * 0.15), 0.0, 1.0);
+    }
+  }
+  return rgb;
+}
+vec2 fxTap(vec2 sourceUv, int stage, int tap) {
+  if (fxKinds[stage] == 2) {
+    vec2 grid = vec2(float(tap % 5), float(tap / 5)) * 0.5 - 1.0;
+    float radius = fxParams[stage].x * outputSize.x / 1920.0;
+    // Map the output-pixel radius back into source texels (also under scale/rotation/perspective).
+    return fxClamp(fxPixelToSource(fxSourceToPixel(sourceUv) + grid * radius));
+  }
+  vec2 grid = vec2(float(tap % 3), float(tap / 3)) - 1.0;
+  return fxClamp(sourceUv + grid / fxSourceSize());
+}
+vec3 fxFirst(vec3 rgb, vec2 sourceUv, vec2 local, int end) {
+  int first = fxSpatial.x;
+  if (first < 0 || first >= end) return fxPoints(rgb, sourceUv, local, 0, end);
+  rgb = fxPoints(rgb, sourceUv, local, 0, first);
+  int taps = fxKinds[first] == 2 ? 25 : 9;
+  vec3 sum = vec3(0.0);
+  for (int tap = 0; tap < 25; tap++) {
+    if (tap >= taps) break;
+    vec2 q = fxTap(sourceUv, first, tap);
+    sum += fxPoints(fxSampleAdjusted(q), q, fxLocal(q), 0, first);
+  }
+  vec3 average = sum / float(taps);
+  rgb = fxKinds[first] == 2 ? average
+    : clamp(rgb + fxParams[first].x * (rgb - average), 0.0, 1.0);
+  return fxPoints(rgb, sourceUv, local, first + 1, end);
+}
+vec3 applyFx(vec3 rgb, vec2 sourceUv, vec2 local) {
+  if (fxCount == 0) return rgb;
+  int second = fxSpatial.y;
+  if (second < 0) return fxFirst(rgb, sourceUv, local, fxCount);
+  rgb = fxFirst(rgb, sourceUv, local, second);
+  int taps = fxKinds[second] == 2 ? 25 : 9;
+  vec3 sum = vec3(0.0);
+  for (int tap = 0; tap < 25; tap++) {
+    if (tap >= taps) break;
+    vec2 q = fxTap(sourceUv, second, tap);
+    sum += fxFirst(fxSampleAdjusted(q), q, fxLocal(q), second);
+  }
+  vec3 average = sum / float(taps);
+  rgb = fxKinds[second] == 2 ? average
+    : clamp(rgb + fxParams[second].x * (rgb - average), 0.0, 1.0);
+  return fxPoints(rgb, sourceUv, local, second + 1, fxCount);
+}`.replace(/\b(fx\w+|applyFx)\b/gu, '$1' + suffix);
+}
+
+function baseAdjustFxGlsl(index: number): string {
+  return `
+vec4 fxCropRect${index}() {
+  if (layerStyle${index} == 1) return crop${index};
+  vec2 lo = clamp(canvasToSource(framing${index}.xy, sourceSize${index}), 0.0, 1.0);
+  vec2 hi = clamp(canvasToSource(framing${index}.xy + framing${index}.zw, sourceSize${index}), 0.0, 1.0);
+  return vec4(lo, max(hi - lo, vec2(0.000001)));
+}
+vec2 fxSourceSize${index}() { return sourceSize${index}; }
+vec2 fxPixelToSource${index}(vec2 pixel) {
+  vec2 p = pixel / outputSize;
+  if (layerStyle${index} == 1) return crop${index}.xy + inverseBox(p, transform${index}, box${index}) * crop${index}.zw;
+  return canvasToSource(inverseVisual(p, transform${index}, framing${index}), sourceSize${index});
+}
+vec2 fxSourceToPixel${index}(vec2 sourceUv) {
+  vec2 pixel;
+  if (layerStyle${index} == 1) {
+    pixel = ((sourceUv - crop${index}.xy) / crop${index}.zw - 0.5) * box${index};
+  } else {
+    float fit = min(outputSize.x / sourceSize${index}.x, outputSize.y / sourceSize${index}.y);
+    vec2 canvasPoint = (sourceUv - 0.5) * sourceSize${index} * fit / outputSize + 0.5;
+    pixel = ((canvasPoint - framing${index}.xy) / framing${index}.zw - 0.5) * outputSize * transform${index}.z;
+  }
+  float angle = transform${index}.w;
+  return mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * pixel + outputSize * 0.5 + transform${index}.xy;
+}
+vec3 fxSampleAdjusted${index}(vec2 sourceUv) {
+  vec2 q = unrotate(sourceUv, rotation${index});
+  if (format${index} == 2) return applyAdjust${index}(texture(rgba${index}, q).rgb);
+  vec2 chroma = format${index} == 1 ? texture(u${index}, q).rg : vec2(texture(u${index}, q).r, texture(v${index}, q).r);
+  return applyAdjust${index}(yuv709(texture(y${index}, q).r, chroma));
+}
+${adjustFxGlsl(String(index))}`;
+}
+
 const baseFragmentPrefix = (type: ResolvedTransition['type']) => `#version 300 es
 precision highp float;
 precision highp int;
@@ -278,6 +420,7 @@ uniform vec4 transform1;
 uniform float opacity0;
 uniform float opacity1;
 uniform vec2 outputSize;
+uniform uint frameIndex;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int rotation0;
@@ -343,6 +486,8 @@ vec3 applyAdjust1(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize1 - 1.0) + 0.5) / adjustLutSize1;
   return mix(rgb, texture(adjustLut1, coord).rgb, adjustLutIntensity1);
 }
+${baseAdjustFxGlsl(0)}
+${baseAdjustFxGlsl(1)}
 vec4 sample0(vec2 p) {
   vec2 q;
   if (layerStyle0 == 1) {
@@ -355,10 +500,19 @@ vec4 sample0(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize0);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
+  vec2 sourceUv = q;
+  vec4 rect = fxCropRect0();
+  vec2 local = (sourceUv - rect.xy) / rect.zw;
   q = unrotate(q, rotation0);
-  if (format0 == 2) return vec4(applyAdjust0(texture(rgba0, q).rgb), opacity0);
+  if (format0 == 2) {
+    vec3 rgb = applyAdjust0(texture(rgba0, q).rgb);
+    rgb = applyFx0(rgb, sourceUv, local);
+    return vec4(rgb, opacity0);
+  }
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(applyAdjust0(yuv709(texture(y0, q).r, chroma)), opacity0);
+  vec3 rgb = applyAdjust0(yuv709(texture(y0, q).r, chroma));
+  rgb = applyFx0(rgb, sourceUv, local);
+  return vec4(rgb, opacity0);
 }
 vec4 sample1(vec2 p) {
   vec2 q;
@@ -372,10 +526,19 @@ vec4 sample1(vec2 p) {
     q = canvasToSource(canvasPoint, sourceSize1);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
   }
+  vec2 sourceUv = q;
+  vec4 rect = fxCropRect1();
+  vec2 local = (sourceUv - rect.xy) / rect.zw;
   q = unrotate(q, rotation1);
-  if (format1 == 2) return vec4(applyAdjust1(texture(rgba1, q).rgb), opacity1);
+  if (format1 == 2) {
+    vec3 rgb = applyAdjust1(texture(rgba1, q).rgb);
+    rgb = applyFx1(rgb, sourceUv, local);
+    return vec4(rgb, opacity1);
+  }
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(applyAdjust1(yuv709(texture(y1, q).r, chroma)), opacity1);
+  vec3 rgb = applyAdjust1(yuv709(texture(y1, q).r, chroma));
+  rgb = applyFx1(rgb, sourceUv, local);
+  return vec4(rgb, opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
 vec3 A(vec2 p) { return overBlack(sample0(p)); }
@@ -583,6 +746,8 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform vec2 outputSize;
+uniform uint frameIndex;
+uniform vec2 fxSourceDimensions;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
@@ -625,6 +790,25 @@ vec3 applyAdjust(vec3 rgb) {
   vec3 coord = (unit * (adjustLutSize - 1.0) + 0.5) / adjustLutSize;
   return mix(rgb, texture(adjustLut, coord).rgb, adjustLutIntensity);
 }
+vec4 fxCropRect() { return cropRect; }
+vec2 fxSourceSize() { return fxSourceDimensions; }
+vec2 fxPixelToSource(vec2 pixel) {
+  vec3 h = inverseMap * vec3(pixel, 1.0);
+  return cropRect.xy + h.xy / max(h.z, 0.000001) * cropRect.zw;
+}
+vec2 fxSourceToPixel(vec2 sourceUv) {
+  vec2 local = (sourceUv - cropRect.xy) / cropRect.zw;
+  vec3 h = inverse(inverseMap) * vec3(local, 1.0);
+  return h.xy / max(h.z, 0.000001);
+}
+vec3 fxSampleAdjusted(vec2 sourceUv) {
+  vec2 q = unrotate(sourceUv, layerRotation);
+  if (inputKind == 1) return applyAdjust(texture(image, q).rgb);
+  if (yuvFormat == 2) return applyAdjust(texture(lrgba, q).rgb);
+  vec2 chroma = yuvFormat == 1 ? texture(lu, q).rg : vec2(texture(lu, q).r, texture(lv, q).r);
+  return applyAdjust(yuv709(texture(ly, q).r, chroma));
+}
+${adjustFxGlsl()}
 void main() {
   vec4 dst = texture(backdrop, uv);
   vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
@@ -653,6 +837,7 @@ void main() {
     src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
   src.rgb = applyAdjust(src.rgb);
+  src.rgb = applyFx(src.rgb, sourceUv, local);
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
@@ -745,6 +930,12 @@ const LUT_UNIT = 11;
 const DISSOLVE_NOISE_UNIT = 12;
 const BASE_ADJUST_LUT_UNITS = [LUT_UNIT, 13] as const;
 const REQUIRED_TEXTURE_UNITS = BASE_ADJUST_LUT_UNITS[1] + 1;
+
+function adjustFxFrameIndex(plan: EvaluationPlan): number {
+  // Animated grain requires a supplied output frame index; absent metadata keeps seed 0.
+  // Never use draw count: seeks and retries must agree.
+  return Number.isSafeInteger(plan.frameIndex) ? Math.max(0, plan.frameIndex!) >>> 0 : 0;
+}
 
 function isVideoFrame(value: NativeYuvFrame | StillImageBitmap | VideoFrame): value is VideoFrame {
   return 'displayWidth' in value && 'displayHeight' in value && 'close' in value;
@@ -1074,6 +1265,7 @@ export class WebGL2Compositor implements CompositorBackend {
       gl.uniform1i(gl.getUniformLocation(program, name), unit),
     );
     const cutUniforms = [0, 1].map((index): CutUniforms => ({
+      ...this.adjustFxUniforms(program, String(index)),
       framing: gl.getUniformLocation(program, `framing${index}`),
       transform: gl.getUniformLocation(program, `transform${index}`),
       opacity: gl.getUniformLocation(program, `opacity${index}`),
@@ -1095,6 +1287,7 @@ export class WebGL2Compositor implements CompositorBackend {
       program,
       cutUniforms,
       output: uniform(gl, program, 'outputSize'),
+      frameIndex: gl.getUniformLocation(program, 'frameIndex'),
       progress: gl.getUniformLocation(program, 'transitionProgress'),
       dissolveNoise: gl.getUniformLocation(program, 'dissolveNoise'),
       secondary: false,
@@ -1336,6 +1529,7 @@ export class WebGL2Compositor implements CompositorBackend {
     );
     this.gl.uniform1f(u.opacity, v.opacity);
     this.configureAdjustLut(v.adjustLut, adjustLutUnit, u);
+    this.configureAdjustFx(v.adjustFx, u);
     // issue #39: layer-style cuts sample through crop / box (layer program geometry); others keep
     // framing / fit untouched. The extra uniforms are inert when layerStyle is 0.
     if (v.layerStyle) {
@@ -1374,6 +1568,47 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
     gl.uniform1f(uniforms.adjustLutSize, lut.size);
     gl.uniform1f(uniforms.adjustLutIntensity, 1);
+  }
+  private adjustFxUniforms(program: WebGLProgram, suffix = ''): AdjustFxUniforms {
+    const location = (name: string) => this.gl.getUniformLocation(program, name);
+    return {
+      fxCount: location(`fxCount${suffix}`),
+      fxKinds: location(`fxKinds${suffix}[0]`),
+      fxParams: location(`fxParams${suffix}[0]`),
+      fxSpatial: location(`fxSpatial${suffix}`),
+    };
+  }
+  private configureAdjustFx(fx: readonly ResolvedAdjustFx[] | undefined, u: AdjustFxUniforms): void {
+    const kinds = new Int32Array(8);
+    const params = new Float32Array(32);
+    const spatial: number[] = [];
+    const count = Math.min(fx?.length ?? 0, 8);
+    for (let i = 0; i < count; i++) {
+      const effect = fx![i]!;
+      switch (effect.id) {
+        case 'vignette':
+          kinds[i] = effect.amount === 0 ? 0 : 1;
+          params.set([effect.amount, effect.midpoint, effect.roundness, effect.feather], i * 4);
+          break;
+        case 'blur':
+          kinds[i] = effect.px === 0 ? 0 : 2;
+          params[i * 4] = effect.px;
+          break;
+        case 'grain':
+          kinds[i] = effect.amount === 0 ? 0 : 3;
+          params.set([effect.amount, effect.size], i * 4);
+          break;
+        case 'sharpen':
+          kinds[i] = effect.amount === 0 ? 0 : 4;
+          params[i * 4] = effect.amount;
+          break;
+      }
+      if (kinds[i] === 2 || kinds[i] === 4) spatial.push(i);
+    }
+    this.gl.uniform1i(u.fxCount, kinds.some(kind => kind !== 0) ? count : 0);
+    this.gl.uniform1iv(u.fxKinds, kinds);
+    this.gl.uniform4fv(u.fxParams, params);
+    this.gl.uniform2i(u.fxSpatial, spatial[0] ?? -1, spatial[1] ?? -1);
   }
   private ensureFbos(w: number, h: number) {
     const shape = `${w}x${h}`;
@@ -1538,6 +1773,7 @@ export class WebGL2Compositor implements CompositorBackend {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
     this.gl.useProgram(baseProgram.program);
     this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
+    this.gl.uniform1ui(baseProgram.frameIndex, adjustFxFrameIndex(plan));
     if (baseProgram.dissolveNoise) {
       this.bind(
         DISSOLVE_NOISE_UNIT,
@@ -1659,6 +1895,9 @@ export class WebGL2Compositor implements CompositorBackend {
       adjustLutSize: uniform(gl, this.layerProgram, 'adjustLutSize'),
       adjustLutIntensity: uniform(gl, this.layerProgram, 'adjustLutIntensity'),
     };
+    const layerFxUniforms = this.adjustFxUniforms(this.layerProgram);
+    const fxSourceDimensionsLoc = uniform(gl, this.layerProgram, 'fxSourceDimensions');
+    const layerFrameIndexLoc = uniform(gl, this.layerProgram, 'frameIndex');
     const blendModes = [
       'normal',
       'screen',
@@ -1771,6 +2010,9 @@ export class WebGL2Compositor implements CompositorBackend {
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
       this.configureAdjustLut(layer.adjustLut, LUT_UNIT, layerAdjustUniforms);
+      this.configureAdjustFx(layer.adjustFx, layerFxUniforms);
+      gl.uniform2f(fxSourceDimensionsLoc, width, height);
+      gl.uniform1ui(layerFrameIndexLoc, adjustFxFrameIndex(plan));
       draw();
       this.recordGlErrors(synchronization);
       current = next;

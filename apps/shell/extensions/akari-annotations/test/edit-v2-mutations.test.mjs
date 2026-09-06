@@ -311,8 +311,30 @@ test('renameTrack は空名なら name キーを落とす', () => {
 });
 
 test('setTrackFlag は v2 exact 語彙に無い UI 状態を edit.json へ混入させない', () => {
-  const result = valid(setTrackFlag(fixture, { trackId: 'v-main', field: 'hidden', value: true }));
-  assert.equal(Object.hasOwn(result.tracks[1], 'hidden'), false);
+  for (const field of ['hidden', 'locked']) {
+    for (const value of [true, false]) {
+      const result = valid(setTrackFlag(fixture, { trackId: 'v-main', field, value }));
+      assert.deepEqual(result, fixture);
+    }
+  }
+});
+
+test('setTrackFlag は muted true を保存し false でキーを削除する', () => {
+  const before = structuredClone(fixture);
+  const trackId = fixture.tracks[0].id;
+  const muted = valid(setTrackFlag(fixture, { trackId, field: 'muted', value: true }));
+  assert.equal(muted.tracks[0].muted, true);
+  assert.deepEqual(fixture, before);
+  const unmuted = valid(setTrackFlag(muted, { trackId, field: 'muted', value: false }));
+  assert.equal(Object.hasOwn(unmuted.tracks[0], 'muted'), false);
+  assert.deepEqual(unmuted, fixture);
+  assert.equal(muted.tracks[0].muted, true);
+});
+
+test('setTrackFlag は存在しない trackId を拒否する', () => {
+  for (const field of ['muted', 'hidden', 'locked']) {
+    assert.throws(() => setTrackFlag(fixture, { trackId: 'missing', field, value: true }), /トラック/u);
+  }
 });
 
 test('stringifyEditV2 は 2 space + 末尾改行で整形する', () => {
