@@ -23299,6 +23299,7 @@ var HttpRangeReader = class {
     fullBodyBytes: 0,
     maxFutureFrames: 0,
     graceWaits: 0,
+    eosFlushes: 0,
     targetSkips: 0,
     droppedTargets: 0
   };
@@ -23888,7 +23889,8 @@ var RangeMp4Source = class _RangeMp4Source {
               const waitResult = await this.waitForTargetOrProgress(
                 decoder,
                 waiter,
-                this.nextDecodeIndex <= decodeCeiling
+                this.nextDecodeIndex <= decodeCeiling,
+                this.nextDecodeIndex >= table.samples.length
               );
               if (waitResult === "needs-supply") break;
               if (waitResult === "grace-expired") {
@@ -23961,11 +23963,15 @@ var RangeMp4Source = class _RangeMp4Source {
       decoder.decodeQueueSize
     );
   }
-  async waitForTargetOrProgress(decoder, waiter, canSupply) {
+  async waitForTargetOrProgress(decoder, waiter, canSupply, atEos) {
     if (waiter.isSettled()) return "target-or-dequeue";
     if (decoder.decodeQueueSize === 0) {
       if (canSupply) return "needs-supply";
       if (waiter.laterFrames > 0) return "grace-expired";
+      if (atEos) {
+        this.shared.reader.stats.eosFlushes += 1;
+        return "grace-expired";
+      }
       this.shared.reader.stats.graceWaits += 1;
       let graceTimer = null;
       const graceExpired = new Promise((resolve) => {
