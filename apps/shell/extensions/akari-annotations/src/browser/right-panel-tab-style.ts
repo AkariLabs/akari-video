@@ -18,7 +18,7 @@
 // タブを「...」オーバーフローメニューへ追い出す。flex の auto マージンは残り空間を
 // 100% 消費するため、後続タブ（インスペクター等）がバー下端ぴったりに押し出され、
 // この判定に必ず引っかかって非表示化する（実測で確認）。そのため中央寄せの計算では
-// 後続タブ 1 枚分の高さを常に確保し、その範囲内でのみ中央へ寄せる。
+// 後続タブ全体の高さを常に確保し、その範囲内でのみ中央へ寄せる。
 //
 // margin 変更後に tabBar.update() を呼ぶ理由: SideTabBar.onResize()（同 tab-bars.ts）は
 // 「一度でも overflow していたら updateTabs() を再実行する」判定を resize イベント自体に
@@ -107,7 +107,7 @@ function watchReviewTabCentering(tabBar: LuminoUpdatable): void {
 
 /**
  * タブバー実高の中央へ注釈タブの上端を合わせる margin-top を算出し、CSS 変数へ反映する。
- * 上限（後続タブ 1 枚分 + gap を確保）と下限（既存アイコン群から最低限離す）でクランプする —
+ * 上限（後続タブ全体 + gap を確保）と下限（既存アイコン群から最低限離す）でクランプする —
  * 詳細は本ファイル先頭のコメント参照。値が変化した（= レイアウトに影響し得た）ときだけ true
  * を返す。
  */
@@ -129,8 +129,12 @@ function applyReviewTabMarginTop(): boolean {
         heightAbove += sibling.getBoundingClientRect().height;
     }
     const tabHeight = tab.getBoundingClientRect().height || FALLBACK_TAB_HEIGHT_PX;
+    let reservedBelow = tab.nextElementSibling ? 0 : FALLBACK_TAB_HEIGHT_PX;
+    for (let sibling = tab.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+        reservedBelow += sibling.getBoundingClientRect().height;
+    }
 
-    const marginTop = `${computeReviewTabMarginTop({ barHeight, heightAbove, tabHeight })}px`;
+    const marginTop = `${computeReviewTabMarginTop({ barHeight, heightAbove, tabHeight, reservedBelow })}px`;
     const changed = document.documentElement.style.getPropertyValue(MARGIN_TOP_VAR) !== marginTop;
     document.documentElement.style.setProperty(MARGIN_TOP_VAR, marginTop);
     return changed;
