@@ -713,14 +713,16 @@ export function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEv
 }
 
 // cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。
-// transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
+// 全画面不透明なソースで transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
 // 現在または途中フレームで下段が見える可能性があるため宣言の存在だけで layers へ退避する。
 // 加えて、アルファを運べるコンテナ（webm / mov — 本製品のマット生成パイプラインの出力形式）は
 // 宣言からは不透明を証明できないため、単位元 transform でも layers へ退避する。単位元 transform の
 // 全画面アルファ webm（例: mask-top.webm）が cuts に残ると、プレビューの平坦化で
 // マットが本編の勝者になり「ソース範囲がほぼ同一の縮退セグメント群」を作って
 // 再生ヘッドが境界で巻き戻る（2026-08-26 akari-reel 実機・15.5s→11.2s ループの真因）。
-// 静止画（png 等）は退避先の layers 経路が video 前提のため対象外（従来どおり cuts に残す）。
+// 静止画は natural size が出力と一致する保証がなく、形式によっては alpha も運ぶため、
+// 全画面不透明を証明できず単位元 transform でも layers へ退避する（jpg / bmp もサイズの理由で同じ）。
+// このパターンはアルファを運べる動画コンテナ用。静止画は isStillImageSourcePath で別途判定する。
 const ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
 
 function isAlphaCapableMediaSourcePath(path: unknown): boolean {
@@ -737,6 +739,7 @@ function needsCrossTrackLayers(item: ItemV2, pathOf?: (sourceId: string) => stri
         || (item.opacity !== undefined && item.opacity < 1)
         || item.keyframes !== undefined
         || (item.source.kind === 'media' && 'mask' in item && item.mask !== undefined)
+        || (item.source.kind === 'media' && isStillImageSourcePath(pathOf?.(item.source.src)))
         || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
 

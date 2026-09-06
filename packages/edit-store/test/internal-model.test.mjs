@@ -797,6 +797,57 @@ test('an alpha-capable webm upper item without any cross-track overlap stays on 
   assert.equal(internal.tracks[1].items[0].legacy.collection, 'cuts');
 });
 
+test('cross-track intersection sends an upper still image to layers even with an identity transform', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'card.png', proxy: null };
+  edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'layers']);
+  assert.deepEqual(projectLegacyEdit(internal).layers.map(layer => layer.id), ['l1']);
+});
+
+test('cross-track intersection sends an upper still image without a transform to layers', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'card.png', proxy: null };
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[1].items[0].legacy.collection, 'layers');
+  assert.deepEqual(projectLegacyEdit(internal).layers.map(layer => layer.id), ['l1']);
+});
+
+test('cross-track intersection sends an opaque JPEG upper item to layers even with an identity transform', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'photo.jpg', proxy: null };
+  edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[1].items[0].legacy.collection, 'layers');
+  assert.deepEqual(projectLegacyEdit(internal).layers.map(layer => layer.id), ['l1']);
+});
+
+test('an upper still image that only touches the lower item at its endpoint stays on cuts', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'card.png', proxy: null };
+  edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  edit.tracks[1].items[0].at = 60; // c1 is [0, 60): touching is not an intersection.
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'cuts']);
+  assert.equal(projectLegacyEdit(internal).layers.length, 0);
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), []);
+});
+
+test('findCrossTrackLayerEvacuations reports the upper still image with its cause and frame interval', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'card.png', proxy: null };
+  edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [{
+    itemId: 'l1',
+    trackId: 'upper',
+    causeItemId: 'c1',
+    causeTrackId: 'base',
+    overlapStartFrames: 15,
+    overlapEndFrames: 45,
+  }]);
+});
+
 test('media intervals that only touch at an endpoint do not classify as overlapping', () => {
   const edit = {
     version: 2,
