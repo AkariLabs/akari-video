@@ -15,7 +15,7 @@
 
 今回の進め方は `.akari/intake.json` に記録されています。`status` が `submitted` のときは、
 そこに書かれた `tasks`（やること）・`target`（仕上がりの尺）・`autonomy`（おまかせの度合い）に
-従って進めます。`autonomy` が `checkpoint`（既定）のときは、企画の承認や書き出しの前などの
+従って進め、`autonomy` が `full-auto` のときは「そのまま = 途中確認なしで書き出しまで進み、事後に capture + lint を添える」として扱います。`autonomy` が `checkpoint`（既定）のときは、企画の承認や書き出しの前などの
 要所で必ず利用者に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、
 フォームまたは対話で確定させてから作業を始めます。
 
