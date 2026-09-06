@@ -864,6 +864,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 // akari-annotations 側とミラー（文字列のみ、cross-package import なし）。調整タブの A/B 比較で adjust を一時バイパスする。
 const TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass';
+// akari-annotations 側とミラー（文字列のみ、cross-package import なし）。新規プレビューへ現在のバイパスを再送する。
+const PREVIEW_ADJUST_BYPASS_QUERY_EVENT = 'akari.preview.adjustBypassQuery';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
@@ -2167,6 +2169,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 if (!widget.isAttached) {
                     this.shell.addWidget(widget, widgetOptions);
+                }
+                // cut の ID 解決に summary、webview への送信に attach が必要なので configure/addWidget 後に問い合わせる。
+                if (kind === 'output') {
+                    window.dispatchEvent(new CustomEvent(PREVIEW_ADJUST_BYPASS_QUERY_EVENT, { detail: { key: seekKey } }));
                 }
                 return widget;
             })();
