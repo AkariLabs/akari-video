@@ -51,12 +51,13 @@ fn akari_uv(pos: vec4f) -> vec2f { return pos.xy / vec2f(akari.pad.x, akari.pad.
     if (!Array.isArray(value.passes) || !value.passes.length) throw new TypeError('vgpu passes must be nonempty');
     const seen = new Set();
     const passes = value.passes.map((pass) => {
-      keys(pass, ['id', 'wgsl', 'inputs', 'scale'], 'vgpu pass');
+      keys(pass, ['id', 'wgsl', 'inputs', 'scale', 'format'], 'vgpu pass');
       if (typeof pass.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pass.id) || seen.has(pass.id)) throw new TypeError('vgpu pass id must be valid and unique');
       if (typeof pass.wgsl !== 'string' || !pass.wgsl.trim()) throw new TypeError('vgpu pass wgsl must be nonempty');
       const inputs = pass.inputs === undefined ? [] : pass.inputs;
       if (!Array.isArray(inputs) || inputs.length > 8 || inputs.some(id => typeof id !== 'string' || !seen.has(id))) throw new TypeError('vgpu inputs must reference up to 8 earlier passes');
       if (pass.scale !== undefined && (!Number.isFinite(pass.scale) || pass.scale <= 0)) throw new TypeError('vgpu pass scale must be positive');
+      if (pass.format !== undefined && !['rgba8unorm', 'rgba16float'].includes(pass.format)) throw new TypeError('vgpu pass format must be rgba8unorm or rgba16float');
       seen.add(pass.id);
       return { ...pass, inputs, scale: pass.scale === undefined ? 1 : pass.scale };
     });
@@ -177,7 +178,7 @@ fn akari_uv(pos: vec4f) -> vec2f { return pos.xy / vec2f(akari.pad.x, akari.pad.
       const record = { ...pass, effect: window.AkariVgpu.effect(gpu, source), target: null,
         hasParams: /var\s*<\s*uniform\s*>\s*params\b/.test(pass.wgsl) };
       instance.passes.push(record);
-      if (index !== descriptor.passes.length - 1) record.target = window.AkariVgpu.target(gpu, { size: [1, 1] });
+      if (index !== descriptor.passes.length - 1) record.target = window.AkariVgpu.target(gpu, { size: [1, 1], format: pass.format === undefined ? 'rgba8unorm' : pass.format });
     }
     fallback(container, false);
     return instance;

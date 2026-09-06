@@ -306,12 +306,13 @@ function validateVgpuDescriptor(value) {
   if (!Array.isArray(value.passes) || !value.passes.length) throw new TypeError('vgpu passes must be nonempty');
   const seen = new Set();
   const passes = value.passes.map((pass) => {
-    keys(pass, ['id', 'wgsl', 'inputs', 'scale'], 'vgpu pass');
+    keys(pass, ['id', 'wgsl', 'inputs', 'scale', 'format'], 'vgpu pass');
     if (typeof pass.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(pass.id) || seen.has(pass.id)) throw new TypeError('vgpu pass id must be valid and unique');
     if (typeof pass.wgsl !== 'string' || !pass.wgsl.trim()) throw new TypeError('vgpu pass wgsl must be nonempty');
     const inputs = pass.inputs === undefined ? [] : pass.inputs;
     if (!Array.isArray(inputs) || inputs.length > 8 || inputs.some(id => typeof id !== 'string' || !seen.has(id))) throw new TypeError('vgpu inputs must reference up to 8 earlier passes');
     if (pass.scale !== undefined && (!Number.isFinite(pass.scale) || pass.scale <= 0)) throw new TypeError('vgpu pass scale must be positive');
+    if (pass.format !== undefined && !['rgba8unorm', 'rgba16float'].includes(pass.format)) throw new TypeError('vgpu pass format must be rgba8unorm or rgba16float');
     seen.add(pass.id);
     return { ...pass, inputs, scale: pass.scale === undefined ? 1 : pass.scale };
   });

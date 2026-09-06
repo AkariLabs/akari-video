@@ -50,6 +50,7 @@ CPU への画素読み戻しはこの経路に追加しない。ブラウザ内�
 | `passes[].wgsl` | 必須、空白だけではない WGSL 文字列 |
 | `passes[].inputs` | 先行パス id の文字列配列、最大 8 個。省略時 `[]`。自己参照・前方参照不可 |
 | `passes[].scale` | 正の有限数、省略時 `1`。最終パスでは無視する |
+| `passes[].format` | `pure` のみ、`"rgba8unorm"` または `"rgba16float"`。省略時 `"rgba8unorm"`。最終パスでは無視する（surface の format は vgpu の既定） |
 
 未知のトップレベルキー・pass キー、不正 JSON、不正な値は `readDescriptor` が TypeError にする。
 `uniforms` のキーは WGSL `Params` のメンバーに対応し、断片が
@@ -90,6 +91,9 @@ fn akari_uv(pos: vec4f) -> vec2f { return pos.xy / vec2f(akari.pad.x, akari.pad.
 固定 struct を変えず、`@builtin(position)` のピクセル座標を解像度に依存せず正規化するための裁定補足である。
 断片は `akari_uv(position)`、または vgpu の頂点段が供給する左上原点の `@location(0) uv` を使う。
 `position.xy / vec2f(akari.width, akari.height)` は縮小時に構図が変わるので使わない。
+
+`rgba16float` の中間 target は線形 HDR（> 1）をそのまま次のパスへ渡せる。
+`rgba8unorm` は [0,1] に飽和する。
 
 ## 4. API・解像度・ツマミ
 
@@ -151,6 +155,8 @@ summary と receipt を条件付きにしたのは、vgpu を使わない既存 
 vgpu 不在の overlay sheet には新しい script や seek 文を一切挿入しない。
 
 ## 6. fail-loud と v0 の限界
+
+- `passes[].format` の `rgba32float` は未対応（`float32-filterable` 機能に依存するため）。
 
 - WebGPU 未提供・adapter null・初期化/試験描画失敗は `VGPU-UNAVAILABLE:` で probe を reject。
 - device lost 後の render は `VGPU-DEVICE-LOST:` で throw。復帰や別 device への切り替えは行わない。

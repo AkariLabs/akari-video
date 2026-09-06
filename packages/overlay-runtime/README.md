@@ -164,6 +164,7 @@ vgpu は他の宣言型ランタイムと同じく `runtimes.mjs` に登録さ�
 `ready` であることを確認する。プレビューは `render(container, localTimeSeconds, { previewScale: 0.5, fps })` を呼び、
 非表示化と unmount で `dispose(container)` を呼ぶ。非対応環境の警告はランタイムが 1 回にまとめる。
 共有 device は container の破棄時には落とさない。
+`pure` の中間パスは `passes[].format` に `rgba16float` を指定すると線形 HDR を保持でき、省略時は `rgba8unorm`、最終パスでは format を無視する。
 `mode: "stateful"` の断片では `render(container, localTimeSeconds, { fps })` の `fps`（= `edit.output.fps`）が必須で、省略すると TypeError になる。
 stateful のプレビューは上の options にも `fps` を加え、`{ previewScale: 0.5, fps }` を渡す。
 逆戻りシークは reset + 固定ステップ replay で追従し、`maxReplaySteps` 超過は `VGPU-REPLAY-LIMIT` で失敗する。
