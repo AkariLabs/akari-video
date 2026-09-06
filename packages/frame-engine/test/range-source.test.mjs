@@ -794,17 +794,32 @@ test('Range source waits for delayed output after dequeue across all seek orders
       ['reverse', presentation.slice().reverse()],
       ['same-gop-ping-pong', gopPingPong],
     ];
+    const lastSyncIndex = table.samples.reduce(
+      (lastIndex, sample, index) => sample.isSync ? index : lastIndex, -1);
     for (const [name, timestamps] of patterns) {
       assert.equal(timestamps.length, presentation.length, `${name}: every frame is requested`);
       const session = await source.fork(`delayed-output:${name}`);
+      let instancesAtEosFlush;
       for (let requestIndex = 0; requestIndex < timestamps.length; requestIndex += 1) {
         const timestamp = timestamps[requestIndex];
         const frame = await session.decode(timestamp);
         assert.equal(frame.timestamp, timestamp, `${name}: exact frame at ${timestamp}us`);
         frame.close();
-        if (name === 'forward' && requestIndex < timestamps.length - 1) {
-          assert.equal(DelayedVideoDecoder.flushCalls, 0,
-            'forward non-terminal delayed output must not flush');
+        if (name === 'forward') {
+          if (requestIndex < lastSyncIndex) {
+            assert.equal(DelayedVideoDecoder.flushCalls, 0,
+              'forward playback before the final GOP must not fall back to decoder recovery flushing');
+          }
+          assert.ok(DelayedVideoDecoder.flushCalls <= 1,
+            'forward playback may flush EOS reordering at most once in the final GOP');
+          if (DelayedVideoDecoder.flushCalls > 0) {
+            if (instancesAtEosFlush === undefined) {
+              instancesAtEosFlush = DelayedVideoDecoder.instances.length;
+            } else {
+              assert.equal(DelayedVideoDecoder.instances.length, instancesAtEosFlush,
+                'EOS flush must not force a decoder rebuild for the rest of the source');
+            }
+          }
         }
       }
       session.destroy();
@@ -1118,3 +1133,120 @@ test('five one-minute cuts from a five-minute source stay within sample plus pre
     }
   }
 });
+
+for (const atEos of [true, false]) {
+  test(atEos
+    ? 'EOS flush resolves within 50 ms and the next clamped request does not reconfigure'
+    : 'non-EOS GOP exhaustion keeps the output grace before flushing', async t => {
+    if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
+      t.skip('ffmpeg is required');
+      return;
+    }
+    const directory = mkdtempSync(path.join(tmpdir(), 'akari-range-eos-flush-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const fixture = path.join(directory, 'eos-flush.mp4');
+    execFileSync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i', 'testsrc2=size=96x64:rate=24', '-frames:v', '24',
+      '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '12',
+      '-keyint_min', '12', '-sc_threshold', '0', '-bf', '2',
+      '-movflags', '+faststart', fixture,
+    ]);
+    const file = readFileSync(fixture);
+    const table = await buildVideoSampleTable(
+      file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength),
+    );
+    assert.equal(table.samples.length, 24);
+    assert.ok(table.maxReorderFrames > 0);
+    const targetUs = atEos
+      ? table.lastFrameStartUs
+      : table.samples[table.presentationOrder[3]].timestampUs;
+    const original = {
+      VideoDecoder: globalThis.VideoDecoder,
+      VideoFrame: globalThis.VideoFrame,
+      EncodedVideoChunk: globalThis.EncodedVideoChunk,
+    };
+    class Frame {
+      constructor(timestamp, duration) { this.timestamp = timestamp; this.duration = duration; }
+      clone() { return new Frame(this.timestamp, this.duration); }
+      close() {}
+    }
+    class Chunk { constructor(init) { Object.assign(this, init); } }
+    class Decoder {
+      static configureCalls = 0;
+      static flushCalls = 0;
+      static submitted = [];
+      static async isConfigSupported(config) { return { supported: true, config }; }
+      constructor(init) {
+        this.init = init;
+        this.pending = [];
+        this.decodeQueueSize = 0;
+        this.listeners = new Set();
+        this.closed = false;
+      }
+      configure() { Decoder.configureCalls += 1; }
+      decode(chunk) {
+        Decoder.submitted.push(chunk.timestamp);
+        this.pending.push(chunk);
+        this.decodeQueueSize += 1;
+        queueMicrotask(() => {
+          if (this.closed) return;
+          this.decodeQueueSize -= 1;
+          for (const listener of this.listeners) listener();
+        });
+      }
+      async flush() {
+        Decoder.flushCalls += 1;
+        assert.equal(this.decodeQueueSize, 0, 'all submitted samples have drained');
+        for (const chunk of this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp)) {
+          this.init.output(new Frame(chunk.timestamp, chunk.duration));
+        }
+      }
+      addEventListener(type, listener) { if (type === 'dequeue') this.listeners.add(listener); }
+      removeEventListener(type, listener) { if (type === 'dequeue') this.listeners.delete(listener); }
+      close() { this.closed = true; this.pending.length = 0; this.decodeQueueSize = 0; }
+    }
+    globalThis.VideoDecoder = Decoder;
+    globalThis.VideoFrame = Frame;
+    globalThis.EncodedVideoChunk = Chunk;
+    let source;
+    try {
+      source = new RangeMp4Source('eos-flush', 'eos-flush.mp4', {
+        fetchImpl: rangeFetch(new Uint8Array(file.buffer, file.byteOffset, file.byteLength)),
+      });
+      await source.prepare();
+      const startedAt = performance.now();
+      const frame = await source.decode(targetUs);
+      const elapsedMs = performance.now() - startedAt;
+      assert.equal(frame.timestamp, targetUs);
+      frame.close();
+      assert.equal(Decoder.flushCalls, 1);
+      assert.equal(Decoder.configureCalls, 1);
+      assert.equal(source.stats.eosFlushes, atEos ? 1 : 0);
+      assert.equal(source.stats.graceWaits, atEos ? 0 : 1);
+      const finalSampleUs = table.samples.at(-1).timestampUs;
+      if (atEos) {
+        assert.equal(Decoder.submitted.at(-1), finalSampleUs, 'the final decode sample was submitted');
+        assert.ok(elapsedMs < 50, `EOS target took ${elapsedMs.toFixed(1)}ms`);
+        const submittedBeforeClamp = Decoder.submitted.length;
+        const next = await source.decode(table.presentationDurationUs + 1_000_000);
+        assert.equal(next.timestamp, table.lastFrameStartUs, 'the next request clamps to lastOutput');
+        next.close();
+        assert.equal(Decoder.configureCalls, 1, 'EOS clamp reuses lastOutput without reconfiguring');
+        assert.equal(Decoder.flushCalls, 1, 'EOS clamp does not flush again');
+        assert.equal(Decoder.submitted.length, submittedBeforeClamp, 'EOS clamp submits no samples');
+        assert.equal(source.stats.eosFlushes, 1);
+        assert.equal(source.stats.graceWaits, 0);
+      } else {
+        assert.ok(!Decoder.submitted.includes(finalSampleUs), 'samples remain beyond the current GOP');
+        assert.ok(elapsedMs >= 200, `non-EOS grace took ${elapsedMs.toFixed(1)}ms`);
+      }
+    } finally {
+      source?.destroy();
+      for (const [name, value] of Object.entries(original)) {
+        if (value === undefined) delete globalThis[name];
+        else globalThis[name] = value;
+      }
+    }
+  });
+}
