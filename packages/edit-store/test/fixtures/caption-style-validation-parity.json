@@ -60,6 +60,7 @@
     }
   },
   "valid_style_cases": [
+    { "id": "v0-max-characters", "style": { "max_characters": 12 } },
     { "id": "empty", "style": {} },
     { "id": "hex-three", "style": { "color": "#FFF" } },
     { "id": "hex-eight", "style": { "color": "#11223380" } },

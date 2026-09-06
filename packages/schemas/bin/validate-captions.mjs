@@ -349,7 +349,7 @@ function validateTextStyle(value, label) {
   const allowedKeys = new Set([
     "color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout",
     "font_family", "weight", "italic", "underline", "letter_spacing_em", "align",
-    "vertical_align", "vertical", "text_transform", "max_width_pct", "text_anchor",
+    "vertical_align", "vertical", "text_transform", "max_width_pct", "max_characters", "text_anchor",
     "position", "shadow", "glow", "animation", "reference_height_px",
   ]);
   for (const key of Object.keys(value)) {
@@ -414,6 +414,10 @@ function validateTextStyleV0(value, label) {
   if (hasOwn(value, "max_width_pct")
     && (!isFiniteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100)) {
     fail(`${label}.max_width_pct は 0 より大きく 100 未満の有限数である必要があります`);
+  }
+  if (hasOwn(value, "max_characters")
+    && (!Number.isInteger(value.max_characters) || value.max_characters <= 0)) {
+    fail(`${label}.max_characters は 0 より大きい整数である必要があります`);
   }
   if (hasOwn(value, "text_anchor") && !TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
     fail(`${label}.text_anchor は定義済みの 9 値のいずれかである必要があります`);

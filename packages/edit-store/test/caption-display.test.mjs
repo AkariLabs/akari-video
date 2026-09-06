@@ -603,3 +603,21 @@ test('scaleCaptionPx keeps scale 1 values untouched and rounds scaled values to 
   assert.equal(scaleCaptionPx(36, 1.5), 54);
   assert.equal(scaleCaptionPx(1.23456789, 0.5), 0.617284);
 });
+
+test('max_characters accepts positive integers through the display policy kernel', () => {
+  assert.deepEqual(validateCaptionTextStyle({ max_characters: 1 }), { max_characters: 1 });
+  const result = resolveCaptionDisplay({
+    display_policy: policy,
+    default_text_style: { max_characters: 12 },
+    captions: [caption('c-0001', 0, 2, '正常です', { text_style: { max_characters: 8 } })],
+  }, { output: { width: 1920, height: 1080 }, cuts: [] });
+  assert.equal(result.display_cues[0].text_style.max_characters, 8);
+});
+
+test('max_characters rejects non-positive integers and invalid types', () => {
+  for (const value of [0, -1, 1.5, '12', NaN, Infinity, null, true]) {
+    assert.throws(() => validateCaptionTextStyle({ max_characters: value }), error =>
+      error.code === 'INVALID_TEXT_STYLE'
+      && /max_characters must be an integer greater than zero/u.test(error.message), String(value));
+  }
+});

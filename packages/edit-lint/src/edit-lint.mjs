@@ -4676,6 +4676,9 @@ function validateTextStyleV0Fields(value, label, findings, path) {
     && (!isFiniteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100)) {
     flag("max_width_pct must be a finite number within (0, 100)");
   }
+  if (has("max_characters") && (!Number.isInteger(value.max_characters) || value.max_characters <= 0)) {
+    flag("max_characters must be an integer greater than zero");
+  }
   if (has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
     flag("text_anchor must be one of the nine anchor codes");
   }
