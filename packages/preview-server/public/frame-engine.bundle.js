@@ -5869,7 +5869,7 @@ var require_internal_model = __commonJS({
     }
     function needsCrossTrackLayers(item, pathOf) {
       const transform = item.transform;
-      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
     }
     function nextRef(counters, kind) {
       const ref = counters.get(kind) ?? 0;

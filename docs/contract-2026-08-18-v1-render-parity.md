@@ -67,6 +67,7 @@ cut = needsGapAwareCutTimeline(edit.cuts)
 - **多段合成の意味論**: `computeVideoRuns`（`cut-timeline.mjs`）の winner-take-all スイッチ。
   ある瞬間に最も高い `track` 番号のカットが**画面全体を占有**する（同時アルファ合成ではない）
   — v0 が既定順で行っているのと全く同じモデルで、新しいリッチな合成モデルではない
+  上段の静止画は単位元 `transform` でも下段と時間的に交差する（cross-track）場合、natural size と alpha の観点から全画面不透明を証明できないため、投影時に `layers` へ退避する。
 - **音声はカット単位（ラン単位ではない）**: 各カットの `[in,out)` がそれぞれの `at` 位置で
   再生され、`amix` で重ね合わさる。画面はどちらか一方しか映らなくても、音声は両方鳴る
   （v0 の `buildGapAwareCutCommand` の音声ループをそのまま踏襲）
