@@ -14,6 +14,43 @@ export function extractFragmentAssetReferences(html, htmlPath, overlayLabel = "o
   return scanReferences(html, htmlPath).map(({ start, end, ...reference }) => reference);
 }
 
+export function extractAbsoluteFragmentAssetReferences(html, htmlPath) {
+  return scanReferences(html, htmlPath, true).map(({ start, end, ...reference }) => reference);
+}
+
+/** Rewrite only asset URL tokens; raw text, comments, and surrounding syntax stay intact. */
+export function rewriteFragmentAssetUrls(html, { htmlPath, urlPrefix = "/", resolveUrl }) {
+  let result = html;
+  for (const reference of scanReferences(html, htmlPath).reverse()) {
+    const replacement = resolveUrl?.(reference)
+      ?? urlPrefix + reference.path.split("/").map(encodeURIComponent).join("/");
+    result = result.slice(0, reference.start) + replacement + result.slice(reference.end);
+  }
+  return result;
+}
+
+export function describeFragmentAssetHint({ projectRoot, htmlPath, raw, path }) {
+  const root = realpathSync(resolve(projectRoot));
+  const within = target => {
+    const local = relative(root, target).replaceAll("\\", "/");
+    return local !== ".." && !local.startsWith("../") && !isAbsolute(local);
+  };
+  const isFile = target => {
+    try { return within(realpathSync(target)) && statSync(target).isFile(); } catch { return false; }
+  };
+  if (!within(resolve(root, path)) || isFile(resolve(root, path))) return "";
+  // Also recognize the common ../assets spelling intended to reach project assets.
+  const candidates = [raw, raw.replace(/^(?:\.\.?\/)+/u, "")];
+  for (const candidate of candidates) {
+    const target = resolve(root, candidate);
+    if (!within(target) || !isFile(target)) continue;
+    const local = relative(root, target).replaceAll("\\", "/");
+    const correction = relative(resolve(root, dirname(htmlPath)), target).replaceAll("\\", "/");
+    return `断片ファイル基準では \`${path}\` を指しています。project の \`${local}\` を指すなら \`${correction}\` に直してください`;
+  }
+  return "";
+}
+
 export function embedFragmentAssets(html, { projectRoot, htmlPath, overlayId }) {
   const references = scanReferences(html, htmlPath);
   const replacements = new Map();
@@ -28,7 +65,10 @@ export function embedFragmentAssets(html, { projectRoot, htmlPath, overlayId }) 
       try {
         absolute = resolveDeclaredProjectInput(projectRoot, path, `overlay:${overlayId}:fragment-asset`);
       } catch (error) {
-        if (error instanceof RenderInputError) error.message = `${context}: ${error.message}`;
+        if (error instanceof RenderInputError) {
+          const hint = describeFragmentAssetHint({ projectRoot, htmlPath, raw, path });
+          error.message = `${context}: ${error.message}${hint ? ` ${hint}` : ""}`;
+        }
         throw error;
       }
       if (role === "video" || role === "audio") {
@@ -55,11 +95,13 @@ function assetType(path) {
   return TYPES.get(extname(path).slice(1).toLowerCase()) ?? ["file", "application/octet-stream"];
 }
 
-function scanReferences(html, htmlPath) {
+function scanReferences(html, htmlPath, absoluteOnly = false) {
   const references = [];
   const add = (value, offset, attribute) => {
     const raw = value.trim();
-    if (!raw || /^(?:[a-z][a-z\d+.-]*:|#|\/)/iu.test(raw) || raw.includes("\\")) return;
+    if (absoluteOnly) {
+      if (!/^(?:[a-z]:[\\/]|file:|\\\\|\/(?!\/|media\/))/iu.test(raw)) return;
+    } else if (!raw || /^(?:[a-z][a-z\d+.-]*:|#|\/)/iu.test(raw) || raw.includes("\\")) return;
     const start = offset + value.indexOf(raw);
     const path = join(dirname(htmlPath), raw).replaceAll("\\", "/");
     references.push({ role: assetType(path)[0], attribute, raw, path, start, end: start + raw.length });

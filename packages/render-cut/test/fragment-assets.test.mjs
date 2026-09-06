@@ -3,11 +3,55 @@ import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import { embedFragmentAssets, extractFragmentAssetReferences } from "../src/fragment-assets.mjs";
+import { describeFragmentAssetHint, embedFragmentAssets, extractFragmentAssetReferences, rewriteFragmentAssetUrls } from "../src/fragment-assets.mjs";
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs, RenderInputError } from "../src/render-inputs.mjs";
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 const data = `data:image/png;base64,${png.toString("base64")}`;
+
+test("preview URLs resolve from nested and direct fragment directories and are idempotent", () => {
+  for (const [htmlPath, raw, expected] of [
+    ["overlays/lower-third/fragment.html", "../../assets/logo.png", "/assets/logo.png"],
+    ["overlays/lower-third/fragment.html", "../assets/logo.png", "/overlays/assets/logo.png"],
+    ["overlays/x.html", "../assets/logo.png", "/assets/logo.png"],
+    ["overlays/x.html", "../assets/日本 語.png", `/assets/${encodeURIComponent("日本 語.png")}`],
+  ]) {
+    const html = `<img src="${raw}"><video poster="${raw}"><source src="${raw}"></video>`;
+    const result = rewriteFragmentAssetUrls(html, { htmlPath, urlPrefix: "/" });
+    assert.equal(result, html.replaceAll(raw, expected));
+    assert.equal(rewriteFragmentAssetUrls(result, { htmlPath, urlPrefix: "/" }), result);
+  }
+});
+
+test("preview rewrites srcset and CSS URL tokens while leaving excluded text unchanged", () => {
+  const untouched = `<!-- <img src="missing.png"> --><script type="application/json">{"html":"<img src='missing.png'>"}</script>
+<style>/* url(missing.png) */ .label { content: "url(missing.png)" }</style>
+${[data, "https://example.test/logo.png", "http://example.test/logo.png", "/media/logo.png", "/assets/logo.png", "#logo", "file:logo.png", "blob:logo", "../assets\\logo.png"].map(src => `<img src="${src}">`).join("")}`;
+  const html = `<img srcset="../assets/logo.png 1x, ../assets/large.png 2x" style="background:url('../assets/logo.png')"><style>@font-face{src:url(../assets/type.woff2)}</style>${untouched}`;
+  const expected = html.replaceAll("../assets/logo.png", "/assets/logo.png").replaceAll("../assets/large.png", "/assets/large.png").replaceAll("../assets/type.woff2", "/assets/type.woff2");
+  assert.equal(rewriteFragmentAssetUrls(html, { htmlPath: "overlays/x.html", urlPrefix: "/" }), expected);
+  assert.equal(rewriteFragmentAssetUrls(untouched, { htmlPath: "overlays/x.html", urlPrefix: "/" }), untouched);
+  assert.equal(rewriteFragmentAssetUrls('<img src="logo.png">', {
+    htmlPath: "overlays/x.html", urlPrefix: "/", resolveUrl: () => "http://127.0.0.1:4567/asset/logo.png",
+  }), '<img src="http://127.0.0.1:4567/asset/logo.png">');
+});
+
+test("missing fragment assets share a project-relative correction hint with export", async t => {
+  const { projectRoot, put } = await fixture(t);
+  const htmlPath = "overlays/lower-third/fragment.html";
+  const raw = "../assets/logo.png";
+  const path = "overlays/assets/logo.png";
+  const hint = describeFragmentAssetHint({ projectRoot, htmlPath, raw, path });
+  assert.match(hint, /^断片ファイル基準では/u);
+  assert.match(hint, /`overlays\/assets\/logo.png`/u);
+  assert.match(hint, /project の `assets\/logo.png`/u);
+  assert.match(hint, /`\.\.\/\.\.\/assets\/logo.png` に直してください/u);
+  assert.throws(() => embedFragmentAssets(`<img src="${raw}">`, { projectRoot, htmlPath, overlayId: "logo" }), error => error instanceof RenderInputError && error.message.endsWith(` ${hint}`));
+  assert.equal(describeFragmentAssetHint({ projectRoot, htmlPath, raw: "missing.png", path: "overlays/lower-third/missing.png" }), "");
+  assert.equal(describeFragmentAssetHint({ projectRoot, htmlPath, raw: "../../../assets/logo.png", path: "../assets/logo.png" }), "");
+  await put(path);
+  assert.equal(describeFragmentAssetHint({ projectRoot, htmlPath, raw, path }), "");
+});
 
 async function fixture(t) {
   const projectRoot = await mkdtemp(join(tmpdir(), "fragment-assets-"));

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, readFileSync, statSync } from "node:fs";
+import { constants as fsConstants, readFileSync, realpathSync, statSync } from "node:fs";
 import {
   access,
   mkdir,
@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
+import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
@@ -2425,6 +2426,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
     );
     if (!isHtmlFile) continue;
 
+    validateOverlayFragmentAssets(html, overlay, paths, findings);
     const fragment = inspectHtmlFragment(html);
     if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
       addFinding(findings, {
@@ -2484,6 +2486,41 @@ async function validateOverlays(overlays, timeline, findings, paths) {
         });
       }
     }
+  }
+}
+
+function validateOverlayFragmentAssets(html, overlay, paths, findings) {
+  if (overlay.html.trimStart().startsWith("<")) return;
+  const root = realpathSync(paths.projectRoot);
+  const outside = target => {
+    const local = relative(root, target).replaceAll("\\", "/");
+    return local === ".." || local.startsWith("../") || isAbsolute(local);
+  };
+  const finding = (reference, check, detail) => addFinding(findings, {
+    severity: "error", check: `overlay-fragment-asset-${check}`,
+    message: `overlay:${overlay.id} fragment ${overlay.html} の参照 "${reference.raw}"${check === "missing" ? " " : ": "}${detail}`,
+    path: relativePath(paths.projectRoot, resolve(paths.projectRoot, overlay.html)),
+  });
+  for (const reference of extractAbsoluteFragmentAssetReferences(html, overlay.html)) {
+    finding(reference, "absolute-path", "断片からの相対パスで書く");
+  }
+  for (const reference of extractFragmentAssetReferences(html, overlay.html, overlay.id)) {
+    const target = resolve(root, reference.path);
+    let actual = target;
+    try { actual = realpathSync(target); } catch { /* Missing files are checked below. */ }
+    if (outside(target) || outside(actual)) {
+      finding(reference, "escapes-project", "escapes the project root");
+      continue;
+    }
+    if (isRegularFileSync(target)) continue;
+    const fallback = resolveLibraryFallback({
+      projectRoot: paths.projectRoot, declaredPath: reference.path,
+      references: paths.assetReferences, akariAssetsDir: paths.akariAssetsDir,
+    });
+    if (fallback.path !== null) continue;
+    finding(reference, "missing", "が見つからない。" + describeFragmentAssetHint({
+      projectRoot: paths.projectRoot, htmlPath: overlay.html, ...reference,
+    }));
   }
 }
 
@@ -6428,4 +6465,3 @@ function validateAdjustV1Sections(value, findings, path) {
     }
   }
 }
-

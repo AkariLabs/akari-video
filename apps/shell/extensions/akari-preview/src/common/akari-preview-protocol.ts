@@ -77,6 +77,20 @@ export interface AssetStreamRequest {
     workspaceRoots?: string[];
 }
 
+export interface FragmentAssetPreviewRequest {
+    projectRootUri: string;
+    html: string;
+    htmlPath: string;
+    overlayId: string;
+    workspaceRoots?: string[];
+}
+
+export interface FragmentAssetPreviewResult {
+    html: string;
+    streams: (VideoStreamReference & { uri: string })[];
+    warnings: string[];
+}
+
 export interface RasterizeTelopPreviewRequest {
     preset: string;
     params?: Record<string, unknown>;
@@ -322,6 +336,7 @@ export interface AkariPreviewService {
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;
     createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference>;
+    rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult>;
     rasterizeTelopPreview(request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference>;
     disposeAssetStream(id: string): Promise<void>;
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;

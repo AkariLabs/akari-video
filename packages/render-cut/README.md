@@ -31,6 +31,8 @@ For example, `overlays/lower-third/fragment.html` resolves `../../assets/logo.pn
 images and fonts are embedded as data URIs; video and audio are served through `/media/`.
 Existing `/media/…` and `data:` references are left unchanged. Inline HTML without a fragment
 file path retains its existing behavior.
+Preview resolves asset URLs from the same fragment directory.
+`edit-lint` reports missing, escaping, and absolute local fragment asset references as errors.
 
 Missing assets stop export with the overlay ID, fragment path, and reference in the error.
 Embedded files must be at most 16 MiB; reduce larger assets or use video. Video and audio must

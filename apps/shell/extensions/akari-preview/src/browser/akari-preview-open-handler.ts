@@ -3920,12 +3920,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const fragmentUri = editUri.parent.resolve(rawHtml);
                             registerOverlayUri(fragmentUri);
                             overlayHtmlTasks.set(rawHtml, this.readText(fragmentUri).then(
-                                text => { overlayHtml.set(rawHtml, text); },
-                                error => {
-                                    overlayHtml.set(rawHtml, '');
-                                    console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
+                                async text => {
+                                    const result = await this.previewService.rewriteFragmentAssets({
+                                        projectRootUri: editUri.parent.toString(), html: text,
+                                        htmlPath: rawHtml, overlayId: item.id,
+                                        workspaceRoots: await this.currentWorkspaceRoots()
+                                    });
+                                    overlayHtml.set(rawHtml, result.html);
+                                    for (const stream of result.streams) {
+                                        assetStreams.set(`fragment:${rawHtml}:${stream.uri}`, stream);
+                                        const uri = new URI(stream.uri);
+                                        if (!assetUris.some(value => value.toString() === uri.toString())) assetUris.push(uri);
+                                    }
+                                    unsupportedGltfWarnings.push(...result.warnings);
+                                    for (const warning of result.warnings) console.warn(`[akari-preview] ${warning}`);
                                 }
-                            ));
+                            ).catch(error => {
+                                overlayHtml.set(rawHtml, '');
+                                console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
+                            }));
                         }
                         const task = overlayHtmlTasks.get(rawHtml);
                         if (task) pending.push(task);
