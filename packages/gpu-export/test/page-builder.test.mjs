@@ -8,6 +8,44 @@ import { extractCaptionMeasureDiffs, gpuRawFramePath, parseElectronArguments } f
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
 import { createRequire } from "node:module";
 
+test("file-backed overlay images embed before page construction", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "page-fragment-assets-"));
+  t.after(() => rm(projectRoot, { recursive: true, force: true }));
+  await mkdir(join(projectRoot, "overlays"));
+  await mkdir(join(projectRoot, "assets"));
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+  const html = '<img src="../assets/x.png">';
+  const embedded = '<img src="data:image/png;base64,' + png.toString("base64") + '">';
+  await writeFile(join(projectRoot, "assets", "x.png"), png);
+  await writeFile(join(projectRoot, "overlays", "fragment.html"), html);
+  await writeFile(join(projectRoot, "edit.json"), JSON.stringify({
+    version: 2, output: { width: 64, height: 36, fps: 30 }, sources: [],
+    tracks: [{ id: "visual", lane: "visual", items: [
+      { id: "logo", at: 0, duration: 30, source: { kind: "html", path: "overlays/fragment.html" } },
+    ] }],
+  }));
+  const built = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+  assert.equal(built.spriteManifest.statics[0].html, embedded);
+  assert.equal(built.edit.overlays[0].htmlPath, "overlays/fragment.html");
+  assert.ok(built.html.includes("data:image/png;base64,"));
+  const animated = `<style>@keyframes fade{from{opacity:0}to{opacity:1}}img{animation:fade 1s}</style>${html}`;
+  await writeFile(join(projectRoot, "overlays", "fragment.html"), animated);
+  const dom = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+  assert.equal(dom.spriteManifest.dom.length, 1);
+  assert.ok(dom.html.includes("data:image/png;base64,"));
+  await writeFile(join(projectRoot, "assets", "model.glb"), "model");
+  const three = `${html}<canvas></canvas><script type="application/json" data-akari-3d-scene>{"model":"assets/model.glb"}</script>`;
+  await writeFile(join(projectRoot, "overlays", "fragment.html"), three);
+  const scene = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+  assert.equal(scene.spriteManifest.three.length, 1);
+  assert.ok(scene.overlaySheetHtml.includes(embedded));
+  assert.ok(scene.overlaySheetHtml.includes("data:model/gltf-binary;base64,"));
+  await rm(join(projectRoot, "assets", "x.png"));
+  await assert.rejects(loadAndBuildGpuPage({ projectRoot, duration: 1 }), error =>
+    error.constructor.name === "RenderInputError"
+      && ["overlay:logo", "overlays/fragment.html", "../assets/x.png"].every(value => error.message.includes(value)));
+});
+
 const require = createRequire(import.meta.url);
 const { TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 
