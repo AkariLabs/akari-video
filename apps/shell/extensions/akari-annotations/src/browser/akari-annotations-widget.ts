@@ -540,6 +540,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 // akari-preview 側とミラー（文字列のみ、cross-package import なし）。調整タブの A/B 比較で adjust を一時バイパスする。
 const TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass';
+// akari-preview 側とミラー（文字列のみ、cross-package import なし）。新規プレビューへ現在のバイパスを再送する。
+const PREVIEW_ADJUST_BYPASS_QUERY_EVENT = 'akari.preview.adjustBypassQuery';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const SHORTCUTS_HELP_TEXT = [
     'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
@@ -1989,6 +1991,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             bypass = request.enabled ? request : undefined;
             this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: request.target, enabled: request.enabled });
         };
+        const onAdjustBypassQuery = (): void => {
+            if (bypass) {
+                this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: bypass.target, enabled: true });
+            }
+        };
+        window.addEventListener(PREVIEW_ADJUST_BYPASS_QUERY_EVENT, onAdjustBypassQuery);
+        this.toDispose.push(Disposable.create(() => window.removeEventListener(PREVIEW_ADJUST_BYPASS_QUERY_EVENT, onAdjustBypassQuery)));
         const requestAdjustLutList = async (): Promise<string[]> => this.location
             ? (await this.annotationsService.listAdjustLuts({ projectRootUri: this.location.root.toString() })).refs : [];
         const requestAdjustLutImport = async (sourcePath: string): Promise<string> => {
