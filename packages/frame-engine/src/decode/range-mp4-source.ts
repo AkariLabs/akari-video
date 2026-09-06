@@ -851,6 +851,12 @@ export class RangeMp4Source {
     let outputGraceExpired = false;
     try {
       const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
+      // 素材末尾の並べ替え窓（最後の maxReorderFrames + 1 枚）だけは flush しないと出ない。
+      // それより前の target は供給し切った後もデコーダが非同期に出すので、従来どおり猶予を待つ
+      // （即 flush すると最終 GOP の残り全部が一度に出て futureFrames の上限を超え、以後の
+      // フレームが sync からの再デコードになる。実機 2026-09-06: GOP 250 の素材で late が急増）。
+      const inReorderTail = targetSample.presentationIndex
+        >= table.samples.length - (table.maxReorderFrames + 1);
       try {
         await withTimeout((async () => {
           let postTargetBudget = postTargetLimit;
@@ -890,7 +896,7 @@ export class RangeMp4Source {
                 decoder,
                 waiter,
                 this.nextDecodeIndex <= decodeCeiling,
-                this.nextDecodeIndex >= table.samples.length,
+                inReorderTail && this.nextDecodeIndex >= table.samples.length,
               );
               if (waitResult === 'needs-supply') break;
               if (waitResult === 'grace-expired') {

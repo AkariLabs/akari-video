@@ -24066,6 +24066,7 @@ void main() {
       let outputGraceExpired = false;
       try {
         const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
+        const inReorderTail = targetSample.presentationIndex >= table.samples.length - (table.maxReorderFrames + 1);
         try {
           await withTimeout((async () => {
             let postTargetBudget = postTargetLimit;
@@ -24103,7 +24104,7 @@ void main() {
                   decoder,
                   waiter,
                   this.nextDecodeIndex <= decodeCeiling,
-                  this.nextDecodeIndex >= table.samples.length
+                  inReorderTail && this.nextDecodeIndex >= table.samples.length
                 );
                 if (waitResult === "needs-supply") break;
                 if (waitResult === "grace-expired") {
