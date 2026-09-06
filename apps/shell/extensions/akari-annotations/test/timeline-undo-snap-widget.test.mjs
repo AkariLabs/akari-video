@@ -55,7 +55,7 @@ test('マグネットの既定は保存値（未設定なら OFF）で、切替�
 });
 
 test('字幕削除の undo は time_domain / text_style を含む行を丸ごと戻す', () => {
-    const remove = between(widget, 'protected async performDeleteSelected(): Promise<void> {', 'protected async performDeleteMultiSelected(');
+    const remove = between(widget, 'protected async performDeleteSelected(', 'protected async performDeleteMultiSelected(');
     assert.match(remove, /timeDomain: caption\.timeDomain/);
     assert.match(remove, /textStyle: caption\.textStyle/);
     assert.match(protocol, /export interface CaptionWritePayload \{[\s\S]*timeDomain\?: 'source' \| 'output';[\s\S]*textStyle\?: CaptionTextStyle;[\s\S]*\}/);
@@ -63,7 +63,7 @@ test('字幕削除の undo は time_domain / text_style を含む行を丸ごと
 });
 
 test('右クリック削除は captions 袋の写し（tree item）を captions.json の行として削除する', () => {
-    const remove = between(widget, 'protected async performDeleteSelected(): Promise<void> {', 'protected async performDeleteMultiSelected(');
+    const remove = between(widget, 'protected async performDeleteSelected(', 'protected async performDeleteMultiSelected(');
     assert.match(remove, /selection\.kind === 'item' && selection\.itemKind === 'caption'/);
     assert.match(remove, /captionIdForTreeSelection\(selection/);
     assert.match(remove, /this\.rawV2Item\(selection\.id\) === undefined/);

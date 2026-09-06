@@ -12,6 +12,7 @@ import {
     FILMSTRIP_FRAME_WIDTH_PX,
     FILMSTRIP_MAX_FRAMES_PER_CHUNK,
     GetAudioDurationResult,
+    ProbeSourceHasAudioResult,
     GetClipFilmstripChunkResult,
     GetClipThumbnailResult,
     GetClipWaveformResult,
@@ -101,6 +102,27 @@ async function ffprobePath(): Promise<string | undefined> {
 
 async function hasFfmpeg(): Promise<boolean> {
     return (await ffmpegPath()) !== undefined;
+}
+
+const sourceHasAudioCache = new Map<string, Promise<ProbeSourceHasAudioResult>>();
+
+/** Failed probes remain unknown and may be retried; concurrent requests share one extraction. */
+export function probeSourceHasAudio(path: string): Promise<ProbeSourceHasAudioResult> {
+    const cached = sourceHasAudioCache.get(path);
+    if (cached) return cached;
+    const pending = (async () => {
+        const ffprobe = await ffprobePath();
+        if (!ffprobe) throw new Error('ffprobe が見つかりません。');
+        const { stdout } = await videoExtractionSemaphore.run(() => execFileAsync(ffprobe, [
+            '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type', '-of', 'json', path
+        ], { timeout: 10000 }));
+        const result = JSON.parse(stdout) as { streams?: Array<{ codec_type?: string }> };
+        if (!Array.isArray(result.streams)) throw new Error('音声の有無を確認できません。');
+        return { hasAudio: result.streams.some(stream => stream.codec_type === 'audio') };
+    })();
+    sourceHasAudioCache.set(path, pending);
+    void pending.catch(() => sourceHasAudioCache.delete(path));
+    return pending;
 }
 
 async function hasFfprobe(): Promise<boolean> {
