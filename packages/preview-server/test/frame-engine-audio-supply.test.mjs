@@ -38,7 +38,7 @@ test('共有音声供給は PCM sidecar を Range 窓として予約し 12 秒�
   assert.match(supplySource, /import \{ PcmWindowSource[^\n]*from '\.\/pcm-window-source\.js'/u);
   assert.match(supplySource, /sidecar\?\.format === 'pcm-s16le'/u);
   assert.match(supplySource, /const WINDOW_LOOKAHEAD_SEC = 12/u);
-  assert.match(supplySource, /\? startWindowedItem\(item, contextStart, thisGeneration/u);
+  assert.match(supplySource, /\? startWindowedItem\(item, contextStart, playbackEpoch, controller, firstWindows\.get\(item\)\)/u);
 });
 
 test('音声状態の通知は runtime を作り直さず updateAudio へ渡し、通常 UI に準備状況を出す', () => {
@@ -65,7 +65,7 @@ test('音声状態の通知は runtime を作り直さず updateAudio へ渡し�
 });
 
 test('AudioContext.currentTime が描画クロックを支配し、観測窓が同期差を返す', () => {
-  assert.match(supplySource, /anchorTimelineSec \+ Math\.max\(0, context\.currentTime - anchorContextSec\)/u);
+  assert.match(supplySource, /anchorTimelineSec \+ Math\.max\(0, seconds - anchorContextSec\)[\s\S]*positionAtContextTime\(/u);
   assert.match(source, /const audioClockSeconds = this\.audio\.playbackTime\(seconds\)/u);
   // 150 ms では 3D / 字幕の重いフレームで watchdog が音を止めていた（2026-09-02: 600 ms へ）
   assert.match(source, /pauseWatchdogMs: 600/u);
