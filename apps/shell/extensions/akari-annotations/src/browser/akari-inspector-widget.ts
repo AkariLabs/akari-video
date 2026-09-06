@@ -23,7 +23,7 @@ import {
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot
 } from './timeline-selection-model';
-import { keyframeValueAt } from './timeline/timeline-keyframe-rows';
+import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
 import {
     createNumberField,
@@ -358,8 +358,6 @@ function PERSPECTIVE_FIELDS<TSnapshot extends {
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef<TSnapshot>[] {
     const corners = normalizeInspectorPerspective(snapshot.perspective);
-    const disabled = snapshot.keyframes?.some(point => Object.prototype.hasOwnProperty.call(point, 'perspective')) ?? false;
-    const title = disabled ? 'キーフレームがあるため数値行では編集できません' : undefined;
     const rows: ReadonlyArray<{ corner: InspectorPerspectiveCorner; label: string }> = [
         { corner: 'tl', label: '左上' }, { corner: 'tr', label: '右上' },
         { corner: 'bl', label: '左下' }, { corner: 'br', label: '右下' }
@@ -367,7 +365,6 @@ function PERSPECTIVE_FIELDS<TSnapshot extends {
     const write = async (
         current: TSnapshot, corner: InspectorPerspectiveCorner, axis: InspectorPerspectiveAxis, input: number | null
     ): Promise<InspectorWriteResult> => {
-        if (disabled) return { ok: false, message: title };
         try {
             const value = updateInspectorPerspective(current.perspective, corner, axis, input);
             if (value) validateInspectorPerspective(value.corners);
@@ -383,7 +380,7 @@ function PERSPECTIVE_FIELDS<TSnapshot extends {
             scrubStep: 0.005, min: 0, max: 1,
             getValue: () => String(corners[index][coordinate]),
             getEditValue: () => String(corners[index][coordinate]),
-            disabled, title,
+            liveField: `perspective.${corner}.${axis}`,
             write: (current, input) => write(current, corner, axis, Number(input)),
             reset: current => write(current, corner, axis, null)
         })));
@@ -2625,6 +2622,9 @@ export class AkariInspectorWidget extends BaseWidget {
         align-items: center;
         gap: 3px;
     }
+    .akari-inspector-widget .akari-inspector-number-field-seatless {
+        grid-template-columns: 24px minmax(42px, 1fr) auto 18px;
+    }
     .akari-inspector-widget .akari-inspector-number-handle {
         cursor: ew-resize;
         border: 0;
@@ -3190,22 +3190,25 @@ export class AkariInspectorWidget extends BaseWidget {
     ): KeyframeSeatOptions | undefined {
         if (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
             && snapshot.kind !== 'overlay' && snapshot.kind !== 'item') return undefined;
-        const property = fieldName === 'transform-x' ? 'transform.x'
-            : fieldName === 'transform-y' ? 'transform.y'
-                : fieldName === 'transform-scale' ? 'transform.scale'
-                    : fieldName === 'transform-rotate' ? 'transform.rotate'
-                        : fieldName === 'opacity' ? 'opacity' : undefined;
+        const property: KeyframeSeatProperty | undefined = /^(crop-[xywh]|perspective-(tl|tr|bl|br)-[xy])$/u.test(fieldName)
+            ? fieldName.replace(/-/gu, '.') as KeyframeSeatProperty
+            : fieldName === 'transform-x' ? 'transform.x'
+                : fieldName === 'transform-y' ? 'transform.y'
+                    : fieldName === 'transform-scale' ? 'transform.scale'
+                        : fieldName === 'transform-rotate' ? 'transform.rotate'
+                            : fieldName === 'opacity' ? 'opacity' : undefined;
         if (!property) return undefined;
+        const rowProperty = keyframeRowPropertyOf(property);
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
         const selected = this.model.keyframeSelection;
         const keyframeValue = fieldName === 'transform-scale' ? value / 100 : value;
         const hasKeyframes = snapshot.keyframes?.some(point =>
-            keyframeValueAt(point, property) !== undefined) ?? false;
+            keyframeValueAt(point, rowProperty) !== undefined) ?? false;
         const request = (action: Exclude<KeyframeControlRequest['action'], 'easing'>): void => {
             void this.model.requestKeyframe?.({ action, itemId, property, value: keyframeValue });
         };
         return {
-            active: selected?.itemId === itemId && selected.property === property,
+            active: selected?.itemId === itemId && selected.property === rowProperty,
             hasKeyframes,
             onToggle: () => request('toggle'),
             onPrevious: () => request('previous'),
@@ -3324,7 +3327,19 @@ export class AkariInspectorWidget extends BaseWidget {
                     displayOffset: field.displayOffset,
                     displayPrecision: field.displayPrecision,
                     onPreview: sendLive,
-                    onCommit: value => commitValue(String(value), () => undefined),
+                    onCommit: async value => {
+                        if (keyframe?.hasKeyframes && /^(crop-|perspective-)/u.test(fieldName)
+                            && this.model.requestKeyframe) {
+                            const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
+                            const result = await this.model.requestKeyframe({
+                                action: 'write', itemId,
+                                property: fieldName.replace(/-/gu, '.') as KeyframeSeatProperty, value
+                            });
+                            if (!result.ok) this.showFieldNotice(result.message ?? '書き込みに失敗しました。');
+                            return result.ok;
+                        }
+                        return commitValue(String(value), () => undefined);
+                    },
                     keyframe
                 });
                 if (field.disabled) {

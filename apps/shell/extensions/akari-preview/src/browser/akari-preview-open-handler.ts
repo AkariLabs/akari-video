@@ -8149,6 +8149,18 @@ body { display: grid; place-items: center; padding: 32px; }
                         const axis = message.field.slice('crop.'.length);
                         if (!['x', 'y', 'w', 'h'].includes(axis)) return current;
                         entry.crop = { x: 0, y: 0, w: 1, h: 1, ...(entry.crop || {}), [axis]: message.value };
+                    } else if (message.field.startsWith('perspective.')) {
+                        const parts = message.field.split('.');
+                        const corner = ['tl', 'tr', 'bl', 'br'].indexOf(parts[1]);
+                        const axis = ['x', 'y'].indexOf(parts[2]);
+                        if (parts.length !== 3 || corner < 0 || axis < 0) return current;
+                        const identity = [[0, 0], [1, 0], [0, 1], [1, 1]];
+                        const existing = entry.perspective && entry.perspective.corners;
+                        const corners = identity.map((fallback, index) =>
+                            Array.isArray(existing) && Array.isArray(existing[index])
+                                ? [...existing[index]] : [...fallback]);
+                        corners[corner][axis] = message.value;
+                        entry.perspective = { corners };
                     } else if (message.field === 'opacity') {
                         entry.opacity = message.value;
                     } else if (['x', 'y', 'scale', 'rotate'].includes(message.field)) {

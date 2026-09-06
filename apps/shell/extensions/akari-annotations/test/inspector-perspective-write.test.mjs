@@ -62,7 +62,7 @@ test('perspective 全8行は対応座標を書き、各 reset はその座標だ
             assert.equal(row.displayScale, 100);
             assert.equal(row.scrubStep * row.displayScale, 0.5);
             assert.equal(row.max * row.displayScale, 100);
-            assert.equal(row.liveField, undefined);
+            assert.equal(row.liveField, `perspective.${['tl', 'tr', 'bl', 'br'][Math.floor(index / 2)]}.${index % 2 ? 'y' : 'x'}`);
             assert.equal(row.keyframeDisabled, undefined);
             assert.deepEqual(await row.write(snapshot, '0.25'), { ok: true });
             const corners = normalizeInspectorPerspective(undefined);
@@ -85,16 +85,16 @@ test('perspective 行は範囲外と退化四角形を ok:false にして書き�
     });
 });
 
-test('perspective KF があれば8行を disabled、他プロパティの KF は編集を妨げない', async () => {
+test('perspective KF があっても8行は編集可能', async () => {
     for (const kind of ['layer', 'item']) {
         const snapshot = visualSnapshot(kind, { keyframes: [{ t: 0 }, { t: 30, perspective: { corners: INSPECTOR_PERSPECTIVE_IDENTITY } }] });
-        const fields = perspectiveFields(snapshot, async () => assert.fail('disabled write'));
+        const fields = perspectiveFields(snapshot, async () => ({ ok: true }));
         for (const row of fields.slice(0, 8)) {
-            assert.equal(row.disabled, true);
-            assert.equal(row.title, 'キーフレームがあるため数値行では編集できません');
-            assert.equal((await row.write(snapshot, '0.25')).ok, false);
+            assert.equal(Boolean(row.disabled), false);
+            assert.equal(row.title, undefined);
+            assert.equal((await row.write(snapshot, '0.25')).ok, true);
         }
-        assert.equal(perspectiveFields(visualSnapshot(kind, { keyframes: [{ t: 0, opacity: 0.5 }] }), () => {})[0].disabled, false);
+        assert.equal(Boolean(perspectiveFields(visualSnapshot(kind, { keyframes: [{ t: 0, opacity: 0.5 }] }), () => {})[0].disabled), false);
     }
 });
 

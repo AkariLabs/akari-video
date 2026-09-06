@@ -1,11 +1,18 @@
-export const EDITABLE_KEYFRAME_PROPERTIES = [
+export const DEFAULT_KEYFRAME_PROPERTIES = [
     'transform.x', 'transform.y', 'transform.scale', 'transform.rotate', 'opacity'
 ] as const;
-export const DISPLAY_ONLY_KEYFRAME_PROPERTIES = ['crop', 'perspective'] as const;
+export const EDITABLE_KEYFRAME_PROPERTIES = [...DEFAULT_KEYFRAME_PROPERTIES, 'crop', 'perspective'] as const;
 
 export type EditableKeyframeProperty = typeof EDITABLE_KEYFRAME_PROPERTIES[number];
-export type DisplayOnlyKeyframeProperty = typeof DISPLAY_ONLY_KEYFRAME_PROPERTIES[number];
-export type KeyframeProperty = EditableKeyframeProperty | DisplayOnlyKeyframeProperty;
+export type KeyframeProperty = EditableKeyframeProperty;
+export type KeyframeSeatProperty = KeyframeProperty | `crop.${'x' | 'y' | 'w' | 'h'}`
+    | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`;
+
+export function keyframeRowPropertyOf(property: KeyframeSeatProperty): KeyframeProperty {
+    if (property.startsWith('crop.')) return 'crop';
+    if (property.startsWith('perspective.')) return 'perspective';
+    return property as KeyframeProperty;
+}
 
 export interface TimelinePropertyDiamond {
     t: number;
@@ -41,13 +48,13 @@ const LABELS: Record<KeyframeProperty, string> = {
     'transform.scale': '拡縮',
     'transform.rotate': '回転',
     opacity: '不透明度',
-    crop: 'クロップ（表示のみ）',
-    perspective: 'パース（表示のみ）'
+    crop: 'クロップ',
+    perspective: 'パース'
 };
 
 export function deriveTimelineKeyframeRows(
     item: KeyframeItemLike,
-    requested: readonly KeyframeProperty[] = EDITABLE_KEYFRAME_PROPERTIES
+    requested: readonly KeyframeProperty[] = DEFAULT_KEYFRAME_PROPERTIES
 ): TimelineKeyframePropertyRow[] {
     const properties = new Set<KeyframeProperty>(requested);
     for (const point of inlinePoints(item.keyframes)) {
@@ -64,7 +71,7 @@ export function deriveTimelineKeyframeRows(
             itemId: item.id,
             property,
             label: LABELS[property],
-            editable: !DISPLAY_ONLY_KEYFRAME_PROPERTIES.includes(property as DisplayOnlyKeyframeProperty),
+            editable: true,
             diamonds: times.map((t, index) => ({
                 t,
                 endpoint: index === 0 || index === times.length - 1,
@@ -106,7 +113,6 @@ function propertiesAt(point: Record<string, unknown>): KeyframeProperty[] {
         const key = property.startsWith('transform.') ? property.slice('transform.'.length) : property;
         if (property.startsWith('transform.') ? key in transform : key in point) result.push(property);
     }
-    for (const property of DISPLAY_ONLY_KEYFRAME_PROPERTIES) if (property in point) result.push(property);
     return result;
 }
 

@@ -6,6 +6,8 @@ import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields'
 import type { CutFreeze } from './inspector/freeze-fields';
 import type { InspectorAdjustPath, InspectorAdjustSnapshot, InspectorAdjustValue } from './inspector/adjust-fields';
 
+import type { KeyframeProperty, KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
+
 export interface TimelineCutSelection {
     kind: 'cut';
     index: number;
@@ -340,22 +342,22 @@ export interface InspectorWriteResult {
 export interface TimelineKeyframeSelection {
     kind: 'keyframe';
     itemId: string;
-    property: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate' | 'opacity';
+    property: KeyframeProperty;
     times: number[];
     easing?: string;
 }
 
 export interface KeyframeControlRequest {
-    action: 'toggle' | 'previous' | 'next' | 'easing' | 'reveal';
+    action: 'write' | 'toggle' | 'previous' | 'next' | 'easing' | 'reveal';
     itemId: string;
-    property: TimelineKeyframeSelection['property'];
+    property: KeyframeSeatProperty;
     value?: number;
     easing?: string;
 }
 
 /**
  * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
- * ephemeral な通知。対象は cuts/layers の transform/opacity/crop。
+ * ephemeral な通知。対象は cuts/layers の transform/opacity/crop/perspective。
  */
 export type LivePreviewTarget =
     | { kind: 'cut'; index: number }
@@ -367,7 +369,8 @@ export interface AdjustBypassRequest { target: LivePreviewTarget; enabled: boole
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
     field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity'
-        | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h';
+        | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
+        | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`;
     value: number;
     easing?: string;
 }
