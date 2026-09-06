@@ -95,7 +95,7 @@ test('preview ensureRuntimes loads only matching scripts and seeks three and gla
     if(path==='/pack/bg.svg')return request.respond({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#246"/></svg>'});
     return request.respond({contentType:'text/html',body:'<div id="stage" style="position:relative;width:640px;height:360px"></div>'});
   });
-  await page.goto('http://registry.test/');
+  await page.goto('http://localhost/');
   const app=readFileSync(new URL('../../preview-server/public/app.js',import.meta.url),'utf8');
   const loader=app.slice(app.indexOf('// --- Declarative runtime loading ---'),app.indexOf('let itemKeyframesRuntimeReady'));
   const runtime=app.slice(app.indexOf('function createOverlayRuntime()'),app.indexOf('function updateOverlays()'));
