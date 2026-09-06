@@ -74,8 +74,8 @@ Each stage of production is an independent skill, usable from wherever you need 
 [Analyze]      analyze-footage     per-clip proxies, transcription, keyframe extraction
                analyze-project     cross-reads multiple clips into an interpretation report
    ↓
-[Edit plan]    edit-plan           direction → asset plan → execution: three approval
-                                   steps into edit.json
+[Edit plan]    edit-plan           proposals into the timeline → review in preview
+                                   → one stamp at export
                overlay-authoring   titles, captions, figures, 3D, thumbnails
                generate-narration  narration (free local / voice clone)
    ↓
@@ -90,15 +90,23 @@ Each stage of production is an independent skill, usable from wherever you need 
 Each stage milestone is recorded in `.akari/events/`, one entry at a time, and the next
 session you open offers to continue from where you left off.
 
-## Human checkpoints (approval gates)
+## One stamp, at export
 
-It is not fully automatic. By default, human approval is required at these milestones:
+The default is **With proposals** (`checkpoint`). Requested items and promising additions go
+into the timeline, with no intermediate approvals. Review the preview, remove or adjust
+anything unwanted, and export. You give just one stamp, at export.
 
-1. **Approve the editing direction** — look at the analysis report and OK the direction
-2. **Approve the export** — confirm lint PASS and OK the render
+**Straight through** (`full-auto`) adds exactly what you asked for and exports without preview
+review, with zero stamps. It then attaches 1–2 captures and lint results in `.akari/reports/`.
 
-The delegation level (`autonomy` in `.akari/intake.json`) can be `full-auto` /
-`checkpoint` (default) / `collaborative`.
+Only **Work together** (`collaborative`) confirms three stages — direction → asset plan →
+execution — with a stamp at each stage.
+
+Switch modes in the intake form (`autonomy` in `.akari/intake.json`) or at the bottom of the
+shell's rightmost vertical bar.
+
+Approval for billing and external sends is independent of the mode. The `connections.json` cost
+approval policy takes priority ([Connections and API keys](./how-to/connections.md)).
 
 ## Read next
 
