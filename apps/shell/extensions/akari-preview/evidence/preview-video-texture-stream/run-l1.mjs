@@ -17,7 +17,7 @@ import { execFile } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { cp, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ const repoRoot = path.resolve(evidenceDir, '../../../../../..');
 const shellDir = path.join(repoRoot, 'apps', 'shell');
 const electronBin = path.join(repoRoot, 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron');
 const ownerProject = process.env.AKARI_OWNER_PROJECT
-    ?? '/Users/ryoma/Akari/channels/my-channel/videos/2026-08-07-akari-reel';
+    ?? path.join(homedir(), 'Akari', 'channels', 'my-channel', 'videos', '2026-08-07-akari-reel');
 
 const require = createRequire(path.join(repoRoot, 'package.json'));
 const puppeteer = require('puppeteer-core');
