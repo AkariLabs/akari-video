@@ -18,8 +18,8 @@ test('resolveSource sends the shared clip FX request on the non-blocking sidecar
     assert.match(handlerSource, /interface PreviewAudioSidecarRequest \{[^]*?clipFx\?: AudioClipFx;/);
 });
 
-test('sfx, narration and bgm requests all adopt clip FX with the corresponding kind', () => {
-    assert.match(audioSource, /resolveSource\(item\.path, label, \{[^]*?\}, kind, [^]*?, item\.t, audioClipFxOf\(item, kind\)\)/);
+test('sfx, narration, speech and bgm requests all adopt clip FX with the corresponding kind', () => {
+    assert.match(audioSource, /resolveSource\(item\.path, label, \{[^]*?\}, kind === 'speech' \? 'narration' : kind,[^]*?item\.t,\s*audioClipFxOf\(item, kind\)/);
     assert.match(audioSource, /timed\(audio\.sfx, 'sfx'\)/);
     assert.match(audioSource, /timed\(audio\.narration, 'narration'\)/);
     assert.match(audioSource, /resolveSource\(rawBgm\.path, 'audio\.bgm', \{ inSec: bgmIn \?\? 0 \}, 'bgm', 'bgm', 0, audioClipFxOf\(rawBgm, 'bgm'\)\)/);

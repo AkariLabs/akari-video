@@ -27,6 +27,7 @@ import {
     collectExcludedCaptionIds,
     computeDuckEnvelope,
     evaluateEnvelopeDb,
+    isAudioItemAudible,
     projectLegacyAudioView,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
@@ -345,6 +346,8 @@ export const normalizePreviewCaptionClock = (
 // caption-clock-normalizer:end
 
 interface EditSummaryCut {
+    audio?: false;
+    mute?: boolean;
     /** v2 tracks[].items[].id（legacy でも内部表現が付けた安定 id）。 */
     id: string;
     /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
@@ -420,6 +423,8 @@ interface PreviewAudioService {
 }
 
 interface PreviewAudioPendingRequest {
+    /** Independent speech uses narration sidecars but keeps its own summary collection. */
+    audioCollection?: 'speech';
     at?: number;
     durationSec?: number;
     key?: string;
@@ -515,10 +520,12 @@ interface EditSummaryBgm extends EditSummaryAudioSource {
 }
 
 interface EditSummaryTimedAudio extends EditSummaryAudioSource {
+    role?: 'speech';
+    duckKey?: boolean;
     id: string;
     t: number;
     track?: number;
-    // SFX and narration both have a playback window = material's [in, out).
+    // SFX, narration and independent speech share a playback window = material's [in, out).
     // Omitted in/out are resolved against the decoded
     // buffer's real duration in the injected preview script (createPreviewAudio's decodeOne).
     in?: number;
@@ -539,7 +546,8 @@ interface EditSummaryAudio {
     bgm?: EditSummaryBgm;
     sfx: EditSummaryTimedAudio[];
     narration: EditSummaryTimedAudio[];
-    speech?: EditSummarySpeech[];
+    speech: EditSummaryTimedAudio[];
+    embeddedSpeech?: EditSummarySpeech[];
 }
 
 interface EditSummaryEmphasisWord {
@@ -3410,7 +3418,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // Incremental refresh discards duplicate asset streams. Newly ready sidecars must survive it.
     protected retainPreviewAudioStreams(widget: PreviewWidgetMarker, model: PreviewModel, summary: EditSummary): void {
         const audio = summary.audio;
-        const urls = new Set([audio?.bgm, ...(audio?.sfx ?? []), ...(audio?.narration ?? []), ...(audio?.speech ?? [])]
+        const urls = new Set([audio?.bgm, ...(audio?.sfx ?? []), ...(audio?.narration ?? []),
+            ...(audio?.speech ?? []), ...(audio?.embeddedSpeech ?? [])]
             .flatMap(item => item?.sidecar?.path ? [item.sidecar.path] : []));
         const kept = new Set<string>();
         for (const [key, stream] of model.previewAudioStreams ?? []) {
@@ -3495,7 +3504,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 pending.splice(pending.indexOf(item), 1);
                 const summary = widget.akariPreviewSummary;
                 const audio = summary?.audio;
-                const target = item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                const target = item.kind === 'bgm' ? audio?.bgm
+                    : audio?.[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)]
+                        ?.find(value => value.id === item.id);
                 if (!target || !summary) {
                     if (result.stream) await this.disposeAssetStreams([result.stream.id]);
                     return;
@@ -3861,6 +3872,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return {
                     id: item.id,
                     ...result.fields,
+                    ...(value.audio === false ? { audio: false } : {}),
+                    ...(typeof value.mute === 'boolean' ? { mute: value.mute } : {}),
                     ...(typeof value.gain_db === 'number' && Number.isFinite(value.gain_db)
                         ? { gain_db: value.gain_db } : {}),
                     ...(typeof value.gainDb === 'number' && Number.isFinite(value.gainDb)
@@ -3880,7 +3893,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (cut) cuts.push(cut);
             }
             const previewAudioService = this.previewService as AkariPreviewService & PreviewAudioService;
-            const speech = await Promise.all(projectSpeechDeclarations(cuts, {
+            const embeddedSpeech = await Promise.all(projectSpeechDeclarations(cuts, {
                 fps: this.positiveNumber(internal.output.fps, 30)
             }).map(async declaration => {
                 const source = sourcesById.get(declaration.src);
@@ -4271,15 +4284,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (const entry of sortSidecarRequestsByFirstUse(sidecarRequests)) {
                 const item = entry.item;
                 if (!item) continue;
-                const target = item.kind === 'speech' ? speech.find(value => value.id === item.id)
-                    : item.kind === 'bgm' ? audio?.bgm : audio?.[item.kind]?.find(value => value.id === item.id);
+                const target = item.kind === 'speech' ? embeddedSpeech.find(value => value.id === item.id)
+                    : item.kind === 'bgm' ? audio?.bgm
+                        : audio?.[item.audioCollection ?? item.kind]?.find(value => value.id === item.id);
                 if (!target) continue;
                 if (entry.resolve) {
                     const fields = await entry.resolve();
                     if (fields) Object.assign(target, fields);
                     else if (audio && item.kind === 'bgm') delete audio.bgm;
                     else if (audio && (item.kind === 'sfx' || item.kind === 'narration')) {
-                        audio[item.kind] = audio[item.kind].filter(value => value !== target);
+                        const timedCollection = item.audioCollection ?? item.kind;
+                        audio[timedCollection] = audio[timedCollection].filter(value => value !== target);
                     }
                     continue;
                 }
@@ -4344,8 +4359,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     cuts,
                     ...(Object.keys(adjustLutCubeTexts).length > 0 ? { adjustLutCubeTexts } : {}),
                     indicators,
-                    ...((audio || speech.length > 0) ? {
-                        audio: { ...(audio ?? { sfx: [], narration: [] }), speech }
+                    ...((audio || embeddedSpeech.length > 0) ? {
+                        audio: { ...(audio ?? { sfx: [], narration: [], speech: [] }), embeddedSpeech }
                     } : {}),
                     ...(tracks ? { tracks } : {}),
                     timelineTracks,
@@ -4411,7 +4426,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             return undefined;
         }
-        const audio = value as { bgm?: unknown; sfx?: unknown; narration?: unknown };
+        const audio = value as { bgm?: unknown; sfx?: unknown; narration?: unknown; speech?: unknown };
         const resolveSource = async (
             pathValue: unknown,
             label: string,
@@ -4419,7 +4434,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             kind: PreviewAudioPendingRequest['kind'],
             id: string,
             at = 0,
-            clipFx: AudioClipFx = {}
+            clipFx: AudioClipFx = {},
+            audioCollection?: 'speech'
         ): Promise<({ src: string } & PreviewAudioSidecarFields) | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
@@ -4432,7 +4448,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             sidecarRequests.push(entry);
             try {
                 const stream = await ensure(key, assetUri);
-                const plan = resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
+                // Independent speech still references the video container. Like embedded
+                // speech, it needs extracted audio even for a short trim without clip FX.
+                const plan: ReturnType<typeof resolveRegularSidecarPlan> = audioCollection === 'speech'
+                    ? {
+                        request: true,
+                        format: trim.outSec === undefined ? 'pcm-s16le' : resolveSpeechSidecarFormat({
+                            inSec: trim.inSec, outSec: trim.outSec
+                        })
+                    }
+                    : resolveRegularSidecarPlan({ ...trim, hasClipFx: hasAudioClipFx(clipFx) });
                 const sidecarRequest = previewAudioSidecarRequestFor(clipFx);
                 if (!plan.request) return { src: stream.url };
                 const request: PreviewAudioSidecarRequest = {
@@ -4447,6 +4472,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(plan.decodedBytesThreshold !== undefined ? { decodedBytesThreshold: plan.decodedBytesThreshold } : {})
                 };
                 const item: PreviewAudioPendingRequest = { kind, id, label: label + ' sidecar', request };
+                if (audioCollection) item.audioCollection = audioCollection;
                 item.at = at;
                 item.durationSec = kind === 'bgm' || trim.outSec === undefined ? undefined : trim.outSec - trim.inSec;
                 entry.item = item;
@@ -4542,7 +4568,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(duckRelease !== undefined ? { duckRelease } : {})
             };
         };
-        const timed = async (items: unknown, kind: 'sfx' | 'narration'): Promise<EditSummaryTimedAudio[]> => {
+        const timed = async (items: unknown, kind: 'sfx' | 'narration' | 'speech'): Promise<EditSummaryTimedAudio[]> => {
             if (items === undefined) {
                 return [];
             }
@@ -4554,6 +4580,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 結果は宣言順に積む（task/2026-09-02-preview-perf: SFX 40 件で 40 回の直列 await だった）。
             const resolvedItems = await Promise.all(items.map(async (rawItem, index): Promise<EditSummaryTimedAudio | undefined> => {
                 const item = rawItem as {
+                    mute?: unknown;
                     id?: unknown;
                     path?: unknown;
                     t?: unknown;
@@ -4572,14 +4599,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     duck_release?: unknown;
                     duckRelease?: unknown;
                 } | undefined;
-                const label = kind === 'narration' && typeof item?.id === 'string' && item.id
-                    ? `audio.narration ${item.id}`
+                const label = kind !== 'sfx' && typeof item?.id === 'string' && item.id
+                    ? `audio.${kind} ${item.id}`
                     : `audio.${kind}[${index}]`;
                 if (!item || typeof item !== 'object') {
                     console.warn(`[akari-preview] ${label} を無視しました（object ではありません）`);
                     return undefined;
                 }
-                if (kind === 'narration' && (typeof item.id !== 'string' || !item.id)) {
+                if (!isAudioItemAudible(undefined, item)) return undefined;
+                if (kind !== 'sfx' && (typeof item.id !== 'string' || !item.id)) {
                     console.warn(`[akari-preview] ${label} を無視しました（id 不正）`);
                     return undefined;
                 }
@@ -4591,7 +4619,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (normalizedGain === undefined) {
                     return undefined;
                 }
-                // SFX and narration share a playback window
+                // SFX, narration and independent speech share a playback window
                 // (material's [in, out)). Malformed values are warned-and-ignored (treated as
                 // omitted) rather than dropping the whole item, matching gain_db/fadeIn/fadeOut's
                 // existing tolerance pattern in this function. Real-duration clamping (実尺越え) can
@@ -4600,7 +4628,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const source = await resolveSource(item.path, label, {
                     inSec: trimIn ?? 0,
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
-                }, kind, kind === 'narration' ? String(item.id) : `sfx-${index + 1}`, item.t, audioClipFxOf(item, kind));
+                }, kind === 'speech' ? 'narration' : kind,
+                kind !== 'sfx' ? String(item.id) : `sfx-${index + 1}`, item.t,
+                audioClipFxOf(item, kind), kind === 'speech' ? 'speech' : undefined);
                 if (!source) return undefined;
                 const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
@@ -4626,7 +4656,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                 }
                 return {
-                    id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
+                    id: kind !== 'sfx' ? String(item.id) : `sfx-${index + 1}`,
+                    ...(kind === 'speech' ? { role: 'speech' as const, duckKey: true } : {}),
                     src: source.src,
                     ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                     ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
@@ -4655,6 +4686,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let bgm: EditSummaryBgm | undefined;
         if (audio.bgm !== undefined) {
             const rawBgm = audio.bgm as {
+                mute?: unknown;
                 path?: unknown;
                 gain_db?: unknown;
                 ducking?: unknown;
@@ -4672,7 +4704,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } | undefined;
             if (!rawBgm || typeof rawBgm !== 'object' || Array.isArray(rawBgm)) {
                 console.warn('[akari-preview] audio.bgm を無視しました（object ではありません）');
-            } else {
+            } else if (isAudioItemAudible(undefined, rawBgm)) {
                 const normalizedGain = gainDb(rawBgm.gain_db, 'audio.bgm');
                 if (normalizedGain !== undefined) {
                     const fades: Pick<EditSummaryBgm, 'fadeIn' | 'fadeOut'> = {};
@@ -4717,11 +4749,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             }
         }
-        const [sfx, narration] = await Promise.all([timed(audio.sfx, 'sfx'), timed(audio.narration, 'narration')]);
-        if (!bgm && sfx.length === 0 && narration.length === 0) {
+        const [sfx, narration, speech] = await Promise.all([
+            timed(audio.sfx, 'sfx'), timed(audio.narration, 'narration'), timed(audio.speech, 'speech')
+        ]);
+        if (!bgm && sfx.length === 0 && narration.length === 0 && speech.length === 0) {
             return undefined;
         }
-        return { bgm, sfx, narration };
+        return { bgm, sfx, narration, speech };
     }
 
     // task/2026-08-10-preview-bug-sweep (B3): binary glTF (.glb) header/JSON-chunk sniff for
@@ -6252,7 +6286,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 let config = initial.summary && initial.summary.audio;
                 const hasAudio = config && (config.bgm
                     || (Array.isArray(config.sfx) && config.sfx.length > 0)
-                    || (Array.isArray(config.narration) && config.narration.length > 0));
+                    || (Array.isArray(config.narration) && config.narration.length > 0)
+                    || (Array.isArray(config.speech) && config.speech.some(item => item.role === 'speech')));
                 if (!hasAudio) return null;
 
                 let context;
@@ -6375,8 +6410,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const decodeOne = async (kind, spec) => {
                     try {
                         const buffer = await fetchDecodedBuffer(spec.src);
-                        if (kind === 'sfx' && (spec.in !== undefined || spec.out !== undefined)) {
-                            const trimWindow = resolveSfxTrimWindowFn(spec.in, spec.out, buffer.duration, 'sfx ' + spec.id);
+                        if (kind !== 'bgm' && (spec.in !== undefined || spec.out !== undefined)) {
+                            const trimWindow = resolveSfxTrimWindowFn(spec.in, spec.out, buffer.duration, kind + ' ' + spec.id);
                             if (trimWindow.warning) console.warn('[akari-preview] ' + trimWindow.warning);
                             if (trimWindow.skip) return null;
                             return { ...spec, buffer, durationSec: trimWindow.durationSec, sourceOffset: trimWindow.sourceOffset };
@@ -6414,7 +6449,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         const [bgm, sfx, narration] = await Promise.all([
                             config.bgm ? decodeOne('bgm', { ...config.bgm, id: 'bgm' }) : Promise.resolve(null),
                             timed('sfx', config.sfx),
-                            timed('narration', config.narration)
+                            timed('narration', [
+                                ...(config.narration || []),
+                                ...(config.speech || []).filter(item => item.role === 'speech')
+                            ])
                         ]);
                         decoded.bgm = bgm;
                         decoded.sfx = sfx;
@@ -7736,13 +7774,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (disposed) return;
                 const audioDeclarationsForSummary = (value, cuts) => {
                     const declarations = [];
-                    const appendAudio = (kind, raw, fallbackId) => {
+                    const appendAudio = (kind, raw, fallbackId, duckKey = false) => {
                         if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
                         const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
                         const sidecar = (raw.sidecarState === 'ready' || raw.sidecarState === undefined)
                             && raw.sidecar && raw.sidecar.path ? raw.sidecar : undefined;
                         declarations.push({
                             kind,
+                            ...(duckKey ? { duckKey: true } : {}),
                             id,
                             url: sidecar ? sidecar.path : raw.src,
                             ...(sidecar ? { sourceUrl: raw.src } : {}),
@@ -7761,9 +7800,19 @@ body { display: grid; place-items: center; padding: 32px; }
                             ));
                         }
                     }
-                    const projectedSpeech = Array.isArray(audio && audio.speech)
-                        ? audio.speech : engine.projectSpeechDeclarations(cuts, { fps });
+                    if (Array.isArray(audio?.speech)) {
+                        audio.speech.filter(item => item.role === 'speech').forEach((item, index) => appendAudio(
+                            'narration', item, 'speech-' + (index + 1), true
+                        ));
+                    }
+                    const embedded = audio?.embeddedSpeech ?? (Array.isArray(audio?.speech)
+                        && !audio.speech.some(item => item.role === 'speech') ? audio.speech : undefined);
+                    const projectedSpeech = Array.isArray(embedded)
+                        ? embedded : engine.projectSpeechDeclarations(cuts, { fps });
+                    const audibleIds = cuts.length > 0
+                        ? new Set(engine.projectSpeechDeclarations(cuts, { fps }).map(item => item.id)) : undefined;
                     const speech = projectedSpeech.flatMap(declaration => {
+                        if (audibleIds && !audibleIds.has(declaration.id)) return [];
                         const url = sourceUrls.get(declaration.src);
                         const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;
                         return url ? [{
@@ -8230,6 +8279,9 @@ body { display: grid; place-items: center; padding: 32px; }
     protected previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
+            // Match edit-store's cut rule here: toString() cannot preserve mangled helper references.
+            const isCutAudioAudibleFn = (cut, track) => cut.audio !== false && isAudioItemAudibleFn(track, cut);
             const clampPreviewPlaybackRate = (${clampPreviewPlaybackRate.toString()});
             const effectiveMediaRateFn = (${effectiveMediaRate.toString()});
             const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
@@ -11396,6 +11448,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         return {
                             ...segment,
                             id: cut ? cut.id : undefined,
+                            audio: cut ? cut.audio : undefined,
+                            mute: cut ? cut.mute : undefined,
                             trackId: cut ? cut.trackId : undefined,
                             transform: cut ? cut.transform : undefined,
                             opacity: cut ? cut.opacity : undefined,
@@ -12907,7 +12961,7 @@ body { display: grid; place-items: center; padding: 32px; }
 
                     const cutsTrackMuted = allTracksMutedByScope.cuts
                         || mutedTracksByScope.cuts.has(window.incoming.track);
-                    transitionVideo.muted = globalMuted || cutsTrackMuted;
+                    transitionVideo.muted = globalMuted || !isCutAudioAudibleFn(window.incoming, { muted: cutsTrackMuted });
                     // incoming 静止画ではこの分岐へ入らず、無音要素の volume を触らない。
                     transitionVideo.volume = transitionAudioBaseVolume * progress;
                 }
@@ -13128,7 +13182,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cutsTrackHidden = Boolean(segment && segment.kind === 'src'
                     && (allTracksHiddenByScope.cuts || hiddenTracksByScope.cuts.has(segment.track)));
                 video.dataset.akariGlobalMuted = String(globalMuted);
-                video.muted = globalMuted || cutsTrackMuted;
+                video.muted = globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
                 const segmentIsStill = isStillSegment(segment);
                 video.style.visibility = !segment || segment.kind === 'gap' || segmentIsStill
                     || cutsTrackHidden ? 'hidden' : '';

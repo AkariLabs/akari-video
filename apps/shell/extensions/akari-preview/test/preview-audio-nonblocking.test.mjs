@@ -133,12 +133,12 @@ test('sidecar の状態だけではモデル差分を起こさず gain 編集は
         sourceUris: [], assetUris: [], overlayUris: [], output: { width: 1280, height: 720 },
         overlayRuntimeAssets: [], summary: { audio: {
             bgm: { src: 'bgm', gainDb: 0, sidecarState: 'queued' },
-            speech: [{ id: 'speech', sidecarState: 'queued' }]
+            embeddedSpeech: [{ id: 'speech', sidecarState: 'queued' }]
         } }
     };
     const next = structuredClone(previous);
     Object.assign(next.summary.audio.bgm, { sidecarState: 'ready', sidecar: { path: 'flac' } });
-    Object.assign(next.summary.audio.speech[0], { sidecarState: 'unavailable', sidecarWarningEmitted: true });
+    Object.assign(next.summary.audio.embeddedSpeech[0], { sidecarState: 'unavailable', sidecarWarningEmitted: true });
     assert.equal(classifyPreviewModelUpdate(previous, next), 'none');
     next.summary.audio.bgm.gainDb = -6;
     assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
@@ -292,16 +292,16 @@ test('完了順に speech / sfx / narration を反映し、残りの pending だ
         const state = states.get(request.kind);
         return { state, ...(state === 'ready' ? { stream: { id: 'speech-stream', url: 'speech-url' } } : {}) };
     });
-    const audio = { sfx: [], narration: [], speech: [] };
+    const audio = { sfx: [], narration: [], embeddedSpeech: [] };
     f.model.previewAudioPendingRequests = ['speech', 'sfx', 'narration'].map(kind => {
-        audio[kind].push({ id: kind, sidecarState: 'queued' });
+        audio[kind === 'speech' ? 'embeddedSpeech' : kind].push({ id: kind, sidecarState: 'queued' });
         return { kind, id: kind, label: kind + ' sidecar', request: { kind } };
     });
     f.widget.akariPreviewSummary.audio = audio;
     f.host.startPreviewAudioTracking(f.widget, f.model, true);
     await f.run(1000);
     assert.equal(f.messages.length, 2);
-    assert.equal(audio.speech[0].sidecarState, 'ready');
+    assert.equal(audio.embeddedSpeech[0].sidecarState, 'ready');
     assert.equal(audio.narration[0].sidecarState, 'unavailable');
     assert.equal(f.widget.akariPreviewAudioPendingRequests.length, 1);
     states.set('sfx', 'no-audio');
