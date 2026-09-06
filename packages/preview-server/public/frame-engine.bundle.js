@@ -18050,7 +18050,7 @@ var WebGL2Compositor = class {
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
     ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
-      (name, unit) => gl.uniform1i(gl.getUniformLocation(program, name), unit)
+      (name, unit2) => gl.uniform1i(gl.getUniformLocation(program, name), unit2)
     );
     const cutUniforms = [0, 1].map((index) => ({
       framing: gl.getUniformLocation(program, `framing${index}`),
@@ -18081,12 +18081,12 @@ var WebGL2Compositor = class {
     this.basePrograms.set(type, state);
     return state;
   }
-  bind(unit, texture) {
-    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+  bind(unit2, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
   }
-  bind3d(unit, texture) {
-    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+  bind3d(unit2, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
     this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
   }
   lookTexture(lut, allocationUnit = LUT_UNIT) {
@@ -18155,7 +18155,7 @@ var WebGL2Compositor = class {
     this.stats.directUploadFallbackReason ??= reason;
     throw new DirectUploadFallbackError(reason);
   }
-  uploadVideoFrameTexture(texture, unit, frame, uniforms) {
+  uploadVideoFrameTexture(texture, unit2, frame, uniforms) {
     if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
       this.failDirectUpload("direct upload is disabled for this session");
     if (!isDirectUploadableFormat(frame.format))
@@ -18168,7 +18168,7 @@ var WebGL2Compositor = class {
       this.failDirectUpload(`invalid display size ${width}x${height}`);
     const gl = this.gl;
     while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
-    this.bind(unit, texture);
+    this.bind(unit2, texture);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
@@ -18303,7 +18303,7 @@ var WebGL2Compositor = class {
       this.gl.uniform2f(u2.box, 1, 1);
     }
   }
-  configureAdjustLut(lut, unit, uniforms) {
+  configureAdjustLut(lut, unit2, uniforms) {
     const gl = this.gl;
     gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
     if (!lut) {
@@ -18313,7 +18313,7 @@ var WebGL2Compositor = class {
       gl.uniform1f(uniforms.adjustLutIntensity, 0);
       return;
     }
-    this.bind3d(unit, this.lookTexture(lut, unit));
+    this.bind3d(unit2, this.lookTexture(lut, unit2));
     gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
     gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
     gl.uniform1f(uniforms.adjustLutSize, lut.size);
@@ -18383,9 +18383,9 @@ var WebGL2Compositor = class {
     return texture;
   }
   /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
-  uploadStillBaseTexture(value, unit, uniforms) {
+  uploadStillBaseTexture(value, unit2, uniforms) {
     const texture = this.stillTexture(value);
-    this.bind(unit, texture);
+    this.bind(unit2, texture);
     if (uniforms) {
       this.gl.uniform1i(uniforms.format, 2);
       this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
@@ -19020,8 +19020,8 @@ function sampleLutTrilinear(lut, rgb) {
   }
   if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
   const p2 = [0, 1, 2].map((index) => {
-    const unit = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
-    return clamp(unit) * (lut.size - 1);
+    const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+    return clamp(unit2) * (lut.size - 1);
   });
   const lo = p2.map(Math.floor);
   const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
@@ -19390,6 +19390,150 @@ function bakeItemAdjustLut(adjust, userLut, size = ADJUST_LUT_SIZE) {
   return result;
 }
 
+// ../frame-engine/src/timeline/item-motion.ts
+var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"];
+var MOTION_LOOP_PRESETS = ["pulse", "float", "spin"];
+var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
+var loopPresets = new Set(MOTION_LOOP_PRESETS);
+var unit = (u2) => Math.max(0, Math.min(1, u2));
+var finite3 = (value) => typeof value === "number" && Number.isFinite(value);
+var identity = () => ({ dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 });
+function bounce(u2) {
+  const n2 = 7.5625;
+  const d2 = 2.75;
+  if (u2 < 1 / d2) return n2 * u2 * u2;
+  if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+  if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+  return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+}
+function easeValue(name, u2) {
+  u2 = unit(u2);
+  if (name === "hold") return u2 < 1 ? 0 : 1;
+  if (u2 === 0 || u2 === 1) return u2;
+  const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
+  if (polynomial) {
+    const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
+    if (polynomial[1] === "in") return u2 ** power;
+    if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
+    return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
+  }
+  const back = 1.70158;
+  switch (name) {
+    case "ease-in-out":
+      return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+    case "in-expo":
+      return 2 ** (10 * u2 - 10);
+    case "out-expo":
+      return 1 - 2 ** (-10 * u2);
+    case "in-out-expo":
+      return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+    case "in-back":
+      return (back + 1) * u2 ** 3 - back * u2 ** 2;
+    case "out-back":
+      return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
+    case "in-out-back": {
+      const c = back * 1.525;
+      return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+    }
+    case "out-bounce":
+      return bounce(u2);
+    case "out-elastic":
+      return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
+  }
+  const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
+  if (bezier) {
+    const values = bezier.slice(1).map((value) => value.trim() ? Number(value) : NaN);
+    const [x1, y1, x22, y2] = values;
+    if (values.every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+      const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+      let low = 0;
+      let high = 1;
+      for (let iteration = 0; iteration < 48; iteration += 1) {
+        const t = (low + high) / 2;
+        if (coordinate(t, x1, x22) < u2) low = t;
+        else high = t;
+      }
+      return coordinate((low + high) / 2, y1, y2);
+    }
+  }
+  return u2;
+}
+function compose(target, effect) {
+  target.dx += effect.dx;
+  target.dy += effect.dy;
+  target.scale *= effect.scale;
+  target.rotate += effect.rotate;
+  target.opacity *= effect.opacity;
+  if (effect.reveal) {
+    const a = target.reveal ?? { x: 0, y: 0, w: 1, h: 1 };
+    const b = effect.reveal;
+    const x3 = Math.max(a.x, b.x);
+    const y2 = Math.max(a.y, b.y);
+    target.reveal = {
+      x: x3,
+      y: y2,
+      w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
+      h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
+    };
+  }
+}
+function motionVisualAt(motion2, localSeconds, itemDurationSeconds, fps) {
+  if (!motion2 || !finite3(localSeconds) || !finite3(itemDurationSeconds) || itemDurationSeconds <= 0 || !finite3(fps) || fps <= 0) return null;
+  const result = identity();
+  let applied = false;
+  for (const seat of ["in", "out"]) {
+    const entry = motion2[seat];
+    if (!entry || !inOutPresets.has(entry.preset) || !finite3(entry.duration) || entry.duration <= 0) continue;
+    const span = entry.duration / fps;
+    if (!finite3(span) || span <= 0) continue;
+    applied = true;
+    const progress = seat === "in" ? localSeconds / span : 1 - (itemDurationSeconds - localSeconds) / span;
+    const eased = easeValue(entry.ease, progress);
+    const hidden = seat === "in" ? 1 - eased : eased;
+    const amount = finite3(entry.amount) ? entry.amount : entry.preset === "scale" ? 0.2 : 40;
+    const effect = identity();
+    switch (entry.preset) {
+      case "fade":
+        effect.opacity = unit(1 - hidden);
+        break;
+      case "slide-up":
+        effect.dy = hidden * amount;
+        break;
+      case "slide-down":
+        effect.dy = -hidden * amount;
+        break;
+      case "slide-left":
+        effect.dx = hidden * amount;
+        break;
+      case "slide-right":
+        effect.dx = -hidden * amount;
+        break;
+      case "scale":
+        effect.scale = 1 - hidden * amount;
+        break;
+      case "wipe":
+        effect.reveal = { x: 0, y: 0, w: unit(1 - hidden), h: 1 };
+        break;
+    }
+    compose(result, effect);
+  }
+  const loop = motion2.loop;
+  if (loop && loopPresets.has(loop.preset) && finite3(loop.period) && loop.period > 0) {
+    const span = loop.period / fps;
+    if (finite3(span) && span > 0) {
+      applied = true;
+      const phase = easeValue(loop.ease, (localSeconds % span + span) % span / span);
+      const amount = finite3(loop.amount) ? loop.amount : loop.preset === "pulse" ? 0.05 : loop.preset === "float" ? 6 : 1;
+      const effect = identity();
+      if (loop.preset === "pulse") effect.scale = 1 + amount * Math.sin(2 * Math.PI * phase);
+      if (loop.preset === "float") effect.dy = amount * Math.sin(2 * Math.PI * phase);
+      if (loop.preset === "spin") effect.rotate = 360 * phase * amount;
+      compose(result, effect);
+    }
+  }
+  return applied ? result : null;
+}
+
 // ../frame-engine/src/timeline/plan.ts
 var KNOWN_CUT_KEY_LIST = [
   "in",
@@ -19408,7 +19552,8 @@ var KNOWN_CUT_KEY_LIST = [
   "crop",
   "keyframes",
   "perspective",
-  "adjust"
+  "adjust",
+  "motion"
 ];
 var KNOWN_LAYER_KEY_LIST = [
   "id",
@@ -19424,7 +19569,8 @@ var KNOWN_LAYER_KEY_LIST = [
   "opacity",
   "blend",
   "filter",
-  "adjust"
+  "adjust",
+  "motion"
 ];
 var KNOWN_KEYFRAME_KEY_LIST = [
   "t",
@@ -19443,7 +19589,7 @@ var DEFAULT_VISUAL = {
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
   opacity: 1
 };
-function finite3(value, fallback) {
+function finite4(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function clamp3(value, minimum, maximum) {
@@ -19468,7 +19614,7 @@ function usableKeyframeCount(keyframes) {
   return Array.isArray(keyframes) ? keyframes.filter((point) => Boolean(point) && typeof point === "object" && Number.isFinite(point.t) && point.t >= 0).length : 0;
 }
 function hasCutLayerStyleVisual(cut) {
-  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2 || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe";
 }
 function cutDeclaresPerspective(cut) {
   return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
@@ -19508,8 +19654,8 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
   }
   const virtualCuts = cuts.map((cut) => {
-    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
-    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
     return {
       ...cut,
       out: cut.out + freezeDuration * speed,
@@ -19521,10 +19667,10 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
     if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
     const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
-    const freezeAt = cut.freeze ? clamp3(finite3(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+    const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const freezeAt = cut.freeze ? clamp3(finite4(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
     const adjustLut = resolveAdjustLut(cut.adjust);
     return {
       cut,
@@ -19561,7 +19707,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       maskSources.set(layer.src, null);
     }
   }
-  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
+  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))), 0);
   return {
     map,
     cuts: placements,
@@ -19570,13 +19716,13 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     layerAdjustLuts,
     maskSources,
     warn,
-    fps: finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+    fps: finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
   const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
-  const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
-  const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
+  const startFrame = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+  const endFrame = Math.max(startFrame, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
 }
 function playbackSecondsAt(placement, outputSeconds) {
@@ -19611,27 +19757,27 @@ function interpolateFraming(keyframes, playbackSeconds) {
   const amount = right.t > left.t ? clamp3((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
   const lerp = (a, b) => a + (b - a) * amount;
   return {
-    scale: Math.max(1, lerp(finite3(left.scale, 1), finite3(right.scale, 1))),
-    centerX: clamp3(lerp(finite3(left.cx, 0.5), finite3(right.cx, 0.5)), 0, 1),
-    centerY: clamp3(lerp(finite3(left.cy, 0.5), finite3(right.cy, 0.5)), 0, 1)
+    scale: Math.max(1, lerp(finite4(left.scale, 1), finite4(right.scale, 1))),
+    centerX: clamp3(lerp(finite4(left.cx, 0.5), finite4(right.cx, 0.5)), 0, 1),
+    centerY: clamp3(lerp(finite4(left.cy, 0.5), finite4(right.cy, 0.5)), 0, 1)
   };
 }
 function layerStyleVisualAt(cut, localSeconds) {
   const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
-    x: finite3(staticCrop.x, 0),
-    y: finite3(staticCrop.y, 0),
-    width: finite3(staticCrop.w, 1),
-    height: finite3(staticCrop.h, 1)
+    x: finite4(staticCrop.x, 0),
+    y: finite4(staticCrop.y, 0),
+    width: finite4(staticCrop.w, 1),
+    height: finite4(staticCrop.h, 1)
   };
   const width = clamp3(crop.width, Number.EPSILON, 1);
   const height = clamp3(crop.height, Number.EPSILON, 1);
   const transform = animated?.transform ?? {
-    x: finite3(cut.transform?.x, 0),
-    y: finite3(cut.transform?.y, 0),
-    scale: finite3(cut.transform?.scale, 1),
-    rotateDegrees: finite3(cut.transform?.rotate, 0)
+    x: finite4(cut.transform?.x, 0),
+    y: finite4(cut.transform?.y, 0),
+    scale: finite4(cut.transform?.scale, 1),
+    rotateDegrees: finite4(cut.transform?.rotate, 0)
   };
   return {
     framing: DEFAULT_VISUAL.framing,
@@ -19641,15 +19787,46 @@ function layerStyleVisualAt(cut, localSeconds) {
       scale: Math.max(Number.EPSILON, transform.scale),
       rotateDegrees: transform.rotateDegrees
     },
-    opacity: clamp3(animated?.opacity ?? finite3(cut.opacity, 1), 0, 1),
+    opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
     layerStyle: {
       crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
     }
   };
 }
-function visualAt(cut, playbackSeconds, localSeconds, adjustLut) {
+function motionTransform(transform, motion2) {
+  return {
+    x: transform.x + motion2.dx,
+    y: transform.y + motion2.dy,
+    scale: transform.scale * motion2.scale,
+    rotateDegrees: transform.rotateDegrees + motion2.rotate
+  };
+}
+function motionCrop(crop, reveal) {
+  return {
+    x: crop.x + crop.width * reveal.x,
+    y: crop.y + crop.height * reveal.y,
+    // Keep downstream geometry nondegenerate; motionOpacity preserves a closed wipe's transparency.
+    width: Math.max(Number.EPSILON, crop.width * reveal.w),
+    height: Math.max(Number.EPSILON, crop.height * reveal.h)
+  };
+}
+function motionOpacity(opacity, motion2) {
+  return motion2.reveal && (motion2.reveal.w === 0 || motion2.reveal.h === 0) ? 0 : opacity * motion2.opacity;
+}
+function cutMotionVisual(visual, motion2) {
+  if (!motion2) return visual;
+  return {
+    ...visual,
+    transform: motionTransform(visual.transform, motion2),
+    opacity: motionOpacity(visual.opacity, motion2),
+    ...visual.layerStyle && motion2.reveal ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion2.reveal) } } : {}
+  };
+}
+function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut) {
+  const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+  const motion2 = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
   if (hasCutLayerStyleVisual(cut)) {
-    const visual2 = layerStyleVisualAt(cut, localSeconds);
+    const visual2 = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion2);
     return adjustLut ? { ...visual2, adjustLut } : visual2;
   }
   let framing = DEFAULT_VISUAL.framing;
@@ -19667,41 +19844,42 @@ function visualAt(cut, playbackSeconds, localSeconds, adjustLut) {
     };
   } else if (cut.framing?.crop) {
     const crop = cut.framing.crop;
-    const width = clamp3(finite3(crop.w, 1), Number.EPSILON, 1);
-    const height = clamp3(finite3(crop.h, 1), Number.EPSILON, 1);
+    const width = clamp3(finite4(crop.w, 1), Number.EPSILON, 1);
+    const height = clamp3(finite4(crop.h, 1), Number.EPSILON, 1);
     framing = {
-      x: clamp3(finite3(crop.x, 0), 0, 1 - width),
-      y: clamp3(finite3(crop.y, 0), 0, 1 - height),
+      x: clamp3(finite4(crop.x, 0), 0, 1 - width),
+      y: clamp3(finite4(crop.y, 0), 0, 1 - height),
       width,
       height,
       scale: Math.max(1 / width, 1 / height),
-      centerX: clamp3(finite3(crop.x, 0) + width / 2, 0, 1),
-      centerY: clamp3(finite3(crop.y, 0) + height / 2, 0, 1)
+      centerX: clamp3(finite4(crop.x, 0) + width / 2, 0, 1),
+      centerY: clamp3(finite4(crop.y, 0) + height / 2, 0, 1)
     };
   }
   const visual = {
     framing,
     transform: {
-      x: finite3(cut.transform?.x, 0),
-      y: finite3(cut.transform?.y, 0),
-      scale: Math.max(Number.EPSILON, finite3(cut.transform?.scale, 1)),
-      rotateDegrees: finite3(cut.transform?.rotate, 0)
+      x: finite4(cut.transform?.x, 0),
+      y: finite4(cut.transform?.y, 0),
+      scale: Math.max(Number.EPSILON, finite4(cut.transform?.scale, 1)),
+      rotateDegrees: finite4(cut.transform?.rotate, 0)
     },
-    opacity: clamp3(finite3(cut.opacity, 1), 0, 1)
+    opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
   };
-  return adjustLut ? { ...visual, adjustLut } : visual;
+  const composed = cutMotionVisual(visual, motion2);
+  return adjustLut ? { ...composed, adjustLut } : composed;
 }
-function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
+function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds, placement.adjustLut);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
-  const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+  const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
     source,
@@ -19772,7 +19950,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
   const resolved = [];
   timeline.layers.forEach((layer, index) => {
     if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
-    const localSeconds = Math.max(0, seconds - finite3(layer.t, 0));
+    const localSeconds = Math.max(0, seconds - finite4(layer.t, 0));
     const id = String(layer.id ?? `layer-${index}`);
     if (layer.kind === "filter") {
       if (!validFilter(layer.filter)) {
@@ -19784,7 +19962,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
         kind: "filter",
         filter: layer.filter,
         corners: filterQuadCornersAt(layer, localSeconds),
-        opacity: clamp3(finite3(layer.opacity, 1), 0, 1)
+        opacity: clamp3(finite4(layer.opacity, 1), 0, 1)
       });
       return;
     }
@@ -19799,30 +19977,37 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     const staticTransform = layer.transform ?? {};
     const visual = {
       crop: animated?.crop ?? {
-        x: clamp3(finite3(staticCrop.x, 0), 0, 1),
-        y: clamp3(finite3(staticCrop.y, 0), 0, 1),
-        width: clamp3(finite3(staticCrop.w, 1), Number.EPSILON, 1),
-        height: clamp3(finite3(staticCrop.h, 1), Number.EPSILON, 1)
+        x: clamp3(finite4(staticCrop.x, 0), 0, 1),
+        y: clamp3(finite4(staticCrop.y, 0), 0, 1),
+        width: clamp3(finite4(staticCrop.w, 1), Number.EPSILON, 1),
+        height: clamp3(finite4(staticCrop.h, 1), Number.EPSILON, 1)
       },
       perspective: animated?.perspective ?? (layer.perspective ?? null),
       transform: animated?.transform ?? {
-        x: finite3(staticTransform.x, 0),
-        y: finite3(staticTransform.y, 0),
-        scale: Math.max(Number.EPSILON, finite3(staticTransform.scale, 1)),
-        rotateDegrees: finite3(staticTransform.rotate, 0)
+        x: finite4(staticTransform.x, 0),
+        y: finite4(staticTransform.y, 0),
+        scale: Math.max(Number.EPSILON, finite4(staticTransform.scale, 1)),
+        rotateDegrees: finite4(staticTransform.rotate, 0)
       }
     };
     visual.crop.width = clamp3(visual.crop.width, Number.EPSILON, 1);
     visual.crop.height = clamp3(visual.crop.height, Number.EPSILON, 1);
     visual.crop.x = clamp3(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp3(visual.crop.y, 0, 1 - visual.crop.height);
+    const motion2 = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
+    let opacity = clamp3(animated?.opacity ?? finite4(layer.opacity, 1), 0, 1);
+    if (motion2) {
+      visual.transform = motionTransform(visual.transform, motion2);
+      if (motion2.reveal) visual.crop = motionCrop(visual.crop, motion2.reveal);
+      opacity = motionOpacity(opacity, motion2);
+    }
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
     const adjustLut = timeline.layerAdjustLuts[index];
     const common = {
       id,
       visual,
       blend,
-      opacity: clamp3(animated?.opacity ?? finite3(layer.opacity, 1), 0, 1),
+      opacity,
       ...adjustLut ? { adjustLut } : {}
     };
     if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
@@ -19870,8 +20055,8 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     return {
       timeUs,
       base: [
-        layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources),
-        layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources)
+        layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources, timeline.fps),
+        layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources, timeline.fps)
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
@@ -19883,7 +20068,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
   }
   const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
-  const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
+  const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
   return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
 }
 
