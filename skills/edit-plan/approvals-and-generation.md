@@ -59,6 +59,7 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 **チャットでの明示承認**に一本化される（正式なレポートは analyze-project の分析レポートのみ、
 方向性の引き出しはチャットで行うという原則）。各 Checkpoint で `decision-log.md` へ追記した直後に
 判断記録レポートを再描画し、パスを提示する（[report-guide §decision_log](report-guide.md#decision_log)）。
+`autonomy: full-auto`（そのまま）では本節のチェックポイントを通らない（[autonomy.md](autonomy.md)。`checkpoint` / `collaborative` は本節のまま）。
 
 ### Checkpoint 1: 方針
 

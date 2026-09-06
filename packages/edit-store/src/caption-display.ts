@@ -17,7 +17,7 @@ export const CAPTION_UNIT_METRIC = 'ascii-half-other-one-v1' as const;
 const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
-    'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'text_anchor',
+    'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'max_characters', 'text_anchor',
     'position', 'shadow', 'glow', 'animation', 'reference_height_px'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
@@ -468,6 +468,8 @@ function validateTextStyleV0(value: UnknownRecord, label: string): void {
         && (!finiteNumber(value.max_width_pct)
             || (value.max_width_pct as number) <= 0 || (value.max_width_pct as number) >= 100),
         'max_width_pct must be a finite number within (0, 100)');
+    failIf(has('max_characters') && !positiveInteger(value.max_characters),
+        'max_characters must be an integer greater than zero');
     failIf(has('text_anchor') && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor as string),
         'text_anchor must be one of the nine anchor codes');
     if (has('position')) {

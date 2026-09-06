@@ -2474,6 +2474,7 @@ ${indent}`);
         "vertical",
         "text_transform",
         "max_width_pct",
+        "max_characters",
         "text_anchor",
         "position",
         "shadow",
@@ -2539,6 +2540,9 @@ ${indent}`);
         }
         if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
           style.maxWidthPct = value.max_width_pct;
+        }
+        if (Number.isInteger(value.max_characters) && value.max_characters > 0) {
+          style.maxCharacters = value.max_characters;
         }
         if (typeof value.text_anchor === "string" && TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
           style.textAnchor = value.text_anchor;
@@ -2739,6 +2743,7 @@ ${indent}`);
           ...style.vertical !== void 0 ? { vertical: style.vertical } : {},
           ...style.textTransform !== void 0 ? { text_transform: style.textTransform } : {},
           ...style.maxWidthPct !== void 0 ? { max_width_pct: style.maxWidthPct } : {},
+          ...style.maxCharacters !== void 0 ? { max_characters: style.maxCharacters } : {},
           ...style.textAnchor !== void 0 ? { text_anchor: style.textAnchor } : {},
           ...style.position !== void 0 ? {
             position: {
@@ -3389,6 +3394,7 @@ ${indent}`);
         "vertical",
         "text_transform",
         "max_width_pct",
+        "max_characters",
         "text_anchor",
         "position",
         "shadow",
@@ -3752,6 +3758,7 @@ ${indent}`);
         failIf(has("vertical") && typeof value.vertical !== "boolean", "vertical must be a boolean");
         failIf(has("text_transform") && !CAPTION_TEXT_TRANSFORM_VALUES.has(value.text_transform), "text_transform must be one of upper, uppercase, lower, lowercase, title, capitalize, none");
         failIf(has("max_width_pct") && (!finiteNumber2(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100), "max_width_pct must be a finite number within (0, 100)");
+        failIf(has("max_characters") && !positiveInteger(value.max_characters), "max_characters must be an integer greater than zero");
         failIf(has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor), "text_anchor must be one of the nine anchor codes");
         if (has("position")) {
           if (!isRecord2(value.position))

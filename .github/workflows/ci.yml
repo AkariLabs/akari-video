@@ -183,7 +183,7 @@ jobs:
       - name: lint (eslint)
         run: npm run lint
 
-      # apps/shell/test + 拡張 6 本 + akari-preview（実 Chrome を要する 1 ファイルを除外。理由と一覧は
+      # apps/shell/test + 拡張 7 本 + akari-preview（実 Chrome を要する 1 ファイルを除外。理由と一覧は
       # scripts/ci/run-unit-tests.mjs の NOT_COVERED）。build:ext 済みなので拡張側の tsc -b は増分で数秒。
       - name: unit tests (lane shell)
         run: node ../../scripts/ci/run-unit-tests.mjs --lane shell

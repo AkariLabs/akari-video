@@ -256,8 +256,6 @@ interface EditSummaryAdjust {
 // 独立した関数として export しているのは webview 生成 HTML の外（この TS モジュール自身）から
 // node --test で直接叩けるようにするため（test/image-layer-source.test.mjs）。
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
-// ブラウザで decodeAudioData してよい上限。sidecar の decodedBytesThreshold と同じ考え方。
-const WAVEFORM_INLINE_DECODE_LIMIT_BYTES = 64 * 1024 * 1024;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 const PREVIEW_COLOR_KEYWORDS = new Set([
@@ -710,11 +708,6 @@ interface CaptionWriteRequest {
 interface PreviewCaptionSelectedRequest {
     type: 'akari-preview-caption-selected';
     captionId: string | null;
-}
-
-interface WaveformFetchRequest {
-    type: 'akari-preview-waveform-fetch';
-    requestId: string;
 }
 
 // task/2026-08-09-drop-hevc-proxy: <video> の error イベントが MEDIA_ERR_DECODE(3) /
@@ -1936,11 +1929,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             AkariAudioMeterWidget.FACTORY_ID
         );
         if (this.audioMeterDismissedThisSession || meter.isDisposed) return;
+        this.observeAudioMeter(meter);
+        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
+    }
+
+    protected async openAudioMeter(): Promise<void> {
+        const meter = await this.widgetManager.getOrCreateWidget<AkariAudioMeterWidget>(
+            AkariAudioMeterWidget.FACTORY_ID
+        );
+        if (meter.isDisposed) return;
+        this.observeAudioMeter(meter);
+        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
+        await this.shell.activateWidget(meter.id);
+        this.audioMeterDismissedThisSession = false;
+    }
+
+    private observeAudioMeter(meter: AkariAudioMeterWidget): void {
         if (!this.observedAudioMeters.has(meter)) {
             this.observedAudioMeters.add(meter);
             meter.onDidDispose(() => { this.audioMeterDismissedThisSession = true; });
         }
-        if (!meter.isAttached) await this.shell.addWidget(meter, { area: 'right', rank: 220 });
     }
 
     async openOutput(uri: URI, options?: any): Promise<WebviewWidget> {
@@ -2314,8 +2322,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isLayerWriteRequest(message)) {
                 this.layerWriteTail = this.layerWriteTail.then(() => this.handleLayerWrite(widget, message));
             }
-            if (this.isWaveformFetchRequest(message)) {
-                void this.handleWaveformFetch(widget, message);
+            if (message?.type === 'akari-preview-open-audio-meter') {
+                void this.openAudioMeter();
             }
             if (this.isHevcFallbackRequest(message)) {
                 void this.handleHevcFallbackRequest(widget, identityUri, kind, message);
@@ -5422,51 +5430,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.patch === 'object';
     }
 
-    protected async handleWaveformFetch(widget: PreviewWidgetMarker, request: WaveformFetchRequest): Promise<void> {
-        try {
-            const videoUri = widget.akariPreviewVideoUri;
-            if (!videoUri) {
-                throw new Error('波形を生成する動画がありません');
-            }
-            const stat = await this.fileService.resolve(videoUri, { resolveMetadata: true });
-            if (stat.size > WAVEFORM_INLINE_DECODE_LIMIT_BYTES) {
-                const result = await this.previewService.buildWaveformPeaks({
-                    assetUri: videoUri.toString(),
-                    workspaceRoots: await this.currentWorkspaceRoots()
-                });
-                if (result.ok === false) { throw new Error(result.reason); }
-                widget.sendMessage({
-                    type: 'akari-preview-waveform-fetch-response',
-                    requestId: request.requestId,
-                    ok: true,
-                    peaks: result.peaks,
-                    durationSec: result.durationSec
-                });
-                return;
-            }
-            const content = await this.fileService.readFile(videoUri);
-            widget.sendMessage({
-                type: 'akari-preview-waveform-fetch-response',
-                requestId: request.requestId,
-                ok: true,
-                dataBase64: this.toBase64(content.value.buffer)
-            });
-        } catch (error) {
-            const reason = (error instanceof Error ? error.message : String(error)).replace(/[\r\n]+/g, ' ').trim();
-            widget.sendMessage({
-                type: 'akari-preview-waveform-fetch-response',
-                requestId: request.requestId,
-                ok: false,
-                error: reason.startsWith('波形を作れませんでした') ? reason : `波形を作れませんでした（${reason}）`
-            });
-        }
-    }
-
-    protected isWaveformFetchRequest(message: any): message is WaveformFetchRequest {
-        return message?.type === 'akari-preview-waveform-fetch'
-            && typeof message.requestId === 'string';
-    }
-
     protected isHevcFallbackRequest(message: any): message is HevcFallbackRequest {
         return message?.type === 'akari-preview-hevc-fallback-request'
             && typeof message.requestId === 'string'
@@ -5765,7 +5728,8 @@ ${captionFontFaceCss(assets.captionFontUrl)}
   --akari-accent: #4da3ff;
   --akari-transport-bg: #121212;
   --akari-transport-fg: #fff;
-  --akari-seek-track: #383838;
+  --akari-seek-track: rgba(255,255,255,0.22);
+  --akari-seek-played: rgba(255,255,255,0.85);
   --akari-control-hover: rgba(255,255,255,0.08);
   --akari-control-active: rgba(255,255,255,0.14);
   --akari-control-pressed: rgba(77,163,255,0.22);
@@ -5783,7 +5747,8 @@ body.vscode-light {
   --akari-accent: #4da3ff;
   --akari-transport-bg: #f2f2f2;
   --akari-transport-fg: #242424;
-  --akari-seek-track: #c4c4c4;
+  --akari-seek-track: rgba(0,0,0,0.18);
+  --akari-seek-played: rgba(0,0,0,0.7);
   --akari-control-hover: rgba(0,0,0,0.08);
   --akari-control-active: rgba(0,0,0,0.14);
   --akari-control-pressed: rgba(77,163,255,0.22);
@@ -5794,7 +5759,7 @@ body.vscode-light {
 }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 8px; overflow: hidden; background: var(--akari-preview-pasteboard); }
+.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 0; overflow: hidden; background: var(--akari-preview-pasteboard); }
 /* ペインがズーム/パンの唯一のビューポート。wrapper は UI の固定基準、zoom-layer は
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
@@ -5968,22 +5933,19 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .write-error-banner[hidden] { display: none; }
 .write-error-banner span { flex: 1; overflow-wrap: anywhere; }
 .write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
-.transport { display: grid; gap: 0; padding: 0 10px 6px; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
-.transport-waveform { position: relative; width: 100%; height: 48px; overflow: hidden; background: var(--akari-transport-bg); cursor: pointer; touch-action: none; }
-.transport-waveform[hidden] { display: none; }
-#waveform-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.transport-waveform-playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; background: var(--akari-transport-fg); pointer-events: none; }
-.transport-seek { display: flex; width: 100%; margin: 0; order: -1; }
-.transport-seek #seek { width: 100%; margin-top: -6px; }
+.transport { display: grid; gap: 0; padding: 0; background: var(--akari-transport-bg); color: var(--akari-transport-fg); }
+.transport-seek { display: flex; width: 100%; margin: 0; order: -1; margin-top: 8px; }
+.transport-seek #seek { width: 100%; margin: 0; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]) { appearance: none; -webkit-appearance: none; height: 16px; min-width: 0; margin: 0; padding: 0; border: none; background: transparent; outline: none; box-shadow: none; cursor: pointer; --seek-progress: 0%; }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus { outline: none; box-shadow: none; }
-:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; border-radius: 6px; }
-:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--akari-accent) var(--seek-progress), var(--akari-seek-track) 0); }
+#seek:focus-visible { outline: none; box-shadow: none; }
+:is(#zoom-slider, .akari-perspective-angle-row input[type=range]):focus-visible { outline: 2px solid var(--akari-accent); outline-offset: 2px; border-radius: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--akari-seek-played) var(--seek-progress), var(--akari-seek-track) 0); }
 :is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-runnable-track { height: 6px; }
-:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid transparent; border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
-:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; border-color: var(--akari-accent); }
-:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { border-color: var(--akari-accent); transform: scale(1.15); }
-.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; height: 40px; gap: 6px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range])::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 2px solid var(--akari-seek-played); border-radius: 50%; background: var(--akari-seek-thumb); box-shadow: none; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):hover::-webkit-slider-thumb { margin-top: -3px; }
+:is(#seek, #zoom-slider, .akari-perspective-angle-row input[type=range]):active::-webkit-slider-thumb { transform: scale(1.15); }
+.transport-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; height: 34px; padding: 0 10px 2px; box-sizing: border-box; gap: 6px; }
 .transport-left, .transport-center, .transport-right { display: flex; align-items: center; gap: 6px; }
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
@@ -6087,16 +6049,12 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   </section>
 </main>
 <div class="transport">
-  <div class="transport-waveform" hidden>
-    <canvas id="waveform-canvas" aria-label="音声波形"></canvas>
-    <div class="transport-waveform-playhead" aria-hidden="true"></div>
-  </div>
   <div class="transport-seek">
     <input id="seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="再生位置">
   </div>
   <div class="transport-controls">
     <div class="transport-left">
-      <button id="waveform-toggle" class="icon-button" type="button" aria-label="波形" title="波形" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="audio-meter-open" class="icon-button" type="button" aria-label="音声メーター" title="音声メーター"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2m2-4v8m3-12v16m3-13v10m3-7v4m3-2h2" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <span id="time-label">0:00 / 0:00</span>
       <span id="audio-status" class="audio-status" role="status" aria-live="polite" hidden></span>
     </div>
@@ -6177,6 +6135,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview;
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
             const vscode = acquireVsCodeApi();
+            const audioMeterOpen = document.getElementById('audio-meter-open');
+            audioMeterOpen.addEventListener('click', () => {
+                vscode.postMessage({ type: 'akari-preview-open-audio-meter' });
+            });
             const pending = new Map();
             // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）: updateStageScale
             // (below, in this same IIFE) needs this at layout time, which runs before
@@ -6272,11 +6234,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'caption-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-caption-write', requestId, captionId, patch });
-                }),
-                readWaveformBytes: () => new Promise((resolve, reject) => {
-                    const requestId = 'akari-preview-waveform-' + (++sequence);
-                    pending.set(requestId, { kind: 'waveform-fetch', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-waveform-fetch', requestId });
                 }),
                 // task/2026-08-09-drop-hevc-proxy: <video> が実際に再生失敗したときだけ呼ぶ
                 // フォールバック要求。成功時はホスト側が widget を丸ごとリロードするので、呼び出し側
@@ -6942,7 +6899,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 'layer-write': 'akari-preview-layer-write-response',
                 'cut-write': 'akari-preview-cut-write-response',
                 'caption-write': 'akari-preview-caption-write-response',
-                'waveform-fetch': 'akari-preview-waveform-fetch-response',
                 'hevc-fallback': 'akari-preview-hevc-fallback-response'
             };
             window.addEventListener('message', event => {
@@ -6963,37 +6919,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message.type !== expectedType) return;
                 pending.delete(message.requestId);
                 if (!message.ok) {
-                    const fallback = request.kind === 'waveform-fetch'
-                        ? '動画データの読み込みに失敗しました'
-                        : request.kind === 'caption-write'
-                            ? 'captions.json の書き込みに失敗しました'
-                            : request.kind === 'hevc-fallback'
-                                ? '動画の互換変換に失敗しました'
-                                : 'edit.json の書き込みに失敗しました';
+                    const fallback = request.kind === 'caption-write'
+                        ? 'captions.json の書き込みに失敗しました'
+                        : request.kind === 'hevc-fallback'
+                            ? '動画の互換変換に失敗しました'
+                            : 'edit.json の書き込みに失敗しました';
                     const reason = message.error || fallback;
                     window.akari.showWriteError(reason);
                     request.reject(new Error(reason));
                     return;
                 }
-                if (request.kind !== 'waveform-fetch') {
-                    writeErrorBanner.hidden = true;
-                    request.resolve(undefined);
-                    return;
-                }
-                try {
-                    if (Array.isArray(message.peaks)) {
-                        request.resolve({ peaks: message.peaks, durationSec: Number(message.durationSec) || 0 });
-                        return;
-                    }
-                    const binary = atob(String(message.dataBase64 || ''));
-                    const bytes = new Uint8Array(binary.length);
-                    for (let index = 0; index < binary.length; index += 1) {
-                        bytes[index] = binary.charCodeAt(index);
-                    }
-                    request.resolve({ bytes: bytes.buffer });
-                } catch (error) {
-                    request.reject(error);
-                }
+                writeErrorBanner.hidden = true;
+                request.resolve(undefined);
             });
 
             const fitCompositeRect = (${fitPreviewCompositeRect.toString()});
@@ -8314,10 +8251,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const frameForward = document.getElementById('frame-forward');
             const skipBack = document.getElementById('skip-back');
             const skipForward = document.getElementById('skip-forward');
-            const waveformToggle = document.getElementById('waveform-toggle');
-            const waveformRow = document.querySelector('.transport-waveform');
-            const waveformCanvas = document.getElementById('waveform-canvas');
-            const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
             const videoFxFailedIndicators = new Set();
@@ -8601,12 +8534,6 @@ body { display: grid; place-items: center; padding: 32px; }
             let pan = { x: 0, y: 0 };
             let drag = null;
             let suppressClick = false;
-            let waveformState = 'idle';
-            let waveformAudioBuffer = null;
-            let waveformSourcePeaks = null;
-            let waveformPeaks = null;
-            let waveformResizeTimer = 0;
-            let waveformDragPointer = null;
             let playbackErrored = false;
             // Decode-failure fallback is tracked per original source. This covers the primary
             // video, source-swapped cuts, and v2 media items rendered as video layers.
@@ -12086,175 +12013,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     playToggle.title = label;
                 }
             };
-            const waveformBinCount = () => {
-                const raw = Math.max(96, Math.min(1024, Math.ceil(waveformRow.clientWidth / 2)));
-                return Math.max(96, Math.round(raw / 8) * 8);
-            };
-            const aggregateWaveform = widthBins => {
-                if (waveformSourcePeaks) {
-                    const total = waveformSourcePeaks.length;
-                    if (total === 0 || widthBins <= 0) return null;
-                    const peaks = new Float32Array(widthBins);
-                    const rms = new Float32Array(widthBins);
-                    let globalMax = 0;
-                    let rmsMax = 0;
-                    for (let bin = 0; bin < widthBins; bin += 1) {
-                        const start = Math.min(total - 1, Math.floor(bin * total / widthBins));
-                        const end = Math.min(total, Math.max(start + 1, Math.floor((bin + 1) * total / widthBins)));
-                        let peak = 0;
-                        let sumSquares = 0;
-                        for (let index = start; index < end; index += 1) {
-                            const value = waveformSourcePeaks[index];
-                            peak = Math.max(peak, value);
-                            sumSquares += value * value;
-                        }
-                        const rootMeanSquare = Math.sqrt(sumSquares / (end - start));
-                        peaks[bin] = peak;
-                        rms[bin] = rootMeanSquare;
-                        globalMax = Math.max(globalMax, peak);
-                        rmsMax = Math.max(rmsMax, rootMeanSquare);
-                    }
-                    return { peaks, rms, globalMax, rmsMax };
-                }
-                if (!waveformAudioBuffer || widthBins <= 0) return null;
-                const total = waveformAudioBuffer.length;
-                const samplesPerBin = total / widthBins;
-                const peaks = new Float32Array(widthBins);
-                const rms = new Float32Array(widthBins);
-                const channel = waveformAudioBuffer.getChannelData(0);
-                let globalMax = 0;
-                let rmsMax = 0;
-                for (let bin = 0; bin < widthBins; bin += 1) {
-                    const start = Math.floor(bin * samplesPerBin);
-                    const end = Math.min(total, Math.floor((bin + 1) * samplesPerBin));
-                    let peak = 0;
-                    let sumSquares = 0;
-                    let count = 0;
-                    for (let index = start; index < end; index += 1) {
-                        const value = Math.abs(channel[index]);
-                        if (value > peak) peak = value;
-                        sumSquares += value * value;
-                        count += 1;
-                    }
-                    const rootMeanSquare = count > 0 ? Math.sqrt(sumSquares / count) : 0;
-                    peaks[bin] = peak;
-                    rms[bin] = rootMeanSquare;
-                    if (peak > globalMax) globalMax = peak;
-                    if (rootMeanSquare > rmsMax) rmsMax = rootMeanSquare;
-                }
-                return { peaks, rms, globalMax, rmsMax };
-            };
-            const prepareWaveformCanvas = () => {
-                const dpr = Math.min(2, window.devicePixelRatio || 1);
-                const width = Math.max(1, Math.floor(waveformRow.clientWidth));
-                const height = Math.max(1, Math.floor(waveformRow.clientHeight));
-                waveformCanvas.width = Math.floor(width * dpr);
-                waveformCanvas.height = Math.floor(height * dpr);
-                waveformCanvas.style.width = width + 'px';
-                waveformCanvas.style.height = height + 'px';
-                const context = waveformCanvas.getContext('2d');
-                if (!context) return null;
-                context.setTransform(dpr, 0, 0, dpr, 0, 0);
-                context.fillStyle = getComputedStyle(waveformRow).getPropertyValue('--akari-transport-bg').trim();
-                context.fillRect(0, 0, width, height);
-                context.fillStyle = 'rgba(255,255,255,0.06)';
-                context.fillRect(0, height / 2 - 0.5, width, 1);
-                return { context, width, height };
-            };
-            const drawWaveformMessage = message => {
-                const drawing = prepareWaveformCanvas();
-                if (!drawing) return;
-                drawing.context.fillStyle = '#999';
-                drawing.context.font = '12px system-ui, sans-serif';
-                drawing.context.textAlign = 'center';
-                drawing.context.textBaseline = 'middle';
-                drawing.context.fillText(message, drawing.width / 2, drawing.height / 2);
-            };
-            const drawWaveform = () => {
-                if (waveformState === 'loading') {
-                    drawWaveformMessage('波形を生成中…');
-                    return;
-                }
-                if (waveformState === 'error') {
-                    drawWaveformMessage('この動画の波形は生成できません');
-                    return;
-                }
-                const drawing = prepareWaveformCanvas();
-                if (!drawing || !waveformPeaks) return;
-                const { context, width, height } = drawing;
-                const maximum = Math.max(0.012, waveformPeaks.rmsMax * 1.08);
-                const barWidth = Math.max(1, width / Math.max(1, waveformPeaks.rms.length));
-                for (let index = 0; index < waveformPeaks.rms.length; index += 1) {
-                    const normalized = Math.min(1, waveformPeaks.rms[index] / maximum);
-                    const compressed = Math.pow(normalized, 0.62);
-                    const barHeight = Math.max(1, compressed * (height - 10));
-                    const x0 = Math.floor(index * barWidth);
-                    const x1 = Math.max(x0 + 1, Math.ceil((index + 1) * barWidth) - 1);
-                    context.fillStyle = waveformPeaks.peaks[index] >= 0.92 ? '#f97316' : '#22d3ee';
-                    context.fillRect(x0, height / 2 - barHeight / 2, x1 - x0, barHeight);
-                }
-            };
-            const waitForWaveformMetadata = () => {
-                // 代表ソースが静止画のときは <video> に src が無く loadedmetadata が永遠に
-                // 来ない。即座に進めて decode 失敗 → 通常のエラー描画（波形なし）に落とす。
-                if (initial.primaryIsStillImage) return Promise.resolve();
-                if (video.readyState >= 1) return Promise.resolve();
-                return new Promise((resolve, reject) => {
-                    const cleanup = () => {
-                        video.removeEventListener('loadedmetadata', onLoaded);
-                        video.removeEventListener('error', onError);
-                    };
-                    const onLoaded = () => {
-                        cleanup();
-                        resolve();
-                    };
-                    const onError = () => {
-                        cleanup();
-                        reject(new Error('video metadata unavailable'));
-                    };
-                    video.addEventListener('loadedmetadata', onLoaded);
-                    video.addEventListener('error', onError);
-                });
-            };
-            const loadWaveform = async () => {
-                if (waveformState !== 'idle') return;
-                waveformState = 'loading';
-                drawWaveform();
-                let context = null;
-                try {
-                    await waitForWaveformMetadata();
-                    const payload = await window.akari.engine.readWaveformBytes();
-                    if (payload && Array.isArray(payload.peaks)) {
-                        waveformSourcePeaks = Float32Array.from(payload.peaks, value => Math.min(1, Math.max(0, Number(value) || 0)));
-                        waveformAudioBuffer = null;
-                    } else {
-                        context = new AudioContext();
-                        waveformAudioBuffer = await context.decodeAudioData(payload.bytes.slice(0));
-                        await context.close().catch(() => undefined);
-                        context = null;
-                        waveformSourcePeaks = null;
-                    }
-                    waveformPeaks = aggregateWaveform(waveformBinCount());
-                    if (!waveformPeaks) throw new Error('waveform contains no audio samples');
-                    waveformState = 'ready';
-                    drawWaveform();
-                } catch (error) {
-                    if (context) await context.close().catch(() => undefined);
-                    waveformAudioBuffer = null;
-                    waveformSourcePeaks = null;
-                    waveformPeaks = null;
-                    waveformState = 'error';
-                    drawWaveform();
-                    console.error('[akari-preview] waveform generation failed', error);
-                }
-            };
-            const updateWaveformPlayhead = () => {
-                const duration = segments.length > 0 ? totalTimelineDuration
-                    : Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-                const position = duration > 0
-                    ? clamp((segments.length > 0 ? outputTime : (video.currentTime || 0)) / duration, 0, 1) : 0;
-                waveformPlayhead.style.left = (position * 100) + '%';
-            };
             const escapeCaptionHtml = value => String(value)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
@@ -13395,7 +13153,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
                     updateTransport();
-                    updateWaveformPlayhead();
                     return;
                 }
                 // ㉕ cuts[].freeze の一時停止ホールド中（contract-2026-08-02-preview-parity.md
@@ -13497,7 +13254,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                 renderCaption();
                 updateTransport();
-                updateWaveformPlayhead();
                 applyCutsMuteState();
                 renderVideoFx(outputTime);
             };
@@ -13570,7 +13326,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 frameForward.disabled = true;
                 skipBack.disabled = true;
                 skipForward.disabled = true;
-                waveformToggle.disabled = true;
                 rateToggle.disabled = true;
                 zoomToggle.disabled = true;
                 fullscreenToggle.disabled = true;
@@ -13589,7 +13344,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 frameForward.disabled = false;
                 skipBack.disabled = false;
                 skipForward.disabled = false;
-                waveformToggle.disabled = false;
                 rateToggle.disabled = false;
                 zoomToggle.disabled = false;
                 fullscreenToggle.disabled = false;
@@ -13754,27 +13508,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 clearStaticAnnotationStrokes();
                 skipSeconds(10);
             });
-            waveformToggle.addEventListener('click', () => {
-                const show = waveformRow.hidden;
-                waveformRow.hidden = !show;
-                waveformToggle.setAttribute('aria-pressed', String(show));
-                if (!show) return;
-                drawWaveform();
-                updateWaveformPlayhead();
-                void loadWaveform();
-            });
-            new ResizeObserver(() => {
-                window.clearTimeout(waveformResizeTimer);
-                waveformResizeTimer = window.setTimeout(() => {
-                    if (waveformRow.hidden) return;
-                    if (waveformState === 'ready') {
-                        waveformPeaks = aggregateWaveform(waveformBinCount());
-                    }
-                    drawWaveform();
-                }, 300);
-            }).observe(waveformRow);
-            // シークバー / 波形スクラブ / host からの seek の間引き（2026-09-02 preview-perf）。
-            // range の input と波形の pointermove はポインタ移動ごと（60〜120 回/s）に届き、その都度
+            // シークバー / host からの seek の間引き（2026-09-02 preview-perf）。
+            // range の input はポインタ移動ごと（60〜120 回/s）に届き、その都度
             // seekTimelineTime（frame-engine では clock.seek → 再生中なら audioSupply.seek が Web Audio
             // グラフを丸ごと作り直す）+ フル tick()（可視の全 Three.js シーン・字幕・レイヤー）を同期
             // 実行していた。createRafThrottleFn で「1 フレームに最大 1 回・最後の値が勝つ」へ折りたたみ、
@@ -13819,44 +13554,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 scrubDragResumePlaying = false;
                 if (resume) togglePlayback();
             };
-            const seekFromWaveformPointer = event => {
-                const rect = waveformCanvas.getBoundingClientRect();
-                const duration = segments.length > 0 ? totalTimelineDuration : videoDuration();
-                if (rect.width <= 0 || duration <= 0) return;
-                const fraction = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-                requestScrub(fraction * duration);
-            };
-            waveformCanvas.addEventListener('pointerdown', event => {
-                if (event.button !== 0) return;
-                event.preventDefault();
-                clearStaticAnnotationStrokes();
-                waveformDragPointer = event.pointerId;
-                waveformCanvas.setPointerCapture(event.pointerId);
-                beginScrubDrag();
-                seekFromWaveformPointer(event);
-                // 押下位置は従来どおり即時反映（間引くのはドラッグ中の pointermove だけ）。
-                scrubThrottle.flush();
-            });
-            waveformCanvas.addEventListener('pointermove', event => {
-                if (waveformDragPointer !== event.pointerId) return;
-                event.preventDefault();
-                seekFromWaveformPointer(event);
-            });
-            const finishWaveformSeek = event => {
-                if (waveformDragPointer !== event.pointerId) return;
-                seekFromWaveformPointer(event);
-                waveformDragPointer = null;
-                if (waveformCanvas.hasPointerCapture(event.pointerId)) {
-                    waveformCanvas.releasePointerCapture(event.pointerId);
-                }
-                endScrubDrag();
-            };
-            waveformCanvas.addEventListener('pointerup', finishWaveformSeek);
-            waveformCanvas.addEventListener('pointercancel', event => {
-                if (waveformDragPointer !== event.pointerId) return;
-                waveformDragPointer = null;
-                endScrubDrag();
-            });
             const renderPreviewRate = () => {
                 const label = formatPreviewRateLabelFn(previewRate);
                 rateToggle.textContent = label;
@@ -14700,15 +14397,6 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected readText(uri: URI): Promise<string> {
         return this.fileService.readFile(uri).then(content => content.value.toString());
-    }
-
-    protected toBase64(bytes: Uint8Array): string {
-        let binary = '';
-        const chunkSize = 0x8000;
-        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-        }
-        return btoa(binary);
     }
 
     protected transform(value: any): OverlayTransform {

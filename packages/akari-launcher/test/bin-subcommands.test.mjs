@@ -32,6 +32,7 @@ test('bin/akari.mjs: --version は1行目の CLI 版を維持し、本体版と�
 });
 
 for (const [name, args, expected] of [
+  ['captions', ['captions', '--help'], 'akari captions <project-dir>'],
   ['new', ['new', '--help'], 'akari new <target-dir>'],
   ['narration', ['narration', '--help'], 'akari narration generate'],
   ['internal', ['internal', '--help'], 'beat-sync-render-when-idle'],

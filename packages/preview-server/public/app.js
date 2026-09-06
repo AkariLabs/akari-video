@@ -3523,7 +3523,7 @@ function updateZoom() {
 }
 zoomToggle.addEventListener('click', () => { const o = !zoomPopup.hidden; zoomPopup.hidden = o; zoomToggle.setAttribute('aria-expanded', String(!o)); });
 zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(zoomSlider.value)); pan = { x: 0, y: 0 }; updateZoom(); saveSettings({ zoom }); });
-document.querySelectorAll('.zoom-preset').forEach(btn => {
+document.querySelectorAll('.zoom-preset[data-zoom]').forEach(btn => {
   btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); saveSettings({ zoom }); });
 });
 previewPane.addEventListener('wheel', (e) => {
@@ -3626,10 +3626,30 @@ function ensureItemKeyframesRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
+// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
+function normalizeVgpuPreviewScale(value) {
+  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
+}
+let previewVgpuScale = 0.5;
+previewVgpuScale = normalizeVgpuPreviewScale(savedSettings.vgpuPreviewScale);
+const vgpuScalePresets = document.querySelectorAll('#zoom-popup .vgpu-scale-preset');
+function syncVgpuScalePresets() {
+  vgpuScalePresets.forEach(btn => {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.vgpuScale) === previewVgpuScale));
+  });
+}
+syncVgpuScalePresets();
+vgpuScalePresets.forEach(btn => {
+  btn.addEventListener('click', () => {
+    previewVgpuScale = normalizeVgpuPreviewScale(Number(btn.dataset.vgpuScale));
+    syncVgpuScalePresets();
+    saveSettings({ vgpuPreviewScale: previewVgpuScale });
+    if (!isPlaying) updateOverlays();
+  });
+});
 
 // --- Overlay runtime ---
 function createOverlayRuntime() {
-  const PREVIEW_VGPU_SCALE = 0.5; // 辺あたり半分。座標・時刻・ツマミ値は等倍の書き出しと共有する（vgpu契約§4）
   const overlays = [];
   let mountGeneration = 0;
   function unmount() {
@@ -3800,7 +3820,7 @@ function createOverlayRuntime() {
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
       const runtimes = (window.akari?.runtimes?.forContainer(o.el) ?? []).filter(runtime => o.runtimeIds.has(runtime.id));
-      for (const runtime of runtimes) runtime.render(o.el, ms / 1000, {syncVideos: true, maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE, previewScale: PREVIEW_VGPU_SCALE, fps: o.fps || fps || 30});
+      for (const runtime of runtimes) runtime.render(o.el, ms / 1000, {syncVideos: true, maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE, previewScale: previewVgpuScale, fps: o.fps || fps || 30});
       if (o.hitPolicyPending) {
         window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
         o.hitPolicyPending = false;
@@ -4240,6 +4260,13 @@ function isPortraitOutput() {
   return Number(os.height) > Number(os.width);
 }
 function captionLineBudget() { return isPortraitOutput() ? 10 : 20; }
+function captionLineBudgetFor(caption) {
+  // render-cut mergeCaptionTextStyles と同じく各段を先に検証し、不正値は次の段へ落とす。
+  for (const value of [caption?.text_style?.max_characters, summary?.default_text_style?.max_characters]) {
+    if (Number.isInteger(value) && value > 0) return value;
+  }
+  return captionLineBudget();
+}
 function defaultCaptionFontSize() {
   const os = summary?.output || {};
   return isPortraitOutput() ? Math.round(Number(os.width) * 0.06) : 38;
@@ -4472,7 +4499,7 @@ function updateCaption() {
   const displayText = active.display_text || active.text || '';
   const wantsReveal = hasWords && (style === 'reveal'
     || (!style && isPortraitOutput()
-      && splitCaptionLines(displayText, captionLineBudget()).length > 1));
+      && splitCaptionLines(displayText, captionLineBudgetFor(active)).length > 1));
   const wordStyle = explicitStyle ?? (hasEmphasis ? 'emphasis' : null);
   // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
   const blockMode = (active.text_style?.background?.mode
@@ -4510,7 +4537,7 @@ function updateCaption() {
       captionPlate.innerHTML = `<span class="akari-caption__resolved-line">${esc(active.text || '')}</span>`;
     } else {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
-      const lines = splitCaptionLines(displayText, captionLineBudget());
+      const lines = splitCaptionLines(displayText, captionLineBudgetFor(active));
       captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
         wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;

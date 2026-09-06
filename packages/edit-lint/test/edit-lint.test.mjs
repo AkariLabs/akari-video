@@ -2212,3 +2212,37 @@ test("text_style.reference_height_px lints as an integer >= 1 and cannot combine
     }
   });
 });
+
+test("max_characters accepts default and per-caption positive integers", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    await writeFile(join(project, "captions.json"), JSON.stringify({
+      default_text_style: { max_characters: 12 },
+      captions: [{ ...styleParity.caption, start: 5, end: 7, text_style: { max_characters: 8 } }],
+    }));
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
+    assert.ok(!parseResult(executed).findings.some(finding => finding.check === "captions.text-style"));
+  });
+});
+
+test("max_characters rejects invalid values in default and per-caption styles", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    for (const value of [0, -1, 1.5, "12", null, true]) {
+      for (const isDefault of [true, false]) {
+        await writeFile(join(project, "captions.json"), JSON.stringify({
+          ...(isDefault ? { default_text_style: { max_characters: value } } : {}),
+          captions: [{ ...styleParity.caption, start: 5, end: 7,
+            ...(!isDefault ? { text_style: { max_characters: value } } : {}) }],
+        }));
+        const executed = run(project);
+        assert.equal(executed.status, 1, executed.stderr || executed.stdout);
+        assert.ok(parseResult(executed).findings.some(finding =>
+          finding.check === "captions.text-style"
+          && /max_characters must be an integer greater than zero/u.test(finding.message)
+        ), `${isDefault ? "default" : "caption"}: ${JSON.stringify(value)}`);
+      }
+    }
+  });
+});

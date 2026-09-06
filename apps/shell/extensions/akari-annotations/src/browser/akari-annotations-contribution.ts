@@ -63,6 +63,8 @@ const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
 
 // akari-annotations-widget.ts の同名定数とミラー（拡張内で完結させ、他拡張への npm 依存を作らない）。
 const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
+// Keep in sync with AkariAudioMeterWidget.FACTORY_ID without importing the preview browser module.
+const AUDIO_METER_WIDGET_ID = 'akari-audio-meter-widget';
 // 縦アイコンバー固定配置（task.md 指示2）: 注釈を AI とインスペクターの間の rank に置く。
 const REVIEW_PANEL_RANK = 150;
 const INSPECTOR_PANEL_RANK = 200;
@@ -74,7 +76,8 @@ const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
     PARTNER_WIDGET_ID,
     AkariReviewPanelWidget.FACTORY_ID,
     'akari-daihon-widget',
-    AkariInspectorWidget.FACTORY_ID
+    AkariInspectorWidget.FACTORY_ID,
+    AUDIO_METER_WIDGET_ID
 ];
 
 interface PreviewOverlaySelection {

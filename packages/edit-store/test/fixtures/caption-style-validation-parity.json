@@ -60,6 +60,7 @@
     }
   },
   "valid_style_cases": [
+    { "id": "v0-max-characters", "style": { "max_characters": 12 } },
     { "id": "empty", "style": {} },
     { "id": "hex-three", "style": { "color": "#FFF" } },
     { "id": "hex-eight", "style": { "color": "#11223380" } },
@@ -226,6 +227,10 @@
     { "id": "v0-text-transform-unknown", "caption_text_style": { "text_transform": "smallcaps" } },
     { "id": "v0-max-width-pct-zero", "caption_text_style": { "max_width_pct": 0 } },
     { "id": "v0-max-width-pct-full", "caption_text_style": { "max_width_pct": 100 } },
+    { "id": "v0-max-characters-zero", "caption_text_style": { "max_characters": 0 } },
+    { "id": "v0-max-characters-negative", "caption_text_style": { "max_characters": -1 } },
+    { "id": "v0-max-characters-fraction", "caption_text_style": { "max_characters": 1.5 } },
+    { "id": "v0-max-characters-string", "caption_text_style": { "max_characters": "12" } },
     { "id": "v0-anchor-unknown", "caption_text_style": { "text_anchor": "center" } },
     { "id": "v0-position-not-object", "caption_text_style": { "position": 0.5 } },
     { "id": "v0-position-unknown-key", "caption_text_style": { "position": { "z": 0.5 } } },

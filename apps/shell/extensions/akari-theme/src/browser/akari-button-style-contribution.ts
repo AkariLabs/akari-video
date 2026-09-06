@@ -26,6 +26,16 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 // テーマ追従で書き込む --akari-* 変数を参照する（ライトモード対応）。
 // フォールバック値はダークパレット（変数が書かれる前の一瞬のため）。
 const CSS = `
+/* シェル root は v0.1.41 / 4b5878a1 で color-scheme: dark を導入した
+   （未チェックのネイティブフォームが白箱になる問題の修正。root の指定は残す）。
+   Theia の node_modules/@theia/plugin-ext/src/main/browser/webview/pre/index.html
+   は color-scheme 未指定 = light。CSS Color Adjust に従い Chromium は iframe 要素と
+   埋め込み document root の used color-scheme が異なると、埋め込み側の配色で
+   不透明なキャンバスを描く。root の dark 継承による不一致が不透明な白の原因。
+   WebviewWidget.doShow（lib/main/browser/webview/webview.js）が className = webview
+   で作る外側 iframe だけ light に一致させ、キャンバスを透明に戻す。 */
+iframe.webview { color-scheme: light; }
+
 .theia-button {
     background-color: var(--akari-accent, #f97316) !important;
     color: var(--akari-bg, #0a0a0a) !important;

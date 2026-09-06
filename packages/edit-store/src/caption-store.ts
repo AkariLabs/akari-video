@@ -79,6 +79,7 @@ export interface CaptionTextStyle {
     vertical?: boolean;
     textTransform?: CaptionTextTransform;
     maxWidthPct?: number;
+    maxCharacters?: number;
     textAnchor?: CaptionTextAnchor;
     position?: CaptionPosition;
     shadow?: CaptionShadow;
@@ -966,7 +967,7 @@ function isFiniteInRange(value: unknown, min: number, max: number): value is num
 const TEXT_STYLE_KEYS = new Set([
     'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
-    'text_transform', 'max_width_pct', 'text_anchor', 'position', 'shadow', 'glow',
+    'text_transform', 'max_width_pct', 'max_characters', 'text_anchor', 'position', 'shadow', 'glow',
     'animation', 'stroke', 'background', 'zone', 'layout'
 ]);
 const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);
@@ -1034,6 +1035,9 @@ function normalizeTextStyle(
     }
     if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
         style.maxWidthPct = value.max_width_pct;
+    }
+    if (Number.isInteger(value.max_characters) && (value.max_characters as number) > 0) {
+        style.maxCharacters = value.max_characters as number;
     }
     if (typeof value.text_anchor === 'string' && TEXT_ANCHOR_VALUES.has(value.text_anchor)) {
         style.textAnchor = value.text_anchor as CaptionTextAnchor;
@@ -1258,6 +1262,7 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
         ...(style.vertical !== undefined ? { vertical: style.vertical } : {}),
         ...(style.textTransform !== undefined ? { text_transform: style.textTransform } : {}),
         ...(style.maxWidthPct !== undefined ? { max_width_pct: style.maxWidthPct } : {}),
+        ...(style.maxCharacters !== undefined ? { max_characters: style.maxCharacters } : {}),
         ...(style.textAnchor !== undefined ? { text_anchor: style.textAnchor } : {}),
         ...(style.position !== undefined ? {
             position: {

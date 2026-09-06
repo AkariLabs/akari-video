@@ -323,3 +323,27 @@ test("caption record の style_preset は文字列型と id 形式を検査す�
     assert.match(executed.stderr, /style_preset/u);
   }
 });
+
+test("max_characters accepts default and per-caption positive integers", () => {
+  const executed = runValue({
+    default_text_style: { max_characters: 12 },
+    captions: [{ ...caption, text_style: { max_characters: 8 } }],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+  assert.doesNotMatch(executed.stderr, /未知のキー/u);
+});
+
+test("max_characters rejects non-positive integers and invalid types in either style seat", () => {
+  for (const value of [0, -1, 1.5, "12", null, true]) {
+    for (const isDefault of [true, false]) {
+      const executed = runValue({
+        ...(isDefault ? { default_text_style: { max_characters: value } } : {}),
+        captions: [{ ...caption, ...(!isDefault ? { text_style: { max_characters: value } } : {}) }],
+      });
+      assert.equal(executed.status, 1, executed.stdout);
+      assert.match(executed.stderr, /max_characters は 0 より大きい整数/u);
+      assert.doesNotMatch(executed.stderr, /未知のキー/u);
+    }
+  }
+});

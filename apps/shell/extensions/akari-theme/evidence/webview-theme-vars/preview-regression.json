@@ -1,0 +1,35 @@
+{
+  "sameRect": true,
+  "rectBefore": {
+    "left": 0,
+    "top": 0,
+    "width": 1200,
+    "height": 800
+  },
+  "rectAfter": {
+    "left": 0,
+    "top": 0,
+    "width": 1200,
+    "height": 800
+  },
+  "samples": 15000,
+  "maxDelta": 0,
+  "meanDelta": 0,
+  "samplesOverDelta2": 0,
+  "worst": null,
+  "shellBefore": {
+    "documentElementColorScheme": "dark",
+    "iframeWebviewColorSchemes": [
+      "dark",
+      "dark"
+    ]
+  },
+  "shellAfter": {
+    "documentElementColorScheme": "dark",
+    "iframeWebviewColorSchemes": [
+      "light",
+      "light"
+    ]
+  },
+  "pass": true
+}

@@ -1,0 +1,319 @@
+{
+  "baselineN": 627,
+  "removed": 627,
+  "rect": {
+    "left": 1066,
+    "top": 39,
+    "width": 486,
+    "height": 935
+  },
+  "stripped": {
+    "measurement": {
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlColorScheme": "normal",
+      "themeKindHtml": null,
+      "themeKindBody": "vscode-dark",
+      "bodyClass": "vscode-dark",
+      "title": "Codex could not start",
+      "codexMarker": false,
+      "sampleVars": []
+    },
+    "samples": {
+      "inside": [
+        {
+          "label": "inside-0",
+          "x": 1068,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-1",
+          "x": 1068,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-2",
+          "x": 1068,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "panel": [
+        {
+          "label": "panel-0",
+          "x": 1054,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-1",
+          "x": 1054,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-2",
+          "x": 1054,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "ground": [
+        {
+          "label": "ground-0",
+          "x": 1062,
+          "y": 179.25,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-1",
+          "x": 1062,
+          "y": 506.5,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-2",
+          "x": 1062,
+          "y": 833.75,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        }
+      ],
+      "deltasToPanel": [
+        0,
+        0,
+        0
+      ],
+      "maxDeltaToPanel": 0
+    },
+    "png": "after-selfheal-t0.png"
+  },
+  "series": [
+    {
+      "elapsedSec": 0.5,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 6.1,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 11.1,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 16.1,
+      "n": 627,
+      "bodyBackgroundColor": "rgb(30, 30, 30)"
+    }
+  ],
+  "restoredAtSec": 16.1,
+  "restored": {
+    "samples": {
+      "inside": [
+        {
+          "label": "inside-0",
+          "x": 1068,
+          "y": 179.25,
+          "rgb": [
+            30,
+            30,
+            30
+          ]
+        },
+        {
+          "label": "inside-1",
+          "x": 1068,
+          "y": 506.5,
+          "rgb": [
+            30,
+            30,
+            30
+          ]
+        },
+        {
+          "label": "inside-2",
+          "x": 1068,
+          "y": 833.75,
+          "rgb": [
+            30,
+            30,
+            30
+          ]
+        }
+      ],
+      "panel": [
+        {
+          "label": "panel-0",
+          "x": 1054,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-1",
+          "x": 1054,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-2",
+          "x": 1054,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "ground": [
+        {
+          "label": "ground-0",
+          "x": 1062,
+          "y": 179.25,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-1",
+          "x": 1062,
+          "y": 506.5,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-2",
+          "x": 1062,
+          "y": 833.75,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        }
+      ],
+      "deltasToPanel": [
+        20,
+        20,
+        20
+      ],
+      "maxDeltaToPanel": 20
+    },
+    "png": "after-selfheal-restored.png",
+    "measurement": {
+      "n": 627,
+      "bodyBackgroundColor": "rgb(30, 30, 30)",
+      "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlColorScheme": "normal",
+      "themeKindHtml": null,
+      "themeKindBody": "vscode-dark",
+      "bodyClass": "vscode-dark",
+      "title": "Codex could not start",
+      "codexMarker": false,
+      "sampleVars": [
+        "--vscode-font-family",
+        "--vscode-font-weight",
+        "--vscode-font-size"
+      ]
+    }
+  },
+  "focus": {
+    "attempted": false,
+    "info": {
+      "found": false,
+      "buttons": []
+    },
+    "fallback": {
+      "found": false
+    }
+  },
+  "interaction": {
+    "counters": {
+      "pointerdown": 1,
+      "click": 1,
+      "keydown": 1,
+      "keys": [
+        "a"
+      ]
+    },
+    "activeElement": {
+      "tag": "BODY",
+      "editable": false,
+      "id": ""
+    },
+    "hasFocus": true,
+    "title": "Codex could not start"
+  },
+  "interactionClickedAt": {
+    "x": 1309,
+    "y": 506.5
+  },
+  "idle": {
+    "elapsedSec": 300,
+    "resends": 6,
+    "perMinute": 1.2,
+    "timestampsRelativeSec": [
+      38.4,
+      83.4,
+      128.4,
+      173.4,
+      218.4,
+      263.4
+    ]
+  }
+}
