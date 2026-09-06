@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import vm from 'node:vm';
 import { sortSidecarRequestsByFirstUse } from '../lib/common/preview-audio-eligibility.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
+import { createPreviewAudioHost } from './helpers/preview-audio-host.mjs';
 
-const compiledUrl = new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url);
-const compiled = readFileSync(compiledUrl, 'utf8');
-const require = createRequire(compiledUrl);
+const require = createRequire(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url));
+
 const expected = ['bgm', 'narration', 'speech(0)', 'sfx(5)', 'speech(10.4)'];
 
 test('first-use sorting is stable, regular precedes speech, and inputs are untouched', () => {
@@ -29,16 +27,6 @@ test('first-use sorting is stable, regular precedes speech, and inputs are untou
     assert.deepEqual(sortSidecarRequestsByFirstUse([requests[0]]), [requests[0]]);
 });
 
-// As in preview-audio-nonblocking, execute the compiled host methods without Theia's DOM/DI.
-// All imported model readers, projections and eligibility functions are the real modules.
-function method(name) {
-    const start = compiled.search(new RegExp(`^    (?:async )?${name}\\(`, 'mu'));
-    assert.ok(start >= 0, name);
-    const end = compiled.indexOf('\n    }', start);
-    assert.ok(end > start, name);
-    return compiled.slice(start, end + '\n    }'.length);
-}
-
 function fixture(audioOverrides = {}) {
     return toV2Edit({
         version: 1,
@@ -58,76 +46,8 @@ function fixture(audioOverrides = {}) {
     });
 }
 
-function harness(resultFor = () => ({ state: 'queued' }), streamFor) {
-    const body = [
-        'loadPreviewModel', 'resolveAudioAssets', 'previewAudioSidecarFields',
-        'startPreviewAudioTracking', 'stopPreviewAudioPolling', 'positiveNumber', 'finiteNumber', 'transform'
-    ].map(method).join('\n');
-    const bindings = {};
-    for (const [, name, path] of compiled.matchAll(/^const (\w+) = require\("([^"]+)"\);$/gmu)) {
-        if (new RegExp(`\\b${name}\\b`, 'u').test(body)) bindings[name] = require(path);
-    }
-    const warnings = [];
-    const timers = new Map();
-    let timerId = 0;
-    const Host = vm.runInNewContext(`(class { ${body} })`, {
-        ...bindings,
-        console: { warn: (...args) => warnings.push(args) },
-        // No captions or visual overlays in these fixtures; retain the real image classifier for layers.
-        exports: {
-            normalizePreviewCaptionClock: captions => captions,
-            isImageLayerSrc: vm.runInNewContext([
-                compiled.match(/^const IMAGE_LAYER_SRC_PATTERN = .*$/mu)[0],
-                compiled.match(/^const isImageLayerSrc = .*$/mu)[0],
-                'isImageLayerSrc;'
-            ].join('\n'))
-        },
-        EMPTY_SUMMARY: { output: { width: 1280, height: 720, fps: 30 } },
-        LAYER_BLEND_TO_CSS: new Map([['normal', 'normal']]),
-        setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; },
-        clearTimeout: id => timers.delete(id)
-    });
-    const host = new Host();
-    const calls = [];
-    const requests = [];
-    host.workspaceService = { roots: Promise.resolve([]) };
-    host.lastRawEditVersionByUri = new Map();
-    host.migrationCompactionPrompted = new Set();
-    host.loadPreviewCaptions = async () => ({ captions: [] });
-    host.readText = async () => '';
-    host.normalizeEmphasisWords = () => [];
-    host.previewCaptionTimelineSegments = () => [];
-    host.resolveEditAssetUri = (path, editUri) => editUri.parent.resolve(path);
-    host.createAssetStream = async request => streamFor ? streamFor(request)
-        : { id: request.assetUri, url: request.assetUri };
-    host.disposeAssetStreams = async () => {};
-    host.previewService = {
-        requestPreviewAudioSidecar: async request => {
-            const name = request.sourceUri.endsWith('camera.mp4')
-                ? request.inSec === 0 ? 'speech(0)' : 'speech(10.4)'
-                : request.sourceUri.endsWith('sfx.wav') ? 'sfx(5)'
-                    : request.sourceUri.endsWith('bgm.m4a') ? 'bgm' : 'narration';
-            calls.push(name);
-            requests.push(request);
-            return resultFor(name, request);
-        },
-        sweepPreviewAudioSidecars: async () => {}
-    };
-    const URI = require('@theia/core/lib/common/uri').default;
-    const load = async (edit = fixture()) => {
-        const model = await host.loadPreviewModel(new URI('file:///project/edit.json'), JSON.stringify(edit), { frameEngineEnabled: true });
-        assert.equal(model.compositeError, undefined, JSON.stringify(warnings));
-        assert.ok(model.summary.audio, JSON.stringify(warnings));
-        return model;
-    };
-    const poll = async () => {
-        const [id, timer] = [...timers].find(([, value]) => value.delay === 1000) ?? [];
-        assert.ok(timer, 'poll timer exists');
-        timers.delete(id);
-        timer.fn();
-        await new Promise(resolve => setImmediate(resolve));
-    };
-    return { host, calls, requests, warnings, load, timers, poll };
+function harness(resultFor, streamFor) {
+    return createPreviewAudioHost(resultFor, streamFor, fixture());
 }
 
 test('loadPreviewModel streams a projected relative mask path into layer.mask and retains the asset', async () => {
@@ -163,7 +83,7 @@ test('loadPreviewModel issues the combined fixture in first-use order and retain
     assert.deepEqual([...model.previewAudioKeepKeys], expected);
     assert.deepEqual([...model.previewAudioKeepProbes], expected.map(name => `probe:${name}`));
     const audio = model.summary.audio;
-    for (const target of [audio.bgm, ...audio.sfx, ...audio.narration, ...audio.speech]) {
+    for (const target of [audio.bgm, ...audio.sfx, ...audio.narration, ...audio.embeddedSpeech]) {
         assert.equal(target.sidecarState, 'queued');
         assert.equal(target.sidecar, undefined);
     }
@@ -182,8 +102,8 @@ test('ready results are written back to each declaration with the original strea
     const model = await f.load();
     assert.deepEqual(f.calls, expected);
     const audio = model.summary.audio;
-    const targets = [audio.bgm, audio.narration[0], audio.speech[0], audio.sfx[0], audio.speech[1]];
-    const prefixes = ['audio.bgm', 'audio.narration voice', `speech:${audio.speech[0].id}`, 'audio.sfx[0]', `speech:${audio.speech[1].id}`];
+    const targets = [audio.bgm, audio.narration[0], audio.embeddedSpeech[0], audio.sfx[0], audio.embeddedSpeech[1]];
+    const prefixes = ['audio.bgm', 'audio.narration voice', `speech:${audio.embeddedSpeech[0].id}`, 'audio.sfx[0]', `speech:${audio.embeddedSpeech[1].id}`];
     expected.forEach((name, index) => {
         const target = targets[index];
         assert.equal(target.sidecarState, 'ready');
@@ -220,7 +140,7 @@ test('polling reorders pending requests and preserves each request object across
         assert.equal(f.requests[index + 10], request);
     });
     assert.equal(widget.akariPreviewAudioPendingRequests.length, 0);
-    for (const target of [model.summary.audio.bgm, ...model.summary.audio.sfx, ...model.summary.audio.narration, ...model.summary.audio.speech]) {
+    for (const target of [model.summary.audio.bgm, ...model.summary.audio.sfx, ...model.summary.audio.narration, ...model.summary.audio.embeddedSpeech]) {
         assert.equal('sidecarState' in target, false);
         assert.equal('sidecar' in target, false);
     }
@@ -230,7 +150,7 @@ test('initial not-needed results add no state, keys, probes or polling requests'
     const f = harness(() => ({ state: 'not-needed' }));
     const model = await f.load();
     assert.deepEqual(f.calls, expected);
-    for (const target of [model.summary.audio.bgm, ...model.summary.audio.sfx, ...model.summary.audio.narration, ...model.summary.audio.speech]) {
+    for (const target of [model.summary.audio.bgm, ...model.summary.audio.sfx, ...model.summary.audio.narration, ...model.summary.audio.embeddedSpeech]) {
         assert.equal('sidecarState' in target, false);
         assert.equal('sidecar' in target, false);
     }

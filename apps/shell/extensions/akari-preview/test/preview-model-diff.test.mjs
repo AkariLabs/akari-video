@@ -135,12 +135,12 @@ test('frame-engine 有効時の incremental は再構築ではなく差分メッ
 
 test('overlay と audio の揮発計測値だけが変わる更新は frame-engine でも差分適用できる', () => {
     const previous = base();
-    previous.summary.audio.speech = [{
+    previous.summary.audio.embeddedSpeech = [{
         id: 'voice', sidecar: { path: 'stream://voice', durationSec: 5, bytes: 1024, generatedMs: 71 }
     }];
     const next = structuredClone(previous);
     next.summary.overlays[0].keyframes = [{ t: 0 }, { t: 30, transform: { x: 200 } }];
-    next.summary.audio.speech[0].sidecar.generatedMs = 159;
+    next.summary.audio.embeddedSpeech[0].sidecar.generatedMs = 159;
     assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
     assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), true);
 });

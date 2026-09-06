@@ -37,7 +37,7 @@ test('同じ資産への同時要求は 1 本の createAssetStream に合流す�
 test('SFX / ナレーションは挿入ごとに並列解決し、2 系統も同時に走る', () => {
   const audio = handler.slice(handler.indexOf('protected async resolveAudioAssets('), handler.indexOf('protected async readGltfHeaderBytes('));
   assert.match(audio, /const resolvedItems = await Promise\.all\(items\.map\(async \(rawItem, index\)/u);
-  assert.match(audio, /const \[sfx, narration\] = await Promise\.all\(\[timed\(audio\.sfx, 'sfx'\), timed\(audio\.narration, 'narration'\)\]\);/u);
+  assert.match(audio, /const \[sfx, narration, speech\] = await Promise\.all\(\[\s*timed\(audio\.sfx, 'sfx'\), timed\(audio\.narration, 'narration'\), timed\(audio\.speech, 'speech'\)\s*\]\);/u);
   assert.match(audio, /const stream = await ensure\(key, assetUri\);/u);
 });
 
