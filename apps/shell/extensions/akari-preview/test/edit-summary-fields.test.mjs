@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
@@ -43,6 +44,54 @@ const identityTransform = value => ({
     y: Number.isFinite(value?.y) ? value.y : 0,
     scale: Number.isFinite(value?.scale) && value.scale > 0 ? value.scale : 1,
     rotate: Number.isFinite(value?.rotate) ? value.rotate : 0
+});
+
+test('buildLayerSummaryBase: mask reaches the summary as the unchanged sources id', () => {
+    const result = buildLayerSummaryBase({
+        id: 'masked', t: 0, duration: 4, kind: 'video', src: 'assets/red.mp4', mask: 'maskgrad'
+    }, 'layers[0]', identityTransform, new Map(), noopWarn);
+    assert.equal(result.ok, true);
+    assert.equal(result.base.mask, 'maskgrad');
+});
+
+test('buildLayerSummaryBase: absent mask stays absent; invalid masks warn once and are omitted', () => {
+    for (const mask of [undefined, null, '', '  ', 42, {}, []]) {
+        const warnings = [];
+        const result = buildLayerSummaryBase({
+            id: 'masked', t: 0, duration: 4, kind: 'video', src: 'assets/red.mp4', mask
+        }, 'layers[0]', identityTransform, new Map(), message => warnings.push(message));
+        assert.equal(result.ok, true);
+        assert.equal('mask' in result.base, false);
+        assert.equal(warnings.length, mask === undefined ? 0 : 1);
+        if (warnings.length) assert.match(warnings[0], /\.mask を無視しました/);
+    }
+});
+
+test('v2 layer mask resolves a sources id or projected path through ensureAssetStream into the existing URL seat', () => {
+    const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const start = handler.indexOf('const resolveLayerItem = async');
+    const end = handler.indexOf('const layerResolutions =', start);
+    assert.ok(start >= 0 && end > start);
+    const layer = handler.slice(start, end);
+    assert.match(layer, /const maskSourceId = rawVersion === 2 \? base\.mask : undefined;[\s\S]*?delete base\.mask;/);
+    const resolver = layer.match(/const resolveLayerMask = async[\s\S]*?\n                \};/)?.[0];
+    assert.ok(resolver);
+    assert.match(resolver, /sourcesById\.get\(maskSourceId\)/);
+    assert.match(resolver, /const maskUri = maskSource\s*\? this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)\s*: this\.resolveEditAssetUri\(maskSourceId, editUri\);/);
+    assert.match(resolver, /isImageLayerSrc\(maskUri\.path\.toString\(\)\)/);
+    assert.match(resolver, /return \(await ensureAssetStream\(maskUri\.toString\(\), maskUri\)\)\.url;/);
+    assert.match(resolver, /catch \{\s*console\.warn\([^\n]+\);\s*return undefined;/);
+    assert.match(resolver, /sources の id \/ パスとして解決・配信できません/);
+    assert.match(layer, /if \(intake\?\.status === 'alpha'\) \{\s*if \(maskSourceId\) \{\s*console\.warn\([^\n]+\);/);
+    assert.match(layer, /src: color\.url,\s*mask: mask\.url/);
+    assert.match(layer, /const stream = await ensureAssetStream\(streamUri\.toString\(\), streamUri\);\s*const mask = await resolveLayerMask\(\);[\s\S]*?src: stream\.url,\s*\.\.\.\(mask \? \{ mask \} : \{\}\)/);
+    // Passing the URI as well as the key retains the mask asset during stream cleanup.
+    assert.match(handler, /if \(assetUri && !assetUris\.some\(uri => uri\.toString\(\) === key\)\) assetUris\.push\(assetUri\)/);
+    assert.match(handler, /const registerLayerMasks = layers => \{[\s\S]*?sourceUrls\.set\(maskUrl, maskUrl\)/);
+    assert.match(handler, /registerLayerMasks\(engineLayers\)/);
+    assert.match(handler, /registerLayerMasks\(nextLayers\);\s*const nextTimeline = engine\.buildResolvedTimelinePlan/);
+    // Incremental media changes rebuild the timeline, scheduler and sources via updateModel.
+    assert.match(handler, /updateModel\(nextSummary\) \{\s*return queueEngineSummaryUpdate\(\(\) => nextSummary, true\)/);
 });
 
 test('motion seats survive both layer and cut summary boundaries without injecting absent motion', () => {

@@ -200,10 +200,11 @@ interface EditSummaryLayer {
     src?: string;
     /** Original file URI used only to target a decode-failure fallback request. */
     sourceUri?: string;
-    /** task/2026-09-02-shell-frame-engine-alpha-intake: frame-engine 面でアルファ層（.webm / .mov）を media-bin
+    /** v2 item.mask の動画ソース、または alpha intake が生成するマスクの asset stream URL。
+     * frame-engine 面でアルファ層（.webm / .mov）を media-bin
      * alpha-intake に通したとき、src（色 mp4）と対になるマスク mp4 の asset stream URL。webview の engine
      * bootstrap はこれをマスクソースとして登録し、engine が kind 'matte' として色×マスク合成する
-     * （Web UI の frameEngine.intake と同型）。legacy 面では付けない。 */
+     * （Web UI の frameEngine.intake と同型）。両方ある場合は alpha intake を優先する。 */
     mask?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
@@ -4041,6 +4042,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
+                const maskSourceId = rawVersion === 2 ? base.mask : undefined;
+                // Summary ids must never leak into the layer's URL seat, including early returns.
+                delete base.mask;
                 if (deferredTelop) {
                     return {
                         kind: 'layer',
@@ -4056,6 +4060,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     console.warn(`[akari-preview] ${label} を無視しました（src を解決できません）`, error);
                     return { kind: 'skip', unsupportedBlend };
                 }
+                const resolveLayerMask = async (): Promise<string | undefined> => {
+                    if (!maskSourceId) return undefined;
+                    const maskSource = sourcesById.get(maskSourceId);
+                    try {
+                        // The internal projection normally resolves mask ids to project-relative paths.
+                        const maskUri = maskSource
+                            ? this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
+                            : this.resolveEditAssetUri(maskSourceId, editUri);
+                        if (isImageLayerSrc(maskUri.path.toString()) || isImageLayerSrc(value.src)) {
+                            console.warn(`[akari-preview] ${label}.mask を無視しました（静止画には対応していません）`);
+                            return undefined;
+                        }
+                        return (await ensureAssetStream(maskUri.toString(), maskUri)).url;
+                    } catch {
+                        console.warn(`[akari-preview] ${label}.mask を無視しました（sources の id / パスとして解決・配信できません）`);
+                        return undefined;
+                    }
+                };
                 if (value.kind === 'baked') {
                     // 'baked' は常に previewProxyUri() の .preview.webm サイドカーを配信する（元の
                     // value.src の拡張子に関わらず）ため、isImage は常に false — このブランチの
@@ -4074,10 +4096,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
                     // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
+                    const mask = await resolveLayerMask();
                     return {
                         kind: 'layer',
                         unsupportedBlend,
-                        layer: { ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false }
+                        layer: { ...base, ...(src ? { src } : {}), ...(mask ? { mask } : {}), proxyMissing: !src, isImage: false }
                     };
                 }
 
@@ -4107,6 +4130,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         };
                     }
                     if (intake?.status === 'alpha') {
+                        if (maskSourceId) {
+                            console.warn(`[akari-preview] ${label}.mask を無視しました（alpha intake のマスクを優先します）`);
+                        }
                         const colorUri = new URI(intake.colorUri);
                         const maskUri = new URI(intake.maskUri);
                         const color = await ensureAssetStream(colorUri.toString(), colorUri);
@@ -4131,12 +4157,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? sourceUri
                         : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
                     const stream = await ensureAssetStream(streamUri.toString(), streamUri);
+                    const mask = await resolveLayerMask();
                     return {
                         kind: 'layer',
                         unsupportedBlend,
                         layer: {
                             ...base,
                             src: stream.url,
+                            ...(mask ? { mask } : {}),
                             ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
                             proxyMissing: false,
                             isImage
@@ -7600,13 +7628,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const sources = new Map([...lookahead, ...images]);
 
-                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
-                for (const layer of engineLayers) {
-                    const maskUrl = layer && layer.mask;
-                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
-                        sourceUrls.set(maskUrl, maskUrl);
+                const registerLayerMasks = layers => {
+                    for (const layer of layers) {
+                        const maskUrl = layer && layer.mask;
+                        if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                            sourceUrls.set(maskUrl, maskUrl);
+                        }
                     }
-                }
+                };
+                const engineLayers = engineLayersForSummary(applyAdjustBypassFn(engineSummary, [...adjustBypassIds]));
+                registerLayerMasks(engineLayers);
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
                     layers: Array.isArray(summary.layers) ? summary.layers : []
@@ -8129,6 +8160,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const effectiveSummary = applyAdjustBypassFn(nextSummary, [...adjustBypassIds]);
                         const nextCuts = normalizeSummaryCuts(effectiveSummary);
                         const nextLayers = engineLayersForSummary(effectiveSummary);
+                        registerLayerMasks(nextLayers);
                         const nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
                             fps,
                             layers: nextLayers

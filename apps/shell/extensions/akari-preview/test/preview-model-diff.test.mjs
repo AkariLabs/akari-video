@@ -104,6 +104,28 @@ test('overlay と media summary が同時に変わる更新は frame-engine の 
     assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), false);
 });
 
+test('mask の追加・変更・削除は audio / overlay のみと判定せず frame-engine 再構築経路へ送る', () => {
+    for (const [before, after] of [
+        [undefined, 'stream://maskgrad'],
+        ['stream://maskgrad', 'stream://maskalt'],
+        ['stream://maskgrad', undefined]
+    ]) {
+        const previous = base();
+        // Both mask assets may already be retained by other layers, so URI sets can stay unchanged.
+        previous.assetUris.push('file:///project/maskgrad.mp4', 'file:///project/maskalt.mp4');
+        if (before) previous.summary.layers[0].mask = before;
+        const next = structuredClone(previous);
+        if (after) next.summary.layers[0].mask = after;
+        else delete next.summary.layers[0].mask;
+        next.summary.audio.bgm.gainDb = -12;
+        next.summary.overlays[0].html = '<div>changed</div>';
+        const kind = classifyPreviewModelUpdate(previous, next);
+        assert.equal(kind, 'incremental');
+        assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), false);
+        assert.equal(previewModelUpdateAction(kind, true), 'frame-engine-incremental');
+    }
+});
+
 test('frame-engine 有効時の incremental は再構築ではなく差分メッセージ経路へ入る', () => {
     assert.equal(previewModelUpdateAction('incremental', true), 'frame-engine-incremental');
     assert.equal(previewModelUpdateAction('incremental', false), 'legacy-incremental');
