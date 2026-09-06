@@ -1,3 +1,4 @@
+import type { TranscriptState } from '../common/akari-project-protocol';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -470,6 +471,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- 素材カード ---------------------------------------------------------
 
+    protected transcriptStateByPath: Record<string, TranscriptState> = {};
+
     protected async loadMaterials(): Promise<void> {
         const root = this.workflow.workspaceRoot;
         const generation = ++this.materialsGeneration;
@@ -491,11 +494,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             Promise.all(assetEntries.assetGroups.map(dir => this.buildAssetGroupEntry(root, dir))),
             Promise.all(rootFiles.map(file => this.buildMaterialEntry(root, file, true)))
         ]);
+        const states = await this.projectService.transcriptStates({
+            projectRoot: root.toString(),
+            relativePaths: [...fileMaterials, ...groupMaterials, ...unorganizedMaterials]
+                .filter(entry => entry.kind === 'video' || entry.kind === 'audio').map(entry => entry.relativePath)
+        });
         if (generation !== this.materialsGeneration) {
             return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
         }
         const materials = [...fileMaterials, ...groupMaterials];
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
+        this.transcriptStateByPath = states;
         this.materials = materials;
         this.unorganizedMaterials = unorganizedMaterials;
         this.materialsLoading = false;
@@ -680,6 +689,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const assetsUri = root.resolve('assets');
         this.materialsWatch.push(this.files.watch(root));
+        this.materialsWatch.push(this.files.watch(root.resolve('.akari'), { recursive: true, excludes: [] }));
         this.materialsWatch.push(this.files.watch(assetsUri, { recursive: true, excludes: [] }));
         this.materialsWatch.push(this.files.onDidFilesChange(event => this.handleMaterialsFileChange(root, assetsUri, event)));
     }
@@ -687,6 +697,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected handleMaterialsFileChange(root: URI, assetsUri: URI, event: FileChangesEvent): void {
         const rootKey = root.toString();
         const relevant = event.changes.some(change => {
+            if (root.resolve('.akari/sidecars').isEqualOrParent(change.resource)
+                || root.resolve('.akari/events').isEqualOrParent(change.resource)) return true;
             if (assetsUri.isEqualOrParent(change.resource)) {
                 return true;
             }
@@ -851,6 +863,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 break;
             case 'copy-path':
                 void this.copyPathToClipboard(entry.uri);
+                break;
+            case 'transcribe':
+                void this.transcribeMaterial(entry);
                 break;
             case 'show-info':
                 void this.showAssetInfo(entry.uri);
@@ -2069,7 +2084,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         window.dispatchEvent(new CustomEvent(MATERIAL_DRAG_END_EVENT));
     }
 
+    protected async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
+        this.transcriptStateByPath[entry.relativePath] = 'running';
+        this.update();
+        void this.messages.info(`${entry.name}: 文字起こしを実行中です`);
+        try {
+            await this.projectService.transcribeMaterial({ projectRoot: root.toString(), relativePath: entry.relativePath });
+            void this.messages.info(`${entry.name}: 文字起こしが完了しました`);
+        } catch (error) {
+            void this.messages.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            await this.loadMaterials();
+        }
+    }
+
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
+        const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
+        const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
         const draggable = !entry.unorganized
@@ -2119,6 +2154,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                         />
                         : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                    {(entry.kind === 'video' || entry.kind === 'audio') && (
+                        <span data-akari-transcript-state={transcriptState}
+                            title={transcriptLabel} aria-label={transcriptLabel}
+                            style={{ position: 'absolute', bottom: '4px', right: '4px', padding: '0 6px',
+                                display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap',
+                                maxWidth: 'calc(100% - 30px)', boxSizing: 'border-box',
+                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
+                                background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>文字起こし</span>{' '}
+                            <span style={{ flexShrink: 0 }}>{transcriptStatus}</span>
+                        </span>
+                    )}
                     {entry.unorganized && (
                         <span
                             title='未整理'

@@ -215,7 +215,16 @@ export type StoreDevicePollOutcome =
     | { status: 'expired' }
     | { status: 'network-error' | 'error'; error: string };
 
+export type TranscriptState = 'none' | 'running' | 'done';
+export interface TranscribeMaterialRequest { projectRoot: string; relativePath: string }
+export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
+export interface BuildCaptionsRequest { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean }
+export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
+
 export interface AkariProjectService {
+    transcribeMaterial(request: TranscribeMaterialRequest): Promise<void>;
+    transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>>;
+    buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult>;
     createProject(destinationUri: string): Promise<void>;
     watchProject(projectUri: string): Promise<void>;
     recordDroppedVideos(projectUri: string, videos: DroppedVideo[]): Promise<DroppedVideoImportResult[]>;

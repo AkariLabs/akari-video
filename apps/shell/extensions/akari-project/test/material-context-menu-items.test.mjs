@@ -75,13 +75,13 @@ test('data/plan/report には danger 項目自体が存在しない', () => {
 
 test('material × video（macOS）: add-to-timeline と show-info が追加される（並び順込み）', () => {
     assert.deepEqual(ids('material', true, { materialKind: 'video' }), [
-        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'transcribe', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('material × audio（非 macOS）: add-to-timeline と show-info が追加される（copy-file は無し）', () => {
     assert.deepEqual(ids('material', false, { materialKind: 'audio' }), [
-        'open', 'add-to-timeline', 'reveal', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-path', 'show-info', 'transcribe', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
@@ -125,4 +125,21 @@ test('context 省略時は前タスクと完全に同じ項目列（後方互換
     assert.deepEqual(ids('unorganized', true), [
         'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
     ]);
+});
+
+
+test('動画・音声では素材情報の直後に文字起こしを表示する', () => {
+    for (const materialKind of ['video', 'audio']) {
+        const items = buildMaterialContextMenuItems('material', true, { materialKind });
+        assert.deepEqual(items[items.findIndex(item => item.id === 'show-info') + 1], { id: 'transcribe', label: '文字起こし' });
+    }
+});
+test('画像・その他では文字起こしを表示しない', () => {
+    for (const materialKind of ['image', 'other']) assert.ok(!ids('material', true, { materialKind }).includes('transcribe'));
+});
+test('文字起こしを追加しても両プラットフォームの既存メニュー順を維持する', () => {
+    for (const isOSX of [true, false]) {
+        const before = ids('material', isOSX, { materialKind: 'image' });
+        assert.deepEqual(ids('material', isOSX, { materialKind: 'video' }).filter(id => id !== 'transcribe'), before);
+    }
 });
