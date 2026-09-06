@@ -77,10 +77,77 @@ test("OSR H.264 argument sequence is unchanged", () => {
     outputWidth: 320, outputHeight: 180, fps: 30, quality: "high", encoder: "x264", codec: "h264",
     spawnImpl: recorder.spawnImpl,
   });
-  assert.deepEqual(session.args, [
+  const args = session.args;
+  for (const [option, value] of [
+    ["-color_primaries", "bt709"],
+    ["-color_trc", "bt709"],
+    ["-colorspace", "bt709"],
+    ["-color_range", "tv"],
+  ]) {
+    const index = args.indexOf(option);
+    assert.notEqual(index, -1, option);
+    assert.equal(args[index + 1], value, option);
+  }
+  const metadata = "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1";
+  assert.equal(args.filter((arg) => arg === "-bsf:v").length, 1);
+  assert.equal(args.filter((arg) => arg === metadata).length, 1);
+  const bsfIndex = args.indexOf("-bsf:v");
+  assert.equal(args[bsfIndex + 1], metadata);
+  assert.ok(bsfIndex < args.indexOf("-movflags"));
+  assert.deepEqual(args.slice(0, 22), [
     "-hide_banner", "-loglevel", "warning", "-y", "-f", "rawvideo", "-pixel_format", "bgra",
     "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0", "-c:v", "libx264",
-    "-profile:v", "high", "-preset", "slow", "-crf", "18", "-color_range", "tv",
+    "-profile:v", "high", "-preset", "slow", "-crf", "18",
+  ]);
+  assert.deepEqual(args.slice(-3), ["-movflags", "+faststart", "out.mp4"]);
+  assert.deepEqual(args, [
+    "-hide_banner", "-loglevel", "warning", "-y", "-f", "rawvideo", "-pixel_format", "bgra",
+    "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0", "-c:v", "libx264",
+    "-profile:v", "high", "-preset", "slow", "-crf", "18",
+    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+    "-bsf:v", "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+    "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
+    "-movflags", "+faststart", "out.mp4",
+  ]);
+});
+
+test("OSR HEVC argument sequence keeps bt709 tags and one metadata BSF before movflags", () => {
+  const recorder = spawnRecorder();
+  const session = startRawVideoEncoder({
+    ffmpegCommand: "ffmpeg", outputPath: "out.mp4", width: 320, height: 180,
+    outputWidth: 320, outputHeight: 180, fps: 30, quality: "high", encoder: "x264", codec: "hevc",
+    spawnImpl: recorder.spawnImpl,
+  });
+  const args = session.args;
+  for (const [option, value] of [
+    ["-color_primaries", "bt709"],
+    ["-color_trc", "bt709"],
+    ["-colorspace", "bt709"],
+    ["-color_range", "tv"],
+  ]) {
+    const index = args.indexOf(option);
+    assert.notEqual(index, -1, option);
+    assert.equal(args[index + 1], value, option);
+  }
+  const metadata = "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1";
+  assert.equal(args.filter((arg) => arg === "-bsf:v").length, 1);
+  assert.equal(args.filter((arg) => arg === metadata).length, 1);
+  const bsfIndex = args.indexOf("-bsf:v");
+  assert.equal(args[bsfIndex + 1], metadata);
+  assert.ok(bsfIndex < args.indexOf("-movflags"));
+  assert.deepEqual(args.slice(0, 24), [
+    "-hide_banner", "-loglevel", "warning", "-y", "-f", "rawvideo", "-pixel_format", "bgra",
+    "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0", "-c:v", "libx265",
+    "-profile:v", "main", "-preset", "slow", "-crf", "18", "-x265-params", "log-level=error",
+  ]);
+  assert.deepEqual(args.slice(-3), ["-movflags", "+faststart", "out.mp4"]);
+  assert.deepEqual(args, [
+    "-hide_banner", "-loglevel", "warning", "-y", "-f", "rawvideo", "-pixel_format", "bgra",
+    "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0", "-c:v", "libx265",
+    "-profile:v", "main", "-preset", "slow", "-crf", "18", "-x265-params", "log-level=error",
+    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
+    "-bsf:v", "hevc_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+    "-tag:v", "hvc1",
     "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
     "-movflags", "+faststart", "out.mp4",
   ]);
