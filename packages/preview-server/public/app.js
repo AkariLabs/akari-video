@@ -3523,7 +3523,7 @@ function updateZoom() {
 }
 zoomToggle.addEventListener('click', () => { const o = !zoomPopup.hidden; zoomPopup.hidden = o; zoomToggle.setAttribute('aria-expanded', String(!o)); });
 zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, Number(zoomSlider.value)); pan = { x: 0, y: 0 }; updateZoom(); saveSettings({ zoom }); });
-document.querySelectorAll('.zoom-preset').forEach(btn => {
+document.querySelectorAll('.zoom-preset[data-zoom]').forEach(btn => {
   btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); saveSettings({ zoom }); });
 });
 previewPane.addEventListener('wheel', (e) => {
@@ -3686,8 +3686,27 @@ function ensureItemKeyframesRuntime() {
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
-// 辺あたり半分。座標・時刻・ツマミ値は等倍の書き出しと共有する。
-const PREVIEW_VGPU_SCALE = 0.5;
+// 辺あたり倍率。座標・時刻・ツマミ値は等倍の書き出しと共有する。
+function normalizeVgpuPreviewScale(value) {
+  return value === 1 || value === 0.5 || value === 0.25 ? value : 0.5;
+}
+let previewVgpuScale = 0.5;
+previewVgpuScale = normalizeVgpuPreviewScale(savedSettings.vgpuPreviewScale);
+const vgpuScalePresets = document.querySelectorAll('#zoom-popup .vgpu-scale-preset');
+function syncVgpuScalePresets() {
+  vgpuScalePresets.forEach(btn => {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.vgpuScale) === previewVgpuScale));
+  });
+}
+syncVgpuScalePresets();
+vgpuScalePresets.forEach(btn => {
+  btn.addEventListener('click', () => {
+    previewVgpuScale = normalizeVgpuPreviewScale(Number(btn.dataset.vgpuScale));
+    syncVgpuScalePresets();
+    saveSettings({ vgpuPreviewScale: previewVgpuScale });
+    if (!isPlaying) updateOverlays();
+  });
+});
 
 // --- Overlay runtime ---
 function createOverlayRuntime() {
@@ -3909,7 +3928,7 @@ function createOverlayRuntime() {
       if (o.isGlass && o.glassReady) window.akari?.glassRuntime?.render(o.el, ms / 1000, {});
       if (o.isVgpu && o.vgpuReady) {
         try {
-          window.akari?.vgpuRuntime?.render(o.el, ms / 1000, { previewScale: PREVIEW_VGPU_SCALE, fps: o.fps || fps || 30 });
+          window.akari?.vgpuRuntime?.render(o.el, ms / 1000, { previewScale: previewVgpuScale, fps: o.fps || fps || 30 });
         } catch (error) {
           o.vgpuReady = false;
           showVgpuFallback(o.el);

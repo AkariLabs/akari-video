@@ -107,7 +107,7 @@ fn akari_uv(pos: vec4f) -> vec2f { return pos.xy / vec2f(akari.pad.x, akari.pad.
 
 previewScale は辺あたり倍率で、未指定 `1`。推奨値は `1` / `0.5` / `0.25` だが、
 実装は有限数 `0 < s <= 1` を受け付ける。範囲外は警告 1 回で `1` にする。
-preview-server の既定は `PREVIEW_VGPU_SCALE = 0.5`。書き出しは previewScale を省略して常に `1`（stateful は §7 の fps を渡す）。
+preview-server の既定は `0.5`。ズームポップアップの 3 択（1 / 0.5 / 0.25）で手動選択でき、`akari-preview-settings.vgpuPreviewScale` に保存する。範囲外は 0.5。書き出しは previewScale を省略して常に `1`（stateful は §7 の fps を渡す）。
 canvas の CSS は absolute / inset 0 / width・height 100% / display block に固定する。
 内部画素だけが減り、位置・大きさ・時刻・ツマミは変わらない。描画寸法は丸め、最小 1 px。
 container が 0 サイズなら前回寸法を使い、前回もなければ描画しない。
