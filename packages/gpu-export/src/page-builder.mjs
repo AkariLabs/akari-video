@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
+import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
@@ -333,13 +334,13 @@ export async function loadAndBuildGpuPage({
     applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root,
     collectExcludedCaptionIds(prepared.edit),
   );
-  const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({
-    ...overlay,
-    z: resolveRecordTrackZ(trackZByItemId, overlay),
-    html: typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")
-      ? overlay.html
-      : await readFile(resolve(projectRoot, overlay.html), "utf8"),
-  })));
+  const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => {
+    const expanded = { ...overlay, z: resolveRecordTrackZ(trackZByItemId, overlay) };
+    if (typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")) return expanded;
+    const htmlPath = overlay.html;
+    const html = await readFile(resolve(projectRoot, htmlPath), "utf8");
+    return { ...expanded, htmlPath, html: embedFragmentAssets(html, { projectRoot, htmlPath, overlayId: overlay.id }) };
+  }));
   const edit = { ...prepared.edit, overlays };
   let lutCubeText = null;
   if (typeof edit?.output?.look?.lut === "string" && edit.output.look.lut !== "") {

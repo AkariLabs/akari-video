@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [],
+  "tracks": [{ "id": "visual", "lane": "visual", "items": [
+    { "id": "logo", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/lower-third/fragment.html" } }
+  ] }]
+}

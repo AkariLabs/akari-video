@@ -10,6 +10,8 @@ import { FileHandle, lstat, mkdtemp, open, readFile, realpath, rm, rmdir, stat, 
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { rewritePreviewFragmentAssets } from './fragment-assets';
+import { FragmentAssetPreviewRequest, FragmentAssetPreviewResult } from '../common/akari-preview-protocol';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { parse as parseJson } from 'jsonc-parser';
 import { PromotePreviewAudioSidecarsRequest, PromotePreviewAudioSidecarsResult } from '../common/preview-audio-priority';
@@ -263,6 +265,8 @@ const ASSET_MIME_TYPES = new Map<string, string>([
     ['.wav', 'audio/wav'],
     ['.glb', 'model/gltf-binary'],
     ['.otf', 'font/otf'],
+    ['.woff', 'font/woff'],
+    ['.woff2', 'font/woff2'],
     ['.ttf', 'font/ttf'],
     ['.avif', 'image/avif'],
     ['.bmp', 'image/bmp'],
@@ -644,6 +648,15 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             id,
             url: `http://127.0.0.1:${port}/asset/${id}${target.extension}`
         };
+    }
+
+    async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {
+        const projectRoot = await realpath(this.filePath(request.projectRootUri));
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        if (!roots.some(root => this.contains(root, projectRoot))) throw new Error('Project is outside the workspace');
+        return rewritePreviewFragmentAssets(request.html, {
+            projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
+        }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }));
     }
 
     protected async resolveWaveformFfmpegCommand(): Promise<{ command: string; prefixArgs: string[] }> {

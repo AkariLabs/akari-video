@@ -1,4 +1,6 @@
 import { readRenderEdit } from '../../render-cut/src/internal-render.mjs';
+import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences, rewriteFragmentAssetUrls } from '../../render-cut/src/fragment-assets.mjs';
+import { resolveDeclaredProjectInput } from '../../render-cut/src/render-inputs.mjs';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -138,14 +140,43 @@ export function projectPreviewEdit(source, temporaryDirectory, projectRoot = pat
     }
   }
   const hasVideoFx = Boolean(look || Object.keys(sourceVideoFx).length > 0 || hasLayerChroma);
+  const fragmentWarnings = [];
+  const overlays = (edit.overlays ?? []).map(overlay => {
+    const projected = { ...overlay, ...(overlay.vars?.role === 'background' ? { role: 'background' } : {}) };
+    const htmlPath = overlay.htmlPath ?? (overlay.html?.trimStart().startsWith('<') ? undefined : overlay.html);
+    if (!htmlPath || htmlPath.trimStart().startsWith('<')) return projected;
+    projected.htmlPath = htmlPath;
+    // Ordinary fragments retain their file reference after the renderer's bag projection.
+    if (!projected.html.trimStart().startsWith('<')) {
+      try {
+        projected.html = fs.readFileSync(resolveDeclaredProjectInput(projectRoot, htmlPath, `overlay:${overlay.id}`), 'utf8');
+      } catch {
+        fragmentWarnings.push(`overlay:${overlay.id} fragment ${htmlPath} が見つからない`);
+        return projected;
+      }
+    }
+    for (const reference of extractFragmentAssetReferences(projected.html, htmlPath, overlay.id)) {
+      try {
+        resolveDeclaredProjectInput(projectRoot, reference.path, `overlay:${overlay.id}:fragment-asset`);
+      } catch (error) {
+        const context = `overlay:${overlay.id} fragment ${htmlPath} の参照 "${reference.raw}"`;
+        fragmentWarnings.push(error.message.endsWith('escapes the project root')
+          ? `${context}: escapes the project root`
+          : `${context} が見つからない。${describeFragmentAssetHint({ projectRoot, htmlPath, ...reference })}`);
+      }
+    }
+    for (const reference of extractAbsoluteFragmentAssetReferences(projected.html, htmlPath)) {
+      fragmentWarnings.push(`overlay:${overlay.id} fragment ${htmlPath} の参照 "${reference.raw}": 断片からの相対パスで書く`);
+    }
+    projected.html = rewriteFragmentAssetUrls(projected.html, { htmlPath, urlPrefix: '/' });
+    return projected;
+  });
 
   return {
     ...edit,
     layers: projectedLayers,
-    overlays: (edit.overlays ?? []).map(overlay => ({
-      ...overlay,
-      ...(overlay.vars?.role === 'background' ? { role: 'background' } : {}),
-    })),
+    overlays,
+    ...(fragmentWarnings.length ? { frameEngine: { intake: {}, skipped: [], warnings: fragmentWarnings } } : {}),
     audio: {
       ...edit.audio,
       sfx: (edit.audio?.sfx ?? []).map(withoutDisplayGain),
@@ -196,6 +227,9 @@ export function migratePreviewCompatibility(source) {
         htmlPath: _previewHtmlPath,
         ...rest
       } = overlay ?? {};
+      if (typeof _previewHtmlPath === 'string' && !_previewHtmlPath.trimStart().startsWith('<')) {
+        rest.html = _previewHtmlPath;
+      }
       if (overlay?.role !== 'background') return rest;
       return { ...rest, vars: { ...(rest.vars ?? {}), role: 'background' } };
     }),

@@ -4,6 +4,7 @@ import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractGlassSceneAssetReferences, resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
+import { embedFragmentAssets } from "./fragment-assets.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -91,7 +92,10 @@ const FONT_MIME_TYPES = new Map([
 ]);
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
-  const orderedOverlays = orderOverlaysByTrack(overlays);
+  const orderedOverlays = orderOverlaysByTrack(overlays).map((overlay) => overlay.htmlPath ? {
+    ...overlay,
+    html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
+  } : overlay);
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasVgpuOverlay = strippedOverlayHtml.some(html => /data-akari-vgpu-scene/u.test(html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
