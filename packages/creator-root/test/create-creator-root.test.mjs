@@ -37,6 +37,12 @@ test('createCreatorRoot: 契約 §3 の正準構造を生成する', async () =>
 
         const akariMd = await readFile(join(target, 'akari.md'), 'utf8');
         assert.match(akariMd, /好み/);
+        assert.match(akariMd, /^## やり方の既定$/m);
+        assert.match(akariMd, /^## 調達の好み（何も言わなければこう解釈する）$/m);
+        assert.match(akariMd, /^## 見た目の既定$/m);
+        assert.match(akariMd, /^## 聞かれて答えたこと（エージェントが追記する）$/m);
+        assert.ok(akariMd.includes('効く順番: 一言の指示 > その動画の進め方（intake） > この akari.md > 製品の既定。'));
+        assert.ok(akariMd.includes('- 表に無い仕事に初めて当たったら、エージェントは 1 問だけ聞いて、答えをこの表に 1 行足すことを申し出ます。二度目は聞きません'));
         assert.match(await readFile(join(target, 'CLAUDE.md'), 'utf8'), /akari\.md/);
         assert.match(await readFile(join(target, 'AGENTS.md'), 'utf8'), /akari\.md/);
 
