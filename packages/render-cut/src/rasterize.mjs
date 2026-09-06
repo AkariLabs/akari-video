@@ -187,7 +187,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const vgpuDrawStep = hasVgpuOverlay ? `
       await window.akari.vgpuRuntime.probe();
       for (const [vgpuContainer, localSeconds] of pendingVgpuDraws) {
-        window.akari.vgpuRuntime.render(vgpuContainer, localSeconds);
+        window.akari.vgpuRuntime.render(vgpuContainer, localSeconds, { fps: ${edit.output.fps} });
         if (window.akari.vgpuRuntime.inspect(vgpuContainer).status !== 'ready') {
           throw new Error('VGPU-RENDER: overlay is not ready');
         }

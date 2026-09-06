@@ -154,24 +154,24 @@ for (const [name, mutate] of Object.entries(invalid)) {
     const html = `<canvas></canvas><script type="application/json" data-akari-vgpu-scene>${JSON.stringify(d)}</script>`;
     const result = evaluateGpuEligibility({ edit: { overlays: [{ id: 'test', html }] } });
     assert.equal(result.entries[0].classification, 'degraded');
-    assert.equal(result.entries[0].reason, name === 'stateful' ? 'vgpu-stateful-unsupported' : 'vgpu-invalid-declaration');
+    assert.equal(result.entries[0].reason, 'vgpu-invalid-declaration');
   });
 }
 
 test('vgpu force keeps pure layers direct and exposes degraded declarations honestly', () => {
-  for (const [name, classification] of [['neon', 'vgpu'], ['stateful', 'dom']]) {
+  for (const [name, classification] of [['neon', 'vgpu'], ['stateful', 'vgpu']]) {
     const result = evaluateGpuEligibility({ edit: { overlays: [{ id: name, html: fixture(name) }] }, forceDegraded: true });
     assert.equal(result.entries[0].classification, classification);
-    assert.equal(result.eligible, name === 'neon');
+    assert.equal(result.eligible, true);
   }
 });
 
 test('receipt includes vgpu only for vgpu runs and normalizes its fields', () => {
   assert.equal(Object.hasOwn(buildGpuReceipt().gpu, 'vgpu'), false);
-  const value = { overlays: 2, adapter: { vendor: 'apple', architecture: 'metal-3' }, previewScale: null, deviceLost: false, probeMs: 12.5 };
+  const value = { overlays: 2, adapter: { vendor: 'apple', architecture: 'metal-3' }, previewScale: null, deviceLost: false, probeMs: 12.5, stateful: 0, replaySteps: 0 };
   assert.deepEqual(buildGpuReceipt({ run: { vgpu: value } }).gpu.vgpu, value);
   assert.deepEqual(buildGpuReceipt({ run: { vgpu: { overlays: -1, adapter: {}, probeMs: NaN } } }).gpu.vgpu,
-    { overlays: 0, adapter: { vendor: '', architecture: '' }, previewScale: null, deviceLost: false, probeMs: null });
+    { overlays: 0, adapter: { vendor: '', architecture: '' }, previewScale: null, deviceLost: false, probeMs: null, stateful: 0, replaySteps: 0 });
 });
 
 async function mountPage(runtime) {

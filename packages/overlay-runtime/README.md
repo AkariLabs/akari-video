@@ -72,6 +72,9 @@ vgpu overlay を扱うホストは、three 群がある場合はその後に
 プレビューは `render(container, localTimeSeconds, { previewScale: 0.5 })`、非表示化と unmount で
 `dispose(container)` を呼ぶ。probe と render の失敗を捕捉して任意の `[data-akari-vgpu-fallback]` を表示し、
 警告は 1 回にまとめる。共有 device は container の破棄時には落とさない。
+`mode: "stateful"` の断片では `render(container, localTimeSeconds, { fps })` の `fps`（= `edit.output.fps`）が必須で、省略すると TypeError になる。
+stateful のプレビューは上の options にも `fps` を加え、`{ previewScale: 0.5, fps }` を渡す。
+逆戻りシークは reset + 固定ステップ replay で追従し、`maxReplaySteps` 超過は `VGPU-REPLAY-LIMIT` で失敗する。
 宣言と純関数・解像度の約束は [vgpu v0 契約](../../docs/contract-2026-09-06-vgpu-layer-v0.md) を参照。
 
 ## ホストアダプタ契約（新シェル実装者向け — 本パッケージへの入力）
