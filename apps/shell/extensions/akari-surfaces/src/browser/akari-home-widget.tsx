@@ -19,6 +19,7 @@ import {
     IntakeAutonomy,
     IntakeDurationChoice,
     IntakeTaskId,
+    INTAKE_AUTONOMY_DESCRIPTIONS,
     INTAKE_AUTONOMY_LABELS,
     INTAKE_AUTONOMY_ORDER,
     INTAKE_DEFAULT_AUTONOMY,
@@ -2691,7 +2692,10 @@ export class AkariHomeWidget extends ReactWidget {
                                         onChange={() => this.setIntakeAutonomy(choice)}
                                         style={{ position: 'absolute', opacity: 0 }}
                                     />
-                                    <span>{INTAKE_AUTONOMY_LABELS[choice]}</span>
+                                    <span>
+                                        <b style={{ display: 'block', fontSize: 13.5, fontWeight: 600 }}>{INTAKE_AUTONOMY_LABELS[choice]}</b>
+                                        <small style={{ display: 'block', fontSize: 11.5, opacity: 0.65, lineHeight: 1.6 }}>{INTAKE_AUTONOMY_DESCRIPTIONS[choice]}</small>
+                                    </span>
                                 </label>
                             ))}
                         </div>

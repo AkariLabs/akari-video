@@ -28,7 +28,7 @@
     "target": { "$ref": "#/$defs/target" },
     "autonomy": {
       "enum": ["full-auto", "checkpoint", "collaborative"],
-      "description": "おまかせ度。既定値は checkpoint。"
+      "description": "おまかせ度。そのまま（言った通りに入れて見ずに書き出す）/ 提案つき（既定。良さそうな物も入れて見せる。判子は書き出しの 1 回）/ 一緒に作る（方針・素材・実行の要所で確認）"
     },
     "status": {
       "enum": ["draft", "submitted"],
@@ -70,6 +70,12 @@
     "bgm-sfx": "BGM・効果音",
     "narration": "ナレーション（自分の声 / 既製の声）",
     "3d-inserts": "3D・画面はめ込みの演出"
+  },
+  "x-akari-autonomy-labels": {
+    "$comment": "安定 ID ↔ 表示語。ID と既定は不変・表示語だけの正本",
+    "full-auto": "そのまま",
+    "checkpoint": "提案つき",
+    "collaborative": "一緒に作る"
   },
   "$defs": {
     "taskId": {
