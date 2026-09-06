@@ -125,6 +125,7 @@ import {
     removeAudioSfxPreferV2,
     removeTrack as removeV2Track,
     renameTrack as renameV2Track,
+    setTrackFlag as setV2TrackFlag,
     reorderTracks as reorderV2Tracks,
     splitItem as splitV2Item,
     stringifyEditV2,
@@ -5253,13 +5254,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async applyStoredTrackFlags(): Promise<void> {
         const editUri = this.location?.editUri;
         if (!editUri) return;
+        const migrateMutedIds = new Set<string>();
         this.timelineTracks = await Promise.all(this.timelineTracks.map(async track => {
             const [hidden, muted] = await Promise.all([
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'hidden'), false),
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'muted'), false)
             ]);
-            return { ...track, ...(hidden ? { hidden: true } : {}), ...(muted ? { muted: true } : {}) };
+            if (track.muted !== true && muted === true) migrateMutedIds.add(track.id);
+            return { ...track, ...(hidden ? { hidden: true } : {}) };
         }));
+        if (migrateMutedIds.size === 0) return;
+        try {
+            // 保存成功後だけ表示へ反映する。reload しないので移行中に再入しない。
+            await this.commitEditMutation('トラックのミュートを保存', doc =>
+                [...migrateMutedIds].reduce((value, trackId) => setV2TrackFlag(value, {
+                    trackId, field: 'muted', value: true
+                }), doc), { reload: false, history: false });
+            this.timelineTracks = this.timelineTracks.map(track =>
+                migrateMutedIds.has(track.id) ? { ...track, muted: true } : track);
+            await Promise.all([...migrateMutedIds].map(trackId =>
+                this.storage.setData(this.trackFlagStorageKey(editUri, trackId, 'muted'), undefined)));
+        } catch (error) {
+            console.warn('[akari-annotations] track mute migration failed', error);
+            this.footer.textContent = `トラックのミュートを保存できません: ${this.errorMessage(error)}`;
+        }
     }
 
     /**
@@ -8346,6 +8364,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const label = field === 'hidden'
             ? (next ? 'トラックを非表示に' : 'トラックを表示に')
             : (next ? 'トラックの音声をオフに' : 'トラックの音声をオンに');
+        if (field === 'muted') {
+            try {
+                await this.commitEditMutation(label, doc => setV2TrackFlag(doc, {
+                    trackId: track.id, field: 'muted', value: next
+                }));
+                this.footer.textContent = `${label}しました。`;
+            } catch (error) {
+                console.warn('[akari-annotations] track mute update failed', error);
+                this.footer.textContent = `トラックの音声を編集できません: ${this.errorMessage(error)}`;
+            }
+            return;
+        }
         const editUri = this.location?.editUri;
         if (!editUri) return;
         await this.storage.setData(this.trackFlagStorageKey(editUri, track.id, field), next);

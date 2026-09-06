@@ -278,6 +278,8 @@ export interface VisualItemsTrackV2 {
     id: string;
     lane: 'visual';
     name?: string;
+    /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
+    muted?: boolean;
     items: ItemV2[];
 }
 
@@ -285,6 +287,8 @@ export interface AudioItemsTrackV2 {
     id: string;
     lane: 'audio';
     name?: string;
+    /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
+    muted?: boolean;
     items: AudioMediaItemV2[];
 }
 
@@ -294,6 +298,8 @@ export interface ContentTrackV2 {
     id: string;
     lane: LaneV2;
     name?: string;
+    /** トラックの音声をミュート。visual は cut の埋め込み音声、audio は item を書き出し・プレビューから除外。 */
+    muted?: boolean;
     content: CaptionTrackContentV2;
 }
 
@@ -459,7 +465,7 @@ function validateTrack(
 ): asserts value is TrackV2 {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'muted', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
     trackIds.add(value.id);
@@ -468,6 +474,9 @@ function validateTrack(
     }
     if (hasOwn(value, 'name') && typeof value.name !== 'string') {
         throw invalid(`${path}.name`, '文字列である必要があります');
+    }
+    if (hasOwn(value, 'muted') && typeof value.muted !== 'boolean') {
+        throw invalid(`${path}.muted`, 'boolean である必要があります');
     }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');

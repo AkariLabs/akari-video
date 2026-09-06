@@ -18,6 +18,7 @@ export interface LegacyAudioView {
  */
 export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView {
     const ordered = internal.tracks
+        .filter(track => !(track.lane === 'audio' && track.muted === true))
         .flatMap(track => track.items)
         .filter(item => item.legacy.collection === 'sfx'
             || item.legacy.collection === 'narration'
