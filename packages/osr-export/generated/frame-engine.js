@@ -25157,12 +25157,14 @@ void main() {
   var LookaheadCache = class {
     entries = /* @__PURE__ */ new Map();
     capacity;
+    pinnedFrameNumber;
     constructor(capacity) {
       this.capacity = Math.max(1, capacity);
     }
     getClone(frameNumber) {
       const entry = this.entries.get(frameNumber);
       if (!entry) return null;
+      this.unpin(frameNumber);
       this.entries.delete(frameNumber);
       this.entries.set(frameNumber, entry);
       return { frame: cloneWithRotation(entry.frame), decodeMs: entry.decodeMs };
@@ -25189,19 +25191,29 @@ void main() {
     has(frameNumber) {
       return this.entries.has(frameNumber);
     }
+    /** Protect one frame within capacity; a new pin replaces the previous pin. */
+    pin(frameNumber) {
+      if (this.entries.has(frameNumber)) this.pinnedFrameNumber = frameNumber;
+    }
+    unpin(frameNumber) {
+      if (this.pinnedFrameNumber === frameNumber) this.pinnedFrameNumber = void 0;
+    }
     get size() {
       return this.entries.size;
     }
     clear() {
       for (const entry of this.entries.values()) entry.frame.close();
       this.entries.clear();
+      this.pinnedFrameNumber = void 0;
     }
     evictOldest() {
-      const oldest = this.entries.keys().next().value;
-      if (oldest == null) return false;
-      this.entries.get(oldest)?.frame.close();
-      this.entries.delete(oldest);
-      return true;
+      for (const [frameNumber, entry] of this.entries) {
+        if (frameNumber === this.pinnedFrameNumber) continue;
+        entry.frame.close();
+        this.entries.delete(frameNumber);
+        return true;
+      }
+      return false;
     }
   };
 
@@ -25215,6 +25227,7 @@ void main() {
     }
     caches = /* @__PURE__ */ new Map();
     inFlight = /* @__PURE__ */ new Map();
+    pinRequests = /* @__PURE__ */ new Set();
     fps;
     capacity;
     async decode(timeUs, metrics, request) {
@@ -25244,8 +25257,12 @@ void main() {
       const streamId = request?.streamId ?? "default";
       const frameNumber = this.frameNumber(timeUs);
       const cache = this.cacheFor(streamId);
-      if (cache.has(frameNumber)) return Promise.resolve();
+      if (cache.has(frameNumber)) {
+        if (request?.pin) cache.pin(frameNumber);
+        return Promise.resolve();
+      }
       const key = `${streamId}:${frameNumber}`;
+      if (request?.pin) this.pinRequests.add(key);
       const existing = this.inFlight.get(key);
       if (existing) return existing;
       const operation = (async () => {
@@ -25253,14 +25270,22 @@ void main() {
         const started = performance.now();
         const frame = await this.source.decode(timeUs, void 0, request);
         cache.put(frameNumber, frame, performance.now() - started);
-      })().finally(() => this.inFlight.delete(key));
+        if (this.pinRequests.has(key)) cache.pin(frameNumber);
+      })().finally(() => {
+        this.inFlight.delete(key);
+        this.pinRequests.delete(key);
+      });
       this.inFlight.set(key, operation);
       return operation;
+    }
+    has(timeUs, request) {
+      return this.caches.get(request?.streamId ?? "default")?.has(this.frameNumber(timeUs)) ?? false;
     }
     clear() {
       for (const cache of this.caches.values()) cache.clear();
       this.caches.clear();
       this.inFlight.clear();
+      this.pinRequests.clear();
     }
     /**
      * 生きている stream（キャッシュを持つもの + 内側のソースが掴んでいるデコーダのレーン）。
@@ -25557,11 +25582,26 @@ void main() {
     const requirementsAtBoundary = (boundarySeconds) => {
       const cached = boundaryRequirements.get(boundarySeconds);
       if (cached) return cached;
-      const timeUs = Math.min(
+      const layerFirstUs = Math.min(
         totalDurationUs,
-        Math.round((boundarySeconds + 1 / fps) * 1e6)
+        Math.ceil(boundarySeconds * fps - 1e-6) / fps * 1e6
       );
-      const requirements = requirementsAtTime(timeUs, `preview warmup plan failed at ${boundarySeconds}s`);
+      const baseFirstUs = Math.min(
+        totalDurationUs,
+        (Math.floor(boundarySeconds * fps + 1e-6) + 1) / fps * 1e6
+      );
+      const warningContext = `preview warmup plan failed at ${boundarySeconds}s`;
+      const baseRequirements = requirementsAtTime(baseFirstUs, warningContext);
+      const layerRequirements = layerFirstUs === baseFirstUs ? baseRequirements : requirementsAtTime(layerFirstUs, warningContext);
+      const seen = /* @__PURE__ */ new Set();
+      const requirements = [
+        ...baseRequirements.filter((requirement) => requirement.kind === "base"),
+        ...layerRequirements.filter((requirement) => requirement.kind === "layer" || requirement.kind === "mask")
+      ].filter((requirement) => {
+        if (seen.has(requirement.key)) return false;
+        seen.add(requirement.key);
+        return true;
+      });
       boundaryRequirements.set(boundarySeconds, requirements);
       return requirements;
     };
@@ -25620,6 +25660,7 @@ void main() {
       }
     };
     const startWarmup = (requirement, boundarySeconds, currentKeys) => {
+      const started = now();
       if (warmed.has(requirement.key) || inFlight.has(requirement.key)) return;
       if (!evictFor(requirement, currentKeys)) return;
       const pool = pools.get(requirement.sourceId);
@@ -25631,11 +25672,18 @@ void main() {
       });
       inFlight.add(requirement.key);
       metrics.onChanged?.();
-      void pool.getSession(requirement.streamId).then((session) => session.warmup(requirement.sourceTimeUs, 1e6 / fps)).then((elapsedMs) => {
+      void pool.getSession(requirement.streamId).then((session) => session.warmup(requirement.sourceTimeUs + 1e6 / fps, 1e6 / fps)).then(() => {
+        if (disposed || !live.has(requirement.key)) return;
+        return lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, {
+          streamId: requirement.streamId,
+          pin: true
+        });
+      }).then(() => {
         if (disposed) return;
         inFlight.delete(requirement.key);
         if (!live.has(requirement.key)) return;
         warmed.add(requirement.key);
+        const elapsedMs = Math.max(0, now() - started);
         metrics.warmupMs.push(elapsedMs);
         metrics.onWarmed?.(requirement.streamId, elapsedMs);
         metrics.onChanged?.();
@@ -25691,6 +25739,12 @@ void main() {
       for (const boundary of boundaries) {
         if (boundary <= latestTimeSeconds || boundary > latestTimeSeconds + leadIn) continue;
         for (const requirement of requirementsAtBoundary(boundary)) {
+          if (warmed.has(requirement.key) && lookahead.get(requirement.sourceId)?.has?.(
+            requirement.sourceTimeUs,
+            { streamId: requirement.streamId }
+          ) === false) {
+            warmed.delete(requirement.key);
+          }
           startWarmup(requirement, boundary, currentKeys);
         }
       }
