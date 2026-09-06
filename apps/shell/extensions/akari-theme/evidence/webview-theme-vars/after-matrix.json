@@ -1,0 +1,752 @@
+{
+  "phase": "after",
+  "port": 9762,
+  "rect": {
+    "left": 1038,
+    "top": 39,
+    "width": 514,
+    "height": 935
+  },
+  "cells": [
+    {
+      "id": "vars-present_root-dark",
+      "vars": "present",
+      "rootColorScheme": "dark",
+      "usedRootColorScheme": "dark",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 627,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "ChatGPT",
+        "codexMarker": true,
+        "sampleVars": [
+          "--vscode-font-family",
+          "--vscode-font-weight",
+          "--vscode-font-size"
+        ]
+      },
+      "png": "after-vars-present_root-dark.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1040,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1040,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1040,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1026,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1026,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1026,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1034,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1034,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1034,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    },
+    {
+      "id": "vars-stripped_root-dark",
+      "vars": "stripped",
+      "rootColorScheme": "dark",
+      "usedRootColorScheme": "dark",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 0,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "ChatGPT",
+        "codexMarker": true,
+        "sampleVars": []
+      },
+      "png": "after-vars-stripped_root-dark.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1040,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1040,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1040,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1026,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1026,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1026,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1034,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1034,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1034,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    },
+    {
+      "id": "vars-present_root-none",
+      "vars": "present",
+      "rootColorScheme": "(removed)",
+      "usedRootColorScheme": "normal",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 627,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "ChatGPT",
+        "codexMarker": true,
+        "sampleVars": [
+          "--vscode-font-family",
+          "--vscode-font-weight",
+          "--vscode-font-size"
+        ]
+      },
+      "png": "after-vars-present_root-none.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1040,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1040,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1040,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1026,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1026,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1026,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1034,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1034,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1034,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    },
+    {
+      "id": "vars-stripped_root-none",
+      "vars": "stripped",
+      "rootColorScheme": "(removed)",
+      "usedRootColorScheme": "normal",
+      "varsApplied": 627,
+      "measurement": {
+        "n": 0,
+        "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+        "htmlColorScheme": "normal",
+        "themeKindHtml": null,
+        "themeKindBody": "vscode-dark",
+        "bodyClass": "vscode-dark",
+        "title": "ChatGPT",
+        "codexMarker": true,
+        "sampleVars": []
+      },
+      "png": "after-vars-stripped_root-none.png",
+      "samples": {
+        "inside": [
+          {
+            "label": "inside-0",
+            "x": 1040,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-1",
+            "x": 1040,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "inside-2",
+            "x": 1040,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "panel": [
+          {
+            "label": "panel-0",
+            "x": 1026,
+            "y": 179.25,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-1",
+            "x": 1026,
+            "y": 506.5,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "label": "panel-2",
+            "x": 1026,
+            "y": 833.75,
+            "rgb": [
+              10,
+              10,
+              10
+            ]
+          }
+        ],
+        "ground": [
+          {
+            "label": "ground-0",
+            "x": 1034,
+            "y": 179.25,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-1",
+            "x": 1034,
+            "y": 506.5,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "label": "ground-2",
+            "x": 1034,
+            "y": 833.75,
+            "rgb": [
+              5,
+              5,
+              5
+            ]
+          }
+        ],
+        "deltasToPanel": [
+          0,
+          0,
+          0
+        ],
+        "maxDeltaToPanel": 0
+      }
+    }
+  ],
+  "records": [
+    {
+      "t": "2026-09-06T03:07:41.544Z",
+      "step": "main-connected"
+    },
+    {
+      "t": "2026-09-06T03:07:42.171Z",
+      "step": "open-codex-view",
+      "id": "workbench.view.extension.codexSecondaryViewContainer",
+      "result": {
+        "ok": false,
+        "error": "Error: The command 'workbench.view.extension.codexSecondaryViewContainer' cannot be executed. There are no active handlers available for the command."
+      }
+    },
+    {
+      "t": "2026-09-06T03:07:42.172Z",
+      "step": "open-codex-view",
+      "id": "workbench.view.extension.codexViewContainer",
+      "result": {
+        "ok": false,
+        "error": "Error: The command 'workbench.view.extension.codexViewContainer' cannot be executed. There are no active handlers available for the command."
+      }
+    },
+    {
+      "t": "2026-09-06T03:07:44.430Z",
+      "step": "open-codex-view",
+      "id": "chatgpt.sidebarSecondaryView.focus",
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "t": "2026-09-06T03:07:46.939Z",
+      "step": "codex-webview-found",
+      "url": "http://8d80692e-3771-5a5f-8ec6-67b64e8624f4.webview.localhost:53490/webview/index.html?id=<id>"
+    },
+    {
+      "t": "2026-09-06T03:07:47.003Z",
+      "step": "codex-iframe-rect",
+      "rect": {
+        "left": 1038,
+        "top": 39,
+        "width": 514,
+        "height": 935
+      }
+    },
+    {
+      "t": "2026-09-06T03:07:47.006Z",
+      "step": "saved-css-text",
+      "length": 65532
+    },
+    {
+      "t": "2026-09-06T03:07:48.108Z",
+      "step": "cell",
+      "id": "vars-present_root-dark",
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:07:49.045Z",
+      "step": "cell",
+      "id": "vars-stripped_root-dark",
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:07:50.005Z",
+      "step": "cell",
+      "id": "vars-present_root-none",
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:07:51.027Z",
+      "step": "cell",
+      "id": "vars-stripped_root-none",
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0
+    },
+    {
+      "t": "2026-09-06T03:07:51.532Z",
+      "step": "restored",
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "t": "2026-09-06T03:07:51.811Z",
+      "step": "shell-color-scheme",
+      "documentElement": "dark",
+      "iframeWebview": "light"
+    }
+  ],
+  "shell": {
+    "documentElementColorScheme": "dark",
+    "iframeWebviewColorScheme": "light"
+  }
+}

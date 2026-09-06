@@ -1,0 +1,320 @@
+{
+  "baselineN": 627,
+  "removed": 627,
+  "rect": {
+    "left": 1038,
+    "top": 39,
+    "width": 514,
+    "height": 935
+  },
+  "stripped": {
+    "measurement": {
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlColorScheme": "normal",
+      "themeKindHtml": null,
+      "themeKindBody": "vscode-dark",
+      "bodyClass": "vscode-dark",
+      "title": "ChatGPT",
+      "codexMarker": true,
+      "sampleVars": []
+    },
+    "samples": {
+      "inside": [
+        {
+          "label": "inside-0",
+          "x": 1040,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-1",
+          "x": 1040,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-2",
+          "x": 1040,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "panel": [
+        {
+          "label": "panel-0",
+          "x": 1026,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-1",
+          "x": 1026,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-2",
+          "x": 1026,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "ground": [
+        {
+          "label": "ground-0",
+          "x": 1034,
+          "y": 179.25,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-1",
+          "x": 1034,
+          "y": 506.5,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-2",
+          "x": 1034,
+          "y": 833.75,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        }
+      ],
+      "deltasToPanel": [
+        0,
+        0,
+        0
+      ],
+      "maxDeltaToPanel": 0
+    },
+    "png": "after-selfheal-t0.png"
+  },
+  "series": [
+    {
+      "elapsedSec": 0.5,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 5.8,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 10.8,
+      "n": 0,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "elapsedSec": 15.8,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)"
+    }
+  ],
+  "restoredAtSec": 15.8,
+  "restored": {
+    "samples": {
+      "inside": [
+        {
+          "label": "inside-0",
+          "x": 1040,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-1",
+          "x": 1040,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "inside-2",
+          "x": 1040,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "panel": [
+        {
+          "label": "panel-0",
+          "x": 1026,
+          "y": 179.25,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-1",
+          "x": 1026,
+          "y": 506.5,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "label": "panel-2",
+          "x": 1026,
+          "y": 833.75,
+          "rgb": [
+            10,
+            10,
+            10
+          ]
+        }
+      ],
+      "ground": [
+        {
+          "label": "ground-0",
+          "x": 1034,
+          "y": 179.25,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-1",
+          "x": 1034,
+          "y": 506.5,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "label": "ground-2",
+          "x": 1034,
+          "y": 833.75,
+          "rgb": [
+            5,
+            5,
+            5
+          ]
+        }
+      ],
+      "deltasToPanel": [
+        0,
+        0,
+        0
+      ],
+      "maxDeltaToPanel": 0
+    },
+    "png": "after-selfheal-restored.png",
+    "measurement": {
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlBackgroundColor": "rgba(0, 0, 0, 0)",
+      "htmlColorScheme": "normal",
+      "themeKindHtml": null,
+      "themeKindBody": "vscode-dark",
+      "bodyClass": "vscode-dark",
+      "title": "ChatGPT",
+      "codexMarker": true,
+      "sampleVars": [
+        "--vscode-font-family",
+        "--vscode-font-weight",
+        "--vscode-font-size"
+      ]
+    }
+  },
+  "focus": {
+    "attempted": true,
+    "kind": "button",
+    "clickedAt": {
+      "x": 1459.02734375,
+      "y": 916
+    },
+    "info": {
+      "found": false,
+      "buttons": [
+        "Back",
+        "Next"
+      ]
+    },
+    "fallback": {
+      "found": true,
+      "kind": "button",
+      "tag": "BUTTON",
+      "label": "Next",
+      "rect": {
+        "x": 385.0546875,
+        "y": 859,
+        "width": 71.9453125,
+        "height": 36
+      }
+    },
+    "activeElement": {
+      "tag": "BUTTON",
+      "editable": false,
+      "type": "button"
+    }
+  },
+  "idle": {
+    "elapsedSec": 300,
+    "resends": 6,
+    "perMinute": 1.2,
+    "timestampsRelativeSec": [
+      43.6,
+      88.7,
+      133.7,
+      178.7,
+      223.7,
+      268.7
+    ]
+  }
+}

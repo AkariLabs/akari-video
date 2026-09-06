@@ -1,0 +1,1626 @@
+{
+  "phase": "before",
+  "seconds": 120,
+  "firstVarNames": [
+    "--vscode-font-family",
+    "--vscode-font-weight",
+    "--vscode-font-size",
+    "--vscode-editor-font-family",
+    "--vscode-editor-font-weight",
+    "--vscode-editor-font-size",
+    "--vscode-foreground",
+    "--vscode-disabledForeground",
+    "--vscode-errorForeground",
+    "--vscode-descriptionForeground",
+    "--vscode-icon-foreground",
+    "--vscode-focusBorder",
+    "--vscode-selection-background",
+    "--vscode-textLink-foreground",
+    "--vscode-textLink-activeForeground",
+    "--vscode-textSeparator-foreground",
+    "--vscode-textPreformat-foreground",
+    "--vscode-textPreformat-background",
+    "--vscode-textBlockQuote-background",
+    "--vscode-textBlockQuote-border",
+    "--vscode-textCodeBlock-background",
+    "--vscode-sash-hoverBorder",
+    "--vscode-badge-background",
+    "--vscode-badge-foreground",
+    "--vscode-activityWarningBadge-foreground",
+    "--vscode-activityWarningBadge-background",
+    "--vscode-activityErrorBadge-foreground",
+    "--vscode-activityErrorBadge-background",
+    "--vscode-scrollbar-shadow",
+    "--vscode-scrollbarSlider-background",
+    "--vscode-scrollbarSlider-hoverBackground",
+    "--vscode-scrollbarSlider-activeBackground",
+    "--vscode-progressBar-background",
+    "--vscode-chart-line",
+    "--vscode-chart-axis",
+    "--vscode-chart-guide",
+    "--vscode-editor-background",
+    "--vscode-editor-foreground",
+    "--vscode-editorStickyScroll-background",
+    "--vscode-editorStickyScrollGutter-background",
+    "--vscode-editorStickyScrollHover-background",
+    "--vscode-editorStickyScroll-shadow",
+    "--vscode-editorWidget-background",
+    "--vscode-editorWidget-foreground",
+    "--vscode-editorWidget-border",
+    "--vscode-editorError-foreground",
+    "--vscode-editorWarning-foreground",
+    "--vscode-editorInfo-foreground",
+    "--vscode-editorHint-foreground",
+    "--vscode-editorLink-activeForeground",
+    "--vscode-editor-selectionBackground",
+    "--vscode-editor-inactiveSelectionBackground",
+    "--vscode-editor-selectionHighlightBackground",
+    "--vscode-editor-compositionBorder",
+    "--vscode-editor-findMatchBackground",
+    "--vscode-editor-findMatchHighlightBackground",
+    "--vscode-editor-findRangeHighlightBackground",
+    "--vscode-editor-hoverHighlightBackground",
+    "--vscode-editorHoverWidget-background",
+    "--vscode-editorHoverWidget-foreground",
+    "--vscode-editorHoverWidget-border",
+    "--vscode-editorHoverWidget-statusBarBackground",
+    "--vscode-editorInlayHint-foreground",
+    "--vscode-editorInlayHint-background",
+    "--vscode-editorInlayHint-typeForeground",
+    "--vscode-editorInlayHint-typeBackground",
+    "--vscode-editorInlayHint-parameterForeground",
+    "--vscode-editorInlayHint-parameterBackground",
+    "--vscode-editorLightBulb-foreground",
+    "--vscode-editorLightBulbAutoFix-foreground",
+    "--vscode-editorLightBulbAi-foreground",
+    "--vscode-editor-snippetTabstopHighlightBackground",
+    "--vscode-editor-snippetFinalTabstopHighlightBorder",
+    "--vscode-diffEditor-insertedTextBackground",
+    "--vscode-diffEditor-removedTextBackground",
+    "--vscode-diffEditor-insertedLineBackground",
+    "--vscode-diffEditor-removedLineBackground",
+    "--vscode-diffEditor-diagonalFill",
+    "--vscode-diffEditor-unchangedRegionBackground",
+    "--vscode-diffEditor-unchangedRegionForeground",
+    "--vscode-diffEditor-unchangedCodeBackground",
+    "--vscode-widget-shadow",
+    "--vscode-widget-border",
+    "--vscode-toolbar-hoverBackground",
+    "--vscode-toolbar-activeBackground",
+    "--vscode-breadcrumb-foreground",
+    "--vscode-breadcrumb-background",
+    "--vscode-breadcrumb-focusForeground",
+    "--vscode-breadcrumb-activeSelectionForeground",
+    "--vscode-breadcrumbPicker-background",
+    "--vscode-merge-currentHeaderBackground",
+    "--vscode-merge-currentContentBackground",
+    "--vscode-merge-incomingHeaderBackground",
+    "--vscode-merge-incomingContentBackground",
+    "--vscode-merge-commonHeaderBackground",
+    "--vscode-merge-commonContentBackground",
+    "--vscode-editorOverviewRuler-currentContentForeground",
+    "--vscode-editorOverviewRuler-incomingContentForeground",
+    "--vscode-editorOverviewRuler-commonContentForeground",
+    "--vscode-editorOverviewRuler-findMatchForeground",
+    "--vscode-editorOverviewRuler-selectionHighlightForeground",
+    "--vscode-problemsErrorIcon-foreground",
+    "--vscode-problemsWarningIcon-foreground",
+    "--vscode-problemsInfoIcon-foreground",
+    "--vscode-minimap-findMatchHighlight",
+    "--vscode-minimap-selectionOccurrenceHighlight",
+    "--vscode-minimap-selectionHighlight",
+    "--vscode-minimap-infoHighlight",
+    "--vscode-minimap-warningHighlight",
+    "--vscode-minimap-errorHighlight",
+    "--vscode-minimap-foregroundOpacity",
+    "--vscode-minimapSlider-background",
+    "--vscode-minimapSlider-hoverBackground",
+    "--vscode-minimapSlider-activeBackground",
+    "--vscode-charts-foreground",
+    "--vscode-charts-lines",
+    "--vscode-charts-red",
+    "--vscode-charts-blue",
+    "--vscode-charts-yellow",
+    "--vscode-charts-orange",
+    "--vscode-charts-green",
+    "--vscode-charts-purple",
+    "--vscode-input-background",
+    "--vscode-input-foreground",
+    "--vscode-input-border",
+    "--vscode-inputOption-activeBorder",
+    "--vscode-inputOption-hoverBackground",
+    "--vscode-inputOption-activeBackground",
+    "--vscode-inputOption-activeForeground",
+    "--vscode-input-placeholderForeground",
+    "--vscode-inputValidation-infoBackground",
+    "--vscode-inputValidation-infoBorder",
+    "--vscode-inputValidation-warningBackground",
+    "--vscode-inputValidation-warningBorder",
+    "--vscode-inputValidation-errorBackground",
+    "--vscode-inputValidation-errorBorder",
+    "--vscode-dropdown-background",
+    "--vscode-dropdown-foreground",
+    "--vscode-dropdown-border",
+    "--vscode-button-foreground",
+    "--vscode-button-separator",
+    "--vscode-button-background",
+    "--vscode-button-hoverBackground",
+    "--vscode-button-border",
+    "--vscode-button-secondaryForeground",
+    "--vscode-button-secondaryBackground",
+    "--vscode-button-secondaryHoverBackground",
+    "--vscode-radio-activeForeground",
+    "--vscode-radio-activeBackground",
+    "--vscode-radio-activeBorder",
+    "--vscode-radio-inactiveBorder",
+    "--vscode-radio-inactiveHoverBackground",
+    "--vscode-checkbox-background",
+    "--vscode-checkbox-selectBackground",
+    "--vscode-checkbox-foreground",
+    "--vscode-checkbox-border",
+    "--vscode-checkbox-selectBorder",
+    "--vscode-checkbox-disabled-background",
+    "--vscode-checkbox-disabled-foreground",
+    "--vscode-keybindingLabel-background",
+    "--vscode-keybindingLabel-foreground",
+    "--vscode-keybindingLabel-border",
+    "--vscode-keybindingLabel-bottomBorder",
+    "--vscode-list-focusBackground",
+    "--vscode-list-focusForeground",
+    "--vscode-list-focusOutline",
+    "--vscode-list-activeSelectionBackground",
+    "--vscode-list-activeSelectionForeground",
+    "--vscode-list-activeSelectionIconForeground",
+    "--vscode-list-inactiveSelectionBackground",
+    "--vscode-list-inactiveSelectionForeground",
+    "--vscode-list-inactiveFocusBackground",
+    "--vscode-list-hoverBackground",
+    "--vscode-list-hoverForeground",
+    "--vscode-list-dropBackground",
+    "--vscode-list-dropBetweenBackground",
+    "--vscode-list-highlightForeground",
+    "--vscode-list-focusHighlightForeground",
+    "--vscode-list-invalidItemForeground",
+    "--vscode-list-errorForeground",
+    "--vscode-list-warningForeground",
+    "--vscode-listFilterWidget-background",
+    "--vscode-listFilterWidget-outline",
+    "--vscode-listFilterWidget-noMatchesOutline",
+    "--vscode-listFilterWidget-shadow",
+    "--vscode-list-filterMatchBackground",
+    "--vscode-list-deemphasizedForeground",
+    "--vscode-tree-indentGuidesStroke",
+    "--vscode-tree-inactiveIndentGuidesStroke",
+    "--vscode-tree-tableColumnsBorder",
+    "--vscode-tree-tableOddRowsBackground",
+    "--vscode-editorActionList-background",
+    "--vscode-editorActionList-foreground",
+    "--vscode-editorActionList-focusForeground",
+    "--vscode-editorActionList-focusBackground",
+    "--vscode-menu-border",
+    "--vscode-menu-foreground",
+    "--vscode-menu-background",
+    "--vscode-menu-selectionForeground",
+    "--vscode-menu-selectionBackground",
+    "--vscode-menu-separatorBackground",
+    "--vscode-quickInput-background",
+    "--vscode-quickInput-foreground",
+    "--vscode-quickInputTitle-background",
+    "--vscode-pickerGroup-foreground",
+    "--vscode-pickerGroup-border",
+    "--vscode-quickInputList-focusForeground",
+    "--vscode-quickInputList-focusIconForeground",
+    "--vscode-quickInputList-focusBackground",
+    "--vscode-search-resultsInfoForeground",
+    "--vscode-searchEditor-findMatchBackground",
+    "--vscode-editor-lineHighlightBackground",
+    "--vscode-editor-inactiveLineHighlightBackground",
+    "--vscode-editor-lineHighlightBorder",
+    "--vscode-editor-rangeHighlightBackground",
+    "--vscode-editor-symbolHighlightBackground",
+    "--vscode-editorCursor-foreground",
+    "--vscode-editorMultiCursor-primary-foreground",
+    "--vscode-editorMultiCursor-secondary-foreground",
+    "--vscode-editorWhitespace-foreground",
+    "--vscode-editorLineNumber-foreground",
+    "--vscode-editorIndentGuide-background",
+    "--vscode-editorIndentGuide-activeBackground",
+    "--vscode-editorIndentGuide-background1",
+    "--vscode-editorIndentGuide-background2",
+    "--vscode-editorIndentGuide-background3",
+    "--vscode-editorIndentGuide-background4",
+    "--vscode-editorIndentGuide-background5",
+    "--vscode-editorIndentGuide-background6",
+    "--vscode-editorIndentGuide-activeBackground1",
+    "--vscode-editorIndentGuide-activeBackground2",
+    "--vscode-editorIndentGuide-activeBackground3",
+    "--vscode-editorIndentGuide-activeBackground4",
+    "--vscode-editorIndentGuide-activeBackground5",
+    "--vscode-editorIndentGuide-activeBackground6",
+    "--vscode-editorActiveLineNumber-foreground",
+    "--vscode-editorLineNumber-activeForeground",
+    "--vscode-editorRuler-foreground",
+    "--vscode-editorCodeLens-foreground",
+    "--vscode-editorBracketMatch-background",
+    "--vscode-editorBracketMatch-border",
+    "--vscode-editorOverviewRuler-border",
+    "--vscode-editorGutter-background",
+    "--vscode-editorUnnecessaryCode-opacity",
+    "--vscode-editorGhostText-foreground",
+    "--vscode-editorOverviewRuler-rangeHighlightForeground",
+    "--vscode-editorOverviewRuler-errorForeground",
+    "--vscode-editorOverviewRuler-warningForeground",
+    "--vscode-editorOverviewRuler-infoForeground",
+    "--vscode-editorBracketHighlight-foreground1",
+    "--vscode-editorBracketHighlight-foreground2",
+    "--vscode-editorBracketHighlight-foreground3",
+    "--vscode-editorBracketHighlight-foreground4",
+    "--vscode-editorBracketHighlight-foreground5",
+    "--vscode-editorBracketHighlight-foreground6",
+    "--vscode-editorBracketHighlight-unexpectedBracket-foreground",
+    "--vscode-editorBracketPairGuide-background1",
+    "--vscode-editorBracketPairGuide-background2",
+    "--vscode-editorBracketPairGuide-background3",
+    "--vscode-editorBracketPairGuide-background4",
+    "--vscode-editorBracketPairGuide-background5",
+    "--vscode-editorBracketPairGuide-background6",
+    "--vscode-editorBracketPairGuide-activeBackground1",
+    "--vscode-editorBracketPairGuide-activeBackground2",
+    "--vscode-editorBracketPairGuide-activeBackground3",
+    "--vscode-editorBracketPairGuide-activeBackground4",
+    "--vscode-editorBracketPairGuide-activeBackground5",
+    "--vscode-editorBracketPairGuide-activeBackground6",
+    "--vscode-editorUnicodeHighlight-border",
+    "--vscode-diffEditor-move-border",
+    "--vscode-diffEditor-moveActive-border",
+    "--vscode-diffEditor-unchangedRegionShadow",
+    "--vscode-editorOverviewRuler-bracketMatchForeground",
+    "--vscode-actionBar-toggledBackground",
+    "--vscode-symbolIcon-arrayForeground",
+    "--vscode-symbolIcon-booleanForeground",
+    "--vscode-symbolIcon-classForeground",
+    "--vscode-symbolIcon-colorForeground",
+    "--vscode-symbolIcon-constantForeground",
+    "--vscode-symbolIcon-constructorForeground",
+    "--vscode-symbolIcon-enumeratorForeground",
+    "--vscode-symbolIcon-enumeratorMemberForeground",
+    "--vscode-symbolIcon-eventForeground",
+    "--vscode-symbolIcon-fieldForeground",
+    "--vscode-symbolIcon-fileForeground",
+    "--vscode-symbolIcon-folderForeground",
+    "--vscode-symbolIcon-functionForeground",
+    "--vscode-symbolIcon-interfaceForeground",
+    "--vscode-symbolIcon-keyForeground",
+    "--vscode-symbolIcon-keywordForeground",
+    "--vscode-symbolIcon-methodForeground",
+    "--vscode-symbolIcon-moduleForeground",
+    "--vscode-symbolIcon-namespaceForeground",
+    "--vscode-symbolIcon-nullForeground",
+    "--vscode-symbolIcon-numberForeground",
+    "--vscode-symbolIcon-objectForeground",
+    "--vscode-symbolIcon-operatorForeground",
+    "--vscode-symbolIcon-packageForeground",
+    "--vscode-symbolIcon-propertyForeground",
+    "--vscode-symbolIcon-referenceForeground",
+    "--vscode-symbolIcon-snippetForeground",
+    "--vscode-symbolIcon-stringForeground",
+    "--vscode-symbolIcon-structForeground",
+    "--vscode-symbolIcon-textForeground",
+    "--vscode-symbolIcon-typeParameterForeground",
+    "--vscode-symbolIcon-unitForeground",
+    "--vscode-symbolIcon-variableForeground",
+    "--vscode-peekViewTitle-background",
+    "--vscode-peekViewTitleLabel-foreground",
+    "--vscode-peekViewTitleDescription-foreground",
+    "--vscode-peekView-border",
+    "--vscode-peekViewResult-background",
+    "--vscode-peekViewResult-lineForeground",
+    "--vscode-peekViewResult-fileForeground",
+    "--vscode-peekViewResult-selectionBackground",
+    "--vscode-peekViewResult-selectionForeground",
+    "--vscode-peekViewEditor-background",
+    "--vscode-peekViewEditorGutter-background",
+    "--vscode-peekViewEditorStickyScroll-background",
+    "--vscode-peekViewEditorStickyScrollGutter-background",
+    "--vscode-peekViewResult-matchHighlightBackground",
+    "--vscode-peekViewEditor-matchHighlightBackground",
+    "--vscode-editorMarkerNavigationError-background",
+    "--vscode-editorMarkerNavigationError-headerBackground",
+    "--vscode-editorMarkerNavigationWarning-background",
+    "--vscode-editorMarkerNavigationWarning-headerBackground",
+    "--vscode-editorMarkerNavigationInfo-background",
+    "--vscode-editorMarkerNavigationInfo-headerBackground",
+    "--vscode-editorMarkerNavigation-background",
+    "--vscode-editor-foldBackground",
+    "--vscode-editor-foldPlaceholderForeground",
+    "--vscode-editorGutter-foldingControlForeground",
+    "--vscode-editorSuggestWidget-background",
+    "--vscode-editorSuggestWidget-border",
+    "--vscode-editorSuggestWidget-foreground",
+    "--vscode-editorSuggestWidget-selectedForeground",
+    "--vscode-editorSuggestWidget-selectedIconForeground",
+    "--vscode-editorSuggestWidget-selectedBackground",
+    "--vscode-editorSuggestWidget-highlightForeground",
+    "--vscode-editorSuggestWidget-focusHighlightForeground",
+    "--vscode-editorSuggestWidgetStatus-foreground",
+    "--vscode-inlineEdit-originalBackground",
+    "--vscode-inlineEdit-modifiedBackground",
+    "--vscode-inlineEdit-originalChangedLineBackground",
+    "--vscode-inlineEdit-originalChangedTextBackground",
+    "--vscode-inlineEdit-modifiedChangedLineBackground",
+    "--vscode-inlineEdit-modifiedChangedTextBackground",
+    "--vscode-inlineEdit-gutterIndicator-primaryForeground",
+    "--vscode-inlineEdit-gutterIndicator-primaryBorder",
+    "--vscode-inlineEdit-gutterIndicator-primaryBackground",
+    "--vscode-inlineEdit-gutterIndicator-secondaryForeground",
+    "--vscode-inlineEdit-gutterIndicator-secondaryBorder",
+    "--vscode-inlineEdit-gutterIndicator-secondaryBackground",
+    "--vscode-inlineEdit-gutterIndicator-successfulForeground",
+    "--vscode-inlineEdit-gutterIndicator-successfulBorder",
+    "--vscode-inlineEdit-gutterIndicator-successfulBackground",
+    "--vscode-inlineEdit-gutterIndicator-background",
+    "--vscode-inlineEdit-originalBorder",
+    "--vscode-inlineEdit-modifiedBorder",
+    "--vscode-inlineEdit-tabWillAcceptModifiedBorder",
+    "--vscode-inlineEdit-tabWillAcceptOriginalBorder",
+    "--vscode-editor-linkedEditingBackground",
+    "--vscode-editor-wordHighlightBackground",
+    "--vscode-editor-wordHighlightStrongBackground",
+    "--vscode-editor-wordHighlightTextBackground",
+    "--vscode-editorOverviewRuler-wordHighlightForeground",
+    "--vscode-editorOverviewRuler-wordHighlightStrongForeground",
+    "--vscode-editorOverviewRuler-wordHighlightTextForeground",
+    "--vscode-editorHoverWidget-highlightForeground",
+    "--vscode-editor-placeholder-foreground",
+    "--vscode-multiDiffEditor-headerBackground",
+    "--vscode-multiDiffEditor-background",
+    "--vscode-multiDiffEditor-border",
+    "--vscode-sash-activeBorder",
+    "--vscode-activityBar-background",
+    "--vscode-activityBar-foreground",
+    "--vscode-activityBar-inactiveForeground",
+    "--vscode-activityBar-border",
+    "--vscode-activityBar-activeBorder",
+    "--vscode-activityBar-activeFocusBorder",
+    "--vscode-activityBar-activeBackground",
+    "--vscode-activityBar-dropBackground",
+    "--vscode-activityBarBadge-background",
+    "--vscode-activityBarBadge-foreground",
+    "--vscode-sideBar-background",
+    "--vscode-sideBar-foreground",
+    "--vscode-sideBarSectionHeader-background",
+    "--vscode-sideBarSectionHeader-foreground",
+    "--vscode-sideBarSectionHeader-border",
+    "--vscode-editorGroup-border",
+    "--vscode-editorGroup-dropBackground",
+    "--vscode-editorGroupHeader-tabsBackground",
+    "--vscode-editorGroupHeader-tabsBorder",
+    "--vscode-tab-activeBackground",
+    "--vscode-tab-unfocusedActiveBackground",
+    "--vscode-tab-inactiveBackground",
+    "--vscode-tab-activeForeground",
+    "--vscode-tab-inactiveForeground",
+    "--vscode-tab-unfocusedActiveForeground",
+    "--vscode-tab-unfocusedInactiveForeground",
+    "--vscode-tab-border",
+    "--vscode-tab-activeBorderTop",
+    "--vscode-tab-unfocusedActiveBorderTop",
+    "--vscode-tab-hoverBackground",
+    "--vscode-tab-unfocusedHoverBackground",
+    "--vscode-tab-activeModifiedBorder",
+    "--vscode-tab-inactiveModifiedBorder",
+    "--vscode-tab-unfocusedActiveModifiedBorder",
+    "--vscode-tab-unfocusedInactiveModifiedBorder",
+    "--vscode-statusBar-foreground",
+    "--vscode-statusBar-background",
+    "--vscode-statusBar-noFolderForeground",
+    "--vscode-statusBar-noFolderBackground",
+    "--vscode-statusBar-border",
+    "--vscode-statusBar-noFolderBorder",
+    "--vscode-statusBarItem-activeBackground",
+    "--vscode-statusBarItem-hoverBackground",
+    "--vscode-statusBarItem-hoverForeground",
+    "--vscode-statusBarItem-compactHoverBackground",
+    "--vscode-statusBarItem-focusBorder",
+    "--vscode-statusBarItem-errorBackground",
+    "--vscode-statusBarItem-errorForeground",
+    "--vscode-statusBarItem-errorHoverBackground",
+    "--vscode-statusBarItem-errorHoverForeground",
+    "--vscode-statusBarItem-warningBackground",
+    "--vscode-statusBarItem-warningForeground",
+    "--vscode-statusBarItem-warningHoverBackground",
+    "--vscode-statusBarItem-warningHoverForeground",
+    "--vscode-statusBarItem-prominentForeground",
+    "--vscode-statusBarItem-prominentBackground",
+    "--vscode-statusBarItem-prominentHoverForeground",
+    "--vscode-statusBarItem-prominentHoverBackground",
+    "--vscode-panel-background",
+    "--vscode-panel-border",
+    "--vscode-panel-dropBackground",
+    "--vscode-panelTitle-activeForeground",
+    "--vscode-panelTitle-inactiveForeground",
+    "--vscode-panelTitle-activeBorder",
+    "--vscode-imagePreview-border",
+    "--vscode-titleBar-activeForeground",
+    "--vscode-titleBar-inactiveForeground",
+    "--vscode-titleBar-activeBackground",
+    "--vscode-titleBar-inactiveBackground",
+    "--vscode-titleBar-border",
+    "--vscode-menubar-selectionForeground",
+    "--vscode-menubar-selectionBackground",
+    "--vscode-welcomePage-buttonBackground",
+    "--vscode-welcomePage-buttonHoverBackground",
+    "--vscode-walkThrough-embeddedEditorBackground",
+    "--vscode-settings-headerForeground",
+    "--vscode-settings-modifiedItemIndicator",
+    "--vscode-settings-dropdownBackground",
+    "--vscode-settings-dropdownForeground",
+    "--vscode-settings-dropdownBorder",
+    "--vscode-settings-dropdownListBorder",
+    "--vscode-settings-checkboxBackground",
+    "--vscode-settings-checkboxForeground",
+    "--vscode-settings-checkboxBorder",
+    "--vscode-settings-textInputBackground",
+    "--vscode-settings-textInputForeground",
+    "--vscode-settings-textInputBorder",
+    "--vscode-settings-numberInputBackground",
+    "--vscode-settings-numberInputForeground",
+    "--vscode-settings-numberInputBorder",
+    "--vscode-settings-focusedRowBackground",
+    "--vscode-settings-rowHoverBackground",
+    "--vscode-settings-focusedRowBorder",
+    "--vscode-variable-name-color",
+    "--vscode-variable-value-color",
+    "--vscode-variable-number-variable-color",
+    "--vscode-variable-boolean-variable-color",
+    "--vscode-variable-string-variable-color",
+    "--vscode-ansi-black-color",
+    "--vscode-ansi-red-color",
+    "--vscode-ansi-green-color",
+    "--vscode-ansi-yellow-color",
+    "--vscode-ansi-blue-color",
+    "--vscode-ansi-magenta-color",
+    "--vscode-ansi-cyan-color",
+    "--vscode-ansi-white-color",
+    "--vscode-errorBackground",
+    "--vscode-successBackground",
+    "--vscode-warningBackground",
+    "--vscode-warningForeground",
+    "--vscode-statusBar-offlineBackground",
+    "--vscode-statusBar-offlineForeground",
+    "--vscode-statusBarItem-offlineHoverBackground",
+    "--vscode-statusBarItem-offlineActiveBackground",
+    "--vscode-statusBarItem-remoteBackground",
+    "--vscode-statusBarItem-remoteForeground",
+    "--vscode-statusBarItem-remoteHoverBackground",
+    "--vscode-statusBarItem-remoteHoverForeground",
+    "--vscode-button-disabledForeground",
+    "--vscode-button-disabledBackground",
+    "--vscode-secondaryButton-foreground",
+    "--vscode-secondaryButton-disabledForeground",
+    "--vscode-secondaryButton-background",
+    "--vscode-secondaryButton-hoverBackground",
+    "--vscode-secondaryButton-disabledBackground",
+    "--vscode-editorGutter-commentRangeForeground",
+    "--vscode-editorGutter-itemGlyphForeground",
+    "--vscode-mainToolbar-background",
+    "--vscode-mainToolbar-foreground",
+    "--vscode-editorHoverWidgetInternalBorder",
+    "--vscode-terminal-background",
+    "--vscode-terminal-foreground",
+    "--vscode-terminal-selectionBackground",
+    "--vscode-terminal-inactiveSelectionBackground",
+    "--vscode-terminal-border",
+    "--vscode-terminal-ansiBlack",
+    "--vscode-terminal-ansiRed",
+    "--vscode-terminal-ansiGreen",
+    "--vscode-terminal-ansiYellow",
+    "--vscode-terminal-ansiBlue",
+    "--vscode-terminal-ansiMagenta",
+    "--vscode-terminal-ansiCyan",
+    "--vscode-terminal-ansiWhite",
+    "--vscode-terminal-ansiBrightBlack",
+    "--vscode-terminal-ansiBrightRed",
+    "--vscode-terminal-ansiBrightGreen",
+    "--vscode-terminal-ansiBrightYellow",
+    "--vscode-terminal-ansiBrightBlue",
+    "--vscode-terminal-ansiBrightMagenta",
+    "--vscode-terminal-ansiBrightCyan",
+    "--vscode-terminal-ansiBrightWhite",
+    "--vscode-editor-stackFrameHighlightBackground",
+    "--vscode-editor-focusedStackFrameHighlightBackground",
+    "--vscode-statusBar-debuggingBackground",
+    "--vscode-statusBar-debuggingForeground",
+    "--vscode-statusBar-debuggingBorder",
+    "--vscode-debugExceptionWidget-border",
+    "--vscode-debugExceptionWidget-background",
+    "--vscode-debugIcon-breakpointForeground",
+    "--vscode-debugIcon-breakpointDisabledForeground",
+    "--vscode-debugIcon-breakpointUnverifiedForeground",
+    "--vscode-debugIcon-breakpointCurrentStackframeForeground",
+    "--vscode-debugIcon-breakpointStackframeForeground",
+    "--vscode-debugIcon-startForeground",
+    "--vscode-debugIcon-pauseForeground",
+    "--vscode-debugIcon-stopForeground",
+    "--vscode-debugIcon-disconnectForeground",
+    "--vscode-debugIcon-restartForeground",
+    "--vscode-debugIcon-stepOverForeground",
+    "--vscode-debugIcon-stepIntoForeground",
+    "--vscode-debugIcon-stepOutForeground",
+    "--vscode-debugIcon-continueForeground",
+    "--vscode-debugIcon-stepBackForeground",
+    "--vscode-debugConsole-infoForeground",
+    "--vscode-debugConsole-warningForeground",
+    "--vscode-debugConsole-errorForeground",
+    "--vscode-debugConsole-sourceForeground",
+    "--vscode-debugConsoleInputIcon-foreground",
+    "--vscode-notifications-foreground",
+    "--vscode-notifications-background",
+    "--vscode-notificationLink-foreground",
+    "--vscode-notificationCenterHeader-background",
+    "--vscode-notifications-border",
+    "--vscode-notificationsErrorIcon-foreground",
+    "--vscode-notificationsWarningIcon-foreground",
+    "--vscode-notificationsInfoIcon-foreground",
+    "--vscode-notebook-cellBorderColor",
+    "--vscode-notebook-focusedEditorBorder",
+    "--vscode-notebookStatusSuccessIcon-foreground",
+    "--vscode-notebookEditorOverviewRuler-runningCellForeground",
+    "--vscode-notebookStatusErrorIcon-foreground",
+    "--vscode-notebookStatusRunningIcon-foreground",
+    "--vscode-notebook-cellToolbarSeparator",
+    "--vscode-notebook-selectedCellBackground",
+    "--vscode-notebook-selectedCellBorder",
+    "--vscode-notebook-focusedCellBorder",
+    "--vscode-notebook-inactiveFocusedCellBorder",
+    "--vscode-notebook-cellStatusBarItemHoverBackground",
+    "--vscode-notebook-cellInsertionIndicator",
+    "--vscode-notebookScrollbarSlider-background",
+    "--vscode-notebookScrollbarSlider-hoverBackground",
+    "--vscode-notebookScrollbarSlider-activeBackground",
+    "--vscode-notebook-symbolHighlightBackground",
+    "--vscode-notebook-cellEditorBackground",
+    "--vscode-scmGraph-historyItemHoverDefaultLabelForeground",
+    "--vscode-scmGraph-historyItemHoverAdditionsForeground",
+    "--vscode-scmGraph-historyItemHoverDeletionsForeground",
+    "--vscode-scmGraph-historyItemHoverLabelForeground",
+    "--vscode-scmGraph-historyItemRefForeground",
+    "--vscode-scmGraph-historyItemRefColor",
+    "--vscode-scmGraph-historyItemRemoteRefColor",
+    "--vscode-scmGraph-historyItemTagRefColor",
+    "--vscode-scmGraph-historyItemBaseRefColor",
+    "--vscode-scmGraph-foreground1",
+    "--vscode-scmGraph-foreground2",
+    "--vscode-scmGraph-foreground3",
+    "--vscode-scmGraph-foreground4",
+    "--vscode-scmGraph-foreground5",
+    "--vscode-editorGutter-modifiedBackground",
+    "--vscode-editorGutter-addedBackground",
+    "--vscode-editorGutter-deletedBackground",
+    "--vscode-minimapGutter-modifiedBackground",
+    "--vscode-minimapGutter-addedBackground",
+    "--vscode-minimapGutter-deletedBackground",
+    "--vscode-editorOverviewRuler-modifiedForeground",
+    "--vscode-editorOverviewRuler-addedForeground",
+    "--vscode-editorOverviewRuler-deletedForeground",
+    "--vscode-mergeEditor-change-background",
+    "--vscode-mergeEditor-change-word-background",
+    "--vscode-mergeEditor-changeBase-background",
+    "--vscode-mergeEditor-changeBase-word-background",
+    "--vscode-mergeEditor-conflict-unhandledUnfocused-border",
+    "--vscode-mergeEditor-conflict-unhandledUnfocused-background",
+    "--vscode-mergeEditor-conflict-unhandledFocused-border",
+    "--vscode-mergeEditor-conflict-unhandledFocused-background",
+    "--vscode-mergeEditor-conflict-handledUnfocused-border",
+    "--vscode-mergeEditor-conflict-handledUnfocused-background",
+    "--vscode-mergeEditor-conflict-handledFocused-border",
+    "--vscode-mergeEditor-conflict-handledFocused-background",
+    "--vscode-mergeEditor-conflict-handled-minimapOverViewRuler",
+    "--vscode-mergeEditor-conflict-unhandled-minimapOverViewRuler",
+    "--vscode-extensionButton-prominentBackground",
+    "--vscode-extensionButton-prominentForeground",
+    "--vscode-extensionButton-prominentHoverBackground",
+    "--vscode-extensionEditor-tableHeadBorder",
+    "--vscode-extensionEditor-tableCellBorder",
+    "--vscode-extensionIcon-verifiedForeground",
+    "--vscode-akariTheme-accent",
+    "--vscode-akariTheme-accentLight",
+    "--vscode-akariTheme-accentTint",
+    "--vscode-akariTheme-accentTintDeep",
+    "--vscode-sideBar-border",
+    "--vscode-sideBarTitle-foreground"
+  ],
+  "whiteUntilSec": 11.8,
+  "darkFromSec": 18.2,
+  "series": [
+    {
+      "elapsedSec": 0.7,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 245,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 6,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 245,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 11.8,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 245,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 18.2,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 23.5,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 28.7,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 34,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 39.2,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 44.5,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 49.8,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 55,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 60.2,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 65.4,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 70.6,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 75.8,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 81,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 86.2,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 91.3,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 96.5,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 101.8,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 107,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 112.2,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    },
+    {
+      "elapsedSec": 117.4,
+      "n": 627,
+      "bodyBackgroundColor": "rgba(0, 0, 0, 0)",
+      "themeKindBody": "vscode-dark",
+      "inside": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "panel": [
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ],
+        [
+          10,
+          10,
+          10
+        ]
+      ],
+      "maxDeltaToPanel": 0,
+      "missingVsFirst": [],
+      "addedVsFirst": []
+    }
+  ]
+}
