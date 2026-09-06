@@ -17,6 +17,7 @@ const edit_v2_1 = require("./edit-v2");
 const item_anchor_1 = require("./item-anchor");
 const cut_adjacency_1 = require("./cut-adjacency");
 const error_1 = require("./migrate/error");
+const audio_ownership_1 = require("./audio-ownership");
 const shape_markup_1 = require("./shape-markup");
 /**
  * edit.json v2 を内部表現へ読む。v0/v1 は凍結変換ユニットのみが読む。
@@ -34,20 +35,6 @@ function readInternalEdit(source, options) {
     const record = raw;
     if (record.version !== 2) {
         throw new error_1.LegacyEditVersionError(typeof record.version === 'number' ? record.version : -1);
-    }
-    if (options?.allowCutAudioSplit !== true) {
-        const hasSplit = (items, lane) => Array.isArray(items) && items.some(item => {
-            if (!item || typeof item !== 'object')
-                return false;
-            const split = lane === 'visual'
-                ? item.source?.kind === 'media' && item.audio === false
-                : lane === 'audio' && (Object.prototype.hasOwnProperty.call(item, 'link')
-                    || Object.prototype.hasOwnProperty.call(item, 'mute') || item.role === 'speech');
-            return split || hasSplit(item.items, lane);
-        });
-        if (Array.isArray(record.tracks) && record.tracks.some(track => track && typeof track === 'object' && hasSplit(track.items, track.lane))) {
-            throw new Error('未対応: 本編音声の分離（audio:false / link / mute / role:speech）は次の便で有効化されます。この edit.json は現在のエンジンでは再生・書き出しできません。');
-        }
     }
     const resolved = options?.captions === undefined
         ? record
@@ -665,7 +652,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
             if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
-                    track: ref, ...common, ...copyMediaSourceFields(item.source)
+                    track: ref, ...common, ...copyMediaSourceFields(item.source),
+                    ...('audio' in item && item.audio === false ? { audio: false } : {})
                 };
                 const value = declaration;
                 return finish({
@@ -685,14 +673,16 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                 ...(speed !== undefined ? { speed } : {}),
                 ...(item.transform !== undefined ? { transform: item.transform } : {}),
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
-                ...copyMediaSourceFields(item.source)
+                ...copyMediaSourceFields(item.source),
+                ...('audio' in item && item.audio === false ? { audio: false } : {})
             };
             return finish({
                 item: {
                     id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
-                        ...common, ...copyMediaSourceFields(item.source), ...(speed !== undefined ? { speed } : {})
+                        ...common, ...copyMediaSourceFields(item.source),
+                        ...('audio' in item && item.audio === false ? { audio: false } : {}), ...(speed !== undefined ? { speed } : {})
                     },
                     legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
                 }
@@ -833,6 +823,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         ...(item.source.formant !== undefined ? { formant: item.source.formant } : {})
     };
     const itemClipFx = {
+        ...(item.mute !== undefined ? { mute: item.mute } : {}),
+        ...(item.role === 'speech' ? { role: 'speech', duration, track: ref } : {}),
         ...(item.denoise !== undefined ? { denoise: structuredClone(item.denoise) } : {}),
         ...(item.lowcut_hz !== undefined ? { lowcut_hz: item.lowcut_hz } : {})
     };
@@ -847,15 +839,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? 'sfx';
-    if (role === 'speech') {
-        // 検証用 opt-in だけが到達する。供給対応前なので sfx の互換値へは射影しない。
-        return { item: {
-                id: item.id, atFrames, durationFrames, at, duration, children: [], source,
-                declaration: structuredClone(item),
-                legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
-            } };
-    }
-    if (role === 'narration') {
+    if (role === 'narration' || role === 'speech') {
         const value = {
             id: item.id,
             t: at,
@@ -895,8 +879,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                     ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
                 },
                 legacy: {
-                    collection: 'narration',
-                    index: nextLegacyIndex(legacyIndexCounters, 'narration'),
+                    collection: role,
+                    index: nextLegacyIndex(legacyIndexCounters, role),
                     value
                 }
             }
@@ -1108,9 +1092,10 @@ function projectLegacyEdit(internal) {
     const layers = [];
     const audioSfx = [];
     const audioNarration = [];
+    const audioSpeech = [];
     let audioBgm;
     for (const track of internal.tracks) {
-        if (track.lane === 'audio' && track.muted === true)
+        if (track.lane === 'audio' && !(0, audio_ownership_1.isAudioItemAudible)(track, undefined))
             continue;
         for (const item of track.items) {
             const value = item.legacy.value;
@@ -1133,6 +1118,9 @@ function projectLegacyEdit(internal) {
                             break;
                         case 'narration':
                             audioNarration.push({ index: item.legacy.index, value: value });
+                            break;
+                        case 'speech':
+                            audioSpeech.push({ index: item.legacy.index, value: value });
                             break;
                         case 'bgm':
                             audioBgm = value;
@@ -1178,6 +1166,7 @@ function projectLegacyEdit(internal) {
         layers: byDeclarationOrder(layers),
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
+        ...(audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {}),
         ...(audioBgm ? { audioBgm } : {}),
         ...(internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {}),
         fps: internal.output.fps,

@@ -20,6 +20,7 @@ import { AudioMediaItemV2, EditV2, ItemV2, KeyframesReferenceV2, TrackV2, readEd
 import { AnchorCaption, resolveItemAnchors, withoutItemAnchors } from './item-anchor';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
+import { isAudioItemAudible } from './audio-ownership';
 import { shapeMarkup } from './shape-markup';
 
 export type InternalLane = 'visual' | 'audio';
@@ -82,7 +83,7 @@ export type InternalItemSource =
     | InternalCaptionSource;
 
 /** 旧 edit.json の種別別配列の名前。v2 の `tracks[].items[]` は 'items'。 */
-export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'items';
+export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'speech' | 'items';
 
 /**
  * renderer 互換ビューとの対応。
@@ -200,7 +201,7 @@ export interface InternalEdit {
 }
 
 export interface InternalReadOptions {
-    /** 検証用の opt-in。供給経路が対応するまでは新しい音声分離語彙を既定で拒否する。 */
+    /** @deprecated Accepted for compatibility; split audio is always enabled. */
     allowCutAudioSplit?: boolean;
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
@@ -224,20 +225,6 @@ export function readInternalEdit(source: string | unknown, options?: InternalRea
     const record = raw as Record<string, unknown>;
     if (record.version !== 2) {
         throw new LegacyEditVersionError(typeof record.version === 'number' ? record.version : -1);
-    }
-    if (options?.allowCutAudioSplit !== true) {
-        const hasSplit = (items: unknown, lane: unknown): boolean => Array.isArray(items) && items.some(item => {
-            if (!item || typeof item !== 'object') return false;
-            const split = lane === 'visual'
-                ? item.source?.kind === 'media' && item.audio === false
-                : lane === 'audio' && (Object.prototype.hasOwnProperty.call(item, 'link')
-                    || Object.prototype.hasOwnProperty.call(item, 'mute') || item.role === 'speech');
-            return split || hasSplit(item.items, lane);
-        });
-        if (Array.isArray(record.tracks) && record.tracks.some(track =>
-            track && typeof track === 'object' && hasSplit(track.items, track.lane))) {
-            throw new Error('未対応: 本編音声の分離（audio:false / link / mute / role:speech）は次の便で有効化されます。この edit.json は現在のエンジンでは再生・書き出しできません。');
-        }
     }
     const resolved = options?.captions === undefined
         ? record
@@ -946,7 +933,8 @@ function buildV2VisualItem(
             if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
-                    track: ref, ...common, ...copyMediaSourceFields(item.source)
+                    track: ref, ...common, ...copyMediaSourceFields(item.source),
+                ...('audio' in item && item.audio === false ? { audio: false as const } : {})
                 };
                 const value = declaration as unknown as EditLayer;
                 return finish({
@@ -966,14 +954,16 @@ function buildV2VisualItem(
                 ...(speed !== undefined ? { speed } : {}),
                 ...(item.transform !== undefined ? { transform: item.transform } : {}),
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
-                ...copyMediaSourceFields(item.source)
+                ...copyMediaSourceFields(item.source),
+                ...('audio' in item && item.audio === false ? { audio: false as const } : {})
             };
             return finish({
                 item: {
                     id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
-                        ...common, ...copyMediaSourceFields(item.source), ...(speed !== undefined ? { speed } : {})
+                        ...common, ...copyMediaSourceFields(item.source),
+                ...('audio' in item && item.audio === false ? { audio: false as const } : {}), ...(speed !== undefined ? { speed } : {})
                     },
                     legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
                 }
@@ -1121,6 +1111,8 @@ function buildV2AudioItem(
         ...(item.source.formant !== undefined ? { formant: item.source.formant } : {})
     };
     const itemClipFx = {
+        ...(item.mute !== undefined ? { mute: item.mute } : {}),
+        ...(item.role === 'speech' ? { role: 'speech', duration, track: ref } : {}),
         ...(item.denoise !== undefined ? { denoise: structuredClone(item.denoise) } : {}),
         ...(item.lowcut_hz !== undefined ? { lowcut_hz: item.lowcut_hz } : {})
     };
@@ -1136,16 +1128,7 @@ function buildV2AudioItem(
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? 'sfx';
 
-    if (role === 'speech') {
-        // 検証用 opt-in だけが到達する。供給対応前なので sfx の互換値へは射影しない。
-        return { item: {
-            id: item.id, atFrames, durationFrames, at, duration, children: [], source,
-            declaration: structuredClone(item) as unknown as Record<string, unknown>,
-            legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
-        } };
-    }
-
-    if (role === 'narration') {
+    if (role === 'narration' || role === 'speech') {
         const value: EditAudioNarration = {
             id: item.id,
             t: at,
@@ -1185,8 +1168,8 @@ function buildV2AudioItem(
                     ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
                 },
                 legacy: {
-                    collection: 'narration',
-                    index: nextLegacyIndex(legacyIndexCounters, 'narration'),
+                    collection: role,
+                    index: nextLegacyIndex(legacyIndexCounters, role),
                     value
                 }
             }
@@ -1404,6 +1387,7 @@ export interface LegacyEditView {
     layers: EditLayer[];
     audioSfx: EditAudioSfx[];
     audioNarration: EditAudioNarration[];
+    audioSpeech?: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
     timeline?: { tracks: EditTimelineTrack[] };
     fps: number;
@@ -1420,10 +1404,11 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
     const layers: Array<{ index: number; value: EditLayer }> = [];
     const audioSfx: Array<{ index: number; value: EditAudioSfx }> = [];
     const audioNarration: Array<{ index: number; value: EditAudioNarration }> = [];
+    const audioSpeech: Array<{ index: number; value: EditAudioNarration }> = [];
     let audioBgm: EditAudioBgm | undefined;
 
     for (const track of internal.tracks) {
-        if (track.lane === 'audio' && track.muted === true) continue;
+        if (track.lane === 'audio' && !isAudioItemAudible(track, undefined)) continue;
         for (const item of track.items) {
             const value = item.legacy.value;
             if (value === undefined) {
@@ -1445,6 +1430,9 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                             break;
                         case 'narration':
                             audioNarration.push({ index: item.legacy.index, value: value as EditAudioNarration });
+                            break;
+                        case 'speech':
+                            audioSpeech.push({ index: item.legacy.index, value: value as EditAudioNarration });
                             break;
                         case 'bgm':
                             audioBgm = value as EditAudioBgm;
@@ -1491,6 +1479,7 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
         layers: byDeclarationOrder(layers),
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
+        ...(audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {}),
         ...(audioBgm ? { audioBgm } : {}),
         ...(internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {}),
         fps: internal.output.fps,

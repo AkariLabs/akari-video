@@ -1,28 +1,32 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.projectLegacyAudioView = projectLegacyAudioView;
+const audio_ownership_1 = require("./audio-ownership");
 /**
  * 内部表現の audio item だけから legacy audio 形を組み立てる純関数。
  * render-cut の互換射影と同じく legacy.index 順で処理し、bgm は単数として後勝ちにする。
  */
 function projectLegacyAudioView(internal) {
     const ordered = internal.tracks
-        .filter(track => !(track.lane === 'audio' && track.muted === true))
+        .filter(track => track.lane !== 'audio' || (0, audio_ownership_1.isAudioItemAudible)(track, undefined))
         .flatMap(track => track.items)
-        // speech は第1票の legacy view に含めない。通常の実行用 readInternalEdit は
-        // 先に拒否するため到達せず、検証用 opt-in でも sfx に暗黙変換しない。
-        .filter(item => item.declaration.role !== 'speech')
         .filter(item => item.legacy.collection === 'sfx'
         || item.legacy.collection === 'narration'
-        || item.legacy.collection === 'bgm')
+        || item.legacy.collection === 'bgm'
+        || item.legacy.collection === 'speech')
         .sort((left, right) => left.legacy.index - right.legacy.index);
     const sfx = [];
     const narration = [];
+    const speech = [];
     let bgm;
     for (const item of ordered) {
         if (item.legacy.value === undefined)
             continue;
         const declaration = projectAudioDeclaration(item, internal.output?.fps ?? 30);
+        if (declaration.role === 'speech') {
+            speech.push(declaration);
+            continue;
+        }
         switch (item.legacy.collection) {
             case 'sfx':
                 sfx.push(declaration);
@@ -40,7 +44,8 @@ function projectLegacyAudioView(internal) {
     return {
         ...(bgm !== undefined ? { bgm } : {}),
         sfx,
-        narration
+        narration,
+        ...(speech.length ? { speech } : {})
     };
 }
 // Internal legacy values use camelCase display fields. Legacy audio consumers retain the

@@ -3,6 +3,9 @@
   "engines": ["gpu", "osr"],
   "statuses": ["consumed", "partial", "ignored", "other-subsystem"],
   "fields": [
+    { "path": "tracks[].items[].audio", "applies_to": ["cuts"], "gpu": "consumed", "osr": "consumed", "evidence": "packages/render-cut/src/internal-render.mjs projectRendererCompatibilityEdit; packages/render-cut/src/plan.mjs cut_audio uses isCutAudioAudible before GPU/OSR audioSourcePath mux" },
+    { "path": "tracks[].items[].link", "applies_to": ["audio"], "gpu": "ignored", "osr": "ignored", "evidence": "Editing association only. Engines use the audio item source and timing; link is not consumed." },
+    { "path": "tracks[].items[].mute", "applies_to": ["audio"], "gpu": "other-subsystem", "osr": "other-subsystem", "consumer": "render-cut audio mix", "evidence": "packages/edit-store/src/audio-ownership.ts isAudioItemAudible; packages/render-cut/src/internal-render.mjs and plan.mjs audio mix" },
     { "path": "tracks[].items[].id", "applies_to": ["cuts", "layers", "overlays", "baked", "captions", "group"], "gpu": "consumed", "osr": "consumed", "evidence": "packages/edit-store/src/internal-model.ts buildV2VisualItem; packages/frame-engine/src/timeline/plan.ts layerFromPlacement/resolvedCompositeLayers; packages/render-cut/src/internal-render.mjs captionItemOverlays/renderItemDeclaration" },
     { "path": "tracks[].items[].id", "applies_to": ["audio"], "gpu": "other-subsystem", "osr": "other-subsystem", "consumer": "render-cut audio mix", "evidence": "packages/edit-store/src/internal-model.ts buildV2AudioItem" },
     { "path": "tracks[].items[].name", "applies_to": ["cuts", "layers", "overlays", "baked", "audio", "captions", "group"], "gpu": "other-subsystem", "osr": "other-subsystem", "consumer": "edit-store authoring metadata", "evidence": "packages/edit-store/src/edit-v2.ts validateItem/validateAudioItem; packages/edit-store/src/internal-model.ts buildV2Item does not project item names" },

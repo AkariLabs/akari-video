@@ -16,6 +16,7 @@ export * from './transition-visual';
 export * from './ducking';
 export * from './envelope';
 export * from './audio-schedule';
+export * from './audio-ownership';
 export * from './item-anchor';
 export { captionAnchorPositionVars } from './caption-display';
 

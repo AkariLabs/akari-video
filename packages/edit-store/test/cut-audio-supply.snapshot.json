@@ -1,0 +1,506 @@
+{
+  "legacy": {
+    "cuts": [
+      {
+        "in": 0,
+        "out": 3,
+        "src": "main",
+        "at": 0,
+        "track": 0,
+        "gain_db": -3
+      }
+    ],
+    "sources": [
+      {
+        "id": "main",
+        "path": "assets/main.mp4",
+        "proxy": null
+      }
+    ],
+    "overlays": [],
+    "layers": [],
+    "audioSfx": [
+      {
+        "id": "hit",
+        "t": 1,
+        "duration": 1,
+        "path": "assets/main.mp4",
+        "track": 0,
+        "in": 0,
+        "out": 1,
+        "gainDb": -6
+      }
+    ],
+    "audioNarration": [
+      {
+        "id": "narrator",
+        "t": 1.5,
+        "path": "assets/main.mp4",
+        "track": 0,
+        "gainDb": -2,
+        "in": 1,
+        "out": 2
+      }
+    ],
+    "timeline": {
+      "tracks": [
+        {
+          "id": "visual",
+          "kind": "cuts",
+          "ref": 0
+        },
+        {
+          "id": "speech",
+          "kind": "audio",
+          "ref": 0
+        }
+      ]
+    },
+    "fps": 30,
+    "warnings": []
+  },
+  "audio": {
+    "sfx": [
+      {
+        "id": "hit",
+        "t": 1,
+        "duration": 1,
+        "path": "assets/main.mp4",
+        "track": 0,
+        "in": 0,
+        "out": 1,
+        "gain_db": -6,
+        "gainDb": -6
+      }
+    ],
+    "narration": [
+      {
+        "id": "narrator",
+        "t": 1.5,
+        "path": "assets/main.mp4",
+        "gain_db": -2,
+        "in": 1,
+        "out": 2,
+        "track": 0,
+        "gainDb": -2
+      }
+    ]
+  },
+  "speech": [
+    {
+      "id": "cut-0-speech",
+      "src": "main",
+      "atSec": 0,
+      "durationSec": 3,
+      "inSec": 0,
+      "outSec": 3,
+      "speed": 1,
+      "gainDb": -3,
+      "track": 0,
+      "materialDurationSec": 3
+    }
+  ],
+  "schedule": {
+    "timelineDurationSec": 3,
+    "startAtSec": 0,
+    "items": [
+      {
+        "kind": "sfx",
+        "id": "hit",
+        "track": 0,
+        "timelineStartSec": 1,
+        "timelineEndSec": 2,
+        "delaySec": 1,
+        "sourceOffsetSec": 0,
+        "durationSec": 1,
+        "playbackRate": 1,
+        "sourceDurationSec": 1,
+        "loop": false,
+        "gainDb": -6,
+        "gainEvents": [
+          {
+            "offsetSec": 0,
+            "value": 0.5011872336272722,
+            "method": "set"
+          }
+        ],
+        "envelopeEvents": []
+      },
+      {
+        "kind": "narration",
+        "id": "narrator",
+        "track": 0,
+        "timelineStartSec": 1.5,
+        "timelineEndSec": 2.5,
+        "delaySec": 1.5,
+        "sourceOffsetSec": 1,
+        "durationSec": 1,
+        "playbackRate": 1,
+        "sourceDurationSec": 1,
+        "loop": false,
+        "gainDb": -2,
+        "gainEvents": [
+          {
+            "offsetSec": 0,
+            "value": 0.7943282347242815,
+            "method": "set"
+          }
+        ],
+        "envelopeEvents": []
+      },
+      {
+        "kind": "speech",
+        "id": "cut-0-speech",
+        "track": 0,
+        "timelineStartSec": 0,
+        "timelineEndSec": 3,
+        "delaySec": 0,
+        "sourceOffsetSec": 0,
+        "durationSec": 3,
+        "playbackRate": 1,
+        "sourceDurationSec": 3,
+        "loop": false,
+        "gainDb": -3,
+        "gainEvents": [
+          {
+            "offsetSec": 0,
+            "value": 0.7079457843841379,
+            "method": "set"
+          }
+        ],
+        "envelopeEvents": []
+      }
+    ],
+    "duckIntervals": [
+      {
+        "startSec": 1.5,
+        "endSec": 2.5
+      }
+    ],
+    "warnings": []
+  },
+  "keys": {
+    "intervals": [
+      {
+        "startSec": 0,
+        "endSec": 3
+      }
+    ],
+    "droppedShortIntervals": 0
+  },
+  "osr": {
+    "cut_audio": {
+      "command": "ffmpeg",
+      "warnings": [],
+      "args": [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
+        "-ss",
+        "0",
+        "-t",
+        "3",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-filter_complex",
+        "[0:a]atrim=start=0:end=3,asetpts=PTS-STARTPTS,volume=-3dB,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=3[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+        "-map",
+        "[joineda]",
+        "-vn",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "<project>/.akari/render-tmp/cut-audio.mp4"
+      ]
+    },
+    "tail_pad_audio": null,
+    "audio_mix": {
+      "operation": "ffmpeg",
+      "command": "ffmpeg",
+      "args": [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
+        "-i",
+        "<project>/.akari/render-tmp/composite.mp4",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-filter_complex",
+        "[1:a]atrim=start=1:end=2,asetpts=PTS-STARTPTS,volume=-2dB,adelay=1500:all=1[nar_raw0];[nar_raw0]apad=whole_dur=3[narration];[2:a]atrim=start=0:end=1,asetpts=PTS-STARTPTS,volume=-6dB,adelay=1000:all=1[sfx0];[0:a][sfx0][narration]amix=inputs=3:duration=first:normalize=0[mixed]",
+        "-map",
+        "0:v:0",
+        "-map",
+        "[mixed]",
+        "-t",
+        "3",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "<project>/.akari/render-tmp/final.mp4"
+      ],
+      "warnings": [],
+      "hasNarration": true,
+      "hasAudibleAudio": true,
+      "envelopes": [],
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "clip_fx": {
+        "processed_items": [],
+        "filters": {
+          "highpass": 0,
+          "afftdn": 0,
+          "anlmdn": 0,
+          "rubberband": 0
+        }
+      }
+    },
+    "verify": {
+      "command": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "out.mp4"
+      ]
+    }
+  },
+  "gpu": {
+    "cut_audio": {
+      "command": "ffmpeg",
+      "warnings": [],
+      "args": [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
+        "-ss",
+        "0",
+        "-t",
+        "3",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-filter_complex",
+        "[0:a]atrim=start=0:end=3,asetpts=PTS-STARTPTS,volume=-3dB,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=3[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+        "-map",
+        "[joineda]",
+        "-vn",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "<project>/.akari/render-tmp/cut-audio.mp4"
+      ]
+    },
+    "tail_pad_audio": null,
+    "audio_mix": {
+      "operation": "ffmpeg",
+      "command": "ffmpeg",
+      "args": [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
+        "-i",
+        "<project>/.akari/render-tmp/composite.mp4",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-i",
+        "<project>/assets/main.mp4",
+        "-filter_complex",
+        "[1:a]atrim=start=1:end=2,asetpts=PTS-STARTPTS,volume=-2dB,adelay=1500:all=1[nar_raw0];[nar_raw0]apad=whole_dur=3[narration];[2:a]atrim=start=0:end=1,asetpts=PTS-STARTPTS,volume=-6dB,adelay=1000:all=1[sfx0];[0:a][sfx0][narration]amix=inputs=3:duration=first:normalize=0[mixed]",
+        "-map",
+        "0:v:0",
+        "-map",
+        "[mixed]",
+        "-t",
+        "3",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "<project>/.akari/render-tmp/final.mp4"
+      ],
+      "warnings": [],
+      "hasNarration": true,
+      "hasAudibleAudio": true,
+      "envelopes": [],
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "clip_fx": {
+        "processed_items": [],
+        "filters": {
+          "highpass": 0,
+          "afftdn": 0,
+          "anlmdn": 0,
+          "rubberband": 0
+        }
+      }
+    },
+    "verify": {
+      "command": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "out.mp4"
+      ]
+    }
+  },
+  "preview": {
+    "summary": {
+      "audio": {
+        "sfx": [
+          {
+            "id": "hit",
+            "t": 1,
+            "duration": 1,
+            "path": "assets/main.mp4",
+            "track": 0,
+            "in": 0,
+            "out": 1,
+            "gain_db": -6,
+            "gainDb": -6
+          }
+        ],
+        "narration": [
+          {
+            "id": "narrator",
+            "t": 1.5,
+            "path": "assets/main.mp4",
+            "gain_db": -2,
+            "in": 1,
+            "out": 2,
+            "track": 0,
+            "gainDb": -2
+          }
+        ],
+        "speech": [
+          {
+            "id": "cut-speech",
+            "src": "main",
+            "atSec": 0,
+            "durationSec": 3,
+            "inSec": 0,
+            "outSec": 3,
+            "speed": 1,
+            "gainDb": -3,
+            "track": 0,
+            "materialDurationSec": 3,
+            "sidecarState": "queued"
+          }
+        ]
+      },
+      "warnings": [],
+      "keepKeys": [
+        "fixture-key"
+      ],
+      "keepProbes": [],
+      "items": [
+        {
+          "kind": "speech",
+          "id": "cut-speech",
+          "key": "fixture-key",
+          "state": "queued",
+          "at": 0,
+          "durationSec": 3
+        }
+      ],
+      "priority": [
+        {
+          "kind": "speech",
+          "id": "cut-speech",
+          "key": "fixture-key",
+          "state": "queued",
+          "at": 0,
+          "durationSec": 3,
+          "sourcePath": "assets/main.mp4"
+        }
+      ]
+    },
+    "declarations": [
+      {
+        "kind": "sfx",
+        "id": "hit",
+        "url": "/assets/main.mp4",
+        "spec": {
+          "id": "hit",
+          "t": 1,
+          "duration": 1,
+          "path": "assets/main.mp4",
+          "track": 0,
+          "in": 0,
+          "out": 1,
+          "gain_db": -6,
+          "gainDb": -6,
+          "durationSec": 0
+        }
+      },
+      {
+        "kind": "narration",
+        "id": "narrator",
+        "url": "/assets/main.mp4",
+        "spec": {
+          "id": "narrator",
+          "t": 1.5,
+          "path": "assets/main.mp4",
+          "gain_db": -2,
+          "in": 1,
+          "out": 2,
+          "track": 0,
+          "gainDb": -2,
+          "durationSec": 0
+        }
+      }
+    ],
+    "speech": [
+      {
+        "id": "cut-speech",
+        "src": "main",
+        "atSec": 0,
+        "durationSec": 3,
+        "inSec": 0,
+        "outSec": 3,
+        "speed": 1,
+        "gainDb": -3,
+        "track": 0,
+        "materialDurationSec": 3,
+        "sidecarState": "queued",
+        "url": "/assets/main.mp4"
+      }
+    ]
+  }
+}

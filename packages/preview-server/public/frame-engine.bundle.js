@@ -3135,6 +3135,8 @@ var require_timeline_map = __commonJS({
           continue;
         if (hasExplicitSources && segment.src !== options.sourceId)
           continue;
+        if (segment.cutIndex !== null && normalizedCuts2[segment.cutIndex]?.audio === false)
+          continue;
         const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
         for (const entry of transcript) {
           if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start)
@@ -4326,7 +4328,8 @@ var require_edit_v2 = __commonJS({
       "keyframes",
       "items",
       "mask",
-      "source"
+      "source",
+      "audio"
     ]);
     var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
       "id",
@@ -4336,6 +4339,8 @@ var require_edit_v2 = __commonJS({
       "at",
       "duration",
       "role",
+      "link",
+      "mute",
       "source",
       "gain_db",
       "keyframes",
@@ -4495,8 +4500,13 @@ var require_edit_v2 = __commonJS({
       validateItemMetadata(value, path);
       requireInteger(value.at, 0, `${path}.at`);
       requireInteger(value.duration, 0, `${path}.duration`);
-      if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
-        throw invalid(`${path}.role`, "sfx/narration/bgm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm" && value.role !== "speech") {
+        throw invalid(`${path}.role`, "sfx/narration/bgm/speech \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+      if (hasOwn(value, "link"))
+        requireText(value.link, `${path}.link`);
+      if (hasOwn(value, "mute") && typeof value.mute !== "boolean") {
+        throw invalid(`${path}.mute`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
       }
       if (hasOwn(value, "gain_db"))
         requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
@@ -4606,6 +4616,12 @@ var require_edit_v2 = __commonJS({
       if (hasOwn(value, "keyframes"))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
       validateItemSource(value.source, `${path}.source`, sourceIds);
+      if (hasOwn(value, "audio")) {
+        if (value.source.kind !== "media")
+          throw invalid(`${path}.audio`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+        if (value.audio !== false)
+          throw invalid(`${path}.audio`, "false \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
       if (hasOwn(value, "mask")) {
         if (value.source.kind !== "media")
           throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
@@ -5462,6 +5478,22 @@ var require_error = __commonJS({
   }
 });
 
+// ../edit-store/lib/audio-ownership.js
+var require_audio_ownership = __commonJS({
+  "../edit-store/lib/audio-ownership.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.isAudioItemAudible = isAudioItemAudible2;
+    exports.isCutAudioAudible = isCutAudioAudible;
+    function isAudioItemAudible2(track, item) {
+      return track?.muted !== true && item?.mute !== true;
+    }
+    function isCutAudioAudible(cut, track) {
+      return cut.audio !== false && isAudioItemAudible2(track, cut);
+    }
+  }
+});
+
 // ../edit-store/lib/shape-markup.js
 var require_shape_markup = __commonJS({
   "../edit-store/lib/shape-markup.js"(exports) {
@@ -5551,6 +5583,7 @@ var require_internal_model = __commonJS({
     var item_anchor_1 = require_item_anchor();
     var cut_adjacency_1 = require_cut_adjacency();
     var error_1 = require_error();
+    var audio_ownership_1 = require_audio_ownership();
     var shape_markup_1 = require_shape_markup();
     function readInternalEdit(source, options) {
       const text = typeof source === "string" ? source : JSON.stringify(source);
@@ -5970,7 +6003,8 @@ var require_internal_model = __commonJS({
               src: path ?? item.source.src,
               track: ref,
               ...common,
-              ...copyMediaSourceFields(item.source)
+              ...copyMediaSourceFields(item.source),
+              ..."audio" in item && item.audio === false ? { audio: false } : {}
             };
             const value2 = declaration;
             return finish({
@@ -5996,7 +6030,8 @@ var require_internal_model = __commonJS({
             ...speed !== void 0 ? { speed } : {},
             ...item.transform !== void 0 ? { transform: item.transform } : {},
             ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-            ...copyMediaSourceFields(item.source)
+            ...copyMediaSourceFields(item.source),
+            ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           return finish({
             item: {
@@ -6016,6 +6051,7 @@ var require_internal_model = __commonJS({
                 track: ref,
                 ...common,
                 ...copyMediaSourceFields(item.source),
+                ..."audio" in item && item.audio === false ? { audio: false } : {},
                 ...speed !== void 0 ? { speed } : {}
               },
               legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
@@ -6213,6 +6249,8 @@ var require_internal_model = __commonJS({
         ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
       };
       const itemClipFx = {
+        ...item.mute !== void 0 ? { mute: item.mute } : {},
+        ...item.role === "speech" ? { role: "speech", duration, track: ref } : {},
         ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
         ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
       };
@@ -6227,7 +6265,7 @@ var require_internal_model = __commonJS({
       };
       const resolvedPath = path ?? item.source.src;
       const role = item.role ?? "sfx";
-      if (role === "narration") {
+      if (role === "narration" || role === "speech") {
         const value2 = {
           id: item.id,
           t: at2,
@@ -6275,8 +6313,8 @@ var require_internal_model = __commonJS({
               ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
             },
             legacy: {
-              collection: "narration",
-              index: nextLegacyIndex(legacyIndexCounters, "narration"),
+              collection: role,
+              index: nextLegacyIndex(legacyIndexCounters, role),
               value: value2
             }
           }
@@ -6511,9 +6549,10 @@ var require_internal_model = __commonJS({
       const layers = [];
       const audioSfx = [];
       const audioNarration = [];
+      const audioSpeech = [];
       let audioBgm;
       for (const track of internal.tracks) {
-        if (track.lane === "audio" && track.muted === true)
+        if (track.lane === "audio" && !(0, audio_ownership_1.isAudioItemAudible)(track, void 0))
           continue;
         for (const item of track.items) {
           const value = item.legacy.value;
@@ -6531,6 +6570,9 @@ var require_internal_model = __commonJS({
                   break;
                 case "narration":
                   audioNarration.push({ index: item.legacy.index, value });
+                  break;
+                case "speech":
+                  audioSpeech.push({ index: item.legacy.index, value });
                   break;
                 case "bgm":
                   audioBgm = value;
@@ -6569,6 +6611,7 @@ var require_internal_model = __commonJS({
         layers: byDeclarationOrder(layers),
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
+        ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
         ...audioBgm ? { audioBgm } : {},
         ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
         fps: internal.output.fps,
@@ -6607,15 +6650,21 @@ var require_legacy_audio_view = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.projectLegacyAudioView = projectLegacyAudioView;
+    var audio_ownership_1 = require_audio_ownership();
     function projectLegacyAudioView(internal) {
-      const ordered = internal.tracks.filter((track) => !(track.lane === "audio" && track.muted === true)).flatMap((track) => track.items).filter((item) => item.legacy.collection === "sfx" || item.legacy.collection === "narration" || item.legacy.collection === "bgm").sort((left, right) => left.legacy.index - right.legacy.index);
+      const ordered = internal.tracks.filter((track) => track.lane !== "audio" || (0, audio_ownership_1.isAudioItemAudible)(track, void 0)).flatMap((track) => track.items).filter((item) => item.legacy.collection === "sfx" || item.legacy.collection === "narration" || item.legacy.collection === "bgm" || item.legacy.collection === "speech").sort((left, right) => left.legacy.index - right.legacy.index);
       const sfx = [];
       const narration = [];
+      const speech = [];
       let bgm;
       for (const item of ordered) {
         if (item.legacy.value === void 0)
           continue;
         const declaration = projectAudioDeclaration(item, internal.output?.fps ?? 30);
+        if (declaration.role === "speech") {
+          speech.push(declaration);
+          continue;
+        }
         switch (item.legacy.collection) {
           case "sfx":
             sfx.push(declaration);
@@ -6633,7 +6682,8 @@ var require_legacy_audio_view = __commonJS({
       return {
         ...bgm !== void 0 ? { bgm } : {},
         sfx,
-        narration
+        narration,
+        ...speech.length ? { speech } : {}
       };
     }
     function projectAudioDeclaration(item, fps) {
@@ -7383,6 +7433,7 @@ var require_audio_schedule = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.buildWebAudioSchedule = buildWebAudioSchedule2;
     exports.projectSpeechDeclarations = projectSpeechDeclarations3;
+    var audio_ownership_1 = require_audio_ownership();
     var ducking_1 = require_ducking();
     var envelope_1 = require_envelope();
     var timeline_map_1 = require_timeline_map();
@@ -7396,19 +7447,25 @@ var require_audio_schedule = __commonJS({
       }
       const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings);
       const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings);
-      const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.map((item) => ({
+      const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.filter((item) => item.spec.duckKey !== true).map((item) => ({
         t: item.t,
         durationSec: item.itemDurationSec
       })));
       const duckKeys = normalizedDuckKeys(audio.duck_keys);
-      const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+      const speechIntervals = [
+        ...input.duckKeyIntervals ?? input.speechKeyIntervals ?? [],
+        ...(0, ducking_1.computeDuckIntervals)(narration.filter((item) => item.spec.duckKey === true).map((item) => ({
+          t: item.t,
+          durationSec: item.itemDurationSec
+        })))
+      ];
       const duckIntervals = mergeDuckIntervals([
         ...duckKeys.includes("narration") ? narrationIntervals : [],
         ...duckKeys.includes("speech") ? speechIntervals : []
       ]);
       const items = [];
       const bgm = audio.bgm;
-      if (bgm) {
+      if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
         const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
         if (scheduled)
           items.push(scheduled);
@@ -7436,6 +7493,8 @@ var require_audio_schedule = __commonJS({
       const resolved = [];
       for (let index = 0; index < specs.length; index += 1) {
         const spec = specs[index];
+        if (!(0, audio_ownership_1.isAudioItemAudible)(void 0, spec))
+          continue;
         const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
         const label = `${kind} ${id}`;
         if (!spec || !finitePositive3(spec.durationSec)) {
@@ -7464,7 +7523,7 @@ var require_audio_schedule = __commonJS({
           track: normalizedTrack2(spec.track),
           materialDurationSec: spec.durationSec,
           sourceOffsetSec: trim.sourceOffsetSec,
-          itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+          itemDurationSec: spec.duckKey === true && finitePositive3(spec.duration) ? Math.min(spec.duration, trim.durationSec / playbackRate) : sidecar ? trim.durationSec : trim.durationSec / playbackRate,
           playbackRate,
           gainDb
         });
@@ -7653,7 +7712,7 @@ var require_audio_schedule = __commonJS({
         const cut = normalizedCuts2[segment.cutIndex];
         if (!cut || typeof cut.src !== "string" || !cut.src)
           continue;
-        if (cut.mute === true)
+        if (!(0, audio_ownership_1.isCutAudioAudible)(cut))
           continue;
         const speed = finitePositive3(cut.speed) ? cut.speed : 1;
         const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
@@ -7949,7 +8008,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -7976,7 +8035,8 @@ var require_edit_v2_keys = __commonJS({
         "keyframes",
         "items",
         "mask",
-        "source"
+        "source",
+        "audio"
       ],
       "itemV2Html": [
         "id",
@@ -8123,6 +8183,8 @@ var require_edit_v2_keys = __commonJS({
         "at",
         "duration",
         "role",
+        "link",
+        "mute",
         "source",
         "gain_db",
         "denoise",
@@ -8232,7 +8294,11 @@ var require_canonical = __commonJS({
       "animator",
       "keyframes",
       "source",
-      "items"
+      "audio",
+      "items",
+      "role",
+      "link",
+      "mute"
     ];
     var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
     var TRACK_KEY_ORDER = ["id", "lane", "name", "muted", "items", "content"];
@@ -9986,6 +10052,7 @@ var require_lib = __commonJS({
     __exportStar(require_ducking(), exports);
     __exportStar(require_envelope(), exports);
     __exportStar(require_audio_schedule(), exports);
+    __exportStar(require_audio_ownership(), exports);
     __exportStar(require_canonical(), exports);
     __exportStar(require_tree_ops(), exports);
     __exportStar(require_item_anchor(), exports);
@@ -19874,7 +19941,9 @@ var KNOWN_CUT_KEY_LIST = [
   "keyframes",
   "perspective",
   "adjust",
-  "motion"
+  "motion",
+  "audio",
+  "mute"
 ];
 var KNOWN_LAYER_KEY_LIST = [
   "id",
@@ -26447,7 +26516,7 @@ function createPreviewAudioSupply(options) {
     at: firstUseRegular(item),
     failedAtMs: null,
     state: taskState(item.spec.sidecarState),
-    muted: () => trackMuted(item.kind, item.spec.track),
+    muted: () => !(0, import_edit_store4.isAudioItemAudible)({ muted: trackMuted(item.kind, item.spec.track) }, item.spec),
     run: () => resolveRegular(item),
     resolved: () => regularResolved(item)
   }, validSidecar(item.spec.sidecar)?.format === "pcm-s16le");
@@ -26962,9 +27031,13 @@ function createPreviewAudioSupply(options) {
       sidecar: Boolean(validSidecar(item.spec.sidecar)),
       durationSec: [item.spec.durationSec, validSidecar(item.spec.sidecar)?.durationSec].find(finitePositive2) ?? timelineDurationSec
     }));
-    const scheduled = [...regularDecoded, ...mutedUnresolved];
+    const scheduled = [...regularDecoded, ...mutedUnresolved].filter((item) => (0, import_edit_store4.isAudioItemAudible)(void 0, item.spec));
     const normalized = scheduled.map((item) => ({
       ...item.spec,
+      ...item.duckKey === true ? {
+        duckKey: true,
+        mute: !(0, import_edit_store4.isAudioItemAudible)({ muted: trackMuted(item.kind, item.spec.track) }, item.spec)
+      } : {},
       id: item.id,
       durationSec: item.durationSec,
       ...!item.sidecar ? { sidecar: void 0 } : {}
@@ -27327,7 +27400,7 @@ function createPreviewAudioSupply(options) {
           warn(`[frame-engine] audio ${key} removed; rebuild required`);
           return;
         }
-        if (item.spec.sidecarState === replacement.spec.sidecarState && item.url === replacement.url && item.sourceUrl === replacement.sourceUrl) return;
+        if (item.spec.sidecarState === replacement.spec.sidecarState && item.url === replacement.url && item.sourceUrl === replacement.sourceUrl && item.duckKey === replacement.duckKey && JSON.stringify(item.spec) === JSON.stringify(replacement.spec)) return;
         declarations[index] = replacement;
         regularDecoded = regularDecoded.filter((value) => `${value.kind}:${value.id}` !== key);
         windowFailures.delete(key);
@@ -27395,6 +27468,8 @@ function createPreviewAudioSupply(options) {
         void ensureDecoded().then(() => ensureDecoded()).catch((reason) => {
           warn("[frame-engine] audio unmute failed", reason);
         });
+        launch(audioPosition(), { pinStart: true });
+      } else if ((playing || starting) && declarations.some((item) => item.duckKey === true)) {
         launch(audioPosition(), { pinStart: true });
       }
     },
@@ -27847,7 +27922,7 @@ function audioDeclarations(edit) {
   const audio = edit?.audio;
   if (!audio || typeof audio !== "object") return [];
   const declarations = [];
-  const append = (kind, raw, fallbackId) => {
+  const append = (kind, raw, fallbackId, duckKey = false) => {
     if (!raw || typeof raw !== "object") return;
     const source = raw.src || raw.path;
     if (typeof source !== "string" || !source) return;
@@ -27855,6 +27930,7 @@ function audioDeclarations(edit) {
     const sidecar = (raw.sidecarState === "ready" || raw.sidecarState === void 0) && raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : void 0;
     declarations.push({
       kind,
+      ...duckKey ? { duckKey: true } : {},
       id,
       url: sidecar?.path ?? mediaUrl(source),
       ...sidecar ? { sourceUrl: mediaUrl(source) } : {},
@@ -27868,12 +27944,18 @@ function audioDeclarations(edit) {
   if (Array.isArray(audio.narration)) {
     audio.narration.forEach((item, index) => append("narration", item, `narration-${index + 1}`));
   }
+  if (Array.isArray(audio.speech)) {
+    audio.speech.filter((item) => item.role === "speech").forEach((item, index) => append("narration", item, `speech-${index + 1}`, true));
+  }
   return declarations;
 }
 function speechDeclarations(edit, fps, choices) {
   const cuts = normalizedCuts(edit);
-  const projected = Array.isArray(edit?.audio?.speech) ? edit.audio.speech : projectSpeechDeclarations2(cuts, { fps });
+  const embedded = edit?.audio?.embeddedSpeech ?? (Array.isArray(edit?.audio?.speech) && !edit.audio.speech.some((item) => item.role === "speech") ? edit.audio.speech : void 0);
+  const projected = Array.isArray(embedded) ? embedded : projectSpeechDeclarations2(cuts, { fps });
+  const audibleIds = cuts.length > 0 ? new Set(projectSpeechDeclarations2(cuts, { fps }).map((item) => item.id)) : void 0;
   return projected.flatMap((declaration) => {
+    if (audibleIds && !audibleIds.has(declaration.id)) return [];
     const url = choices.get(declaration.src)?.url;
     if (!url) return [];
     const canUseSidecar = declaration.sidecarState === "ready" || declaration.sidecarState === void 0;

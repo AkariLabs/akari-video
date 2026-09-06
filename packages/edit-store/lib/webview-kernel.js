@@ -46,6 +46,8 @@ var AkariEditKernel = (() => {
     evaluateEnvelopeDb: () => evaluateEnvelopeDb,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
+    isAudioItemAudible: () => isAudioItemAudible,
+    isCutAudioAudible: () => isCutAudioAudible,
     isTransitionType: () => isTransitionType,
     isWithinDuckInterval: () => isWithinDuckInterval,
     mergePresetTextStyle: () => mergePresetTextStyle,
@@ -167,6 +169,7 @@ var AkariEditKernel = (() => {
     for (const segment of map.segments) {
       if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number") continue;
       if (hasExplicitSources && segment.src !== options.sourceId) continue;
+      if (segment.cutIndex !== null && normalizedCuts[segment.cutIndex]?.audio === false) continue;
       const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
       for (const entry of transcript) {
         if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start) continue;
@@ -1144,6 +1147,14 @@ var AkariEditKernel = (() => {
     return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
   }
 
+  // src/audio-ownership.ts
+  function isAudioItemAudible(track, item) {
+    return track?.muted !== true && item?.mute !== true;
+  }
+  function isCutAudioAudible(cut, track) {
+    return cut.audio !== false && isAudioItemAudible(track, cut);
+  }
+
   // src/audio-schedule.ts
   function buildWebAudioSchedule(input) {
     const warnings = [];
@@ -1158,19 +1169,25 @@ var AkariEditKernel = (() => {
     }
     const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings);
     const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings);
-    const narrationIntervals = computeDuckIntervals(narration.map((item) => ({
+    const narrationIntervals = computeDuckIntervals(narration.filter((item) => item.spec.duckKey !== true).map((item) => ({
       t: item.t,
       durationSec: item.itemDurationSec
     })));
     const duckKeys = normalizedDuckKeys(audio.duck_keys);
-    const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+    const speechIntervals = [
+      ...input.duckKeyIntervals ?? input.speechKeyIntervals ?? [],
+      ...computeDuckIntervals(narration.filter((item) => item.spec.duckKey === true).map((item) => ({
+        t: item.t,
+        durationSec: item.itemDurationSec
+      })))
+    ];
     const duckIntervals = mergeDuckIntervals([
       ...duckKeys.includes("narration") ? narrationIntervals : [],
       ...duckKeys.includes("speech") ? speechIntervals : []
     ]);
     const items = [];
     const bgm = audio.bgm;
-    if (bgm) {
+    if (bgm && isAudioItemAudible(void 0, bgm)) {
       const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
       if (scheduled) items.push(scheduled);
     }
@@ -1193,6 +1210,7 @@ var AkariEditKernel = (() => {
     const resolved = [];
     for (let index = 0; index < specs.length; index += 1) {
       const spec = specs[index];
+      if (!isAudioItemAudible(void 0, spec)) continue;
       const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
       const label = `${kind} ${id}`;
       if (!spec || !finitePositive(spec.durationSec)) {
@@ -1218,7 +1236,7 @@ var AkariEditKernel = (() => {
         track: normalizedTrack(spec.track),
         materialDurationSec: spec.durationSec,
         sourceOffsetSec: trim.sourceOffsetSec,
-        itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+        itemDurationSec: spec.duckKey === true && finitePositive(spec.duration) ? Math.min(spec.duration, trim.durationSec / playbackRate) : sidecar ? trim.durationSec : trim.durationSec / playbackRate,
         playbackRate,
         gainDb
       });
@@ -1437,7 +1455,7 @@ var AkariEditKernel = (() => {
       if (segment.kind !== "src" || segment.cutIndex === null) continue;
       const cut = normalizedCuts[segment.cutIndex];
       if (!cut || typeof cut.src !== "string" || !cut.src) continue;
-      if (cut.mute === true) continue;
+      if (!isCutAudioAudible(cut)) continue;
       const speed = finitePositive(cut.speed) ? cut.speed : 1;
       const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
       const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
@@ -2526,16 +2544,6 @@ var AkariEditKernel = (() => {
     if (record.version !== 2) {
       throw new LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
     }
-    if (options?.allowCutAudioSplit !== true) {
-      const hasSplit = (items, lane) => Array.isArray(items) && items.some((item) => {
-        if (!item || typeof item !== "object") return false;
-        const split = lane === "visual" ? item.source?.kind === "media" && item.audio === false : lane === "audio" && (Object.prototype.hasOwnProperty.call(item, "link") || Object.prototype.hasOwnProperty.call(item, "mute") || item.role === "speech");
-        return split || hasSplit(item.items, lane);
-      });
-      if (Array.isArray(record.tracks) && record.tracks.some((track) => track && typeof track === "object" && hasSplit(track.items, track.lane))) {
-        throw new Error("\u672A\u5BFE\u5FDC: \u672C\u7DE8\u97F3\u58F0\u306E\u5206\u96E2\uFF08audio:false / link / mute / role:speech\uFF09\u306F\u6B21\u306E\u4FBF\u3067\u6709\u52B9\u5316\u3055\u308C\u307E\u3059\u3002\u3053\u306E edit.json \u306F\u73FE\u5728\u306E\u30A8\u30F3\u30B8\u30F3\u3067\u306F\u518D\u751F\u30FB\u66F8\u304D\u51FA\u3057\u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-    }
     const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
   }
@@ -2900,7 +2908,8 @@ var AkariEditKernel = (() => {
             src: path ?? item.source.src,
             track: ref,
             ...common,
-            ...copyMediaSourceFields(item.source)
+            ...copyMediaSourceFields(item.source),
+            ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           const value2 = declaration;
           return finish({
@@ -2926,7 +2935,8 @@ var AkariEditKernel = (() => {
           ...speed !== void 0 ? { speed } : {},
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-          ...copyMediaSourceFields(item.source)
+          ...copyMediaSourceFields(item.source),
+          ..."audio" in item && item.audio === false ? { audio: false } : {}
         };
         return finish({
           item: {
@@ -2946,6 +2956,7 @@ var AkariEditKernel = (() => {
               track: ref,
               ...common,
               ...copyMediaSourceFields(item.source),
+              ..."audio" in item && item.audio === false ? { audio: false } : {},
               ...speed !== void 0 ? { speed } : {}
             },
             legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
@@ -3143,6 +3154,8 @@ var AkariEditKernel = (() => {
       ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
     };
     const itemClipFx = {
+      ...item.mute !== void 0 ? { mute: item.mute } : {},
+      ...item.role === "speech" ? { role: "speech", duration, track: ref } : {},
       ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
       ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
     };
@@ -3157,20 +3170,7 @@ var AkariEditKernel = (() => {
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? "sfx";
-    if (role === "speech") {
-      return { item: {
-        id: item.id,
-        atFrames,
-        durationFrames,
-        at,
-        duration,
-        children: [],
-        source,
-        declaration: structuredClone(item),
-        legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
-      } };
-    }
-    if (role === "narration") {
+    if (role === "narration" || role === "speech") {
       const value2 = {
         id: item.id,
         t: at,
@@ -3218,8 +3218,8 @@ var AkariEditKernel = (() => {
             ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
           },
           legacy: {
-            collection: "narration",
-            index: nextLegacyIndex(legacyIndexCounters, "narration"),
+            collection: role,
+            index: nextLegacyIndex(legacyIndexCounters, role),
             value: value2
           }
         }
@@ -3451,9 +3451,10 @@ var AkariEditKernel = (() => {
     const layers = [];
     const audioSfx = [];
     const audioNarration = [];
+    const audioSpeech = [];
     let audioBgm;
     for (const track of internal.tracks) {
-      if (track.lane === "audio" && track.muted === true) continue;
+      if (track.lane === "audio" && !isAudioItemAudible(track, void 0)) continue;
       for (const item of track.items) {
         const value = item.legacy.value;
         if (value === void 0) {
@@ -3470,6 +3471,9 @@ var AkariEditKernel = (() => {
                 break;
               case "narration":
                 audioNarration.push({ index: item.legacy.index, value });
+                break;
+              case "speech":
+                audioSpeech.push({ index: item.legacy.index, value });
                 break;
               case "bgm":
                 audioBgm = value;
@@ -3508,6 +3512,7 @@ var AkariEditKernel = (() => {
       layers: byDeclarationOrder(layers),
       audioSfx: byDeclarationOrder(audioSfx),
       audioNarration: byDeclarationOrder(audioNarration),
+      ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
       ...audioBgm ? { audioBgm } : {},
       ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
       fps: internal.output.fps,

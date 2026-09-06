@@ -1,5 +1,7 @@
 import { type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
 export interface EditCut {
+    audio?: false;
+    mute?: unknown;
     in: number;
     out: number;
     src?: string;

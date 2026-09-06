@@ -81,7 +81,7 @@ export interface FrameEngineLayer {
 
 const KNOWN_CUT_KEY_LIST = [
   'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
-  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion'
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion', 'audio', 'mute'
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [

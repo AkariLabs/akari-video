@@ -1,3 +1,4 @@
+import { isAudioItemAudible } from './audio-ownership';
 import type { InternalEdit, InternalItem } from './internal-model';
 
 export type LegacyAudioDeclaration = Record<string, unknown>;
@@ -10,6 +11,7 @@ export interface LegacyAudioView {
     bgm?: LegacyAudioDeclaration;
     sfx: LegacyAudioDeclaration[];
     narration: LegacyAudioDeclaration[];
+    speech?: LegacyAudioDeclaration[];
 }
 
 /**
@@ -18,22 +20,22 @@ export interface LegacyAudioView {
  */
 export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView {
     const ordered = internal.tracks
-        .filter(track => !(track.lane === 'audio' && track.muted === true))
+        .filter(track => track.lane !== 'audio' || isAudioItemAudible(track, undefined))
         .flatMap(track => track.items)
-        // speech は第1票の legacy view に含めない。通常の実行用 readInternalEdit は
-        // 先に拒否するため到達せず、検証用 opt-in でも sfx に暗黙変換しない。
-        .filter(item => item.declaration.role !== 'speech')
         .filter(item => item.legacy.collection === 'sfx'
             || item.legacy.collection === 'narration'
-            || item.legacy.collection === 'bgm')
+            || item.legacy.collection === 'bgm'
+            || item.legacy.collection === 'speech')
         .sort((left, right) => left.legacy.index - right.legacy.index);
     const sfx: LegacyAudioDeclaration[] = [];
     const narration: LegacyAudioDeclaration[] = [];
+    const speech: LegacyAudioDeclaration[] = [];
     let bgm: LegacyAudioDeclaration | undefined;
 
     for (const item of ordered) {
         if (item.legacy.value === undefined) continue;
         const declaration = projectAudioDeclaration(item, internal.output?.fps ?? 30);
+        if (declaration.role === 'speech') { speech.push(declaration); continue; }
         switch (item.legacy.collection) {
             case 'sfx':
                 sfx.push(declaration);
@@ -52,7 +54,8 @@ export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView 
     return {
         ...(bgm !== undefined ? { bgm } : {}),
         sfx,
-        narration
+        narration,
+        ...(speech.length ? { speech } : {})
     };
 }
 
