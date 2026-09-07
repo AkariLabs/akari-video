@@ -467,7 +467,7 @@ function validateLinearCuts(cuts, edit) {
             fail('INVALID_CUT', `edit.json cuts[${index}].speed must be positive`);
     });
     if (Array.isArray(edit?.timeline?.tracks)
-        && edit.timeline.tracks.some((track) => track?.kind === 'cuts')) {
+        && edit.timeline.tracks.some((track) => (track?.kind === 'cuts' || track?.kind === 'video'))) {
         fail('UNSUPPORTED_TIMELINE', 'display_policy does not support timeline.tracks cuts winner overrides');
     }
 }

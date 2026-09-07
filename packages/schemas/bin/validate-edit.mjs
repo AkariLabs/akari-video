@@ -123,7 +123,7 @@ function validateTimeline(value) {
     return;
   }
   const ids = new Set();
-  const kinds = new Set(["cuts", "layers", "overlays", "captions", "audio"]);
+  const kinds = new Set(["video", "cuts", "layers", "overlays", "captions", "audio"]);
   value.tracks.forEach((item, index) => {
     const label = `timeline.tracks[${index}]`;
     if (!isPlainObject(item)) {
@@ -138,9 +138,9 @@ function validateTimeline(value) {
       ids.add(item.id);
     }
     if (!kinds.has(item.kind)) {
-      fail(`${label}.kind は cuts/layers/overlays/captions/audio のいずれかである必要があります`);
+      fail(`${label}.kind は video/cuts/layers/overlays/captions/audio のいずれかである必要があります`);
     }
-    if (hasOwn(item, "ref") && (!Number.isInteger(item.ref) || item.ref < 0)) {
+    if ((hasOwn(item, "ref") || item.kind === "video") && (!Number.isInteger(item.ref) || item.ref < 0)) {
       fail(`${label}.ref は 0 以上の整数である必要があります`);
     }
     if (hasOwn(item, "label") && typeof item.label !== "string") {

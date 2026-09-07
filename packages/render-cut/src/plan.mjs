@@ -24,7 +24,7 @@ import {
   buildTrackBaseCommand,
   resolveCutTrackRanges,
 } from "./track-compose.mjs";
-import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
+import { resolveTrackOrder, usesDefaultTrackOrder, hasVideoTrackContent } from "./track-order.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
@@ -96,7 +96,10 @@ export function buildPlan({
     : encodingPolicy;
   const videoEncodeArgs = resolvedEncodingPolicy?.video_encode_args ?? null;
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
-  const cutsEndSeconds = predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
+  const unifiedVideoTracks = hasVideoTrackContent(edit);
+  const cutsEndSeconds = unifiedVideoTracks && edit.cuts.length
+    ? Math.max(...resolveCutSegments(edit.cuts).map(segment => segment.end))
+    : predictedDuration(edit.cuts, capabilities.sourceDuration, edit.version);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
     cutsEndSeconds,
@@ -115,7 +118,13 @@ export function buildPlan({
   const sheetPath = join(temporary, "overlay-sheet.html");
   const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
   let cut;
-  if (edit.version === 1) {
+  if (edit.version === 1 && unifiedVideoTracks) {
+    cut = buildGapAwareCutCommand({
+      sourceInputs: capabilities.sourceInputs, cutPath, cuts: edit.cuts,
+      width, height, fps, duration: cutsEndSeconds, ffmpegCommand: capabilities.ffmpegCommand,
+      projectRoot, look: edit.output.look, videoEncodeArgs: cutVideoEncodeArgs
+    });
+  } else if (edit.version === 1) {
     cut = buildMultiSourceCutCommand({
       sourceInputs: capabilities.sourceInputs,
       cutPath,
@@ -398,7 +407,14 @@ function buildTrackStackPlan({
     const outputPath = isLast ? layeredPath : join(temporary, `track-stage-${stageIndex}.mp4`);
     if (track.kind === "cuts") {
       const trackPath = join(temporary, `cut-track-${track.ref}-${track.orderIndex}.mp4`);
-      const command = edit.version === 1
+      const unified = hasVideoTrackContent(edit);
+      const command = edit.version === 1 && unified
+        ? buildGapAwareCutCommand({
+            sourceInputs: capabilities.sourceInputs, cutPath: trackPath, cuts: track.items,
+            width, height, fps, duration: cutsEndSeconds, ffmpegCommand: capabilities.ffmpegCommand,
+            projectRoot, look: edit.output.look, videoEncodeArgs: cutVideoEncodeArgs
+          })
+        : edit.version === 1
         ? buildMultiSourceCutCommand({
             sourceInputs: capabilities.sourceInputs,
             cutPath: trackPath,
@@ -436,7 +452,7 @@ function buildTrackStackPlan({
           trackPath,
           outputPath,
           ranges: resolveCutTrackRanges(track.items, {
-            version: edit.version,
+            version: unified ? 0 : edit.version,
             sourceDuration: capabilities.sourceDuration,
             outputDuration: duration,
           }),
@@ -1444,6 +1460,7 @@ export function buildMultiSourceCutCommand({
 
 function buildGapAwareCutCommand({
   sourcePath,
+  sourceInputs,
   cutPath,
   cuts,
   width,
@@ -1457,6 +1474,12 @@ function buildGapAwareCutCommand({
   chromaKey,
   videoEncodeArgs = null,
 }) {
+  const inputsById = new Map((sourceInputs ?? []).map((input, index) => [input.id, { ...input, index }]));
+  if (sourceInputs) {
+    if (cuts.some(cut => cut.freeze || cut.transition_out)) throw new Error("停止フレーム・トランジション付きの複数ソースを自由トラックで書き出す処理は未対応です。");
+    hasAudio = cuts.some(cut => inputsById.get(cut.src)?.hasAudio);
+  }
+  const inputCount = sourceInputs?.length ?? 1;
   const segments = resolveCutSegments(cuts);
   const runs = computeVideoRuns(segments, duration);
   const filters = [];
@@ -1468,7 +1491,7 @@ function buildGapAwareCutCommand({
   // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). Gap ("black filler") runs have no originating
   // cut to declare fx on, so only "cut" kind runs ever route through appendCutFxChain below.
   const fxCuts = hasCutFx(cuts);
-  const perCutFullFrame = transformCuts || fxCuts;
+  const perCutFullFrame = transformCuts || fxCuts || !!sourceInputs;
   for (const [index, run] of runs.entries()) {
     const label = `[gv${index}]`;
     if (run.kind === "gap") {
@@ -1476,13 +1499,14 @@ function buildGapAwareCutCommand({
         `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
       );
     } else {
+      const inputIndex = sourceInputs ? inputsById.get(run.cut.src).index : 0;
       const speed = cutSpeed(run.cut);
       const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
       const shapedLabel = fxCuts ? `[gvshaped${index}]` : label;
       if (transformCuts) {
         const trimmedLabel = `[gvraw${index}]`;
         filters.push(
-          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${trimmedLabel}`,
+          `[${inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${trimmedLabel}`,
         );
         appendCutVisualTransform({
           filters,
@@ -1495,21 +1519,21 @@ function buildGapAwareCutCommand({
           fps,
           duration: run.outEnd - run.outStart,
         });
-      } else if (fxCuts) {
+      } else if (fxCuts || sourceInputs) {
         // Unlike buildCutCommand's non-transform branch, a gap-aware run's plain trim has no
         // later post-concat scale/pad to fall back on for non-transform runs mixed with
         // WxH-sized gap fillers — it must reach WxH itself before the fx chain (which assumes a
         // WxH frame, e.g. a hypothetical solid-color-source fx) can run.
         const rawLabel = `[gvraw${index}]`;
         filters.push(
-          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
+          `[${inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
         );
         filters.push(
           `${rawLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
         );
       } else {
         filters.push(
-          `[0:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${shapedLabel}`,
+          `[${inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${shapedLabel}`,
         );
       }
       if (fxCuts) {
@@ -1534,12 +1558,14 @@ function buildGapAwareCutCommand({
     const audioLabels = [];
     for (const segment of segments) {
       const { index, cut } = segment;
+      if (sourceInputs && !inputsById.get(cut.src)?.hasAudio) continue;
+      const inputIndex = sourceInputs ? inputsById.get(cut.src).index : 0;
       const speed = cutSpeed(cut);
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
       filters.push(
-        `[0:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}[araw${index}]`,
+        `[${inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}[araw${index}]`,
       );
       const delayMs = Math.max(0, Math.round(segment.start * 1000));
       filters.push(`[araw${index}]adelay=${delayMs}:all=1[adelay${index}]`);
@@ -1552,7 +1578,7 @@ function buildGapAwareCutCommand({
     }
   }
   if (!hasAudio) {
-    filters.push(`[1:a]atrim=duration=${formatNumber(duration)},asetpts=PTS-STARTPTS[joineda]`);
+    filters.push(`[${inputCount}:a]atrim=duration=${formatNumber(duration)},asetpts=PTS-STARTPTS[joineda]`);
   }
 
   const scaledLabel = chromaKey || look ? "[scaled]" : "[outv]";
@@ -1565,7 +1591,7 @@ function buildGapAwareCutCommand({
   // (built inline via ffmpeg's `color` source filter — no extra -i needed) or an image/video file
   // (an extra input, looped if a still image).
   const extraInputArgs = [];
-  let nextInputIndex = hasAudio ? 1 : 2;
+  let nextInputIndex = inputCount + (hasAudio ? 0 : 1);
   let videoLabel = scaledLabel;
   if (chromaKey) {
     const color = isNonEmptyString(chromaKey.color) ? chromaKey.color : "0x00FF00";
@@ -1630,9 +1656,9 @@ function buildGapAwareCutCommand({
       "-y",
       // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
       // buildCutCommand's non-gap-aware path above.
-      ...(isImageLayerSource(sourcePath) ? ["-loop", "1"] : []),
-      "-i",
-      sourcePath,
+      ...(sourceInputs
+        ? sourceInputs.flatMap(input => [...(isImageLayerSource(input.path) ? ["-loop", "1"] : []), "-i", input.path])
+        : [...(isImageLayerSource(sourcePath) ? ["-loop", "1"] : []), "-i", sourcePath]),
       ...(!hasAudio ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"] : []),
       ...extraInputArgs,
       "-filter_complex",

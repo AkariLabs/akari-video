@@ -52,7 +52,7 @@ export function materialDropDecision(
         }
         return { accept: false, reason: '音源は音源トラック（一番下の帯）にドロップしてください。' };
     }
-    if (trackKind === 'layers' || trackKind === undefined) {
+    if (trackKind === 'layers' || trackKind === 'video' || trackKind === undefined) {
         return { accept: true, zone: 'layers' };
     }
     if (trackKind === 'cuts') {

@@ -2492,6 +2492,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         return [];
                     }
                     const track = value as { kind?: unknown; ref?: unknown };
+                    if (track.kind === 'video' && Number.isInteger(track.ref) && Number(track.ref) >= 0) {
+                        return (['cuts', 'layers'] as const)
+                            .filter(kind => (edit[kind] ?? []).some((item: { track?: number }) => (item.track ?? 0) === track.ref))
+                            .map(kind => ({ kind, ref: Number(track.ref) }));
+                    }
                     const validKind = track.kind === 'cuts' || track.kind === 'layers'
                         || track.kind === 'overlays' || track.kind === 'captions' || track.kind === 'audio';
                     if (!validKind) {
@@ -3592,9 +3597,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
-#preview-video { position: absolute; top: 0; left: 0; object-fit: contain; }
+#preview-video { position: absolute; top: 0; left: 0; object-fit: contain; pointer-events: auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
-#preview-layers > video, #preview-layers > img { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#preview-layers > video:not(#preview-video), #preview-layers > img { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; }
 #layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -3709,8 +3714,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <div id="zoom-layer">
-        <video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video>
-        <div id="preview-layers"></div>
+        <div id="preview-layers"><video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
         <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
         <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
@@ -4335,16 +4339,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 const nextFrameScale = frameRect.width / outputWidth;
                 frameScale = Number.isFinite(nextFrameScale) && nextFrameScale > 0 ? nextFrameScale : 1;
                 const stageTransform = 'translate(0px, 0px) scale(' + frameScale + ')';
-                video.style.left = frameRect.x + 'px';
-                video.style.top = frameRect.y + 'px';
-                video.style.width = frameRect.width + 'px';
-                video.style.height = frameRect.height + 'px';
+                // Cuts and layers share this output-coordinate stacking context.
+                // A scaled wrapper around layers alone prevents their z-index crossing the cut.
+                video.style.left = '0px';
+                video.style.top = '0px';
+                video.style.width = outputWidth + 'px';
+                video.style.height = outputHeight + 'px';
                 layersStage.style.left = frameRect.x + 'px';
                 layersStage.style.top = frameRect.y + 'px';
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
                 for (const layerVideo of layersStage.querySelectorAll('video, img')) {
+                    if (layerVideo === video) continue;
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
                     const x = Number(layerVideo.dataset.akariTransformX) || 0;
                     const y = Number(layerVideo.dataset.akariTransformY) || 0;
@@ -4417,8 +4424,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         const y = Number(video.dataset.akariTransformY) || 0;
                         const scale = Number(video.dataset.akariTransformScale) || 1;
                         const rotate = Number(video.dataset.akariTransformRotate) || 0;
-                        return 'translate(' + (x * frameScale) + 'px, '
-                            + (y * frameScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                        return 'translate(' + x + 'px, '
+                            + y + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
                     })()
                     : '';
                 video.dataset.akariBaseTransform = baseTransform;

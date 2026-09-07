@@ -872,3 +872,14 @@ test("cuts[].freeze rejects an unknown key", () => {
   assert.equal(executed.status, 1, executed.stdout);
   assert.match(executed.stderr, /cuts\[0\]\.freeze に未知のキーがあります: hold_audio/);
 });
+
+test('shared video rows validate with a ref, and reject missing or invalid refs', () => {
+  for (const ref of [0, 2]) {
+    const result = runPatchedExample(edit => { edit.timeline = { tracks: [{ id:'v', kind:'video', ref }] }; });
+    assert.equal(result.status,0,result.stderr);
+  }
+  for (const ref of [undefined, -1, '0']) {
+    const result = runPatchedExample(edit => { edit.timeline = { tracks: [{ id:'v', kind:'video', ref }] }; });
+    assert.equal(result.status,1);
+  }
+});

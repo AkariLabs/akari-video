@@ -1310,7 +1310,7 @@ function parseEdit(source) {
     if (value.timeline !== null && typeof value.timeline === 'object' && !Array.isArray(value.timeline)
         && Array.isArray(value.timeline.tracks)) {
         const tracks = [];
-        const kinds = ['cuts', 'layers', 'overlays', 'captions', 'audio'];
+        const kinds = ['video', 'cuts', 'layers', 'overlays', 'captions', 'audio'];
         const seenTrackIds = new Set();
         const seenSingletonKinds = new Set();
         for (let index = 0; index < value.timeline.tracks.length; index++) {
@@ -1318,7 +1318,7 @@ function parseEdit(source) {
             const valid = track !== null && typeof track === 'object' && !Array.isArray(track)
                 && typeof track.id === 'string' && track.id.length > 0
                 && typeof track.kind === 'string' && kinds.includes(track.kind)
-                && (track.ref === undefined || (Number.isInteger(track.ref) && track.ref >= 0))
+                && ((track.ref === undefined && track.kind !== 'video') || (Number.isInteger(track.ref) && track.ref >= 0))
                 && (track.label === undefined || typeof track.label === 'string')
                 && (track.muted === undefined || typeof track.muted === 'boolean')
                 && (track.hidden === undefined || typeof track.hidden === 'boolean')

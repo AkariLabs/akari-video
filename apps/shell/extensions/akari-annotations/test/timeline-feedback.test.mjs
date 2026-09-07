@@ -11,7 +11,7 @@ function method(name) {
     return rest.slice(0, end);
 }
 const Widget = new Function('lane_layout_1', `
-const CLIP_HEIGHT=64, DEFAULT_AUDIO_TRACK_HEIGHT_PX=48, SUBROW_STRIDE=36, LANE_GAP=6, STRIP_BOTTOM_MARGIN=6;
+const CLIP_HEIGHT=64, DEFAULT_AUDIO_TRACK_HEIGHT_PX=48, SUBROW_STRIDE=36, SUBROW_GAP=4, LANE_GAP=6, STRIP_BOTTOM_MARGIN=6;
 const RULER_MIN_TICK_SPACING_PX=80;
 const RULER_STEP_SECONDS=[0.5,1,2,5,10,15,30,60,120,300,600];
 const RULER_STEP_MULTIPLIERS_FRAMES=[1,2,5,10,15,30,60,120,300];
@@ -46,7 +46,7 @@ test('high zoom ticks use project frames including one-frame intervals', () => {
 test('layer, HTML, and caption rows honor resized heights without collapsing overlaps', () => {
     const widget = Object.assign(new Widget(), {
         computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [{start:0,end:2}], captionRows: [0], beats: [], layers: [{id:'one',track:0,t:0,duration:2},{id:'two',track:0,t:0,duration:2}], overlays: [],
-        overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
+        videoItemBounds: new Map(), overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
         displayTimelineTracks: ['layers','overlays','captions'].map(kind => ({id:kind,kind,ref:0})),
         trackHeightFor: () => 120
     });
@@ -56,3 +56,17 @@ test('layer, HTML, and caption rows honor resized heights without collapsing ove
     widget.calculateLaneLayout();
     assert.equal(widget.laneLayout.layerTracks[0].height, 72);
 });
+
+ test('shared video row exposes cut/layer hit areas and separate bounds for overlapping media', () => {
+    const widget = Object.assign(new Widget(), {
+        computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [], captionRows: [], beats: [],
+        layers: [{id:'layer',track:2,t:0,duration:2}], segments:[{index:0,track:2,tlStart:0,tlEnd:2}], overlays: [],
+        videoItemBounds: new Map(), overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
+        displayTimelineTracks: [{id:'v',kind:'video',ref:2}], trackHeightFor:()=>120
+    });
+    widget.calculateLaneLayout();
+    assert.equal(widget.laneLayout.tracks.length,1);
+    assert.equal(widget.laneLayout.cutTracks[0].id,'v');assert.equal(widget.laneLayout.layerTracks[0].id,'v');
+    const cut=widget.videoItemBounds.get('cut:0'), layer=widget.videoItemBounds.get('layer:layer');
+    assert.ok(cut.top>=layer.top+layer.height);
+ });

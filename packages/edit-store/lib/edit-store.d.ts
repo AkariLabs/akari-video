@@ -101,7 +101,7 @@ export interface EditAudioBgm {
     gainDb?: number;
     ducking?: boolean;
 }
-export type TimelineTrackKind = 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
+export type TimelineTrackKind = 'video' | 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
 export interface EditTimelineTrack {
     id: string;
     kind: TimelineTrackKind;

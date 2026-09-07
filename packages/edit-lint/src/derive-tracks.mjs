@@ -40,3 +40,15 @@ function collectTrackNumbers(items) {
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
+
+/** A video row owns both native cut and layer streams; expand only streams with content. */
+export function expandVideoTracks(edit, tracks) {
+  return tracks.flatMap(track => track?.kind !== "video" ? [track]
+    : ["cuts", "layers"].filter(kind => (Array.isArray(edit?.[kind]) ? edit[kind] : []).some(item => item && (item.track ?? 0) === track.ref))
+      .map(kind => ({ ...track, kind })));
+}
+
+export function hasVideoTrackContent(edit) {
+  return (Array.isArray(edit?.timeline?.tracks) ? edit.timeline.tracks : []).some(track => track?.kind === "video"
+    && ["cuts", "layers"].some(kind => (Array.isArray(edit?.[kind]) ? edit[kind] : []).some(item => item && (item.track ?? 0) === track.ref)));
+}

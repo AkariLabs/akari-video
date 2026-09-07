@@ -13,7 +13,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 import { createRequire } from "node:module";
 
 import { renderLintReport } from "./report.mjs";
-import { deriveTracks } from "./derive-tracks.mjs";
+import { deriveTracks, expandVideoTracks, hasVideoTrackContent } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -1016,7 +1016,7 @@ function validateTimelineTracks(edit, findings) {
     ["overlays", collectActualTrackNumbers(edit?.overlays)],
     ["audio", collectActualTrackNumbers(edit?.audio?.sfx)],
   ]);
-  const allowedKinds = new Set(["cuts", "layers", "overlays", "captions", "audio"]);
+  const allowedKinds = new Set(["video", "cuts", "layers", "overlays", "captions", "audio"]);
   const ids = new Set();
   const declarations = new Set();
   const singletonCounts = new Map();
@@ -1055,14 +1055,14 @@ function validateTimelineTracks(edit, findings) {
       addFinding(findings, {
         severity: "error",
         check: "timeline.tracks.kind",
-        message: "timeline track kind must be cuts/layers/overlays/captions/audio",
+        message: "timeline track kind must be video/cuts/layers/overlays/captions/audio",
         path: `${path}.kind`,
       });
       continue;
     }
 
     const hasRef = Object.hasOwn(item, "ref");
-    const validRef = !hasRef || (Number.isInteger(item.ref) && item.ref >= 0);
+    const validRef = (!hasRef && item.kind !== "video") || (Number.isInteger(item.ref) && item.ref >= 0);
     if (!validRef) {
       addFinding(findings, {
         severity: "error",
@@ -1111,6 +1111,11 @@ function validateTimelineTracks(edit, findings) {
     // 0 固定を要求しない（非 0 ref も正当な宣言として declarations に加える）。
     const ref = item.kind === "audio" && !hasRef ? 0 : item.ref;
     if (ref === undefined) continue;
+    if (item.kind === "video") {
+      declarations.add(`cuts:${ref}`);
+      declarations.add(`layers:${ref}`);
+      continue;
+    }
     declarations.add(`${item.kind}:${ref}`);
     if (!actualTracks.get(item.kind)?.has(ref)) {
       addFinding(findings, {
@@ -1153,9 +1158,19 @@ function validateTimelineTracks(edit, findings) {
 // combination. Reject it instead: it fails loudly and specifically, rather than rendering a
 // broken video with a phantom black flash that's very hard to trace back to its cause.
 function validateTrackTransitionOutCompatibility(edit, findings) {
+  if (hasVideoTrackContent(edit)) {
+    for (const [index, cut] of (edit.cuts ?? []).entries()) {
+      if (cut?.freeze || cut?.transition_out) addFinding(findings, {
+        severity: "error", check: "cuts.video-track-timing-unsupported",
+        message: "Shared video tracks do not yet support freeze or transition_out; keep these clips on legacy tracks.",
+        path: `edit.json#cuts[${index}]`
+      });
+    }
+  }
   if (edit?.version !== 1 || !Array.isArray(edit.cuts)) return;
-  const tracks = edit?.timeline?.tracks;
-  if (!Array.isArray(tracks)) return; // malformed timeline.tracks is already reported by validateTimelineTracks
+  const rawTracks = edit?.timeline?.tracks;
+  if (!Array.isArray(rawTracks)) return;
+  const tracks = expandVideoTracks(edit, rawTracks); // malformed timeline.tracks is already reported by validateTimelineTracks
   if (usesDefaultTrackOrder(edit, tracks)) return; // cuts[].track has no compositing effect here (flat concat; see cuts.track-render-unsupported)
 
   const cutsTrackRefs = new Set(
@@ -1193,8 +1208,9 @@ function validateTrackTransitionOutCompatibility(edit, findings) {
 // package render-cut depends on, so it duplicates this small comparison rather than importing
 // back from render-cut. deriveTracks itself stays the single shared source of the "default" order.
 function usesDefaultTrackOrder(edit, tracks) {
+  if (hasVideoTrackContent(edit)) return false;
   const trackKey = (track) => `${track?.kind ?? ""}:${Number.isInteger(track?.ref) ? track.ref : ""}`;
-  const resolved = tracks.map(trackKey);
+  const resolved = expandVideoTracks(edit, tracks).map(trackKey);
   const derived = deriveTracks(edit).map(trackKey);
   return resolved.length === derived.length && resolved.every((value, index) => value === derived[index]);
 }

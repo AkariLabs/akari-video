@@ -146,3 +146,5 @@ managed in private internal records.
 
 For contribution entry points, see the repository root [README](../README.md) and the
 README of each package.
+
+- [Shared video track contract](./contract-2026-09-07-shared-video-tracks.md): native media preservation, row order, and export timing.

@@ -100,7 +100,7 @@ export interface EditAudioBgm {
     ducking?: boolean;
 }
 
-export type TimelineTrackKind = 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
+export type TimelineTrackKind = 'video' | 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
 
 export interface EditTimelineTrack {
     id: string;
@@ -1479,7 +1479,7 @@ export function parseEdit(source: string): {
     if (value.timeline !== null && typeof value.timeline === 'object' && !Array.isArray(value.timeline)
         && Array.isArray(value.timeline.tracks)) {
         const tracks: EditTimelineTrack[] = [];
-        const kinds: readonly TimelineTrackKind[] = ['cuts', 'layers', 'overlays', 'captions', 'audio'];
+        const kinds: readonly TimelineTrackKind[] = ['video', 'cuts', 'layers', 'overlays', 'captions', 'audio'];
         const seenTrackIds = new Set<string>();
         const seenSingletonKinds = new Set<TimelineTrackKind>();
         for (let index = 0; index < value.timeline.tracks.length; index++) {
@@ -1487,7 +1487,7 @@ export function parseEdit(source: string): {
             const valid = track !== null && typeof track === 'object' && !Array.isArray(track)
                 && typeof track.id === 'string' && track.id.length > 0
                 && typeof track.kind === 'string' && kinds.includes(track.kind as TimelineTrackKind)
-                && (track.ref === undefined || (Number.isInteger(track.ref) && track.ref >= 0))
+                && ((track.ref === undefined && track.kind !== 'video') || (Number.isInteger(track.ref) && track.ref >= 0))
                 && (track.label === undefined || typeof track.label === 'string')
                 && (track.muted === undefined || typeof track.muted === 'boolean')
                 && (track.hidden === undefined || typeof track.hidden === 'boolean')
