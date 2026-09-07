@@ -1139,7 +1139,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.appendChild(this.rulerContent);
         this.strip.appendChild(this.stripContent);
         Object.assign(this.timelineOverlay.style, {
-            position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none', zIndex: '9'
+            position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: '9'
         });
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
@@ -1275,12 +1275,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         border-bottom: 1px solid #3f3f46;
         border-left: 1px solid rgba(250, 250, 250, .55);
         border-right: 2px solid #09090b;
-        border-radius: 0;
+        border-radius: 5px;
         box-shadow: none;
         box-sizing: border-box;
         color: #e5e5e5;
     }
     .akari-annotations-widget .akari-annotations-strip-clip-header {
+        border-radius: 4px 4px 0 0;
         position: absolute;
         top: 0;
         left: 0;
@@ -1327,9 +1328,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         z-index: 1;
     }
     .akari-annotations-widget .akari-annotations-strip-caption {
-        background: var(--theia-charts-purple, #b180d7);
-        opacity: .68;
-        border-radius: 2px;
+        background: color-mix(in srgb, var(--theia-charts-purple, #b180d7) 68%, transparent);
+        border-radius: 5px;
     }
     .akari-annotations-widget .akari-annotations-tree-tick {
         position: absolute;
@@ -1342,11 +1342,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-strip-overlay {
         background: var(--theia-charts-orange, #d19a66);
         opacity: .74;
-        border-radius: 2px;
+        border-radius: 5px;
     }
     .akari-annotations-widget .akari-annotations-strip-layer,
     .akari-annotations-widget .akari-annotations-strip-audio {
-        border-radius: 2px;
+        border-radius: 5px;
         cursor: pointer;
     }
     .akari-annotations-widget .akari-annotations-strip-layer-baked {
@@ -1534,7 +1534,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         white-space: nowrap;
         font-size: 13px;
         line-height: 1;
-        color: var(--theia-foreground);
+        color: #fff;
         pointer-events: none;
         padding-left: 3px;
         text-shadow: 0 0 2px var(--theia-editorWidget-background), 0 0 3px var(--theia-editorWidget-background);
@@ -1593,22 +1593,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: transparent;
         pointer-events: auto;
     }
-    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip:not([data-akari-locked="true"]):hover::after {
+    .akari-annotations-widget:not(.akari-annotations-tool-razor) [data-trim-edge]:not([data-akari-locked="true"])::after {
         content: '';
         position: absolute;
-        top: 3px;
-        bottom: 3px;
-        left: 0;
-        right: 0;
-        border-left: 10px solid rgba(255, 255, 255, .18);
-        border-right: 10px solid rgba(255, 255, 255, .18);
+        top: 1px;
+        bottom: 1px;
+        width: min(${EDGE_ZONE_PX}px, 50%);
         box-sizing: border-box;
+        border: 1px solid #fff;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, .45);
+        box-shadow: 0 0 5px rgba(255, 255, 255, .8);
         pointer-events: none;
+        z-index: 7;
     }
-    .akari-annotations-widget:not(.akari-annotations-tool-razor) .akari-annotations-strip-clip-micro:not([data-akari-locked="true"]):hover::after {
-        content: none;
-        display: none;
-    }
+    .akari-annotations-widget [data-trim-edge="left"]::after { left: 0; }
+    .akari-annotations-widget [data-trim-edge="right"]::after { right: 0; }
     .akari-annotations-widget .akari-annotations-icon-button {
         width: 24px;
         height: 24px;
@@ -1719,6 +1719,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         box-shadow: 0 0 0 6px rgba(249, 115, 22, .22), 0 0 16px rgba(249, 115, 22, .65);
     }
     .akari-annotations-widget .akari-annotations-strip-clip-trimmer-active {
+        overflow: visible;
         outline: 2px solid #f97316;
         outline-offset: -2px;
         cursor: grab;
@@ -2228,9 +2229,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }));
         }
-        // クリップは同じクリック内の requestSeek が open+seek を直列化する。
-        // レイヤー/オーディオはシークを伴わないため reveal コマンドで出力プレビューを開く。
-        if (selection?.kind === 'layer' || selection?.kind === 'audio') {
+        // 素材選択では現在の再生位置を保ったまま出力プレビューを開く。
+        if (selection) {
             this.revealOutputPreview();
         }
     }
@@ -9499,7 +9499,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(wrapper);
         }
         Object.assign(wrapper.style, {
-            position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none'
+            position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none'
         });
 
         const cells = Array.from(wrapper.children) as HTMLDivElement[];
@@ -9805,7 +9805,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const rect = this.expandedChipHitRect(element);
             const hoverDetail = this.trimmerListenerDetails.get(element)!(event, rect);
-            element.style.cursor = hoverDetail.kind === 'cut-trim' ? 'ew-resize' : 'grab';
+            this.updateTrimAffordance(element, hoverDetail);
+            if (!element.dataset.trimEdge) { element.style.cursor = 'grab'; }
+        });
+        element.addEventListener('pointerleave', () => {
+            if (this.dragState?.element !== element) {
+                delete element.dataset.trimEdge;
+                element.style.cursor = 'grab';
+            }
         });
         element.addEventListener('pointerdown', event => {
             const dragDetail = this.trimmerListenerDetails.get(element)!(event, this.expandedChipHitRect(element));
@@ -9840,6 +9847,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 dragged: false
             } as DragState;
             this.dragState = state;
+            this.updateTrimAffordance(element, state);
             element.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
             element.style.opacity = '.5';
             if (state.kind === 'cut-trim' && state.edge === 'right') {
@@ -10922,6 +10930,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return header;
     }
 
+    /** Use the drag hit test for the highlight so the visible handle matches the active edge. */
+    protected updateTrimAffordance(element: HTMLDivElement, detail: DragDetail): void {
+        const edge = detail.kind === 'cut-trim' || detail.kind === 'audio-trim' ? detail.edge
+            : (detail.kind === 'caption' || detail.kind === 'layer') && detail.mode !== 'move'
+                ? detail.mode === 'start' ? 'left' : 'right'
+                : detail.kind === 'overlay' && detail.mode === 'resize' ? 'right' : undefined;
+        if (edge) {
+            element.dataset.trimEdge = edge;
+        } else {
+            delete element.dataset.trimEdge;
+        }
+        element.style.cursor = edge ? 'ew-resize' : 'default';
+    }
+
     protected installDragListeners(
         element: HTMLDivElement,
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail,
@@ -10950,11 +10972,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const rect = this.expandedChipHitRect(element);
             const hoverDetail = this.dragListenerConfigs.get(element)!.detail(event, rect);
-            const resizing = hoverDetail.kind === 'cut-trim' || hoverDetail.kind === 'audio-trim'
-                || (hoverDetail.kind === 'caption' && hoverDetail.mode !== 'move')
-                || (hoverDetail.kind === 'layer' && hoverDetail.mode !== 'move')
-                || (hoverDetail.kind === 'overlay' && hoverDetail.mode === 'resize');
-            element.style.cursor = resizing ? 'ew-resize' : 'default';
+            this.updateTrimAffordance(element, hoverDetail);
+        });
+        element.addEventListener('pointerleave', () => {
+            if (this.dragState?.element !== element) {
+                delete element.dataset.trimEdge;
+                element.style.cursor = 'default';
+            }
         });
         element.addEventListener('pointerdown', event => {
             const dragDetail = this.dragListenerConfigs.get(element)!.detail(event, this.expandedChipHitRect(element));
@@ -10994,7 +11018,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 dragged: false
             } as DragState;
             this.dragState = state;
-            element.style.cursor = 'grabbing';
+            this.updateTrimAffordance(element, state);
+            if (!element.dataset.trimEdge) { element.style.cursor = 'grabbing'; }
             element.style.opacity = '.5';
             if (state.kind === 'cut-trim' && state.edge === 'right') {
                 // Out 側トリムの開始と同時に実尺フェッチを先行キックする。初回ドラッグが
@@ -11069,7 +11094,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 if (event.shiftKey) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
-                this.selectTimeAtClientX(event.clientX);
                 return;
             }
             state.altKey = event.altKey;
@@ -12020,6 +12044,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch {
             // The element may already have lost capture after pointercancel.
         }
+        delete state.element.dataset.trimEdge;
         state.element.style.cursor = 'default';
         state.element.style.opacity = '';
         // スリップのライブプレビュー（updateTrimmerSlipVisual）が残した transform を戻す
