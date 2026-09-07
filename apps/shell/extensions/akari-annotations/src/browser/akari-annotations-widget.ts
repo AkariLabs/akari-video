@@ -1430,10 +1430,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: var(--theia-charts-blue, #3794ff);
         opacity: .76;
     }
-    .akari-annotations-widget .akari-annotations-strip-layer-video {
-        background: var(--theia-charts-purple, #b180d7);
-        opacity: .76;
-    }
     .akari-annotations-widget .akari-annotations-strip-audio-sfx {
         background: var(--theia-charts-green, #89d185);
         opacity: .72;
@@ -6809,9 +6805,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const stride = this.timelineRowStride(layout.id);
             const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * stride;
             const transitionWarning = this.layerTransitionWarnings.get(layer.id);
+            const media = layer.kind === 'video' ? this.videoLayerMedia(layer) : undefined;
+            const clipWidth = stripLayoutWidthPx * Math.max(this.layoutPercent(end) - this.layoutPercent(layer.t), 0.3) / 100;
+            const height = stride - SUBROW_GAP;
+            const mediaGate = clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
+            const waveform = media && this.waveformCache.get(`${media.cut.src ?? ''}:${media.cut.in}:${media.cut.out}`);
             const { element, created } = this.keyedStripSegment(
-                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning]), layer.t, end, top, stride - SUBROW_GAP,
-                `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
+                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, mediaGate, height, Array.isArray(waveform) ? `ready:${waveform.length}` : waveform]), layer.t, end, top, height,
+                media ? 'akari-annotations-strip-layer akari-annotations-strip-clip' : `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
             element.dataset.akariItemId = layer.id;
@@ -6819,10 +6820,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             if (created) {
-                element.appendChild(this.segmentLabel(layer.id));
+                element.appendChild(media ? this.clipHeader(media.label, layer.duration) : this.segmentLabel(layer.id));
                 this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
                 const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
                 if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
+            }
+            if (media) {
+                element.classList.toggle('akari-annotations-strip-clip-micro', clipWidth < MICRO_CLIP_WIDTH_PX);
+                if (created) this.renderClipMedia(element, media.cut, clipWidth, media.segment, height, media.videoUri);
+                else this.updateClipMediaGeometry(element, media.cut, clipWidth, media.segment, height, media.videoUri);
             }
             if (created && transitionWarning) {
                 const warning = document.createElement('button');
@@ -7152,7 +7158,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // ドラッグリスナー）を破棄・再生成していた。トリマー中の 1 本だけはウィング描画が幅依存なので
             // 従来どおり幾何込みで作り直す。メディア表示のゲート境界（幅 / 高さ）を跨ぐときは作り直す。
             const cutSignature = JSON.stringify([
-                cut, segment, cutLayout.height, cutTrimmerActive,
+                cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
                 unsupportedDeclaredTransitions.has(segment.index),
@@ -7205,7 +7211,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.renderTrimmerClip(
                         element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration
                     );
-                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                    element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                 }
                 this.installTrimmerDrag(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -7226,20 +7232,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 if (created) {
                     this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
-                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                    element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                 } else {
                     this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutLayout.height);
-                }
-                if (created && cut.src !== undefined) {
-                    const source = this.sourceMap.get(cut.src);
-                    if (source) {
-                        const badge = document.createElement('span');
-                        badge.className = 'akari-annotations-strip-clip-source';
-                        badge.dataset.akariSourceId = cut.src;
-                        badge.textContent = cut.src;
-                        badge.title = source.path;
-                        element.appendChild(badge);
-                    }
                 }
                 this.installDragListeners(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -9570,10 +9565,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return label;
     }
 
+    protected videoClipLabel(id: string, cut: EditCut, fallback = id): string {
+        const name = this.rawV2Item(id)?.name;
+        const path = cut.src ? this.sourceMap.get(cut.src)?.path : this.defaultSource?.path;
+        return typeof name === 'string' && name.length > 0 ? name : path?.split(/[\\/]/).pop() || fallback;
+    }
+
+    protected videoLayerMedia(layer: EditLayer): { cut: EditCut; segment: OutputSegment; videoUri: string; label: string } {
+        const raw = this.rawV2Item(layer.id);
+        const source = raw?.source?.kind === 'media' ? raw.source : undefined;
+        const src = source?.src ?? [...this.sourceMap.entries()].find(([, value]) => value.path === layer.src)?.[0];
+        const start = source?.in ?? 0;
+        const speed = typeof raw?.speed === 'number' && raw.speed > 0 ? raw.speed : 1;
+        const cut: EditCut = { src: src ?? layer.src, in: start, out: source?.out ?? start + layer.duration * speed, speed };
+        const videoUri = src ? this.cutVideoUri(cut)
+            : this.location ? this.resolveEditMediaUri(layer.src, this.location.editUri).toString() : '';
+        return {
+            cut, videoUri, label: this.videoClipLabel(layer.id, cut, layer.src.split(/[\\/]/).pop() || layer.id),
+            segment: { index: -1, src: cut.src, in: cut.in, out: cut.out, speed,
+                tlStart: layer.t, tlEnd: layer.t + layer.duration, track: layer.track ?? 0 }
+        };
+    }
+
     protected renderClipMedia(
-        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
+        videoUri = this.cutVideoUri(cut)
     ): void {
-        const videoUri = this.cutVideoUri(cut);
         // コンパクトティア（trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX）はフィルムストリップ・波形を
         // 描かない薄い帯にする（幅の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート）。
         if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX || !videoUri) {
@@ -9609,7 +9626,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * ビュー内に収まった clip はパンしてもこの 4 値が変わらないため何もしない。
      */
     protected updateClipMediaGeometry(
-        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
+        videoUri = this.cutVideoUri(cut)
     ): void {
         if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
             return;
@@ -9623,7 +9641,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!filmstrip && !canvas) {
             return;
         }
-        const videoUri = this.cutVideoUri(cut);
         if (!videoUri) {
             return;
         }
