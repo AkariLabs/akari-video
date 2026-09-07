@@ -6402,7 +6402,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
             }
             if (target?.kind === 'none') {
-                this.showRejectedVisualGhost(state, at, state.duration, clientY);
+                this.hideNoopVisualGhost(state);
                 return { kind: 'cut-move', index: state.index, at, track: state.originalTrack, rejected: false, ignored: true };
             }
             if (target?.kind === 'track') {
@@ -6495,7 +6495,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
                 }
                 if (target?.kind === 'none') {
-                    this.showRejectedVisualGhost(state, t, itemDuration, clientY);
+                    this.hideNoopVisualGhost(state);
                     return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected: false, ignored: true };
                 }
                 if (target?.kind === 'track') {
@@ -6675,6 +6675,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         state.ghost.style.outline = '2px solid #22c55e';
         this.showTrackInsertIndicatorAt(top);
         this.updateDragFeedback(state, `差し込み ${this.formatTimestamp(start)} → ${this.formatTimestamp(start + duration)} · 尺 ${duration.toFixed(2)} 秒`);
+    }
+
+    protected hideNoopVisualGhost(state: DragState): void {
+        state.ghost.style.display = 'none';
+        this.hideTrackInsertIndicator();
+        this.hideSnapGuide();
+        this.dragFeedback.style.display = 'none';
     }
 
     protected showRejectedVisualGhost(state: DragState, start: number, duration: number, clientY: number): void {
