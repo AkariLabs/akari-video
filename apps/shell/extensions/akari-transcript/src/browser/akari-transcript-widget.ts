@@ -152,6 +152,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             textOverflow: 'ellipsis'
         });
         this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
+        this.toDispose.push(this.notice);
         this.node.append(this.toolbar, this.notice.node, this.editorContainer, this.footer);
 
         const style = document.createElement('style');

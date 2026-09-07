@@ -679,7 +679,7 @@ type DragPreview =
     | { kind: 'caption'; id: string; start: number; end: number; timeDomain: 'source' | 'output';
         storedTimeDomain?: 'source' | 'output';
         originalStart: number; originalEnd: number; originalTimeDomain?: 'source' | 'output'; originalEdited: boolean }
-    | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number;
+    | { kind: 'overlay-move'; id: string; start: number; track: number; rejected?: boolean; insertTrack?: number;
         targetTrackId?: string; insertIndex?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
     | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean;
@@ -1343,6 +1343,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
+        this.toDispose.push(this.notice);
         this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice.node, this.footer);
         const style = document.createElement('style');
         style.textContent = `
@@ -11512,14 +11513,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.hideTrackInsertIndicator();
             }
             const linkedRejected = this.updateLinkedDragGhost(state, at);
-            const rejected = hit.rejected || linkedRejected;
+            const rejected = hit.rejected || linkedRejected || this.dropWouldOverlap(
+                this.cutItemIds[state.index], at, state.duration, hit.targetTrackId, hit.insertIndex
+            );
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ レーンが異なります'
-                : `${this.formatTimestamp(at)} / 行 ${hit.track + 1}`);
+                ? '✕ 配置できません'
+                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(at)} / 尺 ${state.duration.toFixed(2)} 秒`);
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected, altKey: state.altKey,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -11710,12 +11713,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 insertIndex = hit.insertIndex;
                 state.ghost.style.top = `${hit.top}px`;
             }
+            rejected ||= this.dropWouldOverlap(state.id, t, itemDuration,
+                targetTrackId ?? this.itemLocations.get(state.id)?.trackId, insertIndex);
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ レーンが異なるため移動できません'
-                : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / 行 ${track + 1}`);
+                ? '✕ 配置できません'
+                : `${insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒`);
             return {
                 kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack,
                 targetTrackId, insertIndex
@@ -11869,9 +11874,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             state.ghost.style.top = `${hit.top}px`;
             state.ghost.dataset.akariTrack = String(hit.track);
-            this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
+            const rejected = hit.rejected || this.dropWouldOverlap(state.id, start, state.originalDuration, hit.targetTrackId, hit.insertIndex);
+            this.setGhostRejected(state.ghost, rejected);
+            this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
+            this.updateDragFeedback(state, rejected ? '✕ 配置できません'
+                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
             return {
-                kind: 'overlay-move', id: state.id, start, track: hit.track,
+                kind: 'overlay-move', id: state.id, start, track: hit.track, rejected,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
@@ -12047,8 +12056,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.cuts[earlier]?.transitionOut?.duration ?? 0;
     }
 
+    protected dropWouldOverlap(id: string | undefined, start: number, duration: number, trackId?: string, insertIndex?: number): boolean {
+        if (insertIndex !== undefined || !trackId) return false;
+        const tracks = this.editDocument?.tracks;
+        const track = Array.isArray(tracks) ? tracks.find(candidate => candidate.id === trackId) : undefined;
+        const at = this.frameAt(start);
+        const end = at + Math.max(1, this.frameAt(duration));
+        return Array.isArray(track?.items) && track.items.some((item: { id: string; at: number; duration: number }) =>
+            item.id !== id && at < item.at + item.duration && end > item.at);
+    }
+
     protected setGhostRejected(ghost: HTMLDivElement, rejected: boolean): void {
         ghost.classList.toggle('akari-annotations-ghost-rejected', rejected);
+        ghost.style.outline = `2px solid ${rejected ? '#f14c4c' : '#f97316'}`;
+        if (rejected) this.hideSnapGuide();
     }
 
     protected setGhostSnapped(ghost: HTMLDivElement, snapped: boolean): void {
@@ -13752,6 +13773,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
+        if (/^[VAT]\d+ を追加しました$/.test(message)) return;
         this.notice.setMessage(message);
     }
 

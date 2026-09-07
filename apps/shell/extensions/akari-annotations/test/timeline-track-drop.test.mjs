@@ -10,22 +10,23 @@ const layouts = [
   { id: 'audio', lane: 'audio', acceptsItems: true, rawIndex: 0, track: 0, top: 154, height: 40 }
 ];
 
-test('既存段の上端・下端でも段本体を優先し、緑線を出さない', () => {
-  for (const y of [108, 109, 138, 147]) {
+test('差し込み帯を離れた段本体は既存段へ配置する', () => {
+  for (const y of [112, 120, 138, 147]) {
     assert.deepEqual(hitTestTimelineTrackDrop(y, layouts, 2), {
       track: 1, top: 108, height: 40, rejected: false, targetTrackId: 'v2'
     });
   }
 });
 
-test('隣接段の6pxギャップは新規段ではなく最寄りの既存段へ入る', () => {
+test('隣接段の境界は差し込み先を返す', () => {
   const adjacent = [
     { id: 'v3', lane: 'visual', acceptsItems: true, rawIndex: 4, track: 2, top: 20, height: 40 },
     { id: 'v2', lane: 'visual', acceptsItems: true, rawIndex: 3, track: 1, top: 66, height: 40 }
   ];
-  assert.equal(hitTestTimelineTrackDrop(62, adjacent, 2).targetTrackId, 'v3');
-  assert.equal(hitTestTimelineTrackDrop(65, adjacent, 2).targetTrackId, 'v2');
-  assert.equal(hitTestTimelineTrackDrop(62, adjacent, 2).insertIndex, undefined);
+  assert.equal(hitTestTimelineTrackDrop(62, adjacent, 2).insertIndex, 4);
+  assert.equal(hitTestTimelineTrackDrop(65, adjacent, 2).insertIndex, 4);
+  assert.equal(hitTestTimelineTrackDrop(62, adjacent, 2).top, 63);
+  assert.equal(hitTestTimelineTrackDrop(72, adjacent, 2).targetTrackId, 'v2');
 });
 
 test('最上段の外側へ出たときだけ新しい最上段を tracks[] の末尾側へ作る', () => {

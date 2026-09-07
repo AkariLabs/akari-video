@@ -55,6 +55,7 @@ export interface AkariNoticeBanner {
     clear(): void;
     /** 文言が設定されているか（× で閉じた後も true）。既存通知の上書き防止に使う。 */
     hasMessage(): boolean;
+    dispose(): void;
 }
 
 /**
@@ -71,6 +72,9 @@ export function createAkariNoticeBanner(options: AkariNoticeBannerOptions = {}):
         node.setAttribute(options.dataAttribute, '');
     }
     Object.assign(node.style, {
+        position: 'fixed', right: '20px', bottom: '40px', zIndex: '10000',
+        width: 'min(420px, calc(100vw - 40px))', maxHeight: '30vh', overflowY: 'auto',
+        boxSizing: 'border-box', borderRadius: '6px', boxShadow: '0 4px 18px #0006',
         display: 'none', alignItems: 'flex-start', gap: '8px', padding: '7px 11px',
         color: AKARI_NOTICE_FOREGROUND,
         background: AKARI_NOTICE_BACKGROUND,
@@ -105,6 +109,9 @@ export function createAkariNoticeBanner(options: AkariNoticeBannerOptions = {}):
     const render = (): void => {
         text.textContent = state.message;
         node.style.display = isNoticeVisible(state) ? 'flex' : 'none';
+        if (isNoticeVisible(state) && document.body && node.parentNode !== document.body) {
+            document.body.appendChild(node);
+        }
     };
 
     close.addEventListener('click', () => {
@@ -114,6 +121,7 @@ export function createAkariNoticeBanner(options: AkariNoticeBannerOptions = {}):
 
     return {
         node,
+        dispose(): void { node.remove(); },
         setMessage(message: string): void {
             state = setNoticeMessage(state, message);
             render();

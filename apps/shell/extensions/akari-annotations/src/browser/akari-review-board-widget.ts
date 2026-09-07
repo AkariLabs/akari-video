@@ -129,6 +129,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             this.columnElements.set(def.status, { list, count });
         }
 
+        this.toDispose.push(this.notice);
         this.node.append(this.notice.node, this.board);
 
         this.toDispose.push(this.model.onChanged(() => this.refresh()));
