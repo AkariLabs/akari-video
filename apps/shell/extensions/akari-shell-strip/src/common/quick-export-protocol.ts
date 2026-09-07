@@ -97,6 +97,8 @@ export interface QuickExportStatus {
     readonly artifactSize?: number;
     /** edit-lint / render-cut が書いた HTML レポートが存在すれば、そのプロジェクト相対パス。 */
     readonly reportPath?: string;
+    /** cancelled のときだけ、その回の作業ディレクトリが残っていれば、その内訳。 */
+    readonly cancelledLeftover?: QuickExportCancelledLeftover;
     /** failed のときだけ、stderr 末尾の要約数行。 */
     readonly failureSummary?: string;
     /**
@@ -121,12 +123,39 @@ export interface QuickExportStatus {
     readonly progressRemainingMs?: number;
 }
 
+/**
+ * 中止したときに残った、その回の作業ディレクトリ（`.akari/render-tmp/<実行 ID>/`）。
+ * render-cut / gpu-export / osr-export は実行ごとに新しい実行 ID のディレクトリを掘るので、
+ * 「開始前には無かった entry」だけを厳密にこの回のゴミとして数える（既存の実行分や
+ * lint.json / reports/ には触れない — 掃除で再生成不可のデータを失った issue #46 の反省）。
+ */
+export interface QuickExportCancelledLeftover {
+    /** `.akari/render-tmp` 直下の entry 名（この回の実行 ID）。 */
+    readonly entries: readonly string[];
+    /** 合計バイト数（表示用の概算）。 */
+    readonly bytes: number;
+}
+
+/** revealArtifact / copyArtifact と同じ「成否 + 理由」の形に揃える。 */
+export interface QuickExportDiscardLeftoverResult {
+    readonly discarded: boolean;
+    /** discarded のときだけ、実際に消したバイト数。 */
+    readonly bytes?: number;
+    /** 消さなかった / 消せなかったときの理由。 */
+    readonly reason?: string;
+}
+
 export interface AkariQuickExportService {
     start(request: QuickExportStartRequest): Promise<QuickExportStartOutcome>;
     getStatus(): Promise<QuickExportStatus>;
     /** 書き出しを始めずに edit-lint だけ走らせ直し、保持している lint 結果を更新する。 */
     recheckLint(request: QuickExportRecheckRequest): Promise<QuickExportRecheckResult>;
     cancel(): Promise<{ cancelled: boolean }>;
+    /**
+     * 中止で残った作業ディレクトリを削除する（`status.cancelledLeftover` が指す
+     * entry だけ・`.akari/render-tmp/` 配下限定）。押されたときだけ消す。
+     */
+    discardCancelledLeftover(): Promise<QuickExportDiscardLeftoverResult>;
     revealArtifact(): Promise<{ revealed: boolean }>;
     copyArtifact(): Promise<{ copied: boolean; reason?: string }>;
     /**
