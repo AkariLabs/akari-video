@@ -164,6 +164,18 @@
         ]
       },
       {
+        "from": "../../packages/akari-tools",
+        "to": "packages/akari-tools",
+        "filter": [
+          "package.json",
+          "bin/captions.mjs",
+          "bin/decision-log.mjs",
+          "bin/media.mjs",
+          "bin/word-book.mjs",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "../../packages/osr-export",
         "to": "packages/osr-export",
         "filter": [
