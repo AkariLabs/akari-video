@@ -447,6 +447,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly videoItemBounds = new Map<string, LaneBounds>();
     protected headerDragActive = false;
     protected cancelHeaderDrag?: () => void;
+    protected dragLifecycleCleanup: (() => void) | undefined;
     protected readonly trackHeights = new Map<string, number>();
     protected readonly trackHeightLoadPromises = new Map<string, Promise<void>>();
     protected segments: OutputSegment[] = [];
@@ -2760,18 +2761,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (row) t = findVisualFreeSlot(visualTrackIntervals(current.cuts, current.layers, rows).filter(interval => interval.rowId === row.id), t, durationSeconds);
             }
             let successNote = 'タイムラインに素材を追加しました。';
-            let warningNote = '';
+            const warningNote = '';
             let beyondNote = '';
             if (zone === 'cuts') {
-                const plan = planCutDrop(
-                    Array.isArray(value.cuts) ? value.cuts : [], track, t, durationSeconds
-                );
+                const current = parseEdit(JSON.stringify(value));
+                const rows = current.timeline?.tracks ?? this.timelineTracks;
+                const target = rows.find(row => (row.kind === 'cuts' || row.kind === 'video') && (row.ref ?? 0) === track);
+                if (!target) throw new Error('映像トラックが見つかりません。');
+                // Material placement uses output time even when the same source is reused.
+                const plan: CutDropPlan = { mode: 'free', at: t, insertIndex: current.cuts.length };
                 const inserted = insertCutIntoEdit(value, relativePath, plan, durationSeconds, track);
-                value = inserted.value as Record<string, any>;
-                successNote = inserted.migratedToV1
-                    ? '本編に素材を追加しました（複数ソースを扱えるよう v1 形式へ変換しました）。'
-                    : '本編に素材を追加しました。';
-                warningNote = inserted.warnings.join(' ');
+                value = JSON.parse(moveVisualItemInSource(JSON.stringify(inserted.value), rows,
+                    { kind: 'cut', index: plan.insertIndex }, target.id, t, true));
+                successNote = 'タイムラインに素材を追加しました。';
             } else if (zone === 'layers') {
                 const existingIds: string[] = Array.isArray(value.layers)
                     ? value.layers
@@ -5591,6 +5593,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): void {
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
+        element.style.userSelect = 'none';
+        element.addEventListener('dragstart', event => event.preventDefault());
         element.addEventListener('click', event => event.stopPropagation());
         element.addEventListener('pointermove', event => {
             const state = this.dragState;
@@ -5642,6 +5646,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 dragged: false
             } as DragState;
             this.dragState = state;
+            this.bindDragLifecycle(state, onUp);
             this.updateTrimAffordance(element, state);
             element.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
             element.style.opacity = '.5';
@@ -5658,7 +5663,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // Pointer capture can fail if the element is detached during a file refresh.
             }
         });
-        element.addEventListener('pointerup', event => {
+        const onUp = (event: PointerEvent): void => {
             const state = this.dragState;
             if (!state || state.pointerId !== event.pointerId || state.element !== element) {
                 return;
@@ -5678,13 +5683,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const preview = this.updateDragPreview(state, event.clientX, event.clientY, true);
             this.cancelDrag(state);
             void this.commitDrag(preview);
-        });
-        element.addEventListener('pointercancel', event => {
-            const state = this.dragState;
-            if (state && state.pointerId === event.pointerId && state.element === element) {
-                this.cancelDrag(state);
-            }
-        });
+        };
     }
 
     /**
@@ -6120,6 +6119,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): void {
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
+        element.style.userSelect = 'none';
+        element.addEventListener('dragstart', event => event.preventDefault());
         element.style.cursor = 'default';
         element.addEventListener('click', event => {
             event.stopPropagation();
@@ -6172,6 +6173,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 dragged: false
             } as DragState;
             this.dragState = state;
+            this.bindDragLifecycle(state, onUp);
             this.updateTrimAffordance(element, state);
             if (!element.dataset.trimEdge) { element.style.cursor = 'grabbing'; }
             element.style.opacity = '.5';
@@ -6213,7 +6215,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.updateDragPreview(state, event.clientX, event.clientY, state.dragged);
         });
-        element.addEventListener('pointerup', event => {
+        const onUp = (event: PointerEvent): void => {
             const state = this.dragState;
             if (!state || state.element !== element || state.pointerId !== event.pointerId) {
                 return;
@@ -6236,13 +6238,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const preview = this.updateDragPreview(state, event.clientX, event.clientY, true);
             this.cancelDrag(state);
             void this.commitDrag(preview);
-        });
-        element.addEventListener('pointercancel', event => {
-            const state = this.dragState;
-            if (state && state.element === element && state.pointerId === event.pointerId) {
-                this.cancelDrag(state);
-            }
-        });
+        };
     }
 
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
@@ -6993,10 +6989,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.snapGuide.style.display = 'none';
     }
 
+    /** End the gesture independently of hit targets, capture loss, or window focus. */
+    protected bindDragLifecycle(state: DragState, onUp: (event: PointerEvent) => void): void {
+        this.dragLifecycleCleanup?.();
+        const cancel = (): void => { if (this.dragState === state) this.cancelDrag(state); };
+        const up = (event: PointerEvent): void => {
+            if (event.pointerId === state.pointerId && this.dragState === state) onUp(event);
+        };
+        const pointerCancel = (event: PointerEvent): void => {
+            if (event.pointerId === state.pointerId) cancel();
+        };
+        const move = (event: PointerEvent): void => {
+            if (event.pointerId === state.pointerId && (event.buttons & 1) === 0) cancel();
+        };
+        const visibility = (): void => { if (document.hidden) cancel(); };
+        document.addEventListener('pointerup', up, true);
+        document.addEventListener('pointercancel', pointerCancel, true);
+        document.addEventListener('pointermove', move, true);
+        document.addEventListener('visibilitychange', visibility);
+        state.element.addEventListener('lostpointercapture', pointerCancel);
+        window.addEventListener('blur', cancel);
+        this.dragLifecycleCleanup = () => {
+            document.removeEventListener('pointerup', up, true);
+            document.removeEventListener('pointercancel', pointerCancel, true);
+            document.removeEventListener('pointermove', move, true);
+            document.removeEventListener('visibilitychange', visibility);
+            state.element.removeEventListener('lostpointercapture', pointerCancel);
+            window.removeEventListener('blur', cancel);
+        };
+    }
+
     protected cancelDrag(state: DragState): void {
         if (this.dragState !== state) {
             return;
         }
+        this.dragLifecycleCleanup?.();
+        this.dragLifecycleCleanup = undefined;
         try {
             if (state.element.hasPointerCapture(state.pointerId)) {
                 state.element.releasePointerCapture(state.pointerId);

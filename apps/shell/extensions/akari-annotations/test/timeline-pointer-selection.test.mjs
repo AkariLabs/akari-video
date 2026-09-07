@@ -17,6 +17,7 @@ function fixture(detail) {
         setPointerCapture() {}
     };
     const widget = Object.assign(new Widget(), { pinTimelineViewport() {},
+        bindDragLifecycle(state, onUp) { state.element.addEventListener('pointerup', onUp); },
         toolMode: 'select', strip: { appendChild() {} }, cuts: [], audioSfx: [],
         detectCutDoubleClick: () => false,
         cancelDrag() { this.dragState = undefined; },
