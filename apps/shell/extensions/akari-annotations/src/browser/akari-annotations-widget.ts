@@ -2394,7 +2394,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection.id === 'bgm' && this.audioBgm) {
             return {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                outputStart: 0, duration: this.totalDuration(),
+                outputStart: 0, duration: this.outputEndDuration(),
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
@@ -3608,6 +3608,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return Math.max(...candidates);
     }
 
+    /** BGM is mixed to the timed output, never to the scrollable editing margin. */
+    protected outputEndDuration(): number {
+        return Math.max(0,
+            ...this.segments.map(segment => segment.tlEnd),
+            ...this.layers.map(layer => layer.t + layer.duration),
+            ...this.audioSfx.map(sfx => sfx.t + sfx.duration),
+            ...this.audioNarration.map(narration => narration.t + this.narrationDisplayDuration(narration)));
+    }
+
     protected totalDuration(): number {
         const contentEnd = this.contentEndDuration();
         const padded = contentEnd * 1.02;
@@ -3748,7 +3757,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
                 const intervals = [
                     ...(this.audioBgm && ref === 0
-                        ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                        ? [{ start: 0, end: this.outputEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     // narration は track を持たないため常に ref 0 帯へ乗せる（Phase 2-5 逆輸入）。
                     ...(ref === 0 ? this.audioNarration.map(narration => ({
                         start: narration.t,
@@ -4077,10 +4086,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         const bgmLayout = this.trackLayout('audio', 0);
-        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.totalDuration())) {
+        if (this.audioBgm && bgmLayout && this.outputEndDuration() > 0 && this.isRangeVisible(0, this.outputEndDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
-            const end = this.totalDuration();
+            const end = this.outputEndDuration();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             const element = this.stripSegment(
