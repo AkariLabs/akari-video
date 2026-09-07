@@ -140,7 +140,10 @@ export class ProjectCardPreview {
         image.setAttribute('aria-hidden', 'true');
         Object.assign(image.style, {
             position: 'absolute', inset: '0', width: '100%', height: '100%',
-            objectFit: 'cover', opacity: visible ? '1' : '0', transition: 'opacity 180ms ease'
+            // 16:9 の枠内に元の比率で全体を収める。正方形・縦長は左右に余白を残す。
+            objectFit: 'contain', objectPosition: 'center',
+            background: 'var(--akari-bg, var(--theia-editor-background))',
+            opacity: visible ? '1' : '0', transition: 'opacity 180ms ease'
         });
         // 元動画が消えている等でコマだけ読めなかったら、そのカードは黙ってプレースホルダへ戻す。
         image.addEventListener('error', () => image.remove(), { once: true });
