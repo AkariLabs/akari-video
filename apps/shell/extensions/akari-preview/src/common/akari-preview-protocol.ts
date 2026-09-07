@@ -346,6 +346,7 @@ export type SetHighPerformanceGpuResult =
     | { ok: false; reason: string; state: GpuPreferenceState };
 
 export interface AkariPreviewService {
+    prepareVisualThumbnail(request: import('./visual-thumbnail').VisualThumbnailRequest): Promise<import('./visual-thumbnail').VisualThumbnailPage>;
     promotePreviewAudioSidecars(request: import('./preview-audio-priority').PromotePreviewAudioSidecarsRequest):
         Promise<import('./preview-audio-priority').PromotePreviewAudioSidecarsResult>;
     getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;

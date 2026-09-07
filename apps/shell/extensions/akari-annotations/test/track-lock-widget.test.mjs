@@ -24,6 +24,7 @@ const names = [
   'handleMaterialDrop', 'resolveMaterialDropTarget', 'updateMaterialGhost',
   'handleLibraryTransitionDrop', 'handleLibraryTransitionDragOver', 'applyTrackLockAppearance',
   'timelineSelectionFromElement',
+  'visualTrack',
 ];
 const methodText = name => {
   const method = widget.members.find(member => member.name?.getText(source) === name);
@@ -39,6 +40,31 @@ const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_
   isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement,
   linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items
 );
+
+test('a reused clip remains interactive after keyed geometry resets pointer events', () => {
+  const context = new Handler();
+  context.dragListenerConfigs = new WeakMap();
+  context.dragListenerInstalled = new WeakSet();
+  let listeners = 0;
+  const element = { style: { pointerEvents: 'none' }, addEventListener: () => listeners++ };
+  context.installDragListeners(element, () => ({ kind: 'overlay', id: 'title', mode: 'resize' }));
+  const installed = listeners;
+  element.style.pointerEvents = 'none';
+  context.installDragListeners(element, () => ({ kind: 'overlay', id: 'title', mode: 'resize' }));
+  assert.equal(element.style.pointerEvents, 'auto');
+  assert.equal(listeners, installed, 'reusing a clip must not duplicate pointer listeners');
+});
+
+test('visual height follows HTML in mixed tracks and preserves caption-only item rows', () => {
+  const context = new Handler();
+  context.expandedTimelineTreeRows = [
+    { trackId: 'mixed', sourceKind: 'media' }, { trackId: 'mixed', sourceKind: 'html' },
+    { trackId: 'captions', sourceKind: 'group' }, { trackId: 'captions', sourceKind: 'caption' }
+  ];
+  assert.equal(context.visualTrack({ id: 'mixed', kind: 'cuts' }), true);
+  assert.equal(context.visualTrack({ id: 'captions', kind: 'layers' }), false);
+  assert.equal(context.visualTrack({ id: 'ordinary', kind: 'cuts' }), false);
+});
 
 function fixture(stored = new Map()) {
   const context = new Handler();
@@ -341,7 +367,7 @@ test('every timeline edit entry checks isTrackLocked before mutation', () => {
     'moveTimelineKeyframe', 'removeSelectedKeyframes', 'moveAggregateKeyframes', 'deleteTimelineTrack',
     'commitDrag', 'commitEditV2Drag',
   ]) assert.match(methodText(name), /this\.isTrackLocked\(/, name);
-  assert.match(methodText('renderTrackHeaders'), /JSON\.stringify\(\[track, name, visible, audible, locked, treeRows\]\)/);
+  assert.match(methodText('renderTrackHeaders'), /JSON\.stringify\(\[track, name, visible, audible, locked, treeRows,\s*this\.timelineRowStride\(track\.id\)/);
   assert.match(methodText('renderTrackHeaders'), /this\.beatsLocked/);
   assert.match(methodText('renderTransitionBoundaries'), /dropTarget\.style\.visibility = locked \? 'hidden'/);
 });

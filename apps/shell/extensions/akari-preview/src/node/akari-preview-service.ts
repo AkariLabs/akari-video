@@ -60,6 +60,8 @@ import {
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
 import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
+import { prepareVisualThumbnailPage } from './visual-thumbnail-page';
+import { VisualThumbnailPage, VisualThumbnailRequest } from '../common/visual-thumbnail';
 
 interface StreamTarget {
     path: string;
@@ -656,6 +658,17 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             id,
             url: `http://127.0.0.1:${port}/asset/${id}${target.extension}`
         };
+    }
+
+    async prepareVisualThumbnail(request: VisualThumbnailRequest): Promise<VisualThumbnailPage> {
+        if (typeof request.editSnapshot !== 'string' || request.editSnapshot.length > 8 * 1024 * 1024) {
+            throw new Error('Visual thumbnail requires an edit snapshot');
+        }
+        const editPath = await realpath(this.filePath(request.editUri));
+        const roots = await this.resolveWorkspaceRoots();
+        if (!roots.some(root => this.contains(root, editPath))) throw new Error('Project is outside the workspace');
+        return prepareVisualThumbnailPage(editPath, request.itemId, await this.getOverlayRuntimeAssetUrls(),
+            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot);
     }
 
     async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {

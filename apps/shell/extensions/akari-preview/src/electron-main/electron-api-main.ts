@@ -4,11 +4,13 @@ import {
 } from '@theia/core/lib/electron-main/electron-main-application';
 import { ipcMain, systemPreferences } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { CHANNEL_ASK_MICROPHONE_ACCESS } from '../electron-common/electron-api';
+import { CHANNEL_ASK_MICROPHONE_ACCESS, CHANNEL_CAPTURE_VISUAL_THUMBNAIL } from '../electron-common/electron-api';
+import { captureVisualThumbnail } from './visual-thumbnail-capture';
 
 @injectable()
 export class AkariPreviewElectronApi implements ElectronMainApplicationContribution {
     onStart(_application: ElectronMainApplication): void {
+        ipcMain.handle(CHANNEL_CAPTURE_VISUAL_THUMBNAIL, (_event, page) => captureVisualThumbnail(page));
         ipcMain.handle(CHANNEL_ASK_MICROPHONE_ACCESS, async () => {
             if (process.platform !== 'darwin') {
                 return true;
