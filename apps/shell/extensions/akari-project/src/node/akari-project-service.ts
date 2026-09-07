@@ -1,3 +1,5 @@
+import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
+import { interpretCaptionsResult } from '../common/captions-result';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { execFile, spawn } from 'child_process';
@@ -8,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
+    TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
     AssetEntitlementsStatus,
@@ -821,6 +824,86 @@ try {
         return results;
     }
 
+    protected readonly transcriptions = new Set<string>();
+
+    protected async materialTarget(projectRoot: string, relativePath: string): Promise<{ root: string; path: string; relativePath: string }> {
+        const root = await fs.realpath(this.fsPath(projectRoot));
+        const path = await fs.realpath(resolve(root, relativePath));
+        const rel = relative(root, path);
+        if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+            throw new Error('素材はプロジェクト内のパスで指定してください');
+        }
+        const lexicalRelative = relative(root, resolve(root, relativePath));
+        if (!lexicalRelative || lexicalRelative === '..' || lexicalRelative.startsWith(`..${sep}`) || isAbsolute(lexicalRelative)) {
+            throw new Error('素材はプロジェクト内のパスで指定してください');
+        }
+        return { root, path, relativePath: lexicalRelative.split(sep).join('/') };
+    }
+
+    protected async findMediaTool(kind: 'media' | 'captions'): Promise<string> {
+        const candidates = (kind === 'media' ? mediaCliCandidates : captionsCliCandidates)(__dirname, process.cwd(), this.resourcesPath());
+        for (const candidate of candidates) {
+            if (await fs.stat(candidate).then(stat => stat.isFile(), () => false)) return candidate;
+        }
+        throw new Error(`${kind} CLI が見つかりません`);
+    }
+
+    async transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>> {
+        const entries = await Promise.all(request.relativePaths.map(async rel => {
+            let state: TranscriptState = 'none';
+            try {
+                const target = await this.materialTarget(request.projectRoot, rel);
+                if (this.transcriptions.has(target.path)) state = 'running';
+                else {
+                    const analysis = JSON.parse(await fs.readFile(join(target.root, '.akari/sidecars', `${target.relativePath}.analysis/analysis.json`), 'utf8'));
+                    if (Array.isArray(analysis.transcript) && analysis.transcript.length >= 1) state = 'done';
+                }
+            } catch { /* Missing or invalid sidecars remain pending. */ }
+            return [rel, state] as const;
+        }));
+        return Object.fromEntries(entries);
+    }
+
+    async transcribeMaterial(request: TranscribeMaterialRequest): Promise<void> {
+        const target = await this.materialTarget(request.projectRoot, request.relativePath);
+        if (this.transcriptions.has(target.path)) throw new Error('この素材は文字起こしを実行中です');
+        this.transcriptions.add(target.path);
+        const publish = async (status: string, error?: string): Promise<void> => {
+            const id = this.eventId('material-transcript');
+            await this.writeJsonAtomic(join(target.root, '.akari/events', `${id}.json`), {
+                version: 1, id, type: 'material-transcript', relativePath: target.relativePath, status, error
+            });
+        };
+        let failure: Error | undefined;
+        try {
+            const cli = await this.findMediaTool('media');
+            await publish('running').catch(error => console.warn('[akari-project] transcript event:', error));
+            const result = await this.runNodeScript(cli, ['transcribe', target.relativePath], target.root);
+            if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
+        } catch (error) {
+            failure = error instanceof Error ? error : new Error(String(error));
+        } finally {
+            this.transcriptions.delete(target.path);
+        }
+        await publish(failure ? 'failed' : 'completed', failure?.message)
+            .catch(error => console.warn('[akari-project] transcript event:', error));
+        if (failure) throw failure;
+    }
+
+    async buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult> {
+        const root = await fs.realpath(this.fsPath(request.projectRoot));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const sources: { id: string; path: string }[] = Array.isArray(edit.sources) ? edit.sources : [];
+        const source = request.source === undefined && sources.length === 1 ? sources[0]
+            : sources.find(item => item.id === request.source);
+        if (!source) throw new Error(`素材を選んでください: ${sources.map(item => item.id).join(', ')}`);
+        await this.materialTarget(root, source.path);
+        if (request.transcribeFirst) await this.transcribeMaterial({ projectRoot: root, relativePath: source.path });
+        const cli = await this.findMediaTool('captions');
+        const result = await this.runNodeScript(cli, [root, '--source', source.id, ...(request.force ? ['--force'] : [])], root);
+        return interpretCaptionsResult(result.code, result.stdout, result.stderr);
+    }
+
     /**
      * packages/edit-lint の既存 CLI を子プロセスで呼ぶだけ（読み取り専用・再実装しない）。
      * edit.json が無いプロジェクトは呼び出し自体を省略し、バッジを非表示にできるよう
@@ -878,10 +961,11 @@ try {
      * 指す場合に必要（akari-partner-server.ts の bootstrap と同じ流儀）。
      * 開発時の素の node プロセスでは無害に無視される。
      */
-    protected async runNodeScript(scriptPath: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+    protected async runNodeScript(scriptPath: string, args: string[], cwd?: string): Promise<{ code: number; stdout: string; stderr: string }> {
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
                 env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                cwd,
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             let stdout = '';
@@ -889,7 +973,7 @@ try {
             child.stdout.on('data', chunk => stdout += chunk.toString());
             child.stderr.on('data', chunk => stderr += chunk.toString());
             child.on('error', reject);
-            child.on('exit', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
+            child.on('close', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
         });
     }
 

@@ -1,9 +1,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, extname, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { extractGlassSceneAssetReferences, resolveDeclaredProjectInput } from "./render-inputs.mjs";
+import { resolveDeclaredProjectInput } from "./render-inputs.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
+import { runtimes, runtimeRoot, readDeclarations, declarationPattern, scriptApplies } from "../../overlay-runtime/runtimes.mjs";
 import { embedFragmentAssets } from "./fragment-assets.mjs";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
@@ -11,85 +12,44 @@ const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 const PAGE_MESSAGE_LIMIT = 20;
 const RECENT_FRAME_LIMIT = 5;
 
-// シートに埋まった 3D シーン宣言の数。負荷起因のタイムアウトかを一目で判断する材料。
-function countThreeDimensionalScenes(sheetPath) {
-  try {
-    return stripHtmlComments(readFileSync(sheetPath, "utf8")).split("data-akari-3d-scene").length - 1;
-  } catch {
-    return 0;
-  }
-}
-const THREE_BUNDLE_PATH = resolve(
-  SOURCE_DIRECTORY,
-  "../../overlay-runtime/src/vendor/three-bundle.js",
-);
-const THREE_RUNTIME_PATH = resolve(
-  SOURCE_DIRECTORY,
-  "../../overlay-runtime/src/three-runtime.js",
-);
-const GLASS_RUNTIME_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/glass-runtime.js");
-const VGPU_BUNDLE_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/vendor/vgpu-bundle.js");
-const VGPU_RUNTIME_PATH = resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/vgpu-runtime.js");
 const SLOT_PARAMS_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/slot-params.js",
 );
-// texts[]（troika-three-text 経由の 3D テキスト）を含むシートだけ追加で読み込む。
-// 読み込み順は three-bundle.js → vendor-3d-text-bundle.js を厳守する
-// （overlay-runtime/README.md「単一 three インスタンス制約への対応」— troika は
-// vendored three を alias 解決するため、three-bundle.js が先に window.AkariThree.THREE を
-// 作っていないと壊れる）
-const THREE_TEXT_BUNDLE_PATH = resolve(
-  SOURCE_DIRECTORY,
-  "../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js",
-);
-const DEFAULT_THREE_FONT_PATH = resolve(
-  SOURCE_DIRECTORY,
-  "../../overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf",
-);
-let defaultThreeFontDataUri;
-function resolveDefaultThreeFontDataUri() {
-  defaultThreeFontDataUri ??=
-    `data:font/ttf;base64,${readFileSync(DEFAULT_THREE_FONT_PATH).toString("base64")}`;
-  return defaultThreeFontDataUri;
-}
 // モーション語彙（イージング名 + 対象別既定尺の CSS 変数）。プレビュー側はホストが
 // <link> するのと同じ内容を、語彙を参照するシートにだけ埋め込む（パリティ）。
 // 参照しないシートに埋め込まないのは、非対象シートのバイト同一性を守るため
-// （threeRuntimeScripts の出し分けと同じ判断）
+// （runtimeScripts の出し分けと同じ判断）
 const MOTION_VOCAB_CSS_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/motion-vocab.css",
 );
-const THREE_SCENE_SCRIPT_PATTERN = /(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu;
-const TEXTURE_MIME_TYPES = new Map([
-  [".avif", "image/avif"],
-  [".bmp", "image/bmp"],
-  [".gif", "image/gif"],
-  [".jfif", "image/jpeg"],
-  [".jpeg", "image/jpeg"],
-  [".jpg", "image/jpeg"],
-  [".png", "image/png"],
-  [".svg", "image/svg+xml"],
-  [".webp", "image/webp"],
-  // 動画テクスチャ。原本ではなく編集用 720p プロキシを差すこと（skills/overlay-authoring/3d.md）
-  [".m4v", "video/mp4"],
-  [".mov", "video/quicktime"],
-  [".mp4", "video/mp4"],
-  [".webm", "video/webm"],
-]);
-// 動画テクスチャの上限。「原本を黙って通さない」（skills/overlay-authoring/3d.md）を実際に効かせる。
-// 解像度ではなくバイト数で見るのは、シート生成が同期・純関数で ffprobe を呼ばないため
-// （呼ぶと単体テストが使う極小のダミー動画も読めなくなる）。24MB は 720p / H.264 / CRF 23 なら
-// 数分ぶんに相当し、実運用のプロキシは通るが 4K マスターは通らない目安。
-// 埋め込みは base64（約 1.37 倍）になり、プレビューは毎 tick これをシークする
-const MAX_VIDEO_TEXTURE_BYTES = 24 * 1024 * 1024;
-// texts[].font の埋め込み用 MIME。troika は XMLHttpRequest(responseType:"arraybuffer") で読んで
-// 自前パーサへ渡すだけなので実行上は無関係だが、data URI の型として正しい値を残す
-const FONT_MIME_TYPES = new Map([
-  [".otf", "font/otf"],
-  [".ttf", "font/ttf"],
-]);
+// One builder owns export spelling and whitespace for every manifest entry.
+// Stable per-id names preserve existing sheet bytes and diagnostic consumers.
+function buildRuntimeBlocks(entry, edit) {
+  const id = entry.id;
+  if (!/^[a-z][A-Za-z0-9_]*$/.test(id) || !/^[A-Za-z_$][\w$]*$/.test(entry.browserGlobal)) {
+    throw new TypeError("runtime export identifiers must be JavaScript identifiers");
+  }
+  const title = id[0].toUpperCase() + id.slice(1);
+  const sceneLabel = entry.exportSceneLabel ?? id;
+  const drawOptions = entry.exportRenderOptions === false ? ""
+    : typeof entry.exportRenderOptions === "function" ? `, ${entry.exportRenderOptions(edit)}`
+    : ", {}";
+  const prepareStep = entry.prepare
+    ? `\n      await window.akari.${entry.browserGlobal}.${entry.prepare}();`
+    : "";
+  const readyCheck = entry.prepare
+    ? `\n        if (window.akari.${entry.browserGlobal}.inspect(${id}Container).status !== 'ready') {\n          throw new Error('${id.toUpperCase()}-RENDER: overlay is not ready');\n        }`
+    : "";
+  return {
+    seekCollector: `\n      const pending${title}Draws = [];`,
+    seekBranch: `\n        const ${id}Container = container.querySelector(':scope > .scene-content');\n        if (active && ${id}Container?.querySelector('script[type="application/json"][${entry.declaration.attr}]')) {\n          pending${title}Draws.push([${id}Container, seconds - start]);\n        }`,
+    drawStep: `${prepareStep}\n      for (const [${id}Container, localSeconds] of pending${title}Draws) {\n        window.akari.${entry.browserGlobal}.render(${id}Container, localSeconds${drawOptions});${readyCheck}\n      }`,
+    readySetup: entry.prepare ? "" : `\n    const ${id}Containers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][${entry.declaration.attr}]')\n    );\n    for (const container of ${id}Containers) {\n      window.akari.${entry.browserGlobal}.render(container, 0);\n    }\n    async function waitFor${title}Container(container) {\n      while (true) {\n        const status = window.akari.${entry.browserGlobal}.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-${id}] ${sceneLabel} scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-${id}] ${sceneLabel} scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`,
+    readyWait: entry.prepare ? "" : `\n      await Promise.all(${id}Containers.map(waitFor${title}Container));`,
+  };
+}
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays).map((overlay) => overlay.htmlPath ? {
@@ -97,30 +57,22 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
   } : overlay);
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
-  const hasVgpuOverlay = strippedOverlayHtml.some(html => /data-akari-vgpu-scene/u.test(html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
       && Object.keys(overlay.params).length > 0,
   );
-  const hasThreeDimensionalOverlay = strippedOverlayHtml.some((html) =>
-    /data-akari-3d-scene/u.test(html),
-  );
-  // texts[] を含む宣言だけ vendor-3d-text-bundle.js（troika-three-text）を追加で読み込む。
-  // 素朴な文字列検査で足りるのは、他フラグ（hasResolvedSingleLineCaption 等）と同じ判断
-  const hasThreeDimensionalTextOverlay = hasThreeDimensionalOverlay
-    && strippedOverlayHtml.some((html) =>
-      /data-akari-3d-scene/u.test(html) && html.includes('"texts"'),
-    );
-  const hasGlassOverlay = strippedOverlayHtml.some((html) => /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>/iu.test(html));
-  let sheetOverlays = hasThreeDimensionalOverlay
-    ? orderedOverlays.map((overlay) => ({
-        ...overlay,
-        html: embedThreeModels(overlay.html, projectRoot, overlay.id, overlay.vars ?? {}),
-      }))
-    : orderedOverlays;
-  if (hasGlassOverlay) sheetOverlays = sheetOverlays.map((overlay) => ({
-    ...overlay, html: embedGlassBackdrop(overlay, projectRoot),
-  }));
+  const activeRuntimes = runtimes.filter(entry => strippedOverlayHtml.some(html => readDeclarations(html, entry).length));
+  const usesVideoTextures = activeRuntimes.some(entry => entry.usesVideoTextures);
+  const sheetOverlays = orderedOverlays.map(overlay => {
+    let html = overlay.html;
+    for (const entry of activeRuntimes) {
+      if (!readDeclarations(html, entry).length) continue;
+      const ctx = { projectRoot, resolveDeclaredProjectInput };
+      if (entry.embed) html = entry.embed({ ...overlay, html }, ctx);
+      else html = embedRuntimeAssets(html, overlay, entry, ctx);
+    }
+    return { ...overlay, html };
+  });
   const hasResolvedSingleLineCaption = sheetOverlays.some((overlay) =>
     overlay.html.includes("akari-caption--single-line"),
   );
@@ -170,76 +122,32 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const motionVocabularyStyle = usesMotionVocabulary
     ? `\n  <style>\n${readFileSync(MOTION_VOCAB_CSS_PATH, "utf8")}  </style>`
     : "";
-  const threeTextBundleScript = hasThreeDimensionalTextOverlay
-    ? `\n  <script>${inlineScript(readFileSync(THREE_TEXT_BUNDLE_PATH, "utf8"))}</script>`
-    : "";
-  const threeRuntimeScripts = hasThreeDimensionalOverlay
-    ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>${threeTextBundleScript}\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
-    : "";
-  const glassRuntimeScripts = hasGlassOverlay
-    ? `\n  <script>${inlineScript(readFileSync(GLASS_RUNTIME_PATH, "utf8"))}</script>`
-    : "";
-  const vgpuRuntimeScripts = hasVgpuOverlay
-    ? `\n  <script>${inlineScript(readFileSync(VGPU_BUNDLE_PATH, "utf8"))}</script>\n  <script>${inlineScript(readFileSync(VGPU_RUNTIME_PATH, "utf8"))}</script>`
-    : "";
-  const vgpuSeekCollector = hasVgpuOverlay ? `\n      const pendingVgpuDraws = [];` : "";
-  const vgpuSeekBranch = hasVgpuOverlay ? `
-        const vgpuContainer = container.querySelector(':scope > .scene-content');
-        if (active && vgpuContainer?.querySelector('script[type="application/json"][data-akari-vgpu-scene]')) {
-          pendingVgpuDraws.push([vgpuContainer, seconds - start]);
-        }` : "";
-  const vgpuDrawStep = hasVgpuOverlay ? `
-      await window.akari.vgpuRuntime.probe();
-      for (const [vgpuContainer, localSeconds] of pendingVgpuDraws) {
-        window.akari.vgpuRuntime.render(vgpuContainer, localSeconds, { fps: ${edit.output.fps} });
-        if (window.akari.vgpuRuntime.inspect(vgpuContainer).status !== 'ready') {
-          throw new Error('VGPU-RENDER: overlay is not ready');
-        }
-      }` : "";
+  const exportScripts = new Map();
+  for (const entry of activeRuntimes) {
+    const declarations = strippedOverlayHtml.flatMap(html => readDeclarations(html, entry).map(d => d.parse()));
+    for (const script of entry.scripts) {
+      if (declarations.some(descriptor => scriptApplies(script, descriptor))) {
+        const path = resolve(runtimeRoot, script.path);
+        const source = readFileSync(path, "utf8");
+        exportScripts.set(path, script.exportSource ? script.exportSource(source) : source);
+      }
+    }
+  }
+  const runtimeScripts = [...exportScripts.values()].map(source => `\n  <script>${inlineScript(source)}</script>`).join("");
   const slotRuntimeScripts = hasTextSlotParams
     ? `\n  <script>${inlineScript(readFileSync(SLOT_PARAMS_PATH, "utf8"))}</script>`
       + `\n  <script>(function(){for(const content of document.querySelectorAll('.akari-overlay-container[data-akari-params] > .scene-content')){const params=JSON.parse(content.parentElement.dataset.akariParams);content.replaceWith(window.akari.slotParams.renderTextSlots(content,params));}})();</script>`
     : "";
-  // 3D は「動画テクスチャのシークが終わってから」描く。ここで描いてしまうと <video> がまだ
-  // 前フレームの絵のままテクスチャへ上がり、同じ時刻でも直前に何を撮ったかで結果が変わる。
-  // 収集だけ先にして、実際の描画は video の提示フレーム確定後（threeDrawStep）へ回す
-  const threeSeekCollector = hasThreeDimensionalOverlay
-    ? `\n      const pendingThreeDraws = [];`
-    : "";
-  const glassSeekCollector = hasGlassOverlay
-    ? `\n      const pendingGlassDraws = [];`
-    : "";
-  const threeSeekBranch = hasThreeDimensionalOverlay
-    ? `\n        const threeContainer = container.querySelector(':scope > .scene-content');\n        if (active && threeContainer?.querySelector('script[type="application/json"][data-akari-3d-scene]')) {\n          pendingThreeDraws.push([threeContainer, seconds - start]);\n        }`
-    : "";
-  const glassSeekBranch = hasGlassOverlay
-    ? `\n        const glassContainer = container.querySelector(':scope > .scene-content');\n        if (active && glassContainer?.querySelector('script[type="application/json"][data-akari-glass-scene]')) {\n          pendingGlassDraws.push([glassContainer, seconds - start]);\n        }`
-    : "";
-  const threeDrawStep = hasThreeDimensionalOverlay
-    ? `\n      for (const [threeContainer, localSeconds] of pendingThreeDraws) {\n        window.akari.threeRuntime.render(threeContainer, localSeconds);\n      }`
-    : "";
-  const glassDrawStep = hasGlassOverlay
-    ? `\n      for (const [glassContainer, localSeconds] of pendingGlassDraws) {\n        window.akari.glassRuntime.render(glassContainer, localSeconds, {});\n      }`
-    : "";
-  // 3D の動画テクスチャはランタイムが loop を立てて作るので、素材の尺より合成が長いときは
-  // 畳んで回す（畳まないと末尾のフレームで静止する）。2D だけのシートは従来どおり
-  // 合成時刻をそのまま渡す — 非 3D シートのバイト同一性を崩さないため宣言ごと出し分ける
-  const videoSeekTarget = hasThreeDimensionalOverlay ? "target" : "seconds";
-  const videoSeekTargetDeclaration = hasThreeDimensionalOverlay
+  const blocks = activeRuntimes.map(entry => buildRuntimeBlocks(entry, edit));
+  const runtimeSeekCollector = blocks.map(block => block.seekCollector).join("");
+  const runtimeSeekBranch = blocks.map(block => block.seekBranch).join("");
+  const runtimeDrawStep = blocks.map(block => block.drawStep).join("");
+  const videoSeekTarget = usesVideoTextures ? "target" : "seconds";
+  const videoSeekTargetDeclaration = usesVideoTextures
     ? `\n          const target = video.loop && Number.isFinite(video.duration) && video.duration > 0\n            ? seconds % video.duration\n            : seconds;`
     : "";
-  const threeReadySetup = hasThreeDimensionalOverlay
-    ? `\n    const threeContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-3d-scene]')\n    );\n    for (const container of threeContainers) {\n      window.akari.threeRuntime.render(container, 0);\n    }\n    async function waitForThreeContainer(container) {\n      while (true) {\n        const status = window.akari.threeRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-three] 3D scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-three] 3D scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
-    : "";
-  const glassReadySetup = hasGlassOverlay
-    ? `\n    const glassContainers = Array.from(document.querySelectorAll('.akari-overlay-container > .scene-content')).filter((container) =>\n      container.querySelector('script[type="application/json"][data-akari-glass-scene]')\n    );\n    for (const container of glassContainers) {\n      window.akari.glassRuntime.render(container, 0);\n    }\n    async function waitForGlassContainer(container) {\n      while (true) {\n        const status = window.akari.glassRuntime.inspect(container).status;\n        if (status === 'ready') return;\n        if (status === 'error') {\n          console.error('[akari-glass] glass scene の読み込みエラーを fallback 表示のまま続行します');\n          return;\n        }\n        if (status !== 'loading') {\n          console.error('[akari-glass] glass scene を初期化できないため fallback 表示のまま続行します', status);\n          return;\n        }\n        await new Promise((resolve) => setTimeout(resolve, 10));\n      }\n    }`
-    : "";
-  const threeReadyWait = hasThreeDimensionalOverlay
-    ? `\n      await Promise.all(threeContainers.map(waitForThreeContainer));`
-    : "";
-  const glassReadyWait = hasGlassOverlay
-    ? `\n      await Promise.all(glassContainers.map(waitForGlassContainer));`
-    : "";
+  const runtimeReadySetup = blocks.map(block => block.readySetup).join("");
+  const runtimeReadyWait = blocks.map(block => block.readyWait).join("");
   const captionFontReadyWait = hasResolvedSingleLineCaption
     ? `\n      await document.fonts.load('600 82px "AKARI Noto Sans JP"');\n      if (!document.fonts.check('600 82px "AKARI Noto Sans JP"')) {\n        throw new Error('AKARI caption font did not load');\n      }`
     : "";
@@ -253,7 +161,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${threeRuntimeScripts}${glassRuntimeScripts}${vgpuRuntimeScripts}
+  </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${runtimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -410,22 +318,22 @@ ${nodes}${slotRuntimeScripts}
         Array.from(document.querySelectorAll('video'), waitForVideo),
       )).filter(Boolean);
     };
-    window.__akariSeek = async function(seconds) {${threeSeekCollector}${glassSeekCollector}${vgpuSeekCollector}
+    window.__akariSeek = async function(seconds) {${runtimeSeekCollector}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const start = Number(container.dataset.start);
         const duration = Number(container.dataset.duration);
         const active = seconds >= start && seconds < start + duration;
         container.style.visibility = active ? 'visible' : 'hidden';
-        container.toggleAttribute('data-akari-active', active);${threeSeekBranch}${glassSeekBranch}${vgpuSeekBranch}
+        container.toggleAttribute('data-akari-active', active);${runtimeSeekBranch}
       }
       window.__akariSyncAnimations(seconds);
-      const warnings = await window.__akariSeekVideos(seconds);${threeDrawStep}${glassDrawStep}${vgpuDrawStep}
+      const warnings = await window.__akariSeekVideos(seconds);${runtimeDrawStep}
       await Promise.resolve();
       return { warnings };
-    };${threeReadySetup}${glassReadySetup}
+    };${runtimeReadySetup}
     window.__akariReady = (async function() {
       await document.fonts.ready;${captionFontReadyWait}
-      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${threeReadyWait}${glassReadyWait}
+      await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => {})));${runtimeReadyWait}
       await Promise.all(Array.from(document.querySelectorAll('video')).map((video) =>
         video.readyState >= 2
           ? Promise.resolve()
@@ -572,198 +480,19 @@ function renderOverlayNode(overlay, index, fps) {
   return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params}${keyframes} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
 }
 
-function embedGlassBackdrop(overlay, projectRoot) {
-  const references = extractGlassSceneAssetReferences(overlay.html, overlay.htmlPath, overlay.id);
-  let index = 0;
-  return overlay.html.replace(
-    /<!--[\s\S]*?-->|(<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>)([\s\S]*?)(<\/script\s*>)/giu,
-    (match, opening, json, closing) => {
-      if (!opening) return match; // Preserve commented declarations byte for byte.
-      const descriptor = JSON.parse(json);
-      if (descriptor.backdrop !== undefined) {
-        const reference = references[index++];
-        const binding = resolveDeclaredProjectInput(projectRoot, reference.path, `overlay:${overlay.id}:glass-backdrop`);
-        const mime = textureMimeType(reference.path);
-        if (!mime.startsWith("image/")) throw new TypeError("glass backdrop must be a still image");
-        descriptor.backdrop = `data:${mime};base64,${readFileSync(binding).toString("base64")}`;
-      }
-      return opening + JSON.stringify(descriptor).replace(/</gu, "\\u003c") + closing;
-    },
-  );
-}
-
-function embedThreeModels(html, projectRoot, overlayId, overlayVars) {
-  if (!/data-akari-3d-scene/u.test(stripHtmlComments(html))) return html;
-  let declarationCount = 0;
-  const embedded = html.replace(
-    THREE_SCENE_SCRIPT_PATTERN,
-    (_match, openingTag, jsonText, closingTag) => {
-      declarationCount += 1;
-      let descriptor;
-      try {
-        descriptor = JSON.parse(jsonText);
-      } catch (error) {
-        throw new Error(
-          `3D overlay ${overlayId} has invalid data-akari-3d-scene JSON: ${error.message}`,
-        );
-      }
-      if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)) {
-        throw new TypeError(`3D overlay ${overlayId} scene declaration must be a JSON object`);
-      }
-      // texts[] があれば model は任意（three-runtime.js readDescriptor と同じ緩和。
-      // contract-2026-08-12-3d-text-rail.md §3.1）
-      const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
-      if (descriptor.model !== undefined
-        && (typeof descriptor.model !== "string" || descriptor.model.length === 0)) {
-        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
-      }
-      if (descriptor.model === undefined && !hasTexts) {
-        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
-      }
-      if (typeof descriptor.model === "string"
-        && (descriptor.model.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(descriptor.model))) {
-        throw new TypeError(`3D overlay ${overlayId} scene model must be a relative path`);
-      }
-      const embeddedDescriptor = { ...descriptor };
-      if (typeof descriptor.model === "string") {
-        const modelPath = resolve(projectRoot, descriptor.model);
-        const model = readFileSync(modelPath);
-        embeddedDescriptor.model = `data:model/gltf-binary;base64,${model.toString("base64")}`;
-      }
-      if (hasTexts) {
-        embeddedDescriptor.texts = descriptor.texts.map((textDescriptor) => {
-          const font = textDescriptor.font;
-          if (font === undefined) {
-            return { ...textDescriptor, font: resolveDefaultThreeFontDataUri() };
-          }
-          if (typeof font !== "string"
-            || font.length === 0
-            || font.startsWith("/")
-            || /^[a-z][a-z\d+.-]*:/i.test(font)) {
-            throw new TypeError(
-              `3D overlay ${overlayId} texts.${textDescriptor.id}.font must be a relative path`,
-            );
-          }
-          const extension = extname(font).toLowerCase();
-          const mimeType = FONT_MIME_TYPES.get(extension);
-          if (!mimeType) {
-            throw new TypeError(
-              `3D overlay ${overlayId} texts.${textDescriptor.id}.font has an unsupported type: ${extension || "none"}`,
-            );
-          }
-          const fontFile = readFileSync(resolve(projectRoot, font));
-          return {
-            ...textDescriptor,
-            font: `data:${mimeType};base64,${fontFile.toString("base64")}`,
-          };
-        });
-      }
-      if (descriptor.environment?.map !== undefined) {
-        const map = descriptor.environment.map;
-        if (typeof map !== "string"
-          || map.length === 0
-          || map.startsWith("/")
-          || /^[a-z][a-z\d+.-]*:/i.test(map)) {
-          throw new TypeError(`3D overlay ${overlayId} environment.map must be a relative path`);
-        }
-        const mimeType = textureMimeType(map);
-        if (!mimeType.startsWith("image/")) {
-          throw new TypeError(
-            `3D overlay ${overlayId} environment.map must be an equirectangular image: ${map}`,
-          );
-        }
-        const image = readFileSync(resolve(projectRoot, map));
-        embeddedDescriptor.environment = {
-          ...descriptor.environment,
-          map: `data:${mimeType};base64,${image.toString("base64")}`,
-        };
-      }
-      if (descriptor.materialOverrides !== undefined) {
-        if (!descriptor.materialOverrides
-          || typeof descriptor.materialOverrides !== "object"
-          || Array.isArray(descriptor.materialOverrides)) {
-          throw new TypeError(`3D overlay ${overlayId} materialOverrides must be an object`);
-        }
-        embeddedDescriptor.materialOverrides = Object.fromEntries(
-          Object.entries(descriptor.materialOverrides).map(([materialName, override]) => {
-            if (!materialName
-              || !override
-              || typeof override !== "object"
-              || Array.isArray(override)
-              || Object.keys(override).some(
-                (key) => key !== "texture" && key !== "textureVar" && key !== "brightness"
-              )
-              || typeof override.texture !== "string"
-              || override.texture.length === 0) {
-              throw new TypeError(
-                `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
-              );
-            }
-            if (override.textureVar !== undefined
-              && (typeof override.textureVar !== "string"
-                || !/^--[A-Za-z_][A-Za-z0-9_-]*$/u.test(override.textureVar))) {
-              throw new TypeError(
-                `3D overlay ${overlayId} materialOverrides.${materialName}.textureVar must be a CSS custom property name`,
-              );
-            }
-            const variableTexture = override.textureVar === undefined
-              ? undefined
-              : overlayVars[override.textureVar];
-            let texturePath = typeof variableTexture === "string" && variableTexture.length > 0
-              ? variableTexture
-              : override.texture;
-            const textureVariableMatch = /^var\(\s*(--[\w-]+)\s*\)$/u.exec(texturePath);
-            if (textureVariableMatch) {
-              const resolvedTexture = overlayVars[textureVariableMatch[1]];
-              if (typeof resolvedTexture !== "string" || resolvedTexture.length === 0) {
-                throw new TypeError(
-                  `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
-                );
-              }
-              texturePath = resolvedTexture;
-            }
-            if (texturePath.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(texturePath)) {
-              throw new TypeError(
-                `3D overlay ${overlayId} materialOverrides.${materialName}.texture must be a relative path`,
-              );
-            }
-            const texture = readFileSync(resolve(projectRoot, texturePath));
-            const mimeType = textureMimeType(texturePath);
-            if (mimeType.startsWith("video/") && texture.length > MAX_VIDEO_TEXTURE_BYTES) {
-              throw new Error(
-                `3D overlay ${overlayId} materialOverrides.${materialName}.texture is too large `
-                  + `(${Math.round(texture.length / 1024 / 1024)}MiB > ${MAX_VIDEO_TEXTURE_BYTES / 1024 / 1024}MiB): `
-                  + `${texturePath}\n`
-                  + "  Give the 720p editing proxy, not the master. The sheet embeds this as base64\n"
-                  + "  (~1.37x), and live preview seeks it on every tick.\n"
-                  + `  ffmpeg -i <master> -vf scale=-2:720 -c:v libx264 -crf 23 -preset medium `
-                  + "-pix_fmt yuv420p -an <proxy>.mp4",
-              );
-            }
-            return [materialName, {
-              ...override,
-              texture: `data:${mimeType};base64,${texture.toString("base64")}`,
-              textureVar: undefined,
-            }];
-          }),
-        );
-      }
-      return `${openingTag}${escapeScriptJson(JSON.stringify(embeddedDescriptor))}${closingTag}`;
-    },
-  );
-  if (declarationCount === 0) {
-    throw new Error(
-      `3D overlay ${overlayId} must declare <script type="application/json" data-akari-3d-scene>`,
-    );
-  }
-  return embedded;
-}
-
-function textureMimeType(path) {
-  const extension = extname(path).toLowerCase();
-  const mimeType = TEXTURE_MIME_TYPES.get(extension);
-  if (!mimeType) throw new TypeError(`Unsupported material override texture type: ${extension || "none"}`);
-  return mimeType;
+function embedRuntimeAssets(html, overlay, entry, ctx) {
+  return html.replace(new RegExp("<!--[\\s\\S]*?-->|" + declarationPattern(entry).source, "giu"), (match, opening, json, closing) => {
+    if (!opening) return match;
+    const descriptor = JSON.parse(json);
+    for (const reference of entry.assetReferences?.(descriptor, {html, htmlPath:overlay.htmlPath, label:overlay.id}) ?? []) {
+      const file = ctx.resolveDeclaredProjectInput(ctx.projectRoot, reference.path, `overlay:${overlay.id}:${reference.role}`);
+      const keys = reference.field;
+      if (!Array.isArray(keys) || !keys.length || keys.some(key => ["__proto__", "constructor", "prototype"].includes(key))) throw new TypeError("runtime asset reference requires a safe field path");
+      const owner = keys.slice(0, -1).reduce((value, key) => value[key], descriptor);
+      owner[keys.at(-1)] = `data:${reference.mime ?? "application/octet-stream"};base64,${readFileSync(file).toString("base64")}`;
+    }
+    return opening + escapeScriptJson(JSON.stringify(descriptor)) + closing;
+  });
 }
 
 function inlineScript(source) {

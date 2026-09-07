@@ -1,3 +1,23 @@
+// Browser registry bootstrap. Kept inline in overlay-runtime.js for script-only hosts.
+window.akari = window.akari || {};
+(() => {
+  if (window.akari.runtimes) return;
+  const entries = new Map();
+  window.akari.runtimes = {
+    register(entry) {
+      if (!entry || typeof entry.id !== "string" || !entry.id || typeof entry.selector !== "string" ||
+          ["render", "inspect", "dispose"].some(key => typeof entry[key] !== "function")) {
+        throw new TypeError("runtime requires id, selector, render, inspect and dispose");
+      }
+      entries.set(entry.id, Object.freeze({ ...entry }));
+    },
+    list() { return [...entries.values()]; },
+    forContainer(container) { return this.list().filter(entry => container.querySelector(entry.selector)); },
+  };
+  for (const entry of window.akari.pendingRuntimes ?? []) window.akari.runtimes.register(entry);
+  window.akari.pendingRuntimes = [];
+})();
+
 // オーバーレイランタイム
 // 契約: docs/planning/contract-2026-07-13-m1-m4.md §M2
 window.akari = window.akari || {};
@@ -35,9 +55,25 @@ function resolvePremount(value) {
   return null;
 }
 
+// Compatibility only for pre-registry hosts/mocks that provide bare globals.
+// New runtimes register themselves and never need an entry here.
+const LEGACY_RUNTIME_GLOBALS = [
+  { global: "threeRuntime", selector: 'script[type="application/json"][data-akari-3d-scene]' },
+  { global: "glassRuntime", selector: 'script[type="application/json"][data-akari-glass-scene]' },
+];
+function renderingRuntimes(container) {
+  const registered = window.akari.runtimes.forContainer(container);
+  if (registered.length) return registered;
+  const all = window.akari.runtimes.list();
+  return LEGACY_RUNTIME_GLOBALS.flatMap(entry => {
+    const runtime = window.akari[entry.global];
+    return runtime && !all.some(candidate => candidate.selector === entry.selector || candidate.render === runtime.render) && container.querySelector(entry.selector)
+      ? [runtime] : [];
+  });
+}
+
 function createOverlayRuntime(options = {}) {
   const mountedOverlays = [];
-  const mountedThreeOverlays = [];
   let mountedStage = null;
   let premount = resolvePremount(options.premount);
   let premountConfigured = false;
@@ -60,12 +96,11 @@ function createOverlayRuntime(options = {}) {
   }
 
   function applyPremountConfiguration() {
-    if (!premount || typeof window.akari.threeRuntime?.configurePremount !== "function") {
-      return false;
-    }
-    window.akari.threeRuntime.configurePremount(premount);
-    premountConfigured = true;
-    return true;
+    if (!premount) return false;
+    const available = window.akari.runtimes.list().filter(runtime => runtime.configurePremount);
+    for (const runtime of available) runtime.configurePremount(premount);
+    premountConfigured = available.length > 0;
+    return premountConfigured;
   }
 
   applyPremountConfiguration();
@@ -74,8 +109,8 @@ function createOverlayRuntime(options = {}) {
     if (Object.prototype.hasOwnProperty.call(next, "premount")) {
       premount = resolvePremount(next.premount);
       premountConfigured = false;
-      window.akari.threeRuntime?.configurePremount?.(premount);
-      premountConfigured = typeof window.akari.threeRuntime?.configurePremount === "function";
+      for (const runtime of window.akari.runtimes.list()) runtime.configurePremount?.(premount);
+      premountConfigured = window.akari.runtimes.list().some(runtime => runtime.configurePremount);
     }
     if (Object.prototype.hasOwnProperty.call(next, "maxRenderSize")) {
       maxRenderSize = resolveMaxRenderSize(next.maxRenderSize);
@@ -97,16 +132,12 @@ function createOverlayRuntime(options = {}) {
 
   function unmount() {
     for (const overlay of mountedOverlays) {
-      if (overlay.isGlass) window.akari.glassRuntime?.dispose(overlay.container);
-      if (overlay.isThreeDimensional) {
-        window.akari.threeRuntime?.dispose(overlay.container);
-      }
+      for (const runtime of renderingRuntimes(overlay.container)) runtime.dispose(overlay.container);
     }
     const stage = mountedStage ?? document.getElementById("overlay-stage");
     if (stage) stage.replaceChildren();
 
     mountedOverlays.length = 0;
-    mountedThreeOverlays.length = 0;
     mountedStage = null;
   }
 
@@ -178,8 +209,8 @@ function createOverlayRuntime(options = {}) {
         overlay.params
       );
       container.replaceChildren(rendered ?? template.content.cloneNode(true));
-      if (container.querySelector('[data-akari-glass-scene]') && overlay.htmlPath) {
-        container.setAttribute("data-akari-glass-base", new URL(overlay.htmlPath, document.baseURI).href);
+      for (const runtime of renderingRuntimes(container)) {
+        if (runtime.fragmentBaseAttribute && overlay.htmlPath) container.setAttribute(runtime.fragmentBaseAttribute, new URL(overlay.htmlPath, document.baseURI).href);
       }
 
       // ビューポート単位（vw / vh / vmin / vmax 系）をステージ基準へ書き換える
@@ -226,15 +257,8 @@ function createOverlayRuntime(options = {}) {
           },
           isBackground,
         } : {}),
-        isGlass: Boolean(container.querySelector('script[type="application/json"][data-akari-glass-scene]')),
-        isThreeDimensional: Boolean(
-          container.querySelector(
-            'script[type="application/json"][data-akari-3d-scene]'
-          )
-        ),
       };
       mountedOverlays.push(mountedOverlay);
-      if (mountedOverlay.isThreeDimensional) mountedThreeOverlays.push(mountedOverlay);
     }
 
     stage.replaceChildren(fragment);
@@ -268,9 +292,8 @@ function createOverlayRuntime(options = {}) {
         // 非可視の間 Animation 参照を持ち越さない。
         overlay.animations = undefined;
         overlay.animationsAt = 0;
-        if (!visible && overlay.isGlass) window.akari.glassRuntime?.dispose(overlay.container);
-        if (!visible && overlay.isThreeDimensional && !premount) {
-          window.akari.threeRuntime?.dispose(overlay.container);
+        if (!visible) for (const runtime of renderingRuntimes(overlay.container)) {
+          if (!premount || !runtime.premountTick) runtime.dispose(overlay.container);
         }
         overlay.visible = visible;
       }
@@ -325,33 +348,8 @@ function createOverlayRuntime(options = {}) {
         animation.pause();
         animation.currentTime = localTimeMs;
       }
-      if (overlay.isGlass) window.akari.glassRuntime?.render(overlay.container, localTimeMs / 1000, {});
-      if (overlay.isThreeDimensional) {
-        // syncVideos: ライブプレビューでは動画テクスチャの時刻を誰も進めないので、
-        // ここで overlay のローカル時刻へ合わせる（書き出しは rasterize が自前で
-        // フレーム精度シークを済ませるため、この指定を渡さない = 決定性を崩さない）
-        window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
-          syncVideos: true,
-          // maxRenderSize: プレビュー専用の描画バッファ上限（長辺 px、既定 720）。null なら等倍
-          // （three-runtime の rendererSize は 0 以下を「上限なし」と扱う）。書き出しは
-          // この tick を通らず render() を直接呼ぶため渡らない = 出力画素は不変
-          maxRenderSize,
-        });
-        // clip-path は可視な間、入場アニメが終わるまで毎 tick 測り直す。可視化フリップの
-        // 1 tick だけで確定すると、通常再生では localTimeMs がほぼ 0 のため、0% の遠方姿勢の
-        // bbox が焼き付き、入場後の断片が丸ごと消える。対象は可視オーバーレイだけに絞り、
-        // 有限な入場アニメが終わった tick で確定して以後は呼ばない。無限ループは終端無しと
-        // して数えず、性能原則「見えている分だけ」を保ったまま永久 pending を避ける。
-        if (overlay.hitPolicyPending) {
-          window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
-          window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-          if (entryAnimationsSettled(animations)) {
-            window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);
-            window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-            overlay.hitPolicyPending = false;
-          }
-        }
-        continue;
+      for (const runtime of renderingRuntimes(overlay.container)) {
+        runtime.render(overlay.container, localTimeMs / 1000, { syncVideos: true, maxRenderSize });
       }
       // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
       // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の
@@ -371,8 +369,9 @@ function createOverlayRuntime(options = {}) {
       }
     }
 
-    if (premount && mountedThreeOverlays.length > 0) {
-      window.akari.threeRuntime?.premountTick?.(mountedThreeOverlays, timelineTime);
+    if (premount) for (const runtime of window.akari.runtimes.list()) {
+      const entries = mountedOverlays.filter(overlay => renderingRuntimes(overlay.container).includes(runtime));
+      if (entries.length) runtime.premountTick?.(entries, timelineTime);
     }
   }
 

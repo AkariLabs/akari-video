@@ -22,6 +22,7 @@ import {
   triggerBackgroundRefresh
 } from './update-check.mjs';
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
+import { runDecisionLogCommand } from './decision-log-command.mjs';
 import { runCaptionsCommand } from './captions-command.mjs';
 import { runCaptureCommand } from './capture-command.mjs';
 import { runMediaCommand } from './media-command.mjs';
@@ -44,6 +45,7 @@ export async function run(args, options = {}) {
     error(`akari ${retiredBrowserCommand} は廃止されました（Chrome は不要になりました）`);
     return { exitCode: 1 };
   }
+  if (args[0] === 'decision-log') return runDecisionLogCommand(args.slice(1), options);
   if (args[0] === 'captions') return runCaptionsCommand(args.slice(1), options);
   if (args[0] === 'capture') return runCaptureCommand(args.slice(1), options);
   if (args[0] === 'media') return runMediaCommand(args.slice(1), options);

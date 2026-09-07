@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.49",
+  "version": "0.1.51",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -164,6 +164,18 @@
         ]
       },
       {
+        "from": "../../packages/akari-tools",
+        "to": "packages/akari-tools",
+        "filter": [
+          "package.json",
+          "bin/captions.mjs",
+          "bin/decision-log.mjs",
+          "bin/media.mjs",
+          "bin/word-book.mjs",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "../../packages/osr-export",
         "to": "packages/osr-export",
         "filter": [
@@ -206,6 +218,7 @@
         "to": "packages/overlay-runtime",
         "filter": [
           "package.json",
+          "runtimes.mjs",
           "src/**/*"
         ]
       },

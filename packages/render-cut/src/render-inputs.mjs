@@ -13,11 +13,11 @@ import {
 } from "./library-reference.mjs";
 
 const PRESETS_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "presets", "luts");
-const THREE_SCENE_SCRIPT_PATTERN = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
 const EXTERNAL_HTML_REFERENCE_PATTERN = /(?:\b(?:src|href)\s*=\s*["']([^"']+)["']|url\(\s*["']?([^"')]+))/giu;
 export const ABSENT_DECLARED_INPUT_SENTINEL = "AKARI_DECLARED_INPUT_ABSENT/v1";
 
-export class RenderInputError extends Error {}
+import { extractRuntimeAssetReferences, RenderInputError } from "../../overlay-runtime/runtimes.mjs";
+export * from "../../overlay-runtime/runtimes.mjs";
 
 export async function enumerateDeclaredRenderInputs({
   projectRoot,
@@ -62,10 +62,7 @@ export async function enumerateDeclaredRenderInputs({
     const role = `overlay:${overlay.id ?? index}`;
     const entry = addInput(role, overlaySourcePath(overlay));
     const html = readFileSync(entry.absolute_path, "utf8");
-    for (const reference of extractThreeSceneAssetReferences(html, role)) {
-      addInput(`${role}:${reference.role}`, reference.path);
-    }
-    for (const reference of extractGlassSceneAssetReferences(html, overlaySourcePath(overlay), role)) {
+    for (const reference of extractRuntimeAssetReferences(html, overlaySourcePath(overlay), role)) {
       addInput(`${role}:${reference.role}`, reference.path);
     }
     const fragmentReferences = extractFragmentAssetReferences(html, overlaySourcePath(overlay), role);
@@ -222,82 +219,6 @@ export function resolveLutPath(projectRoot, lutRef) {
     return join(PRESETS_LUTS_ROOT, lutRef, `${lutRef}.cube`);
   }
   return resolve(projectRoot, lutRef);
-}
-
-// Glass pack paths are relative to the fragment, then bound as project inputs.
-export function extractGlassSceneAssetReferences(html, htmlPath = "fragment.html", overlayLabel = "overlay") {
-  const pattern = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-glass-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
-  const references = [];
-  for (const match of html.replace(/<!--[\s\S]*?-->/gu, "").matchAll(pattern)) {
-    let descriptor;
-    try { descriptor = JSON.parse(match[1]); }
-    catch (error) { throw new RenderInputError(`${overlayLabel} has invalid data-akari-glass-scene JSON: ${messageOf(error)}`); }
-    if (!isRecord(descriptor)) throw new RenderInputError(`${overlayLabel} glass scene must be a JSON object`);
-    if (descriptor.backdrop === undefined) continue;
-    if (!isRelativeReference(descriptor.backdrop) || descriptor.backdrop.includes("\\")) {
-      throw new RenderInputError(`${overlayLabel} glass backdrop must be a relative path`);
-    }
-    references.push({ role: "glass-backdrop", path: join(dirname(htmlPath), descriptor.backdrop) });
-  }
-  return references;
-}
-
-export function extractThreeSceneAssetReferences(html, overlayLabel = "overlay") {
-  const references = [];
-  let match;
-  THREE_SCENE_SCRIPT_PATTERN.lastIndex = 0;
-  while ((match = THREE_SCENE_SCRIPT_PATTERN.exec(html)) !== null) {
-    let descriptor;
-    try {
-      descriptor = JSON.parse(match[1]);
-    } catch (error) {
-      throw new RenderInputError(`${overlayLabel} has invalid data-akari-3d-scene JSON: ${messageOf(error)}`);
-    }
-    if (!isRecord(descriptor)) {
-      throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
-    }
-    // texts[] があれば model は任意（contract-2026-08-12-3d-text-rail.md §3.1。
-    // rasterize.mjs と three-runtime.js は既にこの緩和を持っていたが、入力収集側の本関数だけが
-    // model を無条件必須のままで、texts だけのシーンが render-cut を通らなかった。2026-08-14 修正）
-    const hasTexts = Array.isArray(descriptor.texts) && descriptor.texts.length > 0;
-    if (descriptor.model !== undefined) {
-      if (!isRelativeReference(descriptor.model)) {
-        throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
-      }
-      references.push({ role: "model", path: descriptor.model });
-    } else if (!hasTexts) {
-      throw new RenderInputError(`${overlayLabel} 3D model must be a relative path`);
-    }
-    // texts[].font も実ファイル依存なので入力として数える（rasterize は data URI へ焼き込む）。
-    // 収集しないと、フォントを差し替えても入力ハッシュが変わらず再レンダーが走らない
-    if (hasTexts) {
-      descriptor.texts.forEach((text, index) => {
-        if (!isRecord(text) || text.font === undefined) return;
-        if (!isRelativeReference(text.font)) {
-          throw new RenderInputError(
-            `${overlayLabel} texts.${text.id ?? index}.font must be a relative path`,
-          );
-        }
-        references.push({ role: `text-font:${text.id ?? index}`, path: text.font });
-      });
-    }
-    if (descriptor.environment?.map !== undefined) {
-      if (!isRelativeReference(descriptor.environment.map)) {
-        throw new RenderInputError(`${overlayLabel} environment.map must be a relative path`);
-      }
-      references.push({ role: "environment", path: descriptor.environment.map });
-    }
-    if (descriptor.materialOverrides !== undefined) {
-      if (!isRecord(descriptor.materialOverrides)) throw new RenderInputError(`${overlayLabel} materialOverrides must be an object`);
-      for (const [name, override] of Object.entries(descriptor.materialOverrides)) {
-        if (!isRecord(override) || !isRelativeReference(override.texture)) {
-          throw new RenderInputError(`${overlayLabel} materialOverrides.${name}.texture must be a relative path`);
-        }
-        references.push({ role: `texture:${name}`, path: override.texture });
-      }
-    }
-  }
-  return references;
 }
 
 function addProjectInput(inputs, root, role, value, { text = null, env = process.env } = {}) {

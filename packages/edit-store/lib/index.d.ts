@@ -27,6 +27,7 @@ export * from './ducking';
 export * from './envelope';
 export * from './audio-schedule';
 export * from './audio-ownership';
+export * from './cut-audio-split-ops';
 export * from './canonical';
 export * from './tree-ops';
 export * from './item-anchor';

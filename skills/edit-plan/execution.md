@@ -169,8 +169,8 @@ akari captions <project-dir>
 - **次 caption の start まで引き伸ばさない**（敷き詰め禁止）。**無発話区間は無字幕**とし、隙間を字幕で埋めない。短い字幕は次 caption を超えない範囲で既定 1.0 秒の床まで延ばし、床に届かない場合は warning を確認する。
 - caption の start / end は source 秒アンカー（§1）。`words[]` も同じ source 秒で持つ。
 
-`--max-chars` は方針で文字数上限を決めたときだけ指定する。複数素材では `--source <sources[].id>` で対象を選ぶ。
-按分 fallback は CLI が内包する（語時刻が無い場合は segment 境界を使い、分割せず読み切り猶予を加える）。
+`--max-chars` は既定 20・文節優先（句点 > ポーズ > 読点 > 文字数 / 秒数）。`--split none` で旧挙動に戻せる。複数素材では `--source <sources[].id>` で対象を選ぶ。
+按分 fallback は CLI が内包する（語時刻が無い場合は句点等で切り、segment 区間を文字数比で按分して読み切り猶予を加える）。
 字幕の付ける/付けない・スタイル等の方針レベルは [report-guide.md](report-guide.md) の素材計画 §字幕枠で決め、ここでは区間の作り方だけを定める。
 
 ### 字幕スタイルを適用する

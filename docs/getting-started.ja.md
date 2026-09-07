@@ -396,7 +396,7 @@ my-video/
 |---|---|---|
 | `tasks` | やること | 「撮影素材からショート動画を 1 本」 |
 | `target` | 尺・出力先 | 「60 秒・縦型」 |
-| `autonomy` | おまかせ度 | `full-auto` / `checkpoint`（既定・節目で承認）/ `collaborative` |
+| `autonomy` | おまかせ度 | `full-auto`（そのまま）/ `checkpoint`（既定・提案つき）/ `collaborative`（一緒に作る） |
 
 フォームはチャットで埋められます。「**進め方フォームを埋めたい**」と言えば、
 エージェントが質問しながら記入します。

@@ -1592,6 +1592,12 @@
       "findings": [
         {
           "severity": "warning",
+          "check": "decision-log.predict-missing",
+          "message": "decision-log.md に機械の予測行（決定者 machine:director）がありません。提案つき / そのままモードでは、入れた物 1 件ごとに予測 1 行を追記してください（判子は一回 契約 §10）（decision-log.md が見つかりません）",
+          "path": "decision-log.md"
+        },
+        {
+          "severity": "warning",
           "check": "geometry.fit-compat",
           "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
           "path": "edit.json#output.geometry"
@@ -1746,6 +1752,12 @@
       "exit_code": 0,
       "verdict": "pass",
       "findings": [
+        {
+          "severity": "warning",
+          "check": "decision-log.predict-missing",
+          "message": "decision-log.md に機械の予測行（決定者 machine:director）がありません。提案つき / そのままモードでは、入れた物 1 件ごとに予測 1 行を追記してください（判子は一回 契約 §10）（decision-log.md が見つかりません）",
+          "path": "decision-log.md"
+        },
         {
           "severity": "warning",
           "check": "geometry.fit-compat",

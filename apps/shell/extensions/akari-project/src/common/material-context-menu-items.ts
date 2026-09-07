@@ -58,6 +58,9 @@ export function buildMaterialContextMenuItems(
         // assets/ 配下の素材カード全部（素材グループ含む）。未整理・できたもの行には出さない
         // （task 2026-08-10-material-menu-r2 司令塔裁定3）。
         items.push({ id: 'show-info', label: '素材の情報を表示' });
+        if (context.materialKind === 'video' || context.materialKind === 'audio') {
+            items.push({ id: 'transcribe', label: '文字起こし' });
+        }
     }
     if (DESTRUCTIVE_CAPABLE_TARGETS.has(target)) {
         items.push(

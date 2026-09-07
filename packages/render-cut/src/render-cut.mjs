@@ -1,3 +1,4 @@
+import { settleDecisionLog } from "../../akari-tools/src/decision-log/settle.mjs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants, createReadStream, existsSync, readdirSync } from "node:fs";
@@ -80,6 +81,7 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
   [--codec h264|hevc|prores422|png] [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
   [--gpu-preference auto|off|force] [--preview auto|off] [--progress]
   [--no-verify-blank]
+  [--no-settle]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -121,7 +123,7 @@ export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOs
   }
 }
 
-export async function runCli(argv, io = console) {
+export async function runCli(argv, io = console, deps = {}) {
   let options;
   try {
     options = parseArguments(argv);
@@ -136,7 +138,14 @@ export async function runCli(argv, io = console) {
   }
 
   try {
-    const state = await renderProject(options.projectRoot, options, io);
+    const state = await (deps.renderProject ?? renderProject)(options.projectRoot, options, io);
+    if (!options.planOnly && options.settle && state.verify?.verdict === "pass") {
+      try {
+        await (deps.settleDecisionLog ?? settleDecisionLog)({ projectRoot: resolve(options.projectRoot), actor: "machine:render-cut" });
+      } catch (error) {
+        io.error(`render-cut settle warning: ${messageOf(error).replace(/[\r\n]+/gu, " ")}`);
+      }
+    }
     for (const line of formatWarningLines(state.warnings ?? [])) {
       io.error(line);
     }
@@ -694,6 +703,7 @@ export function parseArguments(argv, env = process.env) {
     progress: false,
     preview: undefined,
     verifyBlank: true,
+    settle: true,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -701,6 +711,7 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
     else if (argument === "--progress") options.progress = true;
+    else if (argument === "--no-settle") options.settle = false;
     else if (argument === "--no-verify-blank") options.verifyBlank = false;
     else if (argument === "--preview") {
       if (index + 1 >= argv.length) throw new Error("--preview requires a value");

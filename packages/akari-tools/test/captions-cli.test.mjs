@@ -6,12 +6,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { writeWordBookFile } from "../../word-book/src/index.mjs";
 import { runCaptionsCli } from "../bin/captions.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), "akari-captions-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
   const edit = { version: 2, output: { width: 1280, height: 720, fps: 30 }, sources: [{ id: "s1", path: "source/a.mp4" }], tracks: [{ id: "v1", lane: "visual", items: [{ id: "clip-1", at: 0, duration: 360, source: { kind: "media", src: "s1", in: 0, out: 12 } }] }] };
   await mkdir(path.join(root, "source"));
   await writeFile(path.join(root, "source/a.mp4"), "dummy");
@@ -34,7 +35,7 @@ test("writes schema-valid deterministic captions and leaves edit.json intact", a
   const before = await readFile(path.join(f.root, "edit.json"), "utf8");
   const result = await f.run();
   assert.equal(result.code, 0, result.stderr.join("\n"));
-  assert.deepEqual(JSON.parse(result.stdout[0]), { captions: 3, warnings: [], path: f.captionsPath });
+  assert.deepEqual(JSON.parse(result.stdout[0]), { captions: 3, warnings: [], path: f.captionsPath, word_book: { applied: 0 } });
   assert.equal(result.stdout.length, 1);
   assert.match(result.stderr[0], /v2.captions-track-undeclared/);
   const source = await readFile(f.captionsPath, "utf8");
@@ -125,4 +126,55 @@ test("help and no arguments print usage", async () => {
     assert.equal(await runCaptionsCli(args, { stdout: (line) => lines.push(line) }), 0);
     assert.equal(lines[0].split("\n")[0], "使い方: akari captions <project-dir> [options]");
   }
+});
+
+test("split and limit options control phrase boundaries", async (t) => {
+  const f = await fixture(t);
+  const text = "あいうえおかきくけこさしすせそたちつてとなにぬねの";
+  const words = Array.from(text).map((text, i) => ({ text, start: i * 0.2, end: (i + 1) * 0.2 }));
+  await writeFile(f.analysisPath, JSON.stringify({ transcript: [{ start: 0, end: 5, text, words }] }));
+  for (const [args, count] of [[[], 2], [["--max-chars", "0"], 1], [["--max-chars", "0", "--max-seconds", "2"], 3]]) {
+    const result = await f.run("--dry-run", ...args);
+    assert.equal(result.code, 0, result.stderr.join("\n"));
+    assert.equal(JSON.parse(result.stdout[0]).captions.length, count);
+  }
+  await writeFile(f.analysisPath, JSON.stringify({ transcript: [{ start: 0, end: 4, text: "前。後", words: [{ text: "前。", start: 0, end: 1 }, { text: "後", start: 2, end: 4 }] }] }));
+  assert.equal(JSON.parse((await f.run("--dry-run")).stdout[0]).captions.length, 2);
+  assert.equal(JSON.parse((await f.run("--dry-run", "--split", "none")).stdout[0]).captions.length, 1);
+  await writeFile(f.analysisPath, JSON.stringify({ transcript: [{ start: 0, end: 4, text: "前後", words: [{ text: "前", start: 0, end: 1 }, { text: "後", start: 2, end: 4 }] }] }));
+  assert.equal(JSON.parse((await f.run("--dry-run", "--pause", "2")).stdout[0]).captions.length, 1);
+  for (const args of [["--split", "bad"], ["--pause", "-1"], ["--max-seconds", "NaN"]]) assert.equal((await f.run(...args)).code, 1);
+});
+
+test("word books apply by default and explicitly, count changed records, and honor opt-out", async (t) => {
+  const f = await fixture(t);
+  const book = { version: 0, entries: [{ surface: "動画編集", variants: ["動画面集"], kind: "term" }] };
+  const extra = path.join(f.root, "extra.json");
+  await writeWordBookFile(extra, book);
+  const text = "動画面集動画面集";
+  await writeFile(f.analysisPath, JSON.stringify({ transcript: [{ start: 0, end: 4, text, words: [{ text: "動画面集", start: 0, end: 2 }, { text: "動画面集", start: 2, end: 4 }] }] }));
+  const explicit = await f.run("--dry-run", "--word-book", extra);
+  assert.equal(explicit.code, 0, explicit.stderr.join("\n"));
+  assert.equal(JSON.parse(explicit.stdout[0]).captions[0].text, "動画編集動画編集");
+  assert.equal(JSON.parse(explicit.stdout[1]).word_book.applied, 1);
+  assert.equal(existsSync(f.captionsPath), false);
+  const disabled = await f.run("--dry-run", "--word-book", extra, "--no-word-book");
+  assert.equal(JSON.parse(disabled.stdout[0]).captions[0].text, text);
+  assert.equal(JSON.parse(disabled.stdout[1]).word_book.applied, 0);
+  await writeWordBookFile(path.join(f.root, ".akari/memory/word-book.json"), book);
+  const automatic = await f.run();
+  assert.equal(automatic.code, 0, automatic.stderr.join("\n"));
+  assert.equal(JSON.parse(automatic.stdout[0]).word_book.applied, 1);
+  assert.equal(JSON.parse(await readFile(f.captionsPath, "utf8")).captions[0].text, "動画編集動画編集");
+  assert.equal(JSON.parse((await f.run("--dry-run", "--no-word-book")).stdout[1]).word_book.applied, 0);
+});
+
+test("probe duration caps the final caption", async (t) => {
+  const f = await fixture(t);
+  const analysis = JSON.parse(await readFile(f.analysisPath, "utf8"));
+  analysis.probe = { duration_s: 10 };
+  await writeFile(f.analysisPath, JSON.stringify(analysis));
+  const result = await f.run();
+  assert.equal(result.code, 0, result.stderr.join("\n"));
+  assert.equal(JSON.parse(await readFile(f.captionsPath, "utf8")).captions.at(-1).end, 10);
 });

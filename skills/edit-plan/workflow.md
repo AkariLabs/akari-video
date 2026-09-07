@@ -18,8 +18,8 @@
 ```text
 <plan-dir>/
 ├── decision-log.md            # analyze-project と共有・追記専用（判断記録）
-├── edit.json                  # 実行承認後だけ
-└── overlays/                  # 実行承認後だけ
+├── edit.json                  # collaborative では実行承認後・それ以外は出力ルールで書く
+└── overlays/                  # collaborative では実行承認後・それ以外は出力ルールで書く
 ```
 
 判断記録の派生描画は `<project>/.akari/reports/decision-log-report.html` に置く

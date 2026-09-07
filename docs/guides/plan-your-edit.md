@@ -2,8 +2,8 @@
 
 # Plan your edit and execute it
 
-The central step: based on the analysis, the agent proposes an editing direction and, after
-approval, commits it to `edit.json` (the editing save file). The skill is `edit-plan`.
+The central step: based on the analysis, the agent proposes an editing direction and writes it
+to `edit.json` (the editing save file) according to the selected mode. The skill is `edit-plan`.
 
 ## When to use it
 
@@ -24,19 +24,33 @@ result, then return observations without rewriting the edit. Route broad structu
 through edit-plan; for a point fix, add an annotation and continue with
 [QA, review, and fix](./review-and-fix.md).
 
-## Three approval gates
+## Three modes (one stamp, at export)
 
-edit-plan doesn't run straight through to the end — it pauses for chat approval at three
-milestones (auto-approved when `autonomy: full-auto`):
+| Label | ID | What happens | Stamps |
+|---|---|---|---|
+| Straight through | `full-auto` | Adds exactly what you asked for and exports without preview review. Attaches 1–2 captures and lint results afterward | 0 |
+| With proposals (default) | `checkpoint` | Adds what you requested plus promising additions to the timeline. You review the preview, remove or adjust anything unwanted, and export | 1, at export only |
+| Work together | `collaborative` | Confirms three stages: direction → asset plan → execution | One per stage |
 
-1. **Direction** — overall structure, tone, and duration allocation. Presents the analysis
-   report as primary evidence
-2. **Asset plan** — which part of which clip to use, and how to fill any gaps (generate /
-   shoot more / reuse existing material)
-3. **Execution** — writes to edit.json and generates overlays
+The default is **With proposals**. edit-plan adds what you requested plus promising additions
+to the timeline. It does not pause along the way. Review the preview and remove anything
+unwanted. The export button is the only stamp.
 
-Every decision is appended to `decision-log.md`, so "why did it end up this way" can always
-be traced afterward.
+**Straight through** exports without preview review, then attaches 1–2 captures and lint
+results in `.akari/reports/`.
+
+Only **Work together** keeps the existing confirmations at three stages: direction → asset plan
+→ execution.
+
+Switch modes in the intake form (`autonomy` in `.akari/intake.json`) or at the bottom of the
+shell's rightmost vertical bar.
+
+Approval for billing and external sends is independent of the mode
+([Connections and API keys](../how-to/connections.md)).
+
+Every decision is appended to `decision-log.md`, so "why did it end up this way" can always be
+traced afterward. The machine writes one prediction line when it adds a proposal to the
+preview, so the record continues without an approval pause.
 
 ## What gets generated
 

@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import {browserManifest,runtimes} from '../runtimes.mjs';
 import { renderOverlaySheet } from '../../render-cut/src/rasterize.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 function loadPuppeteer() {
@@ -109,6 +110,39 @@ test('glass PNG repeatability, reverse seek and portrait cover mapping', { timeo
   assert.deepEqual(errors, []);
 });
 
+
+// Serve the unmodified editor and manifest over intercepted browser requests; no source extraction or TCP listener.
+async function previewResponse(urlPath) {
+  const publicRoot = new URL('../../preview-server/public/', import.meta.url);
+  const packageRoot = new URL('../../overlay-runtime/', import.meta.url);
+  const manifest = browserManifest();
+  if (urlPath === '/runtimes.json') return {contentType:'application/json',body:JSON.stringify(manifest)};
+  if (urlPath === '/api/output/summary') return {contentType:'application/json',body:JSON.stringify({version:1,output:{width:1920,height:1080,fps:30},sources:[],cuts:[],overlays:[],layers:[],audio:{}})};
+  if (urlPath === '/api/output/timeline') return {contentType:'application/json',body:JSON.stringify({fps:30,clips:[]})};
+  if (urlPath === '/api/output/captions.json') return {contentType:'application/json',body:'[]'};
+  let file;
+  if (urlPath === '/') file = new URL('index.html', publicRoot);
+  else if (urlPath === manifest.registry) file = new URL('src/runtime-registry.js', packageRoot);
+  else if (urlPath === '/__akari/fonts/zen-kaku-gothic-new-black.ttf') file = new URL('test-harness/fonts/ZenKakuGothicNew-Black.ttf', packageRoot);
+  else if (urlPath === '/assets/fonts/akari-noto-sans-jp.ttf') file = new URL('../../../assets/font/noto-sans-jp/NotoSansJP-Variable.ttf', import.meta.url);
+  for (const [i, entry] of manifest.runtimes.entries()) for (const [j, script] of entry.scripts.entries()) {
+    if (urlPath === script.url) file = new URL(runtimes[i].scripts[j].path, packageRoot);
+  }
+  if (!file && /^\/[\w.-]+$/.test(urlPath)) {
+    const name = urlPath.substring(1);
+    file = [new URL(name, publicRoot),new URL('src/'+name,packageRoot),new URL('src/vendor/'+name,packageRoot)].find(candidate=>existsSync(candidate));
+  }
+  if (!file) return null;
+  const type = file.pathname.endsWith('.html') ? 'text/html' : file.pathname.endsWith('.css') ? 'text/css' : file.pathname.endsWith('.ttf') ? 'font/ttf' : 'text/javascript';
+  return {contentType:type,body:readFileSync(file)};
+}
+async function openPreview(page) {
+  await page.goto('http://localhost/?mode=output&frameEngine=0');
+  await page.waitForFunction(()=>Boolean(window.akari?.runtime && window.akari?.state));
+  await page.evaluate(()=>window.__akariCaptionFontReady);
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+}
+
 test('preview app loader resolves variant backdrop and seeks/disposes real glass', { timeout: 60000 }, async (t) => {
   const browser = await loadPuppeteer().launch({ executablePath: findChrome(), headless: 'shell', pipe: true,
     args: ['--single-process', '--no-zygote', '--disable-gpu', '--use-angle=swiftshader'] });
@@ -124,8 +158,8 @@ test('preview app loader resolves variant backdrop and seeks/disposes real glass
   page.on('request', async (request) => {
     const path = new URL(request.url()).pathname;
     requests.push(path);
-    if (path === '/') return request.respond({contentType:'text/html', body:'<style>body{margin:0}#stage{position:relative;width:1920px;height:1080px}</style><div id="stage"></div>'});
-    if (path === '/pack/runtime/glass-runtime.js') return request.respond({contentType:'text/javascript',body:readFileSync(resolve(HERE,'../src/glass-runtime.js'),'utf8')});
+    const response = await previewResponse(path);
+    if (response) return request.respond(response);
     if (pack && path.startsWith('/pack/')) {
       const file = join(pack, path.slice('/pack/'.length));
       return request.respond({contentType:path.endsWith('.html')?'text/html':'image/jpeg',body:readFileSync(file)});
@@ -134,23 +168,20 @@ test('preview app loader resolves variant backdrop and seeks/disposes real glass
     if (path === '/pack/backgrounds/bg.svg') return request.respond({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><path fill="#5080a0" d="M0 0h1920v1080H0z"/></svg>'});
     return request.respond({status:404,body:''});
   });
-  await page.goto('http://localhost/');
-  const app = readFileSync(resolve(HERE,'../../preview-server/public/app.js'),'utf8');
-  // Execute the actual preview app runtime and script loader; transport is an
-  // in-memory localhost fixture so no server port or full editor is required.
-  const loader = app.slice(app.indexOf('const loadThreeScript ='), app.indexOf('function ensureThreeRuntime'));
-  const glassLoader = app.slice(app.indexOf('let glassRuntimeReady'), app.indexOf('let itemKeyframesRuntimeReady'));
-  const runtime = app.slice(app.indexOf('function createOverlayRuntime()'), app.indexOf('function updateOverlays()'));
-  await page.addScriptTag({content:`window.akari={};const stage=document.querySelector('#stage');const fps=30;const editMode=false;const resolveMediaUrl=x=>x;function updateOverlays(){window.akari.runtime.tick(1.5);}${loader}${glassLoader}${runtime}window.akari.runtime=createOverlayRuntime();`});
+  // 意図: 未加工のアプリが manifest の実 URL を要求し、背景解決・逆シーク・破棄まで通ることを検査する。
+  await openPreview(page);
   await page.evaluate((path) => window.akari.runtime.mount({overlays:[{id:'glass',start:0,duration:6,html:'/pack/'+path}]}),fragmentPath);
-  await page.waitForFunction(() => window.akari.glassRuntime?.inspect(document.querySelector('[data-overlay-id]')).status === 'ready');
+  await page.waitForFunction(() => { window.akari.runtime.tick(1.5); return window.akari.glassRuntime?.inspect(document.querySelector('[data-overlay-id]')).status === 'ready'; });
   const before = await page.screenshot();
   await page.evaluate(() => window.akari.runtime.tick(2.8));
   const after = await page.screenshot();
   assert.notDeepEqual(before,after);
   await page.evaluate(() => window.akari.runtime.tick(1.5));
   assert.deepEqual(before,await page.screenshot());
-  assert.ok(requests.includes('/pack/runtime/glass-runtime.js'));
+  const runtimeUrl = browserManifest().runtimes.find(entry=>entry.id==='glass').scripts[0].url;
+  assert.equal(requests.filter(path=>path===runtimeUrl).length,1);
+  assert.ok(requests.includes('/runtimes.json'));
+  assert.equal(await page.evaluate(()=>window.akari.runtimes.forContainer(document.querySelector('[data-overlay-id]')).some(entry=>entry.id==='glass')),true);
   assert.ok(requests.some(path=>path.startsWith('/pack/backgrounds/')));
   if (process.env.AKARI_GLASS_EVIDENCE) {
     const path=join(process.env.AKARI_GLASS_EVIDENCE, 'glass-preview.png');
@@ -160,7 +191,6 @@ test('preview app loader resolves variant backdrop and seeks/disposes real glass
   await page.evaluate(() => window.akari.runtime.tick(6));
   assert.equal(await page.evaluate(() => document.querySelectorAll('.akari-glass-canvas').length),0);
   await page.evaluate(() => window.akari.runtime.unmount());
-  await page.evaluate(() => { document.querySelector('#stage').id='overlay-stage'; });
   await page.addScriptTag({content:readFileSync(resolve(HERE,'../src/overlay-runtime.js'),'utf8')});
   await page.evaluate(async (path) => {
     const htmlPath = new URL('/pack/'+path, document.baseURI).href;
