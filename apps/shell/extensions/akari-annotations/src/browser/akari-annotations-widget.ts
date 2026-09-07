@@ -1107,6 +1107,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         border-color: #f14c4c !important;
         background: rgba(241, 76, 76, .25) !important;
     }
+    .akari-annotations-widget .akari-annotations-ghost-rejected::after {
+        content: '×';
+        position: absolute;
+        right: 3px;
+        top: 3px;
+        z-index: 12;
+        color: #fff;
+        background: #dc2626;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        text-align: center;
+        font-size: 16px;
+        pointer-events: none;
+    }
     .akari-annotations-widget .akari-annotations-ghost-snapped {
         border-color: ${SNAP_GUIDE_COLOR_DEFAULT} !important;
     }
@@ -6382,7 +6398,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
             }
             if (target?.kind === 'none') {
-                this.hideVisualInsertionGhost(state);
+                this.showRejectedVisualGhost(state, at, state.duration, clientY);
                 return { kind: 'cut-move', index: state.index, at, track: state.originalTrack, rejected: false, ignored: true };
             }
             if (target?.kind === 'track') {
@@ -6396,8 +6412,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.updateDragFeedback(state, plan.accepted === false ? plan.reason : this.formatTimestamp(placedAt));
                 return { kind: 'cut-move', index: state.index, at: placedAt, track: state.originalTrack, rejected: !plan.accepted, targetTimelineId: target.id };
             }
-            this.hideTrackInsertIndicator();
-            this.setGhostRejected(state.ghost, true);
+            this.showRejectedVisualGhost(state, at, state.duration, clientY);
             return { kind: 'cut-move', index: state.index, at, track: state.originalTrack, rejected: true };
         }
         if (state.kind === 'caption') {
@@ -6474,7 +6489,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
                 }
                 if (target?.kind === 'none') {
-                    this.hideVisualInsertionGhost(state);
+                    this.showRejectedVisualGhost(state, t, itemDuration, clientY);
                     return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected: false, ignored: true };
                 }
                 if (target?.kind === 'track') {
@@ -6493,6 +6508,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (state.mode !== 'move') rejected = this.visualItemWouldOverlap({ kind: 'layer', id: state.id }, t, t + itemDuration);
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
+            if (rejected && state.mode === 'move') this.showRejectedVisualGhost(state, t, itemDuration, clientY);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
                 ? '⚠ 移動できません（種別が異なります）'
@@ -6654,11 +6670,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.updateDragFeedback(state, `差し込み ${this.formatTimestamp(start)} → ${this.formatTimestamp(start + duration)} · 尺 ${duration.toFixed(2)} 秒`);
     }
 
-    protected hideVisualInsertionGhost(state: DragState): void {
-        state.ghost.style.display = 'none';
+    protected showRejectedVisualGhost(state: DragState, start: number, duration: number, clientY: number): void {
+        this.setGhostRange(state.ghost, start, start + duration);
+        state.ghost.style.top = `${Math.max(0, clientY - this.strip.getBoundingClientRect().top - 18)}px`;
+        state.ghost.style.height = '36px';
+        state.ghost.style.display = 'block';
+        state.ghost.style.outline = '2px solid #ef4444';
+        this.setGhostRejected(state.ghost, true);
         this.hideTrackInsertIndicator();
         this.hideSnapGuide();
-        this.dragFeedback.style.display = 'none';
+        this.updateDragFeedback(state, '配置できません');
     }
 
     protected showTrackInsertIndicatorAt(stripLocalTop: number): void {

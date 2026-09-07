@@ -175,9 +175,9 @@ function resolveVisualRowDrop(rows, y, sourceId, sourceItemCount = 1) {
         return { kind: 'between', top: Math.max(0, y) };
     const first = rows[0], last = rows[rows.length - 1];
     if (y < first.top)
-        return first.id === sourceId ? { kind: 'none' } : { kind: 'between', aboveId: first.id, top: first.top };
+        return first.id === sourceId && sourceItemCount === 1 ? { kind: 'none' } : { kind: 'between', aboveId: first.id, top: first.top };
     if (y >= last.top + last.height)
-        return last.id === sourceId ? { kind: 'none' } : { kind: 'between', belowId: last.id, top: last.top + last.height };
+        return last.id === sourceId && sourceItemCount === 1 ? { kind: 'none' } : { kind: 'between', belowId: last.id, top: last.top + last.height };
     for (let i = 1; i < rows.length; i++) {
         const gapStart = rows[i - 1].top + rows[i - 1].height;
         if (y >= gapStart - 4 && y <= rows[i].top + 4) {

@@ -75,9 +75,19 @@ test('dropping a sole clip below its own row is a no-op, never an empty extra tr
  assert.equal(insertVisualItemInSource(source,[rows[0]],{kind:'cut',index:0},0,undefined,'base'),source);
 });
 
-test('multi-clip source can split into its adjacent gap, but outer self boundaries remain silent',()=>{
+test('multi-clip source can split into its adjacent gap, and beyond either outer boundary',()=>{
  const geometry=[{id:'upper',top:100,height:60},{id:'lower',top:166,height:60}];
  for(const y of [160,163,166]) assert.deepEqual(resolveVisualRowDrop(geometry,y,'upper',2),{kind:'between',aboveId:'lower',top:166});
- assert.deepEqual(resolveVisualRowDrop(geometry,95,'upper',2),{kind:'none'});
- assert.deepEqual(resolveVisualRowDrop(geometry,230,'lower',2),{kind:'none'});
+ assert.deepEqual(resolveVisualRowDrop(geometry,95,'upper',2),{kind:'between',aboveId:'upper',top:100});
+ assert.deepEqual(resolveVisualRowDrop(geometry,230,'lower',2),{kind:'between',belowId:'lower',top:226});
+});
+
+test('splitting two clips on the only row works above and below without changing time',()=>{
+ const value={version:0,source:{path:'red.webm',proxy:null},cuts:[{in:0,out:2,at:0,track:0},{in:0,out:2,at:4,track:0}],layers:[],timeline:{tracks:[{id:'only',kind:'video',ref:0}]}};
+ for(const above of [true,false]){
+  const moved=JSON.parse(insertVisualItemInSource(JSON.stringify(value),[],{kind:'cut',index:1},4,above?'only':undefined,above?undefined:'only'));
+  assert.equal(moved.timeline.tracks.length,2);assert.equal(moved.cuts[1].at,4);
+  assert.notEqual(moved.cuts[0].track,moved.cuts[1].track);
+  assert.equal(moved.timeline.tracks[above?0:1].id,'only');
+ }
 });
