@@ -938,7 +938,18 @@ try {
             ? ['-y', '-ss', '00:00:00.5', '-i', sourcePath, '-frames:v', '1', '-vf', scaleFilter, temporaryPath]
             : ['-y', '-i', sourcePath, '-vf', scaleFilter, temporaryPath];
         try {
-            await execFileAsync(ffmpeg, args);
+            try {
+                await execFileAsync(ffmpeg, args);
+            } catch (error) {
+                if (kind !== 'video') {
+                    throw error;
+                }
+                await fs.rm(temporaryPath, { force: true });
+            }
+            // Seeking beyond a short clip can either fail or succeed without a frame.
+            if (kind === 'video' && !await fs.stat(temporaryPath).then(stat => stat.size > 0, () => false)) {
+                await execFileAsync(ffmpeg, ['-y', '-i', sourcePath, '-frames:v', '1', '-vf', scaleFilter, temporaryPath]);
+            }
             await fs.rename(temporaryPath, cachePath);
             return { available: true, cacheRelativePath };
         } catch (error) {

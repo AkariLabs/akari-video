@@ -154,6 +154,7 @@ interface MaterialCardEntry {
     analyzed: boolean;
     durationSeconds?: number;
     thumbnailUri?: URI;
+    thumbnailFallbackAttempted?: boolean;
     /** analysis.json のプロジェクト相対パス。analyzed のときのみ設定される。 */
     analysisRelativePath?: string;
     /** true = プロジェクトルート直下（非再帰）の未整理素材。「assets へ移動」アクションを持つ。 */
@@ -601,13 +602,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /**
-     * 分析済みでない動画/画像素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
+     * サムネイルが未取得の動画/画像素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
      * バックエンドへ問い合わせる（優先順位: analysis keyframe > cache > プレースホルダ）。
-     * 音声・分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
+     * 音声・既存サムネイルありは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
      */
     protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
-        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image'));
+        const candidates = entries.filter(entry => !entry.thumbnailUri && (entry.kind === 'video' || entry.kind === 'image'));
         await Promise.all(candidates.map(async entry => {
+            entry.thumbnailFallbackAttempted = true;
             let outcome;
             try {
                 outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image');
@@ -620,6 +622,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             entry.thumbnailUri = root.resolve(outcome.cacheRelativePath);
             this.update();
         }));
+    }
+
+    protected handleMaterialThumbnailError(entry: MaterialCardEntry): void {
+        entry.thumbnailUri = undefined;
+        this.update();
+        const root = this.workflow.workspaceRoot;
+        if (root && !entry.thumbnailFallbackAttempted) {
+            void this.hydrateCachedThumbnails(root, this.materialsGeneration, [entry]);
+        }
     }
 
     // --- ライブ反映（assets/ とルート直下の watch） ---------------------------
@@ -1889,6 +1900,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const appearance = entry.kind === 'video' ? { label: '映像', color: '#3794ff' }
+            : entry.kind === 'audio' ? { label: '音声', color: '#56b88a' }
+                : entry.kind === 'image' ? { label: '画像', color: '#d8ab55' }
+                    : /\.html?$/i.test(entry.name) || entry.assetGroup?.category === 'overlay'
+                        ? { label: 'HTML', color: '#d19a66' }
+                        : { label: '素材', color: '#a0a0a0' };
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
         const draggable = !entry.unorganized
@@ -1915,7 +1932,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     borderRadius: '6px',
                     overflow: 'hidden',
                     background: 'var(--theia-sideBar-background)',
-                    border: '1px solid var(--theia-sideBar-border)'
+                    border: '1px solid var(--theia-sideBar-border)',
+                    borderTop: `3px solid ${appearance.color}`
                 }}
             >
                 <div
@@ -1934,10 +1952,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         // 縦長比率で高さが決まってしまう（実機 CDP 計測で確認済みの挙動）。
                         ? <img
                             src={entry.thumbnailUri.toString()}
+                            onError={() => this.handleMaterialThumbnailError(entry)}
                             alt=''
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                         />
-                        : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                        : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', color: appearance.color }} />}
                     {entry.unorganized && (
                         <span
                             title='未整理'
@@ -2023,7 +2042,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {entry.name}
                     </span>
                     <span style={{ opacity: 0.7, fontSize: '0.68em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
+                        <span style={{ color: appearance.color, fontWeight: 600 }}>{appearance.label}</span>
+                        {' · '}{entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
                     </span>
                 </div>
                 {entry.unorganized && (

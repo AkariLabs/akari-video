@@ -778,10 +778,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 素材カード D&D の受け側 3 点セット（task 2026-08-10-material-dnd-timeline 指示3）。
         // 自 mime（application/x-akari-material）以外は preventDefault/stopPropagation せず
         // 素通しする — 既存のファイルドロップ等（グローバルフォールバック）を壊さない。
-        this.stripScroll.addEventListener('dragenter', event => this.handleMaterialDragEnter(event));
-        this.stripScroll.addEventListener('dragover', event => this.handleMaterialDragOver(event));
-        this.stripScroll.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
-        this.stripScroll.addEventListener('drop', event => this.handleMaterialDrop(event));
+        for (const surface of [this.stripScroll, this.trackHeadersViewport]) {
+            surface.addEventListener('dragenter', event => this.handleMaterialDragEnter(event));
+            surface.addEventListener('dragover', event => this.handleMaterialDragOver(event));
+            surface.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
+            surface.addEventListener('drop', event => this.handleMaterialDrop(event));
+        }
         // ㉕/㉗ 中央寄せギャップはビューポート高（stripScroll.clientHeight）に依存するため、
         // パネルのリサイズ（分割線ドラッグ等）でも再計算されるよう監視する。
         const stripScrollResizeObserver = new ResizeObserver(() => this.renderStrip());
@@ -876,7 +878,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .76;
     }
     .akari-annotations-widget .akari-annotations-strip-layer-video {
-        background: var(--theia-charts-purple, #b180d7);
+        background: var(--theia-charts-blue, #3794ff);
         opacity: .76;
     }
     .akari-annotations-widget .akari-annotations-strip-audio-sfx {
@@ -2908,7 +2910,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const next = event.relatedTarget;
-        if (next instanceof Node && this.stripScroll.contains(next)) {
+        if (next instanceof Node && (this.stripScroll.contains(next) || this.trackHeadersViewport.contains(next))) {
             return;
         }
         this.hideMaterialGhost();
@@ -3323,14 +3325,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected defaultTrackHeight(kind: TimelineTrackKind): number {
-        return kind === 'audio' ? DEFAULT_AUDIO_TRACK_HEIGHT_PX : CLIP_HEIGHT;
+        return kind === 'audio' ? DEFAULT_AUDIO_TRACK_HEIGHT_PX : kind === 'cuts' ? CLIP_HEIGHT : SUBROW_STRIDE;
     }
 
     protected clampTrackHeight(value: number): number {
         return Math.min(MAX_TRACK_HEIGHT_PX, Math.max(MIN_TRACK_HEIGHT_PX, Math.round(value)));
     }
 
-    /** cuts/audio トラックの高さを StorageService（ワークスペース状態）から読み込む。edit.json は経由しない。 */
+    /** 全トラックの高さを StorageService（ワークスペース状態）から読み込む。edit.json は経由しない。 */
     protected async loadTrackHeights(): Promise<void> {
         this.trackHeights.clear();
         this.trackHeightLoadPromises.clear();
@@ -3338,7 +3340,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!editUri) {
             return;
         }
-        const resizableTracks = this.timelineTracks.filter(track => track.kind === 'cuts' || track.kind === 'audio');
+        const resizableTracks = this.timelineTracks;
         const entries = await Promise.all(resizableTracks.map(async track => {
             const fallback = this.defaultTrackHeight(track.kind);
             const stored = await this.storage.getData<number>(this.trackHeightStorageKey(editUri, track.id), fallback);
@@ -3666,16 +3668,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const items = this.layers.filter(layer => (layer.track ?? 0) === ref);
                 const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
                 items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
-                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+                height = Math.max((rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             } else if (timelineTrack.kind === 'overlays') {
                 const items = this.overlays.filter(overlay => overlay.track === ref);
                 const rows = assignSubRows(items.map(overlay => ({
                     start: overlay.start, end: overlay.start + overlay.duration
                 })));
                 items.forEach((overlay, index) => this.overlayRows.set(overlay.id, rows[index] ?? 0));
-                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+                height = Math.max((rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             } else if (timelineTrack.kind === 'captions') {
-                height = Math.max(1, captionRowCount) * SUBROW_STRIDE;
+                height = Math.max(Math.max(1, captionRowCount) * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             } else {
                 // audio は track（ref）ごとに独立した帯として積む。BGM はトラック概念を持たないため
                 // 常に ref 0 の帯にのみ乗せる（「bgm の UI 新設はやらない」= 既存の単一表示を維持）。
@@ -3914,9 +3916,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.isRangeVisible(outputStart, outputEnd)) {
                 return;
             }
-            const top = captionLayout.top + this.captionRows[index] * SUBROW_STRIDE;
+            const stride = captionLayout.height / Math.max(1, ...this.captionRows.map(row => row + 1));
+            const top = captionLayout.top + this.captionRows[index] * stride;
             const element = this.stripSegment(
-                outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
+                outputStart, outputEnd, top, stride - SUBROW_GAP, 'akari-annotations-strip-caption', caption.text
             );
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
@@ -3943,9 +3946,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layout || !this.isRangeVisible(overlay.start, end)) {
                 return;
             }
-            const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
+            const stride = layout.height / Math.max(1, ...this.overlays.filter(item => item.track === overlay.track).map(item => (this.overlayRows.get(item.id) ?? 0) + 1));
+            const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * stride;
             const element = this.stripSegment(
-                overlay.start, end, top, SUBROW_HEIGHT,
+                overlay.start, end, top, stride - SUBROW_GAP,
                 'akari-annotations-strip-overlay', overlay.id
             );
             element.dataset.akariItemKind = 'overlay';
@@ -3956,7 +3960,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTrack = String(overlay.track);
             element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
-            element.appendChild(this.segmentLabel(overlay.id));
+            element.appendChild(this.segmentLabel(`HTML · ${overlay.id}`));
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
                 mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
@@ -3970,9 +3974,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layout || !this.isRangeVisible(layer.t, end)) {
                 return;
             }
-            const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
+            const stride = layout.height / Math.max(1, ...this.layers.filter(item => (item.track ?? 0) === (layer.track ?? 0)).map(item => (this.layerRows.get(item.id) ?? 0) + 1));
+            const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * stride;
             const element = this.stripSegment(
-                layer.t, end, top, SUBROW_HEIGHT,
+                layer.t, end, top, stride - SUBROW_GAP,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
@@ -3980,7 +3985,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout?.id ?? 'layers';
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
-            element.appendChild(this.segmentLabel(layer.id));
+            const kindLabel = /\.(png|jpe?g|gif|webp|svg)$/i.test(layer.src) ? '画像' : '映像';
+            if (this.location && stride - SUBROW_GAP >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
+                const mediaUri = this.location.root.resolve(layer.src).toString();
+                if (kindLabel === '画像') {
+                    element.style.backgroundImage = `url(${JSON.stringify(mediaUri)})`;
+                    element.style.backgroundSize = 'auto 100%';
+                } else {
+                    this.renderSingleFrameFallback(element, { src: `layer:${layer.src}`, in: 0, out: layer.duration }, mediaUri);
+                }
+            }
+            element.title = `${kindLabel}（重ね素材）: ${layer.src}`;
+            element.appendChild(this.segmentLabel(`${kindLabel} · ${layer.src.split('/').pop() || layer.id}`));
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -4626,9 +4642,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.beginTrackRename(nameElement, timelineTrack);
             });
             row.addEventListener('pointerdown', event => this.onTrackHeaderPointerDown(event, timelineTrack));
-            if (timelineTrack.kind === 'cuts' || timelineTrack.kind === 'audio') {
-                row.appendChild(this.trackHeightResizeHandle(timelineTrack));
-            }
+            row.appendChild(this.trackHeightResizeHandle(timelineTrack));
         }
         return row;
     }
@@ -5179,6 +5193,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderRuler(): void {
+        const frameMode = this.strip.getBoundingClientRect().width / this.visibleDuration() / this.fps >= 4;
+        this.rulerBar.title = frameMode ? `分:秒:フレーム（${this.fps} fps）` : `分:秒（${this.fps} fps・拡大するとフレーム表示）`;
         const ticks = this.computeRulerTicks(this.viewStart, this.visibleDuration(), this.fps);
         for (const tick of ticks) {
             const percent = this.percent(tick.time);
