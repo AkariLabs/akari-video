@@ -19,6 +19,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
 
 ## 出力ルール（全モード共通）
 
+- 仕上がりを見せる前に [既存プレビューの起動・確認](../edit-lint/preview.md) を読む。既存機能を使い、案件専用の再生 HTML・再生 UI・音声同期を自作しない（利用者が独立ページを明示依頼した場合を除く）。確認した入口を報告に明記する。
+
 - 判断の正本は検証済み `analysis.json` に置き、根拠のない transcript、フレーム、素材、承認を作らない。
 - 決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、常に追記する。
   `decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート

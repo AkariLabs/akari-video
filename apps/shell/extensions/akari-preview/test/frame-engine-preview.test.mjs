@@ -169,7 +169,7 @@ test('glue は宣言された source 種別で frame source registry を構築�
     assert.match(bootstrap, /images\.set\(id, new engine\.CachedStillImageSource\(url\)\)/);
     assert.match(bootstrap, /layer\.isImage === true/);
     assert.match(bootstrap, /new engine\.CachedStillImageSource\(layer\.src\)/);
-    assert.match(bootstrap, /\}\)\)\(\{ layers: engineLayers \}\)/);
+    assert.match(bootstrap, /\}\)\)\(\{ layers: engineLayers, overlays: engineSummary\.overlays \}\)/);
     assert.doesNotMatch(bootstrap, /\\\.\(png\|jpe\?g\|webp\|bmp\|gif\)/);
     assert.match(bootstrap, /const sources = new Map\(\[\.\.\.lookahead, \.\.\.images\]\)/);
     assert.match(bootstrap, /for \(const image of images\.values\(\)\) image\.destroy\(\)/);

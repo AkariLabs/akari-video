@@ -3083,7 +3083,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
         }
-        const videoUri = kind === 'output' ? model.sourceUri : identityUri;
+        // A composition can have overlays/layers/audio without a base video. Its identity
+        // remains edit.json; only actual cut sources need a primary media stream.
+        const compositionOnly = kind === 'output' && !model.sourceUri && !model.emptyProject;
+        const videoUri = kind === 'output' ? model.sourceUri ?? (compositionOnly ? identityUri : undefined) : identityUri;
         if (!videoUri) {
             await this.disposeAssetStreams(model.assetStreamIds);
             if (model.emptyProject) {
@@ -3099,7 +3102,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // #preview-still + 壁時計クロック（gap セグメントと同じ機構）で表示する。
         // 判定は layers[] と同じ拡張子のみ（isImageLayerSrc）。raw プレビューは対象外。
         const primaryIsStillImage = kind === 'output' && isImageLayerSrc(videoUri.path.base);
-        if (!mimeType && !primaryIsStillImage) {
+        if (!compositionOnly && !mimeType && !primaryIsStillImage) {
             await this.disposeAssetStreams(model.assetStreamIds);
             this.showMessageCard(widget, videoUri, UNSUPPORTED_FORMAT_MESSAGE, identityUri, kind);
             return;
@@ -3120,21 +3123,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 静止画は HEVC 検出（resolveStreamVideoUri）の対象外。ストリームも <video> 用では
         // なく画像レイヤーと同じ asset ストリームで配信する（同一ローカルサーバ由来なので
         // CSP は据え置きでよい）。
-        const streamVideoUri = primaryIsStillImage ? videoUri : await this.resolveStreamVideoUri(videoUri, model);
+        const streamVideoUri = compositionOnly || primaryIsStillImage ? videoUri : await this.resolveStreamVideoUri(videoUri, model);
         // task/2026-08-10-preview-bug-sweep (B1): ffprobe ground truth for the audio-detected
         // notice, run alongside createVideoStream so it adds no extra latency to open. Never
         // allowed to fail the whole open — an unknown result just suppresses the notice below.
         // 静止画に音声ストリームが無いのは仕様（契約 §2.2）であって異常ではないため、
         // probe せず「未確定」を渡して無音検知の通知を出させない。
         const [videoStream, hasSourceAudio] = await Promise.all([
-            (primaryIsStillImage
+            (compositionOnly
+                ? Promise.resolve(undefined)
+                : primaryIsStillImage
                 ? this.createAssetStream({ assetUri: streamVideoUri.toString() })
                 : this.createVideoStream({ videoUri: streamVideoUri.toString() })
             ).catch(async (error: unknown) => {
                 await this.disposeAssetStreams(model.assetStreamIds);
                 throw error;
             }),
-            primaryIsStillImage
+            compositionOnly || primaryIsStillImage
                 ? Promise.resolve<boolean | undefined>(undefined)
                 : this.previewService.probeAudioPresence({ videoUri: videoUri.toString() })
                     .then(result => result.hasAudio)
@@ -3152,7 +3157,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const imageSourceUrlById: Record<string, string> = {};
         if (kind === 'output' && model.sourcesById) {
             for (const [sourceId, entry] of model.sourcesById) {
-                if (model.sourceUri && entry.uri.toString() === model.sourceUri.toString()) {
+                if (!model.summary.cuts.some(cut => cut.src === sourceId)) continue;
+                if (videoStream && model.sourceUri && entry.uri.toString() === model.sourceUri.toString()) {
                     if (primaryIsStillImage) {
                         imageSourceUrlById[sourceId] = videoStream.url;
                     } else {
@@ -3201,7 +3207,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 代表ストリームは静止画なら asset ストリームなので disposer を選び分ける。
         const disposeAcquiredStreams = async () => {
             await Promise.all([
-                primaryIsStillImage
+                !videoStream ? Promise.resolve() : primaryIsStillImage
                     ? this.disposeAssetStreams([videoStream.id])
                     : this.disposeVideoStreamId(videoStream.id),
                 ...[...extraVideoStreams.values()].map(stream => this.disposeVideoStreamId(stream.id)),
@@ -3218,11 +3224,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await disposeAcquiredStreams();
             return;
         }
-        widget.akariPreviewStreamId = primaryIsStillImage ? undefined : videoStream.id;
+        widget.akariPreviewStreamId = primaryIsStillImage ? undefined : videoStream?.id;
         widget.akariPreviewExtraStreamIds = [...extraVideoStreams.values()].map(stream => stream.id);
         widget.akariPreviewAssetStreamIds = [
             ...model.assetStreamIds,
-            ...(primaryIsStillImage ? [videoStream.id] : []),
+            ...(primaryIsStillImage && videoStream ? [videoStream.id] : []),
             ...[...imageAssetStreams.values()].map(stream => stream.id)
         ];
         widget.akariPreviewEditUri = model.editUri;
@@ -3355,7 +3361,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             || frameEngineForceSoftwareOverride === 'true';
         widget.setHTML(this.prepareHtml(
             videoUri,
-            videoStream.url,
+            videoStream?.url ?? '',
             model,
             assets,
             initialSeekTime,
@@ -3742,10 +3748,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
             const declaredSources = internal.sources;
-            // ソースの宣言が 1 つも無い = 素材投入前の新規プロジェクト。壊れた宣言（path が
-            // 非文字列など）とは区別し、ここでは投げずに空プロジェクトとして返す
-            // （呼び出し側が案内カードを出す）。
-            if (internal.emptyProject) {
+            // ソースも描画アイテムも字幕も無い場合だけ、新規プロジェクトの案内を出す。
+            // HTML 中心の構成は sources: [] でも有効なので、通常の要約読込へ進める。
+            if (internal.emptyProject && !internal.tracks.some(track => track.items.length > 0) && captions.length === 0) {
                 return {
                     editUri,
                     summary: EMPTY_SUMMARY,
@@ -3785,7 +3790,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 sourcesById.set(id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
-            // 先頭カットが参照するソース。無ければ宣言順の先頭。
+            // 先頭カットが参照するソース。カットが無ければ土台の動画は不要。
             const itemWarningState = {
                 warnedKinds: new Set<string>(),
                 warn: (message: string): void => console.warn(message)
@@ -3794,7 +3799,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const firstCutSourceId = cutItems
                 .map(item => item.declaration.src)
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
-            const primaryId = firstCutSourceId ?? [...sourcesById.keys()][0];
+            const primaryId = firstCutSourceId ?? '';
             sourceUri = sourcesById.get(primaryId)?.uri;
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
@@ -5714,7 +5719,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             : '';
         // 資産（three / runtime / kernel / frame-engine / 字幕フォント）は素材配信サーバーと同じ
         // 127.0.0.1 オリジンから URL で読む。script-src / font-src にそのオリジンを足す。
-        const streamOrigin = this.escapeHtml(this.streamOrigin(videoSource));
+        const streamOrigin = this.escapeHtml(this.streamOrigin(videoSource || assets.origin));
         const assetOrigin = this.escapeHtml(assets.origin);
         // frame-engine の素材デコード（av-cliper / MP4Clip）は OPFS ファイルストアと
         // タイマーを blob / data URL の Worker で動かす。既定 CSP では生成を拒否されるため、
@@ -6044,7 +6049,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
-            <video id="preview-video" data-akari-transition-role="outgoing"${frameEngineScripts || primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="${frameEngineScripts ? 'none' : 'auto'}" crossorigin="anonymous"></video>
+            <video id="preview-video" data-akari-transition-role="outgoing"${frameEngineScripts || primaryIsStillImage || !videoSource ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="${frameEngineScripts ? 'none' : 'auto'}" crossorigin="anonymous"></video>
             <video id="standby-video" data-akari-playback-role="standby" preload="auto" crossorigin="anonymous"></video>
             <img id="preview-still" alt="" draggable="false">
             <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
@@ -7652,8 +7657,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 registerLayerMasks(engineLayers);
                 let timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
                     fps,
-                    layers: Array.isArray(summary.layers) ? summary.layers : []
-                }))({ layers: engineLayers });
+                    layers: Array.isArray(summary.layers) ? summary.layers : [],
+                    overlays: Array.isArray(summary.overlays) ? summary.overlays : []
+                }))({ layers: engineLayers, overlays: engineSummary.overlays });
                 let totalDuration = timeline.totalDuration;
                 const sourceRequirements = (value, atSeconds) => {
                     const initialIds = new Set();
@@ -7975,7 +7981,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (disposed) return;
                     const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
                     const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
-                    if (plan.base.length === 0 && plan.layers.length === 0) return;
                     const accesses = [];
                     currentAccesses = accesses;
                     const started = performance.now();
@@ -8202,7 +8207,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         registerLayerMasks(nextLayers);
                         const nextTimeline = engine.buildResolvedTimelinePlan(nextCuts, {
                             fps,
-                            layers: nextLayers
+                            layers: nextLayers,
+                            overlays: nextSummary.overlays
                         });
                         const nextDuration = nextTimeline.totalDuration;
                         const resume = playing;
@@ -8614,7 +8620,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const duration = Number(layer && layer.duration);
                     if (Number.isFinite(t) && Number.isFinite(duration)) layersEnd = Math.max(layersEnd, t + duration);
                 }
-                return Math.max(cutsEndSeconds, sfxEnd, layersEnd);
+                const overlaysEnd = (Array.isArray(summary.overlays) ? summary.overlays : []).reduce(
+                    (end, overlay) => Math.max(end, (Number(overlay.start) || 0) + (Number(overlay.duration) || 0)), 0
+                );
+                return Math.max(cutsEndSeconds, sfxEnd, layersEnd, overlaysEnd);
             };
             let activeSegmentIndex = 0;
             let sourceSwapPending = false;

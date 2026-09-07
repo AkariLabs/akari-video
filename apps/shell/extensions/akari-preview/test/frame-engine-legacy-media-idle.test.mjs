@@ -27,7 +27,7 @@ test('engine 面の生成 HTML は土台 video に src を持たせない', () =
     assert.match(compiledHandler, /frameEngineEnabled: Boolean\(frameEngineScripts\),/u);
     assert.match(
         compiledHandler,
-        /<video id="preview-video"[^\n]*\$\{frameEngineScripts \|\| primaryIsStillImage \? '' : ` src="\$\{this\.escapeHtml\(videoSource\)\}"`\} preload="\$\{frameEngineScripts \? 'none' : 'auto'\}"/u
+        /<video id="preview-video"[^\n]*\$\{frameEngineScripts \|\| primaryIsStillImage \|\| !videoSource \? '' : ` src="\$\{this\.escapeHtml\(videoSource\)\}"`\} preload="\$\{frameEngineScripts \? 'none' : 'auto'\}"/u
     );
     assert.match(compiledHandler, /const frameEngineMediaIdle = initial\.frameEngineEnabled === true;/u);
 });

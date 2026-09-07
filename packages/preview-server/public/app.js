@@ -2676,7 +2676,7 @@ function seekTo(t) {
 }
 
 function play() {
-  if (isPlaying || !segments.length) return;
+  if (isPlaying || (frameEngineEnabled ? totalDuration <= 0 : !segments.length)) return;
   logReviewEvent('play');
   isPlaying = true;
   lastWallMs = 0;

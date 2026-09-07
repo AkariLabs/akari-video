@@ -589,3 +589,62 @@ test('engine and legacy surfaces share caption, HTML overlay, and 3D overlay geo
     fs.rmSync(project, { recursive: true, force: true });
   }
 });
+
+test('HTML plus BGM plays and seeks in the existing browser preview without video cuts', { timeout: 90_000 }, async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-html-audio-preview-'));
+  const port = await freePort();
+  let server;
+  let browser;
+  try {
+    const audio = spawnSync(resolveFfmpeg(), ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
+      '-i', 'sine=frequency=440:duration=4', '-y', path.join(project, 'bgm.wav')],
+    { encoding: 'utf8', timeout: 30_000 });
+    assert.equal(audio.status, 0, audio.stderr);
+    fs.writeFileSync(path.join(project, 'one.html'), '<div style="position:absolute;inset:0;background:#087f5b;color:white;font-size:90px">ONE</div>');
+    fs.writeFileSync(path.join(project, 'two.html'), '<div style="position:absolute;inset:0;background:#862e9c;color:white;font-size:90px">TWO</div>');
+    fs.writeFileSync(path.join(project, 'edit.json'), JSON.stringify({
+      version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [{ id: 'bgm', path: 'bgm.wav' }],
+      tracks: [
+        { id: 'visual', lane: 'visual', items: [
+          { id: 'one', at: 0, duration: 60, source: { kind: 'html', path: 'one.html' } },
+          { id: 'two', at: 60, duration: 60, source: { kind: 'html', path: 'two.html' } }
+        ] },
+        { id: 'music', lane: 'audio', items: [
+          { id: 'bed', at: 0, duration: 120, source: { kind: 'media', src: 'bgm', in: 0, out: 4 }, role: 'bgm' }
+        ] }
+      ]
+    }));
+    server = spawn(process.execPath, ['src/server.mjs', project, '--port', String(port), '--no-lint'], {
+      cwd: path.resolve(import.meta.dirname, '..'), stdio: ['ignore', 'pipe', 'pipe']
+    });
+    await waitForServer(`http://127.0.0.1:${port}/api/codec-info`);
+    browser = await chromium.launch({ headless: !headed });
+    const page = await browser.newPage({ viewport: { width: 960, height: 720 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`http://127.0.0.1:${port}/?frameEngine=1`);
+    await page.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 30_000 });
+    assert.equal(Number(await page.locator('#seek').getAttribute('max')), 4);
+    const first = await page.locator('#preview-stage').screenshot();
+    await page.click('#play-toggle');
+    await page.waitForFunction(() => Number(document.querySelector('#seek').value) > 0.4, null, { timeout: 15_000 });
+    const audioDebug = await page.evaluate(() => window.akariFrameEngineAudioDebug());
+    assert.equal(audioDebug.contextState, 'running');
+    assert.equal(audioDebug.playing, true);
+    assert.equal(audioDebug.scheduled.bgm, 1);
+    assert.deepEqual(audioDebug.supply.failed, []);
+    assert.ok(audioDebug.renderedTimelineSec > 0);
+    await page.click('#play-toggle');
+    await page.locator('#seek').evaluate(input => {
+      input.value = '3'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
+    assert.equal(Number(await page.locator('#seek').inputValue()), 3);
+    assert.notDeepEqual(await page.locator('#preview-stage').screenshot(), first);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    server?.kill();
+    fs.rmSync(project, { recursive: true, force: true });
+  }
+});
