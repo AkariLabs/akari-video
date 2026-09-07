@@ -101,7 +101,6 @@ const EDGE_ZONE_PX = 6;
 const TRACK_INSERT_ZONE_PX = 10;
 const TRACK_INSERT_LINE_COLOR = '#22c55e';
 const SNAP_THRESHOLD_PX = 6;
-const SNAP_GRID_SECONDS = 0.25;
 const SNAP_GUIDE_COLOR_DEFAULT = '#06b6d4';
 const SNAP_GUIDE_COLOR_PLAYHEAD = '#f59e0b';
 const MIN_VIEW_DURATION_FRAMES = 4;
@@ -6266,6 +6265,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
         state.ghost.style.display = '';
         state.ghost.style.outline = '';
+        this.hideSnapGuide();
+        this.setGhostSnapped(state.ghost, false);
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
@@ -6391,6 +6392,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 [{ time: state.originalAt }, { time: state.originalAt + state.duration }]
             );
             const at = Math.max(0, Math.abs(clientX - state.startClientX) <= DRAG_THRESHOLD_PX ? state.originalAt : snap.time);
+            if (Math.abs(at - snap.time) > 1e-6) this.hideSnapGuide();
             const target = this.visualRowDropAtClientY(clientY, { kind: 'cut', index: state.index });
             if (target?.kind === 'between') {
                 this.showVisualInsertionGhost(state, at, state.duration, target.top);
@@ -6404,6 +6406,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (target?.kind === 'track') {
                 const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'cut', index: state.index }, target.id, at);
                 const placedAt = plan.accepted === true ? plan.time : at;
+                if (!plan.accepted || Math.abs(placedAt - snap.time) > 1e-6) this.hideSnapGuide();
                 this.setGhostRange(state.ghost, placedAt, placedAt + state.duration);
                 state.ghost.style.top = `${target.top}px`;
                 state.ghost.style.height = `${target.height}px`;
@@ -6481,6 +6484,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     state.originalT + delta, state.originalDuration, showGuide, originalEdges
                 );
                 t = Math.max(0, Math.abs(clientX - state.startClientX) <= DRAG_THRESHOLD_PX ? state.originalT : snap.time);
+                if (Math.abs(t - snap.time) > 1e-6) this.hideSnapGuide();
                 snapped = snap.snapped;
                 const target = this.visualRowDropAtClientY(clientY, { kind: 'layer', id: state.id });
                 if (target?.kind === 'between') {
@@ -6495,6 +6499,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (target?.kind === 'track') {
                     const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'layer', id: state.id }, target.id, t);
                     if (plan.accepted === true) t = plan.time;
+                    if (!plan.accepted || Math.abs(t - snap.time) > 1e-6) this.hideSnapGuide();
                     this.setGhostRange(state.ghost, t, t + itemDuration);
                     state.ghost.style.top = `${target.top}px`;
                     state.ghost.style.height = `${target.height}px`;
@@ -6878,8 +6883,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * トリム・字幕ドラッグ用。候補は source 空間（単語境界・他 cuts の in/out・現在の再生/選択位置）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする（スナップ有効時は常に何かへ吸着する）。
+     * トリム・字幕ドラッグ用。候補は source 空間の他クリップの in/out。
+     * 近くに素材の端がないときは時刻を丸めず、ガイドも表示しない。
      */
     protected snapTimeInSourceSpace(
         value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
@@ -6898,14 +6903,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates: SnapCandidate[] = [
-            ...this.wordBoundaries.map(time => ({ time })),
-            ...this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }]),
-            { time: this.outputToSource(this.playheadT), isPlayhead: true },
-            { time: this.selectedSourceT },
-            { time: 0 },
-            ...extraCandidates
-        ].filter(candidate => Number.isFinite(candidate.time));
+        const candidates: SnapCandidate[] = this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }])
+            .filter(candidate => Number.isFinite(candidate.time)
+                && !extraCandidates.some(edge => Math.abs(edge.time - candidate.time) < 1e-6));
         const nearest = this.nearestCandidate(candidates, value);
         if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
             if (showGuide) {
@@ -6913,16 +6913,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return { time: nearest.time, snapped: true };
         }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(this.sourceToOutput(grid), false);
-        }
-        return { time: grid, snapped: false };
+        this.hideSnapGuide();
+        return { time: value, snapped: false };
     }
 
     /**
-     * 位置移動・オーバーレイドラッグ用。候補は出力空間（セグメント境界・再生位置・選択位置の射影）。
-     * 候補が閾値内になければ 0.25 秒グリッドへフォールバックする。
+     * 位置移動・オーバーレイドラッグ用。候補は出力空間の他素材の開始・終了位置。
+     * 近くに素材の端がないときは時刻を丸めない。
      */
     protected snapTimeInOutputSpace(
         value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
@@ -6949,11 +6946,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return { time: nearest.time, snapped: true };
         }
-        const grid = this.snapToGrid(value);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        this.hideSnapGuide();
+        return { time: value, snapped: false };
     }
 
     protected snapMovingRangeInOutputSpace(
@@ -6988,25 +6982,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 snapped: true
             };
         }
-        const grid = this.snapToGrid(start);
-        if (showGuide) {
-            this.showSnapGuideAt(grid, false);
-        }
-        return { time: grid, snapped: false };
+        this.hideSnapGuide();
+        return { time: start, snapped: false };
     }
 
-    protected outputSnapCandidates(extraCandidates: readonly SnapCandidate[] = []): SnapCandidate[] {
+    protected outputSnapCandidates(excludedEdges: readonly SnapCandidate[] = []): SnapCandidate[] {
+        // The magnet aligns media edges, never the playhead, selection, or a time grid.
         return [
             ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
-            { time: this.playheadT, isPlayhead: true },
-            { time: this.sourceToOutput(this.selectedSourceT) },
-            { time: 0 },
-            ...extraCandidates
-        ].filter(candidate => Number.isFinite(candidate.time));
-    }
-
-    protected snapToGrid(value: number): number {
-        return Math.max(0, Math.round(value / SNAP_GRID_SECONDS) * SNAP_GRID_SECONDS);
+            ...this.layers.flatMap(layer => [{ time: layer.t }, { time: layer.t + layer.duration }]),
+            ...this.overlays.flatMap(overlay => [{ time: overlay.start }, { time: overlay.start + overlay.duration }]),
+            ...this.audioSfx.flatMap(sfx => [{ time: sfx.t }, { time: this.sfxIntervalEnd(sfx) }])
+        ].filter(candidate => Number.isFinite(candidate.time)
+            && !excludedEdges.some(edge => Math.abs(edge.time - candidate.time) < 1e-6));
     }
 
     protected snapThresholdSeconds(): number | undefined {

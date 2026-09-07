@@ -656,7 +656,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected handleMaterialsFileChange(root: URI, assetsUri: URI, event: FileChangesEvent): void {
         const rootKey = root.toString();
         const relevant = event.changes.some(change =>
-            change.resource.parent.toString() === rootKey || assetsUri.isEqualOrParent(change.resource)
+            assetsUri.isEqualOrParent(change.resource)
+            || (change.resource.parent.toString() === rootKey
+                && isUnorganizedRootEntry({ name: change.resource.path.base, isDirectory: false }, this.workflow.current.tree))
         );
         if (!relevant) {
             return;
@@ -1838,7 +1840,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!this.workflow.workspaceRoot) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
         }
-        if (this.materialsLoading) {
+        if (this.materialsLoading && !this.materials.length && !this.unorganizedMaterials.length) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
         if (!this.materials.length && !this.unorganizedMaterials.length) {
@@ -2932,7 +2934,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!this.workflow.workspaceRoot) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>プロジェクトを開いてください。</p>;
         }
-        if (this.outputsLoading) {
+        if (this.outputsLoading && !this.outputs.length) {
             return <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>;
         }
         if (!this.outputs.length) {

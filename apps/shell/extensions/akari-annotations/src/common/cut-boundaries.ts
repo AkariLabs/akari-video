@@ -35,6 +35,10 @@ export function computeCutBoundaries(segments: readonly CutBoundaryInput[]): Cut
         for (let index = 1; index < list.length; index++) {
             const earlier = list[index - 1];
             const later = list[index];
+            const gap = later.tlStart - earlier.tlEnd;
+            // A gap has no shared edge. Only an actual configured transition may overlap.
+            if (gap > 1e-6 || later.tlStart < earlier.tlStart
+                || (gap < -1e-6 && !earlier.transitionOut)) continue;
             boundaries.push({
                 earlierIndex: earlier.index,
                 laterIndex: later.index,

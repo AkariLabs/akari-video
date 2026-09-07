@@ -63,3 +63,13 @@ test("戻り値は earlierIndex 昇順で決定的（トラック処理順に依
   const boundaries = computeCutBoundaries(segments);
   assert.deepEqual(boundaries.map(b => b.earlierIndex), [0, 1]);
 });
+
+test('gaps have no transition badge, including stale transition metadata',()=>{
+ for(const transitionOut of [undefined,{type:'dissolve',duration:.5}]) assert.deepEqual(computeCutBoundaries([
+  {index:0,track:0,tlStart:0,tlEnd:2,transitionOut}, {index:1,track:0,tlStart:3.5,tlEnd:5.5}
+ ]),[]);
+});
+test('unconfigured overlap and reversed order are not transition boundaries',()=>{
+ assert.deepEqual(computeCutBoundaries([{index:0,track:0,tlStart:0,tlEnd:3},{index:1,track:0,tlStart:2,tlEnd:5}]),[]);
+ assert.deepEqual(computeCutBoundaries([{index:0,track:0,tlStart:4,tlEnd:6},{index:1,track:0,tlStart:0,tlEnd:2}]),[]);
+});
