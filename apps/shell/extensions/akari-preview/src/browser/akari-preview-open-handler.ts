@@ -5943,9 +5943,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
-#caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+#caption-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 #caption-plate.akari-caption-host--editing, #caption-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
-#caption-plate.akari-caption-host--editing .akari-caption { pointer-events: auto; }
+#caption-plate.akari-caption-host--styled .akari-caption__line, #caption-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 #caption-plate [data-akari-caption-editing="true"], #caption-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
