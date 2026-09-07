@@ -29,6 +29,9 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
     const url = (state.connection.url ?? 'https://akari-oss.app/api/store').replace(/\/api\/store\/?$/, '/lab/');
     return <section data-akari-store-settings='true' style={{ borderTop: '1px solid var(--theia-widget-border)', paddingTop: 14, display: 'grid', gap: 10 }}>
         <strong>AKARI Store</strong>
+        <p data-akari-store-description='true' style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'var(--theia-descriptionForeground)' }}>
+            動画に使える素材や演出パックを探して購入できます。接続すると、購入済みの素材をAKARI Videoで使えます。
+        </p>
         <span role='status' style={{ color: 'var(--theia-descriptionForeground)', overflowWrap: 'anywhere' }}>
             {state.connectionLoading ? '接続を確認しています…' : state.phase === 'starting' ? '接続を開始しています…'
                 : state.phase === 'pending' ? `ブラウザで承認してください${state.userCode ? ` · 確認コード: ${state.userCode}` : ''}`

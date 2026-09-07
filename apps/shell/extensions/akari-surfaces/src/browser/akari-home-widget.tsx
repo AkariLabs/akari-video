@@ -74,7 +74,7 @@ import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
-import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
+import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
     AKARI_BORDER,
@@ -616,10 +616,11 @@ export class AkariHomeWidget extends ReactWidget {
                 <button
                     type='button'
                     className='theia-button secondary'
-                    style={homeFlowStyles.projectCardButton}
+                    style={{ ...homeFlowStyles.projectCardButton, ...(row.current ? PROJECT_CURRENT_STYLE : {}) }}
                     disabled={row.current}
                     title={badgeText ? `${row.name}（${badgeText}）` : row.name}
                     data-akari-project-item='true'
+                    aria-current={row.current ? 'true' : undefined}
                     data-akari-project-current={row.current ? 'true' : undefined}
                     data-akari-project-standalone={row.standalone ? 'true' : undefined}
                     onClick={() => !row.current && this.openCreatorRootProject(row.uri)}
@@ -631,7 +632,7 @@ export class AkariHomeWidget extends ReactWidget {
                     </span>
                     <span style={homeFlowStyles.projectCardBody}>
                         <strong data-akari-project-title='true' style={homeFlowStyles.projectCardName}>{row.name}</strong>
-                        {badgeText && <span data-akari-project-channel='true' style={homeFlowStyles.projectCardBadge}>{badgeText}</span>}
+                        {badgeText && <span data-akari-project-channel='true' style={{ ...homeFlowStyles.projectCardBadge, ...(row.current ? { color: 'var(--akari-accent, var(--theia-focusBorder))', borderColor: 'var(--akari-accent, var(--theia-focusBorder))', fontWeight: 700 } : {}) }}>{badgeText}</span>}
                     </span>
                 </button>
                 {options.reveal && (
@@ -2336,11 +2337,11 @@ export class AkariHomeWidget extends ReactWidget {
                     data-akari-status-kind='inside'
                     style={{ ...homeFlowStyles.statusBadge, ...homeFlowStyles.statusBadgeIn }}
                 >
-                    <span style={homeFlowStyles.statusText}>
+                    <span title={`チャンネル: ${this.currentLocation.channel}`} style={{ minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         📺 チャンネル: <strong>{this.currentLocation.channel}</strong>
                     </span>
-                    <span style={homeFlowStyles.statusSub}>
-                        データの場所: {this.currentLocation.rootPath}（変更は設定から）
+                    <span title={`データの場所: ${this.currentLocation.rootPath}`} style={{ color: 'var(--theia-descriptionForeground)', fontSize: 11.5, flex: '1 1 0', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        · {this.currentLocation.rootPath}
                     </span>
                 </div>
             );
@@ -2440,7 +2441,8 @@ export class AkariHomeWidget extends ReactWidget {
                 <div style={{ ...(this.welcomeMode ? homeFlowStyles.welcomeList : homeFlowStyles.projectList), ...(list ? { gridTemplateColumns: '1fr', minWidth: 680, gap: 6 } : {}) }}>
                     {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} data-akari-project-card='true' style={{ display: 'flex', gap: 8 }}>
                         <button type='button' className='theia-button secondary' disabled={row.current}
-                            style={{ flex: 1, minWidth: 0, margin: 0, height: 'auto', padding: '10px 12px', display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px', alignItems: 'center', gap: 12, textAlign: 'left' }}
+                            style={{ flex: 1, minWidth: 0, margin: 0, height: 'auto', padding: '10px 12px', display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px', alignItems: 'center', gap: 12, textAlign: 'left', ...(row.current ? PROJECT_CURRENT_STYLE : {}) }}
+                            data-akari-project-current={row.current ? 'true' : undefined} aria-current={row.current ? 'true' : undefined}
                             data-akari-project-row='true' onClick={() => this.openCreatorRootProject(row.uri)}>
                             <span style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 12 }}>
                                 <span data-akari-list-thumbnail='true' style={{ ...homeFlowStyles.projectCardThumb, width: 64, height: 36, flex: '0 0 64px', borderRadius: AKARI_RADIUS.chip }}>
@@ -2817,7 +2819,7 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised,
         fontSize: 13
     },
-    statusBadgeIn: { borderColor: 'var(--theia-focusBorder)' },
+    statusBadgeIn: { borderColor: 'var(--theia-focusBorder)', flexWrap: 'nowrap', padding: '6px 10px' },
     statusText: { flex: '1 1 auto' },
     statusSub: {
         flexBasis: '100%', color: 'var(--theia-descriptionForeground)', fontSize: 11.5, paddingLeft: 2

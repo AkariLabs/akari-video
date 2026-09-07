@@ -20,6 +20,13 @@ export const PROJECT_CARD_RADIUS_PX = 12;
 /** 背景に埋もれないカード外周。ダーク・ライト双方の前景色から求める。 */
 export const PROJECT_CARD_BORDER = '1px solid color-mix(in srgb, var(--theia-foreground) 28%, transparent)';
 
+/** 選択中の枠は内側へ描き、カード・リストの寸法を変えない。 */
+export const PROJECT_CURRENT_STYLE = {
+    outline: '2px solid var(--akari-accent, var(--theia-focusBorder))',
+    outlineOffset: '-2px',
+    opacity: 1
+} as const;
+
 /**
  * カード 1 枚ぶんのサムネ再生。ポスターを敷き、ホバー／フォーカスのあいだだけ
  * 残りのコマへ順に切り替えてループする（サムネというより「軽い動きのプレビュー」）。

@@ -6,7 +6,7 @@ import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import { filterProjects, formatProjectUpdatedAt, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
-import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
+import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 
 // プロジェクト・ランチャー（task 2026-08-17-home-launcher-popup・裁定 D + §3.2）。
 // 将来「事業（チャンネル）画面」へ育てる置き場（裁定 D4）だが、今回は
@@ -221,6 +221,10 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         button.className = 'theia-button secondary';
         button.setAttribute('data-akari-launcher-row', 'true');
         button.disabled = row.current;
+        if (row.current) {
+            Object.assign(button.style, PROJECT_CURRENT_STYLE);
+            button.setAttribute('aria-current', 'true');
+        }
         button.title = `${row.name}\n${row.uri.path.fsPath()}`;
         Object.assign(button.style, { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 120px 158px 110px', gap: '16px', alignItems: 'center', textAlign: 'left', minWidth: '660px', width: '100%', height: 'auto', minHeight: '62px', padding: '12px 14px', margin: '0', boxSizing: 'border-box', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.card });
         const name = document.createElement('span');
@@ -335,6 +339,10 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         button.className = 'theia-button secondary';
         button.setAttribute('data-akari-launcher-row', 'true');
         button.disabled = row.current;
+        if (row.current) {
+            Object.assign(button.style, PROJECT_CURRENT_STYLE);
+            button.setAttribute('aria-current', 'true');
+        }
         Object.assign(button.style, {
             display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0',
             padding: '0', borderRadius: `${PROJECT_CARD_RADIUS_PX}px`, border: PROJECT_CARD_BORDER, boxSizing: 'border-box', background: AKARI_SURFACE.card, textAlign: 'left', overflow: 'hidden',
@@ -364,7 +372,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
                 alignSelf: 'flex-start', flex: '0 0 auto', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap', padding: '2px 8px', borderRadius: `${AKARI_RADIUS.chip}px`,
                 border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
-                color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
+                color: row.current ? 'var(--akari-accent, var(--theia-focusBorder))' : 'var(--theia-descriptionForeground)', fontSize: '10.5px', fontWeight: row.current ? '700' : '400'
             });
             body.appendChild(badge);
         }
