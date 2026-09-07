@@ -44,7 +44,7 @@ test('boundary metrics expose hit and last elapsed/decode beside late, including
   assert.match(source, /boundaryAfter: \{ total: number; late: number; hit: number \}/u);
   assert.match(source, /dataset\.boundaryLateAfter = [^;]+;\s*this\.ui\.metrics\.dataset\.boundaryHitAfter = `\$\{m\.boundaryAfter\.hit\}\/\$\{m\.boundaryAfter\.total\}`/u);
   assert.match(source, /dataset\.boundaryLastMs = this\.boundaryLastMs == null \? ''/u);
-  assert.match(source, /baseAccesses = this\.currentAccesses\.filter\(access =>\s*plan\.base\.some\(layer => layer\.id === access\.streamId\)\)/u);
+  assert.match(source, /baseAccesses = accesses\.filter\(access =>\s*plan\.base\.some\(layer => layer\.id === access\.streamId\)\)/u);
   assert.match(source, /baseAccesses\.length > 0 && baseAccesses\.every\(access => access\.hit === true\)/u);
   assert.match(source, /if \(hit\) bucket\.hit \+= 1/u);
   assert.match(source, /decode: Math\.max\(0, \.\.\.baseAccesses\.map\(access => access\.decodeMs\)\)/u);
@@ -73,6 +73,7 @@ test('boundary aggregation uses nonempty base accesses, their maximum decode, an
         audio: { noteRendered() {} },
         scheduler: { isWarmed: () => warmed, notePresented() {} },
         updateMetrics() {},
+        ui: { error: { hidden: true, textContent: '' } },
       };
       const render = method('private async renderFrame(', 'private updateMetrics(', 'async function renderFrame(', {
         performance: { now: () => clock },

@@ -112,7 +112,7 @@ test('frame-engine 有効時の incremental 更新は同じ webview の runtime 
     assert.match(compiledHandler, /window\.akari\.frameEnginePendingSummary = nextSummary/);
     assert.match(bootstrap, /await clock\.updateModel\(pendingSummary\)/);
     assert.match(bootstrap,
-        /await renderFrame\(restoredPosition,[\s\S]*?root\.dataset\.frameEngineReady = 'true'/);
+        /const operation = renderFrame\(restoredPosition,[^;]+;\s*rendering = operation;\s*try \{\s*await operation;\s*\} finally \{\s*if \(rendering === operation\) rendering = null;\s*\}[\s\S]*?root\.dataset\.frameEngineReady = 'true'/);
 });
 
 test('frame-engine runtime は crop を含むライブ値を再構築なしで再評価する', () => {
