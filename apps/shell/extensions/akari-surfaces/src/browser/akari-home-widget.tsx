@@ -11,7 +11,7 @@ import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { isOSX, isWindows } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileStat } from '@theia/filesystem/lib/common/files';
+import { FileStat, FileOperationResult, toFileOperationResult } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WorkspaceCommands } from '@theia/workspace/lib/browser/workspace-commands';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -72,7 +72,7 @@ import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
-import { filterProjects, PROJECT_PAGE_SIZE, ProjectViewMode, readProjectView, saveProjectView } from '../common/project-browser';
+import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
@@ -156,7 +156,7 @@ const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
 const NEW_PROJECT_NAME_SLUG = 'new-video';
 
 // --- U3 プロジェクト一覧の「単体」行（task 2026-08-03-home-v5-terms） ---
-interface CreatorRootProjectEntry {
+interface CreatorRootProjectEntry extends ProjectDetails {
     /** フォルダ名（機械の ID。ソート・URI 解決に使う。表示には使わない — 表示は title ?? name）。 */
     name: string;
     channel: string;
@@ -166,7 +166,7 @@ interface CreatorRootProjectEntry {
 }
 
 /** U3: 履歴から拾った「単体」（作業場外）プロジェクト 1 件。 */
-interface StandaloneProjectEntry {
+interface StandaloneProjectEntry extends ProjectDetails {
     /** フォルダ名（機械の ID）。表示は title ?? name。 */
     name: string;
     uri: URI;
@@ -178,7 +178,7 @@ interface StandaloneProjectEntry {
  * ランチャー（`akari-project-launcher-dialog.ts`）が列挙結果をそのまま受け取れるよう export する
  * （型だけの参照 — 列挙ロジック自体は `buildProjectRows` に残したまま複製しない）。
  */
-export interface ProjectListRow {
+export interface ProjectListRow extends ProjectDetails {
     key: string;
     name: string;
     uri: URI;
@@ -225,9 +225,11 @@ export class AkariHomeWidget extends ReactWidget {
 
     @inject(OpenerService) protected readonly openers: OpenerService;
     @inject(ApplicationShell) protected readonly shell: ApplicationShell;
+    protected projectSort: ProjectSortOrder = readProjectSort('home');
+    protected projectRefreshing = false;
     protected projectQuery = '';
-    protected projectView: ProjectViewMode = readProjectView();
-    protected projectVisibleCount = PROJECT_PAGE_SIZE;
+    protected projectView: ProjectViewMode = readProjectView('home');
+    protected projectVisibleCount = HOME_PROJECT_PAGE_SIZE;
     protected projectLauncherPreparing = false;
     protected storeCredentialsUri: URI | undefined;
 
@@ -434,7 +436,8 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
-        this.projectView = readProjectView();
+        this.projectView = readProjectView('home');
+        this.projectSort = readProjectSort('home');
         checkForShellUpdatesOnHomeShow(this.resolveElectronUpdaterApi());
         void this.refreshWelcomeMode();
         void this.refreshHomeFlow();
@@ -520,7 +523,6 @@ export class AkariHomeWidget extends ReactWidget {
                 await this.loadStandaloneProjects();
                 return this.buildProjectRows();
             },
-            onViewChanged: mode => { this.projectView = mode; this.update(); },
             onDismissed: () => {
                 this.launcherDismissedThisSession = true;
             }
@@ -967,7 +969,7 @@ export class AkariHomeWidget extends ReactWidget {
             if (!(await this.isScaffoldedProject(uri))) {
                 continue;
             }
-            results.push({ name: uri.path.base || fsPath, uri, title: await this.readProjectTitle(uri) });
+            results.push({ name: uri.path.base || fsPath, uri, title: await this.readProjectTitle(uri), ...await this.readProjectDetails(uri) });
         }
         return results;
     }
@@ -986,6 +988,17 @@ export class AkariHomeWidget extends ReactWidget {
      * （task 2026-08-09-project-display-title）。無い・壊れている場合は null
      * （フェイルセーフ側 — 一覧描画自体は止めない）。
      */
+    /** キャッシュ生成で更新順が変わらないよう、編集データ・進め方・ルートの日時を見る。 */
+    protected async readProjectDetails(uri: URI): Promise<ProjectDetails> {
+        const stat = async (resource: URI) => {
+            try { return await this.fileService.resolve(resource, { resolveMetadata: true }); }
+            catch (error) { return toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND ? null : undefined; }
+        };
+        const [folder, edit, intake] = await Promise.all([stat(uri), stat(uri.resolve('edit.json')), stat(uri.resolve(INTAKE_RELATIVE_PATH))]);
+        const dates = [folder?.mtime, edit?.mtime, intake?.mtime].filter((value): value is number => Number.isFinite(value));
+        return { updatedAt: dates.length ? Math.max(...dates) : undefined, hasEditData: edit === undefined ? undefined : !!edit?.isFile };
+    }
+
     protected async readProjectTitle(uri: URI): Promise<string | null> {
         try {
             const content = await this.fileService.readFile(uri.resolve(INTAKE_RELATIVE_PATH));
@@ -1051,7 +1064,8 @@ export class AkariHomeWidget extends ReactWidget {
         // 全件を検索対象に含め、ファイル読み込みだけを小さなバッチに分ける。
         for (let start = 0; start < sorted.length; start += PROJECT_PAGE_SIZE) {
             await Promise.all(sorted.slice(start, start + PROJECT_PAGE_SIZE).map(async entry => {
-                entry.title = await this.readProjectTitle(entry.uri);
+                const [title, details] = await Promise.all([this.readProjectTitle(entry.uri), this.readProjectDetails(entry.uri)]);
+                Object.assign(entry, { title }, details);
             }));
         }
         return sorted;
@@ -2137,7 +2151,10 @@ export class AkariHomeWidget extends ReactWidget {
                 >
                     {this.startingNewProject ? '作成しています…' : '＋ 新しい動画を始める'}
                 </button>
-                {this.renderProjectBrowser(rows)}
+                {rows.length > 0 && <>
+                    <p style={homeFlowStyles.welcomeListHeading}>最近のプロジェクト</p>
+                    {this.renderProjectBrowser(rows)}
+                </>}
                 <button
                     type='button'
                     style={homeFlowStyles.welcomeOpenFolder}
@@ -2382,40 +2399,67 @@ export class AkariHomeWidget extends ReactWidget {
      * なら「チャンネルに入れる」がそこに出る）と案内が二重にならないよう、ここは
      * 見出し下の薄い 1 行だけに留める（task 2026-08-04-home-no-root-flow）。
      */
+    protected async refreshProjectBrowser(): Promise<void> {
+        if (this.projectRefreshing) { return; }
+        this.projectRefreshing = true;
+        this.update();
+        try { await this.loadCreatorRootProjects(); await this.loadStandaloneProjects(); }
+        finally { this.projectRefreshing = false; this.update(); }
+    }
+
     protected renderProjectBrowser(allRows: ProjectListRow[]): React.ReactNode {
-        const rows = filterProjects(allRows, this.projectQuery);
+        const rows = sortProjects(filterProjects(allRows, this.projectQuery), this.projectSort);
         const list = this.projectView === 'list';
+        const iconStyle: React.CSSProperties = { minWidth: 32, width: 32, height: 32, margin: 0, padding: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
         return <div data-akari-project-browser={this.projectView}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
                 <input type='search' className='theia-input' aria-label='プロジェクトを検索'
                     placeholder='名前・チャンネルで検索' value={this.projectQuery}
                     style={{ flex: '1 1 160px', minWidth: 0 }}
-                    onChange={event => { this.projectQuery = event.currentTarget.value; this.projectVisibleCount = PROJECT_PAGE_SIZE; this.update(); }} />
+                    onChange={event => { this.projectQuery = event.currentTarget.value; this.projectVisibleCount = HOME_PROJECT_PAGE_SIZE; this.update(); }} />
+                <select className='theia-select' aria-label='プロジェクトの並べ替え' value={this.projectSort}
+                    onChange={event => { this.projectSort = event.currentTarget.value as ProjectSortOrder; saveProjectSort(this.projectSort, 'home'); this.projectVisibleCount = HOME_PROJECT_PAGE_SIZE; this.update(); }}>
+                    {Object.entries(PROJECT_SORT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
                 {(['cards', 'list'] as const).map(mode => <button key={mode} type='button' className='theia-button secondary'
-                    aria-pressed={this.projectView === mode} onClick={() => { this.projectView = mode; saveProjectView(mode); this.update(); }}>
-                    {mode === 'cards' ? 'カード' : 'リスト'}
+                    style={{ ...iconStyle, ...(this.projectView === mode ? { boxShadow: 'inset 0 0 0 1px var(--theia-focusBorder)' } : {}) }}
+                    title={mode === 'cards' ? 'カード表示' : 'リスト表示'} aria-label={mode === 'cards' ? 'カード表示' : 'リスト表示'}
+                    aria-pressed={this.projectView === mode} onClick={() => { this.projectView = mode; saveProjectView(mode, 'home'); this.update(); }}>
+                    <span className={`codicon ${PROJECT_VIEW_ICONS[mode]}`} aria-hidden='true' />
                 </button>)}
-                <button type='button' className='theia-button secondary' onClick={() => void this.loadCreatorRootProjects().then(() => this.loadStandaloneProjects())}>更新</button>
+                <button type='button' className='theia-button secondary' title='更新' aria-label='更新' style={iconStyle}
+                    disabled={this.projectRefreshing} onClick={() => void this.refreshProjectBrowser()}>
+                    <span className={`codicon codicon-refresh${this.projectRefreshing ? ' codicon-modifier-spin' : ''}`} aria-hidden='true' />
+                </button>
             </div>
             <small role='status' style={{ color: 'var(--theia-descriptionForeground)' }}>{rows.length} 件</small>
-            <div style={{ ...homeFlowStyles.projectList, marginTop: 8, ...(list ? { gridTemplateColumns: '1fr' } : {}) }}>
-                {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} style={{ display: 'flex', gap: 8 }}>
-                    <button type='button' className='theia-button secondary' disabled={row.current}
-                        style={{ flex: 1, minWidth: 0, height: 'auto', padding: '10px 12px', display: 'flex', gap: 12, textAlign: 'left' }}
-                        data-akari-project-row='true' onClick={() => this.openCreatorRootProject(row.uri)}>
-                        <span className='codicon codicon-device-camera-video' aria-hidden='true' />
-                        <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</strong>
-                        <small>{row.channel ?? '単体'}{row.current ? ' · 開いています' : ''}</small>
-                    </button>
-                    <button type='button' className='theia-button secondary' title={revealInFileManagerActionLabel(row.name)}
-                        aria-label={revealInFileManagerActionLabel(row.name)} onClick={() => void this.revealProjectInFileManager(row)}>
-                        <span className='codicon codicon-folder-opened' aria-hidden='true' />
-                    </button>
-                </div> : this.renderProjectCard(row, { reveal: true }))}
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                {list && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px 40px', gap: 12, minWidth: 680, padding: '8px 12px', boxSizing: 'border-box', color: 'var(--theia-descriptionForeground)' }}>
+                    <span>プロジェクト / 保存場所</span><span>チャンネル</span><span>最終更新</span><span>編集データ</span><span />
+                </div>}
+                <div style={{ ...(this.welcomeMode ? homeFlowStyles.welcomeList : homeFlowStyles.projectList), ...(list ? { gridTemplateColumns: '1fr', minWidth: 680, gap: 6 } : {}) }}>
+                    {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} style={{ display: 'flex', gap: 8 }}>
+                        <button type='button' className='theia-button secondary' disabled={row.current}
+                            style={{ flex: 1, minWidth: 0, margin: 0, height: 'auto', padding: '10px 12px', display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px', alignItems: 'center', gap: 12, textAlign: 'left' }}
+                            data-akari-project-row='true' onClick={() => this.openCreatorRootProject(row.uri)}>
+                            <span style={{ display: 'grid', minWidth: 0, gap: 4 }}>
+                                <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}{row.current ? ' · 開いています' : ''}</strong>
+                                <small title={row.uri.path.fsPath()} style={{ color: 'var(--theia-descriptionForeground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.uri.path.fsPath()}</small>
+                            </span>
+                            <small style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.channel ?? '単体'}</small>
+                            <time style={{ whiteSpace: 'nowrap' }} dateTime={row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined}>{formatProjectUpdatedAt(row.updatedAt)}</time>
+                            <small>{projectEditStatus(row)}</small>
+                        </button>
+                        <button type='button' className='theia-button secondary' style={{ ...iconStyle, alignSelf: 'center' }} title={revealInFileManagerActionLabel(row.name)}
+                            aria-label={revealInFileManagerActionLabel(row.name)} onClick={() => void this.revealProjectInFileManager(row)}>
+                            <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                        </button>
+                    </div> : this.renderProjectCard(row, { reveal: !this.welcomeMode }))}
+                </div>
+                {rows.length === 0 && <p>{this.projectQuery ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。'}</p>}
             </div>
-            {rows.length === 0 && <p>{this.projectQuery ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。'}</p>}
             {rows.length > this.projectVisibleCount && <button type='button' className='theia-button secondary' style={{ marginTop: 12 }}
-                onClick={() => { this.projectVisibleCount += PROJECT_PAGE_SIZE; this.update(); }}>もっと読み込む</button>}
+                onClick={() => { this.projectVisibleCount += HOME_PROJECT_PAGE_SIZE; this.update(); }}>もっと読み込む</button>}
         </div>;
     }
 
@@ -2447,7 +2491,7 @@ export class AkariHomeWidget extends ReactWidget {
             uri: project.uri,
             channel: project.channel,
             current: currentFsPath !== undefined && project.uri.path.fsPath() === currentFsPath,
-            standalone: false
+            standalone: false, updatedAt: project.updatedAt, hasEditData: project.hasEditData
         }));
 
         let matchedCurrent = rows.some(row => row.current);
@@ -2461,7 +2505,7 @@ export class AkariHomeWidget extends ReactWidget {
                 name: resolveProjectDisplayName(project.title, project.name),
                 uri: project.uri,
                 current: isCurrent,
-                standalone: true
+                standalone: true, updatedAt: project.updatedAt, hasEditData: project.hasEditData
             });
         }
 

@@ -4,7 +4,7 @@ import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
-import { filterProjects, PROJECT_PAGE_SIZE, ProjectViewMode, readProjectView, saveProjectView } from '../common/project-browser';
+import { filterProjects, formatProjectUpdatedAt, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
 import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 
@@ -23,7 +23,6 @@ export interface AkariProjectLauncherDialogProps extends DialogProps {
     /** home widget の既存列挙（creatorRootProjects + standaloneProjects 統合済み）をそのまま受け取る。 */
     rows: ProjectListRow[];
     onRefresh: () => Promise<ProjectListRow[]>;
-    onViewChanged: (mode: ProjectViewMode) => void;
     /** F5「+ 新しい動画を始める」— home widget の既存フロー（無 root 時の ensureCreatorRoot 連結込み）をそのまま呼ぶ。 */
     onStartNewProject: () => Promise<void>;
     /** 一覧行クリック — home widget の既存「プロジェクトを開く」経路（preserveWindow セマンティクス含む）をそのまま呼ぶ。 */
@@ -54,6 +53,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     protected readonly body = document.createElement('div');
     protected readonly listSection = document.createElement('div');
     protected startingNewProject = false;
+    protected sort: ProjectSortOrder = readProjectSort();
     protected query = '';
     protected view: ProjectViewMode = readProjectView();
     protected visibleCount = PROJECT_PAGE_SIZE;
@@ -67,6 +67,10 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         this.buildDom();
     }
 
+    // 検索や並べ替えの Enter でランチャー自体を accept しない。
+    // 各ボタン・select の標準キーボード操作に委ねる。
+    protected override handleEnter(_event: KeyboardEvent): boolean { return false; }
+
     /** 自動表示・onFinished からの継続・手動再表示のいずれからも呼ぶ共通入口。 */
     openLauncher(): Promise<void> {
         return this.open().then(() => undefined, () => undefined).finally(() => {
@@ -77,36 +81,38 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     protected buildDom(): void {
         this.node.classList.add('akari-project-launcher-dialog-overlay');
         this.node.setAttribute('data-akari-project-launcher-dialog', 'true');
+        Object.assign(this.node.style, { backdropFilter: 'blur(8px)', webkitBackdropFilter: 'blur(8px)', background: 'rgba(0, 0, 0, 0.46)' });
         const dialogBlock = this.contentNode.parentElement;
         if (dialogBlock) {
             Object.assign(dialogBlock.style, {
                 // カード格子ぶんの横幅（既定の最大幅でちょうど 4 列。窓が狭ければ 3→2→1 列へ落ちる）。
-                width: 'min(1040px, calc(100vw - 48px))',
-                maxWidth: '1040px',
-                maxHeight: 'calc(100vh - 48px)',
+                width: 'min(1120px, calc(100vw - 48px))',
+                maxWidth: '1120px', minWidth: '0',
+                height: 'min(780px, calc(100vh - 48px))',
+                minHeight: '0', maxHeight: 'calc(100vh - 48px)',
                 borderRadius: `${AKARI_RADIUS.card}px`,
                 overflow: 'hidden',
                 border: AKARI_BORDER.edge,
-                boxShadow: '0 24px 72px rgba(0, 0, 0, 0.48)',
-                background: 'var(--theia-editor-background)'
+                boxShadow: '0 24px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px color-mix(in srgb, var(--theia-foreground) 12%, transparent)',
+                background: AKARI_SURFACE.raised
             });
         }
         Object.assign(this.contentNode.style, {
             padding: '0',
-            maxHeight: 'calc(100vh - 112px)',
-            overflow: 'auto',
-            background: 'var(--theia-editor-background)'
+            flex: '1', minHeight: '0', maxHeight: 'none', display: 'flex',
+            overflow: 'hidden',
+            background: AKARI_SURFACE.raised
         });
         // アクションはボディ内に置く。空の既定 control 行は余白になるため隠す
         // （akari-first-run-setup-dialog.ts と同じ流儀）。
         this.controlPanel.style.display = 'none';
         Object.assign(this.body.style, {
             padding: '22px 24px 24px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box', display: 'flex', flexDirection: 'column', flex: '1', minHeight: '0', minWidth: '0'
         });
 
         const header = document.createElement('header');
-        Object.assign(header.style, { textAlign: 'center', marginBottom: '18px' });
+        Object.assign(header.style, { textAlign: 'center', marginBottom: '18px', flexShrink: '0' });
         const logo = document.createElement('div');
         logo.textContent = '🏮 AKARI Video';
         Object.assign(logo.style, { fontSize: '19px', fontWeight: '800' });
@@ -123,17 +129,17 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         newProjectButton.setAttribute('data-akari-launcher-new-project', 'true');
         Object.assign(newProjectButton.style, {
             // 主動線は広がった格子に引きずられず、従来どおり中央の 1 本のままにする。
-            display: 'block', width: '100%', maxWidth: '520px', margin: '0 auto',
+            display: 'block', width: '100%', maxWidth: '520px', margin: '0 auto', flexShrink: '0',
             padding: '13px 18px', borderRadius: `${AKARI_RADIUS.panel}px`,
             fontWeight: '700', fontSize: '14.5px', minHeight: 'auto', height: 'auto'
         });
         newProjectButton.addEventListener('click', () => void this.handleStartNewProject());
         this.newProjectButton = newProjectButton;
 
-        Object.assign(this.listSection.style, { marginTop: '20px' });
+        Object.assign(this.listSection.style, { marginTop: '16px', flex: '1', minHeight: '0', overflow: 'auto', scrollbarGutter: 'stable' });
 
         const controls = document.createElement('div');
-        Object.assign(controls.style, { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px' });
+        Object.assign(controls.style, { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px', flexShrink: '0', alignItems: 'center' });
         const search = document.createElement('input');
         search.type = 'search';
         search.className = 'theia-input';
@@ -142,15 +148,32 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         Object.assign(search.style, { flex: '1 1 160px', minWidth: '0' });
         search.addEventListener('input', () => { this.query = search.value; this.visibleCount = PROJECT_PAGE_SIZE; this.renderList(); });
         controls.appendChild(search);
+        const sort = document.createElement('select');
+        sort.className = 'theia-select';
+        sort.setAttribute('aria-label', 'プロジェクトの並べ替え');
+        Object.assign(sort.style, { height: '32px', maxWidth: '200px' });
+        for (const [value, label] of Object.entries(PROJECT_SORT_LABELS)) {
+            const option = document.createElement('option');
+            option.value = value; option.textContent = label;
+            sort.appendChild(option);
+        }
+        sort.value = this.sort;
+        sort.addEventListener('change', () => {
+            this.sort = sort.value as ProjectSortOrder;
+            saveProjectSort(this.sort);
+            this.visibleCount = PROJECT_PAGE_SIZE;
+            this.listSection.scrollTop = 0;
+            this.renderList();
+        });
+        controls.appendChild(sort);
         for (const mode of ['cards', 'list'] as const) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'theia-button secondary';
-            button.textContent = mode === 'cards' ? 'カード' : 'リスト';
+            this.decorateIconButton(button, mode === 'cards' ? 'カード表示' : 'リスト表示', PROJECT_VIEW_ICONS[mode]);
             button.addEventListener('click', () => {
                 this.view = mode;
                 saveProjectView(mode);
-                this.props.onViewChanged(mode);
                 this.renderList();
             });
             this.viewButtons.set(mode, button);
@@ -159,13 +182,17 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         const refresh = document.createElement('button');
         refresh.type = 'button';
         refresh.className = 'theia-button secondary';
-        refresh.textContent = '更新';
+        this.decorateIconButton(refresh, '更新', 'codicon-refresh');
         refresh.addEventListener('click', async () => {
             refresh.disabled = true;
+            refresh.setAttribute('aria-busy', 'true');
+            refresh.firstElementChild?.classList.add('codicon-modifier-spin');
             try {
                 this.props.rows = await this.props.onRefresh();
                 if (!this.isDisposed) { this.renderList(); }
-            } finally { refresh.disabled = false; }
+            } catch {
+                const error = document.createElement('p'); error.setAttribute('role', 'alert'); error.textContent = '更新できませんでした。もう一度お試しください。'; this.listSection.prepend(error);
+            } finally { refresh.disabled = false; refresh.removeAttribute('aria-busy'); refresh.firstElementChild?.classList.remove('codicon-modifier-spin'); }
         });
         controls.appendChild(refresh);
         this.body.append(header, newProjectButton, controls, this.listSection);
@@ -173,6 +200,43 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
 
         this.renderList();
         this.renderNewProjectButton();
+    }
+
+    protected decorateIconButton(button: HTMLButtonElement, label: string, iconClass: string): void {
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        Object.assign(button.style, { minWidth: '32px', width: '32px', height: '32px', margin: '0', padding: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' });
+        const icon = document.createElement('span');
+        icon.className = `codicon ${iconClass}`;
+        icon.setAttribute('aria-hidden', 'true');
+        button.appendChild(icon);
+    }
+
+    protected createDetailedRow(row: ProjectListRow): HTMLElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'theia-button secondary';
+        button.setAttribute('data-akari-launcher-row', 'true');
+        button.disabled = row.current;
+        button.title = `${row.name}\n${row.uri.path.fsPath()}`;
+        Object.assign(button.style, { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 120px 158px 110px', gap: '16px', alignItems: 'center', textAlign: 'left', minWidth: '660px', width: '100%', height: 'auto', minHeight: '62px', padding: '12px 14px', margin: '0', boxSizing: 'border-box', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.card });
+        const name = document.createElement('span');
+        Object.assign(name.style, { display: 'grid', gap: '5px', minWidth: '0' });
+        const title = document.createElement('strong'); title.textContent = row.name + (row.current ? ' · 開いています' : '');
+        Object.assign(title.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+        const location = document.createElement('small'); location.textContent = row.uri.path.fsPath();
+        Object.assign(location.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--theia-descriptionForeground)' });
+        name.append(title, location);
+        const channel = document.createElement('span'); channel.textContent = row.channel ?? '単体';
+        Object.assign(channel.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+        const date = document.createElement('time'); date.textContent = formatProjectUpdatedAt(row.updatedAt);
+        if (Number.isFinite(row.updatedAt)) { date.dateTime = new Date(row.updatedAt).toISOString(); }
+        date.style.whiteSpace = 'nowrap';
+        const status = document.createElement('small'); status.textContent = projectEditStatus(row);
+        status.style.color = 'var(--theia-descriptionForeground)';
+        button.append(name, channel, date, status);
+        button.addEventListener('click', () => { this.props.onOpenProject(row.uri); this.close(); });
+        return button;
     }
 
     protected renderNewProjectButton(): void {
@@ -187,8 +251,11 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         this.previews.splice(0).forEach(preview => preview.dispose());
         this.listSection.replaceChildren();
         this.listSection.setAttribute('data-akari-project-browser', this.view);
-        this.viewButtons.forEach((button, mode) => button.setAttribute('aria-pressed', String(this.view === mode)));
-        const rows = filterProjects(this.props.rows, this.query);
+        this.viewButtons.forEach((button, mode) => {
+            button.setAttribute('aria-pressed', String(this.view === mode));
+            button.style.boxShadow = this.view === mode ? 'inset 0 0 0 1px var(--theia-focusBorder)' : 'none';
+        });
+        const rows = sortProjects(filterProjects(this.props.rows, this.query), this.sort);
         if (rows.length === 0) {
             this.listSection.setAttribute('data-akari-launcher-empty', 'true');
             const empty = document.createElement('p');
@@ -210,11 +277,21 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         });
         this.listSection.appendChild(heading);
 
+        if (this.view === 'list') {
+            const columns = document.createElement('div');
+            columns.setAttribute('data-akari-list-columns', 'true');
+            Object.assign(columns.style, { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 120px 158px 110px', gap: '16px', minWidth: '660px', boxSizing: 'border-box', padding: '10px 14px', fontSize: '11px', color: 'var(--theia-descriptionForeground)', position: 'sticky', top: '0', background: AKARI_SURFACE.raised, zIndex: '1' });
+            for (const text of ['プロジェクト / 保存場所', 'チャンネル', '最終更新', '編集データ']) {
+                const cell = document.createElement('span'); cell.textContent = text; columns.appendChild(cell);
+            }
+            this.listSection.appendChild(columns);
+        }
         const list = document.createElement('div');
         Object.assign(list.style, {
             display: 'grid',
             gridTemplateColumns: this.view === 'list' ? '1fr' : CARD_GRID_COLUMNS,
-            gap: CARD_GRID_GAP
+            gap: this.view === 'list' ? '6px' : CARD_GRID_GAP,
+            ...(this.view === 'list' ? { minWidth: '660px' } : {})
         });
         for (const row of rows.slice(0, this.visibleCount)) {
             list.appendChild(this.createRow(row));
@@ -236,6 +313,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
      * 先にプレースホルダのまま組み立てて、解決したら差し替える（列挙の描画は待たない）。
      */
     protected createRow(row: ProjectListRow): HTMLElement {
+        if (this.view === 'list') { return this.createDetailedRow(row); }
         // カードの外枠は div。開くボタンは「いま開いています」のとき disabled になるが、
         // disabled なボタンはマウスイベントを飲むため、ホバー再生は外枠の div で受ける
         // （そうしないと開いているプロジェクトのカードだけ再生しない）。
@@ -251,7 +329,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         Object.assign(button.style, {
             display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0',
             padding: '0', borderRadius: `${PROJECT_CARD_RADIUS_PX}px`, textAlign: 'left', overflow: 'hidden',
-            minHeight: 'auto', height: 'auto', width: '100%'
+            minHeight: 'auto', height: 'auto', width: '100%', margin: '0'
         });
 
         const thumbnail = this.view === 'cards' ? this.createThumbnail(row, card) : document.createElement('span');
