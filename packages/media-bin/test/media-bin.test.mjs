@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { mkdtemp, rm, writeFile, chmod } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { resolveFfmpeg, resolveFfprobe } from "../src/index.mjs";
+import { packagedBinaryPath, vendorBinaryPath } from "../src/binary-manifest.mjs";
 
 // システムに ffmpeg/ffprobe が入っていても影響を受けないよう、実行の度に
 // AKARI_*_BIN / FFMPEG_PATH を明示的に undefined へ倒したベース env を組み立てる。
@@ -22,6 +26,39 @@ function baseEnv(overrides = {}) {
 // PATH からシステムの ffmpeg/ffprobe を外し、vendor/ 同梱バイナリへの
 // フォールバックだけが効く状態を作る（task.md 記載の `env PATH=/usr/bin:/bin` と同じ狙い）。
 const STRIPPED_PATH_ENV = baseEnv({ PATH: "/usr/bin:/bin" });
+
+test("packagedBinaryPath: packageRoot の ../../media-bin を候補にし、win32 は .exe を付ける", () => {
+  const packageRoot = fileURLToPath(new URL("../", import.meta.url));
+  for (const name of ["ffmpeg", "ffprobe", "whisper-cli"]) {
+    for (const target of ["darwin-arm64", "linux-x64", "win32-x64"]) {
+      const exe = target.startsWith("win32-") ? `${name}.exe` : name;
+      assert.equal(packagedBinaryPath(name, target), path.resolve(packageRoot, "../../media-bin", exe));
+    }
+  }
+});
+
+test("resolveFfmpeg: vendor / packaged 不在時のエラーに packaged 候補パスを含める", t => {
+  const vendorPath = vendorBinaryPath("ffmpeg");
+  const packagedPath = packagedBinaryPath("ffmpeg");
+  // バイナリを移動せず、候補 2 つの存在確認だけを不在にする。
+  const existsSync = fs.existsSync;
+  const mockedExists = t.mock.method(fs, "existsSync", candidate =>
+    candidate === vendorPath || candidate === packagedPath ? false : existsSync(candidate)
+  );
+  syncBuiltinESMExports();
+  t.after(() => {
+    mockedExists.mock.restore();
+    syncBuiltinESMExports();
+  });
+
+  assert.throws(() => resolveFfmpeg({ env: STRIPPED_PATH_ENV }), error => {
+    assert.match(error.message, /ffmpeg が見つかりませんでした/);
+    assert.match(error.message, /探索順:/);
+    assert.ok(error.message.includes(vendorPath));
+    assert.ok(error.message.includes(`パッケージ版同梱バイナリ（${packagedPath}）`));
+    return true;
+  });
+});
 
 async function withFixtureFile(run) {
   const dir = await mkdtemp(path.join(tmpdir(), "akari-media-bin-"));

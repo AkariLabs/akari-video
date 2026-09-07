@@ -78,6 +78,18 @@ export function vendorBinaryPath(name, target = currentTarget()) {
   return path.join(VENDOR_ROOT, target, exeName);
 }
 
+/**
+ * extraResources の packages/media-bin と media-bin の相対配置から同梱候補を返す。
+ * ELECTRON_RUN_AS_NODE の子プロセスにも対応するため process.resourcesPath は使わない。
+ * 存在するとは限らないため、呼び出し側が existsSync で確認する。
+ * @param {"ffmpeg"|"ffprobe"|"whisper-cli"} name
+ * @param {string} [target]
+ */
+export function packagedBinaryPath(name, target = currentTarget()) {
+  const exeName = target.startsWith("win32-") ? `${name}.exe` : name;
+  return path.resolve(packageRoot, "../..", "media-bin", exeName);
+}
+
 const MARTIN_RIEDL_LICENSE =
   "GPL-3.0-or-later build (--enable-gpl, no --enable-nonfree; libx264/libx265 dual-licensed under GPL). " +
   "Source: https://git.martin-riedl.de/ffmpeg/build-script — codec/library list: https://ffmpeg.martin-riedl.de/#info";
