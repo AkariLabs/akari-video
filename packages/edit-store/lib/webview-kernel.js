@@ -22,6 +22,7 @@ var AkariEditKernel = (() => {
   __export(webview_kernel_exports, {
     buildTimelineMap: () => buildTimelineMap,
     captionWindowSeconds: () => captionWindowSeconds,
+    computeCutTrackSegments: () => computeCutTrackSegments,
     cutsUseGapsOrTracks: () => cutsUseGapsOrTracks,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,

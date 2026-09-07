@@ -11,7 +11,7 @@ export function computeContentDurationSeconds({
   ffprobeCommand,
 }) {
   let sfxEnd = 0;
-  for (const item of Array.isArray(edit.audio?.sfx) ? edit.audio.sfx : []) {
+  for (const item of [...(Array.isArray(edit.audio?.sfx) ? edit.audio.sfx : []), ...(Array.isArray(edit.audio?.narration) ? edit.audio.narration : [])]) {
     const path = typeof item?.path === "string" ? item.path : null;
     const t = Number(item?.t);
     if (!path || !Number.isFinite(t) || t < 0) continue;

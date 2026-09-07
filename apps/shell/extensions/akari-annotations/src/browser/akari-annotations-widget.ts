@@ -400,6 +400,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly strip = document.createElement('div');
     protected readonly playhead = document.createElement('div');
     protected readonly playheadHandle = document.createElement('div');
+    protected cancelPlayheadDrag: (() => void) | undefined;
     protected readonly snapGuide = document.createElement('div');
     protected readonly snapEndGuide = document.createElement('div');
     protected readonly dragFeedback = document.createElement('div');
@@ -688,7 +689,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             boxShadow: `0 0 4px 1px ${PLAYHEAD_COLOR}`
         });
         Object.assign(this.playheadHandle.style, {
-            position: 'absolute', top: '0', left: '50%', width: '14px', height: '16px',
+            position: 'absolute', top: '0', left: '50%', width: '14px', height: `${RULER_BAND_HEIGHT_PX}px`, overflow: 'hidden',
             transform: 'translateX(-50%)', cursor: 'ew-resize', pointerEvents: 'auto'
         });
         this.playheadHandle.setAttribute('aria-hidden', 'true');
@@ -749,6 +750,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.openAnnotationPopup(event);
         });
+        this.rulerBar.addEventListener('pointerdown', () => { if (!this.dragState) this.suppressNextStripClick = false; });
         this.rulerBar.addEventListener('click', event => this.onStripClick(event));
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
@@ -1289,6 +1291,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('keydown', keydown, true);
             this.cancelHeaderDrag?.();
+            this.cancelPlayheadDrag?.();
             this.closeAnnotationPopup();
             if (this.dragState) {
                 this.cancelDrag(this.dragState);
@@ -1312,13 +1315,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (detail.direction === 'undo') void this.performUndo();
             if (detail.direction === 'redo') void this.performRedo();
         };
+        const onPreviewCutSelected = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; selected: boolean; cutIndex?: number }>).detail;
+            if (detail && previewMatchesProject(detail) && detail.selected && Number.isInteger(detail.cutIndex)) {
+                this.applySelection({ kind: 'cut', index: detail.cutIndex! }, false);
+            }
+        };
         const onPreviewBackground = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string }>).detail;
             if (detail && previewMatchesProject(detail)) this.applySelection(undefined, false);
         };
         for (const [type, listener] of [
             ['akari.preview.editCommitted', onPreviewEdit], ['akari.preview.history', onPreviewHistory],
-            ['akari.preview.backgroundSelected', onPreviewBackground]
+            ['akari.preview.backgroundSelected', onPreviewBackground], ['akari.preview.cutSelected', onPreviewCutSelected]
         ] as const) {
             window.addEventListener(type, listener);
             this.toDispose.push(Disposable.create(() => window.removeEventListener(type, listener)));
@@ -5687,6 +5696,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             event.preventDefault();
             event.stopPropagation();
+            this.cancelPlayheadDrag?.();
             this.pinTimelineViewport();
             const ghost = element.cloneNode(true) as HTMLDivElement;
             ghost.removeAttribute('title');
@@ -6214,6 +6224,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             event.preventDefault();
             event.stopPropagation();
+            this.cancelPlayheadDrag?.();
             this.pinTimelineViewport();
             const ghost = element.cloneNode(true) as HTMLDivElement;
             ghost.removeAttribute('title');
@@ -7118,6 +7129,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.dragState !== state) {
             return;
         }
+        // Refresh may replace the pressed element before the browser synthesizes click.
+        if (state.dragged) this.suppressNextStripClick = true;
         this.dragLifecycleCleanup?.();
         this.dragLifecycleCleanup = undefined;
         try {
@@ -7970,8 +7983,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected setViewStart(candidate: number): void {
-        const maxStart = Math.max(0, this.totalDuration() - this.visibleDuration());
-        this.viewStart = Math.min(Math.max(0, candidate), maxStart);
+        if (!Number.isFinite(candidate)) return;
+        this.viewStart = Math.max(0, candidate);
         this.renderStrip();
     }
 
@@ -8032,28 +8045,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** playhead 上端のピン型ハンドルをドラッグしている間、継続的にプレビューへシークする（スクラブ）。 */
     protected onPlayheadHandlePointerDown(event: PointerEvent): void {
-        if (event.button !== 0) {
-            return;
-        }
+        if (event.button !== 0 || this.dragState || this.headerDragActive) return;
         event.preventDefault();
         event.stopPropagation();
-        this.playheadHandle.setPointerCapture(event.pointerId);
+        this.cancelPlayheadDrag?.();
+        const pointerId = event.pointerId;
+        const cleanup = (): void => {
+            document.removeEventListener('pointermove', onMove, true);
+            document.removeEventListener('pointerup', onUp, true);
+            document.removeEventListener('pointercancel', onUp, true);
+            this.playheadHandle.removeEventListener('lostpointercapture', onUp);
+            window.removeEventListener('blur', cleanup);
+            this.cancelPlayheadDrag = undefined;
+            this.suppressNextStripClick = true;
+            try {
+                if (this.playheadHandle.hasPointerCapture(pointerId)) this.playheadHandle.releasePointerCapture(pointerId);
+            } catch { /* Capture may already be released. */ }
+            this.selectedSourceT = this.outputToSource(this.playheadT);
+        };
         const onMove = (moveEvent: PointerEvent): void => {
+            if (moveEvent.pointerId !== pointerId) return;
+            if ((moveEvent.buttons & 1) === 0 || this.dragState) { cleanup(); return; }
             const outputT = this.timeAtClientX(moveEvent.clientX);
             this.playheadT = outputT;
             this.playhead.style.left = `${this.percent(outputT)}%`;
             void this.requestSeek(outputT, { domain: 'output' });
         };
-        const onUp = (upEvent: PointerEvent): void => {
-            this.playheadHandle.releasePointerCapture(upEvent.pointerId);
-            this.playheadHandle.removeEventListener('pointermove', onMove);
-            this.playheadHandle.removeEventListener('pointerup', onUp);
-            this.playheadHandle.removeEventListener('pointercancel', onUp);
-            this.selectedSourceT = this.outputToSource(this.playheadT);
-        };
-        this.playheadHandle.addEventListener('pointermove', onMove);
-        this.playheadHandle.addEventListener('pointerup', onUp);
-        this.playheadHandle.addEventListener('pointercancel', onUp);
+        const onUp = (upEvent: PointerEvent): void => { if (upEvent.pointerId === pointerId) cleanup(); };
+        this.cancelPlayheadDrag = cleanup;
+        document.addEventListener('pointermove', onMove, true);
+        document.addEventListener('pointerup', onUp, true);
+        document.addEventListener('pointercancel', onUp, true);
+        this.playheadHandle.addEventListener('lostpointercapture', onUp);
+        window.addEventListener('blur', cleanup);
+        try { this.playheadHandle.setPointerCapture(pointerId); } catch { cleanup(); }
     }
 
     protected panViewBy(deltaSeconds: number): void {
@@ -8130,6 +8155,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected onStripPointerDown(event: PointerEvent): void {
+        if (this.dragState || this.cancelPlayheadDrag) return;
+        this.suppressNextStripClick = false;
         if (event.button !== 0 || this.toolMode !== 'select') {
             return;
         }
@@ -8225,11 +8252,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected onStripClick(event: MouseEvent): void {
+        if (this.dragState || this.cancelPlayheadDrag) return;
         if (this.suppressNextStripClick) {
             this.suppressNextStripClick = false;
             return;
         }
-        if (event.target instanceof Element && event.target.closest('.akari-beat-marker')) {
+        if (event.target instanceof Element && event.target.closest('.akari-beat-marker, [data-akari-item-kind]')) {
             return;
         }
         this.applySelection(undefined);

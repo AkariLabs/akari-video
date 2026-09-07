@@ -7,7 +7,6 @@ window.akari.interaction = (() => {
   const dragStartDistance = 3;
   const SNAP_DISTANCE = 8;
   const SNAP_RELEASE_DISTANCE = 12;
-  const SAFE_MARGIN_RATIO = 0.05;
   const DEFAULT_OUTPUT_WIDTH = 1280;
   const DEFAULT_OUTPUT_HEIGHT = 720;
 
@@ -35,6 +34,7 @@ window.akari.interaction = (() => {
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
   let horizontalSnapGuide = null;
+  const extraSnapGuides = [];
 
   // overlay_write は操作順を保存する。selftest は今回の書き込みをこの記録から待つ。
   let writeTail = Promise.resolve();
@@ -286,22 +286,37 @@ window.akari.interaction = (() => {
   function hideSnapGuides() {
     if (verticalSnapGuide) verticalSnapGuide.hidden = true;
     if (horizontalSnapGuide) horizontalSnapGuide.hidden = true;
+    for (const guide of extraSnapGuides) guide.hidden = true;
   }
 
   function showSnapGuides(snapX, snapY) {
-    if (!snapX && !snapY) {
-      hideSnapGuides();
-      return;
-    }
-
+    hideSnapGuides();
+    if (!snapX && !snapY) return;
     const guides = ensureSnapGuides();
     if (!guides) return;
-
-    guides.vertical.hidden = !snapX;
-    if (snapX) guides.vertical.style.left = `${snapX.target}px`;
-
-    guides.horizontal.hidden = !snapY;
-    if (snapY) guides.horizontal.style.top = `${snapY.target}px`;
+    let extraIndex = 0;
+    const { width, height } = outputSize();
+    const thickness = 1 / currentDisplayScale();
+    for (const [axis, snap, primary] of [["vertical", snapX, guides.vertical], ["horizontal", snapY, guides.horizontal]]) {
+      const matches = snap?.guides ?? (snap ? [snap] : []);
+      matches.forEach((match, index) => {
+        let guide = primary;
+        if (index > 0) {
+          guide = extraSnapGuides[extraIndex];
+          if (!guide || !guide.isConnected) { guide = createSnapGuide(axis); extraSnapGuides[extraIndex] = guide; stage.appendChild(guide); }
+          extraIndex++;
+        }
+        guide.className = `akari-interaction-snap-guide is-${axis}`;
+        guide.setAttribute("data-akari-interaction", `snap-guide-${axis}`);
+        guide.dataset.akariSnapKind = match.kind || "center";
+        guide.style.transform = "none";
+        guide.style.left = axis === "vertical" ? `${Math.max(0, Math.min(width - thickness, match.target))}px` : "0";
+        guide.style.top = axis === "horizontal" ? `${Math.max(0, Math.min(height - thickness, match.target))}px` : "0";
+        guide.style.width = axis === "vertical" ? `${thickness}px` : "auto";
+        guide.style.height = axis === "horizontal" ? `${thickness}px` : "auto";
+        guide.hidden = false;
+      });
+    }
   }
 
   function overlayForEvent(event) {
@@ -715,7 +730,7 @@ window.akari.interaction = (() => {
       const target = targets[activeSnap.targetIndex];
       const correction = target - source;
       if (
-        Number.isFinite(correction) &&
+        Number.isFinite(correction) && Math.abs(target - activeSnap.target) < 1e-6 &&
         Math.abs(correction) * displayScale <= SNAP_RELEASE_DISTANCE
       ) {
         return { ...activeSnap, correction, target };
@@ -743,40 +758,53 @@ window.akari.interaction = (() => {
     return closest;
   }
 
-  // キャンバス端（セーフマージン5%）+ センター縦横への吸着候補を、出力px単位の bounds
+  // キャンバス外周・中央と他素材への吸着候補を、出力px単位の bounds
   // {left,top,right,bottom,centerX,centerY} から計算する。overlays のドラッグに限らず、
   // resize・layers[]・cut/caption のドラッグからも共通で呼べるよう window.akari.interaction
   // 経由でも公開する（㉒ スナップ統一の単一正本）。
-  function computeSnapCorrection(bounds, previousSnap) {
-    if (!bounds) return { x: null, y: null };
-
+  function snapTargetAxes() {
     const { width, height } = outputSize();
-    const scale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
+    const x = [{ target: width / 2, kind: "center" }, { target: 0, kind: "edge" }, { target: width, kind: "edge" }];
+    const y = [{ target: height / 2, kind: "center" }, { target: 0, kind: "edge" }, { target: height, kind: "edge" }];
+    const peers = [...(window.akari.snapPeerBounds?.() ?? [])];
+    for (const container of stage?.querySelectorAll("[data-overlay-id]") ?? []) {
+      if (container !== selectedOverlay && isSelectable(container)) {
+        const bounds = fragmentVideoBounds(container);
+        if (bounds) peers.push(bounds);
+      }
+    }
+    for (const peer of peers) {
+      for (const target of [peer.left, peer.centerX, peer.right]) if (Number.isFinite(target)) x.push({ target, kind: "peer" });
+      for (const target of [peer.top, peer.centerY, peer.bottom]) if (Number.isFinite(target)) y.push({ target, kind: "peer" });
+    }
+    const unique = values => values.filter((entry, index) => !values.slice(0, index).some(other => Math.abs(other.target - entry.target) < 1e-6));
+    return { x: unique(x), y: unique(y) };
+  }
 
-    const snapX = closestAxisSnap(
-      [bounds.left, bounds.centerX, bounds.right],
-      xTargets,
-      previousSnap?.x ?? null,
-      scale
-    );
-    const snapY = closestAxisSnap(
-      [bounds.top, bounds.centerY, bounds.bottom],
-      yTargets,
-      previousSnap?.y ?? null,
-      scale
-    );
+  function alignedAxisGuides(sources, targets) {
+    return targets.filter(target => sources.some(source => Math.abs(source - target.target) * currentDisplayScale() < 0.5));
+  }
 
-    return { x: snapX, y: snapY };
+  function showAlignedSnapGuides(bounds, options = {}) {
+    const targets = snapTargetAxes();
+    const x = alignedAxisGuides([bounds.left, ...(options.resize ? [] : [bounds.centerX]), bounds.right], targets.x);
+    const y = alignedAxisGuides([bounds.top, ...(options.resize ? [] : [bounds.centerY]), bounds.bottom], targets.y);
+    showSnapGuides(x.length ? { guides: x } : null, y.length ? { guides: y } : null);
+  }
+
+  function computeSnapCorrection(bounds, previousSnap, options = {}) {
+    if (!bounds) return { x: null, y: null };
+    const targets = snapTargetAxes();
+    const xSources = [bounds.left, options.resize ? NaN : bounds.centerX, bounds.right].map((value, index) => options.sourceX !== undefined && options.sourceX !== index ? NaN : value);
+    const ySources = [bounds.top, options.resize ? NaN : bounds.centerY, bounds.bottom].map((value, index) => options.sourceY !== undefined && options.sourceY !== index ? NaN : value);
+    const decorate = (snap, sources, candidates) => snap ? {
+      ...snap, kind: candidates[snap.targetIndex].kind,
+      guides: alignedAxisGuides(sources.map(value => value + snap.correction), candidates)
+    } : null;
+    return {
+      x: decorate(closestAxisSnap(xSources, targets.x.map(entry => entry.target), previousSnap?.x, currentDisplayScale()), xSources, targets.x),
+      y: decorate(closestAxisSnap(ySources, targets.y.map(entry => entry.target), previousSnap?.y, currentDisplayScale()), ySources, targets.y)
+    };
   }
 
   function applyDragSnapping(drag, rawX, rawY, disabled) {
@@ -954,18 +982,10 @@ window.akari.interaction = (() => {
     const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
     if (!anchor || !dragged) return null;
 
-    const { width, height } = outputSize();
     const displayScale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
+    const axes = snapTargetAxes();
+    const xTargets = axes.x.map(entry => entry.target);
+    const yTargets = axes.y.map(entry => entry.target);
 
     const findCandidate = (draggedValue, anchorValue, targets, previous) => {
       const denom = draggedValue - anchorValue;
@@ -1078,6 +1098,8 @@ window.akari.interaction = (() => {
       const snappedScale = applyResizeSnap(resize, nextScale);
       if (snappedScale !== null) {
         applyResizeTransformAt(resize, snappedScale);
+        const bounds = fragmentVideoBounds(resize.container);
+        if (bounds) showAlignedSnapGuides(bounds, { resize: true });
       }
     }
 
@@ -1872,6 +1894,7 @@ window.akari.interaction = (() => {
     stageLocalPoint,
     computeSnapCorrection,
     showSnapGuides,
+    showAlignedSnapGuides,
     hideSnapGuides,
     outputSize,
     currentDisplayScale,

@@ -84,3 +84,20 @@
   -webkit-user-select: text !important;
   user-select: text !important;
 }
+.akari-interaction-snap-guide[data-akari-snap-kind=edge] {
+  background: #22d3ee;
+}
+.akari-interaction-snap-guide.is-vertical[data-akari-snap-kind=peer] {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      #22d3ee 0 4px,
+      transparent 4px 8px);
+}
+.akari-interaction-snap-guide.is-horizontal[data-akari-snap-kind=peer] {
+  background:
+    repeating-linear-gradient(
+      to right,
+      #22d3ee 0 4px,
+      transparent 4px 8px);
+}

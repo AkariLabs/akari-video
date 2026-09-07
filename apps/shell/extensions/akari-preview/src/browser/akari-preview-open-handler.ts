@@ -1,3 +1,4 @@
+import { computeAnchoredResize } from '../common/anchored-resize';
 import URI from '@theia/core/lib/common/uri';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -516,6 +517,7 @@ interface PreviewLayerSelectedRequest {
 interface PreviewCutSelectedRequest {
     type: 'akari-preview-cut-selected';
     selected: boolean;
+    cutIndex?: number;
 }
 
 interface PreviewReviewTransportRequest {
@@ -613,6 +615,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly requestedCutSelections = new Map<string, number | null>();
+    protected readonly requestedLayerSelections = new Map<string, string | null>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
@@ -725,6 +728,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } catch {
                 return;
             }
+            this.requestedLayerSelections.set(key, detail.layerId);
+            if (detail.layerId !== null) this.requestedCutSelections.set(key, null);
             const widget = this.openOutputPreviews.get(key);
             if (widget?.isAttached) {
                 widget.sendMessage({ type: 'akari-preview-select-layer', layerId: detail.layerId });
@@ -739,6 +744,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (!detail?.editUri || !(detail.cutIndex === null || (Number.isInteger(detail.cutIndex) && Number(detail.cutIndex) >= 0))) return;
             const key = new URI(detail.editUri).normalizePath().toString();
             this.requestedCutSelections.set(key, detail.cutIndex!);
+            if (detail.cutIndex !== null) this.requestedLayerSelections.set(key, null);
             const widget = this.openOutputPreviews.get(key);
             if (widget?.isAttached) widget.sendMessage({ type: 'akari-preview-select-cut', cutIndex: detail.cutIndex });
             else if (detail.cutIndex !== null) void this.ensureVisible(key);
@@ -1682,7 +1688,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
-                    previewChanged ||= Date.now() - writtenAt > 1000;
+                    previewChanged ||= change.resource.path.base === 'edit.json' || Date.now() - writtenAt > 1000;
                     continue;
                 }
                 previewChanged ||= !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
@@ -1955,6 +1961,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        this.requestedLayerSelections.set(editUri.normalizePath().toString(), message.layerId);
+        if (message.layerId !== null) this.requestedCutSelections.set(editUri.normalizePath().toString(), null);
         window.dispatchEvent(new CustomEvent(PREVIEW_LAYER_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
@@ -1972,10 +1980,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        if (message.selected) this.requestedLayerSelections.set(editUri.normalizePath().toString(), null);
+        if (message.selected && Number.isInteger(message.cutIndex)) this.requestedCutSelections.set(editUri.normalizePath().toString(), message.cutIndex!);
         window.dispatchEvent(new CustomEvent(PREVIEW_CUT_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
-                selected: message.selected
+                selected: message.selected, cutIndex: message.cutIndex
             }
         }));
     }
@@ -2016,7 +2026,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget,
                 identityUri,
                 kind,
-                seekTimeOverride ?? transport?.timelineT
+                seekTimeOverride ?? widget.akariPreviewLastKnownTime ?? transport?.timelineT
             );
         };
         widget.akariPreviewRefresh = previous.then(
@@ -3592,6 +3602,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 実寸法をステージ寸法にする（hostAdapterScript の raw 同期を参照）。
             kind,
             summary: model.summary,
+            selectedLayerId: model.editUri ? this.requestedLayerSelections.get(model.editUri.normalizePath().toString()) : undefined,
             selectedCutIndex: model.editUri ? this.requestedCutSelections.get(model.editUri.normalizePath().toString()) : undefined,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -3624,15 +3635,18 @@ ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontDataUri)}
 :root { color-scheme: dark; font-family: "${CAPTION_FONT_FAMILY}", sans-serif; }
 * { box-sizing: border-box; }
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
+html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #141414; color: #eee; }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 0; display: grid; place-items: center; background: #303030; }
+.preview-pane { min-width: 0; min-height: 0; padding: 12px; display: grid; place-items: center; background: #303030; }
 #preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #303030; }
-#preview-output-frame { position: absolute; background: #000; outline: 1px solid #777; pointer-events: none; }
-#preview-output-frame.is-selected { outline: 2px solid #4da3ff; }
+#preview-output-frame { position: absolute; background: #000; box-shadow: inset 0 0 0 1px #777; pointer-events: none; }
+#preview-output-frame.is-selected { box-shadow: inset 0 0 0 2px #4da3ff; }
 #background-selection-label { position: absolute; top: 4px; left: 4px; display: none; padding: 3px 6px; background: #252525; color: #fff; font-size: 12px; }
 #preview-output-frame.is-selected #background-selection-label { display: block; }
+#outside-output { position: absolute; inset: 0; z-index: 2500; display: grid; place-content: center; gap: 8px; text-align: center; color: #ddd; background: #303030; pointer-events: none; }
+#outside-output[hidden] { display: none; }
+#outside-output small { color: #aaa; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
@@ -3752,6 +3766,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
+      <div id="outside-output" hidden><span>出力範囲外</span><small>この位置は動画に書き出されません</small></div>
       <div id="zoom-layer">
         <div id="preview-output-frame" aria-label="出力背景（黒）"><span id="background-selection-label">背景</span></div>
         <div id="preview-layers"><video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video></div>
@@ -3899,11 +3914,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     pending.set(requestId, { kind: 'overlay-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-overlay-write', requestId, overlayId, patch });
                 }),
-                layerWrite: (layerId, patch) => new Promise((resolve, reject) => {
+                layerWrite: (layerId, patch) => {
+                    if (String(layerId).startsWith('__akari_cut:')) return window.akari.engine.cutWrite(Number(String(layerId).slice(12)), patch);
+                    return new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'layer-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
-                }),
+                    });
+                },
                 cutWrite: (cutIndex, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'cut-write', resolve, reject });
@@ -4016,9 +4034,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         const timed = async (kind, specs) => {
                             const valid = [];
                             for (const spec of Array.isArray(specs) ? specs : []) {
-                                if (!Number.isFinite(spec.t) || spec.t < 0 || spec.t >= timelineDuration) {
+                                if (!Number.isFinite(spec.t) || spec.t < 0) {
                                     console.warn('[akari-preview] ' + kind + ' ' + spec.id
-                                        + ' skipped: t is outside timeline duration');
+                                        + ' skipped: t is invalid');
                                     continue;
                                 }
                                 valid.push(spec);
@@ -4270,12 +4288,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
             window.akari.reportLayerSelection = layerId => {
+                if (String(layerId).startsWith('__akari_cut:')) {
+                    vscode.postMessage({ type: 'akari-preview-cut-selected', selected: true, cutIndex: Number(String(layerId).slice(12)) });
+                    return;
+                }
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
             window.akari.requestHistory = direction => vscode.postMessage({ type: 'akari-preview-history', direction });
             window.akari.reportBackgroundSelection = () => vscode.postMessage({ type: 'akari-preview-background-selected' });
             window.akari.reportCutSelection = selected => {
-                vscode.postMessage({ type: 'akari-preview-cut-selected', selected });
+                vscode.postMessage({ type: 'akari-preview-cut-selected', selected, cutIndex: Number(video.dataset.akariCutIndex) });
             };
             window.akari.reportCaptionSelection = captionId => {
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
@@ -4637,6 +4659,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const computeLayerKeyframesVisualFn = (${computeLayerKeyframesVisual.toString()});
             // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
             // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
+            const computeAnchoredResizeFn = (${computeAnchoredResize.toString()});
             const createRafThrottleFn = (${createRafThrottle.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
@@ -4659,7 +4682,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             let resolvedSfxTails = [];
             const probeSfxDurations = async () => {
-                const items = Array.isArray(summary.audio && summary.audio.sfx) ? summary.audio.sfx : [];
+                const items = [...(summary.audio?.sfx || []), ...(summary.audio?.narration || [])];
                 const results = await Promise.all(items.map(async item => {
                     if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) return null;
                     if (typeof item.src !== 'string' || !item.src) return null;
@@ -4693,6 +4716,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
             let outputTime = 0;
+            let outsideOutput = false;
             let isPlaying = false;
             let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
@@ -5216,7 +5240,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (typeof applyRequestedCutSelection === 'function') applyRequestedCutSelection();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
-            const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
+            // Freeze/framing retain their existing clock-driven renderer; simple transforms can compose independently.
+            const multiCutMode = new Set((summary.cuts || []).map(cut => cut.track || 0)).size > 1
+                && !(summary.cuts || []).some(cut => cut.freeze || cut.framing);
+            const independentCuts = multiCutMode ? window.AkariEditKernel.computeCutTrackSegments(summary.cuts).map(segment => {
+                const cut = summary.cuts[segment.index];
+                return { ...cut, id: '__akari_cut:' + segment.index, cutIndex: segment.index,
+                    kind: 'video', t: segment.at, duration: segment.end - segment.at,
+                    src: (initial.videoSources || {})[cut.src] || video.src,
+                    sourceIn: cut.in, speed: cut.speed || 1, opacity: cut.opacity ?? 1, track: segment.track };
+            }) : [];
+            const layerEntries = [...(Array.isArray(summary.layers) ? summary.layers : []), ...independentCuts].map((layer, index) => {
                 // task 2026-08-10-image-layer-parity: layer.isImage はサーバ側（loadPreviewModel /
                 // isImageLayerSrc）が拡張子で確定済み（webview から見える src はストリーム URL で
                 // 元の拡張子を持たないことがあるため、ここで拡張子を再判定はしない）。
@@ -5254,13 +5288,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.tabIndex = -1;
                 // アルファ実測（選択枠のコンテンツフィット・透明素通し）で canvas に描くため。
                 // ストリームサーバは Access-Control-Allow-Origin: * を返す
-                layerVideo.crossOrigin = 'anonymous';
+                if (!Number.isInteger(layer.cutIndex)) layerVideo.crossOrigin = 'anonymous';
+                if (Number.isInteger(layer.cutIndex)) {
+                    Object.defineProperty(layerVideo, 'videoWidth', { get: () => Number(summary.output.width) });
+                    Object.defineProperty(layerVideo, 'videoHeight', { get: () => Number(summary.output.height) });
+                    layerVideo.style.objectFit = 'contain';
+                    layerVideo.style.background = '#000';
+                }
                 layerVideo.dataset.akariLayerId = String(layer.id);
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
-                layerVideo.style.zIndex = String(zForTrack('layers', layer.track));
+                layerVideo.style.zIndex = String(zForTrack(Number.isInteger(layer.cutIndex) ? 'cuts' : 'layers', layer.track));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
                 const y = Number.isFinite(transform.y) ? transform.y : 0;
@@ -5305,7 +5345,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // CF-select + transform ハンドル: レイヤー実体のクリック選択・タイムラインとの双方向同期・
             // プレビュー内ドラッグ移動/リサイズ(=scale)/回転。確定(pointerup)時のみ layerWrite で
             // 書き戻す（既存 overlay ドラッグ編集と同じ確定タイミング）。
-            let selectedLayerId = null;
+            let selectedLayerId = initial.selectedLayerId ?? null;
             // ㉔ クロップモード（2026-08-06 オーナー裁定: shell/Web 両面）。移動/リサイズ/回転と
             // 操作が衝突しないための排他モード切替。選択が変わったら自動的に抜ける。
             let cropModeActive = false;
@@ -5458,6 +5498,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return { left: screenCenterX - screenW / 2, top: screenCenterY - screenH / 2, width: screenW, height: screenH, rotOffX, rotOffY };
             };
             const layerAlphaAtPoint = (entry, clientX, clientY) => {
+                if (Number.isInteger(entry.spec.cutIndex)) return 255;
                 try {
                     if (!(entry.video.videoWidth > 0) || entry.video.readyState < 2) return 255;
                     const vp = layerVideoPointFor(entry, clientX, clientY);
@@ -5473,6 +5514,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const measureLayerOpaqueBox = entry => {
+                if (Number.isInteger(entry.spec.cutIndex)) return null;
                 try {
                     const vw = entry.video.videoWidth;
                     const vh = entry.video.videoHeight;
@@ -5570,6 +5612,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // クロップトグルボタンは通常枠/クロップ枠のどちらが出ていても常に同じ場所（右上角の外側）
             // に留まり続ける（モード切替のたびに探し直させない）。box=null でレイヤー未選択として隠す。
             const positionLayerCropToggle = box => {
+                if (String(selectedLayerId).startsWith('__akari_cut:')) { layerCropToggle.classList.remove('is-target-active'); return; }
                 if (!box) {
                     layerCropToggle.classList.remove('is-target-active');
                     return;
@@ -5611,6 +5654,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 positionLayerCropToggle(outer);
             };
             const setCropMode = active => {
+                if (active && String(selectedLayerId).startsWith('__akari_cut:')) return;
                 cropModeActive = !!(active && selectedLayerId);
                 // ㉖ クロップモードとパースパネルは排他（ハンドル/操作の衝突を避ける）。
                 if (cropModeActive && perspectivePanelOpen) setPerspectivePanelOpen(false);
@@ -5642,6 +5686,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉖ layers[].perspective（v0）: 常に同じ場所（クロップトグルの下）に留まるトグル + パネル。
             // box=null でレイヤー未選択として隠す（クロップトグルと同じ規律）。
             const positionLayerPerspectiveToggle = box => {
+                if (String(selectedLayerId).startsWith('__akari_cut:')) { layerPerspectiveToggle.classList.remove('is-target-active'); return; }
                 if (!box) {
                     layerPerspectiveToggle.classList.remove('is-target-active');
                     if (perspectivePanelOpen) setPerspectivePanelOpen(false);
@@ -5695,6 +5740,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const setPerspectivePanelOpen = open => {
+                if (open && String(selectedLayerId).startsWith('__akari_cut:')) return;
                 perspectivePanelOpen = !!(open && selectedLayerId);
                 layerPerspectiveToggle.classList.toggle('is-panel-open', perspectivePanelOpen);
                 layerPerspectivePanel.classList.toggle('is-open', perspectivePanelOpen);
@@ -5765,6 +5811,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
+                if (multiCutMode && report) requestedCutIndex = String(nextId).startsWith('__akari_cut:') ? Number(String(nextId).slice(12)) : null;
                 if (nextId === selectedLayerId) {
                     updateLayerSelectBox();
                     return;
@@ -5789,7 +5836,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉒ スナップ統一: layers[]（この後 cut/caption も同型）の移動・拡縮を、
             // interaction.js（overlay-runtime、overlays[] 用スナップの単一正本）が公開する
             // computeSnapCorrection/stageLocalPoint/showSnapGuides/hideSnapGuides へ委譲する。
-            // 出力px（video座標）系の bounds を渡すだけで、キャンバス端5%セーフマージン+
+            // 出力px（video座標）系の bounds を渡すだけで、キャンバス外周・他素材の端+
             // センター縦横・8px吸着/12px解除（表示px基準=ズーム下でも見た目8px相当）・
             // ガイド線が overlays[] と完全に同一挙動になる（旧実装は resize/layers[] とも
             // スナップ皆無だった）。
@@ -5814,41 +5861,50 @@ body { display: grid; place-items: center; padding: 32px; }
                     (entry.video.videoHeight || 0) * crop.h * transform.scale
                 );
             };
-            // センターピボットの拡縮（layers[]・cut は共に中心固定で scale する）を、
-            // computeSnapCorrection() の left/center/right 一致点から scale へ逆算する。
-            // center（sourceIndex===1）は scale では動かせないため候補から除外し、
-            // left/right（または top/bottom）のどちらか近い方だけを採用する
-            // （uniform scale の制約上 overlays[] resize と同じく一度に1軸のみ）。
-            const solveCenteredResizeSnap = (bounds, naturalWidth, naturalHeight, currentScale, previousSnap) => {
-                const snap = window.akari.interaction.computeSnapCorrection(bounds, previousSnap);
-                const halfW = (bounds.right - bounds.left) / 2;
-                const halfH = (bounds.bottom - bounds.top) / 2;
-                const axisCandidate = (snapEntry, half, natural) => {
-                    if (!snapEntry || snapEntry.sourceIndex === 1 || !(half > 0) || !(natural > 0)) return null;
-                    const sign = snapEntry.sourceIndex === 2 ? 1 : -1;
-                    const nextHalf = half + sign * snapEntry.correction;
-                    if (!(nextHalf > 0)) return null;
-                    return { snap: snapEntry, scale: (nextHalf * 2) / natural };
-                };
-                const candidateX = axisCandidate(snap.x, halfW, naturalWidth);
-                const candidateY = axisCandidate(snap.y, halfH, naturalHeight);
-                let chosen = null;
-                if (candidateX) chosen = { axis: 'x', ...candidateX };
-                if (candidateY && (!chosen || Math.abs(candidateY.snap.correction) < Math.abs(chosen.snap.correction))) {
-                    chosen = { axis: 'y', ...candidateY };
+            window.akari.snapPeerBounds = () => {
+                const peers = layerEntries.filter(entry => entry.spec.id !== selectedLayerId
+                    && entry.video.style.display !== 'none' && entry.video.readyState >= 2)
+                    .map(entry => layerOutputBoundsForTransform(entry, layerTransformNow(entry)));
+                if (!multiCutMode && !cutSelected && video.style.visibility !== 'hidden' && video.dataset.akariCutIndex !== '') {
+                    const transform = cutTransformNow();
+                    const width = Number(summary.output.width), height = Number(summary.output.height);
+                    peers.push(outputBoundsForCenteredBox(width / 2 + transform.x, height / 2 + transform.y,
+                        width * transform.scale, height * transform.scale));
                 }
-                if (!chosen) {
-                    window.akari.interaction.hideSnapGuides();
-                    return { scale: currentScale, snapX: null, snapY: null };
-                }
-                window.akari.interaction.showSnapGuides(
-                    chosen.axis === 'x' ? chosen.snap : null,
-                    chosen.axis === 'y' ? chosen.snap : null
-                );
-                return {
-                    scale: chosen.scale,
-                    snapX: chosen.axis === 'x' ? chosen.snap : null,
-                    snapY: chosen.axis === 'y' ? chosen.snap : null
+                return peers;
+            };
+            const anchoredResizeHandler = (event, handle, box, width, height, crop = { x: 0, y: 0, w: 1, h: 1 }) => {
+                const corner = handle.getAttribute('data-akari-handle');
+                const opposite = { nw: 'se', ne: 'sw', sw: 'ne', se: 'nw' }[corner];
+                const anchorRect = box.querySelector('[data-akari-handle="' + opposite + '"]').getBoundingClientRect();
+                const anchor = { x: anchorRect.left + anchorRect.width / 2, y: anchorRect.top + anchorRect.height / 2 };
+                const startDistance = Math.max(1, Math.hypot(event.clientX - anchor.x, event.clientY - anchor.y));
+                let previousSnap = { x: null, y: null };
+                return (moveEvent, original) => {
+                    const ratio = Math.hypot(moveEvent.clientX - anchor.x, moveEvent.clientY - anchor.y) / startDistance;
+                    let scale = Math.max(.01, original.scale * ratio);
+                    let result = computeAnchoredResizeFn(original, width, height, corner, scale, crop);
+                    const api = window.akari.interaction;
+                    if (!api || moveEvent.shiftKey) { previousSnap = { x: null, y: null }; api?.hideSnapGuides(); return result.transform; }
+                    const cx = Number(summary.output.width) / 2, cy = Number(summary.output.height) / 2;
+                    const x = cx + result.dragged.x, y = cy + result.dragged.y;
+                    const snap = api.computeSnapCorrection({ left: x, right: x, centerX: x, top: y, bottom: y, centerY: y },
+                        previousSnap, { resize: true, sourceX: 2, sourceY: 2 });
+                    const candidates = [['x', snap.x], ['y', snap.y]].flatMap(([axis, entry]) => {
+                        const slope = (result.dragged[axis] - result.anchor[axis]) / scale;
+                        const next = entry && Math.abs(slope) > 1e-6 ? scale + entry.correction / slope : NaN;
+                        return next >= .01 ? [{ axis, entry, scale: next }] : [];
+                    }).sort((a, b) => Math.abs(a.entry.correction) - Math.abs(b.entry.correction));
+                    if (candidates.length) {
+                        const chosen = candidates[0];
+                        scale = chosen.scale;
+                        result = computeAnchoredResizeFn(original, width, height, corner, scale, crop);
+                        previousSnap = { x: chosen.axis === 'x' ? chosen.entry : null, y: chosen.axis === 'y' ? chosen.entry : null };
+                        const bounds = result.bounds;
+                        api.showAlignedSnapGuides({ left: cx + bounds.left, right: cx + bounds.right,
+                            top: cy + bounds.top, bottom: cy + bounds.bottom, centerX: cx + bounds.centerX, centerY: cy + bounds.centerY }, { resize: true });
+                    } else { previousSnap = { x: null, y: null }; api.hideSnapGuides(); }
+                    return result.transform;
                 };
             };
             // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
@@ -6034,29 +6090,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             return { ...original, rotate: original.rotate + (angle - startAngle) };
                         });
                     } else {
-                        const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
-                        // ㉔ crop 適用中は見えている自然サイズが cropW/cropH 分小さいので、bounds→scale の
-                        // 逆算（solveCenteredResizeSnap の naturalWidth/Height）もそれに合わせる。
-                        const crop = layerCropNow(entry);
-                        let dragSnap = { x: null, y: null };
-                        beginLayerTransformDrag(entry, event, (moveEvent, original) => {
-                            const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
-                            const factor = distance / startDistance;
-                            let nextScale = Math.max(0.01, original.scale * factor);
-                            if (moveEvent.shiftKey || !window.akari.interaction) {
-                                dragSnap = { x: null, y: null };
-                                window.akari.interaction?.hideSnapGuides?.();
-                            } else {
-                                const bounds = layerOutputBoundsForTransform(entry, { ...original, scale: nextScale });
-                                const solved = solveCenteredResizeSnap(
-                                    bounds, (entry.video.videoWidth || 0) * crop.w, (entry.video.videoHeight || 0) * crop.h,
-                                    nextScale, dragSnap
-                                );
-                                nextScale = solved.scale;
-                                dragSnap = { x: solved.snapX, y: solved.snapY };
-                            }
-                            return { ...original, scale: nextScale };
-                        });
+                        beginLayerTransformDrag(entry, event, anchoredResizeHandler(event, handle, layerSelectBox,
+                            entry.video.videoWidth, entry.video.videoHeight, layerCropNow(entry)));
                     }
                 });
             }
@@ -6282,6 +6317,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (report) window.akari.reportCutSelection(false);
             };
             const applyRequestedCutSelection = () => {
+                if (multiCutMode && requestedCutIndex !== undefined) {
+                    const entry = findLayerEntry('__akari_cut:' + requestedCutIndex);
+                    const active = entry && outputTime >= entry.spec.t && outputTime < entry.spec.t + entry.spec.duration;
+                    if (active) selectLayer(entry.spec.id, { report: false });
+                    else if (String(selectedLayerId).startsWith('__akari_cut:')) selectLayer(null, { report: false });
+                    return;
+                }
+
                 if (requestedCutIndex === undefined) return;
                 const activeIndex = video.dataset.akariCutIndex;
                 if (requestedCutIndex !== null && activeIndex !== '' && Number(activeIndex) === requestedCutIndex
@@ -6357,34 +6400,8 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const handle of cutHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !cutSelected) return;
-                    const boxRect = cutSelectBox.getBoundingClientRect();
-                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
-                    const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
-                    let dragSnap = { x: null, y: null };
-                    beginCutTransformDrag(event, (moveEvent, original) => {
-                        const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
-                        const factor = distance / startDistance;
-                        let nextScale = Math.max(0.01, original.scale * factor);
-                        if (moveEvent.shiftKey || !window.akari.interaction) {
-                            dragSnap = { x: null, y: null };
-                            window.akari.interaction?.hideSnapGuides?.();
-                        } else {
-                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                            const outputHeight = Number(summary.output && summary.output.height) || 720;
-                            const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + original.x,
-                                outputHeight / 2 + original.y,
-                                outputWidth * nextScale,
-                                outputHeight * nextScale
-                            );
-                            const solved = solveCenteredResizeSnap(
-                                bounds, outputWidth, outputHeight, nextScale, dragSnap
-                            );
-                            nextScale = solved.scale;
-                            dragSnap = { x: solved.snapX, y: solved.snapY };
-                        }
-                        return { ...original, scale: nextScale };
-                    });
+                    beginCutTransformDrag(event, anchoredResizeHandler(event, handle, cutSelectBox,
+                        Number(summary.output.width), Number(summary.output.height)));
                 });
             }
             new ResizeObserver(() => updateCutSelectBox()).observe(wrapper);
@@ -6595,7 +6612,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     totalTimelineDuration = map.totalDuration;
                 } else {
                     // cuts 無し（または全て不正）: 全編を 1 セグメントとして扱う（従来挙動）
-                    const duration = videoDuration();
+                    const duration = initial.kind === 'raw' ? videoDuration() : 0;
                     segments = duration > 0
                         ? [{
                             kind: 'src', outStart: 0, outEnd: duration, cutIndex: null,
@@ -6617,8 +6634,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (activeSegmentIndex >= segments.length) {
                     activeSegmentIndex = Math.max(0, segments.length - 1);
                 }
-                outputTime = clamp(outputTime, 0, totalTimelineDuration);
-                syncSegmentPlaybackRate();
+                outputTime = Math.max(0, outputTime);
+                if (initialPositionApplied && initial.kind === 'output') seekTimelineTime(outputTime);
+                else syncSegmentPlaybackRate();
             };
             const syncSegmentPlaybackRate = () => {
                 const segment = segments[activeSegmentIndex];
@@ -6737,7 +6755,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 applyCutVisual(segment);
-                video.style.visibility = '';
+                video.style.visibility = multiCutMode ? 'hidden' : '';
                 applyRequestedCutSelection();
                 syncSegmentPlaybackRate();
                 const segmentDuration = segment.outEnd - segment.outStart;
@@ -6822,17 +6840,29 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const seekTimelineTime = timelineValue => {
                 const previousOutputTime = outputTime;
-                // 総尺ちょうどへシーク（末尾延長ギャップが最終セグメントの場合を含む）すると、
-                // 直後の tick() が「境界に到達済み」と即判定して stopAtNaturalEnd() を出し、
-                // 再生ボタンを押しても 1 フレームも進まず固まって見えるバグ⑬⑭の根本原因。
-                // 末尾に数フレーム分の再生余地を残すようクランプすることで、再生開始が必ず
-                // 観測可能な進行を1回は生む（自然再生が末尾へ到達して止まる経路 = tick() 内の
-                // 別クランプは無改造のため、そちらの停止挙動は従来通り）。
-                const seekableDuration = totalTimelineDuration || videoDuration();
-                const endSafetyMargin = Math.min(2 / fps, seekableDuration);
-                const seekableMax = Math.max(0, seekableDuration - endSafetyMargin);
-                outputTime = clamp(Math.max(0, timelineValue), 0, seekableMax);
+                const seekableDuration = initial.kind === 'raw' ? (totalTimelineDuration || videoDuration()) : totalTimelineDuration;
+                outputTime = Math.max(0, timelineValue);
                 window.akari.reviewTransport({ type: 'seek', from: previousOutputTime, to: outputTime });
+                outsideOutput = initial.kind !== 'raw' && outputTime >= seekableDuration;
+                document.getElementById('outside-output').hidden = !outsideOutput;
+                document.getElementById('preview-output-frame').hidden = outsideOutput;
+                layersStage.style.visibility = outsideOutput ? 'hidden' : '';
+                stage.style.visibility = outsideOutput ? 'hidden' : '';
+                if (outsideOutput) {
+                    isPlaying = false;
+                    video.pause();
+                    for (const entry of layerEntries) entry.video.pause();
+                    if (window.akari.previewAudio) window.akari.previewAudio.pause();
+                    stopAnimation();
+                    activeSegmentIndex = -1;
+                    selectLayer(null, { report: false });
+                    deselectCut({ report: false });
+                    if (typeof deselectCaption === 'function') deselectCaption({ report: false });
+                    window.akari.playbackTick(outputTime, false, true);
+                    updateTransport();
+                    return;
+                }
+                if (initial.kind === 'raw') outputTime = Math.min(outputTime, Math.max(0, seekableDuration - 2 / fps));
                 const mapped = timelineToSource(outputTime);
                 enterSegment(mapped.index);
                 if (mapped.kind === 'src') {
@@ -6851,8 +6881,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 // next tick()'s applyCutsMuteState(), which hides whenever there is no active
                 // segment) until the user presses play. Bail out without setting the flag so the
                 // *next* call (once segments is real) can still do the real work.
-                if (initialPositionApplied || segments.length === 0) return;
+                if (initialPositionApplied || (segments.length === 0 && initial.kind !== 'output')) return;
                 initialPositionApplied = true;
+                if (initial.kind === 'output' && segments.length === 0) { seekTimelineTime(initial.initialSeekTime || 0); return; }
                 if (Number.isFinite(initial.initialSeekTime)) {
                     seekTimelineTime(initial.initialSeekTime);
                 } else {
@@ -6913,10 +6944,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 return minutes + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
             };
             const updateTransport = () => {
-                const timelineDuration = segments.length > 0 ? totalTimelineDuration : videoDuration();
-                const timelinePosition = segments.length > 0 ? outputTime : (video.currentTime || 0);
-                seek.max = String(timelineDuration);
-                seek.value = String(clamp(timelinePosition, 0, timelineDuration));
+                const timelineDuration = initial.kind === 'output' || segments.length > 0 ? totalTimelineDuration : videoDuration();
+                const timelinePosition = initial.kind === 'output' || segments.length > 0 ? outputTime : (video.currentTime || 0);
+                seek.max = String(Math.max(timelineDuration, timelinePosition));
+                seek.value = String(timelinePosition);
                 timeLabel.textContent = formatTime(timelinePosition) + ' / ' + formatTime(timelineDuration);
                 penToggle.disabled = !reviewRecordingActive || isPlaying;
                 if (playToggleRenderedIsPlaying !== isPlaying) {
@@ -7471,11 +7502,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const entry of layerEntries) {
                     const layer = entry.spec;
                     const layerVideo = entry.video;
-                    layerVideo.muted = allTracksMutedByScope.layers || mutedTracksByScope.layers.has(layer.track);
+                    const scope = Number.isInteger(layer.cutIndex) ? 'cuts' : 'layers';
+                    layerVideo.muted = (scope === 'cuts' && globalMuted) || allTracksMutedByScope[scope] || mutedTracksByScope[scope].has(layer.track);
                     const active = !layer.proxyMissing
                         && typeof layer.src === 'string' && layer.src
-                        && !allTracksHiddenByScope.layers
-                        && !hiddenTracksByScope.layers.has(layer.track)
+                        && !allTracksHiddenByScope[scope]
+                        && !hiddenTracksByScope[scope].has(layer.track)
                         && timelineTime >= layer.t && timelineTime < layer.t + layer.duration;
                     if (!active) {
                         layerVideo.style.display = 'none';
@@ -7520,7 +7552,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
                         ? Math.max(0, layerVideo.duration - 0.001)
                         : layer.duration;
-                    const target = Math.min(localTime, mediaEnd);
+                    const speed = Number(layer.speed) > 0 ? Number(layer.speed) : 1;
+                    if (layerVideo.playbackRate !== speed) layerVideo.playbackRate = speed;
+                    const target = Math.min((layer.sourceIn || 0) + localTime * speed, mediaEnd);
                     const tolerance = isPlaying ? 0.05 : 0.001;
                     if (Math.abs((layerVideo.currentTime || 0) - target) > tolerance) {
                         try {
@@ -7545,10 +7579,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cutsTrackHidden = Boolean(segment && segment.kind === 'src'
                     && (allTracksHiddenByScope.cuts || hiddenTracksByScope.cuts.has(segment.track)));
                 video.dataset.akariGlobalMuted = String(globalMuted);
-                video.muted = globalMuted || cutsTrackMuted;
-                video.style.visibility = !segment || segment.kind === 'gap' || cutsTrackHidden ? 'hidden' : '';
+                video.muted = multiCutMode || globalMuted || cutsTrackMuted;
+                video.style.visibility = multiCutMode || !segment || segment.kind === 'gap' || cutsTrackHidden ? 'hidden' : '';
             };
             const tick = (immediatePlaybackTick = false) => {
+                if (outsideOutput) {
+                    window.akari.playbackTick(outputTime, false, immediatePlaybackTick);
+                    updateTransport();
+                    return;
+                }
                 // ㉕ cuts[].freeze の一時停止ホールド中（contract-2026-08-02-preview-parity.md
                 // §2.4.3 の近似実装 — 尺は伸ばさない）: video / previewAudio を実時間で
                 // 一時停止したまま outputTime を進めず、rAF の連鎖だけ生かしておく。
@@ -7600,6 +7639,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 applyCutFramingVisual();
                 renderLayers(outputTime);
+                if (multiCutMode) applyRequestedCutSelection();
+                if (selectedLayerId) updateLayerSelectBox();
                 updateLayerSelectBox();
                 renderTransitionPlate(outputTime);
                 window.akari.runtime.tick(outputTime, isPlaying);
@@ -7726,7 +7767,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             previewMessageReload.addEventListener('click', () => video.load());
             const togglePlayback = () => {
-                if (playToggle.disabled) return;
+                if (playToggle.disabled || outsideOutput) return;
                 if (!isPlaying) {
                     abortCurrentStroke();
                     abortCurrentRect();

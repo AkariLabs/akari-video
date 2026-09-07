@@ -94,7 +94,7 @@ test("missing or failed sfx probes are silently excluded", async () => {
   }
 });
 
-test("narration and bgm never contribute to content duration", () => {
+test("unavailable narration and looping bgm do not extend the output", () => {
   assert.equal(computeContentDurationSeconds({
     ...baseInput,
     edit: {
@@ -145,4 +145,10 @@ test("tail padding adds black video and silent audio through the final duration"
     "13.25",
     "/tmp/cut-tail-padded.mp4",
   ]);
+});
+
+test("resolved narration extends black output through the audible tail", () => {
+  assert.equal(computeContentDurationSeconds({ ...baseInput, cutsEndSeconds: 3,
+    edit: { audio: { narration: [{ path: "voice.wav", t: 4 }] } }, probeAudioDurationSeconds: () => 2
+  }), 6);
 });

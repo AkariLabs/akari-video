@@ -163,6 +163,7 @@ function findActiveResolvedCaption(cues, outputTime) {
 export {
   buildTimelineMap,
   captionWindowSeconds,
+  computeCutTrackSegments,
   cutsUseGapsOrTracks,
   findActiveCaption,
   findActiveResolvedCaption,

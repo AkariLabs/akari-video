@@ -15,3 +15,12 @@ Preview and export expand each video row into its native cut and layer streams i
 Current limitations: cross-domain conversion of rows containing freeze holds or `transition_out` is rejected without writing. Their nonlinear timing is not supported by the shared row export path. Existing legacy workflows remain available. Caption `display_policy` retains its existing guard against declared cut winner-order overrides.
 
 Header reordering listens on the document, defers timeline reconstruction during the gesture, and writes stable row IDs. Escape and pointer cancellation never commit; pending media redraws resume after cancellation. Only the audio group remains pinned at the bottom.
+
+## プレビューの操作と表示（2026-09-07 追記）
+
+- 複数の映像トラックに同じソースのカットがある場合も、通常の変形（位置・拡大率・回転・不透明度）はカット単位の動画要素で合成する。ソース URI が同じでも表示状態を共有しない。freeze / framing があるプロジェクトは既存の専用描画経路を維持する。
+- 角のハンドルによる拡大縮小は対角を固定する。旧 Akari OS の PreviewTransformOverlay と同じ距離比・アンカー保持の考え方で、回転・切り抜きを含め位置を解き直す。数値の拡大率変更は従来の変形モデルを維持する。
+- プレビューの吸着先は画角の外周・中央・他素材の端。中央はオレンジの実線、外周は水色の実線、素材間は水色の点線で示す。最終形で一致した辺はすべて表示する。
+- 再生位置は出力終端より後ろにも保持できる。映像がなくても時間指定の音声が残る区間は黒い出力背景で表示する。全出力の終端以降は「出力範囲外」と表示し、そこを出力尺へ加えない。素材変更で終端が短くなってもカーソルを戻さない。
+- 素材ドラッグ直後の合成 click をシークに転用しない。再生ヘッドの操作領域は目盛り帯内に限定し、素材ドラッグと排他的に扱う。
+- Webview 標準の左右 padding を無効にし、画角周囲の余白は同色の 12px とする。背景選択の枠は内側へ描き、縮小時も4辺を表示する。

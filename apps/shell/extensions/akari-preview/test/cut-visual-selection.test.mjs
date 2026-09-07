@@ -12,6 +12,6 @@ test('changing cut switches compositing depth along with transform and identity'
 });
 test('timeline-selected cut highlights only when that cut is displayed',()=>{
  const video={style:{visibility:''},dataset:{akariCutIndex:'1'}};let selected=false;
- const check=new Function('video','selectCut','deselectCut',`let requestedCutIndex;${block('applyRequestedCutSelection')}return index=>{requestedCutIndex=index;applyRequestedCutSelection()}`)(video,()=>selected=true,()=>selected=false);
+ const check=new Function('video','selectCut','deselectCut',`const multiCutMode=false;let requestedCutIndex;${block('applyRequestedCutSelection')}return index=>{requestedCutIndex=index;applyRequestedCutSelection()}`)(video,()=>selected=true,()=>selected=false);
  check(1);assert.equal(selected,true);check(0);assert.equal(selected,false);check(null);assert.equal(selected,false);video.style.visibility='hidden';check(1);assert.equal(selected,false);
 });
