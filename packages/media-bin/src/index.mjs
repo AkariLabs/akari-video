@@ -3,10 +3,12 @@
 // ffmpeg/ffprobe の探索順: 明示指定（AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN。パス区切りのない
 // 値は PATH で解決） → 既存互換（FFMPEG_PATH、ffmpeg のみ。同じ規則） → PATH → 同梱バイナリ
 // （vendor/ 配下。binary-manifest.mjs でピン留めした GPL-only・真ネイティブビルドを
-// postinstall で取得済み — task/2026-08-01-gpl-only-ffmpeg-swap）。
+// postinstall で取得済み — task/2026-08-01-gpl-only-ffmpeg-swap） → パッケージ版同梱
+// （extraResources の media-bin/ 配下。packageRoot からの相対配置で解決）。
 //
 // whisper-cli の探索順は意図的に異なる（task/2026-08-17-media-bin-whisper 契約どおり）:
-// 明示指定（AKARI_WHISPER_BIN） → 同梱バイナリ → PATH。ffmpeg は「PATH 優先」が既存
+// 明示指定（AKARI_WHISPER_BIN） → vendor 同梱 → PATH → パッケージ版同梱。
+// ffmpeg は「PATH 優先」が既存
 // システムインストールとの互換性のための既定だが、whisper-cli は事前の既存インストール
 // 慣行が無く、PATH 上に無関係な古い whisper.cpp（CLI 引数の互換性が保証されない）が
 // 入っている可能性の方がリスクなので、アプリが版固定でピン留めした同梱バイナリを優先する。
@@ -18,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
 
-import { vendorBinaryPath } from "./binary-manifest.mjs";
+import { vendorBinaryPath, packagedBinaryPath } from "./binary-manifest.mjs";
 
 const FFMPEG_INSTALL_HINT = {
   darwin: "  brew install ffmpeg",
@@ -66,7 +68,7 @@ function resolveExplicit(envVar, value, env) {
   );
 }
 
-function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath, installHint, preferVendorOverPath }) {
+function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath, packagedPath, installHint, preferVendorOverPath }) {
   const legacyStep = legacyEnvVar ? ` → ${legacyEnvVar}（既存互換・同じ規則）` : "";
   const searchOrder = preferVendorOverPath
     ? `${envVar}（明示指定: 絶対パス / PATH 上のコマンド名）${legacyStep} → 同梱バイナリ（${vendorPath}） → PATH`
@@ -75,6 +77,7 @@ function notFoundMessage({ label, envVar, legacyEnvVar, vendorPath, installHint,
     `${label} が見つかりませんでした。`,
     "",
     `探索順: ${searchOrder}`,
+    `  → パッケージ版同梱バイナリ（${packagedPath}）`,
     "",
     "同梱バイナリは packages/media-bin の npm install（postinstall）で取得されるはずですが、",
     "見つかりませんでした。npm install をやり直すか、対応プラットフォームが無い場合は",
@@ -114,7 +117,10 @@ function resolveBinary({
 
   if (vendorExists) return vendorPath;
 
-  throw new Error(notFoundMessage({ label, envVar, legacyEnvVar, vendorPath, installHint, preferVendorOverPath }));
+  const packagedPath = packagedBinaryPath(vendorName);
+  if (existsSync(packagedPath)) return packagedPath;
+
+  throw new Error(notFoundMessage({ label, envVar, legacyEnvVar, vendorPath, packagedPath, installHint, preferVendorOverPath }));
 }
 
 /**
@@ -149,7 +155,8 @@ export function resolveFfprobe({ env = process.env } = {}) {
 
 /**
  * whisper-cli バイナリの絶対パス（または PATH 解決に委ねるコマンド名）を返す。
- * 探索順は env → 同梱バイナリ → PATH（ffmpeg とは順序が異なる — ファイル冒頭コメント参照）。
+ * 探索順は env → vendor 同梱 → PATH → パッケージ版同梱
+ * （ffmpeg とは順序が異なる — ファイル冒頭コメント参照）。
  * @param {{ env?: NodeJS.ProcessEnv }} [opts]
  */
 export function resolveWhisperCli({ env = process.env } = {}) {
