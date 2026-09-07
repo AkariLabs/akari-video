@@ -1022,11 +1022,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         const pause = (): void => {
+            this.lastManualScrollAt = Date.now();
             this.visualPointerDown = true;
             this.visualThumbnails.setPaused(true);
             this.visualHover?.remove(); this.visualHover = undefined;
         };
         const resume = (): void => {
+            this.lastManualScrollAt = Date.now();
             this.visualPointerDown = false;
             this.visualThumbnails.setPaused(this.visualPlaying);
         };
@@ -13292,7 +13294,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const visibleDuration = this.visibleDuration();
         const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-        if (this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
+        if (request.playing && !this.dragState && !this.visualPointerDown
+            && this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
             if (this.playheadT > followEdge) {
                 const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
                 if (nextViewStart > this.viewStart + 1e-6) {
