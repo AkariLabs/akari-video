@@ -2438,13 +2438,19 @@ export class AkariHomeWidget extends ReactWidget {
                     <span>プロジェクト / 保存場所</span><span>チャンネル</span><span>最終更新</span><span>編集データ</span><span />
                 </div>}
                 <div style={{ ...(this.welcomeMode ? homeFlowStyles.welcomeList : homeFlowStyles.projectList), ...(list ? { gridTemplateColumns: '1fr', minWidth: 680, gap: 6 } : {}) }}>
-                    {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} style={{ display: 'flex', gap: 8 }}>
+                    {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} data-akari-project-card='true' style={{ display: 'flex', gap: 8 }}>
                         <button type='button' className='theia-button secondary' disabled={row.current}
                             style={{ flex: 1, minWidth: 0, margin: 0, height: 'auto', padding: '10px 12px', display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px', alignItems: 'center', gap: 12, textAlign: 'left' }}
                             data-akari-project-row='true' onClick={() => this.openCreatorRootProject(row.uri)}>
-                            <span style={{ display: 'grid', minWidth: 0, gap: 4 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 12 }}>
+                                <span data-akari-list-thumbnail='true' style={{ ...homeFlowStyles.projectCardThumb, width: 64, height: 36, flex: '0 0 64px', borderRadius: AKARI_RADIUS.chip }}>
+                                    <span className='codicon codicon-device-camera-video' aria-hidden='true' style={{ ...homeFlowStyles.projectCardPlaceholder, fontSize: 18 }} />
+                                    <span ref={this.projectCardPreviewRef(row)} style={homeFlowStyles.projectCardFrames} />
+                                </span>
+                                <span style={{ display: 'grid', minWidth: 0, gap: 4 }}>
                                 <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}{row.current ? ' · 開いています' : ''}</strong>
                                 <small title={row.uri.path.fsPath()} style={{ color: 'var(--theia-descriptionForeground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.uri.path.fsPath()}</small>
+                                </span>
                             </span>
                             <small style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.channel ?? '単体'}</small>
                             <time style={{ whiteSpace: 'nowrap' }} dateTime={row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined}>{formatProjectUpdatedAt(row.updatedAt)}</time>

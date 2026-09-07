@@ -213,6 +213,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     }
 
     protected createDetailedRow(row: ProjectListRow): HTMLElement {
+        const card = document.createElement('div');
+        card.setAttribute('data-akari-project-card', 'true');
+        card.style.minWidth = '0';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'theia-button secondary';
@@ -234,9 +237,15 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         date.style.whiteSpace = 'nowrap';
         const status = document.createElement('small'); status.textContent = projectEditStatus(row);
         status.style.color = 'var(--theia-descriptionForeground)';
-        button.append(name, channel, date, status);
+        const project = document.createElement('span');
+        Object.assign(project.style, { display: 'flex', alignItems: 'center', gap: '12px', minWidth: '0' });
+        const thumbnail = this.createThumbnail(row, card);
+        Object.assign(thumbnail.style, { width: '64px', height: '36px', flex: '0 0 64px', borderRadius: `${AKARI_RADIUS.chip}px` });
+        project.append(thumbnail, name);
+        button.append(project, channel, date, status);
         button.addEventListener('click', () => { this.props.onOpenProject(row.uri); this.close(); });
-        return button;
+        card.appendChild(button);
+        return card;
     }
 
     protected renderNewProjectButton(): void {
