@@ -7976,7 +7976,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
                     const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
                     if (plan.base.length === 0 && plan.layers.length === 0) return;
-                    currentAccesses = [];
+                    const accesses = [];
+                    currentAccesses = accesses;
                     const started = performance.now();
                     let frame;
                     try {
@@ -7998,8 +7999,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (reason === 'seek') {
                         const reached = performance.now() - requestedAt;
                         measurements.seekLatestMs = reached;
-                        const allHit = currentAccesses.length > 0
-                            && currentAccesses.every(access => access.hit);
+                        const allHit = accesses.length > 0
+                            && accesses.every(access => access.hit);
                         (allHit ? measurements.seekAfterMs : measurements.seekBeforeMs).push(reached);
                     }
                     const presented = performance.now();
@@ -8008,7 +8009,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     measurements.presentedAt = measurements.presentedAt
                         .filter(value => value >= presented - 1000);
                     scheduler.notePresented(timeUs, { reason });
-                    currentAccesses = null;
+                    if (currentAccesses === accesses) currentAccesses = null;
                     audioSupply.noteRendered(timeUs / 1e6);
                     updateMetrics();
                     // エラー面は履歴ではなく現在の描画状態を表す。次のフレームが成功したら消し、
@@ -8278,7 +8279,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 // akari-frame-engine-ready を受けて開始する。seek request を投げただけで ready にすると、
                 // 0 秒の初期フレームを表示したまま音声と時計だけが先に進み得る。
                 await waitForRender();
-                await renderFrame(restoredPosition, 'seek', performance.now());
+                const operation = renderFrame(restoredPosition, 'seek', performance.now());
+                rendering = operation;
+                try {
+                    await operation;
+                } finally {
+                    if (rendering === operation) rendering = null;
+                }
                 const pendingSummary = window.akari && window.akari.frameEnginePendingSummary;
                 if (pendingSummary && typeof pendingSummary === 'object') {
                     delete window.akari.frameEnginePendingSummary;

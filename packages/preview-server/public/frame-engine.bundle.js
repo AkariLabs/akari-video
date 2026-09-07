@@ -29054,8 +29054,10 @@ var FrameEngineRuntime = class {
       context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
       return;
     }
-    this.currentAccesses = [];
-    this.currentDecodedFrames = [];
+    const accesses = [];
+    const decodedFrames = [];
+    this.currentAccesses = accesses;
+    this.currentDecodedFrames = decodedFrames;
     const started = performance.now();
     let frame;
     try {
@@ -29067,14 +29069,14 @@ var FrameEngineRuntime = class {
     if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
-    this.lastBaseFrame = this.currentDecodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
+    this.lastBaseFrame = decodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
     const late = elapsed > 1e3 / this.fps;
     if (late) this.measurements.lateFrames += 1;
     const cutIndex = Number(plan.base[0]?.id.replace("cut-", ""));
     if (Number.isInteger(cutIndex) && cutIndex !== this.lastCutIndex) {
       const streamId = `cut-${cutIndex}`;
       const bucket = this.scheduler.isWarmed(streamId) ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
-      const baseAccesses = this.currentAccesses.filter((access) => plan.base.some((layer) => layer.id === access.streamId));
+      const baseAccesses = accesses.filter((access) => plan.base.some((layer) => layer.id === access.streamId));
       const hit = baseAccesses.length > 0 && baseAccesses.every((access) => access.hit === true);
       bucket.total += 1;
       if (late) bucket.late += 1;
@@ -29089,7 +29091,7 @@ var FrameEngineRuntime = class {
     if (reason === "seek") {
       const reached = performance.now() - requestedAt;
       this.measurements.seekLatestMs = reached;
-      const allHit = this.currentAccesses.length > 0 && this.currentAccesses.every((access) => access.hit);
+      const allHit = accesses.length > 0 && accesses.every((access) => access.hit);
       (allHit ? this.measurements.seekAfterMs : this.measurements.seekBeforeMs).push(reached);
     }
     const presented = performance.now();
@@ -29097,9 +29099,11 @@ var FrameEngineRuntime = class {
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
     this.scheduler.notePresented(timeUs, { reason });
-    this.currentAccesses = null;
-    this.currentDecodedFrames = null;
+    if (this.currentAccesses === accesses) this.currentAccesses = null;
+    if (this.currentDecodedFrames === decodedFrames) this.currentDecodedFrames = null;
     this.updateMetrics();
+    this.ui.error.hidden = true;
+    this.ui.error.textContent = "";
   }
   updateMetrics() {
     const m2 = this.measurements;
