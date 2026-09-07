@@ -8,7 +8,7 @@ function fixture() {
  const Widget=new Function('document','Element',`const DRAG_THRESHOLD_PX=3;return class {${source.slice(start,end)}}`)(document,class {});
  const tracks=[{id:'lower',kind:'cuts',ref:0},{id:'upper',kind:'layers',ref:0}];
  const nodes=[...tracks].reverse().map((t,i)=>({style:{},dataset:{akariTimelineTrackId:t.id,akariKind:t.kind},classList:{add(){},remove(){}},getBoundingClientRect:()=>({top:i*40,bottom:(i+1)*40})}));
- const widget=Object.assign(new Widget(),{trackHeaders:{querySelectorAll:()=>nodes},renderStrip(){this.rendered=true},mutateTimelineTracks(label,fn){this.result=fn(tracks)}});
+ const widget=Object.assign(new Widget(),{pinTimelineViewport() {},trackHeaders:{querySelectorAll:()=>nodes},renderStrip(){this.rendered=true},mutateTimelineTracks(label,fn){this.result=fn(tracks)}});
  widget.onTrackHeaderPointerDown({button:0,pointerId:7,clientY:20,target:{},currentTarget:nodes[0],preventDefault(){}},tracks[1]);
  const emit=(name,extra={})=>listeners.get(name)?.({pointerId:7,clientY:65,preventDefault(){},...extra});
  return {widget,listeners,emit};

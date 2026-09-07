@@ -15,7 +15,7 @@ const CLIP_HEIGHT=64, DEFAULT_AUDIO_TRACK_HEIGHT_PX=48, SUBROW_STRIDE=36, SUBROW
 const RULER_MIN_TICK_SPACING_PX=80;
 const RULER_STEP_SECONDS=[0.5,1,2,5,10,15,30,60,120,300,600];
 const RULER_STEP_MULTIPLIERS_FRAMES=[1,2,5,10,15,30,60,120,300];
-return class { ${['timeAtClientX','materialDropTimeAtClientX','computeRulerTicks','niceStepFromCandidates','formatTickLabel','formatFrameTimestamp','formatRulerTimestamp','defaultTrackHeight','handleMaterialDragOver','calculateLaneLayout'].map(method).join('\n')} };`)(laneLayout);
+return class { ${['timeAtClientX','materialDropTimeAtClientX','computeRulerTicks','niceStepFromCandidates','formatTickLabel','formatFrameTimestamp','formatRulerTimestamp','defaultTrackHeight','handleMaterialDragOver','calculateLaneLayout','timelineTrackItemCount'].map(method).join('\n')} };`)(laneLayout);
 test('dropping over the header clamps to the visible start, never a negative time', () => {
     const widget = Object.assign(new Widget(), { strip: { getBoundingClientRect: () => ({ left: 200, width: 1000 }) }, viewStart: 0, visibleDuration: () => 10 });
     assert.equal(widget.materialDropTimeAtClientX(100), 0);
@@ -25,7 +25,7 @@ test('dropping over the header clamps to the visible start, never a negative tim
 });
 test('header drag shows copy for compatible tracks and preserves rejection for wrong kinds', () => {
     let reject = false, ghost;
-    const widget = Object.assign(new Widget(), { materialDragPayload: { kind: 'video' }, isMaterialDragTransfer: () => true,
+    const widget = Object.assign(new Widget(), { pinTimelineViewport() {}, materialDragPayload: { kind: 'video' }, isMaterialDragTransfer: () => true,
         resolveMaterialDropTarget: () => ({ rejected: reject, reason: 'wrong kind' }), footer: {}, updateMaterialGhost: (...point) => { ghost = point; } });
     const event = { clientX: 100, clientY: 50, dataTransfer: {}, preventDefault() {}, stopPropagation() {} };
     widget.handleMaterialDragOver(event);
@@ -45,13 +45,13 @@ test('high zoom ticks use project frames including one-frame intervals', () => {
 
 test('explicit heights are honored; overlapping visual items do not inflate the row', () => {
     const widget = Object.assign(new Widget(), {
-        computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [{start:0,end:2}], captionRows: [0], beats: [], layers: [{id:'one',track:0,t:0,duration:2},{id:'two',track:0,t:0,duration:2}], overlays: [],
+        computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [{start:0,end:2}], cuts: [], captionRows: [0], beats: [], layers: [{id:'one',track:0,t:0,duration:2},{id:'two',track:0,t:0,duration:2}], overlays: [],
         videoItemBounds: new Map(), overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
         displayTimelineTracks: ['layers','overlays','captions'].map(kind => ({id:kind,kind,ref:0})),
         trackHeightFor: () => 120
     });
     widget.calculateLaneLayout();
-    assert.deepEqual(widget.laneLayout.tracks.map(track => track.height), [120,120,120]);
+    assert.deepEqual(widget.laneLayout.tracks.map(track => track.height), [120,120]);
     widget.trackHeightFor = () => 28;
     widget.calculateLaneLayout();
     assert.equal(widget.laneLayout.layerTracks[0].height, 28);
@@ -60,7 +60,7 @@ test('explicit heights are honored; overlapping visual items do not inflate the 
  test('one video track stays one band and never manufactures nested subrows', () => {
     const widget = Object.assign(new Widget(), {
         computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [], captionRows: [], beats: [],
-        layers: [{id:'layer',track:2,t:0,duration:2}], segments:[{index:0,track:2,tlStart:0,tlEnd:2}], overlays: [],
+        cuts:[{in:0,out:2,track:2}], layers: [{id:'layer',track:2,t:0,duration:2}], segments:[{index:0,track:2,tlStart:0,tlEnd:2}], overlays: [],
         videoItemBounds: new Map(), overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
         displayTimelineTracks: [{id:'v',kind:'video',ref:2}], trackHeightFor:()=>120
     });
@@ -73,3 +73,11 @@ test('explicit heights are honored; overlapping visual items do not inflate the 
     assert.equal(widget.laneLayout.tracks[0].height,28);
     assert.equal(widget.videoItemBounds.get('cut:0').top,widget.videoItemBounds.get('layer:layer').top);
  });
+
+test('empty persisted video declarations do not become visible destination rows',()=>{
+ const widget=Object.assign(new Widget(),{computeAudioDisplayTracks(){},computeCaptionsDisplayTrack(){},captions:[],captionRows:[],beats:[],
+  cuts:[{in:0,out:2,track:0}],segments:[{index:0,track:0,tlStart:0,tlEnd:2}],layers:[],overlays:[],
+  videoItemBounds:new Map(),overlayRows:new Map(),layerRows:new Map(),audioSfxRows:new Map(),audioNarrationRows:new Map(),audioTrackSubrowCounts:new Map(),
+  displayTimelineTracks:[{id:'occupied',kind:'video',ref:0},{id:'empty',kind:'video',ref:1}],trackHeightFor:()=>72});
+ widget.calculateLaneLayout();assert.deepEqual(widget.laneLayout.tracks.map(row=>row.id),['occupied']);
+});

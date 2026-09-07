@@ -14,8 +14,7 @@ export interface VisualInterval {
 }
 export type VisualMovePlan =
     | { accepted: false; reason: string }
-    | { accepted: true; mode: 'move' | 'swap'; original: VisualInterval; targetId: string; time: number;
-        swap?: { interval: VisualInterval; rowId: string; time: number } };
+    | { accepted: true; original: VisualInterval; targetId: string; time: number };
 
 const itemKey = (item: VisualItem): string => item.kind === 'cut' ? `cut:${item.index}` : `layer:${item.id}`;
 export const visualIntervalsOverlap = (start: number, end: number, other: { start: number; end: number }): boolean =>
@@ -42,7 +41,7 @@ export function findVisualFreeSlot(intervals: readonly { start: number; end: num
     return candidate;
 }
 
-/** Shared by the drag ghost and the atomic write so swapping cannot turn into stacking. */
+/** Shared by the drag ghost and the atomic write so placement cannot turn into stacking. */
 export function planVisualMove(
     cuts: readonly EditCut[], layers: readonly EditLayer[], tracks: readonly EditTimelineTrack[],
     item: VisualItem, targetId: string, time: number
@@ -55,20 +54,9 @@ export function planVisualMove(
     if (!original || !target || !isVisualMediaTrack(target)) return { accepted: false, reason: '移動先の映像トラックが見つかりません。' };
     if (target.locked || origin?.locked) return { accepted: false, reason: 'ロックされたトラックは変更できません。' };
     const duration = original.end - original.start;
-    const remaining = intervals.filter(interval => interval.key !== original.key);
-    const collisions = remaining.filter(interval => interval.rowId === targetId && visualIntervalsOverlap(time, time + duration, interval));
-    if (!collisions.length) return { accepted: true, mode: 'move', original, targetId, time };
-    if (collisions.length !== 1) return { accepted: false, reason: '複数の動画と重なります。空いている時間へ移動してください。' };
-    const displaced = collisions[0];
-    // Across rows, only the row changes for the displaced clip. Within a row, swap time slots.
-    const swapTime = original.rowId === targetId ? original.start : displaced.start;
-    const swapEnd = swapTime + displaced.end - displaced.start;
-    const others = remaining.filter(interval => interval.key !== displaced.key);
-    const blocked = others.some(interval => interval.rowId === original.rowId && visualIntervalsOverlap(swapTime, swapEnd, interval))
-        || (original.rowId === targetId && visualIntervalsOverlap(time, time + duration, { start: swapTime, end: swapEnd }));
-    if (blocked) return { accepted: false, reason: '入れ替え先で別の動画と重なるため移動できません。' };
-    return { accepted: true, mode: 'swap', original, targetId, time,
-        swap: { interval: displaced, rowId: original.rowId, time: swapTime } };
+    const occupied = intervals.filter(interval => interval.key !== original.key && interval.rowId === targetId);
+    return { accepted: true, original, targetId, time: findVisualFreeSlot(occupied, time, duration) };
+
 }
 
 /** Share row references without converting media types or dropping native/unknown properties. */
@@ -77,7 +65,8 @@ export function moveVisualItemInSource(
     fallbackTracks: readonly EditTimelineTrack[],
     item: VisualItem,
     targetId: string,
-    time: number
+    time: number,
+    forceShared = false
 ): string {
     if (!Number.isFinite(time) || time < 0) throw new Error('移動先の時刻が不正です。');
     const parsed = parseEdit(source);
@@ -92,11 +81,12 @@ export function moveVisualItemInSource(
     if (!original || original.locked || target.locked) throw new Error('ロックされたトラックは変更できません。');
     const plan = planVisualMove(parsed.cuts, parsed.layers, tracks, item, targetId, time);
     if (!plan.accepted) throw new Error((plan as { reason: string }).reason);
-    if (plan.mode === 'move' && target.kind === nativeKind && original.kind === nativeKind) {
+    time = plan.time;
+    if (!forceShared && target.kind === nativeKind && original.kind === nativeKind) {
         const moved = item.kind === 'cut'
             ? moveCutInSource(source, item.index, time, target.ref ?? 0)
             : moveLayerInSource(source, item.id, time, (nativeItem as { duration: number }).duration, target.ref ?? 0);
-        return target.id === original.id ? moved : writeTimelineTracksInSource(moved, tracks);
+        return pruneEmptyVisualTracksInSource(target.id === original.id ? moved : writeTimelineTracksInSource(moved, tracks));
     }
     const value = JSON.parse(source);
     if ((value.cuts ?? []).some((cut: { freeze?: unknown; transition_out?: unknown }) => cut.freeze || cut.transition_out)) {
@@ -142,12 +132,11 @@ export function moveVisualItemInSource(
         entry[movedItem.kind === 'cut' ? 'at' : 't'] = start;
     };
     place(item, targetId, time);
-    if (plan.swap) place(plan.swap.interval.item, plan.swap.rowId, plan.swap.time);
-    return JSON.stringify(value, null, 2) + '\n';
+    return pruneEmptyVisualTracksInSource(JSON.stringify(value, null, 2) + '\n');
 }
 
 /** Insert an empty shared row using a globally unused visual ref; never shift native streams independently. */
-export function createVisualTrackInSource(source: string, fallbackTracks: readonly EditTimelineTrack[], aboveId?: string): { source: string; track: EditTimelineTrack } {
+export function createVisualTrackInSource(source: string, fallbackTracks: readonly EditTimelineTrack[], aboveId?: string, belowId?: string): { source: string; track: EditTimelineTrack } {
     const parsed = parseEdit(source);
     const raw = JSON.parse(source);
     const tracks = parsed.timeline?.tracks?.map(track => ({ ...raw.timeline.tracks.find((row: EditTimelineTrack) => row.id === track.id), ...track })) ?? [...fallbackTracks];
@@ -162,6 +151,63 @@ export function createVisualTrackInSource(source: string, fallbackTracks: readon
     const next = [...tracks];
     const anchor = aboveId ? next.findIndex(item => item.id === aboveId) : -1;
     const lastVisual = next.reduce((found, item, index) => isVisualMediaTrack(item) ? index : found, -1);
-    next.splice((anchor >= 0 ? anchor : lastVisual) + 1, 0, track);
+    const below = belowId ? next.findIndex(item => item.id === belowId) : -1;
+    next.splice(below >= 0 ? below : (anchor >= 0 ? anchor : lastVisual) + 1, 0, track);
     return { source: writeTimelineTracksInSource(source, next), track };
+}
+
+/** Empty visual rows are not persisted after an edit. Other domains keep their own data readers. */
+export function pruneEmptyVisualTracksInSource(source: string): string {
+    const value = JSON.parse(source);
+    if (!Array.isArray(value.timeline?.tracks)) return source;
+    const tracks = value.timeline.tracks.filter((row: EditTimelineTrack) => {
+        if (!isVisualMediaTrack(row)) return true;
+        const kinds = row.kind === 'video' ? ['cuts', 'layers'] : [row.kind];
+        return kinds.some(kind => (value[kind] ?? []).some((item: { track?: number }) => (item.track ?? 0) === (row.ref ?? 0)));
+    });
+    return tracks.length === value.timeline.tracks.length ? source : writeTimelineTracksInSource(source, tracks);
+}
+
+export type VisualRowDrop =
+    | { kind: 'track'; id: string; top: number; height: number }
+    | { kind: 'between'; aboveId?: string; belowId?: string; top: number };
+
+/** Legacy Akari OS model: row interiors are slots; boundaries insert occupied rows. */
+export function resolveVisualRowDrop(rows: readonly { id: string; top: number; height: number }[], y: number, sourceId?: string): VisualRowDrop {
+    if (!rows.length) return { kind: 'between', top: Math.max(0, y) };
+    const first = rows[0], last = rows[rows.length - 1];
+    if (y < first.top) return { kind: 'between', aboveId: first.id, top: first.top };
+    if (y >= last.top + last.height) return { kind: 'between', belowId: last.id, top: last.top + last.height };
+    for (let i = 1; i < rows.length; i++) {
+        if (Math.abs(y - rows[i].top) <= 4 && rows[i - 1].id !== sourceId && rows[i].id !== sourceId) {
+            return { kind: 'between', aboveId: rows[i].id, top: rows[i].top };
+        }
+    }
+    const row = rows.find(candidate => y < candidate.top + candidate.height) ?? last;
+    return { kind: 'track', id: row.id, top: row.top, height: row.height };
+}
+
+/** Moving a row's sole clip reuses that row; it does not create a transient V3. */
+export function insertVisualItemInSource(source: string, fallbackTracks: readonly EditTimelineTrack[], item: VisualItem, time: number, aboveId?: string, belowId?: string): string {
+    const parsed = parseEdit(source);
+    const tracks = parsed.timeline?.tracks ?? [...fallbackTracks];
+    const intervals = visualTrackIntervals(parsed.cuts, parsed.layers, tracks);
+    const original = intervals.find(interval => interval.key === itemKey(item));
+    if (!original) throw new Error('移動する動画が見つかりません。');
+    const row = tracks.find(track => track.id === original.rowId)!;
+    if (row.locked) throw new Error('ロックされたトラックは変更できません。');
+    if (intervals.filter(interval => interval.rowId === row.id).length === 1) {
+        if ((aboveId === row.id || belowId === row.id) && Math.abs(time - original.start) < 1e-6) return pruneEmptyVisualTracksInSource(source);
+        const moved = moveVisualItemInSource(source, tracks, item, row.id, time, true);
+        const live = parseEdit(moved).timeline?.tracks ?? tracks;
+        if (aboveId === row.id || belowId === row.id) return pruneEmptyVisualTracksInSource(writeTimelineTracksInSource(moved, live));
+        const reordered = live.filter(track => track.id !== row.id);
+        const above = reordered.findIndex(track => track.id === aboveId);
+        const below = reordered.findIndex(track => track.id === belowId);
+        const at = below >= 0 ? below : above >= 0 ? above + 1 : reordered.length;
+        reordered.splice(at, 0, live.find(track => track.id === row.id) ?? row);
+        return pruneEmptyVisualTracksInSource(writeTimelineTracksInSource(moved, reordered));
+    }
+    const inserted = createVisualTrackInSource(source, tracks, aboveId, belowId);
+    return moveVisualItemInSource(inserted.source, tracks, item, inserted.track.id, time);
 }

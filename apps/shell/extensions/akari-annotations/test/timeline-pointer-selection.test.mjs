@@ -16,7 +16,7 @@ function fixture(detail) {
         cloneNode: () => ({ style: {}, removeAttribute() {} }),
         setPointerCapture() {}
     };
-    const widget = Object.assign(new Widget(), {
+    const widget = Object.assign(new Widget(), { pinTimelineViewport() {},
         toolMode: 'select', strip: { appendChild() {} }, cuts: [], audioSfx: [],
         detectCutDoubleClick: () => false,
         cancelDrag() { this.dragState = undefined; },
