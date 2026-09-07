@@ -7126,21 +7126,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (event.pointerId === state.pointerId) cancel();
         };
         const move = (event: PointerEvent): void => {
-            if (event.pointerId === state.pointerId && (event.buttons & 1) === 0) cancel();
+            // A released-button move can arrive before pointerup (or recover a missed up).
+            // It is a release at these coordinates, not an explicit cancellation.
+            if (event.pointerId === state.pointerId && (event.buttons & 1) === 0) up(event);
         };
         const visibility = (): void => { if (document.hidden) cancel(); };
         document.addEventListener('pointerup', up, true);
         document.addEventListener('pointercancel', pointerCancel, true);
         document.addEventListener('pointermove', move, true);
         document.addEventListener('visibilitychange', visibility);
-        state.element.addEventListener('lostpointercapture', pointerCancel);
+        // Capture loss is not cancellation: document pointerup still owns the gesture.
+        // A detached/replaced target must not discard a fast release.
         window.addEventListener('blur', cancel);
         this.dragLifecycleCleanup = () => {
             document.removeEventListener('pointerup', up, true);
             document.removeEventListener('pointercancel', pointerCancel, true);
             document.removeEventListener('pointermove', move, true);
             document.removeEventListener('visibilitychange', visibility);
-            state.element.removeEventListener('lostpointercapture', pointerCancel);
             window.removeEventListener('blur', cancel);
         };
     }
