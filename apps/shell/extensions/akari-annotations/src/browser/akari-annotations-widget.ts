@@ -6800,6 +6800,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pendingVisualWrites++;
         // Publish the complete canonical layout synchronously; persistence is queued below.
         void this.reloadEdit(after);
+        window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: after } }));
         const pendingHistory = this.historyActionTail;
         const save = this.timelineWriteTail.catch(() => undefined).then(() => pendingHistory.catch(() => undefined)).then(async () => {
             const current = pruneEmptyVisualTracksInSource((await this.fileService.readFile(editUri)).value.toString());
@@ -6815,7 +6816,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }).finally(async () => {
             this.pendingVisualWrites--;
             if (this.pendingVisualWrites === 0) {
-                if (this.lastSavedEditSource) await this.reloadEdit(this.lastSavedEditSource);
+                if (this.lastSavedEditSource) {
+                    await this.reloadEdit(this.lastSavedEditSource);
+                    window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: this.lastSavedEditSource } }));
+                }
                 await this.reloadEdit();
             }
         });
