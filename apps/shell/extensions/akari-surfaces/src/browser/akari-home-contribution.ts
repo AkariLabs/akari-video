@@ -1,5 +1,6 @@
 import { FrontendApplication, FrontendApplicationContribution, WidgetManager } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { installHomeTabAnchor } from './akari-home-tab-anchor';
 import { AkariHomeWidget } from './akari-home-widget';
 
 @injectable()
@@ -13,6 +14,8 @@ export class AkariHomeContribution implements FrontendApplicationContribution {
         if (!widget.isAttached) {
             app.shell.addWidget(widget, { area: 'main', rank: 10 });
         }
+        const anchor = installHomeTabAnchor(app.shell, widget);
+        widget.disposed.connect(() => anchor.dispose());
         await app.shell.activateWidget(widget.id);
     }
 }

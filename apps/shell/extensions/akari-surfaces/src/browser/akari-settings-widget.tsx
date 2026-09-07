@@ -1,4 +1,8 @@
 import * as React from '@theia/core/shared/react';
+import { Message } from '@theia/core/shared/@lumino/messaging';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariStoreSettings } from './akari-store-settings';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -10,7 +14,6 @@ import {
 } from 'akari-project/lib/common/akari-surface-tokens';
 import {
     AKARI_AGENT_TURN_END_NOTIFICATION,
-    AKARI_CLOUD_ACCOUNT,
     AKARI_DEVELOPER_MODE,
     AKARI_QUALITY_TIER
 } from './akari-preferences';
@@ -18,6 +21,8 @@ import {
 @injectable()
 export class AkariSettingsWidget extends ReactWidget {
     static readonly ID = 'akari-settings-widget';
+    @inject(AkariProjectService) protected readonly storeService: AkariProjectService;
+    @inject(WindowService) protected readonly windows: WindowService;
 
     @inject(PreferenceService)
     protected readonly preferences: PreferenceService;
@@ -26,8 +31,14 @@ export class AkariSettingsWidget extends ReactWidget {
     protected theme = 'dark';
     protected developerMode = false;
     protected agentTurnEndNotification = true;
-    protected cloudAccount = '';
     protected saveMessage = '';
+    protected storeRefreshKey = 0;
+
+    protected override onAfterShow(msg: Message): void {
+        super.onAfterShow(msg);
+        this.storeRefreshKey++;
+        this.update();
+    }
 
     @postConstruct()
     protected init(): void {
@@ -42,7 +53,6 @@ export class AkariSettingsWidget extends ReactWidget {
                 AKARI_QUALITY_TIER,
                 AKARI_DEVELOPER_MODE,
                 AKARI_AGENT_TURN_END_NOTIFICATION,
-                AKARI_CLOUD_ACCOUNT,
                 'workbench.colorTheme'
             ].includes(change.preferenceName)) {
                 this.refreshValues();
@@ -55,7 +65,6 @@ export class AkariSettingsWidget extends ReactWidget {
         this.theme = this.preferences.get<string>('workbench.colorTheme', 'dark');
         this.developerMode = this.preferences.get<boolean>(AKARI_DEVELOPER_MODE, false);
         this.agentTurnEndNotification = this.preferences.get<boolean>(AKARI_AGENT_TURN_END_NOTIFICATION, true);
-        this.cloudAccount = this.preferences.get<string>(AKARI_CLOUD_ACCOUNT, '');
         this.update();
     }
 
@@ -129,19 +138,7 @@ export class AkariSettingsWidget extends ReactWidget {
                     </span>
                 </label>
 
-                <label style={fieldStyle}>
-                    <span>Akari Cloud アカウント</span>
-                    <input aria-label='Akari Cloud アカウント' style={inputStyle} type='email'
-                        placeholder='name@example.com' value={this.cloudAccount}
-                        onChange={event => {
-                            this.cloudAccount = event.currentTarget.value;
-                            this.update();
-                        }}
-                        onBlur={() => void this.save(AKARI_CLOUD_ACCOUNT, this.cloudAccount)} />
-                    <small style={{ opacity: 0.7 }}>
-                        {this.cloudAccount ? `接続先: ${this.cloudAccount}` : '未接続'}
-                    </small>
-                </label>
+                <AkariStoreSettings service={this.storeService} windows={this.windows} refreshKey={this.storeRefreshKey} />
 
                 {this.developerMode && (
                     <aside style={{

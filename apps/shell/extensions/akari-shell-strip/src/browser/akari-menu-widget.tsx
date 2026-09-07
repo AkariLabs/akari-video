@@ -126,6 +126,8 @@ export class AkariMenuWidget extends ReactWidget {
             { id: OPEN_ANNOTATIONS_COMMAND, label: 'タイムライン', icon: 'codicon codicon-comment', run: () => this.runCommand(OPEN_ANNOTATIONS_COMMAND) },
             { id: OPEN_TRANSCRIPT_COMMAND, label: '文字起こし', icon: 'codicon codicon-comment-discussion', run: () => this.runCommand(OPEN_TRANSCRIPT_COMMAND) },
             { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home', run: () => void this.openOverview() },
+            { id: 'akari.home.openFirstRunSetup', label: 'セットアップ', icon: 'codicon codicon-tools', run: () => this.runCommand('akari.home.openFirstRunSetup') },
+            { id: 'akari.home.openProjectLauncher', label: 'プロジェクト・ランチャー', icon: 'codicon codicon-layout', run: () => this.runCommand('akari.home.openProjectLauncher') },
             { id: SHOW_CHANGES_COMMAND, label: '変更を見る', icon: 'codicon codicon-diff', run: () => this.runCommand(SHOW_CHANGES_COMMAND) },
             this.browserPreviewAction()
         ];

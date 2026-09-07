@@ -4,6 +4,7 @@ import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
+import { filterProjects, PROJECT_PAGE_SIZE, ProjectViewMode, readProjectView, saveProjectView } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
 import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 
@@ -21,6 +22,8 @@ const AKARI_HOME_WIDGET_ID = 'akari-home-widget';
 export interface AkariProjectLauncherDialogProps extends DialogProps {
     /** home widget の既存列挙（creatorRootProjects + standaloneProjects 統合済み）をそのまま受け取る。 */
     rows: ProjectListRow[];
+    onRefresh: () => Promise<ProjectListRow[]>;
+    onViewChanged: (mode: ProjectViewMode) => void;
     /** F5「+ 新しい動画を始める」— home widget の既存フロー（無 root 時の ensureCreatorRoot 連結込み）をそのまま呼ぶ。 */
     onStartNewProject: () => Promise<void>;
     /** 一覧行クリック — home widget の既存「プロジェクトを開く」経路（preserveWindow セマンティクス含む）をそのまま呼ぶ。 */
@@ -51,6 +54,10 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     protected readonly body = document.createElement('div');
     protected readonly listSection = document.createElement('div');
     protected startingNewProject = false;
+    protected query = '';
+    protected view: ProjectViewMode = readProjectView();
+    protected visibleCount = PROJECT_PAGE_SIZE;
+    protected readonly viewButtons = new Map<ProjectViewMode, HTMLButtonElement>();
     protected newProjectButton: HTMLButtonElement | undefined;
     /** カードごとのサムネ再生。ダイアログを閉じるときにまとめて止める。 */
     protected readonly previews: ProjectCardPreview[] = [];
@@ -125,7 +132,43 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
 
         Object.assign(this.listSection.style, { marginTop: '20px' });
 
-        this.body.append(header, newProjectButton, this.listSection);
+        const controls = document.createElement('div');
+        Object.assign(controls.style, { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '20px' });
+        const search = document.createElement('input');
+        search.type = 'search';
+        search.className = 'theia-input';
+        search.placeholder = '名前・チャンネルで検索';
+        search.setAttribute('aria-label', 'プロジェクトを検索');
+        Object.assign(search.style, { flex: '1 1 160px', minWidth: '0' });
+        search.addEventListener('input', () => { this.query = search.value; this.visibleCount = PROJECT_PAGE_SIZE; this.renderList(); });
+        controls.appendChild(search);
+        for (const mode of ['cards', 'list'] as const) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'theia-button secondary';
+            button.textContent = mode === 'cards' ? 'カード' : 'リスト';
+            button.addEventListener('click', () => {
+                this.view = mode;
+                saveProjectView(mode);
+                this.props.onViewChanged(mode);
+                this.renderList();
+            });
+            this.viewButtons.set(mode, button);
+            controls.appendChild(button);
+        }
+        const refresh = document.createElement('button');
+        refresh.type = 'button';
+        refresh.className = 'theia-button secondary';
+        refresh.textContent = '更新';
+        refresh.addEventListener('click', async () => {
+            refresh.disabled = true;
+            try {
+                this.props.rows = await this.props.onRefresh();
+                if (!this.isDisposed) { this.renderList(); }
+            } finally { refresh.disabled = false; }
+        });
+        controls.appendChild(refresh);
+        this.body.append(header, newProjectButton, controls, this.listSection);
         this.contentNode.appendChild(this.body);
 
         this.renderList();
@@ -141,12 +184,15 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     }
 
     protected renderList(): void {
+        this.previews.splice(0).forEach(preview => preview.dispose());
         this.listSection.replaceChildren();
-        const rows = this.props.rows;
+        this.listSection.setAttribute('data-akari-project-browser', this.view);
+        this.viewButtons.forEach((button, mode) => button.setAttribute('aria-pressed', String(this.view === mode)));
+        const rows = filterProjects(this.props.rows, this.query);
         if (rows.length === 0) {
             this.listSection.setAttribute('data-akari-launcher-empty', 'true');
             const empty = document.createElement('p');
-            empty.textContent = 'まだプロジェクトがありません。上のボタンから始めましょう。';
+            empty.textContent = this.query ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。上のボタンから始めましょう。';
             Object.assign(empty.style, {
                 color: 'var(--theia-descriptionForeground)', fontSize: '12.5px', lineHeight: '1.7',
                 textAlign: 'center', margin: '4px 0 0'
@@ -156,7 +202,8 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         }
         this.listSection.removeAttribute('data-akari-launcher-empty');
         const heading = document.createElement('p');
-        heading.textContent = '過去のプロジェクト';
+        heading.textContent = `プロジェクト · ${rows.length} 件`;
+        heading.setAttribute('role', 'status');
         Object.assign(heading.style, {
             margin: '0 0 9px', fontFamily: 'monospace', fontSize: '10.5px', letterSpacing: '0.12em',
             color: 'var(--theia-descriptionForeground)', textTransform: 'uppercase'
@@ -166,13 +213,22 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         const list = document.createElement('div');
         Object.assign(list.style, {
             display: 'grid',
-            gridTemplateColumns: CARD_GRID_COLUMNS,
+            gridTemplateColumns: this.view === 'list' ? '1fr' : CARD_GRID_COLUMNS,
             gap: CARD_GRID_GAP
         });
-        for (const row of rows) {
+        for (const row of rows.slice(0, this.visibleCount)) {
             list.appendChild(this.createRow(row));
         }
         this.listSection.appendChild(list);
+        if (rows.length > this.visibleCount) {
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'theia-button secondary';
+            more.textContent = 'もっと読み込む';
+            more.style.marginTop = '12px';
+            more.addEventListener('click', () => { this.visibleCount += PROJECT_PAGE_SIZE; this.renderList(); });
+            this.listSection.appendChild(more);
+        }
     }
 
     /**
@@ -198,7 +254,7 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
             minHeight: 'auto', height: 'auto', width: '100%'
         });
 
-        const thumbnail = this.createThumbnail(row, card);
+        const thumbnail = this.view === 'cards' ? this.createThumbnail(row, card) : document.createElement('span');
         const body = document.createElement('span');
         Object.assign(body.style, {
             display: 'flex', alignItems: 'center', gap: '8px',

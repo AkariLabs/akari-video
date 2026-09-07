@@ -4,7 +4,7 @@ import URI from '@theia/core/lib/common/uri';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
-import { QuickInputService, WidgetManager } from '@theia/core/lib/browser';
+import { ApplicationShell, OpenerService, open, QuickInputService, WidgetManager } from '@theia/core/lib/browser';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
@@ -71,6 +71,8 @@ import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-d
 import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
+import { AkariNewVideoDialog } from './akari-new-video-dialog';
+import { filterProjects, PROJECT_PAGE_SIZE, ProjectViewMode, readProjectView, saveProjectView } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
@@ -82,11 +84,6 @@ import {
     AKARI_SURFACE
 } from 'akari-project/lib/common/akari-surface-tokens';
 import {
-    StoreConnectionFlowController,
-    StoreConnectionFlowPhase
-} from 'akari-project/lib/common/store-connection-flow';
-import {
-    STORE_RECONNECT_REQUIRED_MESSAGE,
     storeReconnectRequired
 } from '../common/store-entitlements-visibility';
 
@@ -115,9 +112,6 @@ const UPDATE_CACHE_FILENAME = 'update-check.json';
 const PARTNER_CONNECTION_FILENAME = 'partner-connection.json';
 // AKARI Store の接続資格情報。内蔵デバイスフローと launcher CLI が共有する。
 const STORE_CREDENTIALS_FILENAME = 'store-credentials.json';
-// ストアの表看板は `/lab`（worker ルートは /lab* と /api/store* のみ。/store/ は 404 —
-// akari-video-store worker/wrangler.jsonc・asset-catalog-view.ts の deriveStoreLabBaseUrl と同じ規約）。
-const STORE_SITE_FALLBACK = 'https://akari-oss.app/lab/';
 // 「AI パートナー接続」のプロジェクト単位 SSOT は connections.json の akari-cloud
 // provider の doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
@@ -149,12 +143,6 @@ const CREATOR_ROOT_MANIFEST_RELATIVE_PATH = '.akari/root.json';
 const CREATOR_ROOT_SCHEMA = 'creator-root/v1';
 const CREATOR_ROOT_CHANNELS_DIRNAME = 'channels';
 const CREATOR_ROOT_VIDEOS_DIRNAME = 'videos';
-const CREATOR_ROOT_PROJECT_DISPLAY_LIMIT = 10;
-// 無 root 時のプロジェクト一覧フォールバック（task 2026-08-04-home-no-root-flow）。
-// v4 時代の独立案内行「作業場はまだありません…」は状態バッジ（U2/U5）と二重表示に
-// なっていたため撤去した — 案内は状態バッジ 1 箇所に集約し、ここは見出し下の薄い
-// 1 行に留める（U1: 「作業場」の語は使わない）。
-const CREATOR_ROOT_LIST_PLACEHOLDER = 'プロジェクトはここに並びます';
 // 既定チャンネル名（packages/creator-root/src/index.mjs の DEFAULT_CHANNEL_NAME と
 // 同じ値。root.json の channels が空/未解決のときのフォールバックにのみ使う —
 // 通常は manifest.channels[0]（誕生時に作られた最初のチャンネル）を使う）。
@@ -168,13 +156,6 @@ const SHELL_LAST_VERSION_FILENAME = 'shell-last-version.json';
 const NEW_PROJECT_NAME_SLUG = 'new-video';
 
 // --- U3 プロジェクト一覧の「単体」行（task 2026-08-03-home-v5-terms） ---
-// Theia の最近開いたワークスペース履歴（WorkspaceService#recentWorkspaces）のうち
-// 上位何件まで「AKARI プロジェクトのマーカー」判定の対象にするか（無関係な履歴での
-// I/O を増やしすぎないための上限）。
-const RECENT_WORKSPACES_SCAN_LIMIT = 20;
-// 一覧に出す「単体」プロジェクトの最大件数（過去プロジェクトと合わせて肥大化させない）。
-const STANDALONE_PROJECT_DISPLAY_LIMIT = 5;
-
 interface CreatorRootProjectEntry {
     /** フォルダ名（機械の ID。ソート・URI 解決に使う。表示には使わない — 表示は title ?? name）。 */
     name: string;
@@ -241,6 +222,14 @@ interface IntakeSnapshot {
 @injectable()
 export class AkariHomeWidget extends ReactWidget {
     static readonly ID = 'akari-home-widget';
+
+    @inject(OpenerService) protected readonly openers: OpenerService;
+    @inject(ApplicationShell) protected readonly shell: ApplicationShell;
+    protected projectQuery = '';
+    protected projectView: ProjectViewMode = readProjectView();
+    protected projectVisibleCount = PROJECT_PAGE_SIZE;
+    protected projectLauncherPreparing = false;
+    protected storeCredentialsUri: URI | undefined;
 
     @inject(FileService)
     protected readonly fileService: FileService;
@@ -314,11 +303,6 @@ export class AkariHomeWidget extends ReactWidget {
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
-    protected storeFlowPhase: StoreConnectionFlowPhase = 'idle';
-    protected storeFlowError?: string;
-    protected storeFlowUserCode?: string;
-    protected storeConnectionFlow: StoreConnectionFlowController;
-    protected storeSiteUrl = STORE_SITE_FALLBACK;
 
     // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
     protected importing = false;
@@ -389,21 +373,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.title.caption = 'AKARI プロジェクトホーム';
         this.title.iconClass = 'codicon codicon-home';
         this.title.closable = false;
-        this.storeConnectionFlow = new StoreConnectionFlowController(this.storeService, {
-            openVerificationUrl: url => this.windowService.openNewWindow(url, { external: true }),
-            onChange: state => {
-                this.storeFlowPhase = state.phase;
-                this.storeFlowError = state.error;
-                this.storeFlowUserCode = state.userCode;
-                if (state.connection.connected) {
-                    this.storeEmail = state.connection.email ?? state.connection.identifier ?? '接続済み';
-                    this.storeEntitlementsStatus = 'ok';
-                    void this.refreshHomeFlow();
-                }
-                this.update();
-            }
-        });
-        this.toDispose.push({ dispose: () => this.storeConnectionFlow.dispose() });
+        void this.watchStoreConnection().catch(error => console.warn('[akari-surfaces] store status watch failed:', error));
         // カードのホバー再生は React の外で DOM を持つため、widget と一緒に必ず止める。
         this.toDispose.push({
             dispose: () => {
@@ -449,7 +419,8 @@ export class AkariHomeWidget extends ReactWidget {
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (
                 (this.connectionsUri && event.contains(this.connectionsUri)) ||
-                (this.intakeUri && event.contains(this.intakeUri))
+                (this.intakeUri && event.contains(this.intakeUri)) ||
+                (this.storeCredentialsUri && event.contains(this.storeCredentialsUri))
             ) {
                 void this.refreshHomeFlow();
             }
@@ -463,6 +434,7 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
+        this.projectView = readProjectView();
         checkForShellUpdatesOnHomeShow(this.resolveElectronUpdaterApi());
         void this.refreshWelcomeMode();
         void this.refreshHomeFlow();
@@ -528,6 +500,12 @@ export class AkariHomeWidget extends ReactWidget {
             this.projectLauncherDialog.activate();
             return this.projectLauncherDialogClosed;
         }
+        if (this.projectLauncherPreparing) { return; }
+        this.projectLauncherPreparing = true;
+        try {
+            await this.loadCreatorRootProjects();
+            await this.loadStandaloneProjects();
+        } finally { this.projectLauncherPreparing = false; }
         // 開き直すたびに覚え直す。前回開いてから書き出し・編集が進んでいれば絵も新しくなる
         // （バックエンドはディスクのキャッシュを見るだけなので、変わっていなければ即返る）。
         this.projectCardFrames.clear();
@@ -537,6 +515,12 @@ export class AkariHomeWidget extends ReactWidget {
             onStartNewProject: this.startNewProject,
             onOpenProject: this.openCreatorRootProject,
             loadThumbnails: this.loadProjectCardThumbnails,
+            onRefresh: async () => {
+                await this.loadCreatorRootProjects();
+                await this.loadStandaloneProjects();
+                return this.buildProjectRows();
+            },
+            onViewChanged: mode => { this.projectView = mode; this.update(); },
             onDismissed: () => {
                 this.launcherDismissedThisSession = true;
             }
@@ -680,6 +664,22 @@ export class AkariHomeWidget extends ReactWidget {
         return result;
     }
 
+    async openEditData(): Promise<void> {
+        const root = (await this.workspaceService.roots)[0]?.resource;
+        if (!root || !await this.fileService.exists(root.resolve('edit.json'))) {
+            this.messages.info('まだ編集データがありません。');
+            return;
+        }
+        try { await open(this.openers, root.resolve('edit.json')); }
+        catch { this.messages.error('編集データを開けませんでした。もう一度お試しください。'); }
+    }
+
+    protected async openStoreSettings(): Promise<void> {
+        const widget = await this.widgets.getOrCreateWidget('akari-settings-widget');
+        if (!widget.isAttached) { this.shell.addWidget(widget, { area: 'left', rank: 400 }); }
+        await this.shell.activateWidget(widget.id);
+    }
+
     /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */
     openFirstRunSetup = async (): Promise<void> => {
         this.showDashboardWithoutProject = false;
@@ -774,19 +774,19 @@ export class AkariHomeWidget extends ReactWidget {
     /**
      * AKARI Store の接続状態（`~/.akari/store-credentials.json`・AKARI_HOME で差し替え可）。
      * 読み方は partner-connection.json と同じ EnvVariablesServer + FileService 経路。
-     * 無い/壊れていれば未接続扱い（フェイルセーフ側）。watch は張らない —
-     * 反映は内蔵デバイスフローの RPC 結果とホーム再表示時の読み直しで担保する。
+     * 無い/壊れていれば未接続扱い。設定で接続した結果は資格情報の変更通知から読み直す。
      */
+    protected async watchStoreConnection(): Promise<void> {
+        this.storeCredentialsUri = (await this.resolveAkariHomeUri()).resolve(STORE_CREDENTIALS_FILENAME);
+        if (!this.isDisposed) { this.toDispose.push(this.fileService.watch(this.storeCredentialsUri.parent)); }
+    }
+
     protected async readStoreConnection(): Promise<string | null> {
         try {
             const uri = (await this.resolveAkariHomeUri()).resolve(STORE_CREDENTIALS_FILENAME);
             const parsed = JSON.parse((await this.fileService.readFile(uri)).value.toString());
             if (typeof parsed?.token !== 'string') {
                 return null;
-            }
-            if (typeof parsed?.url === 'string') {
-                // 資格情報の url は API 基点（…/api/store）。サイト側の基点（…/lab/）に読み替える
-                this.storeSiteUrl = parsed.url.replace(/\/api\/store\/?$/, '/lab/');
             }
             return typeof parsed?.email === 'string' ? parsed.email : '接続済み';
         } catch {
@@ -952,7 +952,7 @@ export class AkariHomeWidget extends ReactWidget {
         const insidePaths = new Set(this.creatorRootProjects.map(project => project.uri.path.fsPath()));
         const seen = new Set<string>();
         const results: StandaloneProjectEntry[] = [];
-        for (const raw of recent.slice(0, RECENT_WORKSPACES_SCAN_LIMIT)) {
+        for (const raw of recent) {
             let uri: URI;
             try {
                 uri = new URI(raw);
@@ -968,9 +968,6 @@ export class AkariHomeWidget extends ReactWidget {
                 continue;
             }
             results.push({ name: uri.path.base || fsPath, uri, title: await this.readProjectTitle(uri) });
-            if (results.length >= STANDALONE_PROJECT_DISPLAY_LIMIT) {
-                break;
-            }
         }
         return results;
     }
@@ -1050,13 +1047,14 @@ export class AkariHomeWidget extends ReactWidget {
                 entries.push({ name: projectDir.name, channel: channelDir.name, uri: projectDir.resource, title: null });
             }
         }
-        // ソート（フォルダ名の日付プレフィックス基準）→ 表示上限で絞ってから title を読む
-        // — 一覧に出ない過去プロジェクトぶんまで intake.json を読みにいかないため。
-        const sliced = this.sortCreatorRootProjects(entries).slice(0, CREATOR_ROOT_PROJECT_DISPLAY_LIMIT);
-        await Promise.all(sliced.map(async entry => {
-            entry.title = await this.readProjectTitle(entry.uri);
-        }));
-        return sliced;
+        const sorted = this.sortCreatorRootProjects(entries);
+        // 全件を検索対象に含め、ファイル読み込みだけを小さなバッチに分ける。
+        for (let start = 0; start < sorted.length; start += PROJECT_PAGE_SIZE) {
+            await Promise.all(sorted.slice(start, start + PROJECT_PAGE_SIZE).map(async entry => {
+                entry.title = await this.readProjectTitle(entry.uri);
+            }));
+        }
+        return sorted;
     }
 
     /** 名前の日付プレフィックス（`YYYY-MM-DD-...`）降順。プレフィックスが無いものは末尾（辞書順）。 */
@@ -1193,21 +1191,27 @@ export class AkariHomeWidget extends ReactWidget {
         this.startingNewProject = true;
         this.update();
         try {
-            // `creatorRootUri` は loadCreatorRootProjects が解決して持つが、この経路は
-            // File メニューのコマンド（akari-home-command-contribution）からも来る —
-            // ホームを開いた直後だと解決がまだ走っていないことがあり、そのまま
-            // ensureCreatorRootForNewProject に落ちると置き場が既にあるのに
-            // 「作成しますか？」を聞いてしまう。先に同じ解決を 1 回試す。
-            const rootUri = this.creatorRootUri
-                ?? (this.creatorRootUri = await this.resolveCreatorRootDir())
-                ?? await this.ensureCreatorRootForNewProject();
+            // まず選択だけを行い、作成の確定後に保存先とプロジェクトを書き込む。
+            let rootUri = this.creatorRootUri ?? (this.creatorRootUri = await this.resolveCreatorRootDir());
+            const channels = rootUri ? await this.resolveManifestChannels(rootUri) : [CREATOR_ROOT_DEFAULT_CHANNEL];
+            const options = await new AkariNewVideoDialog(channels).open();
+            if (!options) { return; }
             if (!rootUri) {
-                return;
+                rootUri = new URI(await this.newProjectService.ensureCreatorRoot());
+                this.creatorRootUri = rootUri;
+                this.creatorRootAvailable = true;
             }
-            const channel = await this.resolveDefaultChannelName(rootUri);
+            const channel = options.channel;
+            if (!channels.includes(channel)) { throw new Error('チャンネルを選び直してください'); }
             const name = await this.reserveNewProjectName(rootUri, channel);
             const destination = rootUri.resolve(CREATOR_ROOT_CHANNELS_DIRNAME).resolve(channel).resolve(CREATOR_ROOT_VIDEOS_DIRNAME).resolve(name);
             await this.newProjectService.createProject(destination.toString());
+            const intake = {
+                version: 1, tasks: [], target: { duration_s: null, keep_length: true, taste: null },
+                autonomy: options.autonomy, status: 'draft', submitted_at: null, title: null
+            };
+            await this.fileService.writeFile(destination.resolve(INTAKE_RELATIVE_PATH),
+                BinaryBuffer.fromString(`${JSON.stringify(intake, null, 2)}\n`));
             await this.workspaceService.openWorkspace(destination, { preserveWindow: true });
         } catch (error) {
             console.error('[akari-surfaces] failed to start a new project:', error);
@@ -1224,37 +1228,6 @@ export class AkariHomeWidget extends ReactWidget {
             this.update();
         }
     };
-
-    /**
-     * 無 root 時の「+ 新しい動画を始める」連結（F9 ensureCreatorRoot・
-     * task 2026-08-05-welcome-screen §1）。`createChannelDestinationAndJoin`
-     * （U5「チャンネルに入れる」の無 root 連結・task 2026-08-04-home-no-root-flow）と
-     * 対になる新規プロジェクト版 — 確認は 1 回だけ、「作業場」の語は出さない（U1）。
-     * 解決できたら以後の一覧・状態バッジ解決も新しい置き場を見られるようにしておく
-     * （`createChannelDestinationAndJoin` と同じ流儀）。
-     */
-    protected async ensureCreatorRootForNewProject(): Promise<URI | undefined> {
-        const confirmed = await new ConfirmDialog({
-            title: 'チャンネルの置き場を作成しますか？',
-            msg: 'チャンネルの置き場がまだありません。作成して、新しい動画を始めますか？（データの場所: ~/Akari）',
-            ok: '作成してはじめる',
-            cancel: 'キャンセル'
-        }).open();
-        if (!confirmed) {
-            return undefined;
-        }
-        try {
-            const rootUriString = await this.newProjectService.ensureCreatorRoot();
-            const rootUri = new URI(rootUriString);
-            this.creatorRootUri = rootUri;
-            this.creatorRootAvailable = true;
-            return rootUri;
-        } catch (error) {
-            console.error('[akari-surfaces] failed to ensure a channel destination for a new project:', error);
-            this.messages.error(error instanceof Error ? error.message : 'チャンネルの置き場の作成に失敗しました。');
-            return undefined;
-        }
-    }
 
     // --- U2 状態バッジ（旧 F6 現在地 1 行を置換。task 2026-08-03-home-v5-terms） --
 
@@ -1721,16 +1694,6 @@ export class AkariHomeWidget extends ReactWidget {
     // 接続案内カード（旧 connectPartner・BEGIN_ONBOARDING_COMMAND）は裁定 C4 により撤去済み
     // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
 
-    protected connectStore = async (): Promise<void> => {
-        await this.storeConnectionFlow.start();
-    };
-
-    protected cancelStoreConnection = (): void => this.storeConnectionFlow.cancel();
-
-    protected openStoreSite = (): void => {
-        const base = this.storeSiteUrl.replace(/\/$/, '');
-        this.windowService.openNewWindow(this.storeEmail !== null ? `${base}/library` : `${base}/`, { external: true });
-    };
 
     /**
      * 進め方フォームを dashboard 内の展開セクションとして開く（裁定 R5）。
@@ -2174,14 +2137,7 @@ export class AkariHomeWidget extends ReactWidget {
                 >
                     {this.startingNewProject ? '作成しています…' : '＋ 新しい動画を始める'}
                 </button>
-                {rows.length > 0 && (
-                    <>
-                        <p style={homeFlowStyles.welcomeListHeading}>最近のプロジェクト</p>
-                        <div style={homeFlowStyles.welcomeList} data-akari-welcome-list='true'>
-                            {rows.map(row => this.renderProjectCard(row))}
-                        </div>
-                    </>
-                )}
+                {this.renderProjectBrowser(rows)}
                 <button
                     type='button'
                     style={homeFlowStyles.welcomeOpenFolder}
@@ -2204,11 +2160,11 @@ export class AkariHomeWidget extends ReactWidget {
                     type='button'
                     className='theia-button secondary'
                     style={homeFlowStyles.welcomeSetupButton}
-                    data-akari-open-first-run-setup='true'
-                    onClick={() => void this.openFirstRunSetup()}
+                    data-akari-open-edit-data='true'
+                    onClick={() => void this.openEditData()}
                 >
-                    <span className='codicon codicon-tools' aria-hidden='true' />
-                    セットアップを開く
+                    <span className='codicon codicon-edit' aria-hidden='true' />
+                    編集データを開く
                 </button>
             </div>
         );
@@ -2333,11 +2289,11 @@ export class AkariHomeWidget extends ReactWidget {
                         <button
                             type='button'
                             className='theia-button secondary'
-                            data-akari-open-first-run-setup='true'
+                            data-akari-open-edit-data='true'
                             style={homeFlowStyles.setupReopenButton}
-                            onClick={() => void this.openFirstRunSetup()}
+                            onClick={() => void this.openEditData()}
                         >
-                            セットアップを開く
+                            編集データを開く
                         </button>
                     </div>
                 </div>
@@ -2364,7 +2320,7 @@ export class AkariHomeWidget extends ReactWidget {
                     style={{ ...homeFlowStyles.statusBadge, ...homeFlowStyles.statusBadgeIn }}
                 >
                     <span style={homeFlowStyles.statusText}>
-                        📺 チャンネル <strong>{this.currentLocation.channel}</strong> の設定・スタイルが効いています
+                        📺 チャンネル: <strong>{this.currentLocation.channel}</strong>
                     </span>
                     <span style={homeFlowStyles.statusSub}>
                         データの場所: {this.currentLocation.rootPath}（変更は設定から）
@@ -2426,28 +2382,51 @@ export class AkariHomeWidget extends ReactWidget {
      * なら「チャンネルに入れる」がそこに出る）と案内が二重にならないよう、ここは
      * 見出し下の薄い 1 行だけに留める（task 2026-08-04-home-no-root-flow）。
      */
+    protected renderProjectBrowser(allRows: ProjectListRow[]): React.ReactNode {
+        const rows = filterProjects(allRows, this.projectQuery);
+        const list = this.projectView === 'list';
+        return <div data-akari-project-browser={this.projectView}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
+                <input type='search' className='theia-input' aria-label='プロジェクトを検索'
+                    placeholder='名前・チャンネルで検索' value={this.projectQuery}
+                    style={{ flex: '1 1 160px', minWidth: 0 }}
+                    onChange={event => { this.projectQuery = event.currentTarget.value; this.projectVisibleCount = PROJECT_PAGE_SIZE; this.update(); }} />
+                {(['cards', 'list'] as const).map(mode => <button key={mode} type='button' className='theia-button secondary'
+                    aria-pressed={this.projectView === mode} onClick={() => { this.projectView = mode; saveProjectView(mode); this.update(); }}>
+                    {mode === 'cards' ? 'カード' : 'リスト'}
+                </button>)}
+                <button type='button' className='theia-button secondary' onClick={() => void this.loadCreatorRootProjects().then(() => this.loadStandaloneProjects())}>更新</button>
+            </div>
+            <small role='status' style={{ color: 'var(--theia-descriptionForeground)' }}>{rows.length} 件</small>
+            <div style={{ ...homeFlowStyles.projectList, marginTop: 8, ...(list ? { gridTemplateColumns: '1fr' } : {}) }}>
+                {rows.slice(0, this.projectVisibleCount).map(row => list ? <div key={row.key} style={{ display: 'flex', gap: 8 }}>
+                    <button type='button' className='theia-button secondary' disabled={row.current}
+                        style={{ flex: 1, minWidth: 0, height: 'auto', padding: '10px 12px', display: 'flex', gap: 12, textAlign: 'left' }}
+                        data-akari-project-row='true' onClick={() => this.openCreatorRootProject(row.uri)}>
+                        <span className='codicon codicon-device-camera-video' aria-hidden='true' />
+                        <strong style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</strong>
+                        <small>{row.channel ?? '単体'}{row.current ? ' · 開いています' : ''}</small>
+                    </button>
+                    <button type='button' className='theia-button secondary' title={revealInFileManagerActionLabel(row.name)}
+                        aria-label={revealInFileManagerActionLabel(row.name)} onClick={() => void this.revealProjectInFileManager(row)}>
+                        <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                    </button>
+                </div> : this.renderProjectCard(row, { reveal: true }))}
+            </div>
+            {rows.length === 0 && <p>{this.projectQuery ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。'}</p>}
+            {rows.length > this.projectVisibleCount && <button type='button' className='theia-button secondary' style={{ marginTop: 12 }}
+                onClick={() => { this.projectVisibleCount += PROJECT_PAGE_SIZE; this.update(); }}>もっと読み込む</button>}
+        </div>;
+    }
+
     protected renderProjectList(): React.ReactNode {
-        if (!this.creatorRootAvailable) {
-            return (
-                <section style={{ marginBottom: 16 }}>
-                    <p style={homeFlowStyles.glabel}>プロジェクト</p>
-                    <p style={homeFlowStyles.cardFine}>{CREATOR_ROOT_LIST_PLACEHOLDER}</p>
-                </section>
-            );
-        }
         const rows = this.buildProjectRows();
         return (
             <section style={{ marginBottom: 16 }}>
                 <p style={homeFlowStyles.glabel}>プロジェクト</p>
                 {/* 新規作成は主動線なのでカード格子には混ぜず、従来どおり 1 本の帯で上に置く。 */}
                 {this.renderNewProjectItem()}
-                {rows.length === 0 ? (
-                    <p style={{ ...homeFlowStyles.cardLead, marginTop: 8 }}>まだプロジェクトがありません。</p>
-                ) : (
-                    <div style={{ ...homeFlowStyles.projectList, marginTop: 8 }}>
-                        {rows.map(row => this.renderProjectCard(row, { reveal: true }))}
-                    </div>
-                )}
+                {this.renderProjectBrowser(rows)}
             </section>
         );
     }
@@ -2536,91 +2515,12 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected renderStoreCard(): React.ReactNode {
         const connected = this.storeEmail !== null;
-        const reconnectRequired = storeReconnectRequired(connected, this.storeEntitlementsStatus);
-        const connectionState = reconnectRequired && this.storeFlowPhase === 'idle'
-            ? 'reconnect-required'
-            : connected && this.storeFlowPhase === 'idle'
-            ? 'connected'
-            : this.storeFlowPhase === 'idle' ? 'disconnected' : this.storeFlowPhase;
-        return (
-            <section
-                style={homeFlowStyles.card}
-                data-akari-store-connection={connectionState}
-                data-akari-store-entitlements-status={this.storeEntitlementsStatus}
-                data-akari-store-reconnect-required={reconnectRequired ? 'true' : undefined}
-            >
-                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
-                    <span className='codicon codicon-package' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
-                </div>
-                <div style={homeFlowStyles.cardBody}>
-                    <strong style={homeFlowStyles.cardTitle}>AKARI Store</strong>
-                    {connected && !reconnectRequired && <p style={homeFlowStyles.cardLead}>接続中: {this.storeEmail}</p>}
-                    {reconnectRequired && this.storeFlowPhase === 'idle' && (
-                        <p style={{ ...homeFlowStyles.cardLead, color: 'var(--theia-errorForeground)' }}>
-                            {STORE_RECONNECT_REQUIRED_MESSAGE}
-                        </p>
-                    )}
-                    {!connected && this.storeFlowPhase === 'idle' && (
-                        <p style={homeFlowStyles.cardLead}>購入した素材（宣言パック・3D モックなど）を本体で使うには接続します。</p>
-                    )}
-                    {(!connected || reconnectRequired) && this.storeFlowPhase === 'starting' && (
-                        <p style={homeFlowStyles.cardLead}>接続を開始しています…</p>
-                    )}
-                    {(!connected || reconnectRequired) && this.storeFlowPhase === 'pending' && (
-                        <>
-                            <p style={homeFlowStyles.cardLead}>ブラウザで承認してください…</p>
-                            {this.storeFlowUserCode && <p style={homeFlowStyles.cardFine}>確認コード: {this.storeFlowUserCode}</p>}
-                        </>
-                    )}
-                    {(!connected || reconnectRequired) && (this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error') && (
-                        <p style={{ ...homeFlowStyles.cardLead, color: 'var(--theia-errorForeground)' }}>{this.storeFlowError}</p>
-                    )}
-                    {connected && !reconnectRequired && <p style={homeFlowStyles.cardFine}>購入素材の導入は「購入した素材をセットアップして」と頼むだけ</p>}
-                </div>
-                {connected && !reconnectRequired ? (
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        style={homeFlowStyles.cardCta}
-                        onClick={() => this.openStoreSite()}
-                    >
-                        ストアを開く
-                    </button>
-                ) : this.storeFlowPhase === 'pending' ? (
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        style={homeFlowStyles.cardCta}
-                        onClick={this.cancelStoreConnection}
-                    >
-                        キャンセル
-                    </button>
-                ) : this.storeFlowPhase === 'expired' || this.storeFlowPhase === 'error' ? (
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-store-connect
-                        style={homeFlowStyles.cardCta}
-                        onClick={() => void this.connectStore()}
-                    >
-                        もう一度試す
-                    </button>
-                ) : (
-                    <button
-                        type='button'
-                        className='theia-button main'
-                        data-akari-store-connect
-                        style={homeFlowStyles.cardCta}
-                        disabled={this.storeFlowPhase === 'starting'}
-                        onClick={() => void this.connectStore()}
-                    >
-                        {this.storeFlowPhase === 'starting'
-                            ? '接続を開始しています…'
-                            : reconnectRequired ? 'ストアに再接続する' : 'ストアに接続する'}
-                    </button>
-                )}
-            </section>
-        );
+        const reconnect = storeReconnectRequired(connected, this.storeEntitlementsStatus);
+        return <button type='button' className='theia-button secondary' style={{ marginTop: 4 }}
+            data-akari-store-connection={reconnect ? 'reconnect-required' : connected ? 'connected' : 'disconnected'}
+            onClick={() => void this.openStoreSettings()}>
+            AKARI Store · {reconnect ? '再接続が必要' : connected ? '接続中' : '未接続'}
+        </button>;
     }
 
     /**
