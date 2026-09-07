@@ -400,6 +400,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly playhead = document.createElement('div');
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
+    protected readonly snapEndGuide = document.createElement('div');
     protected readonly dragFeedback = document.createElement('div');
     protected readonly trackInsertIndicator = document.createElement('div');
     protected readonly selectionMarquee = document.createElement('div');
@@ -699,6 +700,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
             background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none'
         });
+        this.snapEndGuide.style.cssText = this.snapGuide.style.cssText;
         Object.assign(this.dragFeedback.style, {
             position: 'absolute', display: 'none', padding: '2px 6px', fontSize: '10px',
             fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
@@ -727,7 +729,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pointerEvents: 'none', zIndex: '10', boxSizing: 'border-box'
         });
         this.timelineOverlay.append(
-            this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
+            this.playhead, this.snapGuide, this.snapEndGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
             this.materialGhost
         );
         // ㉖ 全域クリックシーク: strip 単体ではなく stripScroll（中央寄せの上下ギャップ・
@@ -6893,7 +6895,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected snapTimeInSourceSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, _extraCandidates: readonly SnapCandidate[] = []
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -6903,9 +6905,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates: SnapCandidate[] = this.cuts.flatMap(cut => [{ time: cut.in }, { time: cut.out }])
-            .filter(candidate => Number.isFinite(candidate.time)
-                && !extraCandidates.some(edge => Math.abs(edge.time - candidate.time) < 1e-6));
+        const drag = this.dragState;
+        const candidates: SnapCandidate[] = this.cuts
+            .filter((_, index) => !(drag && 'index' in drag && drag.index === index))
+            .flatMap(cut => [{ time: cut.in }, { time: cut.out }])
+            .filter(candidate => Number.isFinite(candidate.time));
         const nearest = this.nearestCandidate(candidates, value);
         if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
             if (showGuide) {
@@ -6928,7 +6932,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected snapTimeInOutputSpaceWithResult(
-        value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = []
+        value: number, showGuide: boolean, _extraCandidates: readonly SnapCandidate[] = []
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -6938,7 +6942,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
+        const candidates = this.outputSnapCandidates();
         const nearest = this.nearestCandidate(candidates, value);
         if (nearest !== undefined && Math.abs(nearest.time - value) <= threshold) {
             if (showGuide) {
@@ -6954,7 +6958,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         start: number,
         duration: number,
         showGuide: boolean,
-        extraCandidates: readonly SnapCandidate[] = []
+        _extraCandidates: readonly SnapCandidate[] = []
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -6964,7 +6968,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: start, snapped: false };
         }
-        const candidates = this.outputSnapCandidates(extraCandidates);
+        const candidates = this.outputSnapCandidates();
         const nearestStart = this.nearestCandidate(candidates, start);
         const end = start + duration;
         const nearestEnd = this.nearestCandidate(candidates, end);
@@ -6974,27 +6978,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const nearest = useStart ? nearestStart : nearestEnd;
         const distance = useStart ? startDistance : endDistance;
         if (nearest && distance <= threshold) {
+            const snappedStart = useStart ? nearest.time : nearest.time - duration;
             if (showGuide) {
-                this.showSnapGuideAt(nearest.time, nearest.isPlayhead === true);
+                const alignedStart = candidates.some(edge => Math.abs(edge.time - snappedStart) < 1e-6);
+                const alignedEnd = candidates.some(edge => Math.abs(edge.time - (snappedStart + duration)) < 1e-6);
+                this.showSnapGuideAt(alignedStart ? snappedStart : snappedStart + duration, false);
+                if (alignedStart && alignedEnd) {
+                    this.snapEndGuide.style.left = `${this.percent(snappedStart + duration)}%`;
+                    this.snapEndGuide.style.display = 'block';
+                }
             }
-            return {
-                time: useStart ? nearest.time : nearest.time - duration,
-                snapped: true
-            };
+            return { time: snappedStart, snapped: true };
         }
         this.hideSnapGuide();
         return { time: start, snapped: false };
     }
 
-    protected outputSnapCandidates(excludedEdges: readonly SnapCandidate[] = []): SnapCandidate[] {
-        // The magnet aligns media edges, never the playhead, selection, or a time grid.
+    protected outputSnapCandidates(): SnapCandidate[] {
+        const drag = this.dragState;
+        // Exclude the dragged item by identity; other items may share both edge times.
         return [
-            ...this.segments.flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
-            ...this.layers.flatMap(layer => [{ time: layer.t }, { time: layer.t + layer.duration }]),
-            ...this.overlays.flatMap(overlay => [{ time: overlay.start }, { time: overlay.start + overlay.duration }]),
-            ...this.audioSfx.flatMap(sfx => [{ time: sfx.t }, { time: this.sfxIntervalEnd(sfx) }])
-        ].filter(candidate => Number.isFinite(candidate.time)
-            && !excludedEdges.some(edge => Math.abs(edge.time - candidate.time) < 1e-6));
+            ...this.segments.filter(segment => !(drag && 'index' in drag && drag.index === segment.index))
+                .flatMap(segment => [{ time: segment.tlStart }, { time: segment.tlEnd }]),
+            ...this.layers.filter(layer => !(drag?.kind === 'layer' && drag.id === layer.id))
+                .flatMap(layer => [{ time: layer.t }, { time: layer.t + layer.duration }]),
+            ...this.overlays.filter(overlay => !(drag?.kind === 'overlay' && drag.id === overlay.id))
+                .flatMap(overlay => [{ time: overlay.start }, { time: overlay.start + overlay.duration }]),
+            ...this.audioSfx.filter(sfx => !((drag?.kind === 'audio' || drag?.kind === 'audio-trim') && drag.id === sfx.id))
+                .flatMap(sfx => [{ time: sfx.t }, { time: this.sfxIntervalEnd(sfx) }])
+        ].filter(candidate => Number.isFinite(candidate.time));
     }
 
     protected snapThresholdSeconds(): number | undefined {
@@ -7019,6 +7031,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** ガイド線は常に出力軸座標へ射影して表示する。playhead へ吸着したときだけアンバーにする。 */
     protected showSnapGuideAt(outputTime: number, isPlayhead: boolean): void {
+        this.snapEndGuide.style.display = 'none';
         this.snapGuide.style.left = `${this.percent(outputTime)}%`;
         this.snapGuide.style.background = isPlayhead ? SNAP_GUIDE_COLOR_PLAYHEAD : SNAP_GUIDE_COLOR_DEFAULT;
         this.snapGuide.style.display = 'block';
@@ -7026,6 +7039,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected hideSnapGuide(): void {
         this.snapGuide.style.display = 'none';
+        this.snapEndGuide.style.display = 'none';
     }
 
     /** End the gesture independently of hit targets, capture loss, or window focus. */
