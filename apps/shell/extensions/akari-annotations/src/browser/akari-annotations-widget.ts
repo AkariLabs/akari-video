@@ -342,11 +342,11 @@ type DragPreview =
         rejected: boolean;
         maxOutSeconds?: number;
     }
-    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; insertTrack?: number; targetTimelineId?: string; insertAboveId?: string; insertBelowId?: string }
+    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; ignored?: boolean; insertTrack?: number; targetTimelineId?: string; insertAboveId?: string; insertBelowId?: string }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
     | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
-    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean; insertTrack?: number; targetTimelineId?: string; insertAboveId?: string; insertBelowId?: string }
+    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean; ignored?: boolean; insertTrack?: number; targetTimelineId?: string; insertAboveId?: string; insertBelowId?: string }
     | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number }
     | { kind: 'audio-trim'; id: string; edge: 'left' | 'right'; t: number; in: number; out: number }
     | { kind: 'cut-slip'; index: number; in: number; out: number };
@@ -3060,7 +3060,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialDragLastClientY = clientY;
         const target = this.resolveMaterialDropTarget(payload.kind, clientY);
         if (!target.rejected && target.insertTrack !== undefined) {
-            this.materialGhost.style.display = 'none';
+            const duration = this.materialGhostDurationSeconds(payload);
+            const start = this.materialDropTimeAtClientX(clientX);
+            this.setGhostRange(this.materialGhost, start, start + duration);
+            this.setGhostRejected(this.materialGhost, false);
+            this.materialGhost.style.top = `${RULER_BAND_HEIGHT_PX + Math.max(0, target.top - 18) - this.stripScroll.scrollTop}px`;
+            this.materialGhost.style.height = '36px';
+            this.materialGhost.style.display = 'block';
             this.showTrackInsertIndicatorAt(target.top);
             return;
         }
@@ -6243,6 +6249,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
         state.ghost.style.display = '';
+        state.ghost.style.outline = '';
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
@@ -6367,14 +6374,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 state.originalAt + delta, state.duration, showGuide,
                 [{ time: state.originalAt }, { time: state.originalAt + state.duration }]
             );
-            const at = Math.max(0, snap.time);
+            const at = Math.max(0, Math.abs(clientX - state.startClientX) <= DRAG_THRESHOLD_PX ? state.originalAt : snap.time);
             const target = this.visualRowDropAtClientY(clientY, { kind: 'cut', index: state.index });
             if (target?.kind === 'between') {
-                state.ghost.style.display = 'none';
-                this.showTrackInsertIndicatorAt(target.top);
-                this.updateDragFeedback(state, `ここへ差し込み · ${this.formatTimestamp(at)}`);
+                this.showVisualInsertionGhost(state, at, state.duration, target.top);
                 return { kind: 'cut-move', index: state.index, at, track: state.originalTrack, rejected: false,
                     insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
+            }
+            if (target?.kind === 'none') {
+                this.hideVisualInsertionGhost(state);
+                return { kind: 'cut-move', index: state.index, at, track: state.originalTrack, rejected: false, ignored: true };
             }
             if (target?.kind === 'track') {
                 const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'cut', index: state.index }, target.id, at);
@@ -6456,15 +6465,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const snap = this.snapMovingRangeInOutputSpace(
                     state.originalT + delta, state.originalDuration, showGuide, originalEdges
                 );
-                t = Math.max(0, snap.time);
+                t = Math.max(0, Math.abs(clientX - state.startClientX) <= DRAG_THRESHOLD_PX ? state.originalT : snap.time);
                 snapped = snap.snapped;
                 const target = this.visualRowDropAtClientY(clientY, { kind: 'layer', id: state.id });
                 if (target?.kind === 'between') {
-                    state.ghost.style.display = 'none';
-                    this.showTrackInsertIndicatorAt(target.top);
-                    this.updateDragFeedback(state, `ここへ差し込み · ${this.formatTimestamp(t)}`);
+                    this.showVisualInsertionGhost(state, t, itemDuration, target.top);
                     return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected: false,
                         insertTrack: 0, insertAboveId: target.aboveId, insertBelowId: target.belowId };
+                }
+                if (target?.kind === 'none') {
+                    this.hideVisualInsertionGhost(state);
+                    return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected: false, ignored: true };
                 }
                 if (target?.kind === 'track') {
                     const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'layer', id: state.id }, target.id, t);
@@ -6632,6 +6643,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.dragFeedback.style.display = 'block';
     }
 
+    protected showVisualInsertionGhost(state: DragState, start: number, duration: number, top: number): void {
+        this.setGhostRange(state.ghost, start, start + duration);
+        this.setGhostRejected(state.ghost, false);
+        state.ghost.style.top = `${Math.max(0, top - 18)}px`;
+        state.ghost.style.height = '36px';
+        state.ghost.style.display = 'block';
+        state.ghost.style.outline = '2px solid #22c55e';
+        this.showTrackInsertIndicatorAt(top);
+        this.updateDragFeedback(state, `差し込み ${this.formatTimestamp(start)} → ${this.formatTimestamp(start + duration)} · 尺 ${duration.toFixed(2)} 秒`);
+    }
+
+    protected hideVisualInsertionGhost(state: DragState): void {
+        state.ghost.style.display = 'none';
+        this.hideTrackInsertIndicator();
+        this.hideSnapGuide();
+        this.dragFeedback.style.display = 'none';
+    }
+
     protected showTrackInsertIndicatorAt(stripLocalTop: number): void {
         const viewportTop = RULER_BAND_HEIGHT_PX + stripLocalTop - this.stripScroll.scrollTop;
         this.trackInsertIndicator.style.top = `${viewportTop}px`;
@@ -6667,7 +6696,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             .map(row => ({ id: row.id, top: row.top, height: row.height }));
         const key = item && (item.kind === 'cut' ? `cut:${item.index}` : `layer:${item.id}`);
         const sourceId = key && visualTrackIntervals(this.cuts, this.layers, this.timelineTracks).find(interval => interval.key === key)?.rowId;
-        return resolveVisualRowDrop(rows, y, sourceId);
+        const count = visualTrackIntervals(this.cuts, this.layers, this.timelineTracks).filter(interval => interval.rowId === sourceId).length;
+        return resolveVisualRowDrop(rows, y, sourceId, count);
     }
 
     protected async commitVisualTrackMove(preview: Extract<DragPreview, { kind: 'cut-move' | 'layer' }>): Promise<void> {
@@ -7054,6 +7084,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async commitDrag(preview: DragPreview): Promise<void> {
+        if ('ignored' in preview && preview.ignored) return;
         const location = this.location;
         if (!location) {
             return;

@@ -46,6 +46,8 @@ export declare function createVisualTrackInSource(source: string, fallbackTracks
 /** Empty visual rows are not persisted after an edit. Other domains keep their own data readers. */
 export declare function pruneEmptyVisualTracksInSource(source: string): string;
 export type VisualRowDrop = {
+    kind: 'none';
+} | {
     kind: 'track';
     id: string;
     top: number;
@@ -61,6 +63,6 @@ export declare function resolveVisualRowDrop(rows: readonly {
     id: string;
     top: number;
     height: number;
-}[], y: number, sourceId?: string): VisualRowDrop;
+}[], y: number, sourceId?: string, sourceItemCount?: number): VisualRowDrop;
 /** Moving a row's sole clip reuses that row; it does not create a transient V3. */
 export declare function insertVisualItemInSource(source: string, fallbackTracks: readonly EditTimelineTrack[], item: VisualItem, time: number, aboveId?: string, belowId?: string): string;

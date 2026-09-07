@@ -53,11 +53,11 @@ test('locked source or target rejects movement without a partial write',()=>{
 });
 test('row interiors and before/after boundaries match the legacy timeline convention',()=>{
  const geometry=[{id:'upper',top:100,height:60},{id:'middle',top:166,height:60},{id:'lower',top:232,height:60}];
- assert.deepEqual(resolveVisualRowDrop(geometry,95,'upper'),{kind:'between',aboveId:'upper',top:100});
+ assert.deepEqual(resolveVisualRowDrop(geometry,95,'upper'),{kind:'none'});
  assert.deepEqual(resolveVisualRowDrop(geometry,300,'upper'),{kind:'between',belowId:'lower',top:292});
  assert.deepEqual(resolveVisualRowDrop(geometry,230,'upper'),{kind:'between',aboveId:'lower',top:232});
  assert.equal(resolveVisualRowDrop(geometry,190,'upper').kind,'track');
- assert.equal(resolveVisualRowDrop(geometry,166,'upper').kind,'track');
+ assert.equal(resolveVisualRowDrop(geometry,166,'upper').kind,'none');
 });
 test('half-open free slots allow touching endpoints and respect gaps',()=>{
  assert.equal(findVisualFreeSlot([{start:0,end:2},{start:2,end:4}],0,1),4);
@@ -73,4 +73,11 @@ test('temporary insertion candidate allocates a unique ref and preserves row met
 test('dropping a sole clip below its own row is a no-op, never an empty extra track',()=>{
  const value=fixture();value.layers=[];const source=JSON.stringify(value);
  assert.equal(insertVisualItemInSource(source,[rows[0]],{kind:'cut',index:0},0,undefined,'base'),source);
+});
+
+test('multi-clip source can split into its adjacent gap, but outer self boundaries remain silent',()=>{
+ const geometry=[{id:'upper',top:100,height:60},{id:'lower',top:166,height:60}];
+ for(const y of [160,163,166]) assert.deepEqual(resolveVisualRowDrop(geometry,y,'upper',2),{kind:'between',aboveId:'lower',top:166});
+ assert.deepEqual(resolveVisualRowDrop(geometry,95,'upper',2),{kind:'none'});
+ assert.deepEqual(resolveVisualRowDrop(geometry,230,'lower',2),{kind:'none'});
 });

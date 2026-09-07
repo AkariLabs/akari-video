@@ -169,17 +169,20 @@ export function pruneEmptyVisualTracksInSource(source: string): string {
 }
 
 export type VisualRowDrop =
+    | { kind: 'none' }
     | { kind: 'track'; id: string; top: number; height: number }
     | { kind: 'between'; aboveId?: string; belowId?: string; top: number };
 
 /** Legacy Akari OS model: row interiors are slots; boundaries insert occupied rows. */
-export function resolveVisualRowDrop(rows: readonly { id: string; top: number; height: number }[], y: number, sourceId?: string): VisualRowDrop {
+export function resolveVisualRowDrop(rows: readonly { id: string; top: number; height: number }[], y: number, sourceId?: string, sourceItemCount = 1): VisualRowDrop {
     if (!rows.length) return { kind: 'between', top: Math.max(0, y) };
     const first = rows[0], last = rows[rows.length - 1];
-    if (y < first.top) return { kind: 'between', aboveId: first.id, top: first.top };
-    if (y >= last.top + last.height) return { kind: 'between', belowId: last.id, top: last.top + last.height };
+    if (y < first.top) return first.id === sourceId ? { kind: 'none' } : { kind: 'between', aboveId: first.id, top: first.top };
+    if (y >= last.top + last.height) return last.id === sourceId ? { kind: 'none' } : { kind: 'between', belowId: last.id, top: last.top + last.height };
     for (let i = 1; i < rows.length; i++) {
-        if (Math.abs(y - rows[i].top) <= 4 && rows[i - 1].id !== sourceId && rows[i].id !== sourceId) {
+        const gapStart = rows[i - 1].top + rows[i - 1].height;
+        if (y >= gapStart - 4 && y <= rows[i].top + 4) {
+            if (sourceItemCount === 1 && (rows[i - 1].id === sourceId || rows[i].id === sourceId)) return { kind: 'none' };
             return { kind: 'between', aboveId: rows[i].id, top: rows[i].top };
         }
     }
