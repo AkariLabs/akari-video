@@ -393,7 +393,8 @@ const LANE_GAP = 2;
 const SUBROW_HEIGHT = 22;
 const SUBROW_GAP = 2;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
-const STRIP_BOTTOM_MARGIN = 2;
+const STRIP_TOP_MARGIN = 24;
+const STRIP_BOTTOM_MARGIN = 24;
 const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
 const TRANSITION_BADGE_SIZE_PX = 16;
@@ -749,6 +750,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
     protected readonly stripContent = document.createElement('div');
+    protected readonly hoverSeek = document.createElement('div');
+    protected seekHoverPoint: { x: number; y: number } | undefined;
+    protected seekHoverRefresh: number | undefined;
     protected readonly playhead = document.createElement('div');
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
@@ -1183,6 +1187,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         Object.assign(this.timelineOverlay.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: '9'
         });
+        Object.assign(this.hoverSeek.style, {
+            position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
+            borderLeft: '1px dashed var(--theia-descriptionForeground, #aaa)', opacity: '.8',
+            pointerEvents: 'none', boxSizing: 'border-box'
+        });
+        this.hoverSeek.dataset.testid = 'akari-timeline-hover-seek';
+        this.hoverSeek.setAttribute('aria-hidden', 'true');
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
             background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none',
@@ -1231,7 +1242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pointerEvents: 'none', zIndex: '10', boxSizing: 'border-box'
         });
         this.timelineOverlay.append(
-            this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
+            this.hoverSeek, this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
             this.materialGhost
         );
         // ㉖ 全域クリックシーク: strip 単体ではなく stripScroll（中央寄せの上下ギャップ・
@@ -1239,6 +1250,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
         // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
+        const hideHoverSeek = (): void => { this.seekHoverPoint = undefined; this.hoverSeek.style.display = 'none'; };
+        const refreshHoverSeek = (): void => { this.hoverSeek.style.display = 'none'; this.scheduleSeekHoverRefresh(); };
+        for (const surface of [this.stripScroll, this.rulerBar]) {
+            surface.addEventListener('pointermove', event => {
+                this.seekHoverPoint = event.buttons === 0 ? { x: event.clientX, y: event.clientY } : undefined;
+                this.updateHoverSeek(event);
+            });
+            surface.addEventListener('pointerleave', hideHoverSeek);
+            surface.addEventListener('pointerdown', hideHoverSeek, true);
+            surface.addEventListener('wheel', refreshHoverSeek, { passive: true });
+        }
+        this.stripScroll.addEventListener('scroll', refreshHoverSeek);
+        window.addEventListener('blur', hideHoverSeek);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener('blur', hideHoverSeek);
+            if (this.seekHoverRefresh !== undefined) cancelAnimationFrame(this.seekHoverRefresh);
+        }));
+
         this.strip.addEventListener('pointerdown', () => {
             // 押下位置→時刻の換算は確定済みの幾何を読むため、保留中のズーム描画を先に流す。
             this.flushStripRender();
@@ -6122,7 +6151,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.renderFocusBreadcrumbs();
-        let nextTop = topOffset;
+        let nextTop = topOffset + STRIP_TOP_MARGIN;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
         if (beats.height > 0) {
             nextTop += beats.height + LANE_GAP;
@@ -6461,6 +6490,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderStrip(): void {
+        this.hoverSeek.style.display = 'none';
         // 同期描画が別経路で走ったら、次フレームに予約済みの重複描画は 1 回ぶん省く。
         this.stripRenderThrottle.cancel();
         // 尺の集計（O(items)）は 1 描画につき 1 回だけ。ズーム 1 イベントで 8 回前後呼ばれていた。
@@ -6510,11 +6540,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 短ければ上下均等ギャップぶん topOffset を与えて全レーンを一様に下へずらす
         // （溢れる場合＝自然高さ ≥ ビューポート高のときは gap=0 のまま従来どおり上詰め + スクロール）。
         let stripHeight = this.calculateLaneLayout();
-        // calculateLaneLayout の戻り値は末尾に固定 STRIP_BOTTOM_MARGIN（最下段トラックの下の
-        // 化粧パディング、中央寄せとは無関係の既存デザイン）を含む。中央寄せの上下ギャップを
-        // 対称にするには、この固定パディングを除いた「純粋な積み上げ高さ」を基準に測る必要が
-        // ある（そのまま使うと下側だけ +STRIP_BOTTOM_MARGIN 分ずれて上下差が 1px を超える）。
-        const stackHeight = Math.max(0, stripHeight - STRIP_BOTTOM_MARGIN);
+        // Keep a small seekable gutter at both ends, even when the tracks overflow.
+        const stackHeight = stripHeight;
         const centerGapPx = viewportHeight > 0 ? Math.max(0, Math.floor((viewportHeight - stackHeight) / 2)) : 0;
         if (centerGapPx > 0) {
             this.calculateLaneLayout(centerGapPx);
@@ -7268,6 +7295,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyKeyframePropertySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
+        this.scheduleSeekHoverRefresh();
     }
 
     protected updateChipHitAreas(): void {
@@ -13095,8 +13123,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.materialCutDropPlan(clientX, track, durationSeconds).at;
     }
 
-    protected selectTimeAtClientX(clientX: number): void {
-        const outputT = this.timeAtClientX(clientX);
+    protected selectTimeAtClientX(clientX: number, outputT = this.timeAtClientX(clientX)): void {
         const sourceT = this.outputToSource(outputT);
         this.selectedSourceT = sourceT;
         this.playheadT = outputT;
@@ -13206,16 +13233,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    protected scheduleSeekHoverRefresh(): void {
+        if (!this.seekHoverPoint || this.seekHoverRefresh !== undefined) return;
+        this.seekHoverRefresh = requestAnimationFrame(() => {
+            this.seekHoverRefresh = undefined;
+            const point = this.seekHoverPoint;
+            if (!point) return;
+            this.updateHoverSeek({ clientX: point.x, buttons: 0, target: document.elementFromPoint(point.x, point.y) });
+        });
+    }
+
+    protected isSeekSurfaceTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return false;
+        if (!this.stripScroll.contains(target) && !this.rulerBar.contains(target)) return false;
+        if (this.playhead.contains(target)) return false;
+        return !target.closest(
+            '[data-akari-item-kind], [data-akari-keyframe-t], [data-akari-keyframe-property-row], '
+            + '.akari-beat-marker, .akari-annotations-pin, .akari-track-header-row, '
+            + '.akari-annotations-transition-drop-target, .akari-annotations-transition-popover, button, input, select, textarea, a, [role="button"]'
+        );
+    }
+
+    protected updateHoverSeek(event: Pick<PointerEvent, 'target' | 'buttons' | 'clientX'>): void {
+        const rect = this.strip.getBoundingClientRect();
+        if (event.buttons !== 0 || this.dragState || this.visualPointerDown
+            || !this.isSeekSurfaceTarget(event.target) || rect.width <= 0
+            || event.clientX < rect.left || event.clientX > rect.right) {
+            this.hoverSeek.style.display = 'none';
+            return;
+        }
+        const time = this.timeAtClientX(event.clientX);
+        this.hoverSeek.style.left = `${this.percent(time)}%`;
+        this.hoverSeek.dataset.time = String(time);
+        this.hoverSeek.style.display = 'block';
+    }
+
     protected onStripClick(event: MouseEvent): void {
         if (this.suppressNextStripClick) {
             this.suppressNextStripClick = false;
             return;
         }
-        if (event.target instanceof Element && event.target.closest('.akari-beat-marker')) {
-            return;
-        }
+        if (!this.isSeekSurfaceTarget(event.target)) return;
+        const rect = this.strip.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right) return;
+        this.hoverSeek.style.display = 'none';
+        const time = this.timeAtClientX(event.clientX);
         this.applySelection(undefined);
-        this.selectTimeAtClientX(event.clientX);
+        this.selectTimeAtClientX(event.clientX, time);
     }
 
     private wheelZoomDuration(currentDuration: number, deltaY: number): number {
