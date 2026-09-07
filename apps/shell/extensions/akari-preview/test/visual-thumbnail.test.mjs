@@ -3,6 +3,7 @@ import test from 'node:test';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { prepareVisualThumbnailPage } = require('../lib/node/visual-thumbnail-page.js');
@@ -50,6 +51,67 @@ test('capture host preserves portrait aspect, waits for fonts/images/3D, and esc
   assert.match(page.html, /r.inspect/);
   assert.match(page.html, /premount:false/);
   assert.doesNotMatch(page.html, /<\/script><img src=x>/);
+});
+
+test('3D thumbnails stream each local asset once and use the selected overlay texture', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-thumbnail-materials-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const assetPaths = ['model.glb', 'room.png', 'selected.png', 'icon.png'];
+  for (const path of assetPaths) await writeFile(join(root, path), 'asset');
+  const scene = { model: 'model.glb', environment: { map: 'room.png', intensity: 1.05 }, materialOverrides: {
+    Screen: { texture: 'missing-fallback.png', textureVar: '--screen-src', brightness: 'var(--brightness)' },
+    Mirror: { texture: 'var(--screen-src)' },
+    Icon: { texture: 'icon.png' }
+  } };
+  await writeFile(join(root, 'card.html'), `<script type="application/json" data-akari-3d-scene>${JSON.stringify(scene)}</script>`);
+  const path = join(root, 'edit.json');
+  await writeFile(path, JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [
+    { id: 'v', lane: 'visual', items: [{ id: 'card', at: 0, duration: 120,
+      source: { kind: 'html', path: 'card.html', vars: { '--screen-src': 'selected.png', '--brightness': 1.2 } } }] }
+  ] }));
+  const streamed = [];
+  const page = await prepareVisualThumbnailPage(path, 'card', assets, async uri => {
+    streamed.push(uri);
+    return { id: String(streamed.length), url: `http://127.0.0.1:1234/asset/${streamed.length}` };
+  }, async () => assert.fail('successful preparation must retain streams'));
+  assert.deepEqual(streamed, assetPaths.map(path => pathToFileURL(join(root, path)).href));
+  assert.deepEqual(page.streamIds, ['1', '2', '3', '4']);
+  for (const uri of streamed) assert.ok(page.dependencyUris.includes(uri));
+  const mounted = JSON.parse(page.html.match(/await runtime\.mount\((.*)\);/)[1]);
+  const descriptor = JSON.parse(mounted.overlays[0].html.match(/data-akari-3d-scene>([\s\S]*?)<\/script>/)[1]);
+  assert.equal(descriptor.model, 'http://127.0.0.1:1234/asset/1');
+  assert.deepEqual(descriptor.environment, { map: 'http://127.0.0.1:1234/asset/2', intensity: 1.05 });
+  assert.deepEqual(descriptor.materialOverrides.Screen,
+    { texture: 'http://127.0.0.1:1234/asset/3', brightness: 'var(--brightness)' });
+  assert.equal(descriptor.materialOverrides.Mirror.texture, descriptor.materialOverrides.Screen.texture);
+  assert.equal(descriptor.materialOverrides.Icon.texture, 'http://127.0.0.1:1234/asset/4');
+  assert.doesNotMatch(page.html, /file:\/\/\/|missing-fallback\.png/);
+});
+
+test('3D thumbnail environment and selected textures reject absolute paths and URLs', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-thumbnail-material-boundary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'model.glb'), 'model');
+  const path = join(root, 'edit.json');
+  for (const invalid of ['https://example.com/image.png', '/tmp/image.png', 'C:\\image.png', '\\\\server\\image.png']) {
+    for (const field of ['environment', 'texture', 'textureVar']) {
+      const scene = { model: 'model.glb', ...(field === 'environment'
+        ? { environment: { map: invalid } }
+        : { materialOverrides: { Screen: { texture: field === 'texture' ? invalid : 'fallback.png',
+          ...(field === 'textureVar' ? { textureVar: '--screen-src' } : {}) } } }) };
+      await writeFile(join(root, 'card.html'), `<script type="application/json" data-akari-3d-scene>${JSON.stringify(scene)}</script>`);
+      await writeFile(path, JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [
+        { id: 'v', lane: 'visual', items: [{ id: 'card', at: 0, duration: 120,
+          source: { kind: 'html', path: 'card.html', vars: { '--screen-src': invalid } } }] }
+      ] }));
+      const streamed = []; const released = [];
+      await assert.rejects(prepareVisualThumbnailPage(path, 'card', assets, async uri => {
+        streamed.push(uri); return { id: 'model', url: 'http://127.0.0.1:1234/model' };
+      }, async id => released.push(id)), TypeError, `${field}: ${invalid}`);
+      assert.deepEqual(streamed, [pathToFileURL(join(root, 'model.glb')).href]);
+      assert.deepEqual(released, ['model']);
+    }
+  }
 });
 
 test('implicit HTML parts remain renderable with file-relative image dependencies', async t => {

@@ -107,16 +107,12 @@ export async function prepareVisualThumbnailPage(
             const rewritten = await rewritePreviewFragmentAssets(html, { projectRoot: root, htmlPath, overlayId: String(overlay.id) }, stream);
             if (rewritten.warnings.length) throw new Error(rewritten.warnings.join('\n'));
             html = rewritten.html;
+            const vars = overlay.vars && typeof overlay.vars === 'object' && !Array.isArray(overlay.vars)
+                ? Object.fromEntries(Object.entries(overlay.vars).map(([key, value]) => [key, String(value)])) : {};
             const scenes = [...html.matchAll(/<script\b[^>]*data-akari-3d-scene[^>]*>([\s\S]*?)<\/script\s*>/gi)];
             for (const scene of scenes) {
                 const asset = async (path: string): Promise<string> => (await stream(pathToFileURL(await localPath(path)).href)).url;
-                const { descriptor } = await resolveThreeSceneDescriptorAssets(JSON.parse(scene[1]), asset);
-                if (typeof descriptor.environment?.map === 'string') descriptor.environment.map = await asset(descriptor.environment.map);
-                if (descriptor.materialOverrides && typeof descriptor.materialOverrides === 'object') {
-                    for (const value of Object.values(descriptor.materialOverrides) as Array<{ texture?: string }>) {
-                        if (value.texture) value.texture = await asset(value.texture);
-                    }
-                }
+                const { descriptor } = await resolveThreeSceneDescriptorAssets(JSON.parse(scene[1]), asset, vars);
                 html = html.replace(scene[0], scene[0].replace(scene[1], JSON.stringify(descriptor).replace(/</g, '\\u003c')));
             }
             overlay.html = html;
