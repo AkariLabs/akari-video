@@ -39,7 +39,8 @@ function assertRelativeAssetPath(value: unknown, field: string): asserts value i
  */
 export async function resolveThreeSceneDescriptorAssets(
     value: unknown,
-    resolveAsset: ThreeSceneAssetResolver
+    resolveAsset: ThreeSceneAssetResolver,
+    overlayVars: Record<string, string> = {}
 ): Promise<ResolvedThreeSceneDescriptor> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new TypeError('data-akari-3d-scene は JSON object である必要があります');
@@ -84,6 +85,46 @@ export async function resolveThreeSceneDescriptorAssets(
             });
         }
         descriptor.texts = resolvedTexts;
+    }
+
+    if (source.environment?.map !== undefined) {
+        assertRelativeAssetPath(source.environment.map, 'data-akari-3d-scene.environment.map');
+        descriptor.environment = {
+            ...source.environment,
+            map: await resolveAsset(source.environment.map, 'data-akari-3d-scene.environment.map')
+        };
+    }
+    if (source.materialOverrides !== undefined) {
+        if (!source.materialOverrides || typeof source.materialOverrides !== 'object'
+            || Array.isArray(source.materialOverrides)) {
+            throw new TypeError('materialOverrides は object である必要があります');
+        }
+        const overrides: Record<string, unknown> = Object.create(null);
+        for (const [name, value] of Object.entries(source.materialOverrides)) {
+            if (!name || !value || typeof value !== 'object' || Array.isArray(value)) {
+                throw new TypeError('materialOverrides は material 名ごとの object である必要があります');
+            }
+            const override = value as Record<string, unknown>;
+            const field = `materialOverrides.${name}.texture`;
+            if (typeof override.texture !== 'string' || !override.texture) {
+                throw new TypeError(`${field} は相対パスである必要があります`);
+            }
+            if (override.textureVar !== undefined && (typeof override.textureVar !== 'string'
+                || !/^--[A-Za-z_][A-Za-z0-9_-]*$/.test(override.textureVar))) {
+                throw new TypeError(`materialOverrides.${name}.textureVar は CSS カスタムプロパティ名である必要があります`);
+            }
+            const variableTexture = typeof override.textureVar === 'string' ? overlayVars[override.textureVar] : undefined;
+            let texture = variableTexture || override.texture;
+            const match = typeof texture === 'string' ? /^var\(\s*(--[\w-]+)\s*\)$/.exec(texture) : null;
+            if (match) texture = overlayVars[match[1]];
+            assertRelativeAssetPath(texture, field);
+            // Like export's embedder, resolve the chosen texture once and remove its variable
+            // indirection. All non-path material settings are validated by three-runtime.js.
+            const resolved: Record<string, unknown> = { ...override, texture: await resolveAsset(texture, field) };
+            delete resolved.textureVar;
+            overrides[name] = resolved;
+        }
+        descriptor.materialOverrides = overrides;
     }
 
     return { descriptor, modelPath };

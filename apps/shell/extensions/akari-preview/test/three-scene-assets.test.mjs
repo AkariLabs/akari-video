@@ -100,3 +100,40 @@ test('webview script order is three bundle, conditional text vendor, then three 
         /assets\.threeJavaScriptUrl\)[\s\S]*threeTextRuntimeScript[\s\S]*assets\.threeRuntimeJavaScriptUrl\)/
     );
 });
+
+test('material assets preserve brightness and rewrite the selected texture without mutating the declaration', async () => {
+    const source = { model: 'model.glb', environment: { map: 'room.png', intensity: 1.05 }, materialOverrides: {
+        ScreenMaterial: { texture: 'fallback.png', textureVar: '--screen-src', brightness: 'var(--brightness)' },
+        IconMaterial: { texture: 'icon.png', brightness: 1 }
+    } };
+    const before = JSON.stringify(source);
+    const { descriptor } = await resolveThreeSceneDescriptorAssets(source, streamResolver, { '--screen-src': 'video.mp4' });
+    assert.equal(descriptor.materialOverrides.ScreenMaterial.texture, await streamResolver('video.mp4'));
+    assert.equal(descriptor.materialOverrides.ScreenMaterial.brightness, 'var(--brightness)');
+    assert.equal(descriptor.materialOverrides.ScreenMaterial.textureVar, undefined);
+    assert.equal(descriptor.materialOverrides.IconMaterial.brightness, 1);
+    assert.equal(descriptor.environment.map, await streamResolver('room.png'));
+    assert.equal(JSON.stringify(source), before);
+});
+test('empty texture variables retain their fallback, while direct variables resolve to project assets', async () => {
+    for (const texture of ['screen.png', 'var(--screen)']) {
+        const { descriptor } = await resolveThreeSceneDescriptorAssets({ model: 'model.glb', materialOverrides: {
+            ScreenMaterial: { texture, textureVar: '--unset', brightness: 0 }
+        } }, streamResolver, { '--screen': 'screen.png' });
+        assert.equal(descriptor.materialOverrides.ScreenMaterial.texture, await streamResolver('screen.png'));
+        assert.equal(descriptor.materialOverrides.ScreenMaterial.brightness, 0);
+    }
+});
+test('texture variable paths retain the same asset boundary as literal paths', async () => {
+    for (const texture of ['https://example.com/image.png', '/tmp/screen.png', 'C:\\screen.png', '\\\\server\\screen.png']) {
+        await assert.rejects(resolveThreeSceneDescriptorAssets({ model: 'model.glb', materialOverrides: {
+            ScreenMaterial: { texture: 'fallback.png', textureVar: '--screen' }
+        } }, streamResolver, { '--screen': texture }), TypeError);
+    }
+});
+test('shell host delegates material/path resolution instead of maintaining a narrower override vocabulary', () => {
+    const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+    const method = source.slice(source.indexOf('protected async resolveThreeSceneAssets('), source.indexOf('protected previewCaptionTimelineSegments('));
+    assert.ok(method.includes('resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset, overlayVars)'));
+    assert.ok(!method.includes("key !== 'texture'"));
+});

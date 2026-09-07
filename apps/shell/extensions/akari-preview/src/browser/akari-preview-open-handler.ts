@@ -4029,7 +4029,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ? overlayHtml.get(rawHtml) ?? ''
                     : rawHtml;
                 return this.resolveThreeSceneAssets(
-                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream
+                    html, editUri, assetStreams, assetUris, unsupportedGltfWarnings, ensureAssetStream, this.stringRecord(value?.vars)
                 );
             }));
             projectedOverlays.forEach((value, index) => {
@@ -4843,7 +4843,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assetStreams: Map<string, { id: string; url: string }>,
         assetUris: URI[],
         unsupportedGltfWarnings: string[],
-        ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>
+        ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>,
+        overlayVars: Record<string, string> = {}
     ): Promise<string> {
         if (!html.includes('data-akari-3d-scene')) {
             return html;
@@ -4888,7 +4889,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (Object.keys(parsedDescriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
                     throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
                 }
-                const resolved = await resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset);
+                const resolved = await resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset, overlayVars);
                 const descriptor = resolved.descriptor;
                 if (resolved.modelPath) {
                     try {
@@ -4909,41 +4910,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         );
                     }
                 }
-                if (descriptor.environment?.map !== undefined) {
-                    if (typeof descriptor.environment.map !== 'string' || !descriptor.environment.map) {
-                        throw new TypeError('environment.map は正距円筒画像の相対パスである必要があります');
-                    }
-                    descriptor.environment.map = await resolveAsset(
-                        descriptor.environment.map,
-                        'data-akari-3d-scene.environment.map'
-                    );
-                }
-                if (descriptor.materialOverrides !== undefined) {
-                    if (!descriptor.materialOverrides
-                        || typeof descriptor.materialOverrides !== 'object'
-                        || Array.isArray(descriptor.materialOverrides)) {
-                        throw new TypeError('materialOverrides は object である必要があります');
-                    }
-                    for (const [materialName, override] of Object.entries(descriptor.materialOverrides)) {
-                        if (!materialName
-                            || !override
-                            || typeof override !== 'object'
-                            || Array.isArray(override)
-                            || Object.keys(override).some(key => key !== 'texture')
-                            || typeof (override as { texture?: unknown }).texture !== 'string'
-                            || !(override as { texture: string }).texture) {
-                            throw new TypeError('materialOverrides は material 名ごとに texture 相対パスを指定してください');
-                        }
-                        const typedOverride = override as { texture: string };
-                        typedOverride.texture = await resolveAsset(
-                            typedOverride.texture,
-                            `materialOverrides.${materialName}.texture`
-                        );
-                    }
-                }
                 declaration.textContent = JSON.stringify(descriptor).replace(/</g, '\\u003c');
             } catch (error) {
                 declaration.textContent = JSON.stringify({ model: '' });
+                unsupportedGltfWarnings.push(`3D の読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
                 console.warn('[akari-preview] failed to resolve declarative 3D scene asset', error);
             }
         }
