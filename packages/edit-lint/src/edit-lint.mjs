@@ -326,16 +326,10 @@ export async function lintProject(input, options = {}) {
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   validateTransitionAdjacency(edit.cuts, cutTrackSegments, edit.sources, edit.fps, findings);
-  for (const segment of findTrackOverlaps(cutTrackSegments)) {
-    if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment, edit.fps)) continue;
-    addFinding(findings, {
-      severity: "error",
-      check: "cuts.track-overlap",
-      message: `cut overlaps another cut on track ${segment.track} in the output axis`,
-      path: `edit.json#cuts[${segment.index}]`,
-      range: { start: segment.start, end: segment.end },
-    });
-  }
+  // v2.track-no-overlap above checks the actual track IDs before legacy projection.
+  // A mixed telop/media track may project its media into cuts with the same numeric
+  // ref as another physical track. Those per-kind aliases are not v2 track identity;
+  // checking projected cuts again would reject valid cross-track composition.
   validateDurationMaximum(edit.outputs, timeline, findings, paths);
   validateOutputAxisDurationMax(edit.outputs, cutTrackSegments, findings);
   await validateOverlays(edit.overlays, timeline, findings, paths);
