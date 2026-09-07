@@ -6,7 +6,7 @@ import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import { filterProjects, formatProjectUpdatedAt, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
-import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
+import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 
 // プロジェクト・ランチャー（task 2026-08-17-home-launcher-popup・裁定 D + §3.2）。
 // 将来「事業（チャンネル）画面」へ育てる置き場（裁定 D4）だが、今回は
@@ -337,29 +337,31 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         button.disabled = row.current;
         Object.assign(button.style, {
             display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0',
-            padding: '0', borderRadius: `${PROJECT_CARD_RADIUS_PX}px`, textAlign: 'left', overflow: 'hidden',
+            padding: '0', borderRadius: `${PROJECT_CARD_RADIUS_PX}px`, border: PROJECT_CARD_BORDER, boxSizing: 'border-box', background: AKARI_SURFACE.card, textAlign: 'left', overflow: 'hidden',
             minHeight: 'auto', height: 'auto', width: '100%', margin: '0'
         });
 
         const thumbnail = this.view === 'cards' ? this.createThumbnail(row, card) : document.createElement('span');
         const body = document.createElement('span');
         Object.assign(body.style, {
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '9px 11px', minWidth: '0'
+            display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: '1', gap: '7px',
+            padding: '10px 12px', minWidth: '0'
         });
         const name = document.createElement('span');
         name.textContent = row.name;
+        name.setAttribute('data-akari-project-title', 'true');
         Object.assign(name.style, {
-            flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', fontWeight: '600'
+            display: 'block', flex: '1', minWidth: '0', minHeight: '2.8em',
+            whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: '1.4', fontWeight: '600'
         });
         body.appendChild(name);
         const badgeText = row.current ? '開いています' : (!row.standalone && row.channel) ? row.channel : row.standalone ? '単体' : undefined;
         if (badgeText) {
             const badge = document.createElement('span');
             badge.textContent = badgeText;
+            badge.setAttribute('data-akari-project-channel', 'true');
             Object.assign(badge.style, {
-                flex: '0 0 auto', maxWidth: '52%', overflow: 'hidden', textOverflow: 'ellipsis',
+                alignSelf: 'flex-start', flex: '0 0 auto', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap', padding: '2px 8px', borderRadius: `${AKARI_RADIUS.chip}px`,
                 border: AKARI_BORDER.ghost, background: AKARI_SURFACE.elevated,
                 color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'

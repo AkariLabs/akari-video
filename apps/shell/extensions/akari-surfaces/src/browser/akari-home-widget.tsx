@@ -74,7 +74,7 @@ import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
-import { PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
+import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
     AKARI_BORDER,
@@ -630,8 +630,8 @@ export class AkariHomeWidget extends ReactWidget {
                         <span ref={this.projectCardPreviewRef(row)} style={homeFlowStyles.projectCardFrames} />
                     </span>
                     <span style={homeFlowStyles.projectCardBody}>
-                        <strong style={homeFlowStyles.projectCardName}>{row.name}</strong>
-                        {badgeText && <span style={homeFlowStyles.projectCardBadge}>{badgeText}</span>}
+                        <strong data-akari-project-title='true' style={homeFlowStyles.projectCardName}>{row.name}</strong>
+                        {badgeText && <span data-akari-project-channel='true' style={homeFlowStyles.projectCardBadge}>{badgeText}</span>}
                     </span>
                 </button>
                 {options.reveal && (
@@ -2743,9 +2743,9 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     projectCard: { position: 'relative', display: 'flex', minWidth: 0 },
     projectCardButton: {
         display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%',
-        padding: 0, borderRadius: PROJECT_CARD_RADIUS_PX, overflow: 'hidden', textAlign: 'left',
+        padding: 0, margin: 0, borderRadius: PROJECT_CARD_RADIUS_PX, overflow: 'hidden', textAlign: 'left',
         minHeight: 'auto', height: 'auto', cursor: 'pointer',
-        border: '1px solid var(--theia-widget-border)', background: 'var(--theia-editorWidget-background)',
+        border: PROJECT_CARD_BORDER, boxSizing: 'border-box', background: AKARI_SURFACE.card,
         color: 'var(--theia-editorWidget-foreground)'
     },
     projectCardThumb: {
@@ -2758,13 +2758,13 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     },
     // コマを敷く層。中身は ProjectCardPreview が所有する（React は空のまま渡す）。
     projectCardFrames: { position: 'absolute', inset: 0, display: 'block' },
-    projectCardBody: { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', minWidth: 0 },
+    projectCardBody: { display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 1, gap: 7, padding: '9px 10px', minWidth: 0 },
     projectCardName: {
-        flex: '1 1 auto', minWidth: 0, fontSize: 12, fontWeight: 600,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        display: 'block', flex: 1, minWidth: 0, minHeight: '2.8em', fontSize: 12, fontWeight: 600,
+        lineHeight: 1.4, whiteSpace: 'normal', overflowWrap: 'anywhere'
     },
     projectCardBadge: {
-        flex: '0 0 auto', maxWidth: '54%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        alignSelf: 'flex-start', flex: '0 0 auto', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         fontSize: 10, padding: '1px 7px', borderRadius: 999,
         border: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)'
     },

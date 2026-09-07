@@ -17,6 +17,9 @@ export const PROJECT_CARD_CYCLE_INTERVAL_MS = 650;
  */
 export const PROJECT_CARD_RADIUS_PX = 12;
 
+/** 背景に埋もれないカード外周。ダーク・ライト双方の前景色から求める。 */
+export const PROJECT_CARD_BORDER = '1px solid color-mix(in srgb, var(--theia-foreground) 28%, transparent)';
+
 /**
  * カード 1 枚ぶんのサムネ再生。ポスターを敷き、ホバー／フォーカスのあいだだけ
  * 残りのコマへ順に切り替えてループする（サムネというより「軽い動きのプレビュー」）。
