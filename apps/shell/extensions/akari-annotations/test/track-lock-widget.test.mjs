@@ -7,12 +7,14 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-guard.js');
 const { indexEditV2Items } = require('../lib/common/edit-v2-mutations.js');
+const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store');
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
 const source = ts.createSourceFile('widget.ts', readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 ), ts.ScriptTarget.Latest, true);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = [
+  'linkedCutAudioPair', 'linkedPairForSelection', 'rejectLockedCutAudio',
   'isTrackLocked', 'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'showLockedTrack',
   'trackFlagStorageKey', 'applyStoredTrackFlags', 'toggleTimelineTrackFlag', 'cutItemId',
   'performDeleteSelected', 'performDeleteSelectedCut', 'performDeleteMultiSelected',
@@ -33,8 +35,9 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
 }).outputText;
 class Element {}
 const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element',
-  'withCaptionsDisplaySupplement', `${code}\nreturn Handler;`)(
-  isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement
+  'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items', `${code}\nreturn Handler;`)(
+  isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement,
+  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items
 );
 
 function fixture(stored = new Map()) {
