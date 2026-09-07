@@ -88,6 +88,8 @@ function harness(overrides = {}) {
         stillImage: { style: { display: 'none' } },
         previewStage: { getBoundingClientRect: () => ({ left: 40, top: 30, right: 760, bottom: 430 }) },
         frameEngineMediaIdle: true, layerEntries: [],
+        segments: [{kind: 'src', track: 0}], activeSegmentIndex: 0,
+        allTracksHiddenByScope: {cuts:false}, hiddenTracksByScope:{cuts:new Set()},
         layerGeometryHitAt: entry => entry.hit,
         document: { elementsFromPoint: () => [] },
         findLayerEntry: () => null, layerAlphaAtPoint: () => 255,
@@ -134,7 +136,10 @@ test('engine hits only selectable cuts inside the client-space output frame', ()
         }
         context.video.dataset.akariCutIndex = '0';
         context.video.style.visibility = 'hidden';
+        assert.equal(context.hit(inside), context.video, 'idle legacy video is not logical visibility');
+        context.hiddenTracksByScope.cuts.add(0);
         assert.equal(context.hit(inside), null);
+        context.hiddenTracksByScope.cuts.clear();
         context.stillImage.style.display = '';
         assert.equal(context.hit(inside), context.video, 'visible stills remain selectable');
         context.stillImage.style.display = 'none';
@@ -194,7 +199,7 @@ test('empty or hidden cuts allow release inside the stage; real cut hits preserv
     for (const kind of ['empty', 'hidden', 'visible']) {
         const { context, calls, dispatchPointer } = harness({ cutSelected: true });
         if (kind === 'empty') context.video.dataset.akariCutIndex = '';
-        if (kind === 'hidden') context.video.style.visibility = 'hidden';
+        if (kind === 'hidden') context.hiddenTracksByScope.cuts.add(0);
         const position = { clientX: 400, clientY: 200 };
         dispatchPointer('pointerdown', position);
         dispatchPointer('pointerup', position);

@@ -1259,15 +1259,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
         this.trackHeaderColumn.addEventListener('wheel', event => this.onTrackHeaderWheel(event), { passive: false });
 
-        Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
+        this.stripScroll.classList.add('akari-timeline-scroll');
+        Object.assign(this.stripScroll.style, { minHeight: '0', overflowX: 'hidden', overflowY: 'scroll', scrollbarGutter: 'stable', overflowAnchor: 'none' });
         Object.assign(this.hScrollbarTrack.style, {
-            position: 'relative', height: '14px', margin: '0 10px 8px 10px', flex: 'none',
+            position: 'relative', height: '8px', margin: '0 10px 8px 10px', flex: 'none',
             background: 'var(--theia-scrollbarSlider-background, rgba(121,121,121,.35))',
-            borderRadius: '7px', cursor: 'pointer', display: 'none'
+            borderRadius: '4px', cursor: 'pointer', display: 'block'
         });
+        const scrollStyle = document.createElement('style');
+        scrollStyle.textContent = '.akari-timeline-scroll::-webkit-scrollbar{width:8px;height:8px}.akari-timeline-scroll::-webkit-scrollbar-track{background:transparent}.akari-timeline-scroll::-webkit-scrollbar-thumb{background:var(--theia-scrollbarSlider-hoverBackground,rgba(100,100,100,.75));border-radius:4px}';
+        this.node.appendChild(scrollStyle);
         this.hScrollbarTrack.setAttribute('data-testid', 'akari-timeline-hscrollbar-track');
         Object.assign(this.hScrollbarThumb.style, {
-            position: 'absolute', top: '2px', bottom: '2px', left: '0%', width: '100%',
+            position: 'absolute', top: '0', bottom: '0', left: '0%', width: '100%',
             background: 'var(--theia-scrollbarSlider-hoverBackground, rgba(100,100,100,.75))',
             borderRadius: '5px', cursor: 'grab'
         });
@@ -5224,32 +5228,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
     }
 
+    protected editReloadGeneration = 0;
+
     protected async reloadEdit(): Promise<void> {
-        this.invalidateContentExtent();
-        this.editDocument = undefined;
-        this.itemLocations.clear();
-        this.cutItemIds = [];
-        this.cuts = [];
-        this.compatibilityCuts = [];
-        this.editSources = [];
-        this.sourceMap.clear();
-        this.overlays = [];
-        this.beats = [];
-        this.layers = [];
-        this.layerTransitionWarnings.clear();
-        this.audioSfx = [];
-        this.audioNarration = [];
-        this.audioSpeech = [];
-        this.audioBgm = undefined;
-        this.timelineTracks = [];
-        this.compatibilityTimelineTracks = [];
-        this.timelineTreeRows = [];
-        this.expandedTimelineTreeRows = [];
-        this.timelineTreeTracks = [];
-        this.timelineTreePartsByHtml.clear();
-        this.timelineCollapsedIds.clear();
-        this.treeRowsByTrack.clear();
-        this.fps = 30;
+        const generation = ++this.editReloadGeneration;
         if (this.location?.editUri) {
             try {
                 const diskSource = (await this.fileService.readFile(this.location.editUri)).value.toString();
@@ -5279,11 +5261,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 for (const track of internal.tracks) {
                     for (const item of track.items) await loadTreeParts(item);
                 }
+                const document = JSON.parse(source) as EditV2Document;
+                await this.hydrateDocumentMotionReferences(document);
+                if (generation !== this.editReloadGeneration) return;
+                this.invalidateContentExtent();
+                this.editDocument = undefined;
+                this.itemLocations.clear();
+                this.cutItemIds = [];
+                this.cuts = [];
+                this.compatibilityCuts = [];
+                this.editSources = [];
+                this.sourceMap.clear();
+                this.overlays = [];
+                this.beats = [];
+                this.layers = [];
+                this.layerTransitionWarnings.clear();
+                this.audioSfx = [];
+                this.audioNarration = [];
+                this.audioSpeech = [];
+                this.audioBgm = undefined;
+                this.timelineTracks = [];
+                this.compatibilityTimelineTracks = [];
+                this.timelineTreeRows = [];
+                this.expandedTimelineTreeRows = [];
+                this.timelineTreeTracks = [];
+                this.timelineTreePartsByHtml.clear();
+                this.timelineCollapsedIds.clear();
+                this.treeRowsByTrack.clear();
+                this.fps = 30;
                 this.timelineCollapsedState = new TimelineCollapsedState(this.location.root.toString());
                 this.timelineTreeTracks = internal.tracks;
                 this.timelineTreePartsByHtml = partsByHtml;
-                const document = JSON.parse(source) as EditV2Document;
-                await this.hydrateDocumentMotionReferences(document);
                 this.editDocument = document;
                 this.itemLocations = indexEditV2Items(document);
                 const layerCauses = new Map((document.version === 2
@@ -5350,15 +5358,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
+        if (generation !== this.editReloadGeneration) return;
         this.rebuildSegments();
         this.notifyCaptionSourceMappingWarning();
         this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
+        if (generation !== this.editReloadGeneration) return;
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
-        this.renderStrip();
+        if (generation === this.editReloadGeneration) this.renderStrip();
     }
 
     protected async resolveLegacyEditForOpen(source: string): Promise<string | undefined> {
@@ -5440,8 +5450,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** 字幕以外のトラック高を StorageService から読み込む。edit.json は経由しない。 */
     protected async loadTrackHeights(): Promise<void> {
-        this.trackHeights.clear();
-        this.trackHeightLoadPromises.clear();
+        const generation = this.editReloadGeneration;
         const editUri = this.location?.editUri;
         if (!editUri) {
             return;
@@ -5453,6 +5462,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const height = typeof stored === 'number' && Number.isFinite(stored) ? this.clampTrackHeight(stored) : fallback;
             return [track.id, height] as const;
         }));
+        if (generation !== this.editReloadGeneration) return;
+        this.trackHeights.clear();
+        this.trackHeightLoadPromises.clear();
         for (const [id, height] of entries) {
             this.trackHeights.set(id, height);
         }
@@ -5468,21 +5480,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async applyStoredTrackFlags(): Promise<void> {
         const editUri = this.location?.editUri;
-        this.beatsLocked = false;
-        this.localLockedTrackIds.clear();
+        const generation = this.editReloadGeneration;
+        const lockedIds = new Set<string>();
         if (!editUri) return;
-        this.beatsLocked = await this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, 'beats', 'locked'), false);
+        const beatsLocked = await this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, 'beats', 'locked'), false);
         const migrateMutedIds = new Set<string>();
-        this.timelineTracks = await Promise.all(this.timelineTracks.map(async track => {
+        const tracks = await Promise.all(this.timelineTracks.map(async track => {
             const [hidden, muted, locked] = await Promise.all([
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'hidden'), false),
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'muted'), false),
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'locked'), false)
             ]);
             if (track.muted !== true && muted === true) migrateMutedIds.add(track.id);
-            if (locked) this.localLockedTrackIds.add(track.id);
+            if (locked) lockedIds.add(track.id);
             return { ...track, locked, ...(hidden ? { hidden: true } : {}) };
         }));
+        if (generation !== this.editReloadGeneration) return;
+        this.beatsLocked = beatsLocked;
+        this.localLockedTrackIds.clear();
+        lockedIds.forEach(id => this.localLockedTrackIds.add(id));
+        this.timelineTracks = tracks;
         this.computeAudioDisplayTracks();
         this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
@@ -5494,7 +5511,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.localLockedTrackIds.add(track.id);
             }
         }));
-        if (migrateMutedIds.size === 0) return;
+        if (generation !== this.editReloadGeneration || migrateMutedIds.size === 0) return;
         try {
             // 保存成功後だけ表示へ反映する。reload しないので移行中に再入しない。
             await this.commitEditMutation('トラックのミュートを保存', doc =>
@@ -5747,15 +5764,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return editUri.parent.resolve(path).normalizePath();
     }
 
+    protected captionReloadGeneration = 0;
+
     protected async reloadCaptions(): Promise<void> {
-        this.invalidateContentExtent();
-        this.captions = [];
-        this.captionSources.clear();
-        this.defaultTextStyle = undefined;
+        const generation = ++this.captionReloadGeneration;
         if (this.location) {
             try {
                 const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                 const parsed = parseCaptions(source);
+                if (generation !== this.captionReloadGeneration) return;
+                this.invalidateContentExtent();
                 this.captions = parsed.captions;
                 this.captionSources = readCaptionSourceMap(source);
                 this.defaultTextStyle = parsed.defaultTextStyle;
@@ -5763,6 +5781,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showWarnings(parsed.warnings);
                 }
             } catch {
+                if (generation !== this.captionReloadGeneration) return;
+                this.invalidateContentExtent();
+                this.captions = [];
+                this.captionSources.clear();
+                this.defaultTextStyle = undefined;
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
@@ -12935,11 +12958,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateScrollbar(): void {
-        const zoomed = this.viewDuration !== undefined;
-        this.hScrollbarTrack.style.display = zoomed ? 'block' : 'none';
-        if (!zoomed) {
-            return;
-        }
+        this.hScrollbarTrack.style.display = 'block';
         const total = this.totalDuration();
         const visible = this.visibleDuration();
         const widthPercent = total > 0 ? Math.min(100, Math.max(2, visible / total * 100)) : 100;

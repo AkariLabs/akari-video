@@ -96,10 +96,10 @@ test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 
     assert.equal((pointerWiring.match(/previewStage\.addEventListener\('pointerdown'/gu) || []).length, 1);
 });
 
-test('engine 面の全面選択枠は板を透過しハンドルだけを操作面にする', () => {
+test('engine 面の選択枠はボディもハンドルも操作できる', () => {
     assert.match(
         compiledHandler,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: none; \}/u
+        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: auto; \}/u
     );
     assert.match(
         compiledHandler,

@@ -40,13 +40,13 @@ test('ズーム層・黒いステージ・固定ミニマップは別階層で�
 
 test('ズーム中も直接操作面はパン捕捉を素通しし、論理座標 fallback は zoom を含む', () => {
     const directTarget = source.slice(
-        source.indexOf('const isDirectManipulationTarget = target =>'),
+        source.indexOf('const isDirectManipulationTarget = (target, pointerEvent) =>'),
         source.indexOf("previewPane.addEventListener('pointermove'")
     );
     assert.match(directTarget, /\[data-overlay-id\]/);
     assert.match(directTarget, /\[data-akari-layer-id\]/);
     assert.match(directTarget, /#layer-select-box[\s\S]*#cut-select-box[\s\S]*#caption-select-box/);
-    assert.match(directTarget, /if \(!event\.altKey && isDirectManipulationTarget\(event\.target\)\) return/);
+    assert.match(directTarget, /if \(!event\.altKey && isDirectManipulationTarget\(event\.target, event\)\) return/);
     assert.doesNotMatch(source, /event\.button !== 0 \|\| zoom > 1\.05 \|\| cropModeActive/);
     assert.match(source, /const displayScale = \(window\.akari\.stageScale\(\) \|\| 1\) \* zoom/);
 });

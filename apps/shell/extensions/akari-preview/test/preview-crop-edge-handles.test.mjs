@@ -146,7 +146,7 @@ test('ドラッグ中だけゴースト枠を出すゲートは cropModeActive |
 });
 
 test('ズームのパン捕捉と frame-engine の pointerdown ガードは両 box を素通しする', () => {
-    const directTarget = section('const isDirectManipulationTarget = target =>', "previewPane.addEventListener('pointerdown'");
+    const directTarget = section('const isDirectManipulationTarget = (target, pointerEvent) =>', "previewPane.addEventListener('pointerdown'");
     assert.match(directTarget, /#layer-select-box[\s\S]*#cut-select-box/u);
     const engineGuard = section('const handledVisualPointerDownEvents = new WeakSet()', 'const targetIsVisualMedia');
     assert.ok(engineGuard.includes('#layer-select-box'));
