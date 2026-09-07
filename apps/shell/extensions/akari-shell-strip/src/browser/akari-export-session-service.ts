@@ -50,6 +50,7 @@ import {
     formatLintFailureForUi,
     UiLintFinding
 } from 'akari-annotations/lib/common/lint-message-ja';
+import { formatBytes } from './export-dialog/export-view-shared';
 
 const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 const LAST_RUN_STORAGE_KEY = 'akari.export.lastRun';
@@ -75,6 +76,8 @@ export interface ExportSessionSnapshot {
     readonly renderProgress?: RenderProgressState;
     /** lint の再検査が走っている間だけ true（ボタンの二度押し防止と「検査中…」表示）。 */
     readonly lintRechecking: boolean;
+    /** 中止で残った一時ファイルを削除している間だけ true（二度押し防止）。 */
+    readonly discardingLeftover: boolean;
 }
 
 const DEFAULT_SETTINGS: ExportSettings = {
@@ -140,6 +143,7 @@ export class AkariExportSessionService implements Disposable {
     protected failureNotified = false;
     protected dialogVisible = false;
     protected lintRechecking = false;
+    protected discardingLeftover = false;
     protected lintWatch = new DisposableCollection();
     /** 現在 watch しているプロジェクト（未 watch は undefined）。付け外しの冪等判定に使う。 */
     protected lintWatchRoot: string | undefined;
@@ -180,7 +184,8 @@ export class AkariExportSessionService implements Disposable {
             setupRequested: this.setupRequested,
             lastRun: this.lastRun,
             renderProgress: this.renderProgress,
-            lintRechecking: this.lintRechecking
+            lintRechecking: this.lintRechecking,
+            discardingLeftover: this.discardingLeftover
         };
     }
 
@@ -367,10 +372,60 @@ export class AkariExportSessionService implements Disposable {
             return;
         }
         this.stopPolling();
-        this.status = { ...this.status, phase: 'cancelled', failureSummary: undefined };
+        // 手元の status を組み立て直さずバックエンドから取り直す。cancel() の中で
+        // 数えた「この回の作業ディレクトリ」(cancelledLeftover) はバックエンドにしか
+        // 無く、ローカル合成で上書きすると片付け導線が出ないまま消える。
+        const backendStatus = await this.quickExportService.getStatus();
+        this.status = { ...backendStatus, phase: 'cancelled', failureSummary: undefined };
         this.setupRequested = true;
         this.fireChanged();
-        void this.messages.info('書き出しを中止しました');
+        void this.notifyCancelled();
+    }
+
+    /**
+     * 中止の通知。一時ファイルが残っているなら通知そのものに「削除する」を載せる
+     * （書き出し画面まで戻らなくてもその場で片付けられるように）。
+     */
+    protected async notifyCancelled(): Promise<void> {
+        const leftover = this.status.cancelledLeftover;
+        if (!leftover || leftover.entries.length === 0) {
+            void this.messages.info('書き出しを中止しました');
+            return;
+        }
+        const discard = '削除する';
+        const chosen = await this.messages.info(
+            `書き出しを中止しました（一時ファイル ${formatBytes(leftover.bytes)} が残っています）`,
+            discard
+        );
+        if (chosen === discard) {
+            await this.discardLeftover();
+        }
+    }
+
+    /**
+     * 中止で残った、その回の作業ディレクトリを削除する（押されたときだけ）。
+     * 何を消したかは必ずバイト数で言い切る — 「掃除したつもりで消えていない」を作らない。
+     */
+    async discardLeftover(): Promise<void> {
+        if (this.discardingLeftover) {
+            return;
+        }
+        this.discardingLeftover = true;
+        this.fireChanged();
+        try {
+            const result = await this.quickExportService.discardCancelledLeftover();
+            this.status = await this.quickExportService.getStatus();
+            if (result.discarded) {
+                void this.messages.info(`一時ファイル ${formatBytes(result.bytes)} を削除しました`);
+            } else {
+                void this.messages.warn(result.reason ?? '一時ファイルを削除できませんでした');
+            }
+        } catch (error) {
+            void this.messages.error(describeUnexpectedQuickExportFailure(error, '一時ファイルを削除できませんでした'));
+        } finally {
+            this.discardingLeftover = false;
+            this.fireChanged();
+        }
     }
 
     async revealArtifact(): Promise<void> {

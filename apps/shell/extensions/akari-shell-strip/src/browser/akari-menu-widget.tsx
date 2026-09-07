@@ -3,7 +3,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandService, Disposable, DisposableCollection, MessageService } from '@theia/core/lib/common';
-import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
+import { ApplicationShell, ConfirmDialog, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
@@ -15,6 +15,8 @@ import { AkariPreviewServerService, PreviewServerStatus } from '../common/previe
 import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-server-cli';
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
+import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
+import { formatBytes } from './export-dialog/export-view-shared';
 
 interface MenuAction {
     id: string;
@@ -77,6 +79,9 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly windowService!: WindowService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+
+    @inject(AkariProjectCleanService)
+    protected readonly projectClean!: AkariProjectCleanService;
     @inject(AkariExportSessionService)
     protected readonly exportSession!: AkariExportSessionService;
     @inject(AkariExportDialog)
@@ -85,6 +90,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
     protected editJsonExists = false;
+    /** 「不要なデータを整理」が走っている間だけ true（二度押し防止）。 */
+    protected cleaningProject = false;
     protected editJsonWatch = new DisposableCollection();
     /** ワークスペースが開いているか（ブラウザプレビューの tooltip 分岐に使う）。 */
     protected workspaceOpened = false;
@@ -296,6 +303,102 @@ export class AkariMenuWidget extends ReactWidget {
         }
         await this.exportSession.prepareCurrentProject();
         void this.exportDialog.open(false);
+    }
+
+    // --- 不要なデータの整理（akari clean の GUI 口） --------------------------
+
+    /**
+     * `akari clean` に分類させ、消してよいものを一覧で見せてから承認を取って消す。
+     * 何が使い捨てかはこちらでは決めない（正典は clean-manifest.mjs）。
+     * 直近 1 時間に触られたものは CLI 側が「実行中の可能性」として保留するので、
+     * 走っている書き出しの作業領域を巻き込むことはない。
+     */
+    protected async cleanProjectData(): Promise<void> {
+        if (this.cleaningProject || !this.workspaceOpened) {
+            return;
+        }
+        this.cleaningProject = true;
+        this.update();
+        try {
+            const roots = await this.workspace.roots;
+            const root = roots[0]?.resource;
+            if (!root) {
+                void this.messages.error('プロジェクトが開かれていないため整理できません');
+                return;
+            }
+            const inspected = await this.projectClean.inspect(root.toString());
+            const inspection = inspected.inspection;
+            if (!inspected.ok || !inspection) {
+                void this.messages.error(inspected.reason ?? 'プロジェクトを調べられませんでした');
+                return;
+            }
+            if (inspection.disposable.length === 0) {
+                void this.messages.info(this.describeNothingToClean(inspection));
+                return;
+            }
+            const confirmed = await new ConfirmDialog({
+                title: '不要なデータを整理',
+                msg: this.buildCleanConfirmation(inspection),
+                ok: `${formatBytes(inspection.disposableBytes)} を削除`,
+                cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) {
+                return;
+            }
+            const result = await this.projectClean.clean(root.toString());
+            if (result.cleaned) {
+                void this.messages.info(`不要なデータ ${formatBytes(result.bytes)}（${result.count} 件）を削除しました`);
+            } else {
+                void this.messages.error(result.reason ?? '整理できませんでした');
+            }
+        } catch (error) {
+            void this.messages.error(describeUnexpectedQuickExportFailure(error, '整理できませんでした'));
+        } finally {
+            this.cleaningProject = false;
+            this.update();
+        }
+    }
+
+    /**
+     * 消すものが無いときの言い方。「保留された分がある」ことは必ず伝える —
+     * 容量を空けたくて押した人に「0 件でした」だけ返すと、保留の存在が見えず
+     * 「壊れている」と受け取られる。
+     */
+    protected describeNothingToClean(inspection: ProjectCleanInspection): string {
+        const held = inspection.undecided.filter(entry => entry.heldReason);
+        if (held.length === 0) {
+            return '削除できる不要なデータはありませんでした';
+        }
+        return `いま削除できる不要なデータはありません（${held.length} 件 ${formatBytes(
+            held.reduce((sum, entry) => sum + entry.bytes, 0)
+        )} は「${held[0].heldReason}」として保留中です）`;
+    }
+
+    /** 確認ダイアログの本文。消す対象を必ず名指しする（総量だけで承認を取らない）。 */
+    protected buildCleanConfirmation(inspection: ProjectCleanInspection): HTMLElement {
+        const node = document.createElement('div');
+        const lead = document.createElement('p');
+        lead.style.margin = '0 0 8px';
+        lead.textContent = `次の ${inspection.disposable.length} 件（合計 ${formatBytes(inspection.disposableBytes)}）を削除します。原本・書き出し済みの動画・検証の証跡は削除しません。`;
+        node.appendChild(lead);
+
+        const list = document.createElement('ul');
+        list.style.cssText = 'margin:0;padding-left:18px;max-height:240px;overflow:auto;font-size:0.9em';
+        for (const entry of inspection.disposable) {
+            const item = document.createElement('li');
+            item.textContent = `${entry.path} — ${formatBytes(entry.bytes)}（${entry.reason}）`;
+            list.appendChild(item);
+        }
+        node.appendChild(list);
+
+        const held = inspection.undecided.filter(entry => entry.heldReason);
+        if (held.length > 0) {
+            const note = document.createElement('p');
+            note.style.cssText = 'margin:8px 0 0;opacity:0.75;font-size:0.9em';
+            note.textContent = `${held.length} 件（${formatBytes(held.reduce((sum, entry) => sum + entry.bytes, 0))}）は「${held[0].heldReason}」のため今回は残します。`;
+            node.appendChild(note);
+        }
+        return node;
     }
 
     // --- ブラウザプレビュー（preview-server 起動・URL 表示・最新 / 従来切替） ----
@@ -578,6 +681,16 @@ export class AkariMenuWidget extends ReactWidget {
                         )}
                     </div>
                 )}
+                <button
+                    className='theia-button secondary'
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%', marginTop: '8px' }}
+                    disabled={!this.workspaceOpened || this.cleaningProject}
+                    title='書き出しの一時ファイルや再生成できるキャッシュを、一覧で確認してから削除します'
+                    onClick={() => void this.cleanProjectData()}
+                >
+                    <span className={`codicon ${this.cleaningProject ? 'codicon-loading codicon-modifier-spin' : 'codicon-trash'}`} aria-hidden='true' />
+                    <span>{this.cleaningProject ? '調べています…' : '不要なデータを整理…'}</span>
+                </button>
             </section>
         );
     }

@@ -4,6 +4,7 @@ import { AkariTabBarToolbarRegistry } from './akari-tab-bar-toolbar-registry';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
+import { AkariProjectCleanService, AKARI_PROJECT_CLEAN_SERVICE_PATH } from '../common/project-clean-protocol';
 import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from '../common/export-thumbnail-protocol';
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
@@ -38,6 +39,10 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(FrontendApplicationContribution).toService(AkariExportBackgroundChip);
 
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
+    // 「不要なデータを整理」（akari clean の GUI 口）。
+    bind(AkariProjectCleanService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_PROJECT_CLEAN_SERVICE_PATH)
+    ).inSingletonScope();
     bind(AkariQuickExportService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)
     ).inSingletonScope();

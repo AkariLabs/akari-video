@@ -1,4 +1,5 @@
 import { injectable } from '@theia/core/shared/inversify';
+import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import URI from '@theia/core/lib/common/uri';
 import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { promises as fs } from 'fs';
@@ -8,6 +9,7 @@ import {
     QuickExportLintFinding,
     QuickExportRecheckRequest,
     QuickExportRecheckResult,
+    QuickExportDiscardLeftoverResult,
     QuickExportStartOutcome,
     QuickExportStartRequest,
     QuickExportStatus
@@ -36,6 +38,8 @@ const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
 const RENDER_CUT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'render-report.html');
 export const EXPORT_PREVIEW_RELATIVE_DIRECTORY = join('.akari', 'cache', 'export-preview');
+/** render-cut / gpu-export / osr-export が実行ごとの作業ディレクトリを掘る場所。 */
+export const RENDER_TMP_RELATIVE_DIRECTORY = join('.akari', 'render-tmp');
 
 /** プロジェクト内の許可ディレクトリ配下に限定して解決する。外なら undefined。 */
 export function resolveExportPreviewPath(
@@ -85,7 +89,7 @@ export function buildRevealArtifactCommand(
  * `getStatus` をポーリングして進捗を表示する。
  */
 @injectable()
-export class AkariQuickExportServiceImpl implements AkariQuickExportService {
+export class AkariQuickExportServiceImpl implements AkariQuickExportService, BackendApplicationContribution {
     protected running = false;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
     protected logBuffer = '';
@@ -95,6 +99,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected renderStageStartedAt: number | undefined;
     protected activeChild: ChildProcessWithoutNullStreams | undefined;
     protected cancelRequested = false;
+    /** start 時点で既にあった render-tmp の entry 名（この回のゴミの判定基準）。 */
+    protected renderTmpEntriesAtStart: ReadonlySet<string> = new Set();
     /** recheckLint の二重起動ガード（running とは別。再検査は書き出しではない）。 */
     protected recheckRunning = false;
     protected currentProjectRoot: string | undefined;
@@ -111,6 +117,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         this.logBuffer = '';
         this.progressTracker = createQuickExportProgressTracker();
         this.renderStageStartedAt = undefined;
+        // この回のゴミだけを後で消せるように、開始前の render-tmp を控えておく。
+        this.renderTmpEntriesAtStart = await this.readRenderTmpEntries(this.currentProjectRoot);
         this.status = { phase: request.rerunLint ? 'linting' : 'rendering', logTail: '' };
         void this.run(request)
             .catch(error => {
@@ -214,6 +222,24 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         };
     }
 
+    /**
+     * シェル終了時に走っている書き出しを道連れにする（孤児を残さない —
+     * preview-server バックエンドと同じ規律）。中止ボタンを押さずにアプリを
+     * 終了した場合、これが無いと ffmpeg / OSR Electron が延々と回り続ける。
+     */
+    onStop(): void {
+        const child = this.activeChild;
+        if (!child) {
+            return;
+        }
+        this.cancelRequested = true;
+        this.activeChild = undefined;
+        // シェル終了経路は同期でしか動けない（await できない）ので猶予を置かず
+        // 一段で畳む。書き出しの中間生成物は .akari/work/ 配下の使い捨てなので、
+        // SIGTERM の後始末を待つ価値より孤児を残さないことを優先する。
+        this.killTree(child, 'SIGKILL');
+    }
+
     async cancel(): Promise<{ cancelled: boolean }> {
         if (!this.running) {
             return { cancelled: false };
@@ -237,12 +263,182 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 clearTimeout(timeout);
                 resolvePromise(true);
             });
-            child.kill('SIGTERM');
+            this.killTree(child, 'SIGTERM');
         });
         if (!exited && this.activeChild === child) {
-            child.kill('SIGKILL');
+            this.killTree(child, 'SIGKILL');
         }
+        // 子が死んでから数える（走っている間はまだ書き足されるので数が意味を持たない）。
+        // 消すのは押されたときだけ — ここでは「何がどれだけ残ったか」を伝えるにとどめる。
+        this.updateStatus({ cancelledLeftover: await this.measureCancelledLeftover() });
         return { cancelled: true };
+    }
+
+    /**
+     * 中止で残った、この回の作業ディレクトリを削除する。消すのは
+     * `status.cancelledLeftover.entries`（= start 前には無かった entry）だけで、
+     * 解決先が `<projectRoot>/.akari/render-tmp/` 配下に収まることを毎回確かめる。
+     * 既存の実行分・lint.json・reports/ には触れない。
+     */
+    async discardCancelledLeftover(): Promise<QuickExportDiscardLeftoverResult> {
+        if (this.running) {
+            return { discarded: false, reason: '書き出しの実行中は削除できません' };
+        }
+        const leftover = this.status.cancelledLeftover;
+        const projectRoot = this.currentProjectRoot;
+        if (!leftover || leftover.entries.length === 0 || !projectRoot) {
+            return { discarded: false, reason: '削除する一時ファイルがありません' };
+        }
+        let removedBytes = 0;
+        const failures: string[] = [];
+        for (const entry of leftover.entries) {
+            const target = this.resolveRenderTmpEntry(projectRoot, entry);
+            if (!target) {
+                failures.push(entry);
+                continue;
+            }
+            const measured = await this.treeSize(target);
+            try {
+                await this.fsImpl.rm(target, { recursive: true, force: true });
+                removedBytes += measured;
+            } catch (error) {
+                failures.push(entry);
+                this.appendLog(`${describeUnexpectedQuickExportFailure(error, `${entry} を削除できませんでした`)}\n`);
+            }
+        }
+        // 消し残しがあれば「まだ残っている分」を数え直して出し続ける（嘘の完了にしない）。
+        this.updateStatus({ cancelledLeftover: await this.measureCancelledLeftover() });
+        if (failures.length > 0) {
+            return { discarded: false, reason: `一時ファイルを削除できませんでした（${failures.length} 件）` };
+        }
+        return { discarded: true, bytes: removedBytes };
+    }
+
+    /** `.akari/render-tmp` 直下の entry 名。ディレクトリが無ければ空集合。 */
+    protected async readRenderTmpEntries(projectRoot: string | undefined): Promise<ReadonlySet<string>> {
+        if (!projectRoot) {
+            return new Set();
+        }
+        try {
+            return new Set(await this.fsImpl.readdir(join(projectRoot, RENDER_TMP_RELATIVE_DIRECTORY)));
+        } catch {
+            // まだ 1 度も書き出していないプロジェクトではディレクトリ自体が無い。
+            return new Set();
+        }
+    }
+
+    /** start 以降に増えた entry と、その合計サイズ。増えていなければ undefined。 */
+    protected async measureCancelledLeftover(): Promise<QuickExportStatus['cancelledLeftover']> {
+        const projectRoot = this.currentProjectRoot;
+        if (!projectRoot) {
+            return undefined;
+        }
+        const now = await this.readRenderTmpEntries(projectRoot);
+        const entries = [...now].filter(entry => !this.renderTmpEntriesAtStart.has(entry));
+        if (entries.length === 0) {
+            return undefined;
+        }
+        let bytes = 0;
+        for (const entry of entries) {
+            const target = this.resolveRenderTmpEntry(projectRoot, entry);
+            if (target) {
+                bytes += await this.treeSize(target);
+            }
+        }
+        return { entries, bytes };
+    }
+
+    /**
+     * ディレクトリツリーの合計バイト数。`statOrUndefined` は直下のファイルしか
+     * 数えないが、作業ディレクトリは `electron-user-data/` のような入れ子を抱えるので
+     * 表示用には再帰で数える（読めない枝は 0 として飛ばす — 表示が目的で監査ではない）。
+     */
+    protected async treeSize(path: string): Promise<number> {
+        let stat;
+        try {
+            stat = await this.fsImpl.stat(path);
+        } catch {
+            return 0;
+        }
+        if (!stat.isDirectory()) {
+            return stat.size;
+        }
+        let total = 0;
+        let children;
+        try {
+            children = await this.fsImpl.readdir(path, { withFileTypes: true });
+        } catch {
+            return total;
+        }
+        for (const child of children) {
+            // シンボリックリンクは辿らない（リンク先の実体を二重計上・外へ出ないため）。
+            if (child.isSymbolicLink()) {
+                continue;
+            }
+            total += await this.treeSize(join(path, child.name));
+        }
+        return total;
+    }
+
+    /** `<projectRoot>/.akari/render-tmp/<entry>` に収まるときだけ絶対パスを返す。 */
+    protected resolveRenderTmpEntry(projectRoot: string, entry: string): string | undefined {
+        const allowedRoot = resolve(projectRoot, RENDER_TMP_RELATIVE_DIRECTORY);
+        const resolved = resolve(allowedRoot, entry);
+        return resolved.startsWith(`${allowedRoot}${sep}`) ? resolved : undefined;
+    }
+
+    /**
+     * 子プロセス「ツリー」へシグナルを届ける。素の `child.kill()` は spawn した
+     * 直接の子（render-cut / osr-export の node）にしか届かず、その子が起こした
+     * ffmpeg・OSR Electron・Chromium は孤児として走り続ける（実測: 中止しても
+     * プロセスが残り続け、孤児 OSR Electron が親の閉じたパイプへ PROGRESS 行を
+     * 書いて EPIPE → main process のエラーダイアログを出し続ける）。
+     *
+     * POSIX: spawn 時に detached: true でプロセスグループを作ってあるので、
+     * pid を負にしてグループ全体へ送る。Windows: taskkill /T /F でツリーを畳む。
+     * どちらも失敗したら直接の子だけでも殺す（best effort — 中止操作は必ず
+     * 「何かしら止まる」で終わらせる）。
+     */
+    protected killTree(child: ChildProcessWithoutNullStreams, signal: 'SIGTERM' | 'SIGKILL'): void {
+        const pid = child.pid;
+        if (pid === undefined) {
+            return;
+        }
+        if (this.platform() === 'win32') {
+            try {
+                // /T = 子孫ごと、/F = 強制。SIGTERM 相当の穏当な終了は Windows の
+                // コンソールプロセスには届かないので、どちらの signal でも /F を使う。
+                this.killWindowsTree(pid);
+            } catch {
+                this.killDirect(child, signal);
+            }
+            return;
+        }
+        try {
+            this.signalProcessGroup(pid, signal);
+        } catch {
+            // グループが既に消えている（ESRCH）か、detached に失敗して
+            // グループリーダーになれなかった場合。直接の子へフォールバックする。
+            this.killDirect(child, signal);
+        }
+    }
+
+    /** テストからの上書き用の seam（実プロセスへシグナルを送らない）。 */
+    protected signalProcessGroup(pid: number, signal: 'SIGTERM' | 'SIGKILL'): void {
+        process.kill(-pid, signal);
+    }
+
+    /** テストからの上書き用の seam（実 taskkill を起動しない）。 */
+    protected killWindowsTree(pid: number): void {
+        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    }
+
+    protected killDirect(child: ChildProcessWithoutNullStreams, signal: 'SIGTERM' | 'SIGKILL'): void {
+        try {
+            child.kill(signal);
+        } catch {
+            // 既に終了している。中止としては目的達成なので握りつぶす。
+        }
     }
 
     async revealArtifact(): Promise<{ revealed: boolean }> {
@@ -594,7 +790,14 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             try {
                 child = spawn(process.execPath, [scriptPath, ...args], {
                     env: this.childEnvironment(),
-                    stdio: ['ignore', 'pipe', 'pipe']
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    // 中止で「孫まで」殺せるようにする（POSIX）。detached: true は子を
+                    // 新しいプロセスグループのリーダーにするので、`process.kill(-pid)` で
+                    // render-cut / osr-export が起こした ffmpeg・OSR Electron・Chromium まで
+                    // 一括で落とせる。detached にしただけでは何も切り離されない（unref して
+                    // いないので親の exit は今までどおり子を待つ）。Windows は
+                    // プロセスグループの概念が違うので taskkill /T に委ねる（killTree 参照）。
+                    detached: this.platform() !== 'win32'
                 });
             } catch (error) {
                 const message = describeUnexpectedQuickExportFailure(error, `${scriptPath} を起動できませんでした`);

@@ -14,7 +14,7 @@ import {
 } from '../../common/export-settings';
 import { QuickExportEncoder, QuickExportEngine, QuickExportQuality } from '../../common/quick-export-cli';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
-import { ExportFrame, VideoFacts } from './export-view-shared';
+import { ExportFrame, formatBytes, VideoFacts } from './export-view-shared';
 
 const ENCODER_LABELS: Readonly<Record<QuickExportEncoder, string>> = {
     auto: '自動', videotoolbox: 'VideoToolbox', nvenc: 'NVENC', qsv: 'QSV', amf: 'AMF', mf: 'MF', x264: 'x264'
@@ -282,11 +282,52 @@ export function ExportSetupView(props: {
                     </div>
                 </div>
             </div>
+            <CancelledLeftoverBanner session={session} snapshot={snapshot} />
             <div className='pf'>
                 <button type='button' className='btn ghost' onClick={() => void session.handOffToPartner()}>パートナーに任せる</button>
                 <span className='fn'>AI チャットに入ります</span><span className='sp' />
                 <button type='button' className='btn primary' onClick={() => void session.start()}>書き出す <small>— {selected.label} · {session.estimate().time}</small></button>
             </div>
         </>
+    );
+}
+
+/**
+ * 中止した回の作業ディレクトリ（`.akari/render-tmp/<実行 ID>/`）が残っているときだけ
+ * 出す片付け導線。押されたときだけ消す — 掃除で再生成不可のデータを失った issue #46 の
+ * 反省から、勝手には消さないし、消す対象もその回の entry に限る。
+ */
+function CancelledLeftoverBanner(props: {
+    session: AkariExportSessionService;
+    snapshot: ExportSessionSnapshot;
+}): React.ReactNode {
+    const { session, snapshot } = props;
+    const leftover = snapshot.status.cancelledLeftover;
+    if (!leftover || leftover.entries.length === 0) {
+        return undefined;
+    }
+    const busy = snapshot.discardingLeftover;
+    return (
+        <div
+            style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                borderTop: '1px solid var(--theia-editorWidget-border)',
+                background: 'var(--theia-editorWidget-background)', fontSize: '0.85em'
+            }}
+        >
+            <span className='codicon codicon-trash' aria-hidden='true' />
+            <span>
+                中止した書き出しの一時ファイルが <b>{formatBytes(leftover.bytes)}</b> 残っています
+                {leftover.entries.length > 1 && `（${leftover.entries.length} 件）`}
+            </span>
+            <span style={{ marginLeft: 'auto' }} />
+            <button
+                type='button'
+                className='btn'
+                disabled={busy}
+                title={leftover.entries.join('\n')}
+                onClick={() => void session.discardLeftover()}
+            >{busy ? '削除しています…' : '削除する'}</button>
+        </div>
     );
 }
