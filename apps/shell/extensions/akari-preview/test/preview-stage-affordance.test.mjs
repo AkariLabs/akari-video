@@ -21,7 +21,7 @@ test('キャンバス箱はペインの可用幅と高さの小さい側へ outp
     assert.match(source, /#preview-wrapper\s*\{[^}]*container-type:\s*size/);
     assert.match(
         source,
-        /#preview-stage\s*\{[^\n]*width:\s*min\(100cqw,\s*calc\(100cqh\s*\*\s*\$\{width\}\s*\/\s*\$\{height\}\)\);[^\n]*aspect-ratio:\s*\$\{width\}\s*\/\s*\$\{height\}/
+        /#preview-stage\s*\{[^\n]*width:\s*max\(1px,\s*min\(calc\(100cqw\s*-\s*var\(--akari-preview-gutter\)\s*\*\s*2\),\s*calc\(\(100cqh\s*-\s*var\(--akari-preview-gutter\)\s*\*\s*2\)\s*\*\s*\$\{width\}\s*\/\s*\$\{height\}\)\)\);[^\n]*aspect-ratio:\s*\$\{width\}\s*\/\s*\$\{height\}/
     );
     assert.match(
         source,

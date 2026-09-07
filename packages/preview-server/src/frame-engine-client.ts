@@ -895,8 +895,10 @@ class FrameEngineRuntime {
       context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
       return;
     }
-    this.currentAccesses = [];
-    this.currentDecodedFrames = [];
+    const accesses: LookaheadAccess[] = [];
+    const decodedFrames: DecodedFrameObservation[] = [];
+    this.currentAccesses = accesses;
+    this.currentDecodedFrames = decodedFrames;
     const started = performance.now();
     let frame;
     try {
@@ -908,7 +910,7 @@ class FrameEngineRuntime {
     if (this.disposed) return;
     this.lastRequestedTimeUs = timeUs;
     this.audio.noteRendered(timeUs / 1e6);
-    this.lastBaseFrame = this.currentDecodedFrames.find(observation =>
+    this.lastBaseFrame = decodedFrames.find(observation =>
       plan.base.some(layer => layer.id === observation.streamId)) ?? null;
     const late = elapsed > 1000 / this.fps;
     if (late) this.measurements.lateFrames += 1;
@@ -917,7 +919,7 @@ class FrameEngineRuntime {
       const streamId = `cut-${cutIndex}`;
       const bucket = this.scheduler.isWarmed(streamId)
         ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
-      const baseAccesses = this.currentAccesses.filter(access =>
+      const baseAccesses = accesses.filter(access =>
         plan.base.some(layer => layer.id === access.streamId));
       const hit = baseAccesses.length > 0 && baseAccesses.every(access => access.hit === true);
       bucket.total += 1;
@@ -933,7 +935,7 @@ class FrameEngineRuntime {
     if (reason === 'seek') {
       const reached = performance.now() - requestedAt;
       this.measurements.seekLatestMs = reached;
-      const allHit = this.currentAccesses.length > 0 && this.currentAccesses.every(access => access.hit);
+      const allHit = accesses.length > 0 && accesses.every(access => access.hit);
       (allHit ? this.measurements.seekAfterMs : this.measurements.seekBeforeMs).push(reached);
     }
     const presented = performance.now();
@@ -941,9 +943,12 @@ class FrameEngineRuntime {
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter(value => value >= presented - 1000);
     this.scheduler.notePresented(timeUs, { reason });
-    this.currentAccesses = null;
-    this.currentDecodedFrames = null;
+    if (this.currentAccesses === accesses) this.currentAccesses = null;
+    if (this.currentDecodedFrames === decodedFrames) this.currentDecodedFrames = null;
     this.updateMetrics();
+    // The error surface represents the current render state, not past failures.
+    this.ui.error.hidden = true;
+    this.ui.error.textContent = '';
   }
 
   private updateMetrics(): void {
