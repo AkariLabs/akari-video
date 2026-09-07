@@ -1309,6 +1309,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
             this.pushHistory({ label: detail.label, undo: () => restore(detail.before), redo: () => restore(detail.after) });
         };
+        const onWaitForWrites = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; waits: Promise<void>[] }>).detail;
+            if (detail && previewMatchesProject(detail) && Array.isArray(detail.waits)) detail.waits.push(this.timelineWriteTail);
+        };
         const onPreviewHistory = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; direction: string }>).detail;
             if (!detail || !previewMatchesProject(detail)) return;
@@ -1326,7 +1330,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (detail && previewMatchesProject(detail)) this.applySelection(undefined, false);
         };
         for (const [type, listener] of [
-            ['akari.preview.editCommitted', onPreviewEdit], ['akari.preview.history', onPreviewHistory],
+            ['akari.timeline.waitForWrites', onWaitForWrites], ['akari.preview.editCommitted', onPreviewEdit], ['akari.preview.history', onPreviewHistory],
             ['akari.preview.backgroundSelected', onPreviewBackground], ['akari.preview.cutSelected', onPreviewCutSelected]
         ] as const) {
             window.addEventListener(type, listener);
@@ -3325,51 +3329,48 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderStrip();
     }
 
-    protected async reloadEdit(): Promise<void> {
-        this.cuts = [];
-        this.sources = undefined;
-        this.defaultSourceRaw = undefined;
-        this.sourceMap.clear();
-        this.overlays = [];
-        this.beats = [];
-        this.layers = [];
-        this.audioSfx = [];
-        this.audioNarration = [];
-        this.audioBgm = undefined;
-        this.timelineTracks = [];
-        this.fps = 30;
-        if (this.location?.editUri) {
-            try {
-                const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
-                const parsed = parseEdit(source);
-                const rawValue = JSON.parse(source) as unknown;
-                this.cuts = parsed.cuts;
-                this.sources = parsed.sources;
-                this.defaultSourceRaw = parsed.source;
-                this.rebuildSourceMap();
-                this.overlays = parsed.overlays;
-                this.beats = parsed.beats ?? [];
-                this.layers = parsed.layers;
-                this.audioSfx = parsed.audioSfx;
-                this.audioNarration = parsed.audioNarration;
-                this.audioBgm = parsed.audioBgm;
-                this.timelineTracks = this.pinAudioGroupToBottom(
-                    parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue, this.captions.length > 0)
-                );
-                this.fps = parsed.fps;
-                if (parsed.warnings.length > 0) {
-                    this.showWarnings(parsed.warnings);
-                }
-            } catch {
-                // A missing or unreadable edit.json means no clips or overlays are drawn.
-            }
+    protected displayedEditSource: string | undefined;
+    protected lastSavedEditSource: string | undefined;
+    protected editReloadGeneration = 0;
+    protected pendingVisualWrites = 0;
+    protected timelineWriteTail: Promise<void> = Promise.resolve();
+
+    protected async reloadEdit(sourceOverride?: string): Promise<void> {
+        if (sourceOverride === undefined && this.pendingVisualWrites > 0) return;
+        const generation = ++this.editReloadGeneration;
+        if (!this.location?.editUri) return;
+        try {
+            const source = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();
+            if (generation !== this.editReloadGeneration || (sourceOverride === undefined && this.pendingVisualWrites > 0)) return;
+            const parsed = parseEdit(source);
+            this.displayedEditSource = source;
+            if (sourceOverride === undefined) this.lastSavedEditSource = source;
+            this.cuts = parsed.cuts;
+            this.sources = parsed.sources;
+            this.defaultSourceRaw = parsed.source;
+            this.rebuildSourceMap();
+            this.overlays = parsed.overlays;
+            this.beats = parsed.beats ?? [];
+            this.layers = parsed.layers;
+            this.audioSfx = parsed.audioSfx;
+            this.audioNarration = parsed.audioNarration;
+            this.audioBgm = parsed.audioBgm;
+            this.timelineTracks = this.pinAudioGroupToBottom(parsed.timeline?.tracks
+                ?? deriveDefaultTimelineTracks(JSON.parse(source), this.captions.length > 0));
+            this.fps = parsed.fps;
+            if (parsed.warnings.length) this.showWarnings(parsed.warnings);
+        } catch (error) {
+            if (generation !== this.editReloadGeneration || this.pendingVisualWrites > 0) return;
+            this.showNotice(`編集データを読み取れません: ${this.errorMessage(error)}`);
+            return;
         }
         this.rebuildSegments();
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
+        if (sourceOverride !== undefined) { this.renderStrip(); return; }
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
-        this.renderStrip();
+        if (generation === this.editReloadGeneration && this.pendingVisualWrites === 0) this.renderStrip();
     }
 
     protected defaultTrackHeight(kind: TimelineTrackKind): number {
@@ -5738,6 +5739,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             event.preventDefault();
             event.stopPropagation();
+            if (Math.hypot(event.clientX - state.startClientX, event.clientY - state.startClientY) > DRAG_THRESHOLD_PX) state.dragged = true;
             if (!state.dragged) {
                 this.cancelDrag(state);
                 // 再ダブルクリック（エッジ／中央どちらでも）で解除。同じ pointerup ベースの
@@ -6291,6 +6293,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             event.preventDefault();
             event.stopPropagation();
+            if (Math.hypot(event.clientX - state.startClientX, event.clientY - state.startClientY) > DRAG_THRESHOLD_PX) state.dragged = true;
             if (!state.dragged) {
                 this.cancelDrag(state);
                 // ソーストリマー（R6c-2）: クリップ本体（cut-move 判定＝エッジ以外）へのダブルクリックで
@@ -6784,7 +6787,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async commitVisualTrackMove(preview: Extract<DragPreview, { kind: 'cut-move' | 'layer' }>): Promise<void> {
         const editUri = this.location?.editUri;
         if (!editUri || (!preview.targetTimelineId && preview.insertTrack === undefined)) return;
-        const before = pruneEmptyVisualTracksInSource((await this.fileService.readFile(editUri)).value.toString());
+        const source = this.displayedEditSource ?? (await this.fileService.readFile(editUri)).value.toString();
+        const before = pruneEmptyVisualTracksInSource(source);
         const heights = this.timelineTracks.map(row => ({ id: row.id, height: this.trackHeightFor(row) }));
         const item = preview.kind === 'cut-move' ? { kind: 'cut' as const, index: preview.index } : { kind: 'layer' as const, id: preview.id };
         const time = preview.kind === 'cut-move' ? preview.at : preview.t;
@@ -6792,19 +6796,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const after = preview.targetTimelineId
             ? moveVisualItemInSource(before, this.timelineTracks, item, preview.targetTimelineId, time)
             : insertVisualItemInSource(before, this.timelineTracks, item, time, preview.insertAboveId, preview.insertBelowId);
-        if (after === before) { this.footer.textContent = '同じ位置です。'; return; }
-        await this.writeEditSnapshotGuarded(after);
-        // Changing a row's storage kind must not silently double its display height.
-        await Promise.all(heights.map(row => this.storage.setData(this.trackHeightStorageKey(editUri, row.id), row.height)))
-            .catch(() => undefined);
-        const restore = async (source: string): Promise<void> => {
-            await this.writeEditSnapshotGuarded(source);
-            await this.reloadEdit();
-        };
-        this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
-        await this.reloadEdit();
-        this.footer.textContent = `${label}を行いました。`;
-        this.revealOutputPreview();
+        if (after === before) return;
+        this.pendingVisualWrites++;
+        // Publish the complete canonical layout synchronously; persistence is queued below.
+        void this.reloadEdit(after);
+        const pendingHistory = this.historyActionTail;
+        const save = this.timelineWriteTail.catch(() => undefined).then(() => pendingHistory.catch(() => undefined)).then(async () => {
+            const current = pruneEmptyVisualTracksInSource((await this.fileService.readFile(editUri)).value.toString());
+            if (current !== before) throw new Error('編集内容が更新されたため、移動を再確認してください。');
+            await this.writeEditSnapshotGuarded(after);
+            this.lastSavedEditSource = after;
+            window.dispatchEvent(new CustomEvent('akari.timeline.editCommitted', { detail: { editUri: editUri.toString() } }));
+            await Promise.all(heights.map(row => this.storage.setData(this.trackHeightStorageKey(editUri, row.id), row.height))).catch(() => undefined);
+            const restore = async (value: string): Promise<void> => { await this.writeEditSnapshotGuarded(value); await this.reloadEdit(); };
+            this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
+            this.footer.textContent = `${label}を行いました。`;
+            this.revealOutputPreview();
+        }).finally(async () => {
+            this.pendingVisualWrites--;
+            if (this.pendingVisualWrites === 0) {
+                if (this.lastSavedEditSource) await this.reloadEdit(this.lastSavedEditSource);
+                await this.reloadEdit();
+            }
+        });
+        this.timelineWriteTail = save;
+        await save;
     }
 
     protected trackAtClientY(
@@ -7712,12 +7728,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected historyActionTail: Promise<void> = Promise.resolve();
 
     protected performUndo(): Promise<void> {
-        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => this.performUndoNow());
+        const writes = this.timelineWriteTail;
+        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => writes.catch(() => undefined)).then(() => this.performUndoNow());
         return this.historyActionTail;
     }
 
     protected performRedo(): Promise<void> {
-        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => this.performRedoNow());
+        const writes = this.timelineWriteTail;
+        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => writes.catch(() => undefined)).then(() => this.performRedoNow());
         return this.historyActionTail;
     }
 

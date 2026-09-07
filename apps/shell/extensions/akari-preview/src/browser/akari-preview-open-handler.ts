@@ -612,6 +612,9 @@ const LAYER_BLEND_TO_CSS = new Map<string, string>([
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-preview-open-handler';
     protected readonly recentWrites = new Map<string, number>();
+    protected readonly previewOwnContent = new Map<string, string>();
+    protected readonly previewGestures = new Map<string, Set<number>>();
+    protected readonly deferredPreviewRefresh = new Map<string, () => void>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly requestedCutSelections = new Map<string, number | null>();
@@ -751,6 +754,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected) });
+        const onTimelineEditCommitted = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string }>).detail;
+            if (!detail?.editUri) return;
+            const uri = new URI(detail.editUri).normalizePath();
+            const widget = this.openOutputPreviews.get(uri.toString());
+            if (widget) this.queueRefresh(widget, uri, 'output');
+        };
+        window.addEventListener('akari.timeline.editCommitted', onTimelineEditCommitted);
+        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.editCommitted', onTimelineEditCommitted) });
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -1584,6 +1596,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-transform-failed') {
+                void this.messages.warn(`変更を保存できませんでした: ${String(message.reason || '')}`);
+                this.queueRefresh(widget, identityUri, kind);
+            }
+
+            if (message?.type === 'akari-preview-gesture' && Number.isInteger(message.id)) {
+                const gestures = this.previewGestures.get(widget.id) ?? new Set<number>();
+                if (message.active) gestures.add(message.id); else gestures.delete(message.id);
+                this.previewGestures.set(widget.id, gestures);
+                if (!gestures.size) setTimeout(() => {
+                    if (this.previewGestures.get(widget.id)?.size) return;
+                    const refresh = this.deferredPreviewRefresh.get(widget.id);
+                    this.deferredPreviewRefresh.delete(widget.id);
+                    refresh?.();
+                }, 100);
+            }
+
             if (message?.type === 'akari-preview-history' && (message.direction === 'undo' || message.direction === 'redo')) {
                 void Promise.all([this.cutWriteTail, this.layerWriteTail, this.overlayWriteTail]).then(() => {
                     window.dispatchEvent(new CustomEvent('akari.preview.history', {
@@ -1674,6 +1703,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionsSuffix = captionsUri ? this.resourceSuffix(captionsUri) : undefined;
             let captionsChanged = false;
             let previewChanged = false;
+            let nonEditChanged = false;
             for (const change of event.changes) {
                 const key = change.resource.toString();
                 // ワークスペースルートの watcher は登録時に realpath() で解決される
@@ -1688,6 +1718,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
+                    nonEditChanged ||= change.resource.path.base !== 'edit.json';
                     previewChanged ||= change.resource.path.base === 'edit.json' || Date.now() - writtenAt > 1000;
                     continue;
                 }
@@ -1697,7 +1728,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueCaptionsUpdate(widget);
             }
             if (previewChanged) {
-                this.queueRefresh(widget, identityUri, kind);
+                const editUri = widget.akariPreviewEditUri;
+                if (!nonEditChanged && editUri && this.previewOwnContent.has(editUri.toString())) {
+                    const expected = this.previewOwnContent.get(editUri.toString());
+                    void Promise.all([this.cutWriteTail, this.layerWriteTail]).then(() => this.readText(editUri)).then(source => {
+                        if (source !== expected) this.queueRefresh(widget, identityUri, kind);
+                    }).catch(() => this.queueRefresh(widget, identityUri, kind));
+                } else this.queueRefresh(widget, identityUri, kind);
             }
         };
         for (const root of await this.workspaceService.roots) {
@@ -2014,6 +2051,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         kind: 'raw' | 'output',
         seekTimeOverride?: number
     ): void {
+        if (this.previewGestures.get(widget.id)?.size) {
+            this.deferredPreviewRefresh.set(widget.id, () => this.queueRefresh(widget, identityUri, kind, seekTimeOverride));
+            return;
+        }
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
             const editUri = kind === 'output' ? widget.akariPreviewEditUri : undefined;
@@ -2138,6 +2179,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.disposeVideoStreamId(videoStream.id),
                 this.disposeAssetStreams(model.assetStreamIds)
             ]);
+            return;
+        }
+        if (this.previewGestures.get(widget.id)?.size) {
+            this.deferredPreviewRefresh.set(widget.id, () => this.queueRefresh(widget, identityUri, kind));
+            await Promise.all([this.disposeVideoStreamId(videoStream.id),
+                ...[...extraVideoStreams.values()].map(stream => this.disposeVideoStreamId(stream.id)),
+                this.disposeAssetStreams(model.assetStreamIds)]);
             return;
         }
         await this.disposePreviewStreams(widget);
@@ -3184,6 +3232,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return undefined;
     }
 
+    protected async waitForTimelineWrites(editUri: URI): Promise<void> {
+        const waits: Promise<void>[] = [];
+        window.dispatchEvent(new CustomEvent('akari.timeline.waitForWrites', { detail: { editUri: editUri.toString(), waits } }));
+        await Promise.all(waits);
+    }
+
     protected async handleLayerWrite(widget: PreviewWidgetMarker, request: LayerWriteRequest): Promise<void> {
         const respond = (ok: boolean, error?: string): void => {
             widget.sendMessage({
@@ -3206,6 +3260,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
+            await this.waitForTimelineWrites(editUri);
             const originalText = await this.readText(editUri);
             const edit = JSON.parse(originalText);
             if (!Array.isArray(edit?.layers)) {
@@ -3239,6 +3294,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
             }
+            this.previewOwnContent.set(editUri.toString(), candidateText);
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
@@ -3272,6 +3328,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
+            await this.waitForTimelineWrites(editUri);
             const originalText = await this.readText(editUri);
             const edit = JSON.parse(originalText);
             if (!Array.isArray(edit?.cuts)) {
@@ -3293,6 +3350,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
             }
+            this.previewOwnContent.set(editUri.toString(), candidateText);
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
@@ -3638,8 +3696,8 @@ ${captionFontFaceCss(assets.captionFontDataUri)}
 html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #141414; color: #eee; }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 12px; display: grid; place-items: center; background: #303030; }
-#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #303030; }
+.preview-pane { min-width: 0; min-height: 0; padding: 12px; overflow: hidden; display: grid; place-items: center; background: #303030; }
+#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: visible; background: #303030; }
 #preview-output-frame { position: absolute; background: #000; box-shadow: inset 0 0 0 1px #777; pointer-events: none; }
 #preview-output-frame.is-selected { box-shadow: inset 0 0 0 2px #4da3ff; }
 #background-selection-label { position: absolute; top: 4px; left: 4px; display: none; padding: 3px 6px; background: #252525; color: #fff; font-size: 12px; }
@@ -3649,7 +3707,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #outside-output small { color: #aaa; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
-#zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
+#zoom-layer { position: absolute; inset: 0; overflow: visible; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; object-fit: contain; pointer-events: auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video:not(#preview-video), #preview-layers > img { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
@@ -4294,6 +4352,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
+            window.akari.reportTransformFailure = reason => vscode.postMessage({ type: 'akari-preview-transform-failed', reason });
+            window.akari.beginPreviewGesture = () => {
+                const id = ++sequence;
+                vscode.postMessage({ type: 'akari-preview-gesture', id, active: true });
+                return id;
+            };
+            window.akari.endPreviewGesture = id => vscode.postMessage({ type: 'akari-preview-gesture', id, active: false });
             window.akari.requestHistory = direction => vscode.postMessage({ type: 'akari-preview-history', direction });
             window.akari.reportBackgroundSelection = () => vscode.postMessage({ type: 'akari-preview-background-selected' });
             window.akari.reportCutSelection = selected => {
@@ -4516,6 +4581,22 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.updateLayerLayout = updateStageScale;
             new ResizeObserver(updateStageScale).observe(wrapper);
             video.addEventListener('loadedmetadata', updateStageScale);
+            if (initial.kind !== 'raw') {
+                const pane = document.querySelector('.preview-pane');
+                const fitOutputStage = () => {
+                    const style = getComputedStyle(pane);
+                    const width = pane.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                    const height = pane.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+                    const fit = fitCompositeRect(width, height, output.width, output.height);
+                    if (!(fit.width > 0) || !(fit.height > 0)) return;
+                    wrapper.style.aspectRatio = 'auto';
+                    wrapper.style.width = fit.width + 'px';
+                    wrapper.style.height = fit.height + 'px';
+                    updateStageScale();
+                };
+                new ResizeObserver(fitOutputStage).observe(pane);
+                fitOutputStage();
+            }
             if (initial.kind === 'raw') {
                 // raw（素材単体）プレビューに出力キャンバスは無い。summary.output は
                 // EMPTY_SUMMARY の 1280x720 のままなので、そのまま使うと縦長素材の左右に
@@ -5907,66 +5988,85 @@ body { display: grid; place-items: center; padding: 32px; }
                     return result.transform;
                 };
             };
-            // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
-            const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
-                startEvent.preventDefault();
-                startEvent.stopPropagation();
-                const pointerId = startEvent.pointerId;
-                const original = layerTransformNow(entry);
-                const captureTarget = startEvent.currentTarget;
-                let moved = false;
-                let cancelled = false;
-                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+            let cancelActiveTransform = null;
+            let latestTransformGesture = 0;
+            const runTransformGesture = (startEvent, computeTransform, read, apply, flush, write) => {
+                startEvent.preventDefault(); startEvent.stopPropagation();
+                if (isPlaying) { togglePlayback(); updateTransport(); }
+                cancelActiveTransform?.();
+                const id = window.akari.beginPreviewGesture();
+                latestTransformGesture = id;
+                const pointerId = startEvent.pointerId, target = startEvent.currentTarget;
+                const original = { ...read() };
+                let moved = false, cancelled = false, finished = false;
+                const onMove = event => {
+                    if (finished || event.pointerId !== pointerId) return;
+                    if (Math.hypot(event.clientX - startEvent.clientX, event.clientY - startEvent.clientY) > CLICK_THRESHOLD_PX) moved = true;
+                    if (moved) apply(computeTransform(event, original));
+                };
                 const cleanup = () => {
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
-                    window.removeEventListener('pointercancel', onUp);
+                    window.removeEventListener('pointercancel', onCancel);
+                    window.removeEventListener('blur', cancel);
                     window.removeEventListener('keydown', onKeyDown, true);
-                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
-                        captureTarget.releasePointerCapture(pointerId);
-                    }
-                    window.akari.interaction?.hideSnapGuides?.();
-                };
-                const onMove = moveEvent => {
-                    if (moveEvent.pointerId !== pointerId) return;
-                    const dx = moveEvent.clientX - startEvent.clientX;
-                    const dy = moveEvent.clientY - startEvent.clientY;
-                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
-                    if (!moved) return;
-                    applyLayerTransformNow(entry, computeTransform(moveEvent, original));
+                    target.removeEventListener('lostpointercapture', onCancel);
+                    if (cancelActiveTransform === cancel) cancelActiveTransform = null;
+                    try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId); } catch (_) { /* already released */ }
+                    window.akari.interaction?.hideSnapGuides();
                 };
                 const finish = async () => {
-                    cleanup();
-                    if (cancelled) {
-                        applyLayerTransformNow(entry, original);
-                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                        layerTransformVisualThrottle.flush();
-                        return;
-                    }
-                    if (!moved) return;
-                    layerTransformVisualThrottle.flush();
-                    const finalTransform = layerTransformNow(entry);
+                    if (finished) return;
+                    finished = true; cleanup();
                     try {
-                        await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
+                        if (cancelled) { apply(original); flush(); return; }
+                        if (!moved) return;
+                        flush();
+                        await write({ ...read() });
                     } catch (error) {
-                        console.warn('[akari-preview] layer transform write rejected; reverting', error);
-                        applyLayerTransformNow(entry, original);
-                        layerTransformVisualThrottle.flush();
-                    }
+                        if (latestTransformGesture === id) { apply(original); flush(); }
+                        console.warn('[akari-preview] transform write failed', error);
+                        window.akari.reportTransformFailure?.(error instanceof Error ? error.message : String(error));
+                    } finally { window.akari.endPreviewGesture(id); }
                 };
-                const onUp = upEvent => {
-                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
-                    void finish();
-                };
-                const onKeyDown = keyEvent => {
-                    if (keyEvent.key !== 'Escape') return;
-                    cancelled = true;
-                    void finish();
-                };
+                const cancel = () => { cancelled = true; void finish(); };
+                const onCancel = event => { if (event.pointerId === pointerId) cancel(); };
+                const onUp = event => { if (event.pointerId !== pointerId) return; onMove(event); void finish(); };
+                const onKeyDown = event => { if (event.key === 'Escape') cancel(); };
+                cancelActiveTransform = cancel;
                 window.addEventListener('pointermove', onMove);
                 window.addEventListener('pointerup', onUp);
-                window.addEventListener('pointercancel', onUp);
+                window.addEventListener('pointercancel', onCancel);
+                window.addEventListener('blur', cancel);
                 window.addEventListener('keydown', onKeyDown, true);
+                target.addEventListener('lostpointercapture', onCancel);
+                try { target.setPointerCapture(pointerId); } catch (_) { /* synthetic pointer */ }
+            };
+            const beginLayerTransformDrag = (entry, event, compute) => runTransformGesture(event, compute,
+                () => layerTransformNow(entry), value => applyLayerTransformNow(entry, value), () => layerTransformVisualThrottle.flush(),
+                async value => {
+                    await window.akari.engine.layerWrite(entry.spec.id, { transform: value });
+                    entry.spec.transform = value;
+                    if (Number.isInteger(entry.spec.cutIndex)) {
+                        summary.cuts[entry.spec.cutIndex].transform = value;
+                        for (const segment of segments) if (segment.cutIndex === entry.spec.cutIndex) segment.transform = value;
+                    }
+                });
+            const movementHandler = (event, boundsFor) => {
+                let lastX = event.clientX, lastY = event.clientY, dx = 0, dy = 0, snap = { x: null, y: null };
+                return (move, original) => {
+                    const api = window.akari.interaction;
+                    const scale = api?.currentDisplayScale?.() || window.akari.stageScale() || 1;
+                    dx += (move.clientX - lastX) / scale; dy += (move.clientY - lastY) / scale;
+                    lastX = move.clientX; lastY = move.clientY;
+                    const next = { ...original, x: original.x + dx, y: original.y + dy };
+                    if (move.shiftKey || !api) { snap = { x: null, y: null }; api?.hideSnapGuides(); return next; }
+                    snap = api.computeSnapCorrection(boundsFor(next), snap);
+                    if (snap.x) next.x += snap.x.correction;
+                    if (snap.y) next.y += snap.y.correction;
+                    api.showSnapGuides(snap.x, snap.y);
+                    return next;
+                };
             };
             // #overlay-stage covers the whole frame with pointer-events:auto (needed so overlays'
             // own interaction chrome stays clickable) and paints above #preview-layers, so it is
@@ -5997,75 +6097,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (hit === video) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
                     selectCut();
-                    const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
-                    let dragSnap = { x: null, y: null };
-                    beginCutTransformDrag(event, (moveEvent, original) => {
-                        const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
-                        const frameScale = window.akari.stageScale() || 1;
-                        let nextX = original.x;
-                        let nextY = original.y;
-                        if (startPoint && nowPoint) {
-                            nextX = original.x + (nowPoint.x - startPoint.x);
-                            nextY = original.y + (nowPoint.y - startPoint.y);
-                        } else {
-                            nextX = original.x + (moveEvent.clientX - event.clientX) / frameScale;
-                            nextY = original.y + (moveEvent.clientY - event.clientY) / frameScale;
-                        }
-                        if (moveEvent.shiftKey || !window.akari.interaction) {
-                            dragSnap = { x: null, y: null };
-                            window.akari.interaction?.hideSnapGuides?.();
-                        } else {
-                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                            const outputHeight = Number(summary.output && summary.output.height) || 720;
-                            const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + nextX, outputHeight / 2 + nextY,
-                                outputWidth * original.scale, outputHeight * original.scale
-                            );
-                            const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
-                            dragSnap = snap;
-                            if (snap.x) nextX += snap.x.correction;
-                            if (snap.y) nextY += snap.y.correction;
-                            window.akari.interaction.showSnapGuides(snap.x, snap.y);
-                        }
-                        return { ...original, x: nextX, y: nextY };
-                    });
+                    beginCutTransformDrag(event, movementHandler(event, transform => outputBoundsForCenteredBox(
+                        Number(summary.output.width) / 2 + transform.x, Number(summary.output.height) / 2 + transform.y,
+                        Number(summary.output.width) * transform.scale, Number(summary.output.height) * transform.scale)));
                     return;
                 }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
                 selectLayer(entry.spec.id);
-                // stageLocalPoint() は #overlay-stage の getBoundingClientRect() 由来のため、
-                // #zoom-layer のプレビューズーム(scale(zoom))と #overlay-stage 自身の
-                // frameScale の両方を含む倍率で client px → 出力px を変換する（旧実装の
-                // window.akari.stageScale()単独＝frameScaleのみだと zoom 抜け漏れでズーム下の
-                // ドラッグ量が不正確になっていた）。
-                const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
-                let dragSnap = { x: null, y: null };
-                beginLayerTransformDrag(entry, event, (moveEvent, original) => {
-                    const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
-                    let nextX = original.x;
-                    let nextY = original.y;
-                    if (startPoint && nowPoint) {
-                        nextX = original.x + (nowPoint.x - startPoint.x);
-                        nextY = original.y + (nowPoint.y - startPoint.y);
-                    } else {
-                        const frameScale = window.akari.stageScale() || 1;
-                        nextX = original.x + (moveEvent.clientX - event.clientX) / frameScale;
-                        nextY = original.y + (moveEvent.clientY - event.clientY) / frameScale;
-                    }
-                    if (moveEvent.shiftKey || !window.akari.interaction) {
-                        dragSnap = { x: null, y: null };
-                        window.akari.interaction?.hideSnapGuides?.();
-                    } else {
-                        const bounds = layerOutputBoundsForTransform(entry, { ...original, x: nextX, y: nextY });
-                        const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
-                        dragSnap = snap;
-                        if (snap.x) nextX += snap.x.correction;
-                        if (snap.y) nextY += snap.y.correction;
-                        window.akari.interaction.showSnapGuides(snap.x, snap.y);
-                    }
-                    return { ...original, x: nextX, y: nextY };
-                });
+                beginLayerTransformDrag(entry, event, movementHandler(event, transform => layerOutputBoundsForTransform(entry, transform)));
             });
             for (const handle of layerHandleElements) {
                 handle.addEventListener('pointerdown', event => {
@@ -6331,71 +6371,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     && video.style.visibility !== 'hidden') selectCut({ report: false });
                 else deselectCut({ report: false });
             };
-            const beginCutTransformDrag = (startEvent, computeTransform) => {
-                startEvent.preventDefault();
-                startEvent.stopPropagation();
-                const pointerId = startEvent.pointerId;
-                const original = cutTransformNow();
-                const captureTarget = startEvent.currentTarget;
-                let moved = false;
-                let cancelled = false;
-                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
-                const cleanup = () => {
-                    window.removeEventListener('pointermove', onMove);
-                    window.removeEventListener('pointerup', onUp);
-                    window.removeEventListener('pointercancel', onUp);
-                    window.removeEventListener('keydown', onKeyDown, true);
-                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
-                        captureTarget.releasePointerCapture(pointerId);
-                    }
-                    window.akari.interaction?.hideSnapGuides?.();
-                };
-                const onMove = moveEvent => {
-                    if (moveEvent.pointerId !== pointerId) return;
-                    const dx = moveEvent.clientX - startEvent.clientX;
-                    const dy = moveEvent.clientY - startEvent.clientY;
-                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
-                    if (!moved) return;
-                    applyCutTransformNow(computeTransform(moveEvent, original));
-                };
-                const finish = async () => {
-                    cleanup();
-                    if (cancelled) {
-                        applyCutTransformNow(original);
-                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                        cutTransformVisualThrottle.flush();
-                        return;
-                    }
-                    if (!moved) return;
-                    cutTransformVisualThrottle.flush();
-                    const cutIndex = Number(video.dataset.akariCutIndex);
-                    if (!Number.isInteger(cutIndex) || cutIndex < 0) {
-                        applyCutTransformNow(original);
-                        cutTransformVisualThrottle.flush();
-                        return;
-                    }
-                    const finalTransform = cutTransformNow();
-                    try {
-                        await window.akari.engine.cutWrite(cutIndex, { transform: finalTransform });
-                    } catch (error) {
-                        console.warn('[akari-preview] cut transform write rejected; reverting', error);
-                        applyCutTransformNow(original);
-                        cutTransformVisualThrottle.flush();
-                    }
-                };
-                const onUp = upEvent => {
-                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
-                    void finish();
-                };
-                const onKeyDown = keyEvent => {
-                    if (keyEvent.key !== 'Escape') return;
-                    cancelled = true;
-                    void finish();
-                };
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
-                window.addEventListener('pointercancel', onUp);
-                window.addEventListener('keydown', onKeyDown, true);
+            const beginCutTransformDrag = (event, compute) => {
+                const index = Number(video.dataset.akariCutIndex);
+                if (!Number.isInteger(index) || index < 0) return;
+                runTransformGesture(event, compute, cutTransformNow, applyCutTransformNow, () => cutTransformVisualThrottle.flush(), async value => {
+                    await window.akari.engine.cutWrite(index, { transform: value });
+                    summary.cuts[index].transform = value;
+                    for (const segment of segments) if (segment.cutIndex === index) segment.transform = value;
+                });
             };
             for (const handle of cutHandleElements) {
                 handle.addEventListener('pointerdown', event => {
@@ -7583,6 +7566,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.style.visibility = multiCutMode || !segment || segment.kind === 'gap' || cutsTrackHidden ? 'hidden' : '';
             };
             const tick = (immediatePlaybackTick = false) => {
+                if (cancelActiveTransform) return;
                 if (outsideOutput) {
                     window.akari.playbackTick(outputTime, false, immediatePlaybackTick);
                     updateTransport();
