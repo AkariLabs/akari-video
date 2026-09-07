@@ -5824,7 +5824,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-#preview-stage { position: absolute; left: 50%; top: 50%; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-stage { --akari-preview-gutter: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
 #preview-video, #standby-video, #transition-video, #transition-still { position: absolute; top: 0; left: 0; object-fit: contain; }
 #standby-video, #transition-video, #transition-still { display: none; pointer-events: none; }
 .akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
@@ -8624,6 +8624,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let zoom = 1;
             let pan = { x: 0, y: 0 };
             let drag = null;
+            let selectionDragActive = false;
             let suppressClick = false;
             let playbackErrored = false;
             // Decode-failure fallback is tracked per original source. This covers the primary
@@ -10178,6 +10179,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const beginMediaTransformDrag = (target, startEvent, computeTransform) => {
                 startEvent.preventDefault();
                 startEvent.stopPropagation();
+                selectionDragActive = true;
                 const pointerId = startEvent.pointerId;
                 const original = target.transformNow();
                 const captureTarget = startEvent.currentTarget;
@@ -10185,6 +10187,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 let cancelled = false;
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const cleanup = () => {
+                    selectionDragActive = false;
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onUp);
@@ -10294,6 +10297,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!(entry.video.videoWidth > 0) || !(entry.video.videoHeight > 0)) continue;
                         if (layerGeometryHitAt(entry, event.clientX, event.clientY)) return entry.video;
                     }
+                    const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
+                    const cutVisualHidden = video.style.visibility === 'hidden' && stillImage.style.display === 'none';
+                    if (!hasCut || cutVisualHidden) return null;
                     const stageRect = previewStage.getBoundingClientRect();
                     return event.clientX >= stageRect.left && event.clientX <= stageRect.right
                         && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom ? video : null;
@@ -10487,6 +10493,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const original = target.cropNow();
                 event.preventDefault();
                 event.stopPropagation();
+                selectionDragActive = true;
                 const pointerId = event.pointerId;
                 const captureTarget = event.currentTarget;
                 let moved = false;
@@ -10500,6 +10507,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateLayerCropBox();
                 }
                 const cleanup = () => {
+                    selectionDragActive = false;
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onUp);
@@ -10594,19 +10602,57 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
             }
             new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
-            wrapper.addEventListener('click', event => {
-                if (!selectedLayerId && !cutSelected) return;
-                if (event.target.closest
-                    && (event.target.closest('#layer-select-box') || event.target.closest('#cut-select-box')
-                        || event.target.closest('#layer-crop-box') || event.target.closest('#layer-crop-toggle')
-                        || event.target.closest('#layer-perspective-toggle') || event.target.closest('#layer-perspective-panel'))) {
-                    return;
-                }
+            const isSelectionReleaseTarget = event => {
+                if (event.target.closest?.('#layer-select-box, #cut-select-box, #caption-select-box, '
+                    + '#layer-crop-box, #layer-crop-toggle, #layer-perspective-toggle, '
+                    + '#layer-perspective-panel, #caption-plate, [data-overlay-id], [data-akari-interaction], '
+                    + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                const hitSelectable = Boolean(findVisualMediaHitAt(event));
-                if (hitSelectable) return;
+                return !findVisualMediaHitAt(event);
+            };
+            const releasePreviewSelection = () => {
+                if (selectedCaptionId) deselectCaption();
                 if (selectedLayerId) selectLayer(null);
                 if (cutSelected) deselectCut();
+            };
+            // パンが capture 段で pointerdown を止めても、click 合成に依存せず押下〜解放を追う。
+            // 移動後に元の位置へ戻っても解除しない。選択面・操作ボタン上の押下は候補にしない。
+            let selectionReleasePointer = null;
+            previewPane.addEventListener('pointerdown', event => {
+                suppressClick = false;
+                selectionReleasePointer = null;
+                if (event.button !== 0 || penModeActive || rectModeActive || selectionDragActive
+                    || !isSelectionReleaseTarget(event)) return;
+                selectionReleasePointer = {
+                    pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false
+                };
+            }, true);
+            const trackSelectionReleasePointer = event => {
+                const pointer = selectionReleasePointer;
+                if (!pointer || pointer.pointerId !== event.pointerId) return;
+                if (Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > CLICK_THRESHOLD_PX) {
+                    pointer.moved = true;
+                }
+            };
+            window.addEventListener('pointermove', trackSelectionReleasePointer, true);
+            const finishSelectionReleasePointer = event => {
+                const pointer = selectionReleasePointer;
+                if (!pointer || pointer.pointerId !== event.pointerId) return;
+                trackSelectionReleasePointer(event);
+                selectionReleasePointer = null;
+                if (event.type === 'pointercancel' || pointer.moved || drag?.didMove) {
+                    suppressClick = true;
+                    return;
+                }
+                const paneRect = previewPane.getBoundingClientRect();
+                if (event.clientX < paneRect.left || event.clientX > paneRect.right
+                    || event.clientY < paneRect.top || event.clientY > paneRect.bottom) return;
+                if (isSelectionReleaseTarget(event)) releasePreviewSelection();
+            };
+            window.addEventListener('pointerup', finishSelectionReleasePointer, true);
+            window.addEventListener('pointercancel', finishSelectionReleasePointer, true);
+            wrapper.addEventListener('click', event => {
+                if (!suppressClick && isSelectionReleaseTarget(event)) releasePreviewSelection();
             });
             new ResizeObserver(() => updateLayerSelectBox()).observe(wrapper);
 
@@ -11327,10 +11373,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 const startPlateRect = captionVisualRect();
                 const startOutputPoint = captionOutputPoint(startClientX, startClientY);
                 let moved = false;
+                selectionDragActive = true;
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const frameRect = window.akari.computeOutputFrameRect();
                 const outputFrame = captionOutputFrame();
                 const cleanup = () => {
+                    selectionDragActive = false;
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -11424,14 +11472,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.addEventListener('pointerup', onUp);
                 window.addEventListener('pointercancel', onCancel);
                 window.addEventListener('keydown', onKeyDown, true);
-            });
-            wrapper.addEventListener('click', event => {
-                if (!selectedCaptionId) return;
-                if (event.target.closest
-                    && (event.target.closest('#caption-plate') || event.target.closest('#caption-select-box'))) {
-                    return;
-                }
-                deselectCaption();
             });
             new ResizeObserver(() => updateCaptionSelectBox()).observe(wrapper);
 
@@ -13901,10 +13941,24 @@ body { display: grid; place-items: center; padding: 32px; }
                     applyHostFullscreenState(message.active);
                 }
             });
-            // Escape で必ず元のレイアウトへ戻す。isTrusted 必須 — オーバーレイ選択解除が
+            // 操作中の Escape は既存の取消処理へ渡し、通常時は選択を 1 段だけ解除する。
+            window.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !event.isTrusted || event.defaultPrevented
+                    || cropModeActive || perspectivePanelOpen || selectionDragActive || drag
+                    || scrubDragActive || activeCaptionEdit) return;
+                if (selectedCaptionId) deselectCaption();
+                else if (selectedLayerId) selectLayer(null);
+                else if (cutSelected) deselectCut();
+                else return;
+                event.preventDefault();
+                event.stopPropagation();
+                // 同じ window の capture リスナー（全画面等）にも、この打鍵を渡さない。
+                event.stopImmediatePropagation();
+            }, true);
+            // 選択が無い場合は Escape で元のレイアウトへ戻す。isTrusted 必須 — オーバーレイ選択解除が
             // 合成 Escape（applyRequestedOverlaySelection の dispatchEvent）を window に流すため、
             // それで全画面が解除されてしまうのを防ぐ。capture でオーバーレイ側の Escape 処理より
-            // 先に拾う（全画面解除を最優先にする）。
+            // 先に拾う（上の選択解除が消費した打鍵はここへ届かない）。
             window.addEventListener('keydown', event => {
                 if (event.key !== 'Escape' || !event.isTrusted || !hostFullscreenActive) return;
                 event.preventDefault();
