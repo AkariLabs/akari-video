@@ -133,11 +133,6 @@ const MAX_TRACK_HEIGHT_PX = 240;
 const DEFAULT_AUDIO_TRACK_HEIGHT_PX = 56;
 /** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
 const TRACK_HEIGHT_STORAGE_PREFIX = 'akari.annotations.trackHeight';
-/**
- * cuts トラックの高さがこの値未満ならフィルムストリップ・波形の描画をスキップする。
- * 幅側の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート。
- */
-const MIN_TRACK_HEIGHT_FOR_MEDIA_PX = CLIP_HEIGHT;
 /** audio sfx バーの高さがこの値未満なら波形の描画をスキップする（ラベルのみ表示）。 */
 const MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX = 40;
 /** フィルムストリップの目標セル幅（atlas フレームのアスペクトから実セル幅を導出する基準値）。 */
@@ -825,7 +820,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         left: 0;
         right: 0;
         height: ${CLIP_HEADER_HEIGHT}px;
-        background: #2c8a9a;
+        max-height: 45%;
+        background: rgba(44, 138, 154, .88);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -847,7 +843,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         text-overflow: ellipsis;
     }
     .akari-annotations-widget .akari-annotations-strip-clip-header-duration {
-        flex: none;
+        flex: 0 1 auto;
+        max-width: 50%;
     }
     .akari-annotations-widget .akari-annotations-strip-clip-source {
         position: absolute;
@@ -878,14 +875,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-strip-audio {
         border-radius: 5px;
         cursor: pointer;
-    }
-    .akari-annotations-widget .akari-annotations-strip-layer-baked {
-        background: var(--theia-charts-blue, #3794ff);
-        opacity: .76;
-    }
-    .akari-annotations-widget .akari-annotations-strip-layer-video {
-        background: var(--theia-charts-blue, #3794ff);
-        opacity: .76;
     }
     .akari-annotations-widget .akari-annotations-strip-audio-sfx {
         background: var(--theia-charts-green, #89d185);
@@ -3984,17 +3973,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             const kindLabel = /\.(png|jpe?g|gif|webp|svg)$/i.test(layer.src) ? '画像' : '映像';
-            if (this.location && itemHeight >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
-                const mediaUri = this.location.root.resolve(layer.src).toString();
+            element.classList.add('akari-annotations-strip-clip');
+            const label = this.pathBaseName(layer.src);
+            if (this.location) {
+                const mediaUri = this.resolveEditMediaUri(layer.src, this.location.editUri).toString();
                 if (kindLabel === '画像') {
                     element.style.backgroundImage = `url(${JSON.stringify(mediaUri)})`;
                     element.style.backgroundSize = 'auto 100%';
                 } else {
-                    this.renderSingleFrameFallback(element, { src: `layer:${layer.src}`, in: 0, out: layer.duration }, mediaUri);
+                    const cut = { src: `layer:${layer.src}`, in: 0, out: layer.duration };
+                    const segment: OutputSegment = { ...cut, index: -1, speed: 1,
+                        tlStart: layer.t, tlEnd: end, track: layer.track ?? 0 };
+                    const width = this.strip.clientWidth * Math.max(this.percent(end) - this.percent(layer.t), 0.3) / 100;
+                    this.renderClipMedia(element, cut, width, segment, itemHeight, mediaUri);
                 }
             }
-            element.title = `${kindLabel}（重ね素材）: ${layer.src}`;
-            element.appendChild(this.segmentLabel(`${kindLabel} · ${layer.src.split('/').pop() || layer.id}`));
+            element.title = `${label} · ${this.formatFrameTimestamp(layer.duration, this.fps)}`;
+            element.appendChild(this.clipHeader(label, layer.duration));
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -4138,18 +4133,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const cut = this.cuts[segment.index];
+            const label = this.cutDisplayName(cut);
             const itemBounds = this.videoItemBounds.get(`cut:${segment.index}`) ?? cutLayout;
             const element = this.stripSegment(
                 segment.tlStart, segment.tlEnd,
                 itemBounds.top,
                 itemBounds.height,
-                'akari-annotations-strip-clip', `C${segment.index + 1}`
+                'akari-annotations-strip-clip', label
             );
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
             // docs/contract-2026-08-11-review-session-ui-events.md #2: timeline:cut:<n>.
             element.setAttribute('data-akari-ui', `timeline:cut:${segment.index}`);
-            element.setAttribute('data-akari-ui-label', `C${segment.index + 1}`);
+            element.setAttribute('data-akari-ui-label', label);
             element.dataset.akariLane = cutLayout.id ?? 'clips';
             const dimForTrimmer = trimmerActiveIndex !== undefined && trimmerActiveIndex !== segment.index;
             element.style.opacity = cutLayout.hidden ? '.28' : dimForTrimmer ? '.6' : '';
@@ -4187,7 +4183,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             if (showTrimmer) {
                 this.renderTrimmerClip(element, cut, clipWidth, segment, itemBounds.height, trimmerVideoUri, trimmerSourceDuration);
-                element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                element.appendChild(this.clipHeader(label, segment.tlEnd - segment.tlStart));
                 this.installTrimmerDrag(element, (event, rect) => {
                     const localX = event.clientX - rect.left;
                     const rightDistance = rect.right - event.clientX;
@@ -4207,18 +4203,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             } else {
                 this.renderClipMedia(element, cut, clipWidth, segment, itemBounds.height);
-                element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
-                if (this.sources !== undefined && cut.src !== undefined) {
-                    const source = this.sourceMap.get(cut.src);
-                    if (source) {
-                        const badge = document.createElement('span');
-                        badge.className = 'akari-annotations-strip-clip-source';
-                        badge.dataset.akariSourceId = cut.src;
-                        badge.textContent = cut.src;
-                        badge.title = source.path;
-                        element.appendChild(badge);
-                    }
-                }
+                element.appendChild(this.clipHeader(label, segment.tlEnd - segment.tlStart));
                 this.installDragListeners(element, (event, rect) => {
                     const localX = event.clientX - rect.left;
                     const rightDistance = rect.right - event.clientX;
@@ -5302,12 +5287,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderClipMedia(
-        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number, videoUri = this.cutVideoUri(cut)
     ): void {
-        const videoUri = this.cutVideoUri(cut);
-        // コンパクトティア（trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX）はフィルムストリップ・波形を
-        // 描かない薄い帯にする（幅の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート）。
-        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX || !videoUri) {
+        // Render down to the visible clip bounds; overflow naturally crops tiny thumbnails.
+        if (!(clipWidth > 0) || !(trackHeightPx > 0) || !videoUri) {
             return;
         }
         // フィルムストリップと波形を同じ写像（clipLocalOffsetPx / fullClipWidthPx）で
@@ -5403,7 +5386,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // totalCellCount 自体が巨大になっても cellWidthPx は目標値のまま保たれ、
         // 密度がズームに追随する（キャップで丸めて粗くならない）。
         const cellWidthPx = FILMSTRIP_TARGET_CELL_WIDTH_PX;
-        const totalCellCount = Math.max(1, Math.round(fullClipWidthPx / cellWidthPx));
+        const totalCellCount = Math.max(1, Math.ceil(fullClipWidthPx / cellWidthPx));
 
         const visibleStartLocalPx = clipLocalOffsetPx;
         const visibleEndLocalPx = clipLocalOffsetPx + clipWidth;
@@ -5503,7 +5486,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const { fullClipWidthPx, clipLocalOffsetPx } = geometry;
         const cellWidthPx = FILMSTRIP_TARGET_CELL_WIDTH_PX;
-        const totalCellCount = Math.max(1, Math.round(fullClipWidthPx / cellWidthPx));
+        const totalCellCount = Math.max(1, Math.ceil(fullClipWidthPx / cellWidthPx));
         const perCellSourceSeconds = sourceSpan / totalCellCount;
         // slip ドラッグ中のライブプレビュー（updateTrimmerSlipVisual）が使う px/秒スケール。
         content.dataset.pxPerSourceSecond = String(cellWidthPx / perCellSourceSeconds);
@@ -5740,6 +5723,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected filmstripChunkKey(videoUri: string, chunkIndex: number): string {
         return `${videoUri}:${chunkIndex}`;
+    }
+
+    protected cutDisplayName(cut: EditCut): string {
+        const path = cut.src !== undefined && this.sources !== undefined
+            ? this.sourceMap.get(cut.src)?.path : this.defaultSource?.path;
+        return path ? this.pathBaseName(path) : cut.src ?? '映像';
     }
 
     /**
