@@ -417,6 +417,7 @@ const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 // CF-select: overlay 選択同期チャンネルの layers 版（akari-annotations 側と文字列のみミラー）。
 const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
+const TIMELINE_CUT_SELECTED_EVENT = 'akari.timeline.cutSelected';
 const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
@@ -611,6 +612,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly recentWrites = new Map<string, number>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
+    protected readonly requestedCutSelections = new Map<string, number | null>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
@@ -732,6 +734,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_LAYER_SELECTED_EVENT, onTimelineLayerSelected)
         });
+        const onTimelineCutSelected = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; cutIndex?: number | null }>).detail;
+            if (!detail?.editUri || !(detail.cutIndex === null || (Number.isInteger(detail.cutIndex) && Number(detail.cutIndex) >= 0))) return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.requestedCutSelections.set(key, detail.cutIndex!);
+            const widget = this.openOutputPreviews.get(key);
+            if (widget?.isAttached) widget.sendMessage({ type: 'akari-preview-select-cut', cutIndex: detail.cutIndex });
+            else if (detail.cutIndex !== null) void this.ensureVisible(key);
+        };
+        window.addEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected);
+        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected) });
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -3558,6 +3571,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // 実寸法をステージ寸法にする（hostAdapterScript の raw 同期を参照）。
             kind,
             summary: model.summary,
+            selectedCutIndex: model.editUri ? this.requestedCutSelections.get(model.editUri.normalizePath().toString()) : undefined,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
             editPath: model.editUri?.toString() ?? null,
@@ -5129,8 +5143,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const applyCutVisual = segment => {
+                applyCutsZIndex(segment);
                 if (!segment || segment.kind !== 'src') {
                     video.dataset.akariCutTransformActive = 'false';
+                    video.dataset.akariTransformX = '0';
+                    video.dataset.akariTransformY = '0';
+                    video.dataset.akariTransformScale = '1';
+                    video.dataset.akariTransformRotate = '0';
                     video.style.transform = '';
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
@@ -5153,10 +5172,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.dataset.akariTransformRotate = String(rotate);
                 } else {
                     video.dataset.akariCutTransformActive = 'false';
+                    video.dataset.akariTransformX = '0';
+                    video.dataset.akariTransformY = '0';
+                    video.dataset.akariTransformScale = '1';
+                    video.dataset.akariTransformRotate = '0';
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (typeof applyRequestedCutSelection === 'function') applyRequestedCutSelection();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
             const layerEntries = (Array.isArray(summary.layers) ? summary.layers : []).map((layer, index) => {
@@ -6142,12 +6166,13 @@ body { display: grid; place-items: center; padding: 32px; }
             // translate/scale/rotate がそのままかかる実装（既存 transform 消費経路）と
             // 一致させるため。
             let cutSelected = false;
+            let requestedCutIndex = initial.selectedCutIndex;
             const cutSelectBox = document.getElementById('cut-select-box');
             const cutHandleElements = Array.from(cutSelectBox.querySelectorAll('[data-akari-handle]'));
             const cutTransformNow = () => ({
                 x: Number(video.dataset.akariTransformX) || 0,
                 y: Number(video.dataset.akariTransformY) || 0,
-                scale: Number(video.dataset.akariTransformScale) || 1,
+                scale: video.dataset.akariCutTransformActive === 'false' ? 1 : Number(video.dataset.akariTransformScale) || 1,
                 rotate: Number(video.dataset.akariTransformRotate) || 0
             });
             // RAF スロットリング（2026-08-09 raf-throttle）: layer 側と同じ規律。
@@ -6210,6 +6235,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 cutSelected = false;
                 updateCutSelectBox();
                 if (report) window.akari.reportCutSelection(false);
+            };
+            const applyRequestedCutSelection = () => {
+                if (requestedCutIndex === undefined) return;
+                const activeIndex = video.dataset.akariCutIndex;
+                if (requestedCutIndex !== null && activeIndex !== '' && Number(activeIndex) === requestedCutIndex
+                    && video.style.visibility !== 'hidden') selectCut({ report: false });
+                else deselectCut({ report: false });
             };
             const beginCutTransformDrag = (startEvent, computeTransform) => {
                 startEvent.preventDefault();
@@ -6661,6 +6693,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 applyCutVisual(segment);
                 video.style.visibility = '';
+                applyRequestedCutSelection();
                 syncSegmentPlaybackRate();
                 const segmentDuration = segment.outEnd - segment.outStart;
                 const withinSegment = clamp(outputTime - segment.outStart, 0, segmentDuration);
@@ -8139,6 +8172,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
                     requestedOverlayId = message.overlayId;
                     applyRequestedOverlaySelection();
+                }
+                if (message && message.type === 'akari-preview-select-cut'
+                    && (message.cutIndex === null || (Number.isInteger(message.cutIndex) && message.cutIndex >= 0))) {
+                    requestedCutIndex = message.cutIndex;
+                    applyRequestedCutSelection();
                 }
                 if (message && message.type === 'akari-preview-select-layer'
                     && (typeof message.layerId === 'string' || message.layerId === null)) {

@@ -224,6 +224,7 @@ type TimelineClipboard =
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 // akari-preview 側の TIMELINE_LAYER_SELECTED_EVENT とミラー（CF-select）。
 const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
+const TIMELINE_CUT_SELECTED_EVENT = 'akari.timeline.cutSelected';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
 const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
@@ -1396,6 +1397,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
         this.exitTrimmerModeUnlessSelected(selection);
         const previous = this.selection;
+        if (notifyPreview && (previous?.kind === 'cut' || selection?.kind === 'cut')) {
+            window.dispatchEvent(new CustomEvent(TIMELINE_CUT_SELECTED_EVENT, {
+                detail: { editUri: this.location?.editUri?.toString() ?? '', cutIndex: selection?.kind === 'cut' ? selection.index : null }
+            }));
+        }
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
