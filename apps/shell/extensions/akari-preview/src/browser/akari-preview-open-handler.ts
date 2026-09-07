@@ -382,8 +382,10 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewRefresh?: Promise<void>;
     akariPreviewRenderedEditSource?: string;
     akariPreviewLiveReady?: boolean;
+    akariPreviewTimelineRevision?: number;
+    akariPreviewTimelinePending?: boolean;
     akariPreviewLiveMultiCut?: boolean;
-    akariPreviewHasCaptions?: boolean;
+    akariPreviewHasResolvedCaptions?: boolean;
     akariPreviewCaptionsUpdate?: Promise<void>;
     akariPreviewEditUri?: URI;
     akariPreviewRelatedEditUri?: URI;
@@ -761,10 +763,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener(TIMELINE_CUT_SELECTED_EVENT, onTimelineCutSelected) });
         const onTimelineEditPreview = (event: Event): void => {
-            const detail = (event as CustomEvent<{ editUri?: string; source?: string }>).detail;
+            const detail = (event as CustomEvent<{ editUri?: string; source?: string; pending?: boolean }>).detail;
             if (!detail?.editUri || typeof detail.source !== 'string') return;
             const widget = this.openOutputPreviews.get(new URI(detail.editUri).normalizePath().toString());
-            if (widget) this.applyLiveTimelineSource(widget, detail.source, widget.akariPreviewLastKnownTime);
+            if (widget) {
+                widget.akariPreviewTimelineRevision = (widget.akariPreviewTimelineRevision ?? 0) + 1;
+                widget.akariPreviewTimelinePending = detail.pending === true;
+                this.applyLiveTimelineSource(widget, detail.source, widget.akariPreviewLastKnownTime);
+            }
         };
         window.addEventListener('akari.timeline.editPreview', onTimelineEditPreview);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.editPreview', onTimelineEditPreview) });
@@ -1746,7 +1752,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const editUri = widget.akariPreviewEditUri;
                 if (!nonEditChanged && editUri && this.previewOwnContent.has(editUri.toString())) {
                     const expected = this.previewOwnContent.get(editUri.toString());
-                    void Promise.all([this.cutWriteTail, this.layerWriteTail]).then(() => this.readText(editUri)).then(source => {
+                    void Promise.all([this.cutWriteTail, this.layerWriteTail, this.overlayWriteTail]).then(() => this.readText(editUri)).then(source => {
                         if (source !== expected) this.queueRefresh(widget, identityUri, kind, undefined, true);
                     }).catch(() => this.queueRefresh(widget, identityUri, kind));
                 } else this.queueRefresh(widget, identityUri, kind, undefined, !nonEditChanged);
@@ -2107,17 +2113,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
             const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
-            widget.akariPreviewHasCaptions = captions.length > 0;
+            widget.akariPreviewHasResolvedCaptions = captions.some(caption => caption.resolvedTimeline);
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
     protected applyLiveTimelineSource(widget: PreviewWidgetMarker, source: string, time?: number): boolean {
         if (!widget.akariPreviewRenderedEditSource || !widget.akariPreviewLiveReady
-            || widget.akariPreviewHasCaptions || this.previewGestures.get(widget.id)?.size) return false;
+            || this.previewGestures.get(widget.id)?.size) return false;
         if (source === widget.akariPreviewRenderedEditSource) return true;
         const update = liveTimelineUpdate(widget.akariPreviewRenderedEditSource, source, !!widget.akariPreviewLiveMultiCut);
         if (!update) return false;
+        if (widget.akariPreviewHasResolvedCaptions && JSON.stringify(JSON.parse(widget.akariPreviewRenderedEditSource).cuts) !== JSON.stringify(update.cuts)) return false;
         widget.sendMessage({ type: 'akari-preview-timeline-update', edit: update, time });
         widget.akariPreviewRenderedEditSource = source;
         return true;
@@ -2133,7 +2140,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (widget.isDisposed) {
             return;
         }
+        if (allowLiveUpdate && widget.akariPreviewTimelinePending) return;
+        const revision = widget.akariPreviewTimelineRevision;
         const editSource = kind === 'output' ? await this.readText(identityUri) : undefined;
+        if (revision !== widget.akariPreviewTimelineRevision) return;
         if (allowLiveUpdate && editSource && this.applyLiveTimelineSource(widget, editSource, initialSeekTime)) return;
         const [model, assets] = await Promise.all([
             kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
@@ -2328,7 +2338,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         }
         widget.akariPreviewLiveReady = false;
-        widget.akariPreviewHasCaptions = model.captions.length > 0;
+        widget.akariPreviewHasResolvedCaptions = model.captions.some(caption => caption.resolvedTimeline);
         widget.akariPreviewLiveMultiCut = new Set(model.summary.cuts.map(cut => cut.track ?? 0)).size > 1
             && !model.summary.cuts.some(cut => cut.freeze || cut.framing);
         widget.setHTML(this.prepareHtml(
@@ -3113,7 +3123,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
-            const edit = JSON.parse(await this.readText(editUri));
+            await this.waitForTimelineWrites(editUri);
+            const originalText = await this.readText(editUri);
+            const edit = JSON.parse(originalText);
             if (!Array.isArray(edit?.overlays)) {
                 throw new Error('edit.json の overlays が配列ではありません');
             }
@@ -3169,8 +3181,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     });
                     return;
                 }
+                this.previewOwnContent.set(editUri.toString(), candidateText);
                 this.recentWrites.set(editUri.toString(), Date.now());
                 await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+                if (widget.akariPreviewRenderedEditSource === originalText) widget.akariPreviewRenderedEditSource = candidateText;
             }
             widget.sendMessage({
                 type: 'akari-preview-overlay-write-response',
@@ -3342,6 +3356,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.previewOwnContent.set(editUri.toString(), candidateText);
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            if (widget.akariPreviewRenderedEditSource === originalText) widget.akariPreviewRenderedEditSource = candidateText;
             if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
                 detail: { editUri: editUri.toString(), before: originalText, after: candidateText, label: 'プレビューの変形' }
             }));
@@ -3398,6 +3413,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.previewOwnContent.set(editUri.toString(), candidateText);
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            if (widget.akariPreviewRenderedEditSource === originalText) widget.akariPreviewRenderedEditSource = candidateText;
             if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
                 detail: { editUri: editUri.toString(), before: originalText, after: candidateText, label: 'プレビューの変形' }
             }));
@@ -8236,6 +8252,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         const next = (edit.layers || []).find(value => value.id === layer.id);
                         if (next) Object.assign(layer, { t: next.t, duration: next.duration, track: next.track ?? 0 });
                     });
+                    (summary.overlays || []).forEach(overlay => {
+                        const next = (edit.overlays || []).find(value => value.id === overlay.id);
+                        if (!next) return;
+                        Object.assign(overlay, { start: next.start, duration: next.duration, track: next.track ?? 0 });
+                        const container = [...stage.querySelectorAll('[data-overlay-id]')].find(node => node.dataset.overlayId === String(overlay.id));
+                        if (container) { container.dataset.start = String(next.start); container.dataset.duration = String(next.duration); }
+                    });
+                    applyOverlayTracks();
                     resolvedTracks = (edit.timeline?.tracks || []).flatMap(track => track.kind === 'video'
                         ? ['cuts', 'layers'].filter(kind => (edit[kind] || []).some(item => (item.track ?? 0) === track.ref))
                             .map(kind => ({ kind, ref: track.ref })) : [track]);

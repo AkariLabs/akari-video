@@ -35,6 +35,10 @@ import {
     TimelineTrackKind,
     computeCutTrackSegments,
     parseEdit,
+    moveCutInSource,
+    moveLayerInSource,
+    moveOverlayInSource,
+    resizeOverlayInSource,
     writeTimelineTracksInSource
 } from '../common/edit-store';
 import {
@@ -6796,11 +6800,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const after = preview.targetTimelineId
             ? moveVisualItemInSource(before, this.timelineTracks, item, preview.targetTimelineId, time)
             : insertVisualItemInSource(before, this.timelineTracks, item, time, preview.insertAboveId, preview.insertBelowId);
-        if (after === before) return;
+        await this.commitTimelineSnapshot(before, after, label, heights);
+    }
+
+    protected async commitTimelineSnapshot(before: string, after: string, label: string, heights: { id: string; height: number }[] = []): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri || after === before) return;
         this.pendingVisualWrites++;
         // Publish the complete canonical layout synchronously; persistence is queued below.
         void this.reloadEdit(after);
-        window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: after } }));
+        window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: after, pending: true } }));
         const pendingHistory = this.historyActionTail;
         const save = this.timelineWriteTail.catch(() => undefined).then(() => pendingHistory.catch(() => undefined)).then(async () => {
             const current = pruneEmptyVisualTracksInSource((await this.fileService.readFile(editUri)).value.toString());
@@ -6818,13 +6827,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.pendingVisualWrites === 0) {
                 if (this.lastSavedEditSource) {
                     await this.reloadEdit(this.lastSavedEditSource);
-                    window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: this.lastSavedEditSource } }));
+                    window.dispatchEvent(new CustomEvent('akari.timeline.editPreview', { detail: { editUri: editUri.toString(), source: this.lastSavedEditSource, pending: false } }));
                 }
                 await this.reloadEdit();
             }
         });
         this.timelineWriteTail = save;
         await save;
+    }
+
+    protected async commitLegacyMediaMove(preview: Extract<DragPreview, { kind: 'cut-move' | 'layer' | 'overlay-move' | 'overlay-resize' }>): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return;
+        const before = pruneEmptyVisualTracksInSource(this.displayedEditSource ?? (await this.fileService.readFile(editUri)).value.toString());
+        let after: string;
+        if (preview.kind === 'cut-move') after = moveCutInSource(before, preview.index, preview.at, preview.track);
+        else if (preview.kind === 'layer') after = moveLayerInSource(before, preview.id, preview.t, preview.duration, preview.track);
+        else if (preview.kind === 'overlay-move') after = moveOverlayInSource(before, preview.id, preview.start, preview.track);
+        else after = resizeOverlayInSource(before, preview.id, preview.duration);
+        const edit = JSON.parse(after);
+        if (Array.isArray(edit.timeline?.tracks)) {
+            const tracks = edit.timeline.tracks.filter((track: EditTimelineTrack) =>
+                !['cuts', 'layers', 'overlays'].includes(track.kind)
+                || (edit[track.kind] ?? []).some((item: { track?: number }) => (item.track ?? 0) === track.ref));
+            after = writeTimelineTracksInSource(after, tracks);
+        }
+        await this.commitTimelineSnapshot(before, after, preview.kind.startsWith('overlay') ? 'オーバーレイの調整' : '素材の調整');
     }
 
     protected trackAtClientY(
@@ -7196,6 +7224,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             if ((preview.kind === 'cut-move' || preview.kind === 'layer') && (preview.targetTimelineId || preview.insertTrack !== undefined)) {
                 await this.commitVisualTrackMove(preview);
+                return;
+            }
+            if ((preview.kind === 'cut-move' || preview.kind === 'layer' || preview.kind === 'overlay-move' || preview.kind === 'overlay-resize')
+                && (!('insertTrack' in preview) || preview.insertTrack === undefined)) {
+                await this.commitLegacyMediaMove(preview);
                 return;
             }
             let result: WriteBackResult;
@@ -7611,41 +7644,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 await this.reloadEdit();
                 this.footer.textContent = this.writeResultMessage('クリップをスリップしました。', result);
-            } else {
-                if (!location.editUri) {
-                    return;
-                }
-                if (preview.duration <= 0) {
-                    this.showNotice('オーバーレイの尺は正の値にしてください。');
-                    return;
-                }
-                const original = this.overlays.find(overlay => overlay.id === preview.id);
-                if (!original) {
-                    throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
-                }
-                result = await this.annotationsService.resizeOverlay({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    overlayId: preview.id, duration: preview.duration
-                });
-                this.pushHistory({
-                    label: 'オーバーレイの尺変更',
-                    undo: async () => {
-                        await this.annotationsService.resizeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, duration: original.duration
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.resizeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, duration: preview.duration
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('オーバーレイの尺を変更しました。', result);
             }
             this.hideNotice();
             this.revealOutputPreview();

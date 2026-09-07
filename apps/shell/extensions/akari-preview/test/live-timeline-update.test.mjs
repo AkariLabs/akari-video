@@ -27,7 +27,7 @@ test('injected live-update handler applies metadata without rebuilding the docum
     const end = source.indexOf("                if (message && message.type === 'akari-preview-captions-update')", begin);
     const run = new Function('message', 'summary', 'layerEntries', 'window', `
         let isPlaying = false, resolvedTracks = [], outputTime = 1;
-        const visualTrackZ = new Map(), zForTrack = () => -1;
+        const visualTrackZ = new Map(), zForTrack = () => -1, applyOverlayTracks = () => {};
         let rebuilt = 0, ticks = 0, seek;
         const togglePlayback = () => {}, rebuildSegments = () => rebuilt++, seekTimelineTime = t => seek = t, tick = () => ticks++;
         (() => { ${source.slice(begin, end)} })();
@@ -40,4 +40,11 @@ test('injected live-update handler applies metadata without rebuilding the docum
     assert.equal(summary.cuts[0].at, 2);
     assert.equal(entries[0].spec.t, 3);
     assert.deepEqual(result, {rebuilt: 1, ticks: 1, seek: 4});
+});
+
+test('unchanged HTML and captions do not disable timing-only updates',()=>{
+ const before={...structuredClone(edit),captions:[{text:'字幕'}],overlays:[{id:'title',html:'title.html',start:1,duration:2}]};
+ const next=structuredClone(before);next.overlays[0].start=3;next.layers[0].t=2;
+ assert.ok(liveTimelineUpdate(JSON.stringify(before),JSON.stringify(next),false));
+ next.overlays[0].html='other.html';assert.equal(liveTimelineUpdate(JSON.stringify(before),JSON.stringify(next),false),undefined);
 });

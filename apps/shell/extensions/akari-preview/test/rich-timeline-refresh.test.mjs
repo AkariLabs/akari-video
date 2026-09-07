@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const compiled=readFileSync(new URL('../lib/browser/akari-preview-open-handler.js',import.meta.url),'utf8');
+const rest=compiled.slice(compiled.indexOf('    async refreshPreview('));
+const method=rest.slice(0,rest.indexOf('\n    }')+6);
+const Handler=new Function(`return class {${method}}`)();
+test('saved refresh cannot replace an unsaved newer preview',async()=>{const h=new Handler();h.readText=()=>{throw Error('must not read stale disk')};await h.refreshPreview({akariPreviewTimelinePending:true},{},'output',0,true)});
+test('edit arriving during disk read invalidates that refresh',async()=>{let release;const h=new Handler(),widget={akariPreviewTimelineRevision:1};h.readText=()=>new Promise(r=>release=r);h.loadPreviewModel=()=>{throw Error('stale model must not load')};const pending=h.refreshPreview(widget,{},'output',0,true);widget.akariPreviewTimelineRevision++;release('{}');await pending});
+test('overlay timing changes reuse the mounted node and seek its animations',async()=>{
+ const code=readFileSync(new URL('../../../../../packages/overlay-runtime/src/overlay-runtime.js',import.meta.url),'utf8');
+ const animation={pause(){},currentTime:0},nodes=[];
+ const element=()=>({dataset:{},style:{setProperty(){}},querySelectorAll:()=>[],querySelector:()=>null,toggleAttribute(){},getAnimations:()=>[animation]});
+ const stage={replaceChildren(fragment){nodes.length=0;if(fragment)nodes.push(...fragment.children)}};
+ const document={getElementById:()=>stage,createElement:element,createDocumentFragment:()=>({children:[],appendChild(v){this.children.push(v)}})};
+ const window={};new Function('window','document',code)(window,document);
+ await window.akari.runtime.mount({overlays:[{id:'title',start:1,duration:2,html:'title'}]});const node=nodes[0];
+ window.akari.runtime.tick(2,false);assert.equal(node.style.visibility,'visible');
+ node.dataset.start='4';window.akari.runtime.tick(2,false);assert.equal(node.style.visibility,'hidden');
+ window.akari.runtime.tick(4.5,false);assert.equal(node.style.visibility,'visible');assert.equal(animation.currentTime,500);
+ node.dataset.duration='.25';window.akari.runtime.tick(4.5,false);assert.equal(node.style.visibility,'hidden');assert.equal(nodes[0],node);
+});

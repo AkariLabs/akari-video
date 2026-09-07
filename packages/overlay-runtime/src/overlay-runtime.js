@@ -107,8 +107,8 @@ window.akari.runtime = (() => {
       fragment.appendChild(container);
       mountedOverlays.push({
         container,
-        start,
-        duration,
+        get start() { return finiteNumber(container.dataset.start, 0); },
+        get duration() { return finiteNumber(container.dataset.duration, 0); },
         visible: false,
         isThreeDimensional: Boolean(
           container.querySelector(
