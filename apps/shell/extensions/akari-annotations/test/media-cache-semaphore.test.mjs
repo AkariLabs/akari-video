@@ -93,7 +93,7 @@ test('media-cache の既定は動画 2 本 / 波形 2 本で、テストから�
 
 test('ffmpeg の起動はすべてセマフォ経由（サムネイル・フィルムストリップ・波形）', () => {
     const source = readFileSync(new URL('../src/node/media-cache.ts', import.meta.url), 'utf8');
-    assert.equal(source.split('videoExtractionSemaphore.run(').length - 1, 3, 'ffprobe（チャンク probe）+ サムネイル + フィルムストリップ');
+    assert.equal(source.split('videoExtractionSemaphore.run(').length - 1, 4, 'ffprobe（音声有無 + チャンク probe）+ サムネイル + フィルムストリップ');
     assert.equal(source.split('waveformExtractionSemaphore.run(').length - 1, 1, '波形抽出');
     assert.ok(!source.includes("await execFileAsync(await ffmpegPath()"), 'セマフォを通らない ffmpeg 起動が残っていない');
 });

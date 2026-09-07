@@ -12,6 +12,13 @@ export interface TimelineClipMenuItem {
     readonly id: string;
     readonly label: string;
     readonly danger?: boolean;
+    readonly disabled?: boolean;
+    readonly disabledReason?: string;
+}
+
+export interface TimelineCutAudioMenuContext {
+    split?: { ok: true } | { ok: false; message: string };
+    linked?: boolean;
 }
 
 export interface TimelineTreeMenuContext {
@@ -32,7 +39,8 @@ const SPLIT_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['cut
 
 /** 司令塔裁定3: 項目の並び = コピー → ペースト → 分割 → 削除（削除は danger 表示）。 */
 export function buildTimelineClipMenuItems(
-    kind: TimelineClipMenuItemKind, hasClipboard: boolean, tree: TimelineTreeMenuContext = {}
+    kind: TimelineClipMenuItemKind, hasClipboard: boolean, tree: TimelineTreeMenuContext = {},
+    audio: TimelineCutAudioMenuContext = {}
 ): TimelineClipMenuItem[] {
     const items: TimelineClipMenuItem[] = [];
     if (COPY_CAPABLE_KINDS.has(kind)) {
@@ -52,6 +60,11 @@ export function buildTimelineClipMenuItems(
         items.push({ id: 'toggle-collapse', label: tree.collapsed ? '展開' : '折りたたむ' });
     }
     if (tree.hasParent) items.push({ id: 'select-parent', label: '親を選択' });
+    if (kind === 'cut' && audio.split) items.push({
+        id: 'split-audio', label: '音声を分離',
+        ...(audio.split.ok === false ? { disabled: true, disabledReason: audio.split.message } : {})
+    });
+    if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: 'リンクを解除' });
     items.push({ id: 'delete', label: '削除', danger: true });
     return items;
 }

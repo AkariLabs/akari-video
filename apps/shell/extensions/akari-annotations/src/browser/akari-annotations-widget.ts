@@ -36,6 +36,10 @@ import { parseReview } from '../common/annotation-store';
 import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
 import { trackHeaderControls } from '../common/track-header-controls';
 import { isTrackLocked, lockedTrackMessage } from '../common/track-lock-guard';
+import {
+    canSplitCutAudio, splitCutAudio, unlinkCutAudio, linkedAudioItemIdOf, linkedCutIdOf,
+    moveLinkedCutAudio, removeCutAudioLinked, type EditV2
+} from '@akari-video/edit-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import {
     AudioLoudnessEnvelope,
@@ -209,7 +213,7 @@ import {
     MaterialDropZone,
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
-import { openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
+import { closeTimelineContextMenu, openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
 import {
     filterSupportedTransitionBoundaries,
@@ -623,6 +627,10 @@ const BEAT_KIND_COLORS: Record<string, string> = {
 const DEFAULT_BEAT_COLOR = 'var(--theia-charts-green, #89d185)';
 
 interface DragBase {
+    altKey?: boolean;
+    linkedGhost?: HTMLDivElement;
+    lastClientX?: number;
+    lastClientY?: number;
     pointerId: number;
     startClientX: number;
     startClientY: number;
@@ -661,7 +669,7 @@ type DragPreview =
         rejected: boolean;
         maxOutSeconds?: number;
     }
-    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean;
+    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; altKey?: boolean;
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
     | { kind: 'caption'; id: string; start: number; end: number; timeDomain: 'source' | 'output';
         storedTimeDomain?: 'source' | 'output';
@@ -671,7 +679,7 @@ type DragPreview =
     | { kind: 'overlay-resize'; id: string; duration: number }
     | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean;
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
-    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number;
+    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; altKey?: boolean; insertTrack?: number;
         targetTrackId?: string; insertIndex?: number }
     | { kind: 'audio-trim'; id: string; edge: 'left' | 'right'; t: number; in: number; out: number }
     | { kind: 'cut-slip'; index: number; in: number; out: number }
@@ -776,6 +784,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly layerTransitionWarnings = new Map<string, string>();
     protected audioSfx: EditAudioSfxWithFade[] = [];
     protected audioNarration: EditAudioNarrationWithEnvelope[] = [];
+    protected audioSpeech: EditAudioSfxWithFade[] = [];
     protected audioBgm: EditAudioBgmWithEnvelope | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
     protected timelineTreeRows: TimelineTreeRow[] = [];
@@ -1741,6 +1750,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return this.selection.kind === 'cut' ? this.cutItemId(this.selection.index) : this.selection.id;
         };
         const keyup = (event: KeyboardEvent): void => {
+            if (event.key === 'Alt') this.updateDragAltKey(event.altKey);
             if (!event.key.startsWith('Arrow')) return;
             nudgeSession.release(value => {
                 void this.handleInspectorWrite({ kind: 'item-field', ...value });
@@ -1748,6 +1758,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             nudgeValue = undefined;
         };
         const keydown = (event: KeyboardEvent): void => {
+            if (event.key === 'Alt') this.updateDragAltKey(event.altKey);
             // IME 変換中は素のキーを一切ショートカットに使わせない（issue #51）。Escape も変換の取り消しは
             // IME の仕事なので、下の Escape 分岐より前で降りる。ここは window の capture であり、Theia が
             // webview から転送してきた合成 keydown も通る。転送では target が iframe になって
@@ -1960,9 +1971,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && (this.selection || this.multiSelection.length > 0)) {
                 event.preventDefault();
                 if (this.multiSelection.length > 0) {
-                    void this.performDeleteMultiSelected();
+                    void this.performDeleteMultiSelected(event.altKey);
                 } else {
-                    void this.performDeleteSelected();
+                    void this.performDeleteSelected(event.altKey);
                 }
             }
         };
@@ -2399,7 +2410,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.exitAudioTrimmerMode();
             return;
         }
-        const sfx = this.audioSfx.find(candidate => candidate.id === id);
+        const sfx = this.audioSfx.find(candidate => candidate.id === id) ?? this.audioSpeech?.find(candidate => candidate.id === id);
         if (!sfx || !this.location?.editUri) {
             return;
         }
@@ -2413,8 +2424,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 音声クリップのダブルクリックから、波形上の音量キーフレーム専用画面を開く。 */
     protected async openAudioKeyframeEditor(id: string): Promise<void> {
         if (this.dragState || !this.location?.editUri) return;
-        const sfx = this.audioSfx.find(candidate => candidate.id === id);
-        const narration = this.audioNarration.find(candidate => candidate.id === id);
+        const sfx = this.audioSfx.find(candidate => candidate.id === id) ?? this.audioSpeech?.find(candidate => candidate.id === id);
+        const narration = sfx ? undefined : this.audioNarration.find(candidate => candidate.id === id);
         const bgm = id === this.audioBgm?.id ? this.audioBgm : undefined;
         const audioKind = bgm ? 'bgm' as const : narration ? 'narration' as const : sfx ? 'sfx' as const : undefined;
         const audio = bgm ?? narration ?? sfx;
@@ -2937,7 +2948,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const current = request.audioKind === 'bgm' ? this.audioBgm
                 : request.audioKind === 'narration'
                     ? this.audioNarration.find(item => item.id === request.id)
-                    : this.audioSfx.find(item => item.id === request.id);
+                    : this.audioSfx.find(item => item.id === request.id) ?? this.audioSpeech?.find(item => item.id === request.id);
             if (!current) throw new Error('音声クリップが見つかりません。');
             const rawItemId = request.audioKind === 'bgm' && this.editDocument
                 ? findAudioItemIdByRole(this.editDocument, 'bgm') : request.id;
@@ -3802,7 +3813,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(layer.track !== undefined ? { track: layer.track } : {})
             };
         }
-        const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
+        const sfx = this.audioSfx.find(candidate => candidate.id === selection.id)
+            ?? this.audioSpeech?.find(candidate => candidate.id === selection.id);
         if (sfx) {
             const snapshot: AudioSelectionSnapshot = {
                 kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
@@ -3961,13 +3973,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async performDeleteSelected(): Promise<void> {
+    protected async performDeleteSelected(altKey = false): Promise<void> {
         const selection = this.selection;
         const location = this.location;
         if (!selection || !location) return;
         const lockedTrackId = this.trackIdOfSelection(selection);
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId);
+            return;
+        }
+        if (this.linkedPairForSelection(selection)) {
+            await this.performLinkedDeletion([selection], altKey, 'クリップの削除');
             return;
         }
         if (selection.kind === "cut") {
@@ -4046,9 +4062,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async performDeleteMultiSelected(): Promise<void> {
+    protected async performDeleteMultiSelected(altKey = false): Promise<void> {
         const location = this.location;
         if (!location?.editUri || this.multiSelection.length === 0) {
+            return;
+        }
+        if (this.multiSelection.some(item => this.linkedPairForSelection(item))) {
+            await this.performLinkedDeletion(this.multiSelection, altKey, '複数アイテムを削除');
             return;
         }
         const retained = this.multiSelection.filter(item => this.isTrackLocked(this.trackIdOfSelection(item)));
@@ -5104,11 +5124,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected withNarrationEnvelope(
-        narration: EditAudioNarration[], internal: InternalEdit
+        narration: EditAudioNarration[], internal: InternalEdit, collection: 'narration' | 'speech' = 'narration'
     ): EditAudioNarrationWithEnvelope[] {
         const declarations = new Map<number, Record<string, unknown>>();
         for (const track of internal.tracks) for (const item of track.items) {
-            if (item.legacy.collection === 'narration') declarations.set(item.legacy.index, item.declaration);
+            if (item.legacy.collection === collection) declarations.set(item.legacy.index, item.declaration);
         }
         return narration.map((item, index) => ({
             ...item, ...this.audioEnvelopeFields(declarations.get(index) ?? {})
@@ -5158,6 +5178,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.layerTransitionWarnings.clear();
         this.audioSfx = [];
         this.audioNarration = [];
+        this.audioSpeech = [];
         this.audioBgm = undefined;
         this.timelineTracks = [];
         this.compatibilityTimelineTracks = [];
@@ -5225,6 +5246,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                     }
                 }
+                // The playback projection omits muted audio tracks. Timeline items must remain editable.
+                const speechView = projectLegacyEdit({ ...internal, tracks: internal.tracks.map(track =>
+                    track.lane === 'audio' ? { ...track, muted: false } : track) });
                 const view = projectLegacyEdit(internal);
                 this.compatibilityCuts = view.cuts as Array<EditCut & { transition_out?: unknown }>;
                 // projectLegacyEdit の lint 互換ビューは transition_out を snake_case で運ぶ。
@@ -5241,6 +5265,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.layers = view.layers;
                 this.audioSfx = this.withSfxFade(internal);
                 this.audioNarration = this.withNarrationEnvelope(view.audioNarration, internal);
+                this.audioSpeech = this.withNarrationEnvelope(speechView.audioSpeech ?? [], internal, 'speech').map(item => {
+                    const raw = this.rawV2Item(item.id);
+                    return { ...item, duration: Number(raw?.duration ?? 0) / view.fps,
+                        ...(typeof raw?.fade_in === 'number' ? { fadeIn: raw.fade_in } : {}),
+                        ...(typeof raw?.fade_out === 'number' ? { fadeOut: raw.fade_out } : {}) };
+                });
+                // Share the established narration UI and inspector, preserving role:speech in the document.
+                this.audioNarration.push(...this.audioSpeech);
                 this.audioBgm = this.withBgmEnvelope(view.audioBgm, internal);
                 this.compatibilityTimelineTracks = view.timeline?.tracks
                     ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal));
@@ -6655,6 +6687,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const narrationWaveform = this.waveformCache.get(`sfxwave:${narration.path}`);
             const narrationSignature = JSON.stringify([
                 narration, actualDuration, itemHeight,
+                this.trimmerAudioId === narration.id ? [this.layoutViewDuration, stripLayoutWidthPx] : 0,
                 Array.isArray(narrationWaveform) ? `ready:${narrationWaveform.length}` : narrationWaveform
             ]);
             const { element, created } = this.keyedStripSegment(
@@ -6664,6 +6697,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = narration.id;
             element.dataset.akariLane = layout.id ?? 'audio';
+            if (this.linkedCutAudioPair(narration.id)) element.dataset.akariLinked = 'cut';
+            else delete element.dataset.akariLinked;
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             if (created) {
@@ -6676,6 +6711,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateNarrationWaveform(
                 element, narration, durationSeconds, itemHeight, actualDuration
             );
+            const speech = this.audioSpeech?.find(item => item.id === narration.id);
+            if (speech) {
+                const input = speech.in ?? 0;
+                const output = speech.out ?? input + durationSeconds;
+                const trimmer = this.trimmerAudioId === speech.id;
+                const detail = (event: PointerEvent, rect: DOMRect): DragDetail => {
+                    const edge = this.resolveClipEdgeMode(event, rect, element);
+                    if (edge === 'start' || edge === 'end') return {
+                        kind: 'audio-trim', id: speech.id, edge: edge === 'start' ? 'left' : 'right',
+                        originalT: speech.t, originalIn: input, originalOut: output
+                    };
+                    return trimmer ? {
+                        kind: 'audio-slip', id: speech.id, originalIn: input, originalOut: output,
+                        sourceDuration: actualDuration ?? output
+                    } : {
+                        kind: 'audio', id: speech.id, originalT: speech.t,
+                        originalTrack: this.narrationDisplayTrack(speech), originalDuration: durationSeconds
+                    };
+                };
+                if (trimmer) {
+                    element.querySelector(':scope > .akari-annotations-strip-clip-trimmer-content')?.remove();
+                    this.renderAudioTrimmerClip(element, speech, this.audioBarWidthPx(speech.t, end),
+                        itemHeight, input, output, actualDuration);
+                    this.installAudioTrimmerDrag(element, detail);
+                } else this.installDragListeners(element, detail);
+            }
             if (narration.script) {
                 element.title = narration.script;
             }
@@ -8717,6 +8778,88 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected linkedCutAudioPair(
+        itemId: string, document = this.editDocument
+    ): { cutId: string; audioItemId: string } | undefined {
+        if (!document) return undefined;
+        const doc = document as unknown as EditV2;
+        const cutId = linkedCutIdOf(doc, itemId) ?? itemId;
+        const audioItemId = linkedAudioItemIdOf(doc, cutId);
+        return audioItemId ? { cutId, audioItemId } : undefined;
+    }
+
+    protected linkedPairForSelection(selection: TimelineSelectionItem): ReturnType<AkariAnnotationsWidget['linkedCutAudioPair']> {
+        return selection.kind === 'caption' ? undefined : this.linkedCutAudioPair(
+            selection.kind === 'cut' ? this.cutItemId(selection.index) : selection.id
+        );
+    }
+
+    /** Check every affected owner before entering the mutation/history path. */
+    protected rejectLockedCutAudio(
+        itemId: string, altKey = false, cutOnlyDelete = false, document = this.editDocument
+    ): boolean {
+        const pair = this.linkedCutAudioPair(itemId, document);
+        // Deleting only the cut also clears the surviving audio's link.
+        const ids = pair && (!altKey || (cutOnlyDelete && itemId === pair.cutId))
+            ? [pair.cutId, pair.audioItemId] : [itemId];
+        const locations = document ? indexEditV2Items(document) : undefined;
+        for (const id of ids) {
+            for (const trackId of new Set([this.trackIdOfItem(id), locations?.get(id)?.trackId])) {
+                if (this.isTrackLocked(trackId)) {
+                    this.showLockedTrack(trackId);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected async performLinkedDeletion(
+        selections: readonly TimelineSelectionItem[], altKey: boolean, label: string
+    ): Promise<void> {
+        const itemIds = new Set(selections.filter(item => item.kind !== 'caption')
+            .map(item => item.kind === 'cut' ? this.cutItemId(item.index) : item.id));
+        for (const id of itemIds) {
+            const pair = this.linkedCutAudioPair(id);
+            const both = pair && itemIds.has(pair.cutId) && itemIds.has(pair.audioItemId);
+            if (this.rejectLockedCutAudio(id, altKey && !both, true)) return;
+        }
+        const captions = selections.filter((item): item is Extract<TimelineSelectionItem, { kind: 'caption' }> => item.kind === 'caption');
+        for (const caption of captions) {
+            const trackId = this.trackIdOfSelection(caption);
+            if (this.isTrackLocked(trackId)) { this.showLockedTrack(trackId); return; }
+        }
+        try {
+            const captionsBefore = captions.length && this.location
+                ? (await this.fileService.readFile(this.location.captionsUri)).value.toString() : undefined;
+            const captionsAfter = captions.reduce((source, item) => removeCaptionLine(source, item.id), captionsBefore ?? '');
+            await this.commitEditMutation(label, doc => {
+                let next = doc;
+                const removed = new Set<string>();
+                for (const id of itemIds) {
+                    if (removed.has(id)) continue;
+                    if (this.rejectLockedCutAudio(id, altKey, true, next)) throw new Error(this.footer.textContent ?? 'ロック中です');
+                    const pair = this.linkedCutAudioPair(id, next);
+                    if (pair) {
+                        const both = itemIds.has(pair.cutId) && itemIds.has(pair.audioItemId);
+                        const target = !altKey || both ? 'pair' : id === pair.cutId ? 'cut-only' : 'audio-only';
+                        next = { ...removeCutAudioLinked(next as unknown as EditV2, { ...pair, target }) };
+                        if (target !== 'audio-only') removed.add(pair.cutId);
+                        if (target !== 'cut-only') removed.add(pair.audioItemId);
+                    } else next = removeTreeV2Item(next, id).document;
+                }
+                return next;
+            }, captionsBefore === undefined ? undefined : { captions: { before: captionsBefore, after: captionsAfter } });
+            this.multiSelection = [];
+            this.applySelection(undefined);
+            this.hideNotice();
+            this.footer.textContent = '選択したアイテムを削除しました。';
+            this.revealOutputPreview();
+        } catch (error) {
+            this.showNotice(this.errorMessage(error));
+        }
+    }
+
     protected isTrackLocked(trackId: string | undefined): boolean {
         if (trackId === 'beats') return this.beatsLocked;
         return isTrackLocked(this.timelineTracks, trackId)
@@ -8849,7 +8992,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean }
+        options?: { reload?: boolean; history?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
@@ -8858,26 +9001,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const distribution = prepareV2KeyframeDistribution(mutate(raw));
         const after = stringifyEditV2(distribution.document);
-        if (after === before) return { before, after, result: { committed: false } };
+        if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
+            return { before, after, result: { committed: false } };
+        }
         const motionChanges = await this.prepareMotionChanges(distribution.writes);
         await this.writeMotionChanges(motionChanges, 'after');
-        await this.writeEditSnapshotGuarded(after);
+        await this.writeEditSnapshotGuarded(after, options?.captions?.after);
         if (options?.history !== false) {
             this.pushHistory({
                 label,
                 undo: async () => {
                     await this.writeMotionChanges(motionChanges, 'before');
-                    await this.writeEditSnapshotGuarded(before);
+                    await this.writeEditSnapshotGuarded(before, options?.captions?.before);
                     await this.reloadEdit();
+                    if (options?.captions) await this.reloadCaptions();
                 },
                 redo: async () => {
                     await this.writeMotionChanges(motionChanges, 'after');
-                    await this.writeEditSnapshotGuarded(after);
+                    await this.writeEditSnapshotGuarded(after, options?.captions?.after);
                     await this.reloadEdit();
+                    if (options?.captions) await this.reloadCaptions();
                 }
             });
         }
         if (options?.reload !== false) await this.reloadEdit();
+        if (options?.reload !== false && options?.captions) await this.reloadCaptions();
         return { before, after, result: { committed: false } };
     }
 
@@ -9804,7 +9952,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.cursor = state.kind === 'audio-slip' ? 'grabbing' : 'ew-resize';
             element.style.opacity = '.5';
             if (state.kind === 'audio-trim' && state.edge === 'right') {
-                const sfx = this.audioSfx.find(candidate => candidate.id === state.id);
+                const sfx = this.audioSfx.find(candidate => candidate.id === state.id) ?? this.audioSpeech?.find(candidate => candidate.id === state.id);
                 if (sfx && this.location?.editUri) {
                     const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
                     void this.ensureAudioDurationFetch(sfx.path, audioUri);
@@ -10860,7 +11008,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (state.kind === 'audio-trim' && state.edge === 'right') {
                 // cut-trim と同じ「初回だけ素通し」対策（上記コメント参照）。
-                const sfx = this.audioSfx.find(candidate => candidate.id === state.id);
+                const sfx = this.audioSfx.find(candidate => candidate.id === state.id) ?? this.audioSpeech?.find(candidate => candidate.id === state.id);
                 if (sfx && this.location?.editUri) {
                     const audioUri = this.resolveEditMediaUri(sfx.path, this.location.editUri).toString();
                     void this.ensureAudioDurationFetch(sfx.path, audioUri);
@@ -10884,6 +11032,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX || verticalMove) {
                 state.dragged = true;
             }
+            state.altKey = event.altKey;
             this.updateDragPreview(state, event.clientX, event.clientY, state.dragged);
         });
         element.addEventListener('pointerup', event => {
@@ -10923,6 +11072,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectTimeAtClientX(event.clientX);
                 return;
             }
+            state.altKey = event.altKey;
             const preview = this.updateDragPreview(state, event.clientX, event.clientY, true);
             this.cancelDrag(state);
             void this.commitDrag(preview);
@@ -10936,6 +11086,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
+        state.lastClientX = clientX;
+        state.lastClientY = clientY;
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
@@ -11066,7 +11218,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 this.hideTrackInsertIndicator();
             }
-            const rejected = hit.rejected;
+            const linkedRejected = this.updateLinkedDragGhost(state, at);
+            const rejected = hit.rejected || linkedRejected;
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
@@ -11075,7 +11228,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? '⚠ レーンが異なります'
                 : `${this.formatTimestamp(at)} / 行 ${hit.track + 1}`);
             return {
-                kind: 'cut-move', index: state.index, at, track: hit.track, rejected,
+                kind: 'cut-move', index: state.index, at, track: hit.track, rejected, altKey: state.altKey,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
@@ -11290,18 +11443,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideTrackInsertIndicator();
             this.setGhostRange(state.ghost, t, t + state.originalDuration);
             state.ghost.style.top = `${hit.top}px`;
-            this.setGhostRejected(state.ghost, hit.rejected);
-            this.setGhostSnapped(state.ghost, snap.snapped && !hit.rejected);
-            this.updateDragFeedback(state, hit.rejected
+            const linkedRejected = this.updateLinkedDragGhost(state, t);
+            const rejected = hit.rejected || linkedRejected;
+            this.setGhostRejected(state.ghost, rejected);
+            this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
+            this.updateDragFeedback(state, rejected
                 ? '⚠ 映像のレーンには音を置けません'
                 : `${this.formatTimestamp(t)} / 行 ${hit.track + 1}`);
             return {
-                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected,
+                kind: 'audio', id: state.id, t, track: hit.track, rejected, altKey: state.altKey,
                 targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
         if (state.kind === 'audio-trim') {
-            const sfx = this.audioSfx.find(candidate => candidate.id === state.id);
+            const sfx = this.audioSfx.find(candidate => candidate.id === state.id) ?? this.audioSpeech?.find(candidate => candidate.id === state.id);
             let maxOutSeconds: number | undefined;
             let durationUnavailable = false;
             let durationPending = false;
@@ -11373,7 +11528,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 state.originalIn, state.originalOut, delta, state.sourceDuration
             );
             this.updateTrimmerSlipVisual(state.element, nextIn - state.originalIn);
-            const sfx = this.audioSfx.find(candidate => candidate.id === state.id);
+            const sfx = this.audioSfx.find(candidate => candidate.id === state.id) ?? this.audioSpeech?.find(candidate => candidate.id === state.id);
             this.updateDragFeedback(
                 state, `slip In ${this.formatTimestamp(nextIn)} / Out ${this.formatTimestamp(nextOut)}`
                 + this.sfxFadeFeedbackSuffix(sfx, nextOut - nextIn)
@@ -11819,6 +11974,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.snapGuide.style.display = 'none';
     }
 
+    protected updateDragAltKey(altKey: boolean): void {
+        const state = this.dragState;
+        if (!state || (state.kind !== 'cut-move' && state.kind !== 'audio')) return;
+        state.altKey = altKey;
+        this.updateDragPreview(state, state.lastClientX ?? state.startClientX,
+            state.lastClientY ?? state.startClientY, state.dragged);
+    }
+
+    protected updateLinkedDragGhost(state: DragState, at: number): boolean {
+        state.linkedGhost?.remove();
+        state.linkedGhost = undefined;
+        if (state.kind !== 'cut-move' && state.kind !== 'audio') return false;
+        const id = state.kind === 'cut-move' ? this.cutItemId(state.index) : state.id;
+        const pair = this.linkedCutAudioPair(id);
+        if (!pair || state.altKey) return this.rejectLockedCutAudio(id, true);
+        const partnerId = id === pair.cutId ? pair.audioItemId : pair.cutId;
+        const original = this.rawV2Item(id);
+        const partner = this.rawV2Item(partnerId);
+        if (!original || !partner) return true;
+        const deltaFrames = this.frameAt(at) - original.at;
+        const partnerAt = (partner.at + deltaFrames) / this.fps;
+        const element = Array.from(this.strip.querySelectorAll<HTMLDivElement>('[data-akari-item-kind]'))
+            .find(candidate => candidate.dataset.akariItemId === partnerId
+                || (candidate.dataset.akariItemKind === 'cut'
+                    && this.cutItemIds[Number(candidate.dataset.akariItemId)] === partnerId));
+        if (element) {
+            state.linkedGhost = this.createDragGhost(element);
+            this.strip.appendChild(state.linkedGhost);
+            this.setGhostRange(state.linkedGhost, partnerAt, partnerAt + partner.duration / this.fps);
+        }
+        const rejected = this.rejectLockedCutAudio(id) || partnerAt < 0;
+        if (state.linkedGhost) this.setGhostRejected(state.linkedGhost, rejected);
+        return rejected;
+    }
+
     protected cancelDrag(state: DragState): void {
         if (this.dragState !== state) {
             return;
@@ -11839,6 +12029,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             trimmerContent.style.transform = '';
         }
         state.ghost.remove();
+        state.linkedGhost?.remove();
         this.hideSnapGuide();
         this.hideTrackInsertIndicator();
         this.dragFeedback.style.display = 'none';
@@ -11859,6 +12050,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showLockedTrack(preview.targetTrackId);
             return;
         }
+        if ((preview.kind === 'cut-move' || preview.kind === 'audio') && this.rejectLockedCutAudio(
+            preview.kind === 'cut-move' ? this.cutItemId(preview.index) : preview.id, preview.altKey
+        )) return;
         const location = this.location;
         if (!location) return;
         if ("rejected" in preview && preview.rejected) {
@@ -11915,8 +12109,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         itemId: string,
         atFrames: number,
         targetTrackId?: string,
-        insertIndex?: number
+        insertIndex?: number,
+        altKey = false
     ): { document: EditV2Document; createdTrackId?: string } {
+        if (this.rejectLockedCutAudio(itemId, altKey, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+        if (this.isTrackLocked(targetTrackId)) {
+            this.showLockedTrack(targetTrackId);
+            throw new Error(this.footer.textContent ?? 'ロック中です');
+        }
+        const pair = this.linkedCutAudioPair(itemId, doc);
+        if (pair && !altKey) {
+            const location = indexEditV2Items(doc).get(itemId);
+            if (!location) throw new Error('クリップが見つかりません。');
+            const track = (doc.tracks as Array<{ items?: Array<{ at: number }> }>)[location.trackIndex];
+            const at = track.items![location.itemIndex].at;
+            doc = { ...moveLinkedCutAudio(doc as unknown as EditV2, { cutId: pair.cutId, deltaFrames: atFrames - at }) };
+        }
         if (insertIndex !== undefined) {
             const beforeIds = new Set((Array.isArray(doc.tracks) ? doc.tracks : [])
                 .flatMap(track => track && typeof track === 'object' && !Array.isArray(track)
@@ -11945,6 +12153,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showLockedTrack(preview.targetTrackId);
             return;
         }
+        if ((preview.kind === 'cut-move' || preview.kind === 'audio') && this.rejectLockedCutAudio(
+            preview.kind === 'cut-move' ? this.cutItemId(preview.index) : preview.id, preview.altKey
+        )) return;
         try {
             let label = 'タイムラインを更新';
             let message = 'タイムラインを更新しました。';
@@ -11979,7 +12190,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const itemId = this.cutItemId(preview.index);
                     mutate = doc => {
                         const result = this.moveV2PreviewItem(
-                            doc, itemId, this.frameAt(preview.at), preview.targetTrackId, preview.insertIndex
+                            doc, itemId, this.frameAt(preview.at), preview.targetTrackId, preview.insertIndex, preview.altKey
                         );
                         createdTrackId = result.createdTrackId;
                         return result.document;
@@ -12006,7 +12217,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     break;
                 }
                 case 'audio':
-                    mutate = doc => moveAudioSfxPreferV2(doc, {
+                    mutate = doc => this.linkedCutAudioPair(preview.id, doc)
+                        ? this.moveV2PreviewItem(
+                            doc, preview.id, this.frameAt(preview.t), preview.targetTrackId, preview.insertIndex, preview.altKey
+                        ).document
+                        : moveAudioSfxPreferV2(doc, {
                         sfxId: preview.id,
                         t: preview.t,
                         track: preview.track,
@@ -12957,8 +13172,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 右クリックしたアイテムを先に単一選択に切り替えてから（司令塔裁定2）メニューを出す。
      * 項目構成は既存ハンドラの対応範囲に従う純関数 buildTimelineClipMenuItems に委ねる。
      */
-    protected openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): void {
+    protected async openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): Promise<void> {
         event.preventDefault();
+        closeTimelineContextMenu();
         const captionTreeRow = element.dataset.akariTreeRowId
             ? this.expandedTimelineTreeRows.find(row => row.id === element.dataset.akariTreeRowId) : undefined;
         const item: TimelineSelectionItem | undefined = captionTreeRow ? {
@@ -12974,6 +13190,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!alreadyMultiSelected) this.applySelection(item);
         const row = item.kind === 'item'
             ? this.timelineTreeRows.find(candidate => candidate.id === item.id) : undefined;
+        const document = this.editDocument;
+        let hasAudio: boolean | undefined;
+        if (item.kind === 'cut' && document && this.location?.editUri) {
+            const cut = this.cuts[item.index];
+            const source = this.editSources.find(candidate => candidate.id === cut?.src)
+                ?? this.editSources.find(candidate => candidate.isDefault);
+            const path = source?.declaredPath;
+            if (typeof path === 'string' && path) {
+                let dismissed = false;
+                const dismiss = (): void => { dismissed = true; };
+                const keydown = (key: KeyboardEvent): void => { if (key.key === 'Escape') dismiss(); };
+                window.addEventListener('pointerdown', dismiss, true);
+                window.addEventListener('keydown', keydown, true);
+                try {
+                    const result = await this.annotationsService.probeSourceHasAudio({
+                        path: this.resolveEditMediaUri(path, this.location.editUri).toString()
+                    });
+                    if (typeof result.hasAudio === 'boolean') hasAudio = result.hasAudio;
+                } catch { /* Unknown audio availability does not block splitting. */ }
+                finally {
+                    window.removeEventListener('pointerdown', dismiss, true);
+                    window.removeEventListener('keydown', keydown, true);
+                }
+                if (dismissed) return;
+            }
+            if (document !== this.editDocument || !element.isConnected) return;
+        }
         const baseItems = buildTimelineClipMenuItems(
             item.kind === 'item' ? 'overlay' : item.kind,
             this.clipboard !== undefined,
@@ -12985,18 +13228,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
                 collapsed: row.collapsed,
                 hasParent: row.parentId !== undefined
-            } : {}
+            } : {},
+            {
+                ...(item.kind === 'cut' && document ? { split: canSplitCutAudio(
+                    document as unknown as EditV2, this.cutItemId(item.index),
+                    hasAudio === undefined ? {} : { hasAudio }
+                ) } : {}),
+                linked: item.kind === 'audio' && this.linkedCutAudioPair(item.id) !== undefined
+            }
         );
         const items = withAudioTrimMenuItem(
             baseItems,
-            item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)
+            item.kind === 'audio' && (this.audioSfx.some(candidate => candidate.id === item.id)
+                || this.audioSpeech.some(candidate => candidate.id === item.id))
         );
         const clientX = event.clientX;
         openTimelineContextMenu({
             x: event.clientX,
             y: event.clientY,
             items,
-            onSelect: id => this.dispatchTimelineClipMenuAction(id, item, clientX)
+            onSelect: (id, click) => {
+                if (document !== this.editDocument) return;
+                this.dispatchTimelineClipMenuAction(id, item, clientX, hasAudio, click.altKey);
+            }
         });
     }
 
@@ -13004,9 +13258,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * メニュー id → 既存ハンドラへのディスパッチ（司令塔裁定1）。分割の分割位置は
      * 右クリックした X 位置（`clientX`）を使う（司令塔裁定1・事実2）。
      */
-    protected dispatchTimelineClipMenuAction(id: string, item: TimelineSelectionItem, clientX: number): void {
+    protected dispatchTimelineClipMenuAction(
+        id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
+    ): void {
+        if (id === 'split-audio' && item.kind === 'cut') {
+            const cutId = this.cutItemId(item.index);
+            if (this.rejectLockedCutAudio(cutId)) return;
+            if (this.editDocument) {
+                const doc = this.editDocument as unknown as EditV2;
+                const availability = hasAudio === undefined ? {} : { hasAudio };
+                if (canSplitCutAudio(doc, cutId, availability).ok) {
+                    const destination = splitCutAudio(doc, { cutId, ...availability }).audioTrackId;
+                    if (this.isTrackLocked(destination)) { this.showLockedTrack(destination); return; }
+                }
+            }
+            void this.commitEditMutation('音声を分離', doc => {
+                if (this.rejectLockedCutAudio(cutId, false, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+                const result = splitCutAudio(doc as unknown as EditV2, {
+                    cutId, ...(hasAudio === undefined ? {} : { hasAudio })
+                });
+                if (this.isTrackLocked(result.audioTrackId)) {
+                    this.showLockedTrack(result.audioTrackId);
+                    throw new Error(this.footer.textContent ?? 'ロック中です');
+                }
+                return { ...result.document };
+            }).then(() => this.showNotice('音声を分離しました'))
+                .catch(error => this.showNotice(this.errorMessage(error)));
+            return;
+        }
+        if (id === 'unlink-audio' && item.kind === 'audio') {
+            if (this.rejectLockedCutAudio(item.id)) return;
+            void this.commitEditMutation('リンクを解除', doc => {
+                if (this.rejectLockedCutAudio(item.id, false, false, doc)) throw new Error(this.footer.textContent ?? 'ロック中です');
+                return { ...unlinkCutAudio(doc as unknown as EditV2, { audioItemId: item.id }) };
+            }).catch(error => this.showNotice(this.errorMessage(error)));
+            return;
+        }
         if (id === 'audio-trim') {
-            if (item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)) {
+            if (item.kind === 'audio' && (this.audioSfx.some(candidate => candidate.id === item.id)
+                || this.audioSpeech.some(candidate => candidate.id === item.id))) {
                 this.toggleAudioTrimmerMode(item.id);
             }
             return;
@@ -13100,7 +13390,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (id === 'delete') {
-            void this.performDeleteSelected();
+            if (this.multiSelection.length > 1) void this.performDeleteMultiSelected(altKey);
+            else void this.performDeleteSelected(altKey);
         }
     }
 

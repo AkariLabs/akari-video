@@ -31,6 +31,8 @@ import {
     EditMigrationRequest,
     GetAudioDurationRequest,
     GetAudioDurationResult,
+    ProbeSourceHasAudioRequest,
+    ProbeSourceHasAudioResult,
     GetClipFilmstripChunkRequest,
     GetClipFilmstripChunkResult,
     GetClipThumbnailRequest,
@@ -221,6 +223,15 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return { status: 'unavailable', reason: 'source-missing' };
         }
         return mediaCache.getAudioDuration(this.fsPath(request.projectRootUri), this.fsPath(request.audioUri));
+    }
+
+    async probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult> {
+        if (typeof request?.path !== 'string' || !request.path.trim()) throw new Error('素材パスがありません。');
+        // Media reads already permit external sources. Resolve file URIs with the same fsPath boundary;
+        // reject relative paths and other URI schemes instead of resolving against the server cwd.
+        const path = /^file:/iu.test(request.path) ? this.fsPath(request.path) : request.path;
+        if (!isAbsolute(path)) throw new Error('素材パスが不正です。');
+        return mediaCache.probeSourceHasAudio(await fs.realpath(path));
     }
 
     async createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult> {

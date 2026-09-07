@@ -12,7 +12,7 @@ export interface OpenTimelineContextMenuOptions {
     readonly x: number;
     readonly y: number;
     readonly items: readonly TimelineClipMenuItem[];
-    readonly onSelect: (id: string) => void;
+    readonly onSelect: (id: string, event: MouseEvent) => void;
 }
 
 /** 所有外の共通項目列を変えず、SFX 専用トリマー入口を削除の直前へ合成する。 */
@@ -61,12 +61,19 @@ export function openTimelineContextMenu(options: OpenTimelineContextMenuOptions)
         button.textContent = item.label;
         button.dataset.akariContextItem = item.id;
         button.style.justifyContent = 'flex-start';
+        if (item.disabled) {
+            button.disabled = true;
+            button.style.opacity = '.45';
+            button.style.cursor = 'not-allowed';
+            button.title = item.disabledReason ?? '';
+        }
         if (item.danger) {
             button.style.color = 'var(--theia-errorForeground)';
         }
-        button.addEventListener('click', () => {
+        button.addEventListener('click', event => {
+            if (item.disabled) return;
             closeTimelineContextMenu();
-            options.onSelect(item.id);
+            options.onSelect(item.id, event);
         });
         popup.appendChild(button);
     }
