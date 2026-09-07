@@ -18,7 +18,7 @@ import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
-const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
+const { resolveCaptionDisplay, parseEdit, visualTrackIntervals, visualIntervalsOverlap } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
 const EPSILON = 1e-6;
@@ -215,14 +215,22 @@ export async function lintProject(input, options = {}) {
     );
   }
 
-  const timeline = validateCuts(
+  const sharedVideoTracks = hasVideoTrackContent(edit);
+  let timeline = validateCuts(
     edit.cuts,
     sourceDuration,
     findings,
     paths,
     edit.version,
     structure.sourceIds,
+    sharedVideoTracks,
   );
+  if (sharedVideoTracks && timeline !== null) {
+    const layerEnds = (Array.isArray(edit.layers) ? edit.layers : [])
+      .filter(layer => isFiniteNumber(layer?.t) && isPositiveNumber(layer?.duration))
+      .map(layer => layer.t + layer.duration);
+    timeline = Math.max(timeline, ...layerEnds);
+  }
   validateFrameGridAlignment(edit.cuts, edit?.output?.fps, findings);
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
@@ -679,6 +687,7 @@ function computeCutTrackSegments(cuts) {
 // 実測（2026-08-04 PV ドッグフーディング）: track 1 のカットは合成されず出力尺へ連結され、
 // 一度も画面に出ないまま尺だけ伸びた mp4 が PASS で焼き上がった。
 function validateCutTrackRenderSupport(edit, segments, findings) {
+  if (hasVideoTrackContent(edit)) return; // Shared rows use the gap-aware renderer, not legacy concatenation.
   if (edit?.version !== 1 || !Array.isArray(edit.cuts)) return;
   const cursorByTrack = new Map();
   for (const segment of segments) {
@@ -1127,6 +1136,24 @@ function validateTimelineTracks(edit, findings) {
     }
   }
 
+  // A shared video row is one band, regardless of the native storage type.
+  const parsed = parseEdit(JSON.stringify(edit));
+  const intervals = visualTrackIntervals(parsed.cuts, parsed.layers, parsed.timeline?.tracks ?? []);
+  for (const row of parsed.timeline?.tracks ?? []) {
+    if (row.kind !== "video") continue;
+    const items = intervals.filter(interval => interval.rowId === row.id).sort((a, b) => a.start - b.start);
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length && items[j].start < items[i].end; j++) {
+        if (!visualIntervalsOverlap(items[i].start, items[i].end, items[j])) continue;
+        addFinding(findings, {
+          severity: "error", check: "timeline.video-overlap",
+          message: `Video track ${row.id} contains overlapping clips (${items[i].key}, ${items[j].key}).`,
+          path: `edit.json#timeline.tracks[${edit.timeline.tracks.findIndex(track => track?.id === row.id)}]`
+        });
+      }
+    }
+  }
+
   for (const [kind, tracks] of actualTracks) {
     for (const ref of tracks) {
       if (declarations.has(`${kind}:${ref}`)) continue;
@@ -1229,7 +1256,7 @@ function collectActualTrackNumbers(items) {
   return tracks;
 }
 
-function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {
+function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds, outputAxis = false) {
   if (!Array.isArray(cuts)) return null;
   let valid = true;
   let previousIn = -Infinity;
@@ -1287,7 +1314,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       });
       valid = false;
     }
-    if (version === 0 && cut.in < previousIn - EPSILON) {
+    if (version === 0 && !outputAxis && cut.in < previousIn - EPSILON) {
       addFinding(findings, {
         severity: "error",
         check: "cuts.order",
@@ -1297,7 +1324,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       });
       valid = false;
     }
-    if (version === 0 && cut.in < previousOut - EPSILON) {
+    if (version === 0 && !outputAxis && cut.in < previousOut - EPSILON) {
       addFinding(findings, {
         severity: "error",
         check: "cuts.overlap",
@@ -1332,6 +1359,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
   }
 
   if (cuts.length === 0) return version === 1 ? 0 : sourceDuration;
+  if (valid && outputAxis) return Math.max(0, ...computeCutTrackSegments(cuts).map(segment => segment.end));
   return valid ? timeline : null;
 }
 

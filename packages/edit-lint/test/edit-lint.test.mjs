@@ -1777,3 +1777,47 @@ test("captions.overlay-link は発火しない（撤去済み・字幕は消費�
     }
   });
 });
+
+test("shared video rows reject overlapping cut/layer intervals but permit touching endpoints", async () => {
+  await withFixtures(async fixtures => {
+    const project = join(fixtures, "valid");
+    const path = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(path, "utf8"));
+    edit.timeline = { tracks: [{ id: "v1", kind: "video", ref: 0 }, { id: "html", kind: "overlays", ref: 0 }] };
+    edit.layers = [{ id: "layer-a", kind: "video", src: "sample.mp4", t: 0, duration: 1, track: 0 }];
+    await writeFile(path, JSON.stringify(edit));
+    const overlapping = parseResult(run(project));
+    assert.ok(overlapping.findings.some(f => f.check === "timeline.video-overlap" && f.severity === "error"));
+    edit.cuts = [{ in: 5, out: 10, at: 0, track: 0 }];
+    edit.layers[0].t = 5;
+    await writeFile(path, JSON.stringify(edit));
+    const touching = parseResult(run(project));
+    assert.ok(!touching.findings.some(f => f.check === "timeline.video-overlap"));
+  });
+});
+
+test("shared video tracks permit source reuse and validate against output time, not source order", async () => {
+  await withFixtures(async fixtures => {
+    const project = join(fixtures, "valid");
+    const path = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(path, "utf8"));
+    edit.timeline = { tracks: [{ id: "v1", kind: "video", ref: 0 }, { id: "html", kind: "overlays", ref: 0 }] };
+    edit.cuts = [{ in: 5, out: 10, at: 0, track: 0 }, { in: 0, out: 5, at: 8, track: 0 }];
+    edit.overlays[0].start = 11;
+    edit.overlays[0].duration = 2;
+    await writeFile(path, JSON.stringify(edit));
+    const shared = parseResult(run(project));
+    assert.ok(!shared.findings.some(f => ["cuts.order", "cuts.overlap", "overlays.timeline"].includes(f.check)), JSON.stringify(shared.findings));
+    const v1Edit = { ...edit, version: 1, sources: [{ id: "same", path: edit.source.path, proxy: null }],
+      cuts: edit.cuts.map(cut => ({ ...cut, src: "same", track: 1 })),
+      timeline: { tracks: [{ id: "v1", kind: "video", ref: 1 }, { id: "html", kind: "overlays", ref: 0 }] } };
+    delete v1Edit.source;
+    await writeFile(path, JSON.stringify(v1Edit));
+    const v1 = parseResult(run(project));
+    assert.ok(!v1.findings.some(f => ["cuts.track-render-unsupported", "cuts.at-render-unsupported"].includes(f.check)));
+    delete edit.timeline;
+    await writeFile(path, JSON.stringify(edit));
+    const legacy = parseResult(run(project));
+    assert.ok(legacy.findings.some(f => f.check === "cuts.order"));
+  });
+});

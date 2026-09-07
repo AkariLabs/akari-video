@@ -1,14 +1,81 @@
-import { EditTimelineTrack, computeCutTrackSegments, moveCutInSource, moveLayerInSource, parseEdit, writeTimelineTracksInSource } from './edit-store';
+import { EditTimelineTrack, EditCut, EditLayer, computeCutTrackSegments, moveCutInSource, moveLayerInSource, parseEdit, writeTimelineTracksInSource } from './edit-store';
 
 export function isVisualMediaTrack(track: EditTimelineTrack): boolean {
     return track.kind === 'video' || track.kind === 'cuts' || track.kind === 'layers';
+}
+
+export type VisualItem = { kind: 'cut'; index: number } | { kind: 'layer'; id: string };
+export interface VisualInterval {
+    item: VisualItem;
+    key: string;
+    rowId: string;
+    start: number;
+    end: number;
+}
+export type VisualMovePlan =
+    | { accepted: false; reason: string }
+    | { accepted: true; mode: 'move' | 'swap'; original: VisualInterval; targetId: string; time: number;
+        swap?: { interval: VisualInterval; rowId: string; time: number } };
+
+const itemKey = (item: VisualItem): string => item.kind === 'cut' ? `cut:${item.index}` : `layer:${item.id}`;
+export const visualIntervalsOverlap = (start: number, end: number, other: { start: number; end: number }): boolean =>
+    Math.min(end, other.end) - Math.max(start, other.start) > 1e-6;
+
+/** One visual row may contain consecutive media, but never simultaneous media. */
+export function visualTrackIntervals(cuts: readonly EditCut[], layers: readonly EditLayer[], tracks: readonly EditTimelineTrack[]): VisualInterval[] {
+    const result: VisualInterval[] = [];
+    const append = (item: VisualItem, kind: 'cuts' | 'layers', ref: number, start: number, end: number): void => {
+        const row = tracks.find(track => (track.kind === kind || track.kind === 'video') && (track.ref ?? 0) === ref);
+        if (row) result.push({ item, key: itemKey(item), rowId: row.id, start, end });
+    };
+    computeCutTrackSegments(cuts).forEach(segment => append({ kind: 'cut', index: segment.index }, 'cuts', segment.track, segment.at, segment.end));
+    layers.forEach(layer => append({ kind: 'layer', id: layer.id }, 'layers', layer.track ?? 0, layer.t, layer.t + layer.duration));
+    return result;
+}
+
+/** Same half-open collision rule as the legacy timeline's free-slot placement. */
+export function findVisualFreeSlot(intervals: readonly { start: number; end: number }[], desired: number, duration: number): number {
+    let candidate = Math.max(0, desired);
+    for (const interval of [...intervals].sort((a, b) => a.start - b.start)) {
+        if (visualIntervalsOverlap(candidate, candidate + duration, interval)) candidate = interval.end;
+    }
+    return candidate;
+}
+
+/** Shared by the drag ghost and the atomic write so swapping cannot turn into stacking. */
+export function planVisualMove(
+    cuts: readonly EditCut[], layers: readonly EditLayer[], tracks: readonly EditTimelineTrack[],
+    item: VisualItem, targetId: string, time: number
+): VisualMovePlan {
+    if (!Number.isFinite(time) || time < 0) return { accepted: false, reason: '移動先の時刻が不正です。' };
+    const intervals = visualTrackIntervals(cuts, layers, tracks);
+    const original = intervals.find(interval => interval.key === itemKey(item));
+    const target = tracks.find(track => track.id === targetId);
+    const origin = original && tracks.find(track => track.id === original.rowId);
+    if (!original || !target || !isVisualMediaTrack(target)) return { accepted: false, reason: '移動先の映像トラックが見つかりません。' };
+    if (target.locked || origin?.locked) return { accepted: false, reason: 'ロックされたトラックは変更できません。' };
+    const duration = original.end - original.start;
+    const remaining = intervals.filter(interval => interval.key !== original.key);
+    const collisions = remaining.filter(interval => interval.rowId === targetId && visualIntervalsOverlap(time, time + duration, interval));
+    if (!collisions.length) return { accepted: true, mode: 'move', original, targetId, time };
+    if (collisions.length !== 1) return { accepted: false, reason: '複数の動画と重なります。空いている時間へ移動してください。' };
+    const displaced = collisions[0];
+    // Across rows, only the row changes for the displaced clip. Within a row, swap time slots.
+    const swapTime = original.rowId === targetId ? original.start : displaced.start;
+    const swapEnd = swapTime + displaced.end - displaced.start;
+    const others = remaining.filter(interval => interval.key !== displaced.key);
+    const blocked = others.some(interval => interval.rowId === original.rowId && visualIntervalsOverlap(swapTime, swapEnd, interval))
+        || (original.rowId === targetId && visualIntervalsOverlap(time, time + duration, { start: swapTime, end: swapEnd }));
+    if (blocked) return { accepted: false, reason: '入れ替え先で別の動画と重なるため移動できません。' };
+    return { accepted: true, mode: 'swap', original, targetId, time,
+        swap: { interval: displaced, rowId: original.rowId, time: swapTime } };
 }
 
 /** Share row references without converting media types or dropping native/unknown properties. */
 export function moveVisualItemInSource(
     source: string,
     fallbackTracks: readonly EditTimelineTrack[],
-    item: { kind: 'cut'; index: number } | { kind: 'layer'; id: string },
+    item: VisualItem,
     targetId: string,
     time: number
 ): string {
@@ -23,7 +90,9 @@ export function moveVisualItemInSource(
     const original = tracks.find(track => (track.kind === nativeKind || track.kind === 'video')
         && (track.ref ?? 0) === (nativeItem.track ?? 0));
     if (!original || original.locked || target.locked) throw new Error('ロックされたトラックは変更できません。');
-    if (target.kind === nativeKind && original.kind === nativeKind) {
+    const plan = planVisualMove(parsed.cuts, parsed.layers, tracks, item, targetId, time);
+    if (!plan.accepted) throw new Error((plan as { reason: string }).reason);
+    if (plan.mode === 'move' && target.kind === nativeKind && original.kind === nativeKind) {
         const moved = item.kind === 'cut'
             ? moveCutInSource(source, item.index, time, target.ref ?? 0)
             : moveLayerInSource(source, item.id, time, (nativeItem as { duration: number }).duration, target.ref ?? 0);
@@ -66,11 +135,15 @@ export function moveVisualItemInSource(
         }
     }
     value.timeline = { ...value.timeline, tracks: normalized };
-    const ref = normalized.find(track => track.id === targetId)!.ref!;
-    const normalizedSource = JSON.stringify(value, null, 2) + '\n';
-    return item.kind === 'cut'
-        ? moveCutInSource(normalizedSource, item.index, time, ref)
-        : moveLayerInSource(normalizedSource, item.id, time, (nativeItem as { duration: number }).duration, ref);
+    const place = (movedItem: VisualItem, rowId: string, start: number): void => {
+        const ref = normalized.find(track => track.id === rowId)!.ref!;
+        const entry = movedItem.kind === 'cut' ? value.cuts[movedItem.index] : value.layers.find((layer: { id: string }) => layer.id === movedItem.id);
+        entry.track = ref;
+        entry[movedItem.kind === 'cut' ? 'at' : 't'] = start;
+    };
+    place(item, targetId, time);
+    if (plan.swap) place(plan.swap.interval.item, plan.swap.rowId, plan.swap.time);
+    return JSON.stringify(value, null, 2) + '\n';
 }
 
 /** Insert an empty shared row using a globally unused visual ref; never shift native streams independently. */

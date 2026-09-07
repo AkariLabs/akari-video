@@ -7,8 +7,8 @@ test('video rows expand native media in declared bottom-to-top order',()=>{
  assert.equal(usesDefaultTrackOrder(edit),false);
  assert.deepEqual(resolveTrackOrder({...edit,timeline:{tracks:[...edit.timeline.tracks].reverse()}}).map(t=>[t.kind,t.ref]),[['cuts',1],['layers',0]]);
 });
-test('mixed row expands both streams and unused empty rows do not force another render path',()=>{
- const mixed={...edit,layers:[{...edit.layers[0],track:1}]};
+test('non-overlapping native streams share one declared video row',()=>{
+ const mixed={...edit,layers:[{...edit.layers[0],track:1,t:2}]};
  assert.deepEqual(resolveTrackOrder(mixed).map(t=>[t.kind,t.ref]),[['cuts',1],['layers',1]]);
  assert.equal(usesDefaultTrackOrder(mixed),false);
 });

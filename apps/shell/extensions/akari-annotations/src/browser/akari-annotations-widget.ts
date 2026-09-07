@@ -42,7 +42,7 @@ import {
     deriveDefaultTimelineTracks,
     withCaptionsDisplaySupplement
 } from '../common/derive-timeline-tracks';
-import { moveVisualItemInSource, createVisualTrackInSource, isVisualMediaTrack } from '@akari-video/edit-store/lib/visual-tracks';
+import { moveVisualItemInSource, createVisualTrackInSource, isVisualMediaTrack, planVisualMove, visualTrackIntervals, visualIntervalsOverlap, findVisualFreeSlot, VisualMovePlan } from '@akari-video/edit-store/lib/visual-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { computeCutBoundaries } from '../common/cut-boundaries';
@@ -451,6 +451,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** トラック id → そのトラックが実際に必要とするサブ行数（bgm と sfx が同じ ref を共有する既存仕様向け）。 */
     protected readonly audioTrackSubrowCounts = new Map<string, number>();
     /** cuts/audio トラックの per-track 高さ（px、連続値）。キー = EditTimelineTrack.id。StorageService から遅延読み込み。 */
+    protected visualSwapGhost?: HTMLDivElement;
     protected readonly videoItemBounds = new Map<string, LaneBounds>();
     protected headerDragActive = false;
     protected cancelHeaderDrag?: () => void;
@@ -2761,6 +2762,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 options = { ...options, insertTrack: undefined };
                 zone = kind === 'video' ? 'cuts' : 'layers';
             }
+            if (zone !== 'audio' && options?.insertTrack === undefined) {
+                const current = parseEdit(JSON.stringify(value));
+                const rows = current.timeline?.tracks ?? this.timelineTracks;
+                const row = rows.find(candidate => (candidate.kind === zone || candidate.kind === 'video') && (candidate.ref ?? 0) === track);
+                if (row) t = findVisualFreeSlot(visualTrackIntervals(current.cuts, current.layers, rows).filter(interval => interval.rowId === row.id), t, durationSeconds);
+            }
             let successNote = 'タイムラインに素材を追加しました。';
             let warningNote = '';
             let beyondNote = '';
@@ -3695,20 +3702,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ...this.layers.filter(item => (item.track ?? 0) === ref).map(item => ({ key: `layer:${item.id}`, start: item.t, end: item.t + item.duration })),
                     ...this.segments.filter(item => item.track === ref).map(item => ({ key: `cut:${item.index}`, start: item.tlStart, end: item.tlEnd }))
                 ];
-                const rows = assignSubRows(items);
-                const count = Math.max(1, ...rows.map(row => row + 1));
-                height = Math.max(count * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
-                const stride = height / count;
-                items.forEach((item, index) => this.videoItemBounds.set(item.key, {
-                    top: nextTop + rows[index] * stride, height: item.key.startsWith('cut:') ? stride : stride - SUBROW_GAP
+                height = this.trackHeightFor(timelineTrack);
+                items.forEach(item => this.videoItemBounds.set(item.key, {
+                    top: nextTop, height
                 }));
             } else if (timelineTrack.kind === 'cuts') {
                 height = this.trackHeightFor(timelineTrack);
             } else if (timelineTrack.kind === 'layers') {
                 const items = this.layers.filter(layer => (layer.track ?? 0) === ref);
-                const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
-                items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
-                height = Math.max((rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
+                items.forEach(layer => this.layerRows.set(layer.id, 0));
+                height = this.trackHeightFor(timelineTrack);
             } else if (timelineTrack.kind === 'overlays') {
                 const items = this.overlays.filter(overlay => overlay.track === ref);
                 const rows = assignSubRows(items.map(overlay => ({
@@ -4020,7 +4023,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const stride = layout.height / Math.max(1, ...this.layers.filter(item => (item.track ?? 0) === (layer.track ?? 0)).map(item => (this.layerRows.get(item.id) ?? 0) + 1));
             const bounds = this.videoItemBounds.get(`layer:${layer.id}`);
             const top = bounds?.top ?? layout.top + (this.layerRows.get(layer.id) ?? 0) * stride;
-            const itemHeight = bounds?.height ?? stride - SUBROW_GAP;
+            const itemHeight = bounds?.height ?? layout.height;
             const element = this.stripSegment(
                 layer.t, end, top, itemHeight,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
@@ -6349,6 +6352,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateDragPreview(state: DragState, clientX: number, clientY: number, allowGuide: boolean): DragPreview {
+        this.hideVisualSwapGhost();
         const rect = this.strip.getBoundingClientRect();
         const duration = this.visibleDuration();
         // strip 全体で秒/px の縮尺は一定なので、この delta は source 秒・出力秒のどちらにもそのまま使える。
@@ -6476,13 +6480,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const at = Math.max(0, snap.time);
             const visual = this.visualTrackAtClientY(clientY);
             if (visual) {
-                const rejected = !!visual.track.locked || (visual.track.kind !== 'layers'
-                    && this.cutWouldOverlap(state.index, at, state.duration, visual.layout.track));
+                const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'cut', index: state.index }, visual.track.id, at);
+                const rejected = !plan.accepted;
                 this.setGhostRange(state.ghost, at, at + state.duration);
                 state.ghost.style.top = `${visual.layout.top}px`;
+                state.ghost.style.height = `${visual.layout.height}px`;
                 this.setGhostRejected(state.ghost, rejected);
                 this.hideTrackInsertIndicator();
-                this.updateDragFeedback(state, rejected ? '同じトラック内で重なるか、ロックされています。' : this.formatTimestamp(at));
+                this.showVisualSwapGhost(plan);
+                this.updateDragFeedback(state, plan.accepted === false ? plan.reason : `${plan.mode === 'swap' ? '入れ替え · ' : ''}${this.formatTimestamp(at)}`);
                 return { kind: 'cut-move', index: state.index, at, track: visual.layout.track, rejected, targetTimelineId: visual.track.id };
             }
             const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack);
@@ -6579,11 +6585,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (visual) {
                     this.setGhostRange(state.ghost, t, t + itemDuration);
                     state.ghost.style.top = `${visual.layout.top}px`;
-                    this.setGhostRejected(state.ghost, !!visual.track.locked);
+                    state.ghost.style.height = `${visual.layout.height}px`;
+                    const plan = planVisualMove(this.cuts, this.layers, this.timelineTracks, { kind: 'layer', id: state.id }, visual.track.id, t);
+                    this.setGhostRejected(state.ghost, !plan.accepted);
                     this.hideTrackInsertIndicator();
-                    this.updateDragFeedback(state, visual.track.locked ? 'トラックがロックされています。' : this.formatTimestamp(t));
+                    this.showVisualSwapGhost(plan);
+                    this.updateDragFeedback(state, plan.accepted === false ? plan.reason : `${plan.mode === 'swap' ? '入れ替え · ' : ''}${this.formatTimestamp(t)}`);
                     return { kind: 'layer', id: state.id, t, duration: itemDuration, track: visual.layout.track,
-                        rejected: !!visual.track.locked, targetTimelineId: visual.track.id };
+                        rejected: !plan.accepted, targetTimelineId: visual.track.id };
                 }
                 const hit = this.trackAtClientY(
                     'layer', this.laneLayout.layerTracks, clientY, state.originalTrack
@@ -6600,6 +6609,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 insertAboveId = this.laneLayout.tracks.find(row => row.top === hit.top)?.id;
                 state.ghost.style.top = `${hit.top}px`;
             }
+            if (state.mode !== 'move') rejected = this.visualItemWouldOverlap({ kind: 'layer', id: state.id }, t, t + itemDuration);
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
@@ -6770,6 +6780,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected visualItemWouldOverlap(item: { kind: 'cut'; index: number } | { kind: 'layer'; id: string }, start: number, end: number): boolean {
+        const intervals = visualTrackIntervals(this.cuts, this.layers, this.timelineTracks);
+        const key = item.kind === 'cut' ? `cut:${item.index}` : `layer:${item.id}`;
+        const original = intervals.find(interval => interval.key === key);
+        return !!original && intervals.some(interval => interval.rowId === original.rowId && interval.key !== key
+            && visualIntervalsOverlap(start, end, interval));
+    }
+
+    protected hideVisualSwapGhost(): void {
+        this.visualSwapGhost?.remove();
+        this.visualSwapGhost = undefined;
+    }
+
+    protected showVisualSwapGhost(plan: VisualMovePlan): void {
+        if (plan.accepted === false || !plan.swap) return;
+        const layout = this.laneLayout.tracks.find(row => row.id === plan.swap!.rowId);
+        if (!layout) return;
+        const swap = plan.swap;
+        const ghost = document.createElement('div');
+        ghost.className = 'akari-visual-swap-ghost';
+        Object.assign(ghost.style, { position: 'absolute', top: `${layout.top}px`, height: `${layout.height}px`,
+            border: '2px dashed var(--theia-charts-green, #56b88a)', background: 'rgba(86,184,138,.18)',
+            boxSizing: 'border-box', pointerEvents: 'none', zIndex: '9', borderRadius: '5px' });
+        ghost.appendChild(this.segmentLabel('入れ替え'));
+        this.setGhostRange(ghost, swap.time, swap.time + swap.interval.end - swap.interval.start);
+        this.strip.appendChild(ghost);
+        this.visualSwapGhost = ghost;
+    }
+
     protected visualTrackAtClientY(clientY: number): { track: EditTimelineTrack; layout: TrackGroupLayout } | undefined {
         const y = clientY - this.strip.getBoundingClientRect().top;
         const layout = this.laneLayout.tracks.find(row => this.inBounds(y, row));
@@ -6781,18 +6820,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const editUri = this.location?.editUri;
         if (!editUri || (!preview.targetTimelineId && preview.insertTrack === undefined)) return;
         const before = (await this.fileService.readFile(editUri)).value.toString();
+        const heights = this.timelineTracks.map(row => ({ id: row.id, height: this.trackHeightFor(row) }));
         const item = preview.kind === 'cut-move' ? { kind: 'cut' as const, index: preview.index } : { kind: 'layer' as const, id: preview.id };
         const insertion = preview.targetTimelineId ? undefined : createVisualTrackInSource(before, this.timelineTracks, preview.insertAboveId);
-        const after = moveVisualItemInSource(insertion?.source ?? before, this.timelineTracks, item, preview.targetTimelineId ?? insertion!.track.id,
-            preview.kind === 'cut-move' ? preview.at : preview.t);
+        const candidate = insertion?.source ?? before;
+        const parsed = parseEdit(candidate);
+        const targetId = preview.targetTimelineId ?? insertion!.track.id;
+        const time = preview.kind === 'cut-move' ? preview.at : preview.t;
+        const plan = planVisualMove(parsed.cuts, parsed.layers, parsed.timeline?.tracks ?? this.timelineTracks, item, targetId, time);
+        const label = plan.accepted && plan.mode === 'swap' ? '映像の入れ替え' : '映像トラック間の移動';
+        const after = moveVisualItemInSource(candidate, this.timelineTracks, item, targetId, time);
         await this.writeEditSnapshotGuarded(after);
+        // Changing a row's storage kind must not silently double its display height.
+        await Promise.all(heights.map(row => this.storage.setData(this.trackHeightStorageKey(editUri, row.id), row.height)))
+            .catch(() => undefined);
         const restore = async (source: string): Promise<void> => {
             await this.writeEditSnapshotGuarded(source);
             await this.reloadEdit();
         };
-        this.pushHistory({ label: '映像トラック間の移動', undo: () => restore(before), redo: () => restore(after) });
+        this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
         await this.reloadEdit();
-        this.footer.textContent = '映像を移動しました。';
+        this.footer.textContent = `${label}を行いました。`;
         this.revealOutputPreview();
     }
 
@@ -6879,6 +6927,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected cutWouldOverlap(index: number, at: number, duration: number, track: number): boolean {
         const end = at + duration;
+        if (this.timelineTracks.some(row => row.kind === 'video' && row.ref === track)
+            && this.layers.some(layer => (layer.track ?? 0) === track && visualIntervalsOverlap(at, end, { start: layer.t, end: layer.t + layer.duration }))) return true;
         return this.segments.some(segment => {
             if (segment.index === index || segment.track !== track) {
                 return false;
@@ -7091,6 +7141,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.dragState !== state) {
             return;
         }
+        this.hideVisualSwapGhost();
         try {
             if (state.element.hasPointerCapture(state.pointerId)) {
                 state.element.releasePointerCapture(state.pointerId);
@@ -8054,6 +8105,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialDropTime(
         clientX: number, zone: MaterialDropZone, track: number, durationSeconds: number
     ): number {
+        const row = this.timelineTracks.find(candidate => (candidate.kind === zone || candidate.kind === 'video') && (candidate.ref ?? 0) === track);
+        if (row && zone !== 'audio') {
+            const intervals = visualTrackIntervals(this.cuts, this.layers, this.timelineTracks).filter(interval => interval.rowId === row.id);
+            return findVisualFreeSlot(intervals, this.materialDropTimeAtClientX(clientX), durationSeconds);
+        }
         if (zone !== 'cuts') {
             return this.materialDropTimeAtClientX(clientX);
         }

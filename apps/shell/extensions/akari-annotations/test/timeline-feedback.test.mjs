@@ -43,7 +43,7 @@ test('high zoom ticks use project frames including one-frame intervals', () => {
     assert.equal(widget.formatFrameTimestamp(1 + 5 / 60, 60), '00:01:05');
 });
 
-test('layer, HTML, and caption rows honor resized heights without collapsing overlaps', () => {
+test('explicit heights are honored; overlapping visual items do not inflate the row', () => {
     const widget = Object.assign(new Widget(), {
         computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [{start:0,end:2}], captionRows: [0], beats: [], layers: [{id:'one',track:0,t:0,duration:2},{id:'two',track:0,t:0,duration:2}], overlays: [],
         videoItemBounds: new Map(), overlayRows: new Map(), layerRows: new Map(), audioSfxRows: new Map(), audioNarrationRows: new Map(), audioTrackSubrowCounts: new Map(),
@@ -54,10 +54,10 @@ test('layer, HTML, and caption rows honor resized heights without collapsing ove
     assert.deepEqual(widget.laneLayout.tracks.map(track => track.height), [120,120,120]);
     widget.trackHeightFor = () => 28;
     widget.calculateLaneLayout();
-    assert.equal(widget.laneLayout.layerTracks[0].height, 72);
+    assert.equal(widget.laneLayout.layerTracks[0].height, 28);
 });
 
- test('shared video row exposes cut/layer hit areas and separate bounds for overlapping media', () => {
+ test('one video track stays one band and never manufactures nested subrows', () => {
     const widget = Object.assign(new Widget(), {
         computeAudioDisplayTracks() {}, computeCaptionsDisplayTrack() {}, captions: [], captionRows: [], beats: [],
         layers: [{id:'layer',track:2,t:0,duration:2}], segments:[{index:0,track:2,tlStart:0,tlEnd:2}], overlays: [],
@@ -68,5 +68,8 @@ test('layer, HTML, and caption rows honor resized heights without collapsing ove
     assert.equal(widget.laneLayout.tracks.length,1);
     assert.equal(widget.laneLayout.cutTracks[0].id,'v');assert.equal(widget.laneLayout.layerTracks[0].id,'v');
     const cut=widget.videoItemBounds.get('cut:0'), layer=widget.videoItemBounds.get('layer:layer');
-    assert.ok(cut.top>=layer.top+layer.height);
+    assert.equal(cut.top,layer.top);
+    widget.trackHeightFor=()=>28;widget.calculateLaneLayout();
+    assert.equal(widget.laneLayout.tracks[0].height,28);
+    assert.equal(widget.videoItemBounds.get('cut:0').top,widget.videoItemBounds.get('layer:layer').top);
  });
