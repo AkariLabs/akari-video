@@ -1295,6 +1295,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }));
 
+        const previewMatchesProject = (detail: { editUri?: string }): boolean =>
+            !!detail.editUri && detail.editUri === this.location?.editUri?.toString();
+        const onPreviewEdit = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; before: string; after: string; label: string }>).detail;
+            if (!detail || !previewMatchesProject(detail) || typeof detail.before !== 'string' || typeof detail.after !== 'string') return;
+            const restore = async (source: string): Promise<void> => {
+                await this.writeEditSnapshotGuarded(source);
+                await this.reloadEdit();
+            };
+            this.pushHistory({ label: detail.label, undo: () => restore(detail.before), redo: () => restore(detail.after) });
+        };
+        const onPreviewHistory = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; direction: string }>).detail;
+            if (!detail || !previewMatchesProject(detail)) return;
+            if (detail.direction === 'undo') void this.performUndo();
+            if (detail.direction === 'redo') void this.performRedo();
+        };
+        const onPreviewBackground = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string }>).detail;
+            if (detail && previewMatchesProject(detail)) this.applySelection(undefined, false);
+        };
+        for (const [type, listener] of [
+            ['akari.preview.editCommitted', onPreviewEdit], ['akari.preview.history', onPreviewHistory],
+            ['akari.preview.backgroundSelected', onPreviewBackground]
+        ] as const) {
+            window.addEventListener(type, listener);
+            this.toDispose.push(Disposable.create(() => window.removeEventListener(type, listener)));
+        }
+
         // 素材カード D&D の window CustomEvent ミラー受信（司令塔裁定4・指示5）。dragover 中は
         // DataTransfer.getData が読めないため、dragstart で受け取ったペイロードをここに保持し、
         // ゴースト計算・実尺プローブに使う。drop 自体は DataTransfer を正として別途 getData する。
@@ -7667,7 +7696,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.redoButton.disabled = this.future.length === 0;
     }
 
-    protected async performUndo(): Promise<void> {
+    protected historyActionTail: Promise<void> = Promise.resolve();
+
+    protected performUndo(): Promise<void> {
+        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => this.performUndoNow());
+        return this.historyActionTail;
+    }
+
+    protected performRedo(): Promise<void> {
+        this.historyActionTail = this.historyActionTail.catch(() => undefined).then(() => this.performRedoNow());
+        return this.historyActionTail;
+    }
+
+    protected async performUndoNow(): Promise<void> {
         const entry = this.past.pop();
         if (!entry) {
             return;
@@ -7688,7 +7729,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async performRedo(): Promise<void> {
+    protected async performRedoNow(): Promise<void> {
         const entry = this.future.pop();
         if (!entry) {
             return;

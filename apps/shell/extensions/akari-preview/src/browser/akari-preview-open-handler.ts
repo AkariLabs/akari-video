@@ -1578,6 +1578,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-history' && (message.direction === 'undo' || message.direction === 'redo')) {
+                void Promise.all([this.cutWriteTail, this.layerWriteTail, this.overlayWriteTail]).then(() => {
+                    window.dispatchEvent(new CustomEvent('akari.preview.history', {
+                        detail: { editUri: widget.akariPreviewEditUri?.toString(), direction: message.direction }
+                    }));
+                });
+            }
+            if (message?.type === 'akari-preview-background-selected') {
+                const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+                if (editUri) {
+                    this.requestedCutSelections.set(editUri, null);
+                    window.dispatchEvent(new CustomEvent('akari.preview.backgroundSelected', { detail: { editUri } }));
+                }
+            }
+
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
@@ -3216,6 +3231,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
+                detail: { editUri: editUri.toString(), before: originalText, after: candidateText, label: 'プレビューの変形' }
+            }));
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -3267,6 +3285,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             this.recentWrites.set(editUri.toString(), Date.now());
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            if (candidateText !== originalText) window.dispatchEvent(new CustomEvent('akari.preview.editCommitted', {
+                detail: { editUri: editUri.toString(), before: originalText, after: candidateText, label: 'プレビューの変形' }
+            }));
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -3606,8 +3627,12 @@ ${captionFontFaceCss(assets.captionFontDataUri)}
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: #090909; }
-#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
+.preview-pane { min-width: 0; min-height: 0; padding: 0; display: grid; place-items: center; background: #303030; }
+#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #303030; }
+#preview-output-frame { position: absolute; background: #000; outline: 1px solid #777; pointer-events: none; }
+#preview-output-frame.is-selected { outline: 2px solid #4da3ff; }
+#background-selection-label { position: absolute; top: 4px; left: 4px; display: none; padding: 3px 6px; background: #252525; color: #fff; font-size: 12px; }
+#preview-output-frame.is-selected #background-selection-label { display: block; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
@@ -3728,6 +3753,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <div id="zoom-layer">
+        <div id="preview-output-frame" aria-label="出力背景（黒）"><span id="background-selection-label">背景</span></div>
         <div id="preview-layers"><video id="preview-video" src="${this.escapeHtml(videoSource)}" preload="auto"></video></div>
         <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
         <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
@@ -4246,6 +4272,8 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportLayerSelection = layerId => {
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
+            window.akari.requestHistory = direction => vscode.postMessage({ type: 'akari-preview-history', direction });
+            window.akari.reportBackgroundSelection = () => vscode.postMessage({ type: 'akari-preview-background-selected' });
             window.akari.reportCutSelection = selected => {
                 vscode.postMessage({ type: 'akari-preview-cut-selected', selected });
             };
@@ -4359,6 +4387,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.style.top = '0px';
                 video.style.width = outputWidth + 'px';
                 video.style.height = outputHeight + 'px';
+                const outputFrame = document.getElementById('preview-output-frame');
+                if (outputFrame) Object.assign(outputFrame.style, {
+                    left: frameRect.x + 'px', top: frameRect.y + 'px',
+                    width: frameRect.width + 'px', height: frameRect.height + 'px'
+                });
                 layersStage.style.left = frameRect.x + 'px';
                 layersStage.style.top = frameRect.y + 'px';
                 layersStage.style.width = outputWidth + 'px';
@@ -5742,6 +5775,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
                 selectedLayerId = nextId;
                 // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
+                if (nextId) document.getElementById('preview-output-frame').classList.remove('is-selected');
                 if (nextId && typeof deselectCut === 'function') deselectCut({ report: true });
                 if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: true });
                 if (nextId) {
@@ -6134,7 +6168,6 @@ body { display: grid; place-items: center; padding: 32px; }
             }
             new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
             wrapper.addEventListener('click', event => {
-                if (!selectedLayerId && !cutSelected) return;
                 if (event.target.closest
                     && (event.target.closest('#layer-select-box') || event.target.closest('#cut-select-box')
                         || event.target.closest('#layer-crop-box') || event.target.closest('#layer-crop-toggle')
@@ -6155,6 +6188,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (hitSelectable) return;
                 if (selectedLayerId) selectLayer(null);
                 if (cutSelected) deselectCut();
+                const background = document.getElementById('preview-output-frame');
+                const bounds = background.getBoundingClientRect();
+                const inside = event.clientX >= bounds.left && event.clientX <= bounds.right
+                    && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+                background.classList.toggle('is-selected', inside);
+                if (inside) {
+                    requestedCutIndex = null;
+                    if (typeof deselectCaption === 'function') deselectCaption({ report: false });
+                    window.akari.reportBackgroundSelection();
+                }
+
             });
             new ResizeObserver(() => updateLayerSelectBox()).observe(wrapper);
 
@@ -6215,6 +6259,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 cutSelectBox.classList.add('is-active');
             };
             const selectCut = options => {
+                document.getElementById('preview-output-frame').classList.remove('is-selected');
                 const report = !options || options.report !== false;
                 if (cutSelected) {
                     updateCutSelectBox();
@@ -7941,6 +7986,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopPropagation();
                 window.akari.exitFullscreen();
+            }, true);
+            window.addEventListener('keydown', event => {
+                if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'z'
+                    || isEditable(event.target)) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                window.akari.requestHistory(event.shiftKey ? 'redo' : 'undo');
             }, true);
             window.addEventListener('keydown', event => {
                 if ((event.code !== 'Space' && event.key !== ' ')
