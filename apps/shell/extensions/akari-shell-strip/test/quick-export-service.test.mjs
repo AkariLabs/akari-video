@@ -134,18 +134,18 @@ test('start: render-cut の stage / frame 出力を status の詳細進捗へ載
     assert.equal(status.progressPercent, 33);
 });
 
-test('cancel: 実行中の子プロセスへ SIGTERM を送り cancelled へ終端する', async () => {
+test('cancel: 実行中の子プロセスの「プロセスグループ」へ SIGTERM を送り cancelled へ終端する', async () => {
+    // 直接の子（render-cut / osr-export の node）だけを殺すと、その子が起こした
+    // ffmpeg / OSR Electron / Chromium が孤児として残り続ける。中止はグループ宛でなければならない。
     class CancelService extends AkariQuickExportServiceImpl {
         constructor() {
             super();
-            this.signals = [];
+            this.groupSignals = [];
+            this.directSignals = [];
             this.fakeChild = {
+                pid: 4242,
                 kill: signal => {
-                    this.signals.push(signal);
-                    queueMicrotask(() => {
-                        this.activeChild = undefined;
-                        this.closeListener?.();
-                    });
+                    this.directSignals.push(signal);
                     return true;
                 },
                 once: (event, listener) => {
@@ -153,6 +153,14 @@ test('cancel: 実行中の子プロセスへ SIGTERM を送り cancelled へ終�
                     return this.fakeChild;
                 }
             };
+        }
+        platform() { return 'darwin'; }
+        signalProcessGroup(pid, signal) {
+            this.groupSignals.push([pid, signal]);
+            queueMicrotask(() => {
+                this.activeChild = undefined;
+                this.closeListener?.();
+            });
         }
         prime() {
             this.running = true;
@@ -163,8 +171,80 @@ test('cancel: 実行中の子プロセスへ SIGTERM を送り cancelled へ終�
     const service = new CancelService();
     service.prime();
     assert.deepEqual(await service.cancel(), { cancelled: true });
-    assert.deepEqual(service.signals, ['SIGTERM']);
+    assert.deepEqual(service.groupSignals, [[4242, 'SIGTERM']]);
+    assert.deepEqual(service.directSignals, []);
     assert.equal((await service.getStatus()).phase, 'cancelled');
+});
+
+test('cancel: SIGTERM で 5 秒以内に終わらなければグループへ SIGKILL を送る', async () => {
+    class StubbornService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.groupSignals = [];
+            this.fakeChild = { pid: 99, kill: () => true, once: () => this.fakeChild };
+        }
+        platform() { return 'linux'; }
+        signalProcessGroup(pid, signal) { this.groupSignals.push([pid, signal]); }
+        prime() {
+            this.running = true;
+            this.activeChild = this.fakeChild;
+            this.status = { phase: 'rendering', logTail: '' };
+        }
+    }
+    const service = new StubbornService();
+    service.prime();
+    assert.deepEqual(await service.cancel(), { cancelled: true });
+    assert.deepEqual(service.groupSignals, [[99, 'SIGTERM'], [99, 'SIGKILL']]);
+});
+
+test('cancel: Windows では taskkill /T でツリーごと畳む', async () => {
+    class WindowsService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.treeKills = [];
+            this.fakeChild = {
+                pid: 777,
+                kill: () => true,
+                once: (event, listener) => {
+                    if (event === 'close') this.closeListener = listener;
+                    return this.fakeChild;
+                }
+            };
+        }
+        platform() { return 'win32'; }
+        killWindowsTree(pid) {
+            this.treeKills.push(pid);
+            queueMicrotask(() => {
+                this.activeChild = undefined;
+                this.closeListener?.();
+            });
+        }
+        prime() {
+            this.running = true;
+            this.activeChild = this.fakeChild;
+            this.status = { phase: 'rendering', logTail: '' };
+        }
+    }
+    const service = new WindowsService();
+    service.prime();
+    assert.deepEqual(await service.cancel(), { cancelled: true });
+    assert.deepEqual(service.treeKills, [777]);
+});
+
+test('onStop: シェル終了時に走っている書き出しをグループごと道連れにする', () => {
+    class StopService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.groupSignals = [];
+            this.activeChild = { pid: 1234, kill: () => true, once: () => undefined };
+        }
+        platform() { return 'darwin'; }
+        signalProcessGroup(pid, signal) { this.groupSignals.push([pid, signal]); }
+    }
+    const service = new StopService();
+    service.onStop();
+    assert.deepEqual(service.groupSignals, [[1234, 'SIGKILL']]);
+    assert.equal(service.activeChild, undefined);
 });
 
 test('revealArtifact: OS ごとのファイル管理コマンドを組み立てる', () => {
@@ -368,4 +448,79 @@ test('recheckLint: CLI 不在・異常終了は unavailable として保持中�
     assert.equal(crashedResult.outcome, 'unavailable');
     assert.match(crashedResult.reason, /boom|exit code 2/);
     assert.equal(crashedResult.status.phase, 'lint-failed');
+});
+
+// --- 中止で残った作業ディレクトリの片付け（押されたときだけ消す）-----------------
+
+/** `.akari/render-tmp` を模した最小の fs スタブ。 */
+function leftoverService(entriesAtStart, entriesNow, sizes = {}) {
+    const removed = [];
+    class LeftoverService extends AkariQuickExportServiceImpl {
+        constructor() {
+            super();
+            this.removed = removed;
+            this.currentProjectRoot = '/project';
+            this.renderTmpEntriesAtStart = new Set(entriesAtStart);
+        }
+        async readRenderTmpEntries() { return new Set(entriesNow); }
+        async treeSize(path) { return sizes[path.split('/').pop()] ?? 0; }
+    }
+    const service = new LeftoverService();
+    service.fsImpl.rm = async path => { removed.push(path); };
+    return service;
+}
+
+test('cancel 後: start 前から在った作業ディレクトリは「この回のゴミ」に数えない', async () => {
+    const service = leftoverService(['old-run'], ['old-run', 'new-run'], { 'new-run': 30 * 1024 * 1024 });
+    const leftover = await service.measureCancelledLeftover();
+    assert.deepEqual(leftover, { entries: ['new-run'], bytes: 30 * 1024 * 1024 });
+});
+
+test('cancel 後: 増えた entry が無ければ leftover は undefined（片付け導線を出さない）', async () => {
+    const service = leftoverService(['old-run'], ['old-run']);
+    assert.equal(await service.measureCancelledLeftover(), undefined);
+});
+
+test('discardCancelledLeftover: leftover の entry だけを削除しバイト数を返す', async () => {
+    const service = leftoverService(['old-run'], ['old-run', 'new-run'], { 'new-run': 1024 });
+    service.status = { phase: 'cancelled', logTail: '', cancelledLeftover: { entries: ['new-run'], bytes: 1024 } };
+    // 削除後は増分が消えた状態を返す（数え直しで leftover が消える）。
+    service.readRenderTmpEntries = async () => new Set(['old-run']);
+    assert.deepEqual(await service.discardCancelledLeftover(), { discarded: true, bytes: 1024 });
+    assert.deepEqual(service.removed, ['/project/.akari/render-tmp/new-run']);
+    assert.equal((await service.getStatus()).cancelledLeftover, undefined);
+});
+
+test('discardCancelledLeftover: 書き出しの実行中は消さない', async () => {
+    const service = leftoverService([], ['new-run']);
+    service.running = true;
+    service.status = { phase: 'rendering', logTail: '', cancelledLeftover: { entries: ['new-run'], bytes: 1 } };
+    const result = await service.discardCancelledLeftover();
+    assert.equal(result.discarded, false);
+    assert.deepEqual(service.removed, []);
+});
+
+test('discardCancelledLeftover: leftover が無ければ何も消さない', async () => {
+    const service = leftoverService([], []);
+    service.status = { phase: 'cancelled', logTail: '' };
+    const result = await service.discardCancelledLeftover();
+    assert.equal(result.discarded, false);
+    assert.deepEqual(service.removed, []);
+});
+
+test('resolveRenderTmpEntry: render-tmp の外へ出る entry は解決しない（親越え・絶対パス）', () => {
+    const service = leftoverService([], []);
+    const inside = service.resolveRenderTmpEntry('/project', 'run-1');
+    assert.equal(inside, '/project/.akari/render-tmp/run-1');
+    assert.equal(service.resolveRenderTmpEntry('/project', '../../../etc'), undefined);
+    assert.equal(service.resolveRenderTmpEntry('/project', '/etc/passwd'), undefined);
+    assert.equal(service.resolveRenderTmpEntry('/project', '..'), undefined);
+});
+
+test('discardCancelledLeftover: render-tmp の外を指す entry は消さず失敗として返す', async () => {
+    const service = leftoverService([], ['x']);
+    service.status = { phase: 'cancelled', logTail: '', cancelledLeftover: { entries: ['../../escape'], bytes: 1 } };
+    const result = await service.discardCancelledLeftover();
+    assert.equal(result.discarded, false);
+    assert.deepEqual(service.removed, []);
 });

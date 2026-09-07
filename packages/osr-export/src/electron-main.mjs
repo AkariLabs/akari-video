@@ -24,10 +24,14 @@ import {
 } from "./paint-bitmap.mjs";
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
 import { encodeBgraPng } from "./png.mjs";
+import { installParentPipeGuard } from "./parent-pipe-guard.mjs";
 import { startStaticServer } from "./static-server.mjs";
 import { stripStampRow, verifyStamp } from "./stamp.mjs";
 
 const { app, BrowserWindow, screen } = electron;
+
+installParentPipeGuard(app, { label: "OSR Electron" });
+
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 
 export async function runOsrExport(options) {

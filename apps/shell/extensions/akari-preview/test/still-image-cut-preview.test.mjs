@@ -104,7 +104,7 @@ test('カット選択の当たり判定と select box が静止画でも生き�
 test('prepareHtml が #preview-still と代表ソース静止画時の src 省略を持つ', () => {
     assert.match(compiled, /id="preview-still"/);
     // 代表ソースが静止画のとき <video> に src を与えない（loadedmetadata に依存しない初期化）
-    assert.match(compiled, /primaryIsStillImage \? '' : ` src="/);
+    assert.match(compiled, /primaryIsStillImage \|\| !videoSource \? '' : ` src="/);
     // webview 初期ペイロードに静止画ソース表が載る
     assert.match(compiled, /imageSources: imageSourceUrlById/);
 });

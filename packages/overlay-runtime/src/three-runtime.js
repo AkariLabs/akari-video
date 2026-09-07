@@ -1620,6 +1620,15 @@ window.akari.threeRuntime = (() => {
     await Promise.all(syncPromises);
   }
 
+  function showLoadError(container, error) {
+    setFallback(container, true);
+    const fallback = container.querySelector("[data-akari-3d-fallback]");
+    if (!(fallback instanceof HTMLElement)) return;
+    fallback.textContent = "3Dを読み込めませんでした";
+    fallback.title = error instanceof Error ? error.message : String(error);
+    fallback.dataset.akari3dStatus = "error";
+  }
+
   function setFallback(container, visible) {
     const fallback = container.querySelector("[data-akari-3d-fallback]");
     if (!(fallback instanceof HTMLElement)) return;
@@ -2143,7 +2152,7 @@ window.akari.threeRuntime = (() => {
       releaseVideoTextures(instance);
       instance.status = "error";
       console.error("[akari-three] 3D scene の読み込みに失敗しました", error);
-      setFallback(container, true);
+      showLoadError(container, error);
     });
     return instance;
   }
@@ -2159,7 +2168,7 @@ window.akari.threeRuntime = (() => {
       } catch (error) {
         failedContainers.add(container);
         console.error("[akari-three] 3D scene の初期化に失敗しました", error);
-        setFallback(container, true);
+        showLoadError(container, error);
         return Promise.resolve(false);
       }
     }
@@ -2263,7 +2272,7 @@ window.akari.threeRuntime = (() => {
       } catch (error) {
         failedContainers.add(container);
         console.error("[akari-three] 3D scene の初期化に失敗しました", error);
-        setFallback(container, true);
+        showLoadError(container, error);
         return;
       }
     }
@@ -2284,7 +2293,7 @@ window.akari.threeRuntime = (() => {
 
   function inspect(container) {
     const instance = instances.get(container);
-    if (!instance) return { status: "disposed" };
+    if (!instance) return { status: failedContainers.has(container) ? "error" : "disposed" };
     return {
       status: instance.status,
       memory: { ...instance.renderer.info.memory },
@@ -2294,6 +2303,22 @@ window.akari.threeRuntime = (() => {
       shadows: instance.renderer.shadowMap.enabled,
       videoTextures: instance.videoTextures.size,
       animationClips: instance.animationClips,
+      // glTF physical factors after loading (diagnostics only; never infer screen materials).
+      materials: (() => {
+        const rows = new Map();
+        instance.model?.traverse(node => {
+          for (const material of node.material ? (Array.isArray(node.material) ? node.material : [node.material]) : []) {
+            if (rows.has(material.uuid)) continue;
+            rows.set(material.uuid, {
+              name: material.name, type: material.type, metalness: material.metalness,
+              roughness: material.roughness, specularIntensity: material.specularIntensity,
+              clearcoat: material.clearcoat, clearcoatRoughness: material.clearcoatRoughness,
+              emissiveIntensity: material.emissiveIntensity,
+            });
+          }
+        });
+        return [...rows.values()];
+      })(),
       // materialOverrides の CSS 変数解決・適用結果（検証・証跡用）。
       materialOverrides: instance.materialOverrideReport.map((entry) => ({ ...entry })),
       // texts[] の per-char 展開数（検証・証跡用。flat モードの読み込み完了を絵の比較なしに確認する）

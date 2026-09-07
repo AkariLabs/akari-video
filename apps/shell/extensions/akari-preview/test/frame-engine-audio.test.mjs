@@ -96,7 +96,7 @@ test('shell cuts 評価は EvaluationPlan.base を参照する', () => {
   );
   assert.match(bootstrap, /engine\.createPreviewScheduler\(/u);
   assert.match(renderFrame, /scheduler\.notePresented\(timeUs, \{ reason \}\)/u);
-  assert.match(renderFrame, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
+  assert.doesNotMatch(renderFrame, /if \(plan\.base\.length === 0 && plan\.layers\.length === 0\) return/u);
   assert.match(
     renderFrame,
     /const cutIndex = Number\(plan\.base\[0\] && plan\.base\[0\]\.id\.replace\('cut-', ''\)\);/u,

@@ -37,7 +37,7 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 
 - 字幕・テロップの日本語組版、可読性、配置: [telop.md](telop.md)
 - 表・グラフの HTML/CSS 構成とアニメーション: [table.md](table.md)
-- Three.js + glTF、動画テクスチャ、3D 性能: [3d.md](3d.md)
+- Three.js + glTF、動画テクスチャ、3D 性能: [3d.md](3d.md)。端末の画面・キーの生成や反射調整は [device-materials.md](device-materials.md) も読む。
 - ガラス屈折の宣言、入れ子、ツマミ、静止背景: [glass.md](glass.md)
 - 新しい描画の種類は `packages/overlay-runtime/runtimes.mjs` のマニフェストへ登録する（追加手順: `packages/overlay-runtime/README.md`）。
 - 決定的モーション、イージング、compositor 制約: [motion.md](motion.md)

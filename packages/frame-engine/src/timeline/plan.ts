@@ -109,6 +109,8 @@ type _KnownKeyframeKeysAreExact = Assert<ExactKeys<LayerKeyframe & { animator?: 
 
 export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
   layers?: readonly FrameEngineLayer[];
+  /** DOM overlays also define playback length, including compositions without media cuts. */
+  overlays?: readonly { start: number; duration: number }[];
   maskResolver?: (colorSrc: string) => string | null | undefined;
   onWarning?: (message: string) => void;
 }
@@ -249,7 +251,7 @@ export function buildResolvedTimelinePlan(
   cuts: readonly FrameEngineCut[],
   options: BuildResolvedTimelinePlanOptions = {}
 ): ResolvedTimelinePlan {
-  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+  const { layers = [], overlays = [], maskResolver, onWarning, ...timelineOptions } = options;
   const warned = new Set<string>();
   const warn = (message: string) => {
     if (warned.has(message)) return;
@@ -340,8 +342,11 @@ export function buildResolvedTimelinePlan(
   // 場合など）で総尺 0 になると、書き出しランタイムは全コマを t=0 に丸めて layers を評価できない。
   const layersEnd = visibleLayers.reduce((maximum, layer) =>
     Math.max(maximum, finite(layer.t, 0) + Math.max(0, finite(layer.duration, 0))), 0);
+  const overlaysEnd = overlays.reduce((end, overlay) =>
+    Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0
+      ? Math.max(end, overlay.start + overlay.duration) : end, 0);
   return {
-    map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd),
+    map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
     layers: visibleLayers,
     layerAdjustLuts,
     ...(layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {}),

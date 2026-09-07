@@ -8,6 +8,7 @@ import electron from "electron";
 import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
 import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
 import { createMemorySampler, memoryHardStopError, MEMORY_HARD_STOP_MARKER, MEMORY_HARD_STOP_REASON, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { installParentPipeGuard } from "../../osr-export/src/parent-pipe-guard.mjs";
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
@@ -17,6 +18,9 @@ import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 import { extractGpuDiagnostics, stripGpuDiagnosticsMarker } from "./gpu-diagnostics.mjs";
 
 const { app, BrowserWindow, ipcMain } = electron;
+
+installParentPipeGuard(app, { label: "GPU Electron" });
+
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
 const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";

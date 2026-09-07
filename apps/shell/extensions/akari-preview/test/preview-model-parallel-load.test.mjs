@@ -30,7 +30,7 @@ test('同じ資産への同時要求は 1 本の createAssetStream に合流す�
   assert.match(loadModel, /const ensureAssetStream = \(key: string, assetUri\?: URI\)/u);
   // 直接 createAssetStream を呼ぶ箇所は合流器の中だけ
   assert.equal((loadModel.match(/this\.createAssetStream\(/g) ?? []).length, 1);
-  assert.match(loadModel, /unsupportedGltfWarnings, ensureAssetStream\n/u);
+  assert.match(loadModel, /unsupportedGltfWarnings, ensureAssetStream, this\.stringRecord\(value\?\.vars\)\n/u);
   assert.match(loadModel, /previewAudioService, previewAudioKeepKeys, ensureAssetStream\n/u);
 });
 

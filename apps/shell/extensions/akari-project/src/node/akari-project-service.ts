@@ -956,15 +956,34 @@ try {
     }
 
     /**
+     * 子プロセスにも同梱 ffmpeg / ffprobe の所在を渡す。優先順位は media-bin と同じ
+     * 明示指定 env → PATH → 同梱で、ユーザーの明示指定はそのまま通す。process.env は
+     * 書き換えず、既存 resolver のキャッシュを使って子プロセス用の env だけを補う。
+     */
+    protected async mediaBinEnv(): Promise<Record<string, string>> {
+        const env: Record<string, string> = {};
+        const ffmpeg = process.env.AKARI_FFMPEG_BIN ?? await this.resolveFfmpegPath();
+        const ffprobe = process.env.AKARI_FFPROBE_BIN ?? await this.resolveFfprobePath();
+        if (ffmpeg !== undefined) {
+            env.AKARI_FFMPEG_BIN = ffmpeg;
+        }
+        if (ffprobe !== undefined) {
+            env.AKARI_FFPROBE_BIN = ffprobe;
+        }
+        return env;
+    }
+
+    /**
      * Electron のバックエンドプロセスから素の node スクリプトを起動する。
      * ELECTRON_RUN_AS_NODE はパッケージ版で process.execPath が Electron 実行体を
      * 指す場合に必要（akari-partner-server.ts の bootstrap と同じ流儀）。
      * 開発時の素の node プロセスでは無害に無視される。
      */
     protected async runNodeScript(scriptPath: string, args: string[], cwd?: string): Promise<{ code: number; stdout: string; stderr: string }> {
+        const mediaBinEnv = await this.mediaBinEnv();
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                env: { ...process.env, ...mediaBinEnv, ELECTRON_RUN_AS_NODE: '1' },
                 cwd,
                 stdio: ['ignore', 'pipe', 'pipe']
             });

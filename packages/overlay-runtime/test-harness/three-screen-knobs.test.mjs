@@ -135,7 +135,7 @@ function scene(id, override) {
     camera: { fov: 40, position: [0, 0.5, 3], lookAt: [0, 0.5, 0] },
     materialOverrides: { ScreenMaterial: override },
   };
-  return `<div id="${id}" class="scene-content"><div class="fragment-root"><canvas></canvas>`
+  return `<div id="${id}" class="scene-content"><div class="fragment-root"><canvas></canvas><div data-akari-3d-fallback>3Dを読み込み中</div>`
     + `<script type="application/json" data-akari-3d-scene>${JSON.stringify(descriptor)}</script></div></div>`;
 }
 
@@ -261,6 +261,10 @@ test("three-runtime resolves material override screen knobs without changing lit
 
   for (const id of ["bad-brightness-string", "bad-brightness-range", "bad-brightness-type"]) {
     const invalid = await observe(id);
-    assert.equal(invalid.inspected.status, "disposed", `${id} should fail descriptor validation`);
+    assert.equal(invalid.inspected.status, "error", `${id} should fail descriptor validation`);
+    const fallback = await page.$eval(`#${id} [data-akari-3d-fallback]`, el => ({ text: el.textContent, title: el.title, hidden: el.hidden }));
+    assert.equal(fallback.text, "3Dを読み込めませんでした");
+    assert.equal(fallback.hidden, false);
+    assert.ok(fallback.title.includes("brightness"));
   }
 });

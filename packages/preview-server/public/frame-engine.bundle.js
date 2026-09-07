@@ -8007,510 +8007,6 @@ var require_audio_schedule = __commonJS({
   }
 });
 
-// ../edit-store/lib/generated/edit-v2-keys.js
-var require_edit_v2_keys = __commonJS({
-  "../edit-store/lib/generated/edit-v2-keys.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
-    exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
-    exports.MOTION_V0_KEYS = ["in", "out", "loop"];
-    exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
-    exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];
-    exports.SOURCE_KIND_V2 = ["media", "html", "shape", "telop", "filter", "group", "captions", "caption"];
-    exports.ITEM_V2_KEYS_BY_DEFINITION = {
-      "itemV2Media": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "mask",
-        "source",
-        "audio"
-      ],
-      "itemV2Html": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Shape": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Telop": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Filter": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Group": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "anchor",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Captions": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2Caption": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "transform",
-        "opacity",
-        "blend",
-        "crop",
-        "adjust",
-        "perspective",
-        "motion",
-        "animator",
-        "keyframes",
-        "items",
-        "source"
-      ],
-      "itemV2AudioMedia": [
-        "id",
-        "name",
-        "hidden",
-        "locked",
-        "at",
-        "duration",
-        "role",
-        "link",
-        "mute",
-        "source",
-        "gain_db",
-        "denoise",
-        "lowcut_hz",
-        "keyframes",
-        "fade_in",
-        "fade_out",
-        "ducking",
-        "duck_db",
-        "duck_attack",
-        "duck_release",
-        "script",
-        "reading",
-        "provenance"
-      ]
-    };
-    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
-      "itemSourceMediaV2": [
-        "kind",
-        "src",
-        "in",
-        "out",
-        "framing",
-        "transition_out",
-        "freeze",
-        "fx",
-        "speed",
-        "gain_db",
-        "mute",
-        "chroma_key"
-      ],
-      "itemSourceAudioMediaV2": [
-        "kind",
-        "src",
-        "in",
-        "out",
-        "speed",
-        "pitch_semitones",
-        "formant"
-      ],
-      "itemSourceHtmlV2": [
-        "kind",
-        "path",
-        "part",
-        "style",
-        "text",
-        "exclude",
-        "derivedFrom",
-        "vars",
-        "params"
-      ],
-      "itemSourceShapeV2": [
-        "kind",
-        "shape",
-        "params"
-      ],
-      "itemSourceTelopV2": [
-        "kind",
-        "preset",
-        "params",
-        "baked",
-        "from"
-      ],
-      "itemSourceFilterV2": [
-        "kind",
-        "filter"
-      ],
-      "itemSourceGroupV2": [
-        "kind"
-      ],
-      "itemSourceCaptionsV2": [
-        "kind",
-        "path",
-        "exclude"
-      ],
-      "itemSourceCaptionV2": [
-        "kind",
-        "path",
-        "id"
-      ]
-    };
-  }
-});
-
-// ../edit-store/lib/canonical.js
-var require_canonical = __commonJS({
-  "../edit-store/lib/canonical.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.serializeEdit = serializeEdit;
-    exports.serializeCaptions = serializeCaptions;
-    exports.serializeMotion = serializeMotion;
-    var edit_v2_keys_1 = require_edit_v2_keys();
-    var ITEM_KEY_ORDER = [
-      "id",
-      "name",
-      "at",
-      "duration",
-      "hidden",
-      "locked",
-      "transform",
-      "opacity",
-      "blend",
-      "crop",
-      "perspective",
-      "motion",
-      "animator",
-      "keyframes",
-      "source",
-      "audio",
-      "items",
-      "role",
-      "link",
-      "mute"
-    ];
-    var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
-    var TRACK_KEY_ORDER = ["id", "lane", "name", "muted", "items", "content"];
-    var CAPTION_KEY_ORDER = [
-      "id",
-      "start",
-      "end",
-      "text",
-      "speaker",
-      "sourceRef",
-      "edited",
-      "time_domain",
-      "text_style"
-    ];
-    function serializeEdit(doc) {
-      const edit = requireRecord(doc, "edit.json");
-      return `${serializeTopObject(edit, EDIT_KEY_ORDER, (key, value, indent) => {
-        if (key === "tracks" && Array.isArray(value))
-          return serializeTracks(value, indent);
-        if (key === "sources" && Array.isArray(value)) {
-          return serializeRecordArray(value, indent, (entry) => inline(entry));
-        }
-        return serializeTopValue(value, indent);
-      })}
-`;
-    }
-    function serializeCaptions(doc) {
-      if (Array.isArray(doc)) {
-        return `${serializeRecordArray(doc, 0, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER))}
-`;
-      }
-      const root = requireRecord(doc, "captions.json");
-      return `${serializeTopObject(root, Object.keys(root), (key, value, indent) => key === "captions" && Array.isArray(value) ? serializeRecordArray(value, indent, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER)) : serializeTopValue(value, indent))}
-`;
-    }
-    function serializeMotion(doc) {
-      const motion2 = requireRecord(doc, "motion/*.json");
-      return `${serializeTopObject(motion2, edit_v2_keys_1.MOTION_FILE_V0_KEYS, (key, value, indent) => {
-        if (key !== "items" || !isRecord2(value))
-          return serializeTopValue(value, indent);
-        const entries = Object.entries(value);
-        if (entries.length === 0)
-          return "{}";
-        const lines = ["{"];
-        entries.forEach(([id, points], index) => {
-          const prefix = `${" ".repeat(indent + 2)}${JSON.stringify(id)}: `;
-          if (!Array.isArray(points) || points.length === 0) {
-            lines.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
-            return;
-          }
-          lines.push(`${prefix}[`);
-          const orderedPoints = [...points].sort((left, right) => frameOf(left) - frameOf(right));
-          orderedPoints.forEach((point, pointIndex) => {
-            lines.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
-          });
-          lines.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
-        });
-        lines.push(`${" ".repeat(indent)}}`);
-        return lines.join("\n");
-      })}
-`;
-    }
-    function serializeTopObject(value, preferred, render) {
-      const keys = orderedKeys(value, preferred);
-      if (keys.length === 0)
-        return "{}";
-      const lines = ["{"];
-      keys.forEach((key, index) => {
-        const rendered = render(key, value[key], 2);
-        const renderedLines = rendered.split("\n");
-        lines.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
-        for (const line of renderedLines.slice(1))
-          lines.push(line);
-        if (index + 1 < keys.length)
-          lines[lines.length - 1] += ",";
-      });
-      lines.push("}");
-      return lines.join("\n");
-    }
-    function serializeTopValue(value, indent) {
-      if (Array.isArray(value)) {
-        if (value.length === 0)
-          return "[]";
-        return serializeStructuredArray(value, indent);
-      }
-      if (isRecord2(value) && hasNonEmptyArray(value)) {
-        return serializeStructuredObject(value, indent);
-      }
-      return inline(value);
-    }
-    function serializeStructuredArray(values, indent) {
-      const lines = ["["];
-      values.forEach((entry, index) => {
-        const rendered = serializeTopValue(entry, indent + 2).split("\n");
-        lines.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
-        lines.push(...rendered.slice(1));
-        if (index + 1 < values.length)
-          lines[lines.length - 1] += ",";
-      });
-      lines.push(`${" ".repeat(indent)}]`);
-      return lines.join("\n");
-    }
-    function serializeStructuredObject(value, indent) {
-      const entries = Object.entries(value);
-      if (entries.length === 0)
-        return "{}";
-      const lines = ["{"];
-      entries.forEach(([key, entry], index) => {
-        const rendered = serializeTopValue(entry, indent + 2).split("\n");
-        lines.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
-        lines.push(...rendered.slice(1));
-        if (index + 1 < entries.length)
-          lines[lines.length - 1] += ",";
-      });
-      lines.push(`${" ".repeat(indent)}}`);
-      return lines.join("\n");
-    }
-    function hasNonEmptyArray(value) {
-      return Object.values(value).some((entry) => Array.isArray(entry) && entry.length > 0);
-    }
-    function serializeTracks(tracks, indent) {
-      if (tracks.length === 0)
-        return "[]";
-      const lines = ["["];
-      tracks.forEach((track, index) => {
-        const record = requireRecord(track, "edit.json.tracks[]");
-        const rendered = serializeItemLike(record, indent + 2, true);
-        lines.push(...appendComma(rendered, index + 1 < tracks.length));
-      });
-      lines.push(`${" ".repeat(indent)}]`);
-      return lines.join("\n");
-    }
-    function serializeItemLike(value, indent, track = false) {
-      const children = value.items;
-      const preferred = track ? [...TRACK_KEY_ORDER] : [...ITEM_KEY_ORDER, ...edit_v2_keys_1.ITEM_V2_KEYS.filter((key) => !ITEM_KEY_ORDER.includes(key))];
-      if (!Array.isArray(children) || children.length === 0) {
-        return [`${" ".repeat(indent)}${inlineObject(value, preferred, !track)}`];
-      }
-      const keys = orderedKeys(value, preferred).filter((key) => key !== "items");
-      const body = keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], !track)}`).join(", ");
-      const lines = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
-      children.forEach((child, index) => {
-        const childRecord = requireRecord(child, "item.items[]");
-        lines.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
-      });
-      lines.push(`${" ".repeat(indent)}] }`);
-      return lines;
-    }
-    function serializeRecordArray(values, indent, render) {
-      if (values.length === 0)
-        return "[]";
-      const lines = ["["];
-      values.forEach((entry, index) => {
-        lines.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
-      });
-      lines.push(`${" ".repeat(indent)}]`);
-      return lines.join("\n");
-    }
-    function inlineField(key, value, item) {
-      if (item && key === "source" && isRecord2(value))
-        return inlineObject(value, ["kind"]);
-      if (item && key === "keyframes" && Array.isArray(value)) {
-        return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
-      }
-      return inline(value);
-    }
-    function inlineOrdered(value, preferred) {
-      return isRecord2(value) ? inlineObject(value, preferred) : inline(value);
-    }
-    function inlineObject(value, preferred, item = false) {
-      const keys = orderedKeys(value, preferred);
-      if (keys.length === 0)
-        return "{}";
-      return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(", ")} }`;
-    }
-    function inline(value) {
-      if (Array.isArray(value))
-        return `[${value.map((entry) => inline(entry)).join(", ")}]`;
-      if (isRecord2(value))
-        return inlineObject(value, Object.keys(value));
-      const serialized = JSON.stringify(value);
-      return serialized === void 0 ? "null" : serialized;
-    }
-    function orderedKeys(value, preferred) {
-      const present = new Set(Object.keys(value).filter((key) => value[key] !== void 0));
-      const keys = preferred.filter((key) => present.delete(key));
-      return [...keys, ...Object.keys(value).filter((key) => present.has(key))];
-    }
-    function appendComma(lines, comma) {
-      if (comma)
-        lines[lines.length - 1] += ",";
-      return lines;
-    }
-    function frameOf(value) {
-      return isRecord2(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
-    }
-    function requireRecord(value, label) {
-      if (!isRecord2(value))
-        throw new Error(`${label} \u306F object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002`);
-      return value;
-    }
-    function isRecord2(value) {
-      return value !== null && typeof value === "object" && !Array.isArray(value);
-    }
-  }
-});
-
 // ../edit-store/lib/tree-ops.js
 var require_tree_ops = __commonJS({
   "../edit-store/lib/tree-ops.js"(exports) {
@@ -9240,6 +8736,710 @@ var require_tree_ops = __commonJS({
         return source.part;
       const hash = itemId.lastIndexOf("#");
       return hash >= 0 ? itemId.slice(hash + 1) : itemId;
+    }
+    function isRecord2(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
+// ../edit-store/lib/cut-audio-split-ops.js
+var require_cut_audio_split_ops = __commonJS({
+  "../edit-store/lib/cut-audio-split-ops.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.canSplitCutAudio = canSplitCutAudio;
+    exports.splitCutAudio = splitCutAudio;
+    exports.linkedAudioItemIdOf = linkedAudioItemIdOf;
+    exports.linkedCutIdOf = linkedCutIdOf;
+    exports.unlinkCutAudio = unlinkCutAudio;
+    exports.moveLinkedCutAudio = moveLinkedCutAudio;
+    exports.removeCutAudioLinked = removeCutAudioLinked;
+    var tree_ops_1 = require_tree_ops();
+    var BLOCKER_MESSAGES = {
+      "not-found": "\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093",
+      "not-visual-media": "\u6620\u50CF\u30C8\u30E9\u30C3\u30AF\u306E\u7D20\u6750\u30AB\u30C3\u30C8\u3060\u3051\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u3059",
+      nested: "\u5165\u308C\u5B50\u306E\u30AB\u30C3\u30C8\u306F\u307E\u3060\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u305B\u3093",
+      anchored: "\u5B57\u5E55\u306B\u56FA\u5B9A\u3057\u305F\u30AB\u30C3\u30C8\u306F\u307E\u3060\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u305B\u3093",
+      speed: "\u901F\u5EA6\u3092\u5909\u3048\u305F\u30AB\u30C3\u30C8\u306F\u307E\u3060\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u305B\u3093",
+      freeze: "\u9759\u6B62\u533A\u9593\u3092\u6301\u3064\u30AB\u30C3\u30C8\u306F\u307E\u3060\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u305B\u3093",
+      "transition-crossfade": "\u30C8\u30E9\u30F3\u30B8\u30B7\u30E7\u30F3\u3092\u6301\u3064\u30AB\u30C3\u30C8\u306F\u307E\u3060\u97F3\u58F0\u3092\u5206\u96E2\u3067\u304D\u307E\u305B\u3093",
+      "already-split": "\u3053\u306E\u30AB\u30C3\u30C8\u306E\u97F3\u58F0\u306F\u3059\u3067\u306B\u5206\u96E2\u3055\u308C\u3066\u3044\u307E\u3059",
+      "no-audio": "\u3053\u306E\u7D20\u6750\u306B\u306F\u97F3\u58F0\u304C\u3042\u308A\u307E\u305B\u3093"
+    };
+    function tree(doc) {
+      return doc;
+    }
+    function canSplitCutAudio(doc, cutId, options = {}) {
+      const location2 = (0, tree_ops_1.locate)(tree(doc), cutId);
+      let blocker;
+      if (!location2)
+        blocker = "not-found";
+      else if (location2.parent || location2.item.items !== void 0)
+        blocker = "nested";
+      else if (location2.track.lane !== "visual" || location2.item.source.kind !== "media")
+        blocker = "not-visual-media";
+      else if (location2.item.anchor !== void 0)
+        blocker = "anchored";
+      else if (location2.item.source.speed !== void 0 && location2.item.source.speed !== 1)
+        blocker = "speed";
+      else if (location2.item.source.freeze != null)
+        blocker = "freeze";
+      else if (location2.item.source.transition_out != null)
+        blocker = "transition-crossfade";
+      else if (location2.item.audio === false)
+        blocker = "already-split";
+      else if (options.hasAudio === false)
+        blocker = "no-audio";
+      return blocker ? { ok: false, blocker, message: BLOCKER_MESSAGES[blocker] } : { ok: true };
+    }
+    function splitCutAudio(doc, options) {
+      const eligible = canSplitCutAudio(doc, options.cutId, options);
+      if (eligible.ok === false)
+        throw new Error(eligible.message);
+      const document2 = structuredClone(doc);
+      const location2 = (0, tree_ops_1.locate)(tree(document2), options.cutId);
+      const cut = location2.item;
+      const visualIds = new Set(location2.track.items.map((item) => item.id));
+      let audioTrack = document2.tracks.find((track) => track.lane === "audio" && "items" in track && track.muted === true === (location2.track.muted === true) && track.items.length > 0 && track.items.every((item) => item.role === "speech" && visualIds.has(item.link)));
+      const createdTrack = audioTrack === void 0;
+      if (!audioTrack) {
+        let index = 0;
+        document2.tracks.forEach((track, i2) => {
+          if (track.lane === "audio")
+            index = i2 + 1;
+        });
+        audioTrack = (0, tree_ops_1.createTrackAt)(tree(document2), "audio", index);
+        const visualNumber = document2.tracks.filter((track) => track.lane === "visual").findIndex((track) => track.id === location2.track.id) + 1;
+        audioTrack.name = `${location2.track.name ?? `V${visualNumber}`}\u306E\u97F3\u58F0`;
+        if (location2.track.muted === true)
+          audioTrack.muted = true;
+      }
+      const ids = new Set((0, tree_ops_1.allLocations)(tree(document2)).map((entry) => entry.item.id));
+      const base = `${cut.id}-audio`;
+      let audioItemId = base;
+      for (let serial = 2; ids.has(audioItemId); serial++)
+        audioItemId = `${base}-${serial}`;
+      const audio = {
+        id: audioItemId,
+        role: "speech",
+        link: cut.id,
+        at: cut.at,
+        duration: cut.duration,
+        source: { kind: "media", src: cut.source.src, in: cut.source.in, out: cut.source.out }
+      };
+      if (cut.source.gain_db !== void 0) {
+        audio.gain_db = cut.source.gain_db;
+        delete cut.source.gain_db;
+      }
+      if (cut.source.mute === true) {
+        audio.mute = true;
+        delete cut.source.mute;
+      }
+      if (Array.isArray(cut.keyframes)) {
+        const visualPoints = [];
+        const audioPoints = [];
+        for (const point of cut.keyframes) {
+          if (point.gain_db === void 0) {
+            visualPoints.push(point);
+            continue;
+          }
+          audioPoints.push({
+            t: point.t,
+            gain_db: point.gain_db,
+            ...point.easing === void 0 ? {} : { easing: structuredClone(point.easing) }
+          });
+          delete point.gain_db;
+          if (Object.keys(point).some((key) => key !== "t" && key !== "easing"))
+            visualPoints.push(point);
+        }
+        if (audioPoints.length) {
+          if (audioPoints.length === 1) {
+            audio.gain_db = Math.max(-60, Math.min(12, (audio.gain_db ?? 0) + audioPoints[0].gain_db));
+          } else
+            audio.keyframes = audioPoints;
+          if (visualPoints.length >= 2)
+            cut.keyframes = visualPoints;
+          else if (visualPoints.length === 0)
+            delete cut.keyframes;
+        }
+      }
+      cut.audio = false;
+      audioTrack.items.push(audio);
+      return { document: document2, audioItemId, audioTrackId: audioTrack.id, createdTrack };
+    }
+    function linkedAudioItemIdOf(doc, cutId) {
+      return (0, tree_ops_1.allLocations)(tree(doc)).find((location2) => location2.track.lane === "audio" && location2.item.link === cutId)?.item.id;
+    }
+    function linkedCutIdOf(doc, audioItemId) {
+      const location2 = (0, tree_ops_1.locate)(tree(doc), audioItemId);
+      return location2?.track.lane === "audio" && typeof location2.item.link === "string" ? location2.item.link : void 0;
+    }
+    function unlinkCutAudio(doc, options) {
+      const document2 = structuredClone(doc);
+      const audio = requireAudio(document2, options.audioItemId);
+      delete audio.item.link;
+      return document2;
+    }
+    function moveLinkedCutAudio(doc, options) {
+      if (!Number.isInteger(options.deltaFrames))
+        throw new Error("\u79FB\u52D5\u91CF\u306F\u6574\u6570\u30D5\u30EC\u30FC\u30E0\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+      const document2 = structuredClone(doc);
+      const cut = requireCut(document2, options.cutId);
+      const audioId = linkedAudioItemIdOf(document2, options.cutId);
+      const locations = [cut, ...audioId === void 0 ? [] : [requireAudio(document2, audioId)]];
+      if (locations.some((location2) => location2.item.at + options.deltaFrames < 0)) {
+        throw new Error("\u30AB\u30C3\u30C8\u307E\u305F\u306F\u97F3\u58F0\u304C\u30BF\u30A4\u30E0\u30E9\u30A4\u30F3\u306E\u5148\u982D\u3088\u308A\u524D\u306B\u306A\u308B\u305F\u3081\u79FB\u52D5\u3067\u304D\u307E\u305B\u3093");
+      }
+      for (const location2 of locations)
+        location2.item.at += options.deltaFrames;
+      return document2;
+    }
+    function removeCutAudioLinked(doc, options) {
+      const document2 = structuredClone(doc);
+      if (!["pair", "audio-only", "cut-only"].includes(options.target))
+        throw new Error("\u524A\u9664\u5BFE\u8C61\u304C\u4E0D\u6B63\u3067\u3059");
+      if (options.cutId === void 0 && options.audioItemId === void 0)
+        throw new Error("\u524A\u9664\u5BFE\u8C61\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+      let cut = options.cutId === void 0 ? void 0 : requireCut(document2, options.cutId);
+      let audio = options.audioItemId === void 0 ? void 0 : requireAudio(document2, options.audioItemId);
+      if (cut && audio && audio.item.link !== cut.item.id)
+        throw new Error("\u6307\u5B9A\u3055\u308C\u305F\u6620\u50CF\u3068\u97F3\u58F0\u306F\u30EA\u30F3\u30AF\u3057\u3066\u3044\u307E\u305B\u3093");
+      if (!cut && typeof audio?.item.link === "string")
+        cut = requireCut(document2, audio.item.link);
+      if (!audio && cut) {
+        const audioId = linkedAudioItemIdOf(document2, cut.item.id);
+        if (audioId !== void 0)
+          audio = requireAudio(document2, audioId);
+      }
+      if (options.target === "audio-only" && !audio)
+        throw new Error("\u30EA\u30F3\u30AF\u3055\u308C\u305F\u97F3\u58F0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+      if (options.target === "cut-only" && !cut)
+        throw new Error("\u30EA\u30F3\u30AF\u3055\u308C\u305F\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+      if (options.target !== "audio-only" && cut)
+        removeLocation(cut);
+      if (options.target !== "cut-only" && audio)
+        removeLocation(audio);
+      if (options.target === "cut-only" && audio)
+        delete audio.item.link;
+      return document2;
+    }
+    function requireCut(doc, id) {
+      const location2 = (0, tree_ops_1.locate)(tree(doc), id);
+      if (!location2 || location2.track.lane !== "visual" || location2.item.source.kind !== "media") {
+        throw new Error("\u6620\u50CF\u306E\u7D20\u6750\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+      }
+      return location2;
+    }
+    function requireAudio(doc, id) {
+      const location2 = (0, tree_ops_1.locate)(tree(doc), id);
+      if (!location2 || location2.track.lane !== "audio")
+        throw new Error("\u97F3\u58F0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+      return location2;
+    }
+    function removeLocation(location2) {
+      location2.items.splice(location2.index, 1);
+    }
+  }
+});
+
+// ../edit-store/lib/generated/edit-v2-keys.js
+var require_edit_v2_keys = __commonJS({
+  "../edit-store/lib/generated/edit-v2-keys.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+    exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
+    exports.MOTION_V0_KEYS = ["in", "out", "loop"];
+    exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
+    exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];
+    exports.SOURCE_KIND_V2 = ["media", "html", "shape", "telop", "filter", "group", "captions", "caption"];
+    exports.ITEM_V2_KEYS_BY_DEFINITION = {
+      "itemV2Media": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "mask",
+        "source",
+        "audio"
+      ],
+      "itemV2Html": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Shape": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Telop": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Filter": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Group": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "anchor",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Captions": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Caption": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "adjust",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2AudioMedia": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "role",
+        "link",
+        "mute",
+        "source",
+        "gain_db",
+        "denoise",
+        "lowcut_hz",
+        "keyframes",
+        "fade_in",
+        "fade_out",
+        "ducking",
+        "duck_db",
+        "duck_attack",
+        "duck_release",
+        "script",
+        "reading",
+        "provenance"
+      ]
+    };
+    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
+      "itemSourceMediaV2": [
+        "kind",
+        "src",
+        "in",
+        "out",
+        "framing",
+        "transition_out",
+        "freeze",
+        "fx",
+        "speed",
+        "gain_db",
+        "mute",
+        "chroma_key"
+      ],
+      "itemSourceAudioMediaV2": [
+        "kind",
+        "src",
+        "in",
+        "out",
+        "speed",
+        "pitch_semitones",
+        "formant"
+      ],
+      "itemSourceHtmlV2": [
+        "kind",
+        "path",
+        "part",
+        "style",
+        "text",
+        "exclude",
+        "derivedFrom",
+        "vars",
+        "params"
+      ],
+      "itemSourceShapeV2": [
+        "kind",
+        "shape",
+        "params"
+      ],
+      "itemSourceTelopV2": [
+        "kind",
+        "preset",
+        "params",
+        "baked",
+        "from"
+      ],
+      "itemSourceFilterV2": [
+        "kind",
+        "filter"
+      ],
+      "itemSourceGroupV2": [
+        "kind"
+      ],
+      "itemSourceCaptionsV2": [
+        "kind",
+        "path",
+        "exclude"
+      ],
+      "itemSourceCaptionV2": [
+        "kind",
+        "path",
+        "id"
+      ]
+    };
+  }
+});
+
+// ../edit-store/lib/canonical.js
+var require_canonical = __commonJS({
+  "../edit-store/lib/canonical.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.serializeEdit = serializeEdit;
+    exports.serializeCaptions = serializeCaptions;
+    exports.serializeMotion = serializeMotion;
+    var edit_v2_keys_1 = require_edit_v2_keys();
+    var ITEM_KEY_ORDER = [
+      "id",
+      "name",
+      "at",
+      "duration",
+      "hidden",
+      "locked",
+      "transform",
+      "opacity",
+      "blend",
+      "crop",
+      "perspective",
+      "motion",
+      "animator",
+      "keyframes",
+      "source",
+      "audio",
+      "items",
+      "role",
+      "link",
+      "mute"
+    ];
+    var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
+    var TRACK_KEY_ORDER = ["id", "lane", "name", "muted", "items", "content"];
+    var CAPTION_KEY_ORDER = [
+      "id",
+      "start",
+      "end",
+      "text",
+      "speaker",
+      "sourceRef",
+      "edited",
+      "time_domain",
+      "text_style"
+    ];
+    function serializeEdit(doc) {
+      const edit = requireRecord(doc, "edit.json");
+      return `${serializeTopObject(edit, EDIT_KEY_ORDER, (key, value, indent) => {
+        if (key === "tracks" && Array.isArray(value))
+          return serializeTracks(value, indent);
+        if (key === "sources" && Array.isArray(value)) {
+          return serializeRecordArray(value, indent, (entry) => inline(entry));
+        }
+        return serializeTopValue(value, indent);
+      })}
+`;
+    }
+    function serializeCaptions(doc) {
+      if (Array.isArray(doc)) {
+        return `${serializeRecordArray(doc, 0, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER))}
+`;
+      }
+      const root = requireRecord(doc, "captions.json");
+      return `${serializeTopObject(root, Object.keys(root), (key, value, indent) => key === "captions" && Array.isArray(value) ? serializeRecordArray(value, indent, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER)) : serializeTopValue(value, indent))}
+`;
+    }
+    function serializeMotion(doc) {
+      const motion2 = requireRecord(doc, "motion/*.json");
+      return `${serializeTopObject(motion2, edit_v2_keys_1.MOTION_FILE_V0_KEYS, (key, value, indent) => {
+        if (key !== "items" || !isRecord2(value))
+          return serializeTopValue(value, indent);
+        const entries = Object.entries(value);
+        if (entries.length === 0)
+          return "{}";
+        const lines = ["{"];
+        entries.forEach(([id, points], index) => {
+          const prefix = `${" ".repeat(indent + 2)}${JSON.stringify(id)}: `;
+          if (!Array.isArray(points) || points.length === 0) {
+            lines.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
+            return;
+          }
+          lines.push(`${prefix}[`);
+          const orderedPoints = [...points].sort((left, right) => frameOf(left) - frameOf(right));
+          orderedPoints.forEach((point, pointIndex) => {
+            lines.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
+          });
+          lines.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
+        });
+        lines.push(`${" ".repeat(indent)}}`);
+        return lines.join("\n");
+      })}
+`;
+    }
+    function serializeTopObject(value, preferred, render) {
+      const keys = orderedKeys(value, preferred);
+      if (keys.length === 0)
+        return "{}";
+      const lines = ["{"];
+      keys.forEach((key, index) => {
+        const rendered = render(key, value[key], 2);
+        const renderedLines = rendered.split("\n");
+        lines.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
+        for (const line of renderedLines.slice(1))
+          lines.push(line);
+        if (index + 1 < keys.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push("}");
+      return lines.join("\n");
+    }
+    function serializeTopValue(value, indent) {
+      if (Array.isArray(value)) {
+        if (value.length === 0)
+          return "[]";
+        return serializeStructuredArray(value, indent);
+      }
+      if (isRecord2(value) && hasNonEmptyArray(value)) {
+        return serializeStructuredObject(value, indent);
+      }
+      return inline(value);
+    }
+    function serializeStructuredArray(values, indent) {
+      const lines = ["["];
+      values.forEach((entry, index) => {
+        const rendered = serializeTopValue(entry, indent + 2).split("\n");
+        lines.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
+        lines.push(...rendered.slice(1));
+        if (index + 1 < values.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function serializeStructuredObject(value, indent) {
+      const entries = Object.entries(value);
+      if (entries.length === 0)
+        return "{}";
+      const lines = ["{"];
+      entries.forEach(([key, entry], index) => {
+        const rendered = serializeTopValue(entry, indent + 2).split("\n");
+        lines.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
+        lines.push(...rendered.slice(1));
+        if (index + 1 < entries.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push(`${" ".repeat(indent)}}`);
+      return lines.join("\n");
+    }
+    function hasNonEmptyArray(value) {
+      return Object.values(value).some((entry) => Array.isArray(entry) && entry.length > 0);
+    }
+    function serializeTracks(tracks, indent) {
+      if (tracks.length === 0)
+        return "[]";
+      const lines = ["["];
+      tracks.forEach((track, index) => {
+        const record = requireRecord(track, "edit.json.tracks[]");
+        const rendered = serializeItemLike(record, indent + 2, true);
+        lines.push(...appendComma(rendered, index + 1 < tracks.length));
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function serializeItemLike(value, indent, track = false) {
+      const children = value.items;
+      const preferred = track ? [...TRACK_KEY_ORDER] : [...ITEM_KEY_ORDER, ...edit_v2_keys_1.ITEM_V2_KEYS.filter((key) => !ITEM_KEY_ORDER.includes(key))];
+      if (!Array.isArray(children) || children.length === 0) {
+        return [`${" ".repeat(indent)}${inlineObject(value, preferred, !track)}`];
+      }
+      const keys = orderedKeys(value, preferred).filter((key) => key !== "items");
+      const body = keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], !track)}`).join(", ");
+      const lines = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
+      children.forEach((child, index) => {
+        const childRecord = requireRecord(child, "item.items[]");
+        lines.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
+      });
+      lines.push(`${" ".repeat(indent)}] }`);
+      return lines;
+    }
+    function serializeRecordArray(values, indent, render) {
+      if (values.length === 0)
+        return "[]";
+      const lines = ["["];
+      values.forEach((entry, index) => {
+        lines.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function inlineField(key, value, item) {
+      if (item && key === "source" && isRecord2(value))
+        return inlineObject(value, ["kind"]);
+      if (item && key === "keyframes" && Array.isArray(value)) {
+        return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
+      }
+      return inline(value);
+    }
+    function inlineOrdered(value, preferred) {
+      return isRecord2(value) ? inlineObject(value, preferred) : inline(value);
+    }
+    function inlineObject(value, preferred, item = false) {
+      const keys = orderedKeys(value, preferred);
+      if (keys.length === 0)
+        return "{}";
+      return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(", ")} }`;
+    }
+    function inline(value) {
+      if (Array.isArray(value))
+        return `[${value.map((entry) => inline(entry)).join(", ")}]`;
+      if (isRecord2(value))
+        return inlineObject(value, Object.keys(value));
+      const serialized = JSON.stringify(value);
+      return serialized === void 0 ? "null" : serialized;
+    }
+    function orderedKeys(value, preferred) {
+      const present = new Set(Object.keys(value).filter((key) => value[key] !== void 0));
+      const keys = preferred.filter((key) => present.delete(key));
+      return [...keys, ...Object.keys(value).filter((key) => present.has(key))];
+    }
+    function appendComma(lines, comma) {
+      if (comma)
+        lines[lines.length - 1] += ",";
+      return lines;
+    }
+    function frameOf(value) {
+      return isRecord2(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
+    }
+    function requireRecord(value, label) {
+      if (!isRecord2(value))
+        throw new Error(`${label} \u306F object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002`);
+      return value;
     }
     function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -10068,6 +10268,7 @@ var require_lib = __commonJS({
     __exportStar(require_envelope(), exports);
     __exportStar(require_audio_schedule(), exports);
     __exportStar(require_audio_ownership(), exports);
+    __exportStar(require_cut_audio_split_ops(), exports);
     __exportStar(require_canonical(), exports);
     __exportStar(require_tree_ops(), exports);
     __exportStar(require_item_anchor(), exports);
@@ -20466,7 +20667,7 @@ function warnUnknownKeyframes(keyframes, owner, warn) {
   });
 }
 function buildResolvedTimelinePlan(cuts, options = {}) {
-  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+  const { layers = [], overlays = [], maskResolver, onWarning, ...timelineOptions } = options;
   const warned = /* @__PURE__ */ new Set();
   const warn = (message) => {
     if (warned.has(message)) return;
@@ -20550,10 +20751,11 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     }
   }
   const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))), 0);
+  const overlaysEnd = overlays.reduce((end, overlay) => Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0 ? Math.max(end, overlay.start + overlay.duration) : end, 0);
   return {
     map,
     cuts: placements,
-    totalDuration: Math.max(map.totalDuration, layersEnd),
+    totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
     layers: visibleLayers,
     layerAdjustLuts,
     ...layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {},
@@ -28814,7 +29016,8 @@ var FrameEngineRuntime = class {
     }
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
-      layers: engineLayers
+      layers: engineLayers,
+      overlays: Array.isArray(edit?.overlays) ? edit.overlays : []
     });
     this.totalDuration = this.timeline.totalDuration;
     const speech = speechDeclarations(edit, fps, sourceChoices);
@@ -29049,11 +29252,6 @@ var FrameEngineRuntime = class {
     if (this.disposed) return;
     const timeUs = Math.round(Math.max(0, Math.min(seconds, this.totalDuration)) * 1e6);
     const plan = evaluationPlanFromResolvedTimeline(this.timeline, timeUs, this.sources, this.output);
-    if (plan.base.length === 0 && plan.layers.length === 0) {
-      const context = this.ui.canvas.getContext("2d");
-      context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
-      return;
-    }
     const accesses = [];
     const decodedFrames = [];
     this.currentAccesses = accesses;
@@ -29181,7 +29379,7 @@ async function createFrameEnginePreview(options) {
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
     start = Math.max(0, Math.min(start, timeline.totalDuration));
     const firstUses = /* @__PURE__ */ new Map();
     const noteUse = (id, seconds) => {

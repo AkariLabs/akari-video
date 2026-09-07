@@ -650,6 +650,7 @@ class FrameEngineRuntime {
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: engineLayers as FrameEngineLayer[],
+      overlays: Array.isArray(edit?.overlays) ? edit.overlays : [],
     });
     this.totalDuration = this.timeline.totalDuration;
     const speech = speechDeclarations(edit, fps, sourceChoices);
@@ -890,11 +891,6 @@ class FrameEngineRuntime {
     if (this.disposed) return;
     const timeUs = Math.round(Math.max(0, Math.min(seconds, this.totalDuration)) * 1e6);
     const plan = evaluationPlanFromResolvedTimeline(this.timeline, timeUs, this.sources, this.output);
-    if (plan.base.length === 0 && plan.layers.length === 0) {
-      const context = this.ui.canvas.getContext('2d');
-      context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
-      return;
-    }
     const accesses: LookaheadAccess[] = [];
     const decodedFrames: DecodedFrameObservation[] = [];
     this.currentAccesses = accesses;
@@ -1046,7 +1042,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     const cuts = normalizedCuts(edit);
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
-    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers });
+    const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
     start = Math.max(0, Math.min(start, timeline.totalDuration));
     const firstUses = new Map<string, number>();
     const noteUse = (id: string | undefined, seconds: number) => {
