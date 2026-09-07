@@ -10,6 +10,9 @@ const MIME = new Map([
   [".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"], [".webp", "image/webp"],
 ]);
 
+// close() を待てる上限。書き出しは既に終わっているので、ここで待ち続けるより打ち切って終了させる方がよい。
+export const STATIC_SERVER_CLOSE_TIMEOUT_MS = 5_000;
+
 export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null }) {
   const server = createServer(createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath }));
   await new Promise((resolvePromise, rejectPromise) => {
@@ -19,8 +22,30 @@ export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoo
   const address = server.address();
   return {
     url: `http://127.0.0.1:${address.port}/`,
-    close: () => new Promise((resolvePromise, rejectPromise) => server.close((error) => error ? rejectPromise(error) : resolvePromise())),
+    close: (timeoutMs = STATIC_SERVER_CLOSE_TIMEOUT_MS) => closeStaticServer(server, timeoutMs),
   };
+}
+
+// `server.close()` は新規受付を止めるだけで、**開いている接続がすべて閉じるまでコールバックを呼ばない**。
+// OSR / GPU のページはレンダラーから /media/* を keep-alive で取りに来るので、ウィンドウを destroy した後も
+// ソケットがプールに残ることがあり、その 1 本のせいで close() が永久に解決しないことがある。呼び出し側は
+// finally で `await server.close()` してから `app.exit()` に進むため、**書き出しは完了しているのにプロセスが
+// 終了しない**状態になる（解決しない Promise には .catch() も効かない）。
+// そこで (1) 残った接続を明示的に落とし、(2) それでも解決しなければ時間で打ち切る。
+export function closeStaticServer(server, timeoutMs = STATIC_SERVER_CLOSE_TIMEOUT_MS) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) rejectPromise(error); else resolvePromise();
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    timer.unref?.();
+    server.close((error) => finish(error ?? null));
+    server.closeAllConnections?.();
+  });
 }
 
 export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null }) {
