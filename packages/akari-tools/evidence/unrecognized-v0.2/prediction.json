@@ -1,0 +1,66 @@
+{
+  "task": "2026-09-09-unrecognized-v0.2-cache-and-edges",
+  "recorded_at": "2026-09-09",
+  "recorded_by": "実装レーンのラッパー（実装前に固定。基点 main 3966303e）",
+  "note": "着手前に予測を固定する。実測は同ディレクトリの measured.json に置き、ここへは追記しない。",
+  "baseline": {
+    "why": "minGapSec は 2026-09-08 に 0.45 → 0.8 へ上げたのに、cache ヒット経路が attachUnrecognizedSpans を丸ごと飛ばすため既存 cache / transcripts には遡及しない。",
+    "expected_before_union_spans": 8,
+    "expected_before_by_kind_unrecognized": 8,
+    "source_of_8": "内部リポ dogfood の transcripts/speech-analyzer.json 1 件 + whisper-cpp.json 7 件（読み取りのみで数えた）"
+  },
+  "predictions": [
+    {
+      "id": "p1",
+      "claim": "cache（.akari/cache/transcribe/）を消さずに transcribe を再実行すると、cache ヒットのまま未認識だけが現在の既定で再計算され、transcripts の未認識 span の和集合が 8 → 0 になる",
+      "value": 0,
+      "range": [0, 0]
+    },
+    {
+      "id": "p2",
+      "claim": "続けて transcribe-cuts を実行すると cuts.json の by_kind.unrecognized が 8 → 0 になる",
+      "value": 0,
+      "range": [0, 0]
+    },
+    {
+      "id": "p3",
+      "claim": "0.8 だけでは残る 1 件（80.160–80.543 = SA の segment 末尾で word 時刻が欠けたもの）が、segment 端の欠けを gap に数えない規則で 0 件になる（1 → 0）",
+      "value": 0,
+      "range": [0, 0]
+    },
+    {
+      "id": "p4",
+      "claim": "cache ヒットでも ASR は再実行しない（backendRunner の呼び出し回数は 2 回目も 1 回のまま）",
+      "value": 1,
+      "range": [1, 1]
+    },
+    {
+      "id": "p5",
+      "claim": "テストで既定（minGapSec）を差し替えた 2 回目の呼び出しは、cache ヒットのまま未認識件数が変わる",
+      "value": "1 回目と 2 回目で件数が異なる",
+      "range": null
+    },
+    {
+      "id": "p6",
+      "claim": "packages/akari-tools の npm test は fail 0（失敗集合が着手前と同一 = 空）",
+      "value": 0,
+      "range": [0, 0]
+    },
+    {
+      "id": "p7",
+      "claim": "既存テスト『セグメント先頭と末尾の隙間も検出する』は新規則と正面から矛盾するので、この 1 件だけ意味を反転させる書き換えが要る（他の既存 unrecognized テストは無改造で通る）",
+      "value": 1,
+      "range": [1, 2]
+    },
+    {
+      "id": "p8",
+      "claim": "非発話マーカー由来（契約 v0 §2 根拠 1）の span は segment 端規則の影響を受けない（マーカー 3 テストは無改造で通る）",
+      "value": 0,
+      "range": [0, 0]
+    }
+  ],
+  "risks_known_before": [
+    "cache ファイルは attachUnrecognizedSpans 後の segments を保存しており markers を落としている。cache ヒットで再計算すると旧 cache からはマーカー由来 span を復元できない（新しく書く cache には markers を残して回避する。既存 cache だけの片道の劣化）。dogfood の transcripts は markers 付き segment 0 件なので今回の実測には影響しない",
+    "transcripts/<backend>.json の top-level へ算法版を足すには record.mjs（編集禁止）の改変と、既存テスト transcribe-record.test.mjs の Object.keys 完全一致 assert の変更が要る。algo 版は segment 側（unrecognized の兄弟キー）へ併記する"
+  ]
+}
