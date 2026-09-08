@@ -453,7 +453,7 @@ test('v2 audio tracks project sfx, narration, and bgm to their exact legacy shap
     },
   ]);
   assert.deepEqual(view.audioBgm, {
-    id: 'bgm', path: 'music.wav', track: 2, fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
+    id: 'bgm', t: 0, duration: 10, path: 'music.wav', track: 2, fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
   });
   assert.notEqual(view.audioNarration[0].track, view.audioBgm.track);
   assert.deepEqual(internal.tracks.slice(0, 4).map(track => track.legacy.ref), [0, 1, 2, 3]);

@@ -891,6 +891,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     if (role === 'bgm') {
         const value = {
             id: 'bgm',
+            ...(duration > 0 ? { t: at, duration } : {}),
             path: resolvedPath,
             track: ref,
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
@@ -909,6 +910,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     path: resolvedPath,
+                    ...(duration > 0 ? { t: at, duration } : {}),
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
                     ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
                     ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),

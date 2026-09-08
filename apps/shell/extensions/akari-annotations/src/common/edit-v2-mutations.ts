@@ -701,6 +701,20 @@ export function insertItem(
     return value;
 }
 
+/** Resolve the legacy full-project BGM span once, before an unrelated timeline edit changes it. */
+export function pinAutomaticBgmDuration(doc: EditV2Document, endFrames: number): EditV2Document {
+    const value = cloneDocument(doc);
+    for (const track of tracksOf(value)) {
+        if (track.lane !== 'audio' || !Array.isArray(track.items)) continue;
+        for (const item of track.items) {
+            if (isRecord(item) && item.role === 'bgm' && !(Number(item.duration) > 0)) {
+                item.duration = Math.max(1, Math.round(endFrames) - Number(item.at ?? 0));
+            }
+        }
+    }
+    return value;
+}
+
 export function splitItem(
     doc: EditV2Document,
     options: { itemId: string; atFrames: number }

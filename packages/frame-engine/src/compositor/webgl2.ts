@@ -209,6 +209,8 @@ interface GpuTimerExtension {
 }
 export interface WebGL2CompositorOptions {
   synchronization?: 'finish' | 'flush';
+  /** Transparent media planes for interleaving native DOM overlays in the preview. */
+  transparent?: boolean;
   uploadPath?: UploadPath;
   /** Diagnostic only. Consecutive stage boundaries; null ends the last stage.
    * The caller owns queries and must not wrap compose in another elapsed query.
@@ -678,7 +680,7 @@ export function buildBaseFragment(type: ResolvedTransition['type']): string {
 // render-cut evaluates non-normal blend into an RGB plane and then maskedmerge uses the layer's
 // opacity-adjusted alpha. The equivalent single-pass expression is
 // mix(dst, blendFn(dst, src), srcAlpha * opacity); normal is the same formula with blendFn=src.
-const LAYER_FRAGMENT = `#version 300 es
+const layerFragment = (transparent: boolean) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler3D;
@@ -779,7 +781,11 @@ void main() {
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
-  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+  ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
+  vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
+    + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
+  color = vec4(outAlpha > 0.0 ? mixed / outAlpha : vec3(0.0), outAlpha);`
+    : 'color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);'}
 }`;
 const COPY_FRAGMENT = `#version 300 es
 precision highp float;
@@ -1117,7 +1123,8 @@ export class WebGL2Compositor implements CompositorBackend {
   ) {
     this.canvas = canvas;
     const gl = canvas.getContext('webgl2', {
-      alpha: false,
+      alpha: options.transparent === true,
+      premultipliedAlpha: false,
       antialias: false,
       depth: false,
       preserveDrawingBuffer: true,
@@ -1131,7 +1138,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.stats.directUploadFallbackReason =
         `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
     }
-    this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.layerProgram = createProgram(gl, layerFragment(options.transparent === true));
     this.filterProgram = createProgram(gl, FILTER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
     this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
@@ -2074,7 +2081,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]!);
-      gl.clearColor(0, 0, 0, 1);
+      gl.clearColor(0, 0, 0, this.options.transparent ? 0 : 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 

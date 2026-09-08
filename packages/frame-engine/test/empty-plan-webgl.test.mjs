@@ -128,3 +128,15 @@ test('FX program cache and pass dispatch match the compile-time specialization r
   const section = sourceSection('  private fxPassProgramFor(', '  private snapshotBaseFx(');
   assert.equal(sha256(section), '03764771c26a0c3a1b065e3f7dcc7ac2e995c901e917adf76b78a567962d522f');
 });
+
+test('a transparent preview plane leaves uncovered DOM pixels transparent', async () => {
+  const canvas = fakeCanvas(1, 1);
+  const compositor = new WebGL2Compositor(canvas, { transparent: true, synchronization: 'finish' });
+  const output = { width: 1, height: 1, colorSpace: 'bt709-limited' };
+  const plan = { timeUs: 0, base: [], layers: [], output };
+  try {
+    const surface = await compositor.compose([], [], output, new FrameMetrics(), plan);
+    assert.deepEqual([...await surface.readRgba()], [0, 0, 0, 0]);
+    surface.close();
+  } finally { compositor.dispose(); }
+});

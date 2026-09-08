@@ -134,6 +134,8 @@ export interface CutTrackSegment {
     end: number;
 }
 export interface EditAudioBgm {
+    t?: number;
+    duration?: number;
     id: 'bgm';
     path: string;
     track?: number;

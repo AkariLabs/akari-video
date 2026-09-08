@@ -381,3 +381,14 @@ test('speech 未指定時は既存三種の予定値を保ち、新規素材軸�
   assert.ok(result.items.every(item => item.playbackRate === 1));
   assert.ok(result.items.every(item => item.sourceDurationSec === item.durationSec));
 });
+
+test('explicit BGM end stays fixed when a later caption extends the output', () => {
+  const bgm = { id: 'bgm', durationSec: 175, duration: 91, t: 0, fadeOut: 3 };
+  for (const timelineDurationSec of [91, 120, 150]) {
+    const result = buildWebAudioSchedule({ timelineDurationSec, startAtSec: 0, audio: { bgm } });
+    const music = result.items.find(i => i.kind === 'bgm');
+    assert.equal(music.timelineEndSec, 91);
+    const after = buildWebAudioSchedule({ timelineDurationSec, startAtSec: 92, audio: { bgm } });
+    assert.equal(after.items.length, 0);
+  }
+});

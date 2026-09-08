@@ -6336,6 +6336,7 @@ ${indent}`);
         if (role === "bgm") {
           const value2 = {
             id: "bgm",
+            ...duration > 0 ? { t: at2, duration } : {},
             path: resolvedPath,
             track: ref,
             ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
@@ -6360,6 +6361,7 @@ ${indent}`);
               source,
               declaration: {
                 path: resolvedPath,
+                ...duration > 0 ? { t: at2, duration } : {},
                 ...item.source.in !== void 0 ? { in: item.source.in } : {},
                 ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
                 ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
@@ -7606,6 +7608,9 @@ ${indent}`);
         const timelineT = typeof spec.t === "number" && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
         if (timelineT >= timelineDurationSec)
           return null;
+        const itemEndSec = finitePositive4(spec.duration) ? Math.min(timelineDurationSec, timelineT + spec.duration) : timelineDurationSec;
+        if (startAtSec >= itemEndSec)
+          return null;
         const sidecar = validSidecar2(spec.sidecar);
         if (spec.sidecar && !sidecar)
           warnings2.push(`${label}: sidecar declaration is invalid; using source`);
@@ -7626,7 +7631,7 @@ ${indent}`);
           return null;
         }
         const timelineStartSec = startAtSec + delaySec;
-        const timelineAvailableSec = timelineDurationSec - timelineStartSec;
+        const timelineAvailableSec = itemEndSec - timelineStartSec;
         const durationSec = Math.min(timelineAvailableSec, loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate);
         if (!(durationSec > 0))
           return null;
@@ -7644,8 +7649,8 @@ ${indent}`);
           sourceDurationSec: durationSec * playbackRate,
           loop,
           gainDb,
-          gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, timelineDurationSec, timelineStartSec, durationSec, baseGain),
-          envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, timelineDurationSec - timelineT, elapsedSec, durationSec, duckIntervals)
+          gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, itemEndSec, timelineStartSec, durationSec, baseGain),
+          envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, itemEndSec - timelineT, elapsedSec, durationSec, duckIntervals)
         };
       }
       function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings2) {
@@ -18412,7 +18417,7 @@ vec3 mixFf(vec3 a, vec3 b, float P) { return a * P + b * (1.0 - P); }
   color = vec4(result, 1.0);
 }`;
   }
-  var LAYER_FRAGMENT = `#version 300 es
+  var layerFragment = (transparent) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler3D;
@@ -18513,7 +18518,10 @@ void main() {
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
-  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+  ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
+  vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
+    + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
+  color = vec4(outAlpha > 0.0 ? mixed / outAlpha : vec3(0.0), outAlpha);` : "color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);"}
 }`;
   var COPY_FRAGMENT = `#version 300 es
 precision highp float;
@@ -18729,7 +18737,8 @@ void main() {
       this.options = options;
       this.canvas = canvas;
       const gl = canvas.getContext("webgl2", {
-        alpha: false,
+        alpha: options.transparent === true,
+        premultipliedAlpha: false,
         antialias: false,
         depth: false,
         preserveDrawingBuffer: true
@@ -18741,7 +18750,7 @@ void main() {
         this.directUploadDisabled = true;
         this.stats.directUploadFallbackReason = `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
       }
-      this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+      this.layerProgram = createProgram(gl, layerFragment(options.transparent === true));
       this.filterProgram = createProgram(gl, FILTER_FRAGMENT);
       this.copyProgram = createProgram(gl, COPY_FRAGMENT);
       this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
@@ -19677,7 +19686,7 @@ void main() {
         this.recordGlErrors(synchronization);
       } else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
-        gl.clearColor(0, 0, 0, 1);
+        gl.clearColor(0, 0, 0, this.options.transparent ? 0 : 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
       }
       const outLoc = uniform(gl, this.layerProgram, "outputSize");

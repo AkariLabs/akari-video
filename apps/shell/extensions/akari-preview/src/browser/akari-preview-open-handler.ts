@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
@@ -517,6 +518,8 @@ interface EditSummaryAudioSource {
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
+    t?: number;
+    duration?: number;
     track?: number;
     ducking: boolean;
     duckDb?: number;
@@ -4785,6 +4788,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (audio.bgm !== undefined) {
             const rawBgm = audio.bgm as {
                 mute?: unknown;
+                t?: unknown;
+                duration?: unknown;
                 path?: unknown;
                 gain_db?: unknown;
                 ducking?: unknown;
@@ -4832,6 +4837,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (source) {
                         bgm = {
                             src: source.src,
+                            ...(typeof rawBgm.t === 'number' ? { t: rawBgm.t } : {}),
+                            ...(typeof rawBgm.duration === 'number' && rawBgm.duration > 0 ? { duration: rawBgm.duration } : {}),
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                             ...(source.sidecarState ? { sidecarState: source.sidecarState } : {}),
                             gainDb: normalizedGain,
@@ -7400,6 +7407,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 return;
             }
 
+            // v2 items keep absolute placement on every track, including the first video above HTML.
+            // Legacy sequential cuts (and freeze mapping) still use their sequential adapter.
             // summary.cuts は表示用の派生配置を含む。最下段（renderTrack が最小）の visual トラックは
             // 逐次 cuts へ戻すことで freeze による尺の伸長と transition の重なりを frame-engine 自身に
             // 再計算させる。上段の visual トラックの cut は at / track（= renderTrack）を保持して絶対配置する。
@@ -7443,7 +7452,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         ...sequential
                     } = cut;
                     const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
-                    const placement = upperTrack
+                    const placement = (upperTrack || (Number(value.editVersion) === 2 && !cut.freeze))
                         ? {
                             track: cut.renderTrack,
                             ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
@@ -8006,7 +8015,61 @@ body { display: grid; place-items: center; padding: 32px; }
                     look
                 };
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
-                const compositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
+                const baseCompositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
+                const partitionMediaPlanes = (${partitionPreviewMediaPlanes.toString()});
+                const upperPlanes = new Map();
+                let upperCompositor = null;
+                const compositor = {
+                    kind: 'webgl2',
+                    get uploadPath() { return upperCompositor?.uploadPath === 'copyTo' ? 'copyTo' : baseCompositor.uploadPath; },
+                    async compose(baseFrames, layerFrames, outputSpec, metricsRecorder, plan) {
+                        const bands = partitionMediaPlanes(plan, engineSummary);
+                        const used = new Set(bands.filter(band => band.key > 0).map(band => band.key));
+                        for (const [key, plane] of upperPlanes) {
+                            if (!used.has(key)) { plane.remove(); upperPlanes.delete(key); }
+                        }
+                        let surface;
+                        for (const band of bands) {
+                            const bandPlan = { ...plan,
+                                base: band.baseIndices.map(index => plan.base[index]),
+                                layers: band.entries.map(entry => entry.spec) };
+                            const bandBase = band.baseIndices.map(index => baseFrames[index]);
+                            const bandLayers = band.entries.map(entry => entry.baseIndex !== undefined
+                                ? { color: baseFrames[entry.baseIndex] } : layerFrames[entry.layerIndex]);
+                            if (band.key === 0) {
+                                surface = await baseCompositor.compose(bandBase, bandLayers, outputSpec, metricsRecorder, bandPlan);
+                                continue;
+                            }
+                            if (!upperCompositor) upperCompositor = new engine.WebGL2Compositor(
+                                document.createElement('canvas'), { synchronization: 'flush', transparent: true });
+                            let plane = upperPlanes.get(band.key);
+                            if (!plane) {
+                                plane = document.createElement('canvas');
+                                plane.dataset.akariMediaPlane = String(band.key);
+                                Object.assign(plane.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
+                                layersStage.appendChild(plane);
+                                upperPlanes.set(band.key, plane);
+                            }
+                            plane.style.zIndex = String(band.zIndex);
+                            const upper = await upperCompositor.compose(bandBase, bandLayers, outputSpec, metricsRecorder, bandPlan);
+                            try {
+                                if (plane.width !== outputSpec.width) plane.width = outputSpec.width;
+                                if (plane.height !== outputSpec.height) plane.height = outputSpec.height;
+                                const context = plane.getContext('2d');
+                                context.clearRect(0, 0, plane.width, plane.height);
+                                // GPU canvas copy; no pixel readback or per-frame image encoding.
+                                context.drawImage(upper.canvas, 0, 0);
+                            } finally { upper.close(); }
+                        }
+                        return surface;
+                    },
+                    dispose() {
+                        baseCompositor.dispose();
+                        upperCompositor?.dispose();
+                        for (const plane of upperPlanes.values()) plane.remove();
+                        upperPlanes.clear();
+                    }
+                };
                 const frameMetrics = new engine.FrameMetrics();
                 const createSchedulerForTimeline = value => engine.createPreviewScheduler({
                     timeline: value,
@@ -10398,20 +10461,24 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             const findVisualMediaHitAt = event => {
                 if (frameEngineMediaIdle || window.akari.frameEngineClock) {
-                    // visibility:hidden の legacy 要素は elementsFromPoint に現れない。媒体実寸が
-                    // 確定した層だけを DOM 上位から 1 パスで、逆写像したクロップ窓に当てる。
-                    for (const entry of [...layerEntries].reverse()) {
+                    // Media and DOM overlays share the same track z order, including hit testing.
+                    const hits = [];
+                    for (const entry of layerEntries) {
                         if (entry.video.style.display === 'none') continue;
-                        if (!(entry.video.videoWidth > 0) || !(entry.video.videoHeight > 0)) continue;
-                        if (layerGeometryHitAt(entry, event.clientX, event.clientY)) return entry.video;
+                        if (!((entry.video.videoWidth || entry.video.naturalWidth) > 0)
+                            || !((entry.video.videoHeight || entry.video.naturalHeight) > 0)) continue;
+                        if (layerGeometryHitAt(entry, event.clientX, event.clientY)) hits.push(entry.video);
                     }
                     const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
                     const segment = segments[activeSegmentIndex];
-                    if (!hasCut || segment?.kind !== 'src' || allTracksHiddenByScope.cuts
-                        || hiddenTracksByScope.cuts.has(segment.track)) return null;
-                    const stageRect = previewStage.getBoundingClientRect();
-                    return event.clientX >= stageRect.left && event.clientX <= stageRect.right
-                        && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom ? video : null;
+                    if (hasCut && segment?.kind === 'src' && !allTracksHiddenByScope.cuts
+                        && !hiddenTracksByScope.cuts.has(segment.track)) {
+                        const bounds = video.getBoundingClientRect();
+                        if (event.clientX >= bounds.left && event.clientX <= bounds.right
+                            && event.clientY >= bounds.top && event.clientY <= bounds.bottom) hits.push(video);
+                    }
+                    hits.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex));
+                    return hits[0] || null;
                 }
                 return document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
@@ -10432,6 +10499,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
                 const target = event.target;
+                let coveredDomHit = null;
                 if (frameEngineMediaIdle) {
                     if (handledVisualPointerDownEvents.has(event)) return;
                     handledVisualPointerDownEvents.add(event);
@@ -10440,16 +10508,23 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '#layer-select-box, #layer-crop-box, #layer-crop-toggle, '
                         + '#layer-perspective-toggle, #layer-perspective-panel, #cut-select-box, #pen-layer'
                     );
-                    if (penModeActive || rectModeActive || interactiveTarget) return;
+                    if (penModeActive || rectModeActive) return;
+                    if (interactiveTarget) {
+                        const domItem = target?.closest?.('[data-overlay-id], #caption-plate');
+                        const mediaHit = domItem ? findVisualMediaHitAt(event) : null;
+                        if (!mediaHit || Number(mediaHit.style.zIndex) <= Number(domItem.style.zIndex)) return;
+                        coveredDomHit = mediaHit;
+                        event.stopPropagation();
+                    }
                 }
                 const targetIsVisualMedia = target === video || target === stillImage
                     || Boolean(target?.dataset?.akariLayerId);
-                const targetIsEngineStage = frameEngineMediaIdle && (target === previewStage || target?.id === 'frame-engine-canvas');
+                const targetIsEngineStage = coveredDomHit || frameEngineMediaIdle && (target === previewStage || target?.id === 'frame-engine-canvas');
                 // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
                 if (event.button !== 0 || cropModeActive
                     || (!targetIsVisualMedia && target !== layersStage && target !== stage
                         && !targetIsEngineStage)) return;
-                const hit = findVisualMediaHitAt(event);
+                const hit = coveredDomHit || findVisualMediaHitAt(event);
                 if (!hit) return;
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
@@ -10486,9 +10561,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 // stageLocalPoint は親の frameScale と #zoom-layer の scale を実測して変換する。
                 beginLayerMoveDrag(entry, event);
             };
-            layersStage.addEventListener('pointerdown', handleVisualMediaPointerDown);
+            layersStage.addEventListener('pointerdown', handleVisualMediaPointerDown, true);
             if (frameEngineMediaIdle) {
-                previewStage.addEventListener('pointerdown', handleVisualMediaPointerDown);
+                previewStage.addEventListener('pointerdown', handleVisualMediaPointerDown, true);
             }
             for (const handle of layerHandleElements) {
                 handle.addEventListener('pointerdown', event => {

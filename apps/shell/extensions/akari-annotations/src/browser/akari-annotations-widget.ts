@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -140,6 +141,7 @@ import {
     setTrackFlag as setV2TrackFlag,
     reorderTracks as reorderV2Tracks,
     splitItem as splitV2Item,
+    pinAutomaticBgmDuration,
     stringifyEditV2,
     moveTreeV2Item,
     moveV2Keyframe,
@@ -881,7 +883,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly clipMediaGeometries = new WeakMap<HTMLDivElement, ClipMediaGeometry>();
     protected readonly dragListenerConfigs = new WeakMap<HTMLDivElement, {
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail;
-        onRazorClick?: (event: MouseEvent) => void;
     }>();
     protected readonly dragListenerInstalled = new WeakSet<HTMLDivElement>();
     protected readonly trimmerListenerDetails = new WeakMap<HTMLDivElement,
@@ -2526,7 +2527,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             const audioUri = this.resolveEditMediaUri(audio.path, this.location.editUri).toString();
             const durationResult = await this.ensureAudioDurationFetch(audio.path, audioUri);
-            const fallbackDisplayDuration = bgm ? this.contentEndDuration()
+            const fallbackDisplayDuration = bgm ? this.bgmDisplayEnd()
                 : narration ? this.narrationDisplayDuration(narration) : sfx!.duration;
             const sourceInSeconds = 'in' in audio ? audio.in ?? 0 : 0;
             const fallbackSourceDuration = Math.max(
@@ -2535,7 +2536,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             const sourceDurationSeconds = typeof durationResult === 'number'
                 ? durationResult : fallbackSourceDuration;
-            const durationSeconds = bgm ? this.contentEndDuration()
+            const durationSeconds = bgm ? this.bgmDisplayEnd()
                 : narration ? this.narrationDisplayDuration(narration)
                     : this.resolveSfxDisplayDuration(sfx!, sourceInSeconds, sourceDurationSeconds);
             const waveformKey = `sfxwave:${audio.path}`;
@@ -3044,7 +3045,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(typeof raw?.role === 'string' ? { role: raw.role } : {}),
                 collection: request.audioKind,
                 durationSec: request.audioKind === 'bgm'
-                    ? this.contentEndDuration()
+                    ? this.bgmDisplayEnd()
                     : request.audioKind === 'narration'
                         ? this.narrationDisplayDuration(current as EditAudioNarrationWithEnvelope)
                         : (current as EditAudioSfxWithFade).duration
@@ -4072,23 +4073,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return path.split('/').pop() || path;
     }
 
-    /** レザーモードでクリップをクリックした位置（出力秒→source 秒）で cuts を2分割する。 */
-    protected async performRazorSplitAt(segment: OutputSegment, clientX: number): Promise<void> {
-        const location = this.location;
-        if (!location?.editUri) {
-            return;
-        }
-        const outputT = this.timeAtClientX(clientX);
-        const sourceT = this.outputToSource(outputT);
-        if (sourceT - segment.in < MINIMUM_ITEM_DURATION || segment.out - sourceT < MINIMUM_ITEM_DURATION) {
+    /** Item IDs, output frames, and track ownership are shared by every visual media kind. */
+    protected splittableItemId(selection: TimelineSelectionItem | undefined): string | undefined {
+        if (!selection) return undefined;
+        const id = selection.kind === 'cut' ? this.cutItemId(selection.index) : selection.id;
+        const item = this.rawV2Item(id);
+        return item && ['media', 'html', 'telop', 'filter'].includes(item.source?.kind) ? id : undefined;
+    }
+
+    protected async performRazorSplitAt(selection: TimelineSelectionItem, clientX: number): Promise<void> {
+        const itemId = this.splittableItemId(selection);
+        const item = itemId ? this.rawV2Item(itemId) : undefined;
+        if (!itemId || !item || !this.location?.editUri) return;
+        const atFrames = this.frameAt(this.timeAtClientX(clientX));
+        const minimum = Math.ceil(MINIMUM_ITEM_DURATION * this.fps);
+        if (atFrames - item.at < minimum || item.at + item.duration - atFrames < minimum) {
             this.footer.textContent = 'クリップの端に近すぎるため分割できません（両側 0.15 秒以上必要です）';
             return;
         }
-        const index = segment.index;
         try {
-            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, {
-                itemId: this.cutItemId(index), atFrames: this.frameAt(outputT)
-            }));
+            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, { itemId, atFrames }), { optimistic: true });
             this.hideNotice();
             this.footer.textContent = 'クリップを分割しました。';
             this.revealOutputPreview();
@@ -6008,6 +6012,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.contentExtentRevision++;
     }
 
+    protected bgmDisplayEnd(): number {
+        const id = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+        const item = id ? this.rawV2Item(id) : undefined;
+        return item?.duration > 0 ? (Number(item.at ?? 0) + item.duration) / this.fps : this.contentEndDuration();
+    }
+
     protected computeContentEndDuration(): number {
         const excluded = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
         const captionsEnd = this.captions.reduce((maximum, caption) => excluded.has(caption.id) ? maximum
@@ -6015,7 +6025,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : this.captionSourceRangeToOutputRanges(caption.start, caption.end, this.captionSourceForMapping(caption.id))
                     .reduce((end, range) => Math.max(end, range[1]), maximum), 0);
         const bgmDuration = this.audioBgm ? this.audioDurationCache.get(this.audioBgm.path) : undefined;
-        const bgmItem = this.audioBgm ? this.rawV2Item(this.audioBgm.id) : undefined;
+        const bgmId = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+        const bgmItem = bgmId ? this.rawV2Item(bgmId) : undefined;
         const bgmSource = bgmItem?.source?.kind === 'media' ? bgmItem.source : undefined;
         const bgmOut = typeof bgmSource?.out === 'number' ? bgmSource.out
             : typeof bgmDuration === 'number' ? bgmDuration : 0;
@@ -6320,7 +6331,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
                         // スクロール余白込みの表示全長（全体表示では contentEnd に10%余白）なので使わない
                         // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
-                        ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                        ? [{ start: 0, end: this.bgmDisplayEnd(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     ...this.audioNarration.filter(narration => this.narrationDisplayTrack(narration) === ref
                         && isTopLevelItem(narration.id))
                         .map(narration => ({
@@ -6971,12 +6982,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         const bgmLayout = this.audioBgm
             ? this.trackLayout('audio', this.bgmDisplayTrack(this.audioBgm)) : undefined;
-        if (this.audioBgm && bgmLayout && this.isRangeMounted(0, this.contentEndDuration())) {
+        if (this.audioBgm && bgmLayout && this.isRangeMounted(0, this.bgmDisplayEnd())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
-            // バーはコンテンツ終端でトリムして描く（BGM は全編ベッドだが、書き出しで使われるのは
-            // 動画尺ぶんだけ。ソース mp3 の実尺やスクロール余白までバーを伸ばさない）
-            const end = this.contentEndDuration();
+            // The audio item's own end is independent of later captions and other visual items.
+            const end = this.bgmDisplayEnd();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             let actualDuration: number | undefined;
@@ -7356,7 +7366,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         kind: 'cut-move', index: segment.index, originalAt: segment.tlStart,
                         originalTrack: segment.track, duration: segment.tlEnd - segment.tlStart
                     };
-                }, event => void this.performRazorSplitAt(segment, event.clientX));
+                });
                 if (this.toolMode === 'razor') {
                     element.style.cursor = 'crosshair';
                 }
@@ -9364,7 +9374,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const before = (await this.fileService.readFile(editUri)).value.toString();
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const distribution = prepareV2KeyframeDistribution(mutate(raw));
+        const distribution = prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const after = stringifyEditV2(distribution.document);
         if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
             return { before, after, result: { committed: false } };
@@ -11339,16 +11349,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected installDragListeners(
         element: HTMLDivElement,
-        detail: (event: PointerEvent, rect: DOMRect) => DragDetail,
-        onRazorClick?: (event: MouseEvent) => void
+        detail: (event: PointerEvent, rect: DOMRect) => DragDetail
     ): void {
-        this.dragListenerConfigs.set(element, { detail, onRazorClick });
+        this.dragListenerConfigs.set(element, { detail });
         // keyedStripSegment resets pointer events on every update, including cache completion.
         element.style.pointerEvents = 'auto';
+        element.style.cursor = this.toolMode === 'razor' ? 'crosshair' : 'default';
         if (this.dragListenerInstalled.has(element)) return;
         this.dragListenerInstalled.add(element);
         element.style.touchAction = 'none';
-        element.style.cursor = 'default';
         element.addEventListener('click', event => {
             event.stopPropagation();
             const selection = this.timelineSelectionFromElement(element);
@@ -11357,7 +11366,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (this.toolMode === 'razor') {
-                this.dragListenerConfigs.get(element)?.onRazorClick?.(event);
+                if (selection) void this.performRazorSplitAt(selection, event.clientX);
             }
         });
         element.addEventListener('pointermove', event => {
@@ -12535,29 +12544,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            const request = {
-                captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                captionId: preview.id, start: preview.start, end: preview.end,
-                timeDomain: preview.storedTimeDomain ?? null, edited: true
-            } as const;
-            const result = await this.annotationsService.setCaptionTiming(request);
-            this.pushHistory({
-                label: "字幕タイミングの調整",
-                undo: async () => {
-                    await this.annotationsService.setCaptionTiming({
-                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        captionId: preview.id, start: preview.originalStart, end: preview.originalEnd,
-                        timeDomain: preview.originalTimeDomain ?? null, edited: preview.originalEdited
-                    });
-                    await this.reloadCaptions();
-                },
-                redo: async () => {
-                    await this.annotationsService.setCaptionTiming(request);
-                    await this.reloadCaptions();
-                }
+            const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
+            const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end,
+                preview.storedTimeDomain ?? null, true);
+            await this.commitEditMutation('字幕タイミングの調整', doc => doc, {
+                captions: { before, after }, optimistic: true
             });
-            await this.reloadCaptions();
-            this.footer.textContent = this.writeResultMessage("字幕のタイミングを調整しました。", result);
+            this.footer.textContent = '字幕のタイミングを調整しました。';
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice("字幕のタイミングを更新できません: " + detail);
@@ -13725,6 +13718,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             item.kind === 'item' ? 'overlay' : item.kind,
             this.clipboard !== undefined,
             row ? {
+                canSplit: this.splittableItemId(item) !== undefined,
                 canDetach: row.parentId !== undefined,
                 canConvertToTelop: row.itemKind === 'caption',
                 canGroup: this.multiSelection.length >= 2,
@@ -13732,7 +13726,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
                 collapsed: row.collapsed,
                 hasParent: row.parentId !== undefined
-            } : {},
+            } : { canSplit: this.splittableItemId(item) !== undefined },
             {
                 ...(item.kind === 'cut' && document ? { split: canSplitCutAudio(
                     document as unknown as EditV2, this.cutItemId(item.index),
@@ -13814,14 +13808,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (id === 'split') {
-            if (item.kind !== 'cut') {
-                return;
-            }
-            const segment = this.segments.find(candidate => candidate.index === item.index);
-            if (!segment) {
-                return;
-            }
-            void this.performRazorSplitAt(segment, clientX);
+            void this.performRazorSplitAt(item, clientX);
             return;
         }
         if (id === 'detach' && item.kind === 'item') {

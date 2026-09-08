@@ -175,6 +175,9 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
     const timelineT = typeof spec.t === 'number' && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
     if (timelineT >= timelineDurationSec)
         return null;
+    const itemEndSec = finitePositive(spec.duration) ? Math.min(timelineDurationSec, timelineT + spec.duration) : timelineDurationSec;
+    if (startAtSec >= itemEndSec)
+        return null;
     const sidecar = validSidecar(spec.sidecar);
     if (spec.sidecar && !sidecar)
         warnings.push(`${label}: sidecar declaration is invalid; using source`);
@@ -196,7 +199,7 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
         return null;
     }
     const timelineStartSec = startAtSec + delaySec;
-    const timelineAvailableSec = timelineDurationSec - timelineStartSec;
+    const timelineAvailableSec = itemEndSec - timelineStartSec;
     const durationSec = Math.min(timelineAvailableSec, loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate);
     if (!(durationSec > 0))
         return null;
@@ -214,8 +217,8 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
         sourceDurationSec: durationSec * playbackRate,
         loop,
         gainDb,
-        gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, timelineDurationSec, timelineStartSec, durationSec, baseGain),
-        envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, timelineDurationSec - timelineT, elapsedSec, durationSec, duckIntervals)
+        gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, itemEndSec, timelineStartSec, durationSec, baseGain),
+        envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, itemEndSec - timelineT, elapsedSec, durationSec, duckIntervals)
     };
 }
 function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
