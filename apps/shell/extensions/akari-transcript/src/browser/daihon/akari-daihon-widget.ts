@@ -448,29 +448,22 @@ export class AkariDaihonWidget extends BaseWidget {
             const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
             if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
             this.captionsButton.textContent = '字幕を作成中…';
-            const compareSet = this.preferences.get<string[]>('akari.transcribe.compareSet', []);
-            let options = {};
-            if (states[source.path] !== 'done' || compareSet.length) {
-                let stopListening: (() => void) | undefined;
-                const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
-                    this.projectService, this.fileService, this.commands, async (start, end) => {
-                        stopListening?.();
-                        stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
-                            this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
-                        if (dialog.isDisposed) stopListening();
-                    });
-                try {
-                    const selected = await dialog.open();
-                    if (!selected) return;
-                    options = selected;
-                } finally { stopListening?.(); }
-            }
-            const request = { projectRoot, source: source.id, ...options, transcribeFirst: false };
+            let stopListening: (() => void) | undefined;
+            const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
+                this.projectService, this.fileService, this.commands, async (start, end) => {
+                    stopListening?.();
+                    stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
+                        this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
+                    if (dialog.isDisposed) stopListening();
+                }, states[source.path] === 'done');
+            const options = await dialog.open().finally(() => stopListening?.());
+            if (!options) return;
+            const request = { projectRoot, source: source.id, ...options };
             const result = await this.projectService.buildCaptions(request);
             if (result.needsForce) {
                 const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
                 if (!confirmed) return;
-                await this.projectService.buildCaptions({ ...request, force: true, transcribeFirst: false });
+                await this.projectService.buildCaptions({ ...request, force: true });
             }
             await this.reload();
         } catch (error) {

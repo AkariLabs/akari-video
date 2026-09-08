@@ -1,4 +1,25 @@
-import type { EngineTranscript, MaterialTranscriptEvent } from 'akari-project/lib/common/akari-project-protocol';
+import type { EngineTranscript, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
+
+export interface TranscribeDialogResult extends TranscribeOptions { transcribeFirst: boolean }
+export type TranscribeExit = 'reuse' | 'redo' | 'compare';
+
+/** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
+export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>, alreadyTranscribed = false): string[] {
+    const lines = artifacts.transcripts.map(transcript =>
+        `${transcript.generated_at || '日時不明'} · ${transcript.backend || 'エンジン不明'} · ${transcript.segments.length} 行`);
+    if (!lines.length && alreadyTranscribed) lines.push('文字起こし済み · 日時・エンジン・行数の記録なし');
+    if (lines.length || artifacts.diff) lines.push(`比べる組: ${artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : 'なし'}`);
+    return lines;
+}
+
+/** A completed in-dialog run uses reuse; redo/compare delegate execution to buildCaptions. */
+export function transcribeExitOptions(exit: TranscribeExit, selection: TranscribeOptions): TranscribeDialogResult | undefined {
+    if (exit === 'reuse') return { transcribeFirst: false };
+    const { compareSet: selected, ...options } = selection;
+    if (exit === 'redo') return { ...options, backend: selection.backend || 'auto', compareSet: [], transcribeFirst: true };
+    const compareSet = [...new Set(selected ?? [])];
+    return compareSet.length >= 2 ? { ...options, compareSet, transcribeFirst: true } : undefined;
+}
 
 export const backendKey = (backend: string): string => backend.replace(/:/g, '-');
 export interface TranscribeStepState {
