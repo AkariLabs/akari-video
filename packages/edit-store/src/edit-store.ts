@@ -45,6 +45,8 @@ export type LayerBlendMode =
     | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
 
 export interface EditLayer {
+    in?: number;
+    speed?: number;
     id: string;
     t: number;
     duration: number;

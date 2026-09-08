@@ -963,3 +963,17 @@ test('映像の後ろに置いたHTMLも出力尺を延長する', () => {
   doc.tracks.push({id:'html-tail',lane:'visual',items:[{id:'tail',at:90,duration:60,source:{kind:'html',path:'tail.html'}}]});
   assert.deepEqual(timelineDurationSeconds(readInternalEdit(doc)), {seconds:5,basis:'overlays-audio'});
 });
+
+test('cross-track media promotion preserves a trimmed source clock after resizing', () => {
+  const edit = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'grid', path: 'source-grid.mp4' }], tracks: [
+      { id: 'v1', lane: 'visual', items: [{ id: 'back', at: 0, duration: 2160, source: { kind: 'media', src: 'grid', in: 0, out: 72 } }] },
+      { id: 'v5', lane: 'visual', items: [{ id: 'front', at: 180, duration: 510, transform: { scale: 0.45 }, source: { kind: 'media', src: 'grid', in: 38, out: 72, speed: 2 } }] },
+    ] };
+  const internal = readInternalEdit(edit);
+  const front = internal.tracks[1].items[0];
+  assert.equal(front.legacy.collection, 'layers');
+  assert.equal(front.declaration.in, 38);
+  assert.equal(front.declaration.speed, 2);
+  assert.equal(front.declaration.duration, 17);
+});

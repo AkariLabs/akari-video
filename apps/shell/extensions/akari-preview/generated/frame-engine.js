@@ -6013,6 +6013,7 @@ ${indent}`);
                 duration,
                 kind: "video",
                 src: path ?? item.source.src,
+                in: item.source.in,
                 track: ref,
                 ...common,
                 ...copyMediaSourceFields(item.source),
@@ -17370,6 +17371,7 @@ ${indent}`);
     chooseSource: () => chooseSource,
     cloneWithRotation: () => cloneWithRotation,
     compareRgba: () => compareRgba,
+    compositeCutGeometry: () => compositeCutGeometry,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
@@ -18665,6 +18667,34 @@ void main() {
       inv[8]
     ]);
   }
+  function compositeCutGeometry(cut, srcW, srcH, outW, outH) {
+    if (cut.layerStyle) return {
+      visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform },
+      width: srcW,
+      height: srcH
+    };
+    const fit = Math.min(outW / srcW, outH / srcH);
+    const axis = (start, length, source, out) => {
+      const offset = (out - source * fit) / 2;
+      const lo = Math.max(0, Math.min(1, (start * out - offset) / (source * fit)));
+      const hi = Math.max(0, Math.min(1, ((start + length) * out - offset) / (source * fit)));
+      const span = Math.max(1e-6, hi - lo);
+      const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * cut.transform.scale;
+      return { lo, span, center, size: source * fit / length };
+    };
+    const x3 = axis(cut.framing.x, cut.framing.width, srcW, outW);
+    const y2 = axis(cut.framing.y, cut.framing.height, srcH, outH);
+    const angle = cut.transform.rotateDegrees * Math.PI / 180;
+    return { width: x3.size, height: y2.size, visual: {
+      crop: { x: x3.lo, y: y2.lo, width: x3.span, height: y2.span },
+      perspective: null,
+      transform: {
+        ...cut.transform,
+        x: cut.transform.x + Math.cos(angle) * x3.center - Math.sin(angle) * y2.center,
+        y: cut.transform.y + Math.sin(angle) * x3.center + Math.cos(angle) * y2.center
+      }
+    } };
+  }
   var FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
   function cutLayerStyleBox(visual, srcW, srcH) {
     const crop = visual.layerStyle?.crop ?? FULL_CROP;
@@ -19755,24 +19785,26 @@ void main() {
           gl.uniform1i(maskRotationLoc, 0);
         }
         uploadElapsedMs += performance.now() - uploadStarted;
+        const geometry = layer.cutVisual ? compositeCutGeometry(layer.cutVisual, width, height, output.width, output.height) : { visual: layer.visual, width, height };
+        const visual = geometry.visual;
         gl.uniform2f(outLoc, output.width, output.height);
         gl.uniformMatrix3fv(
           inverseLoc,
           false,
           forwardInverse(
-            layer.visual,
-            width,
-            height,
+            visual,
+            geometry.width,
+            geometry.height,
             output.width,
             output.height
           )
         );
         gl.uniform4f(
           cropLoc,
-          layer.visual.crop.x,
-          layer.visual.crop.y,
-          layer.visual.crop.width,
-          layer.visual.crop.height
+          visual.crop.x,
+          visual.crop.y,
+          visual.crop.width,
+          visual.crop.height
         );
         gl.uniform1f(opacityLoc, layer.opacity);
         gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
@@ -19780,8 +19812,8 @@ void main() {
         const passes = planFxPasses(layer.adjustFx);
         let fxResult = null;
         if (passes.length) {
-          const crop = layer.visual.crop;
-          const inverse = forwardInverse(layer.visual, width, height, output.width, output.height);
+          const crop = visual.crop;
+          const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
           fxResult = this.runFxPasses(passes, {
             size: { width, height },
             crop,
@@ -20800,7 +20832,10 @@ void main() {
     "filter",
     "adjust",
     "motion",
-    "animator"
+    "animator",
+    "track",
+    "in",
+    "speed"
   ];
   var KNOWN_KEYFRAME_KEY_LIST = [
     "t",
@@ -20958,6 +20993,7 @@ void main() {
     const overlaysEnd = overlays.reduce((end, overlay) => Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0 ? Math.max(end, overlay.start + overlay.duration) : end, 0);
     return {
       map,
+      trackZ: options.trackZ ?? DEFAULT_TRACK_Z,
       cuts: placements,
       totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
       layers: visibleLayers,
@@ -21268,7 +21304,7 @@ void main() {
         return;
       }
       if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
-      const sourceTimeUs = Math.round(localSeconds * 1e6);
+      const sourceTimeUs = Math.round((finite4(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite4(layer.speed, 1))) * 1e6);
       const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
       let mask = null;
       if (maskSrc) {
@@ -21322,7 +21358,42 @@ void main() {
     const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
     const base = resolved.segment?.kind === "src" && cutIndex != null && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
-    return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
+    const active = timeline.cuts.map((placement, index) => ({ placement, index })).filter(({ placement }) => isLayerActiveAt({ t: placement.at, duration: placement.end - placement.at }, timeUs, timeline.fps)).sort((a, b) => timeline.trackZ(a.placement.cut.track ?? 0) - timeline.trackZ(b.placement.cut.track ?? 0));
+    if (active.length === 0 && base.length > 0 && cutIndex != null) {
+      active.push({ placement: timeline.cuts[cutIndex], index: cutIndex });
+    }
+    const declaredLayers = resolvedCompositeLayers(timeline, timeUs, sources);
+    const stack = declaredLayers.map((layer) => ({ layer, z: timeline.trackZ(
+      timeline.layers.find((candidate, index) => String(candidate.id ?? `layer-${index}`) === layer.id)?.track ?? Number.MAX_SAFE_INTEGER
+    ) }));
+    const bottom = active[0];
+    const bottomZ = bottom ? timeline.trackZ(bottom.placement.cut.track ?? 0) : Infinity;
+    const keepBase = bottom && !stack.some((entry) => entry.z < bottomZ);
+    for (const entry of active.slice(keepBase ? 1 : 0)) {
+      const cut = layerFromPlacement(entry.placement, entry.index, outputSeconds, sources, timeline.fps);
+      const visual = cut.visual;
+      stack.push({ z: timeline.trackZ(entry.placement.cut.track ?? 0), layer: {
+        id: cut.id,
+        kind: cut.kind === "image" ? "image" : "video",
+        ...cut.kind === "image" ? { image: cut.image } : { source: cut.source, sourceTimeUs: cut.sourceTimeUs },
+        cutVisual: visual,
+        visual: { crop: visual.layerStyle?.crop ?? { x: 0, y: 0, width: 1, height: 1 }, perspective: null, transform: visual.transform },
+        blend: "normal",
+        opacity: visual.opacity,
+        mask: null,
+        ...visual.adjustLut ? { adjustLut: visual.adjustLut } : {},
+        ...visual.adjustFx ? { adjustFx: visual.adjustFx } : {}
+      } });
+    }
+    stack.sort((a, b) => a.z - b.z);
+    return {
+      timeUs,
+      frameIndex,
+      base: keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [],
+      layers: stack.map((entry) => entry.layer),
+      transition: { type: "hard-cut", progress: 0 },
+      output
+    };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;
@@ -26628,7 +26699,7 @@ void main() {
       }
       for (const layer of plan.layers) {
         if (layer.kind === "image" || layer.kind === "filter") continue;
-        const declared = layerSources.get(layer.id);
+        const declared = layer.cutVisual ? { src: timeline.cuts[Number(layer.id.slice("cut-".length))]?.cut.src, mask: null } : layerSources.get(layer.id);
         append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, "layer");
         if (layer.mask) {
           append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, "mask");

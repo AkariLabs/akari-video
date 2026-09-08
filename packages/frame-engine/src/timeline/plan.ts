@@ -59,6 +59,9 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'
 }
 
 export interface FrameEngineLayer {
+  track?: number;
+  in?: number;
+  speed?: number;
   id?: string;
   t: number;
   duration: number;
@@ -86,7 +89,7 @@ const KNOWN_CUT_KEY_LIST = [
 
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
-  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator'
+  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator', 'track', 'in', 'speed'
 ] as const;
 
 const KNOWN_KEYFRAME_KEY_LIST = [
@@ -128,6 +131,7 @@ interface ResolvedCutPlacement {
 
 export interface ResolvedTimelinePlan {
   readonly map: TimelineMapResult;
+  readonly trackZ: (track: number) => number;
   readonly cuts: readonly ResolvedCutPlacement[];
   readonly totalDuration: number;
   readonly layers: readonly FrameEngineLayer[];
@@ -346,7 +350,7 @@ export function buildResolvedTimelinePlan(
     Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0
       ? Math.max(end, overlay.start + overlay.duration) : end, 0);
   return {
-    map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
+    map, trackZ: options.trackZ ?? DEFAULT_TRACK_Z, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd, overlaysEnd),
     layers: visibleLayers,
     layerAdjustLuts,
     ...(layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {}),
@@ -718,7 +722,7 @@ function resolvedCompositeLayers(
       return;
     }
     if (!('decode' in source)) throw new Error(`no video frame source registered for ${layer.src}`);
-    const sourceTimeUs = Math.round(localSeconds * 1e6);
+    const sourceTimeUs = Math.round((finite(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite(layer.speed, 1))) * 1e6);
     const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
     let mask = null;
     if (maskSrc) {
@@ -783,7 +787,38 @@ export function evaluationPlanFromResolvedTimeline(
     && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd
     ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources, timeline.fps)]
     : [];
-  return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
+  // The flattened time map answers which source wins; it cannot supply the backdrop of a
+  // resized/transparent upper cut. Keep every active track, with independent source clocks.
+  const active = timeline.cuts.map((placement, index) => ({ placement, index }))
+    .filter(({ placement }) => isLayerActiveAt({ t: placement.at, duration: placement.end - placement.at }, timeUs, timeline.fps))
+    .sort((a, b) => timeline.trackZ(a.placement.cut.track ?? 0) - timeline.trackZ(b.placement.cut.track ?? 0));
+  if (active.length === 0 && base.length > 0 && cutIndex != null) {
+    active.push({ placement: timeline.cuts[cutIndex]!, index: cutIndex });
+  }
+  const declaredLayers = resolvedCompositeLayers(timeline, timeUs, sources);
+  const stack = declaredLayers.map(layer => ({ layer, z: timeline.trackZ(
+    timeline.layers.find((candidate, index) => String(candidate.id ?? `layer-${index}`) === layer.id)?.track ?? Number.MAX_SAFE_INTEGER) }));
+  const bottom = active[0];
+  const bottomZ = bottom ? timeline.trackZ(bottom.placement.cut.track ?? 0) : Infinity;
+  const keepBase = bottom && !stack.some(entry => entry.z < bottomZ);
+  for (const entry of active.slice(keepBase ? 1 : 0)) {
+    const cut = layerFromPlacement(entry.placement, entry.index, outputSeconds, sources, timeline.fps);
+    const visual = cut.visual;
+    stack.push({ z: timeline.trackZ(entry.placement.cut.track ?? 0), layer: {
+      id: cut.id, kind: cut.kind === 'image' ? 'image' : 'video',
+      ...(cut.kind === 'image' ? { image: cut.image } : { source: cut.source, sourceTimeUs: cut.sourceTimeUs }),
+      cutVisual: visual,
+      visual: { crop: visual.layerStyle?.crop ?? { x: 0, y: 0, width: 1, height: 1 }, perspective: null, transform: visual.transform },
+      blend: 'normal', opacity: visual.opacity, mask: null,
+      ...(visual.adjustLut ? { adjustLut: visual.adjustLut } : {}),
+      ...(visual.adjustFx ? { adjustFx: visual.adjustFx } : {})
+    } });
+  }
+  stack.sort((a, b) => a.z - b.z);
+  return { timeUs, frameIndex,
+    base: keepBase ? [layerFromPlacement(bottom.placement, bottom.index, outputSeconds, sources, timeline.fps)] : [],
+    layers: stack.map(entry => entry.layer), transition: { type: 'hard-cut', progress: 0 }, output };
+
 }
 
 /** Backward-compatible hard-cut adapter for callers that already own a TimelineMapResult. */

@@ -164,6 +164,8 @@ export interface ResolvedLayerMask {
 }
 
 export interface ResolvedCompositeLayer {
+  /** A stacked cut retains its fit/framing geometry instead of adopting natural-size layer geometry. */
+  cutVisual?: ResolvedCutVisual;
   id: string;
   kind: 'video' | 'image' | 'matte';
   source?: NativeFrameSource;

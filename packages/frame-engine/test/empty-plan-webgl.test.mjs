@@ -119,7 +119,7 @@ test('layer compositor path matches the source-space fx pass revision', () => {
   );
   // r1 replaces inline fx uniforms with conditional prep/effect draws, then restores the
   // composite framebuffer and viewport. The no-fx base draw hash above stays unchanged.
-  assert.equal(sha256(section), 'a8e964e94cd6cf39aa7f28e8333fd6d2949df5294e4d9f0c2c26dc761d4be4da');
+  assert.equal(sha256(section), '791ca46e625d97f613b6be28db04c7fd83270065cfd0f3f57bada0deacec781e');
 });
 
 test('FX program cache and pass dispatch match the compile-time specialization revision', () => {

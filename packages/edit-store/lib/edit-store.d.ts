@@ -42,6 +42,8 @@ export interface EditOverlay {
 }
 export type LayerBlendMode = 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
 export interface EditLayer {
+    in?: number;
+    speed?: number;
     id: string;
     t: number;
     duration: number;

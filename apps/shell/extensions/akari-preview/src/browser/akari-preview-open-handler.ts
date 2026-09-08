@@ -198,6 +198,9 @@ interface EditSummaryOverlay {
 }
 
 interface EditSummaryLayer {
+    renderTrack?: number;
+    in?: number;
+    speed?: number;
     id: string;
     t: number;
     duration: number;
@@ -4151,7 +4154,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...result.base,
                     ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
-                    trackId: String(trackIdByItem.get(item) ?? '')
+                    trackId: String(trackIdByItem.get(item) ?? ''),
+                    renderTrack: resolveInternalTrackZ(internal.tracks, String(trackIdByItem.get(item) ?? ''))
                 };
                 const maskSourceId = rawVersion === 2 ? base.mask : undefined;
                 // Summary ids must never leak into the layer's URL seat, including early returns.
@@ -7639,7 +7643,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     Array.isArray(value && value.layers) ? value.layers : [],
                     message => console.warn('[frame-engine] ' + message)
                 ).map((rawLayer, index) => {
-                    const layer = resolveSummaryItemAdjust(rawLayer, value);
+                    const { renderTrack, trackId: _trackId, ...renderLayer } = rawLayer;
+                    const layer = resolveSummaryItemAdjust({ ...renderLayer,
+                        ...(Number.isInteger(renderTrack) ? { track: renderTrack } : {}) }, value);
                     if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
                     if (layer.isImage === true) {
                         // frame-engine v0 recognizes a still layer from its registry key suffix.
@@ -7652,6 +7658,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                         return { ...layer, src: sourceId };
                     }
+                    // A media item can move between cuts and layers after a transform. Reuse the
+                    // declared source pool; stream IDs still keep each item's decode clock independent.
+                    const sharedSource = [...declaredSourceUrls].find(([id, url]) =>
+                        url === layer.src || sourceOriginals.get(id) === layer.src
+                        || (layer.sourceUri && !layer.mask && !sourceOriginals.has(id)
+                            && initial.videoSourceUris && initial.videoSourceUris[id] === layer.sourceUri));
+                    if (sharedSource) return { ...layer, src: sharedSource[0] };
                     if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
                     return layer;
                 });

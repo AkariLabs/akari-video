@@ -965,6 +965,33 @@ export function forwardInverse(
   ]);
 }
 
+/** Match the base shader's fit/framing map when a cut is composited above another cut. */
+export function compositeCutGeometry(
+  cut: ResolvedCutVisual, srcW: number, srcH: number, outW: number, outH: number,
+): { visual: ResolvedLayerVisual; width: number; height: number } {
+  if (cut.layerStyle) return {
+    visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform }, width: srcW, height: srcH,
+  };
+  const fit = Math.min(outW / srcW, outH / srcH);
+  const axis = (start: number, length: number, source: number, out: number) => {
+    const offset = (out - source * fit) / 2;
+    const lo = Math.max(0, Math.min(1, (start * out - offset) / (source * fit)));
+    const hi = Math.max(0, Math.min(1, ((start + length) * out - offset) / (source * fit)));
+    const span = Math.max(1e-6, hi - lo);
+    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * cut.transform.scale;
+    return { lo, span, center, size: source * fit / length };
+  };
+  const x = axis(cut.framing.x, cut.framing.width, srcW, outW);
+  const y = axis(cut.framing.y, cut.framing.height, srcH, outH);
+  const angle = cut.transform.rotateDegrees * Math.PI / 180;
+  return { width: x.size, height: y.size, visual: {
+    crop: { x: x.lo, y: y.lo, width: x.span, height: y.span }, perspective: null,
+    transform: { ...cut.transform,
+      x: cut.transform.x + Math.cos(angle) * x.center - Math.sin(angle) * y.center,
+      y: cut.transform.y + Math.sin(angle) * x.center + Math.cos(angle) * y.center },
+  } };
+}
+
 const FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
 
 /**
@@ -2160,24 +2187,28 @@ export class WebGL2Compositor implements CompositorBackend {
         gl.uniform1i(maskRotationLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
+      const geometry = layer.cutVisual
+        ? compositeCutGeometry(layer.cutVisual, width, height, output.width, output.height)
+        : { visual: layer.visual, width, height };
+      const visual = geometry.visual;
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
         inverseLoc,
         false,
         forwardInverse(
-          layer.visual,
-          width,
-          height,
+          visual,
+          geometry.width,
+          geometry.height,
           output.width,
           output.height,
         ),
       );
       gl.uniform4f(
         cropLoc,
-        layer.visual.crop.x,
-        layer.visual.crop.y,
-        layer.visual.crop.width,
-        layer.visual.crop.height,
+        visual.crop.x,
+        visual.crop.y,
+        visual.crop.width,
+        visual.crop.height,
       );
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
@@ -2185,8 +2216,8 @@ export class WebGL2Compositor implements CompositorBackend {
       const passes = planFxPasses(layer.adjustFx);
       let fxResult: FxResult | null = null;
       if (passes.length) {
-        const crop = layer.visual.crop;
-        const inverse = forwardInverse(layer.visual, width, height, output.width, output.height);
+        const crop = visual.crop;
+        const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
         fxResult = this.runFxPasses(passes, {
           size: { width, height }, crop, displayed: fxDisplayedSize(inverse),
           format: 'bitmap' in color || isVideoFrame(color) ? 2 : color.format === 'NV12' ? 1 : 0,

@@ -932,6 +932,7 @@ function buildV2VisualItem(
             if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
+                    in: item.source.in,
                     track: ref, ...common, ...copyMediaSourceFields(item.source),
                 ...('audio' in item && item.audio === false ? { audio: false as const } : {})
                 };

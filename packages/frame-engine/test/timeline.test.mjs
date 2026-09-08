@@ -198,7 +198,7 @@ test('an unregistered cut source still fails closed with the original message', 
   );
 });
 
-test('later visual tracks win the base by default, matching the shell preview z order (issue #31)', () => {
+test('later visual tracks composite above the intact lower video (issue #31)', () => {
   const base = { decode: async () => { throw new Error('not used'); } };
   const broll = { decode: async () => { throw new Error('not used'); } };
   const sources = new Map([['base.mp4', base], ['broll.mp4', broll]]);
@@ -210,12 +210,16 @@ test('later visual tracks win the base by default, matching the shell preview z 
   assert.equal(timeline.totalDuration, 20);
   const baseAt = seconds => evaluationPlanFromResolvedTimeline(timeline, seconds * 1e6, sources, stillOutput).base[0];
   assert.equal(baseAt(2).source, base);
-  assert.equal(baseAt(6).source, broll);
-  assert.equal(baseAt(6).sourceTimeUs, 1_000_000);
+  assert.equal(baseAt(6).source, base);
+  const upper = evaluationPlanFromResolvedTimeline(timeline, 6e6, sources, stillOutput).layers[0];
+  assert.equal(upper.source, broll);
+  assert.equal(upper.sourceTimeUs, 1_000_000);
   assert.equal(baseAt(9).source, base);
   assert.equal(baseAt(9).sourceTimeUs, 9_000_000);
   const reversed = buildResolvedTimelinePlan(cuts, { fps: 30, trackZ: track => -track });
-  assert.equal(evaluationPlanFromResolvedTimeline(reversed, 6e6, sources, stillOutput).base[0].source, base);
+  const reversePlan = evaluationPlanFromResolvedTimeline(reversed, 6e6, sources, stillOutput);
+  assert.equal(reversePlan.base[0].source, broll);
+  assert.equal(reversePlan.layers.at(-1).source, base);
 });
 
 test('total duration covers layers that outlast or replace the cuts (issue #31)', () => {
@@ -294,10 +298,10 @@ test('layer-style cut (c): keyframe t is output-local seconds — at ≠ 0 and f
     { id: 'bg', src: 'base.mp4', in: 0, out: 20 },
     { id: 'b1', src: 'broll.mp4', in: 0, out: 4, at: 5, track: 1, keyframes }
   ], { fps: 30 });
-  const [placedBase] = baseAt(placed, 7, sources);
+  const placedBase = evaluationPlanFromResolvedTimeline(placed, 7e6, sources, stillOutput).layers[0];
   assert.equal(placedBase.source, sources.get('broll.mp4'));
   assert.equal(placedBase.sourceTimeUs, 2_000_000);
-  assert.equal(placedBase.visual.layerStyle.crop.x, 0.2);
+  assert.equal(placedBase.cutVisual.layerStyle.crop.x, 0.2);
   const frozen = buildResolvedTimelinePlan([
     { id: 'f', src: 'base.mp4', in: 0, out: 4, freeze: { at_sec: 1, duration_sec: 2 }, keyframes }
   ], { fps: 30 });
@@ -510,11 +514,11 @@ test('unknown cut and keyframe fields warn once without changing the evaluation 
 test('unknown layer fields warn at resolved timeline construction', () => {
   const warnings = [];
   buildResolvedTimelinePlan([], {
-    layers: [{ id: 'layer-unknown', t: 0, duration: 1, src: 'fixture.mp4', speed: 2 }],
+    layers: [{ id: 'layer-unknown', t: 0, duration: 1, src: 'fixture.mp4', unknownEffect: 2 }],
     onWarning: message => warnings.push(message),
   });
   assert.deepEqual(warnings, [
-    'layer layer-unknown: field "speed" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
+    'layer layer-unknown: field "unknownEffect" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
   ]);
 });
 
@@ -640,10 +644,34 @@ test('runtime known-key inventories expose declared shapes plus recognized non-t
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'adjust', 'animator', 'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
-    'perspective', 'src', 't', 'transform',
+    'adjust', 'animator', 'blend', 'crop', 'duration', 'filter', 'id', 'in', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
+    'perspective', 'speed', 'src', 't', 'track', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [
     'animator', 'crop', 'easing', 'opacity', 'perspective', 't', 'transform',
   ]);
+});
+
+
+test('same-source stacked cuts keep independent trim, scale, and clocks across seeks', () => {
+  const source = videoSource();
+  const sources = new Map([['grid.mp4', source]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'v1', src: 'grid.mp4', in: 0, out: 72 },
+    { id: 'v5', src: 'grid.mp4', in: 38, out: 72, at: 6, track: 5, transform: { scale: 0.45 } },
+  ], { fps: 30, layers: [{ id: 'v3', src: 'grid.mp4', t: 6, duration: 4, in: 20, speed: 2, track: 3 }] });
+  for (const t of [7, 3, 12, 7, 42, 7]) {
+    const plan = evaluationPlanFromResolvedTimeline(timeline, t * 1e6, sources, stillOutput);
+    assert.equal(plan.base[0].sourceTimeUs, t * 1e6);
+    if (t >= 6 && t < 40) {
+      const upper = plan.layers.at(-1);
+      assert.equal(upper.source, source);
+      assert.equal(upper.sourceTimeUs, (38 + t - 6) * 1e6);
+      assert.equal(upper.cutVisual.transform.scale, 0.45);
+    } else assert.equal(plan.layers.length, 0);
+    if (t === 7) {
+      assert.equal(plan.layers[0].id, 'v3');
+      assert.equal(plan.layers[0].sourceTimeUs, 22e6);
+    }
+  }
 });

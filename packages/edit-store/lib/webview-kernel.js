@@ -2911,6 +2911,7 @@ var AkariEditKernel = (() => {
             duration,
             kind: "video",
             src: path ?? item.source.src,
+            in: item.source.in,
             track: ref,
             ...common,
             ...copyMediaSourceFields(item.source),
