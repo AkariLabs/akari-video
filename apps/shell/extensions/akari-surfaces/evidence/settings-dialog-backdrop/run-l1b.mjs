@@ -1,4 +1,4 @@
-import pw from '/Users/ryoma/_edit/30_products/akari-video-wt/settings-dialog-backdrop/node_modules/playwright-core/index.js';
+import pw from 'playwright-core';
 const { chromium } = pw;
 import { writeFileSync } from 'node:fs';
 const OUT = process.env.L1_OUT;

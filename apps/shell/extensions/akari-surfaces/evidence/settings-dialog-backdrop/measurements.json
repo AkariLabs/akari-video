@@ -1,7 +1,7 @@
 {
   "port": "9455",
   "steps": [],
-  "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/settings-dialog-backdrop/apps/shell/lib/frontend/index.html?port=49183#/private/tmp/lane-backdrop/l1/ws",
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=49183#<SCRATCH>/lane-backdrop/l1/ws",
   "overlayBefore": 0,
   "gearTabFound": true,
   "overlayStyle": {

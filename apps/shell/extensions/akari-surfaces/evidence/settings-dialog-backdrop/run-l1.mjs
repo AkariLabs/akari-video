@@ -1,5 +1,5 @@
 // L1 harness (wrapper-owned verification fixture; lives outside the repo).
-import pw from '/Users/ryoma/_edit/30_products/akari-video-wt/settings-dialog-backdrop/node_modules/playwright-core/index.js';
+import pw from 'playwright-core';
 const { chromium } = pw;
 import { mkdirSync, writeFileSync } from 'node:fs';
 

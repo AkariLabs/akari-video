@@ -66,7 +66,7 @@
     }
   ],
   "pid": 28751,
-  "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/cuts-tab-always-attached/apps/shell/lib/frontend/index.html?port=51631#/private/tmp/cuts-lane/l1/ws-project",
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=51631#<SCRATCH>/cuts-lane/l1/ws-project",
   "reachedReady": true,
   "startupFailedInLog": false,
   "menu": {

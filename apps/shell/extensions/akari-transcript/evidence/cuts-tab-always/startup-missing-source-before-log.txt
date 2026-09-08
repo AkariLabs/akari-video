@@ -2,4 +2,4 @@
 2026-09-08T07:37:16.785Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.
 2026-09-08T07:37:16.987Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.
 2026-09-08T07:37:20.670Z root ERROR Failed to start the frontend application.
-2026-09-08T07:37:20.671Z root ERROR Error: ENOENT: no such file or directory, realpath '/private/tmp/cuts-lane/l1/ws-broken/assets/missing.mp4'
+2026-09-08T07:37:20.671Z root ERROR Error: ENOENT: no such file or directory, realpath '<SCRATCH>/cuts-lane/l1/ws-broken/assets/missing.mp4'

@@ -25,7 +25,7 @@
         ],
         "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 0 / 根拠: —",
         "listText": "文字起こし後にカット候補がここに並びます",
-        "notice": "Error: ENOENT: no such file or directory, realpath '/private/tmp/cuts-lane/l1/ws-broken/assets/missing.mp4'"
+        "notice": "Error: ENOENT: no such file or directory, realpath '<SCRATCH>/cuts-lane/l1/ws-broken/assets/missing.mp4'"
       },
       "screenshot": "00-startup-raw.png"
     },
@@ -52,13 +52,13 @@
         ],
         "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 0 / 根拠: —",
         "listText": "文字起こし後にカット候補がここに並びます",
-        "notice": "Error: ENOENT: no such file or directory, realpath '/private/tmp/cuts-lane/l1/ws-broken/assets/missing.mp4'"
+        "notice": "Error: ENOENT: no such file or directory, realpath '<SCRATCH>/cuts-lane/l1/ws-broken/assets/missing.mp4'"
       },
       "screenshot": "01-startup-cuts-tab.png"
     }
   ],
   "pid": 27252,
-  "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/cuts-tab-always-attached/apps/shell/lib/frontend/index.html?port=51479#/private/tmp/cuts-lane/l1/ws-broken",
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=51479#<SCRATCH>/cuts-lane/l1/ws-broken",
   "reachedReady": true,
   "startupFailedInLog": false,
   "menu": {
@@ -98,7 +98,7 @@
     ],
     "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 0 / 根拠: —",
     "listText": "文字起こし後にカット候補がここに並びます",
-    "notice": "Error: ENOENT: no such file or directory, realpath '/private/tmp/cuts-lane/l1/ws-broken/assets/missing.mp4'"
+    "notice": "Error: ENOENT: no such file or directory, realpath '<SCRATCH>/cuts-lane/l1/ws-broken/assets/missing.mp4'"
   },
   "logHasFailedToStart": false,
   "logHasReady": true,
