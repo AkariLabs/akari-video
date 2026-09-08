@@ -1,0 +1,23 @@
+[
+  {
+    "scenario": "edit.json なし",
+    "expected": "タイムライン — 編集データなし",
+    "hoverText": "タイムライン — 編集データなし",
+    "screenshot": "01-no-edit-hover.png",
+    "pass": true
+  },
+  {
+    "scenario": "edit.json 生成後（再読込なし）",
+    "expected": "タイムライン — empty-project/project/edit.json",
+    "hoverText": "タイムライン — empty-project/project/edit.json",
+    "screenshot": "02-created-hover.png",
+    "pass": true
+  },
+  {
+    "scenario": "edit.json あり（fieldtest）",
+    "expected": "タイムライン — 2026-08-31-object-tree-manual-test/edit.json",
+    "hoverText": "タイムライン — 2026-08-31-object-tree-manual-test/edit.json",
+    "screenshot": "03-with-edit-hover.png",
+    "pass": true
+  }
+]
