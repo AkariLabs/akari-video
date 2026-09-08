@@ -40,7 +40,9 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
-import { createTimelineEdit, relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
+import { AkariTimelineCreateDialog } from './akari-timeline-create-dialog';
+import { createTimelineEditContent, estimateAspectFromOrientation, timelineDisplayName, timelineSlugFromEditFileName, timelineWidgetId } from '../common/timeline-files';
+import { relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
 import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
 import { trackHeaderControls } from '../common/track-header-controls';
 import { isTrackLocked, lockedTrackMessage } from '../common/track-lock-guard';
@@ -4419,7 +4421,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const initialMaterialUri = !this.location.editUri
             ? this.resolveEditMediaUri(relativePath, this.location.root.resolve('edit.json')) : undefined;
         try {
-            if (!this.location.editUri) await this.ensureTimelineEdit();
+            if (!this.location.editUri && !await this.ensureTimelineEdit(initialMaterialUri)) return;
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`素材を追加できません: ${detail}`);
@@ -5160,6 +5162,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    get timelineLocation(): ProjectLocation | undefined { return this.location; }
+
+    adoptTimelineIdentity(editUri?: string): void {
+        const slug = editUri ? timelineSlugFromEditFileName(new URI(editUri).path.base) : undefined;
+        this.id = timelineWidgetId(slug);
+        this.title.label = timelineDisplayName(slug);
+    }
+
     protected timelineTabCaptionRevision = 0;
 
     protected async updateTimelineTabCaption(): Promise<void> {
@@ -5168,6 +5178,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const editUri = location?.editUri;
         const exists = editUri !== undefined && await this.fileService.exists(editUri);
         if (revision !== this.timelineTabCaptionRevision) return;
+        this.title.label = timelineDisplayName(location?.slug);
         this.title.caption = timelineTabCaption(location?.root ?? new URI(), exists ? editUri : undefined);
     }
 
@@ -5182,16 +5193,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.reloadEdit();
     }
 
-    protected async ensureTimelineEdit(): Promise<void> {
-        if (this.location?.editUri) return;
+    protected async ensureTimelineEdit(materialUri?: URI): Promise<boolean> {
+        if (this.location?.editUri) return true;
         // 同時の初回追加でも雛形を一度だけ作り、外部で先に作られた編集を上書きしない。
         this.createEditPromise ??= (async () => {
             const uri = this.location!.root.resolve('project').resolve('edit.json');
             if (!await this.fileService.exists(uri)) {
+                const dimensions = materialUri
+                    ? await this.annotationsService.probeSourceDimensions({ path: materialUri.toString() }).catch(() => ({})) : {};
+                const result = await new AkariTimelineCreateDialog({
+                    title: 'タイムラインを作成', firstTimeline: true, defaultTitle: 'タイムライン',
+                    defaultAspect: estimateAspectFromOrientation(
+                        (dimensions as { width?: number }).width, (dimensions as { height?: number }).height)
+                }).open();
+                if (!result) return;
                 await this.fileService.createFolder(uri.parent);
                 try {
                     await this.fileService.createFile(uri,
-                        BinaryBuffer.fromString(JSON.stringify(createTimelineEdit(), null, 2) + '\n'),
+                        BinaryBuffer.fromString(JSON.stringify(createTimelineEditContent({ width: result.width, height: result.height }), null, 2) + '\n'),
                         { overwrite: false });
                 } catch (error) {
                     if (!await this.fileService.exists(uri)) throw error;
@@ -5201,6 +5220,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         })();
         try {
             await this.createEditPromise;
+            return !!this.location?.editUri;
         } finally {
             this.createEditPromise = undefined;
         }
@@ -5211,9 +5231,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>
     ): Promise<void> {
         if (this.configured) {
+            if (!this.location?.editUri && location.editUri) await this.adoptTimelineEdit(location.editUri);
             return;
         }
         this.configured = true;
+        this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
         this.refreshLocationEditUri = refreshLocationEditUri;
         await this.updateTimelineTabCaption();
