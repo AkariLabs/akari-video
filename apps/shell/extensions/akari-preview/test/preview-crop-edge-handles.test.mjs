@@ -96,7 +96,7 @@ test('layer-style へ入っていない cut に初めて crop を書くときだ
     const cutTarget = section('const cutDragTarget = () => {', 'const updateCutSelectBox');
     assert.match(
         cutTarget,
-        /cropEntryTransform: \(transform, natural\) => \(\s*video\.dataset\.akariCutLayerStyleActive !== 'true'\s*\?\s*cutLayerStyleEntryTransformFn\(/u
+        /cropEntryTransform: \(transform, natural\) => \(\s*cutSelectionVideo\(\)\.dataset\.akariCutLayerStyleActive !== 'true'\s*\?\s*cutLayerStyleEntryTransformFn\(/u
     );
     assert.match(cutTarget, /transform, natural\.width, natural\.height, outputWidth, outputHeight, outputGeometry/u);
     assert.match(cutTarget, /: \{ \.\.\.transform \}/u);
@@ -117,7 +117,7 @@ test('layer-style へ入っていない cut に初めて crop を書くときだ
 test('framing 持ち / v2 の item id が無い cut では辺バーが出ない', () => {
     assert.match(
         source,
-        /const cutCropEditable = \(\) => Boolean\(video\.dataset\.akariCutId\)\s*&& Number\(summary\.editVersion\) === 2\s*&& \(outputGeometryIsSource \|\| video\.dataset\.akariCutFraming !== 'true'\);/u
+        /const cutCropEditable = \(\) => Boolean\(cutSelectionVideo\(\)\.dataset\.akariCutId\)\s*&& Number\(summary\.editVersion\) === 2\s*&& \(outputGeometryIsSource \|\| cutSelectionVideo\(\)\.dataset\.akariCutFraming !== 'true'\);/u
     );
     assert.match(source, /applyCropEdgeVisibility\(cutSelectBox, screenW, screenH, cutCropEditable\(\)\)/u);
     assert.match(source, /applyCropEdgeVisibility\(layerSelectBox, box\.width, box\.height, true\)/u);

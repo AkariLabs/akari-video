@@ -27,6 +27,7 @@ function section(text, from, to) {
 export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output } = {}) {
     const calls = [];
     const warnings = [];
+    const selectionEffects = [];
     let html = '';
     let writes = 0;
     let nodes = [];
@@ -82,6 +83,13 @@ export function harness({ text = source, cues = [], engine = true, available = t
                 playbackTick: noop, audioMeterTick: noop, reviewTransport: noop }
         },
         initial: { summary }, summary, captions: cues, outputTime: 0, isPlaying: false,
+        requestedCutId: undefined, selectedCaptionId: null, selectedLayerId: null, cutSelected: false,
+        cropModeActive: false, perspectivePanelOpen: false, activePerspectivePreset: null,
+        layerPerspectivePresetButtons: [], findLayerEntry: id => summary.layers?.find(layer => layer.id === id),
+        // Layout/probe boundaries are recorded; selection transitions below use the real source.
+        updateCaptionSelectBox: () => selectionEffects.push('caption-box'),
+        updateCutSelectBox: () => selectionEffects.push('cut-box'),
+        ensureCutSourceNaturalSize: () => selectionEffects.push('cut-probe'),
         activeCaption: null, activeCaptionEdit: null, styledCaptionActive: false, captionHitRegionPending: false,
         captionEntryAnimationsSettledFn: captionEntryAnimationsSettled, emphasisWords,
         clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
@@ -98,10 +106,14 @@ export function harness({ text = source, cues = [], engine = true, available = t
     vm.runInContext("const captionPlate = document.getElementById('caption-plate');", context);
     vm.runInContext(section(text, 'const escapeCaptionHtml =', 'const renderTransitionPlate ='), context);
     vm.runInContext('const renderTransitionPlate = () => {};', context);
+    vm.runInContext(section(text, 'let requestedOverlayId;', 'const onMainVideoLoadedMetadata ='), context);
+    vm.runInContext(section(text, 'const selectLayer = (layerId, options)', '// ㉒ スナップ統一:'), context);
+    vm.runInContext(section(text, 'const selectCut = options =>', 'for (const handle of cutHandleElements)'), context);
+    vm.runInContext(section(text, 'const selectCaption = (captionId, options)', "captionClampChip.addEventListener('click'"), context);
     vm.runInContext(section(text, 'const tick = (immediatePlaybackTick', 'const runTickGuarded ='), context);
     vm.runInContext(section(text, 'const seekTimelineTime =', 'const applyInitialPosition ='), context);
     return {
-        plate, calls, warnings, context,
+        plate, calls, warnings, context, selectionEffects,
         get writes() { return writes; },
         run: code => vm.runInContext(code, context),
         // Execute the real low-level seek body, without seekTimelineTime's extra tick.

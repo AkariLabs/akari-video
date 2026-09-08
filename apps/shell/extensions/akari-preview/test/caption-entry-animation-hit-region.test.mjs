@@ -73,17 +73,24 @@ function findChrome() {
     return chrome;
 }
 
-function extractRenderCaption() {
-    const startMarker = 'const renderCaption = () => {';
-    const endMarker = 'const renderTransitionPlate = timelineTime =>';
+function extractWebviewSection(startMarker, endMarker) {
     const start = source.indexOf(startMarker);
     const end = source.indexOf(endMarker, start);
-    assert.notEqual(start, -1, 'renderCaption の開始点を抽出できません');
-    assert.notEqual(end, -1, 'renderCaption の終了点を抽出できません');
+    assert.notEqual(start, -1, `${startMarker} の開始点を抽出できません`);
+    assert.notEqual(end, -1, `${endMarker} の終了点を抽出できません`);
     return source.slice(start, end).trim();
 }
 
-const renderCaptionSource = extractRenderCaption();
+const renderCaptionSource = extractWebviewSection(
+    'const renderCaption = () => {', 'const renderTransitionPlate = timelineTime =>'
+);
+// renderCaption and its engine-seek listener share the webview's selection state.
+// Keep the actual initial declarations and overlay-selection implementation together.
+const selectionSource = [
+    extractWebviewSection('let requestedCutId;', '\n'),
+    extractWebviewSection('let selectedCaptionId = null;', '\n'),
+    extractWebviewSection('let requestedOverlayId;', 'const onMainVideoLoadedMetadata =')
+].join('\n');
 
 function inlineScript(value) {
     return value.replaceAll('</script', '<\\/script');
@@ -99,6 +106,8 @@ html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden}
 @keyframes fixture-caption-in{0%{opacity:0;transform:translate3d(1400px,-500px,0) scale(.62)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 </style></head><body><div id="caption-plate"></div><script>
 const captionPlate=document.getElementById('caption-plate');
+const stage=document.body;
+${inlineScript(selectionSource)}
 const captions=[{id:'caption-fixture',start:10,end:14,text:'字幕',style:'pop',textStyle:{color:'#fff'},words:[{start:10,end:11,text:'字幕'}]}];
 let outputTime=0;
 let activeCaption=null;
