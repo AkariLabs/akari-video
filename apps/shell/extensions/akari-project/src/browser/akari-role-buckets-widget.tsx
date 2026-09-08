@@ -69,6 +69,7 @@ import {
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
 import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
 import {
@@ -115,18 +116,12 @@ const EMPTY_PRESET_SHOWCASE: PresetShowcase = { lut: [], textanim: [], textstyle
 // 素材グリッド（renderMaterialsTab）専用。カタログ側 renderCatalogCard の 150px グリッドとは無関係
 // — 「波及するなら素材グリッドだけに閉じる」（task.md「調べること」2）ため意図的に分けて定義する。
 // gap はグリッドの gap と一致させること（calc(50% - gap/2) で最低 2 列を数式保証する）。
-const MATERIAL_GRID_GAP = '8px';
-// **見た目を変えたいときはこの 1 行だけ触る**（小さく = 減らす / 大きく = 増やす）。
+// 余白・間隔・カードの目標幅の正本は materialCardLayout（較正値の維持理由も同関数に記載）。
+const MATERIAL_GRID_LAYOUT = materialCardLayout({ kind: 'other' });
+const MATERIAL_GRID_GAP = MATERIAL_GRID_LAYOUT.gridGap;
 // auto-fill なので「カード 1 枚の目標幅」であって列数の指定ではない: パネルが広いほど
 // 列が増え、狭いと減る。ただし `min(…, calc(50% - gap/2))` の項が効くので **1 列には落ちない**。
-//
-// 34px（司令塔契約が「既定パネル幅 214px で 3 列」と書いたためレーンが導出した値）から
-// 95px へ改める。理由: 214px は左パネルを畳んだ最小に近い幅で、そこを基準に 3 列を数式で
-// 満たすとカード実寸が 37px まで縮み（レーン実測）、パネルを広げても auto-fill が
-// 列数を増やすだけでカードが育たない（実測 499px で 10 列 × 36px）。オーナーの実機
-// スクリーンショットのパネル幅（カード 2 列で 1 枚 ≈160px）から逆算した内容幅 ≈330px では
-// 95px 基準で 3 列 × ≈104px となり、要望「正方形・3 列・今より 2 割ほど小さく」に一致する。
-const MATERIAL_GRID_CARD_MIN_WIDTH = '95px';
+const MATERIAL_GRID_CARD_MIN_WIDTH = MATERIAL_GRID_LAYOUT.cardMinWidth;
 const MATERIAL_GRID_COLUMNS =
     `repeat(auto-fill, minmax(min(${MATERIAL_GRID_CARD_MIN_WIDTH}, calc(50% - ${MATERIAL_GRID_GAP} / 2)), 1fr))`;
 
@@ -654,16 +649,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /**
-     * 分析済みでない動画/画像素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
+     * 分析済みでない動画/画像/音声素材について、`.akari/cache/thumbnails/` のサムネキャッシュを
      * バックエンドへ問い合わせる（優先順位: analysis keyframe > cache > プレースホルダ）。
-     * 音声・分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
+     * 音声は波形を生成し、分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
      */
     protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
-        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image'));
+        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
         await Promise.all(candidates.map(async entry => {
             let outcome;
             try {
-                outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image');
+                outcome = await this.projectService.resolveMaterialThumbnail(root.toString(), entry.relativePath, entry.kind as 'video' | 'image' | 'audio');
             } catch {
                 return;
             }
@@ -2038,7 +2033,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div>
                 {materials.length
-                    ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}>
+                    ? <div style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}>
                         {materials.map(entry => this.renderMaterialCard(entry))}
                     </div>
                     : <p style={{ opacity: 0.7, padding: '10px 16px 0' }}>assets/ にはまだ素材がありません。</p>}
@@ -2058,7 +2053,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 </div>
                 <div
                     data-akari-unorganized-count={entries.length}
-                    style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: '10px' }}
+                    style={{ display: 'grid', gridTemplateColumns: MATERIAL_GRID_COLUMNS, gap: MATERIAL_GRID_GAP, padding: MATERIAL_GRID_LAYOUT.gridPadding }}
                 >
                     {entries.map(entry => this.renderMaterialCard(entry))}
                 </div>
@@ -2104,6 +2099,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const layout = materialCardLayout({ kind: entry.kind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
@@ -2129,6 +2125,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
+                    minWidth: 0,
+                    gridColumn: layout.gridColumn,
                     cursor: 'pointer',
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     overflow: 'hidden',
@@ -2139,7 +2137,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div
                     style={{
                         position: 'relative',
-                        aspectRatio: '1 / 1',
+                        aspectRatio: layout.aspectRatio,
                         background: AKARI_SURFACE.card,
                         display: 'flex',
                         alignItems: 'center',
@@ -2153,13 +2151,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         ? <img
                             src={entry.thumbnailUri.toString()}
                             alt=''
-                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: layout.objectFit }}
                         />
                         : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {(entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}
-                            style={{ position: 'absolute', bottom: '4px', right: '4px', padding: '0 6px',
+                            style={{ position: 'absolute', bottom: '28px', right: '4px', padding: '0 6px',
                                 display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap',
                                 maxWidth: 'calc(100% - 30px)', boxSizing: 'border-box',
                                 borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
@@ -2168,45 +2166,38 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <span style={{ flexShrink: 0 }}>{transcriptStatus}</span>
                         </span>
                     )}
-                    {entry.unorganized && (
+                    <div style={{
+                        position: 'absolute', top: '4px', left: '4px', maxWidth: 'calc(100% - 21px)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px'
+                    }}>
                         <span
-                            title='未整理'
-                            aria-label='未整理'
+                            title={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
+                            aria-label={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
+                            data-akari-asset-group-category={entry.assetGroup?.category}
                             style={{
-                                position: 'absolute',
-                                top: '4px',
-                                left: '4px',
-                                padding: '0 6px',
-                                borderRadius: `${AKARI_RADIUS.chip}px`,
-                                fontSize: '0.68em',
-                                lineHeight: '16px',
-                                background: 'var(--theia-editorWarning-foreground)',
-                                color: 'var(--theia-editor-background)'
+                                maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden',
+                                textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 6px',
+                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
+                                background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)'
                             }}
                         >
-                            未整理
+                            {layout.kindLabel}
                         </span>
-                    )}
-                    {entry.assetGroup && (
-                        <span
-                            title={`種別: ${entry.assetGroup.category || '不明'}`}
-                            aria-label={`種別: ${entry.assetGroup.category || '不明'}`}
-                            data-akari-asset-group-category={entry.assetGroup.category}
-                            style={{
-                                position: 'absolute',
-                                top: '4px',
-                                left: '4px',
-                                padding: '0 6px',
-                                borderRadius: `${AKARI_RADIUS.chip}px`,
-                                fontSize: '0.68em',
-                                lineHeight: '16px',
-                                background: 'var(--theia-badge-background)',
-                                color: 'var(--theia-badge-foreground)'
-                            }}
-                        >
-                            {entry.assetGroup.category || '素材'}
-                        </span>
-                    )}
+                        {entry.unorganized && (
+                            <span
+                                title='未整理'
+                                aria-label='未整理'
+                                style={{
+                                    padding: '0 6px', borderRadius: `${AKARI_RADIUS.chip}px`,
+                                    fontSize: '0.68em', lineHeight: '16px', whiteSpace: 'nowrap',
+                                    background: 'var(--theia-editorWarning-foreground)',
+                                    color: 'var(--theia-editor-background)'
+                                }}
+                            >
+                                未整理
+                            </span>
+                        )}
+                    </div>
                     <span
                         title={entry.analyzed ? '分析済み' : '未分析'}
                         aria-label={entry.analyzed ? '分析済み' : '未分析'}
@@ -2230,7 +2221,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         onClick={event => { event.stopPropagation(); void this.askAgent(entry); }}
                         style={{
                             position: 'absolute',
-                            bottom: '4px',
+                            bottom: '28px',
                             left: '4px',
                             width: '20px',
                             height: '20px',
@@ -2247,17 +2238,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     >
                         <span className='codicon codicon-comment-discussion' aria-hidden='true' style={{ fontSize: '12px' }} />
                     </button>
-                </div>
-                {/* 3 列運用（カード実測 ~40px）だと名前+時間の横並びは名前側が幅 0 に潰れて消える
-                    （overflow:hidden の flex 子は自動最小幅が 0 になり、時間バッジに幅を奪われ切る —
-                    実機 CDP 計測で確認済み）。縦積みにしてそれぞれへ全幅を渡す。 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '4px 6px' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>
-                        {entry.name}
-                    </span>
-                    <span style={{ opacity: 0.7, fontSize: '0.68em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
-                    </span>
+                    <div style={{
+                        position: 'absolute', left: 0, right: 0, bottom: 0,
+                        display: 'flex', alignItems: 'baseline', gap: '4px', padding: '8px 4px 3px',
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))',
+                        color: '#fff', lineHeight: '16px', pointerEvents: 'none'
+                    }}>
+                        <span style={{
+                            flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap', fontSize: '0.78em'
+                        }}>
+                            {entry.name}
+                        </span>
+                        <span style={{ flex: '0 0 auto', fontSize: '0.68em', whiteSpace: 'nowrap' }}>
+                            {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
+                        </span>
+                    </div>
                 </div>
                 {entry.unorganized && (
                     <div style={{ padding: '0 6px 6px' }}>

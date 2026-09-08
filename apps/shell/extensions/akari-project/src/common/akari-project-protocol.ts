@@ -276,12 +276,12 @@ export interface AkariProjectService {
      */
     resolveCatalogRoot(preferenceRoot: string | undefined): Promise<string | undefined>;
     /**
-     * 未分析の動画/画像素材のサムネイルキャッシュを解決する。`.akari/cache/thumbnails/` に
+     * 未分析の動画/画像/音声素材のサムネイルキャッシュを解決する。`.akari/cache/thumbnails/` に
      * 既存キャッシュ（path+size+mtime 由来のキー）があればそれを返し、なければ ffmpeg
-     * （PATH から解決）で非同期生成する。ffmpeg が見つからない・生成に失敗した場合も例外を
+     * （環境変数 → PATH → 同梱バイナリから解決）で非同期生成する（音声は波形 PNG）。ffmpeg が見つからない・生成に失敗した場合も例外を
      * 投げず available=false を返す（呼び出し側はプレースホルダ表示へ黙ってフォールバックする）。
      */
-    resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image'): Promise<MaterialThumbnailOutcome>;
+    resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image' | 'audio'): Promise<MaterialThumbnailOutcome>;
     /**
      * プロジェクト選択画面のカード用サムネ（ポスター + ホバーでループするコマ）を解決する。
      * 元動画は「`.akari/render.json` が記録した検収済み出力 → `exports/` の最新動画 →
