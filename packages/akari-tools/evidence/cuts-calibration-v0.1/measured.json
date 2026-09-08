@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "task": "2026-09-08-cuts-calibration-basis-redo-gap",
+  "measured_at": "2026-09-08",
+  "implementation_commit": "814f7988",
+  "prediction_commit": "6afdc938",
+  "how": {
+    "material": "akari-video-internal/fieldtest/2026-09-08-transcribe-compare-dogfood（内部リポは読み取り専用）",
+    "workspace": "/tmp/akari-cuts-cal/runA・runB へ複製して実行（内部リポの .akari/ は一切書き換えていない）",
+    "cli": "node packages/akari-tools/bin/media.mjs（worktree のソース直）",
+    "note": "transcribe の cache は unrecognized 付与後の結果を保存するため、minGapSec の変更を反映するには .akari/cache/transcribe/ を消して起こし直す必要がある（runA でそうした）"
+  },
+  "runs": {
+    "A_default": {
+      "command": "akari media transcribe-cuts assets/talk-0507-first3min.mp4（--basis 無指定・transcripts は minGapSec 0.8 で起こし直し済み）",
+      "stdout": {
+        "basis": "speech-analyzer",
+        "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+        "candidates": 8,
+        "by_kind": { "filler": 2, "redo": 0, "silence": 5, "unrecognized": 1 },
+        "on": 0,
+        "seconds": 0
+      },
+      "elapsed_sec": 28.9
+    },
+    "B_basis_fixed_to_whisper": {
+      "command": "akari media transcribe-cuts … --basis whisper-cpp（transcripts は 2026-09-08 実測のまま = minGapSec 0.45 で起こしたもの）",
+      "purpose": "言い直し regex 変更の単独効果を basis 固定で見る",
+      "stdout": {
+        "basis": "whisper-cpp",
+        "basis_reason": "explicit (--basis whisper-cpp)",
+        "candidates": 17,
+        "by_kind": { "filler": 4, "redo": 0, "silence": 5, "unrecognized": 8 }
+      },
+      "baseline_2026_09_08": { "candidates": 22, "by_kind": { "filler": 4, "redo": 5, "silence": 5, "unrecognized": 8 } }
+    },
+    "transcripts_regenerated": {
+      "speech-analyzer": { "elapsed_sec": 17.43, "segments": 13, "unrecognized": [{ "start": 80.16, "end": 80.543 }] },
+      "whisper-cpp": { "elapsed_sec": 75.82, "segments": 44, "unrecognized": [] },
+      "before_minGap_0.8": { "speech-analyzer": 1, "whisper-cpp": 7 }
+    }
+  },
+  "scoreboard": [
+    { "id": "p1-basis", "predicted": "speech-analyzer", "measured": "speech-analyzer", "hit": true,
+      "note": "basis_reason も予測どおり filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)" },
+    { "id": "p2-redo-same-basis", "predicted": 0, "measured": 0, "hit": true,
+      "note": "basis を whisper-cpp に固定した run B で 5 件 → 0 件。1 文字反復（いい / かか / いい / いい / ここ）が全滅" },
+    { "id": "p3-redo-new-basis", "predicted": 0, "measured": 0, "hit": true },
+    { "id": "p4-filler-new-basis", "predicted": 19, "measured": 2, "hit": false,
+      "note": "**最大の外し**。basis を SA にしてもフィラー候補は増えず 4 件 → 2 件に減った。原因は basis 選択ではなく候補抽出側: textCandidates は FILLER_PREFIX（segment 先頭）と segment.words の isFiller でしか拾わず、SA の words は 1 文字単位なので語単位のフィラーに当たらない。SA 13 segments のうち先頭がフィラーなのは 2 つだけ" },
+    { "id": "p5-unrecognized-judgement", "predicted": "false_positive >= 5 / 8", "measured": "8 / 8", "hit": true,
+      "note": "判定表 evidence/cuts-calibration-v0.1/unrecognized-judgement.md" },
+    { "id": "p6-unrecognized-count", "predicted": 2, "range": [1, 4], "measured": 1, "hit": "range",
+      "note": "点予測は外し・レンジ内。残った 1 件は判定表 #4（80.160–80.543）で、これも偽陽性判定だが元の gap が 0.90 秒あり 0.8 の閾値を越える" },
+    { "id": "p7-total", "predicted": 26, "range": [21, 30], "measured": 8, "hit": false,
+      "note": "p4 の外しがそのまま効いた" },
+    { "id": "p8-silence", "predicted": 5, "measured": 5, "hit": true }
+  ],
+  "verification": {
+    "packages/akari-tools npm test": { "tests": 355, "pass": 354, "fail": 0, "skipped": 1, "duration_sec": 72.6 },
+    "npm run test:shell": { "tests": 3037, "pass": 3037, "fail": 0, "skipped": 0, "entries": 10 },
+    "apps/shell npm run build:ext": { "result": "exit 0", "duration_sec": 29.8 }
+  },
+  "follow_ups": [
+    "フィラー候補の抽出が engine の分かち書き粒度に依存する（SA の words は 1 文字単位）。basis を SA にしても切れるフィラーは 2 件しか出ない。textCandidates を本文走査（countFillerHits と同じ長い語彙優先の非重複スキャン）+ 文字時刻からの区間復元に寄せる票が要る。本契約の指示 1〜5 の外なので今回は触っていない",
+    "transcribe の cache は unrecognized 付与後の結果を保存するので、UNRECOGNIZED_DEFAULTS を変えても既存 cache / 既存 transcripts には遡及しない。実利用では「既定を変えたのに台本の黄色が減らない」ように見える。transcribe.mjs は本契約で編集禁止なので申し送りのみ",
+    "0.8 でも残る 1 件（80.160–80.543）は SA の segment 末尾で word 時刻が 0.9 秒欠けたもの。閾値ではなく「segment 端の欠けは未認識にしない」という規則の方が筋がよい可能性がある"
+  ]
+}
