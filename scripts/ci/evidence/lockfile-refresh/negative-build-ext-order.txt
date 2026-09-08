@@ -1,0 +1,10 @@
+# build:ext の順序を設定票以前へ戻した退行実証（新規クローン内で一時的に書き換え → 直後に git checkout で復旧）
+# build:ext = tsc -b extensions/akari-project ... extensions/akari-transcript extensions/akari-theme（akari-theme を末尾へ）
+# node scripts/ci/check-extension-deps.mjs => exit 1 / 違反 7 件
+[extension-deps] apps/shell/extensions/akari-annotations/src/browser/akari-annotations-contribution.ts:1: akari-annotations → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-partner/src/browser/akari-partner-contribution.ts:1: akari-partner → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-shell-strip/src/browser/akari-activity-bar-curation.ts:1: akari-shell-strip → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-shell-strip/src/browser/akari-bottom-panel-curation.ts:1: akari-shell-strip → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-shell-strip/src/browser/akari-right-panel-curation.ts:1: akari-shell-strip → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-surfaces/src/browser/akari-home-contribution.ts:1: akari-surfaces → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）
+[extension-deps] apps/shell/extensions/akari-transcript/src/browser/daihon/akari-daihon-contribution.ts:1: akari-transcript → akari-theme: build:ext で依存先が先にありません（トークン欠落を含む）

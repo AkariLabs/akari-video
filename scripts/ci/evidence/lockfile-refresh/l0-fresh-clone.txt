@@ -1,0 +1,109 @@
+### 00 clone (git clone --branch task/2026-09-08-lockfile-refresh-and-build-order <REPO> <CLONE>)
+Cloning into '<CLONE>'...
+done.
+Updating files:   2% (149/6156)Updating files:   2% (173/6156)Updating files:   3% (185/6156)Updating files:   4% (247/6156)Updating files:   5% (308/6156)Updating files:   5% (324/6156)Updating files:   6% (370/6156)Updating files:   7% (431/6156)Updating files:   8% (493/6156)Updating files:   8% (504/6156)Updating files:   9% (555/6156)Updating files:  10% (616/6156)Updating files:  11% (678/6156)Updating files:  11% (727/6156)Updating files:  12% (739/6156)Updating files:  13% (801/6156)Updating files:  14% (862/6156)Updating files:  15% (924/6156)Updating files:  16% (985/6156)Updating files:  17% (1047/6156)Updating files:  18% (1109/6156)Updating files:  19% (1170/6156)Updating files:  20% (1232/6156)Updating files:  21% (1293/6156)Updating files:  21% (1338/6156)Updating files:  22% (1355/6156)Updating files:  23% (1416/6156)Updating files:  23% (1463/6156)Updating files:  24% (1478/6156)Updating files:  25% (1539/6156)Updating files:  26% (1601/6156)Updating files:  27% (1663/6156)Updating files:  27% (1692/6156)Updating files:  28% (1724/6156)Updating files:  29% (1786/6156)Updating files:  29% (1826/6156)Updating files:  30% (1847/6156)Updating files:  31% (1909/6156)Updating files:  32% (1970/6156)Updating files:  33% (2032/6156)Updating files:  33% (2042/6156)Updating files:  33% (2093/6156)Updating files:  34% (2094/6156)Updating files:  35% (2155/6156)Updating files:  35% (2194/6156)Updating files:  36% (2217/6156)Updating files:  37% (2278/6156)Updating files:  38% (2340/6156)Updating files:  38% (2346/6156)Updating files:  39% (2401/6156)Updating files:  39% (2454/6156)Updating files:  40% (2463/6156)Updating files:  41% (2524/6156)Updating files:  42% (2586/6156)Updating files:  43% (2648/6156)Updating files:  43% (2666/6156)Updating files:  44% (2709/6156)Updating files:  45% (2771/6156)Updating files:  46% (2832/6156)Updating files:  47% (2894/6156)Updating files:  47% (2903/6156)Updating files:  48% (2955/6156)Updating files:  49% (3017/6156)Updating files:  49% (3030/6156)Updating files:  50% (3078/6156)Updating files:  51% (3140/6156)Updating files:  51% (3181/6156)Updating files:  51% (3187/6156)Updating files:  52% (3202/6156)Updating files:  52% (3205/6156)Updating files:  53% (3263/6156)Updating files:  54% (3325/6156)Updating files:  55% (3386/6156)Updating files:  56% (3448/6156)Updating files:  57% (3509/6156)Updating files:  57% (3510/6156)Updating files:  58% (3571/6156)Updating files:  59% (3633/6156)Updating files:  60% (3694/6156)Updating files:  61% (3756/6156)Updating files:  62% (3817/6156)Updating files:  63% (3879/6156)Updating files:  64% (3940/6156)Updating files:  65% (4002/6156)Updating files:  66% (4063/6156)Updating files:  67% (4125/6156)Updating files:  68% (4187/6156)Updating files:  69% (4248/6156)Updating files:  70% (4310/6156)Updating files:  71% (4371/6156)Updating files:  72% (4433/6156)Updating files:  72% (4459/6156)Updating files:  73% (4494/6156)Updating files:  74% (4556/6156)Updating files:  75% (4617/6156)Updating files:  76% (4679/6156)Updating files:  77% (4741/6156)Updating files:  78% (4802/6156)Updating files:  79% (4864/6156)Updating files:  80% (4925/6156)Updating files:  81% (4987/6156)Updating files:  81% (5001/6156)Updating files:  82% (5048/6156)Updating files:  83% (5110/6156)Updating files:  84% (5172/6156)Updating files:  85% (5233/6156)Updating files:  86% (5295/6156)Updating files:  87% (5356/6156)Updating files:  88% (5418/6156)Updating files:  89% (5479/6156)Updating files:  90% (5541/6156)Updating files:  91% (5602/6156)Updating files:  92% (5664/6156)Updating files:  93% (5726/6156)Updating files:  93% (5759/6156)Updating files:  94% (5787/6156)Updating files:  95% (5849/6156)Updating files:  95% (5885/6156)Updating files:  96% (5910/6156)Updating files:  97% (5972/6156)Updating files:  98% (6033/6156)Updating files:  99% (6095/6156)Updating files: 100% (6156/6156)Updating files: 100% (6156/6156), done.
+af098eff [機能追加] check-extension-deps.mjs — 拡張間 file: 依存と build:ext の順序を機械照合する
+
+### 01 npm install --package-lock-only --ignore-scripts (clone root) — 期待: lock 無変化
+npm warn allow-scripts allowScripts in workspace @akari-video/shell (<CLONE>/apps/shell) is ignored. Move the field to the project root package.json.
+
+up to date in 9s
+git diff -- package-lock.json =>        0 行（0 = 現物と一致）
+
+### 02 npm install --package-lock-only --no-workspaces --ignore-scripts (clone apps/shell) — 期待: lock 無変化
+
+up to date in 5s
+git diff -- apps/shell/package-lock.json =>        0 行（0 = 現物と一致）
+
+### 04 npm ci --ignore-scripts (clone root)
+
+added 1479 packages in 2m
+real 140.89
+user 20.01
+sys 25.20
+
+### 05 npm ci --no-workspaces --ignore-scripts (clone apps/shell)
+
+added 1400 packages in 1m
+real 66.09
+user 19.36
+sys 19.89
+
+### 06 npm run build:ext (clone apps/shell)
+> @akari-video/shell@0.1.57 build:ext
+> tsc -b extensions/akari-theme extensions/akari-project extensions/akari-preview extensions/akari-annotations extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript
+
+real 24.54
+user 26.30
+sys 2.10
+
+### 07 npm run test:shell (clone root)
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+|---|---|---:|---:|---:|---:|---:|
+| ✅ | apps/shell/test | 40 | 40 | 0 | 0 | 0.4 |
+| ✅ | apps/shell/extensions/akari-annotations | 1107 | 1107 | 0 | 0 | 21.6 |
+| ✅ | apps/shell/extensions/akari-partner | 130 | 130 | 0 | 0 | 5.8 |
+| ✅ | apps/shell/extensions/akari-project | 283 | 283 | 0 | 0 | 2.4 |
+| ✅ | apps/shell/extensions/akari-shell-strip | 237 | 237 | 0 | 0 | 6.2 |
+| ✅ | apps/shell/extensions/akari-surfaces | 210 | 210 | 0 | 0 | 5.9 |
+| ✅ | apps/shell/extensions/akari-tabs | 10 | 10 | 0 | 0 | 0.5 |
+| ✅ | apps/shell/extensions/akari-theme | 23 | 23 | 0 | 0 | 1.3 |
+| ✅ | apps/shell/extensions/akari-transcript | 211 | 211 | 0 | 0 | 2.0 |
+| ✅ | apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外) | 916 | 916 | 0 | 0 | 13.8 |
+
+合計: tests 3167 / pass 3167 / fail 0 / skipped 0 — 全エントリ exit 0
+real 60.37
+user 106.64
+sys 21.23
+
+### 08 node scripts/ci/run-unit-tests.mjs --lane pure (clone root)
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+|---|---|---:|---:|---:|---:|---:|
+| ✅ | packages/analysis-report | 28 | 28 | 0 | 0 | 8.4 |
+| ✅ | packages/asset-resolver | 41 | 41 | 0 | 0 | 3.2 |
+| ✅ | packages/audio-library-setup | 101 | 99 | 0 | 2 | 4.4 |
+| ✅ | packages/chat-bridge | 12 | 12 | 0 | 0 | 0.5 |
+| ✅ | packages/creator-root | 33 | 33 | 0 | 0 | 0.8 |
+| ✅ | packages/decision-log-report | 13 | 13 | 0 | 0 | 2.2 |
+| ✅ | packages/edit-lint | 296 | 296 | 0 | 0 | 88.8 |
+| ✅ | packages/edit-store | 661 | 661 | 0 | 0 | 9.9 |
+| ✅ | packages/intake-form | 5 | 5 | 0 | 0 | 0.8 |
+| ✅ | packages/matte-rvm | 29 | 26 | 0 | 3 | 1.1 |
+| ✅ | packages/pen-visuals | 3 | 3 | 0 | 0 | 1.4 |
+| ✅ | packages/project-scaffold | 16 | 16 | 0 | 0 | 2.9 |
+| ✅ | packages/schemas | 424 | 423 | 0 | 1 | 21.2 |
+| ✅ | packages/word-book | 29 | 29 | 0 | 0 | 0.6 |
+| ✅ | scripts/test | 33 | 33 | 0 | 0 | 3.4 |
+| ✅ | skills/* (package.json を持たないスキル同梱テスト) | 184 | 184 | 0 | 0 | 20.3 |
+
+合計: tests 1908 / pass 1902 / fail 0 / skipped 6 — 全エントリ exit 0
+real 170.14
+user 196.65
+sys 62.51
+
+### 09 node scripts/ci/check-extension-deps.mjs (clone root)
+[extension-deps] OK: 9 extensions, 421 files, 39 imports
+exit=0
+
+### exit code 一覧
+clone exit=0
+lockonly-root exit=0
+lockonly-shell exit=0
+ci-root exit=0
+ci-shell exit=0
+build-ext exit=0
+test-shell exit=0
+unit-pure exit=0
+check-ext-deps exit=0
+ALL DONE 01:42:08
+
+### 11 apps/shell `npm run lint`（eslint "extensions/*/src/**/*.{ts,tsx}"）
+exit 0 / 11.1 s / 指摘 0
+
+### 12 root `node scripts/gen-skills-index.mjs --check --strict`
+exit 0 / gen-skills-index: drift なし（23 件）
+
+### 13 root `node scripts/check-docs-sync.mjs`
+exit 0 / check-docs-sync: drift なし（スキル数 23 件・契約 65 件・数値検査 7 ファイル・カタログ/索引網羅 4 ファイル）

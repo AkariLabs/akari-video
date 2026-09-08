@@ -1,0 +1,92 @@
+# root package-lock.json から消えた 80 名の根拠（git grep = 追跡ファイルのみ）
+# 列: 名前 | package.json の依存宣言 | ソースの import/require | scripts/release + apps/shell/resources/scripts の名指し
+@emnapi/runtime | 0 | 0 | 0
+@esbuild/openharmony-arm64 | 0 | 0 | 0
+@google/genai | 0 | 0 | 0
+@img/colour | 0 | 0 | 0
+@img/sharp-darwin-arm64 | 0 | 0 | 0
+@img/sharp-darwin-x64 | 0 | 0 | 0
+@img/sharp-libvips-darwin-arm64 | 0 | 0 | 0
+@img/sharp-libvips-darwin-x64 | 0 | 0 | 0
+@img/sharp-libvips-linux-arm | 0 | 0 | 0
+@img/sharp-libvips-linux-arm64 | 0 | 0 | 0
+@img/sharp-libvips-linux-ppc64 | 0 | 0 | 0
+@img/sharp-libvips-linux-riscv64 | 0 | 0 | 0
+@img/sharp-libvips-linux-s390x | 0 | 0 | 0
+@img/sharp-libvips-linux-x64 | 0 | 0 | 0
+@img/sharp-libvips-linuxmusl-arm64 | 0 | 0 | 0
+@img/sharp-libvips-linuxmusl-x64 | 0 | 0 | 0
+@img/sharp-linux-arm | 0 | 0 | 0
+@img/sharp-linux-arm64 | 0 | 0 | 0
+@img/sharp-linux-ppc64 | 0 | 0 | 0
+@img/sharp-linux-riscv64 | 0 | 0 | 0
+@img/sharp-linux-s390x | 0 | 0 | 0
+@img/sharp-linux-x64 | 0 | 0 | 0
+@img/sharp-linuxmusl-arm64 | 0 | 0 | 0
+@img/sharp-linuxmusl-x64 | 0 | 0 | 0
+@img/sharp-wasm32 | 0 | 0 | 0
+@img/sharp-win32-arm64 | 0 | 0 | 0
+@img/sharp-win32-ia32 | 0 | 0 | 0
+@img/sharp-win32-x64 | 0 | 0 | 0
+@protobufjs/aspromise | 0 | 0 | 0
+@protobufjs/base64 | 0 | 0 | 0
+@protobufjs/codegen | 0 | 0 | 0
+@protobufjs/eventemitter | 0 | 0 | 0
+@protobufjs/fetch | 0 | 0 | 0
+@protobufjs/float | 0 | 0 | 0
+@protobufjs/path | 0 | 0 | 0
+@protobufjs/pool | 0 | 0 | 0
+@protobufjs/utf8 | 0 | 0 | 0
+@swc/helpers | 0 | 0 | 0
+@types/retry | 0 | 0 | 0
+bignumber.js | 0 | 0 | 0
+brotli | 0 | 0 | 0
+buffer-equal-constant-time | 0 | 0 | 0
+bundle-name | 0 | 0 | 0
+citty | 0 | 0 | 0
+compare-versions | 0 | 0 | 0
+data-uri-to-buffer | 0 | 0 | 0
+default-browser | 0 | 0 | 0
+default-browser-id | 0 | 0 | 0
+define-lazy-prop | 0 | 0 | 0
+dfa | 0 | 0 | 0
+ecdsa-sig-formatter | 0 | 0 | 0
+extend | 0 | 0 | 0
+fetch-blob | 0 | 0 | 0
+fontkit | 0 | 0 | 0
+formdata-polyfill | 0 | 0 | 0
+gaxios | 0 | 0 | 0
+gcp-metadata | 0 | 0 | 0
+giget | 0 | 0 | 0
+google-auth-library | 0 | 0 | 0
+google-logging-utils | 0 | 0 | 0
+hyperframes | 0 | 0 | 4
+    名指し: apps/shell/resources/scripts/bundle-cli-node-modules.mjs:25:// hyperframes を同梱しない判断の根拠は bundled-cli-npm-entries.mjs のコメントにある。
+    名指し: apps/shell/resources/scripts/bundled-cli-npm-entries.mjs:24: * hyperframes は**意図的に含めない**（依存クロージャが 406MB〔onnxruntime-node 246MB /
+    名指し: apps/shell/resources/scripts/generate-third-party-notices.mjs:140:// （render-cut は hyperframes を依存として宣言しているが同梱しない — 宣言から辿ると
+    名指し: scripts/release/check-packaged-imports.mjs:21://   5. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
+is-inside-container | 0 | 0 | 0
+json-bigint | 0 | 0 | 0
+jwa | 0 | 0 | 0
+jws | 0 | 0 | 0
+long | 0 | 0 | 3
+    名指し: apps/shell/resources/scripts/generate-third-party-notices.mjs:277:  'license terms are provided alongside this file as LICENSE.electron.txt and',
+    名指し: apps/shell/resources/scripts/license-texts/Apache-2.0.txt:114:          documentation, if provided along with the Derivative Works; or,
+    名指し: apps/shell/resources/scripts/license-texts/Apache-2.0.txt:119:          notices within Derivative Works that You distribute, alongside
+node-domexception | 0 | 0 | 0
+node-fetch | 0 | 0 | 0
+p-retry | 0 | 0 | 0
+pako | 0 | 0 | 0
+prettier | 0 | 0 | 0
+protobufjs | 0 | 0 | 0
+restructure | 0 | 0 | 0
+run-applescript | 0 | 0 | 0
+sharp | 0 | 0 | 1
+    名指し: apps/shell/resources/scripts/bundled-cli-npm-entries.mjs:25: * sharp のネイティブ .node〕に達し割に合わないため）。#130d 以降は render-cut の依存からも外れている。
+tiny-inflate | 0 | 0 | 0
+unicode-properties | 0 | 0 | 0
+unicode-trie | 0 | 0 | 0
+web-streams-polyfill | 0 | 0 | 0
+wsl-utils | 0 | 0 | 0
+
+合計: 依存宣言 0 件 / import 0 件 / 名指し 8 件
