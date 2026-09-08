@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { timelineTabCaption } from '../common/timeline-tab-caption';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
@@ -1070,7 +1071,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
         this.title.label = 'タイムライン';
-        this.title.caption = 'タイムラインとレビューコメント';
+        void this.updateTimelineTabCaption();
         this.title.iconClass = 'codicon codicon-comment';
         this.title.closable = true;
         this.node.classList.add('akari-annotations-widget');
@@ -5159,6 +5160,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    protected timelineTabCaptionRevision = 0;
+
+    protected async updateTimelineTabCaption(): Promise<void> {
+        const revision = ++this.timelineTabCaptionRevision;
+        const location = this.location;
+        const editUri = location?.editUri;
+        const exists = editUri !== undefined && await this.fileService.exists(editUri);
+        if (revision !== this.timelineTabCaptionRevision) return;
+        this.title.caption = timelineTabCaption(location?.root ?? new URI(), exists ? editUri : undefined);
+    }
+
     protected async adoptTimelineEdit(uri: URI): Promise<void> {
         if (!this.location || this.location.editUri || !await this.fileService.exists(uri)) return;
         const location = await this.refreshLocationEditUri?.(uri);
@@ -5166,7 +5178,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.location, editUri: uri,
             captionsUri: uri.parent.resolve('captions.json'), reviewUri: uri.parent.resolve('review.json')
         };
-        this.title.caption = `タイムライン — ${this.location.reviewUri.toString()}`;
+        await this.updateTimelineTabCaption();
         await this.reloadEdit();
     }
 
@@ -5204,7 +5216,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configured = true;
         this.location = location;
         this.refreshLocationEditUri = refreshLocationEditUri;
-        this.title.caption = `タイムライン — ${location.reviewUri.toString()}`;
+        await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
@@ -5231,9 +5243,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     // 初回探索と同じく、隠しディレクトリや依存内の雛形は開かない。
                     return !!relative && !relative.split('/').some(part => part.startsWith('.') || part === 'node_modules');
                 });
-                if (edit) void this.adoptTimelineEdit(edit.resource).catch(error => {
+                if (edit) void this.adoptTimelineEdit(edit.resource).then(() => this.updateTimelineTabCaption()).catch(error => {
                     this.showNotice(`編集データを読み込めません: ${this.errorMessage(error)}`);
                 });
+            }
+            // 削除後も location は保持されるため、同じ URI の再作成でも表示を更新する。
+            if (this.location.editUri && event.contains(this.location.editUri)) {
+                void this.updateTimelineTabCaption();
             }
             let visualChanged = false;
             for (const [id, dependencies] of this.visualDependencies) {
