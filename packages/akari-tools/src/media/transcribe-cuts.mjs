@@ -18,7 +18,7 @@ function numeric(value, fallback, label) {
   return resolved;
 }
 
-function textCandidates(segments) {
+function textCandidates(segments, options) {
   const candidates = [];
   for (const segment of segments) {
     const chars = segmentCharacters(segment);
@@ -44,14 +44,14 @@ function textCandidates(segments) {
       const key = `${timing.start}:${timing.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      candidates.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: true, reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
+      candidates.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on", reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
     }
     const repeats = /([^、,。！？.!?\s]{1,6})(?:[、,]*\1)+[、,]*/gu;
     for (const match of text.matchAll(repeats)) {
       const unit = match[1];
       const last = match[0].lastIndexOf(unit);
       const timing = characterTiming(sliceChars(match.index, match.index + last));
-      candidates.push({ kind: "redo", ...timing, text: match[0], default_on: true, reason: "言い直し。最後の 1 回を残す" });
+      candidates.push({ kind: "redo", ...timing, text: match[0], default_on: options.redo === "on", reason: "言い直し。最後の 1 回を残す" });
     }
   }
   return candidates;
@@ -88,6 +88,11 @@ function applyHandEdited(candidates, captions, basis, target) {
 }
 
 export async function transcribeCutsMedia(argument, options = {}) {
+  const filler = options.filler ?? "off";
+  const redo = options.redo ?? "off";
+  for (const [name, value] of Object.entries({ filler, redo })) {
+    if (!["on", "off"].includes(value)) throw new Error(`--${name} は on / off で指定してください`);
+  }
   const silenceMin = numeric(options.silenceMin, 1.5, "--silence-min");
   const silenceBreak = numeric(options.silenceBreak, 3, "--silence-break");
   const silenceKeep = numeric(options.silenceKeep, 0.5, "--silence-keep");
@@ -108,14 +113,14 @@ export async function transcribeCutsMedia(argument, options = {}) {
   } catch (error) {
     throw Object.assign(new Error(`素材を読めません: ${error.message}`), { exitCode: 2 });
   }
-  const candidates = textCandidates(basis.segments);
+  const candidates = textCandidates(basis.segments, { filler, redo });
   for (const silence of Array.isArray(detected) ? detected : detected?.silences ?? []) {
     const duration = formatNumber(silence.end - silence.start);
     if (!Number.isFinite(duration) || duration < silenceMin || duration <= silenceKeep) continue;
-    const defaultOn = duration < silenceBreak;
+    const belowBreak = duration < silenceBreak;
     candidates.push({ kind: "silence", start: silence.start, end: formatNumber(silence.end - silenceKeep), text: null,
-      default_on: defaultOn,
-      reason: defaultOn ? `無音 ${duration} 秒 → ${silenceKeep} 秒残す` : `無音 ${duration} 秒。章の切れ目とみなす` });
+      default_on: false,
+      reason: belowBreak ? `無音 ${duration} 秒 → ${silenceKeep} 秒残す` : `無音 ${duration} 秒。章の切れ目とみなす` });
   }
   for (const span of unionUnrecognized(transcripts)) {
     candidates.push({ kind: "unrecognized", ...span, text: null, default_on: false, reason: "未認識。決まるまで切らない" });
@@ -148,7 +153,7 @@ export async function transcribeCutsMedia(argument, options = {}) {
     candidate.on = typeof on === "boolean" ? on : candidate.default_on;
   }
   const result = { version: 1, generated_at: generatedAt(options), basis: basis.backend,
-    rules: { filler: "on", redo: "on", silence_min_sec: silenceMin, silence_keep_sec: silenceKeep, silence_break_sec: silenceBreak, unrecognized: "off" },
+    rules: { filler, redo, silence_min_sec: silenceMin, silence_keep_sec: silenceKeep, silence_break_sec: silenceBreak, unrecognized: "off" },
     candidates: unique, hand_edited: handEdited };
   await writeSidecar(target, "cuts.json", result);
   const by_kind = { filler: 0, redo: 0, silence: 0, unrecognized: 0 };
