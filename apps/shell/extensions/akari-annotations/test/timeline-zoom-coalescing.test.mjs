@@ -96,7 +96,7 @@ test('contentEndDuration はリビジョン付きメモを読む', () => {
   const extent = method('protected contentEndDuration(): number', 'protected computeContentEndDuration(): number');
   assert.ok(extent.includes('this.contentEndMemo.read(this.contentExtentRevision)'));
   for (const [start, end] of [
-    ['protected async reloadEdit(): Promise<void>', 'protected async reloadAnalysis'],
+    ['protected async reloadEdit(sourceOverride?: string): Promise<void>', 'protected async reloadAnalysis'],
     ['protected async reloadCaptions(): Promise<void>', 'protected rebuildSegments(): void'],
     ['protected rebuildSegments(): void', 'protected async reloadAnalysis'],
     ['protected ensureAudioDurationFetch(', 'protected resolveSfxDisplayDuration('],

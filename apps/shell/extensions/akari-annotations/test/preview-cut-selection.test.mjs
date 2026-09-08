@@ -20,6 +20,6 @@ test('プレビューの cut ID 選択がタイムライン選択と inspector s
     );
     assert.match(
         previewSource,
-        /if \(cutSelected\) \{\s*updateCutSelectBox\(\);\s*if \(report\) window\.akari\.reportCutSelection\(video\.dataset\.akariCutId \|\| null\)/
+        /if \(cutSelected\) \{\s*updateCutSelectBox\(\);\s*if \(report\) window\.akari\.reportCutSelection\(cutSelectionVideo\(\)\.dataset\.akariCutId \|\| null\)/
     );
 });

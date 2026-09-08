@@ -25,7 +25,7 @@ const method = name => {
 const names = [
     'linkedCutAudioPair', 'linkedPairForSelection', 'rejectLockedCutAudio', 'performLinkedDeletion',
     'performDeleteSelected', 'performDeleteSelectedCut', 'performDeleteMultiSelected',
-    'commitEditMutation', 'dispatchTimelineClipMenuAction', 'commitDrag', 'commitEditV2Drag',
+    'commitEditMutation', 'performEditMutation', 'splittableItemId', 'dispatchTimelineClipMenuAction', 'commitDrag', 'commitEditV2Drag',
     'moveV2PreviewItem', 'currentTrackId', 'cutItemId', 'frameAt', 'rawV2Item',
     'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'isTrackLocked', 'showLockedTrack',
     'updateLinkedDragGhost', 'updateDragAltKey', 'withNarrationEnvelope', 'snapshotForSelection',
@@ -68,6 +68,8 @@ function fixture(split = true) {
     const context = new Handler();
     let disk = mutations.stringifyEditV2(split ? kernel.splitCutAudio(document(), { cutId: 'cut' }).document : document());
     context.location = { editUri: 'edit.json', captionsUri: 'captions.json', root: '.' };
+    context.editMutationTail = Promise.resolve();
+    context.contentEndDuration = () => 5;
     context.fps = 30;
     context.cutItemIds = ['cut'];
     context.audioSfx = [];
@@ -87,8 +89,8 @@ function fixture(split = true) {
         if (captions !== undefined) context.captionsDisk = captions;
     };
     context.reloadCaptions = async () => {};
-    context.reloadEdit = async () => {
-        context.editDocument = JSON.parse(disk);
+    context.reloadEdit = async source => {
+        context.editDocument = JSON.parse(source ?? disk);
         context.itemLocations = mutations.indexEditV2Items(context.editDocument);
         context.timelineTracks = context.editDocument.tracks.map(track => ({ id: track.id, kind: track.lane === 'audio' ? 'audio' : 'cuts' }));
         context.displayTimelineTracks = context.timelineTracks;

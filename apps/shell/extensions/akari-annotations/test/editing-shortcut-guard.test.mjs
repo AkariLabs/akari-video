@@ -87,7 +87,7 @@ test('IME composition disarms bare-key shortcuts on every global keydown consume
 
     // プレビュー webview: スペースの再生トグル。転送前のネイティブイベントを自前で弾く。
     assert.match(preview, /const isImeComposing = \(\$\{isImeCompositionKeydown\.toString\(\)\}\)/);
-    assert.match(preview, /if \(isImeComposing\(event\)\s*\|\|\s*\(event\.code !== 'Space' && event\.key !== ' '\)/);
+    assert.match(preview, /if \(event\.repeat \|\| isImeComposing\(event\)\s*\|\|\s*\(event\.code !== 'Space' && event\.key !== ' '\)/);
 });
 
 test('the forwarded-keydown path is covered because Theia drops isComposing but keeps keyCode', () => {
