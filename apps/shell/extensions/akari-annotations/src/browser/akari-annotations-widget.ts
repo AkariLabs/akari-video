@@ -1208,7 +1208,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
             `<path d="M0 0H14V10L7 16L0 10Z" fill="${PLAYHEAD_COLOR}"/></svg>`;
         this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
-        this.playhead.appendChild(this.playheadHandle);
+        const playheadLineHit = document.createElement('div');
+        playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
+        Object.assign(playheadLineHit.style, {
+            position: 'absolute', top: '16px', bottom: '0', left: '-3px', width: '8px',
+            pointerEvents: 'auto', cursor: 'ew-resize'
+        });
+        playheadLineHit.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
+        this.playhead.append(playheadLineHit, this.playheadHandle);
         Object.assign(this.snapGuide.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
             background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none'
@@ -2277,6 +2284,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (selection || hadMultiSelection) {
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
+                if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
                 this.syncRightPane();
             }
             return;
@@ -2284,6 +2292,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selection = selection;
         this.pushSelectionSnapshot();
         this.applySelectionClass();
+        if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
         // オーバーレイ選択はタイムライン⇔プレビューwebviewで双方向同期する（クリップ/字幕には対応先がないため対象外）。
         if (notifyPreview && (previous?.kind === 'overlay' || previous?.kind === 'item'
             || selection?.kind === 'overlay' || selection?.kind === 'item')) {
@@ -2308,6 +2317,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection) {
             this.revealOutputPreview();
         }
+    }
+
+    protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
+        let target: { kind: 'cut' | 'caption'; id: string } | null = null;
+        if (selection?.kind === 'cut') {
+            const id = this.cutItemIds[selection.index];
+            if (id) target = { kind: 'cut', id };
+        } else if (selection?.kind === 'caption') {
+            target = { kind: 'caption', id: selection.id };
+        } else if (selection?.kind === 'item') {
+            const raw = this.rawKeyframeItem(selection.id);
+            const id = captionIdForTreeSelection(selection, raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            if (id) target = { kind: 'caption', id };
+        }
+        window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', {
+            detail: { editUri: this.location?.editUri?.toString() ?? '', selection: target }
+        }));
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
@@ -13082,7 +13108,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** playhead 上端のピン型ハンドルをドラッグしている間、継続的にプレビューへシークする（スクラブ）。 */
     protected onPlayheadHandlePointerDown(event: PointerEvent): void {
-        if (event.button !== 0) {
+        if (event.button !== 0 || this.dragState) {
             return;
         }
         event.preventDefault();
