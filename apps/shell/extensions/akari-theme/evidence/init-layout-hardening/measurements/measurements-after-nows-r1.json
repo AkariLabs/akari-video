@@ -1,0 +1,41 @@
+{
+  "label": "after-nows-r1",
+  "workspace": null,
+  "startedAt": "2026-09-08T12:47:48.266Z",
+  "timeline": [
+    {
+      "atSeconds": 5,
+      "ready": true,
+      "preloadVisible": false
+    }
+  ],
+  "preloadVisible": false,
+  "shellAttached": true,
+  "rightTabs": [
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈"
+  ],
+  "leftIcons": 15,
+  "mainTabs": [
+    "ホーム"
+  ],
+  "homeAttached": true,
+  "daihonAttached": true,
+  "cutsAttached": true,
+  "reviewAttached": true,
+  "partnerAttached": true,
+  "gapApplied": true,
+  "readyMs": 12285,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardWarnings": [
+    "warning: 2026-09-08T12:47:59.689Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined"
+  ],
+  "consoleErrors": []
+}
