@@ -1,0 +1,19 @@
+{
+  "blurOn": {
+    "backdropFilter": "blur(6px)",
+    "background": "rgba(0, 0, 0, 0.45)",
+    "block": {
+      "x": 379,
+      "w": 1042
+    },
+    "viewport": [
+      1800,
+      1050
+    ]
+  },
+  "blurOff": {
+    "backdropFilter": "none",
+    "background": "rgba(0, 0, 0, 0.3)"
+  },
+  "openAfterOutsideClickWide": 0
+}

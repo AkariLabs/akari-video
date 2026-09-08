@@ -12,6 +12,7 @@ import {
     AkariConnectionsService, ConnectionDoctor, ConnectionRow, ConnectionsList, TRANSCRIBE_BACKENDS, TranscribeBackend
 } from '../common/akari-connections-protocol';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
+import { dialogOutsideClick } from '../common/dialog-outside-click';
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import {
     AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
@@ -137,6 +138,16 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
+        // attach ごとの状態と、detach 時に解除されるリスナでドラッグ終端の誤閉鎖を防ぐ。
+        let armed = false;
+        this.addEventListener(this.node, 'mousedown', event => {
+            armed = dialogOutsideClick(armed, 'mousedown', event.target, this.node, event.button).armed;
+        });
+        this.addEventListener(this.node, 'click', event => {
+            const result = dialogOutsideClick(armed, 'click', event.target, this.node, event.button);
+            armed = result.armed;
+            if (result.close) { this.close(); }
+        });
         if (this.pendingSection) { this.scrollToSection(this.pendingSection); }
     }
 
