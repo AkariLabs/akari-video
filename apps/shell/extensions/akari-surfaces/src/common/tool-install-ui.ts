@@ -2,7 +2,7 @@ import type { AkariToolCheckResult, AkariToolId, AkariToolInstallResult } from '
 
 /**
  * 初回セットアップ v2（裁定 A）の道具ステップから UI を分離した純ロジック。
- * ダイアログ（browser 側）は状態機械の判定・進捗文字列・結果 3 値のマッピングを
+ * ダイアログ（browser 側）は状態機械の判定・進捗文字列・結果のマッピングを
  * ここへ寄せてテストする（task.md 手順 7）。
  */
 
@@ -17,12 +17,12 @@ export interface ToolSelectionSnapshot {
  * 新たに未導入と分かった道具（初回・または導入済みから未導入へ戻った道具）は既定で ON。
  */
 export function deriveToolSelection(
-    tools: ReadonlyArray<Pick<AkariToolCheckResult, 'id' | 'available'>>,
+    tools: ReadonlyArray<Pick<AkariToolCheckResult, 'id' | 'available' | 'unsupported'>>,
     previous?: ToolSelectionSnapshot
 ): Set<AkariToolId> {
     const next = new Set<AkariToolId>();
     for (const tool of tools) {
-        if (tool.available) {
+        if (tool.available || tool.unsupported) {
             continue;
         }
         const wasUnavailableBefore = previous?.unavailableIds.has(tool.id) ?? false;
@@ -34,12 +34,20 @@ export function deriveToolSelection(
     return next;
 }
 
+/** 保存済み・手動の選択も、現在インストール対象にできる道具だけに絞る。 */
+export function filterInstallableSelection(
+    tools: ReadonlyArray<Pick<AkariToolCheckResult, 'id' | 'available' | 'unsupported'>>,
+    selectedIds: ReadonlySet<AkariToolId>
+): Set<AkariToolId> {
+    return new Set(tools.filter(tool => !tool.available && !tool.unsupported && selectedIds.has(tool.id)).map(tool => tool.id));
+}
+
 /** 「インストール中: FFmpeg (1/3)…」形式の進捗表示文字列。 */
 export function formatInstallProgressLabel(toolName: string, index: number, total: number): string {
     return `インストール中: ${toolName} (${index}/${total})…`;
 }
 
-/** 結果 3 値（installed / external-installer-opened / failed）をそのまま表示できる 1 行へ寄せる。 */
+/** 導入結果をそのまま表示できる 1 行へ寄せる。 */
 export function describeToolInstallOutcome(result: AkariToolInstallResult, toolName: string): string {
     if (result.message) {
         return result.message;
@@ -49,6 +57,8 @@ export function describeToolInstallOutcome(result: AkariToolInstallResult, toolN
             return `${toolName} を導入しました。`;
         case 'external-installer-opened':
             return `${toolName} のインストーラーを開きました。完了したら再チェックしてください。`;
+        case 'skipped':
+            return `${toolName} は手動で入れる必要があります。`;
         case 'failed':
             return `${toolName} の導入に失敗しました。もう一度お試しください。`;
     }

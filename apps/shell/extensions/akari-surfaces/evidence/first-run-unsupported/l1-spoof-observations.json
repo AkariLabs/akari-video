@@ -1,0 +1,150 @@
+{
+ "scratch": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf",
+ "observations": {
+  "linux": {
+   "row": {
+    "id": "speech-analyzer",
+    "tier": "recommended",
+    "available": false,
+    "unsupported": true
+   },
+   "label": "この OS では使えない",
+   "showCheckbox": false,
+   "selected": [
+    "whisper",
+    "voicevox"
+   ],
+   "installButtonN": 2,
+   "installButtonNWithManualCheck": 2,
+   "allRows": [
+    {
+     "id": "ffmpeg",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "whisper",
+     "label": "準備が要る（モデルが無い）",
+     "showCheckbox": true
+    },
+    {
+     "id": "yt-dlp",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "blender",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "voicevox",
+     "label": "未インストール",
+     "showCheckbox": true
+    },
+    {
+     "id": "speech-analyzer",
+     "label": "この OS では使えない",
+     "showCheckbox": false
+    }
+   ]
+  },
+  "win32": {
+   "row": {
+    "id": "speech-analyzer",
+    "tier": "recommended",
+    "available": false,
+    "unsupported": true
+   },
+   "label": "この OS では使えない",
+   "showCheckbox": false
+  },
+  "darwin": {
+   "platform": "darwin",
+   "detectAttempts": 1,
+   "row": {
+    "id": "speech-analyzer",
+    "tier": "recommended",
+    "available": true
+   },
+   "label": "使える",
+   "showCheckbox": false,
+   "selected": [
+    "whisper"
+   ],
+   "installButtonN": 1,
+   "allRows": [
+    {
+     "id": "ffmpeg",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "whisper",
+     "label": "準備が要る（モデルが無い）",
+     "showCheckbox": true
+    },
+    {
+     "id": "yt-dlp",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "blender",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "voicevox",
+     "label": "インストール済み",
+     "showCheckbox": false
+    },
+    {
+     "id": "speech-analyzer",
+     "label": "使える",
+     "showCheckbox": false
+    },
+    {
+     "id": "xcode-clt",
+     "label": "インストール済み",
+     "showCheckbox": false
+    }
+   ]
+  },
+  "whisperOverride": {
+   "both": {
+    "detected": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "detectedAvailable": true,
+    "installed": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "needs": []
+   },
+   "cppOnly": {
+    "detected": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "detectedAvailable": true,
+    "installed": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "needs": []
+   },
+   "legacyOnly": {
+    "detectedAvailable": false,
+    "installed": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-legacy.bin",
+    "needs": [
+     "モデルが無い"
+    ]
+   },
+   "none": {
+    "detectedAvailable": false,
+    "needs": [
+     "モデルが無い"
+    ]
+   },
+   "overridePriority": {
+    "both": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "cppOnly": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-large-v3-turbo-q5_0.bin",
+    "legacyOnly": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-spoof-KbDjWf/models/ggml-legacy.bin"
+   },
+   "warnings": [
+    "[akari-surfaces] AKARI_WHISPER_MODEL は後方互換用です。WHISPER_CPP_MODEL を使ってください。"
+   ]
+  }
+ }
+}

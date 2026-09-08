@@ -1,11 +1,12 @@
+import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
 import { spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { delimiter, isAbsolute, join, resolve } from 'path';
 import type { AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
 import { summarizeCommandInstallPhase } from '../common/tool-install-progress';
-import { TOOL_UI } from '../common/tool-guidance';
+import { SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE, TOOL_UI } from '../common/tool-guidance';
 
 /**
  * 道具のインストールエンジン（初回セットアップ v2・裁定 A / 進捗バー + 同梱ファースト
@@ -36,6 +37,10 @@ export interface ToolInstallOptions {
     platform?: NodeJS.Platform;
     env?: NodeJS.ProcessEnv;
     homeDir?: string;
+    repoRoot?: string;
+    whisperBin?: string;
+    /** 再帰列挙した、指定ディレクトリからの相対パス（検出側と同じ契約）。 */
+    listDir?: (path: string) => Promise<string[]>;
     runCommand?: RunCommandFn;
     pathExists?: (path: string) => Promise<boolean>;
     fetchImpl?: typeof fetch;
@@ -93,6 +98,9 @@ interface InstallContext {
     id: AkariToolId;
     env: NodeJS.ProcessEnv;
     homeDir: string;
+    repoRoot: string;
+    whisperBin: string;
+    listDir: (path: string) => Promise<string[]>;
     runCommand: RunCommandFn;
     pathExists: (path: string) => Promise<boolean>;
     fetchImpl: typeof fetch;
@@ -115,10 +123,16 @@ export function akariToolsModelsDir(homeDir: string): string {
 }
 
 export async function installTool(id: AkariToolId, options: ToolInstallOptions = {}): Promise<AkariToolInstallResult> {
+    if (id === 'speech-analyzer') {
+        return { id, outcome: 'skipped', message: SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE };
+    }
     const ctx: InstallContext = {
         id,
         env: options.env ?? process.env,
         homeDir: options.homeDir ?? homedir(),
+        repoRoot: options.repoRoot ?? resolve(__dirname, '../../../../../..'),
+        whisperBin: options.whisperBin ?? (options.env ?? process.env).AKARI_WHISPER_BIN ?? '',
+        listDir: options.listDir ?? defaultListDir,
         runCommand: options.runCommand ?? defaultRunCommand,
         pathExists: options.pathExists ?? defaultPathExists,
         fetchImpl: options.fetchImpl ?? fetch,
@@ -302,12 +316,58 @@ async function installWithWinget(ctx: InstallContext): Promise<AkariToolInstallR
 
 // --- Whisper 認識モデル（裁定 E2 の本命 — アプリ管理の取得を新設） -----------------
 
-async function isWhisperModelPresent(ctx: InstallContext): Promise<boolean> {
-    const override = ctx.env.AKARI_WHISPER_MODEL;
-    if (override && await ctx.pathExists(override)) {
-        return true;
+/** 副作用なしで override の優先順位だけを決める。旧変数の警告は解決時に出す。 */
+export function resolveWhisperModelOverride(env: NodeJS.ProcessEnv): string | undefined {
+    return env.WHISPER_CPP_MODEL || env.AKARI_WHISPER_MODEL || undefined;
+}
+
+/** 検出側と同じ候補順・ファイル名除外規則で、最初のモデルの絶対パスを返す。 */
+export async function resolveWhisperModelPath(options: ToolInstallOptions = {}): Promise<string | undefined> {
+    const env = options.env ?? process.env;
+    const override = resolveWhisperModelOverride(env);
+    if (!env.WHISPER_CPP_MODEL && env.AKARI_WHISPER_MODEL) {
+        console.warn('[akari-surfaces] AKARI_WHISPER_MODEL は後方互換用です。WHISPER_CPP_MODEL を使ってください。');
     }
-    return ctx.pathExists(join(akariToolsModelsDir(ctx.homeDir), WHISPER_MODEL_FILENAME));
+    const pathExists = options.pathExists ?? defaultPathExists;
+    const listDir = options.listDir ?? defaultListDir;
+    let bin = options.whisperBin ?? env.AKARI_WHISPER_BIN ?? '';
+    if (bin && !isAbsolute(bin) && !bin.includes('/') && !bin.includes('\\')) {
+        for (const directory of (env.PATH ?? '').split(delimiter)) {
+            const candidate = join(directory, bin);
+            if (await pathExists(candidate)) {
+                bin = candidate;
+                break;
+            }
+        }
+    }
+    for (const location of whisperModelLocations({
+        env: { ...env, WHISPER_CPP_MODEL: override },
+        homeDir: options.homeDir ?? homedir(),
+        repoRoot: options.repoRoot ?? resolve(__dirname, '../../../../../..'),
+        bin
+    })) {
+        const candidates = location.recursive
+            ? (await listDir(location.path)).map(entry => join(location.path, entry)).filter(isWhisperModelFilename)
+            : [location.path];
+        for (const candidate of candidates) {
+            if (!isWhisperModelExcluded(candidate) && await pathExists(candidate)) {
+                return resolve(candidate);
+            }
+        }
+    }
+    return undefined;
+}
+
+async function defaultListDir(path: string): Promise<string[]> {
+    try {
+        return (await fs.readdir(path, { recursive: true })).map(String);
+    } catch {
+        return [];
+    }
+}
+
+async function isWhisperModelPresent(ctx: InstallContext): Promise<boolean> {
+    return await resolveWhisperModelPath(ctx) !== undefined;
 }
 
 /** 版固定 URL + sha256 で DL する。検証失敗時はファイルを一切書かず failed を返す。 */

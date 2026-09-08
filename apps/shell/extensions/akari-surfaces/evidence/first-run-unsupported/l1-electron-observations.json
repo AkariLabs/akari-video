@@ -1,0 +1,140 @@
+{
+ "pid": 92382,
+ "scratch": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-electron-43rCjF",
+ "steps": {
+  "autoOpened": true,
+  "firstRunInitial": {
+   "rows": [
+    {
+     "id": "ffmpeg",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "動画・音声の変換、プレビュー、書き出しに使います。"
+    },
+    {
+     "id": "whisper",
+     "availableAttr": "false",
+     "label": "準備が要る（モデルが無い）",
+     "hasCheckbox": true,
+     "checked": true,
+     "note": "素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。 | 認識モデル · 約574MB · 未取得"
+    },
+    {
+     "id": "yt-dlp",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "許可された動画素材の取得に使います。"
+    },
+    {
+     "id": "blender",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "高度な 3D 素材の事前レンダーに使います。"
+    },
+    {
+     "id": "voicevox",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "ローカルの日本語ナレーション生成に使います。 | 利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。"
+    },
+    {
+     "id": "speech-analyzer",
+     "availableAttr": "true",
+     "label": "使える",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "この Mac で高速に文字起こしします。"
+    },
+    {
+     "id": "xcode-clt",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。"
+    }
+   ],
+   "installButton": "選んだ道具をインストール（1）",
+   "installDisabled": false,
+   "recheckButton": "再チェック"
+  },
+  "rechecks": [],
+  "firstRun": {
+   "rows": [
+    {
+     "id": "ffmpeg",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "動画・音声の変換、プレビュー、書き出しに使います。"
+    },
+    {
+     "id": "whisper",
+     "availableAttr": "false",
+     "label": "準備が要る（モデルが無い）",
+     "hasCheckbox": true,
+     "checked": true,
+     "note": "素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。 | 認識モデル · 約574MB · 未取得"
+    },
+    {
+     "id": "yt-dlp",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "許可された動画素材の取得に使います。"
+    },
+    {
+     "id": "blender",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "高度な 3D 素材の事前レンダーに使います。"
+    },
+    {
+     "id": "voicevox",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "ローカルの日本語ナレーション生成に使います。 | 利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。"
+    },
+    {
+     "id": "speech-analyzer",
+     "availableAttr": "true",
+     "label": "使える",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "この Mac で高速に文字起こしします。"
+    },
+    {
+     "id": "xcode-clt",
+     "availableAttr": "true",
+     "label": "インストール済み",
+     "hasCheckbox": false,
+     "checked": null,
+     "note": "プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。"
+    }
+   ],
+   "installButton": "選んだ道具をインストール（1）",
+   "installDisabled": false,
+   "recheckButton": "再チェック"
+  },
+  "speechAnalyzerBox": {
+   "x": 187,
+   "y": 350.078125,
+   "width": 731,
+   "height": 85.1953125
+  }
+ }
+}

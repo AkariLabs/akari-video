@@ -3,9 +3,45 @@ import test from 'node:test';
 import {
     deriveToolSelection,
     describeToolInstallOutcome,
+    filterInstallableSelection,
     formatInstallProgressLabel,
     shortenHomePath
 } from '../../lib/common/tool-install-ui.js';
+
+test('unsupported は初回にも previous に残っていても選択しない', () => {
+    const tools = [
+        { id: 'speech-analyzer', available: false, unsupported: true },
+        { id: 'whisper', available: false, needs: ['モデルが無い'] }
+    ];
+    assert.deepEqual([...deriveToolSelection(tools)], ['whisper']);
+    const previous = {
+        selectedIds: new Set(['speech-analyzer', 'whisper']),
+        unavailableIds: new Set(['speech-analyzer', 'whisper'])
+    };
+    assert.deepEqual([...deriveToolSelection(tools, previous)], ['whisper']);
+});
+
+test('手動で選ばれた unsupported・導入済み・現在の票にない id も導入件数と対象から除外する', () => {
+    const selected = new Set(['speech-analyzer', 'ffmpeg', 'whisper', 'blender']);
+    const tools = [
+        { id: 'speech-analyzer', available: false, unsupported: true },
+        { id: 'ffmpeg', available: true },
+        { id: 'whisper', available: false }
+    ];
+    const filtered = filterInstallableSelection(tools, selected);
+    assert.deepEqual([...filtered], ['whisper']);
+    assert.equal(filtered.size, 1);
+    assert.equal(filterInstallableSelection(tools, new Set(['speech-analyzer'])).size, 0);
+    assert.equal(selected.size, 4, '元の選択は変更しない');
+});
+
+test('skipped は手動導入の 1 行、message があればその案内を表示する', () => {
+    const result = { id: 'speech-analyzer', outcome: 'skipped' };
+    const label = describeToolInstallOutcome(result, 'SpeechAnalyzer');
+    assert.match(label, /手動で入れる/);
+    assert.doesNotMatch(label, /\n|失敗/);
+    assert.equal(describeToolInstallOutcome({ ...result, message: '手動の案内' }, 'SpeechAnalyzer'), '手動の案内');
+});
 
 test('初回チェック（previous 無し）は未導入の道具を全部 既定 ON にする', () => {
     const tools = [
