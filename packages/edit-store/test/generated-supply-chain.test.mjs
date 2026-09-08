@@ -17,6 +17,7 @@ const expectedSources = [
   'canonical.ts',
   'caption-clock.ts',
   'caption-display.ts',
+  'caption-line-diff.ts',
   'caption-store.ts',
   'caption-style-preset.ts',
   'caption-window.ts',

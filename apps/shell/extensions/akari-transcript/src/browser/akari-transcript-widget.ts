@@ -10,12 +10,13 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import * as monaco from '@theia/monaco-editor-core';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import { createAkariNoticeBanner } from 'akari-annotations/lib/browser/akari-notice-banner';
+import { diffCaptionLines, type CaptionLineOp } from '@akari-video/edit-store/lib/caption-line-diff';
 import {
+    applyCaptionLineOps,
     Caption,
+    CaptionLineOpsResult,
     parseCaptions,
-    regenerateCaptions,
-    replaceCaptionDisplayTextLine,
-    replaceCaptionLine
+    regenerateCaptions
 } from './caption-store';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from './akari-transcript-commands';
 
@@ -360,66 +361,89 @@ export class AkariTranscriptWidget extends BaseWidget {
         }
     }
 
+    /** 編集後の表示行。空の本文は「字幕 0 行」であって「空行 1 行」ではない。 */
+    protected editorLines(): string[] {
+        const value = this.editor?.getValue() ?? '';
+        return value === '' ? [] : value.split('\n');
+    }
+
     protected onEditorChanged(): void {
         if (this.applyingModel || !this.editor) {
             return;
         }
         window.clearTimeout(this.saveTimer);
-        const lines = this.editor.getValue().split('\n');
-        if (lines.length !== this.captions.length) {
-            this.showNotice('行の追加・削除・分割・結合はまだ保存できません。行数を元に戻すと保存を再開します。');
+        let ops: CaptionLineOp[];
+        try {
+            // 行数が変わる編集（分割・結合・削除・追加）もここで操作列へ落とす。
+            // 2026-09-08 以前はここで行数の一致を早期 return していたため保存が止まっていた（issue #66）。
+            ops = diffCaptionLines(this.baselineLines, this.editorLines(), this.captions);
+        } catch (error) {
+            this.showNotice(`変更を保存できません: ${this.errorMessage(error)}`);
             return;
         }
         this.hideNotice();
+        if (ops.length === 0) {
+            return;
+        }
         this.saveTimer = window.setTimeout(() => {
-            this.saveTail = this.saveTail.then(() => this.saveChangedLines());
+            this.saveTail = this.saveTail.then(() => this.saveLineOps(ops));
         }, 450);
     }
 
-    protected async saveChangedLines(): Promise<void> {
-        if (!this.editor || !this.captionsUri) {
-            return;
-        }
-        const lines = this.editor.getValue().split('\n');
-        if (lines.length !== this.captions.length) {
-            return;
-        }
-        const changed = lines
-            .map((text, index) => ({ text, index }))
-            .filter(({ text, index }) => text !== this.baselineLines[index]);
-        if (changed.length === 0) {
+    protected async saveLineOps(ops: readonly CaptionLineOp[]): Promise<void> {
+        if (!this.editor || !this.captionsUri || ops.length === 0) {
             return;
         }
         try {
-            let source = await this.readText(this.captionsUri);
-            for (const change of changed) {
-                const caption = this.captions[change.index];
-                source = this.showingDisplayText.has(caption.id) && caption.displayText !== undefined
-                    ? replaceCaptionDisplayTextLine(source, caption.id, change.text)
-                    : replaceCaptionLine(source, caption.id, change.text);
+            const source = await this.readText(this.captionsUri);
+            // 司令塔裁定 3: 操作列は 1 回の writeCaptionsGuarded（lint ゲート）で一括適用する。
+            const result = applyCaptionLineOps(source, ops, { displayTextIds: this.showingDisplayText });
+            if (result.applied === 0) {
+                this.showWarnings(result.notices);
+                return;
             }
             this.recentWrite = Date.now();
-            await this.writeCaptionsGuarded(source);
-            const persistedCaptions = new Map(parseCaptions(source).captions.map(caption => [caption.id, caption]));
-            for (const change of changed) {
-                const caption = this.captions[change.index];
-                if (this.showingDisplayText.has(caption.id) && caption.displayText !== undefined) {
-                    caption.displayText = change.text;
-                } else {
-                    caption.text = change.text;
-                    caption.edited = true;
-                    caption.words = persistedCaptions.get(caption.id)?.words;
-                }
-                this.baselineLines[change.index] = change.text;
-            }
-            this.footer.textContent = changed.length === 1
-                ? 'この行の変更を保存しました。'
-                : `${changed.length} 行の変更を保存しました。`;
+            await this.writeCaptionsGuarded(result.source);
+            this.rebuildFromSource(result.source);
+            this.footer.textContent = this.savedFooterText(result);
+            this.showWarnings(result.notices);
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`変更を保存できません: ${detail}`);
             this.messages.error(`変更を保存できません: ${detail}`);
         }
+    }
+
+    /**
+     * 保存した本文から内部状態を作り直す。行数が変わるので baselineLines は差分更新せず
+     * **全面再構築**する（task 2026-09-08-caption-line-ops 指示 13）。
+     */
+    protected rebuildFromSource(source: string): void {
+        this.captions = parseCaptions(source).captions;
+        const availableDisplayTextIds = new Set(this.captions
+            .filter(caption => caption.displayText !== undefined)
+            .map(caption => caption.id));
+        for (const id of this.showingDisplayText) {
+            if (!availableDisplayTextIds.has(id)) {
+                this.showingDisplayText.delete(id);
+            }
+        }
+        this.baselineLines = this.captions.map(
+            caption => this.displayText(this.captionLineSource(caption))
+        );
+        this.updateEmptyGuide();
+        this.applyDecorations();
+    }
+
+    protected savedFooterText(result: CaptionLineOpsResult): string {
+        if (!result.lineCountChanged) {
+            return result.applied === 1
+                ? 'この行の変更を保存しました。'
+                : `${result.applied} 行の変更を保存しました。`;
+        }
+        const { counts } = result;
+        return `${result.applied} 行を保存しました`
+            + `（分割 ${counts.split} / 結合 ${counts.merge} / 削除 ${counts.remove} / 追加 ${counts.insert}）。`;
     }
 
     protected applyDecorations(): void {
