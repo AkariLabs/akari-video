@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "src-1",
+      "path": "../assets/portrait.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 25,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "src-1",
+            "in": 0,
+            "out": 3
+          }
+        }
+      ]
+    }
+  ]
+}

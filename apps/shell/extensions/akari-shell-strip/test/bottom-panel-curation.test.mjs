@@ -134,16 +134,17 @@ test('開発者モードで起動した場合は掃除せず、OFF にしても�
     h.service.onStop();
 });
 
-test('タイムラインは既存を前面にし、閉じていれば既存コマンドで再表示する', async () => {
+test('タイムライン項目は既存タブの有無にかかわらず常に akari.annotations.open を呼び、activateWidget は呼ばない', async () => {
     const widgets = [{ id: TIMELINE_WIDGET_ID, area: 'bottom' }];
     const h = harness(widgets);
     await h.service.onDidInitializeLayout({ shell: h.shell });
     await h.service.selectItem('timeline');
-    assert.deepEqual(h.activated, [TIMELINE_WIDGET_ID]);
-    assert.deepEqual(h.commands, []);
+    assert.deepEqual(h.activated, []);
+    assert.deepEqual(h.commands, ['akari.annotations.open']);
     widgets.splice(0);
     await h.service.selectItem('timeline');
-    assert.deepEqual(h.commands, ['akari.annotations.open']);
+    assert.deepEqual(h.activated, []);
+    assert.deepEqual(h.commands, ['akari.annotations.open', 'akari.annotations.open']);
     h.service.onStop();
 });
 
