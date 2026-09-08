@@ -954,6 +954,20 @@ export class AkariPartnerWidget extends ReactWidget {
         return !!terminal && !terminal.isDisposed && !terminal.exitStatus && terminal.terminalId >= 0;
     }
 
+    /**
+     * task/2026-09-08-partner-form-caution 指示5: 「拡張形態で、かつビューが失われている」判定。
+     *
+     * 拡張ホストの再起動を**検知しない**（司令塔 裁定1）。監視も購読もポーリングも足さず、
+     * 描画時点で既に持っている状態だけから導く: 選んだパートナーが拡張形態で、その拡張は
+     * 導入済み（= 一度は開いた）なのに、パートナー欄がこの空状態（`render()` →
+     * `renderOnboarding()`）を描いている、という状況そのものが「拡張のビューが今ここに無い」。
+     * 拡張ホストが落ちてもこのウィジェットは frontend 側なので `selected` は残る。
+     */
+    protected extensionViewLost(): boolean {
+        const entry = this.selected;
+        return !!entry && entry.form === 'extension' && this.entryIsOpen(entry);
+    }
+
     protected entryActionLabel(entry: PartnerCatalogEntry): string {
         if (this.entryIsOpen(entry)) {
             return '開く';
@@ -1063,37 +1077,52 @@ export class AkariPartnerWidget extends ReactWidget {
                         const rowEntries = [cliEntry, extensionEntry].filter(
                             (entry): entry is PartnerCatalogEntry => entry !== undefined
                         );
-                        return <div key={group.agent} style={{ display: 'flex', gap: 10 }}>
+                        return <div key={group.agent} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                             {rowEntries.map(entry => {
                                 const flow = this.entryFlow(entry);
-                                return <button
-                                    key={entry.id}
-                                    className={entry.recommended ? 'theia-button main' : 'theia-button secondary'}
-                                    style={{
-                                        ...(entry.recommended ? styles.primaryButton : styles.secondaryButton),
-                                        flex: '1 1 0',
-                                        width: 'auto',
-                                        minWidth: 0
-                                    }}
-                                    data-partner-entry={entry.id}
-                                    data-partner-form={entry.form}
-                                    data-partner-action={this.entryActionLabel(entry)}
-                                    disabled={flow.state === 'working'}
-                                    onClick={() => this.begin(entry)}
-                                >
-                                    <span style={styles.buttonLabel}>
-                                        <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />
-                                        {entry.name}
-                                        {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
-                                    </span>
-                                    <span style={styles.buttonAction}>
-                                        {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
-                                    </span>
-                                </button>;
+                                // 注意書きはボタン内に押し込まず（窮屈・省略される）、title 属性でもなく
+                                // （ホバーしないと読めない）、ボタン直下の 1 行として置く。
+                                // 出す条件は entry.caution の有無だけ — form からは導出しない。
+                                return <div key={entry.id} style={styles.buttonCell}>
+                                    <button
+                                        className={entry.recommended ? 'theia-button main' : 'theia-button secondary'}
+                                        style={{
+                                            ...(entry.recommended ? styles.primaryButton : styles.secondaryButton),
+                                            width: '100%',
+                                            minWidth: 0
+                                        }}
+                                        data-partner-entry={entry.id}
+                                        data-partner-form={entry.form}
+                                        data-partner-action={this.entryActionLabel(entry)}
+                                        disabled={flow.state === 'working'}
+                                        onClick={() => this.begin(entry)}
+                                    >
+                                        <span style={styles.buttonLabel}>
+                                            <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />
+                                            {entry.name}
+                                            {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
+                                        </span>
+                                        <span style={styles.buttonAction}>
+                                            {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
+                                        </span>
+                                    </button>
+                                    {entry.caution && <div style={styles.caution} data-partner-caution={entry.id}>
+                                        {entry.caution}
+                                    </div>}
+                                </div>;
                             })}
                         </div>;
                     })}
                 </div>
+
+                {this.extensionViewLost() && <div style={styles.resumeHint} data-akari-partner-resume-hint='true'>
+                    <p style={{ margin: 0 }}>
+                        セッションが切れたときは、パートナー欄で /akari と打つと今の状況から続けられます。ターミナルからは akari --continue です。
+                    </p>
+                    <p style={{ margin: '6px 0 0', opacity: 0.8 }}>
+                        詳しい手順: docs/how-to/resume-session.ja.md
+                    </p>
+                </div>}
 
                 {selectedFlow && selectedFlow.state !== 'idle' && <div
                     style={styles.statusCard}
@@ -1133,6 +1162,18 @@ const styles: Record<string, React.CSSProperties> = {
     secondaryButton: { width: '100%', minHeight: 46, background: 'transparent', border: '1px solid var(--theia-input-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     buttonLabel: { display: 'inline-flex', alignItems: 'center', flex: '1 1 auto', flexWrap: 'wrap', gap: 7, minWidth: 0, textAlign: 'left' },
     buttonAction: { flex: '0 1 auto', fontSize: 11, opacity: 0.82, whiteSpace: 'normal', textAlign: 'right' },
+    // ボタン + その下の注意書きを 1 列にまとめる器（従来ボタン自身が持っていた flex をここへ移した）。
+    buttonCell: { flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' },
+    // entry.caution の 1 行。lead（0.78）より読ませたいので opacity を上げ、色は
+    // akari-partner-catalog-widget.tsx の警告注記と同じ警告前景を使う（新しい色定数は足さない）。
+    caution: {
+        marginTop: 6, fontSize: 11, lineHeight: 1.45, opacity: 0.92, textAlign: 'left',
+        color: 'var(--theia-list-warningForeground, #cca700)'
+    },
+    resumeHint: {
+        marginTop: 14, padding: 12, borderRadius: 8, textAlign: 'left', fontSize: 12, lineHeight: 1.6,
+        background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)'
+    },
     recommendedBadge: { padding: '2px 6px', borderRadius: 9, fontSize: 9, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' },
     statusCard: { marginTop: 14, padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
     statusRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },

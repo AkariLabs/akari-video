@@ -14,6 +14,7 @@
     "form": "extension",
     "name": "Claude Code 拡張",
     "description": "Anthropic 公式拡張のビューを使います",
+    "caution": "拡張ホストが再起動すると会話が切れます。長い作業には CLI 形態をおすすめします。",
     "recommended": false,
     "viewContainerIds": [
       "workbench.view.extension.claude-sidebar-secondary",
@@ -36,6 +37,7 @@
     "form": "extension",
     "name": "Codex 拡張",
     "description": "OpenAI 公式拡張のビューを使います",
+    "caution": "拡張ホストが再起動すると会話が切れます。長い作業には CLI 形態をおすすめします。",
     "recommended": false,
     "viewContainerIds": [
       "workbench.view.extension.codexSecondaryViewContainer",
