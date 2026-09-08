@@ -134,7 +134,7 @@ const CUT_KEYS = new Set([
 ]);
 const OVERLAY_KEYS = new Set(['id', 'html', 'start', 'duration', 'vars', 'transform', 'track']);
 const LAYER_KEYS = new Set([
-    'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
+    'id', 't', 'duration', 'kind', 'src', 'in', 'speed', 'transform', 'crop', 'perspective', 'opacity',
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter', 'mask'
 ]);
 const AUDIO_ENVELOPE_KEYS = ['keyframes', 'ducking', 'duck_db', 'duck_attack', 'duck_release'];
@@ -310,7 +310,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         let source: RecordValue;
         let mask: string | undefined;
         if (value.kind === 'filter') {
-            const forbidden = ['src', 'chroma_key', 'blend', 'crop', 'transform', 'mask'].filter(key => hasOwn(value, key));
+            const forbidden = ['src', 'in', 'speed', 'chroma_key', 'blend', 'crop', 'transform', 'mask'].filter(key => hasOwn(value, key));
             if (forbidden.length > 0) {
                 blockers.push(`edit.json.layers[${index}] の kind filter は ${forbidden.join(' / ')} を持てません。`);
                 return;
@@ -320,6 +320,10 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             blockers.push(`edit.json.layers[${index}].src が不正です。`);
             return;
         } else if (value.kind === 'baked' && nonEmpty(value.preset)) {
+            if (hasOwn(value, 'in') || hasOwn(value, 'speed')) {
+                blockers.push(`edit.json.layers[${index}] の in / speed は baked telop へ変換できません。`);
+                return;
+            }
             if (hasOwn(value, 'mask')) {
                 blockers.push(`edit.json.layers[${index}].mask は baked telop へ変換できません。`);
                 return;
@@ -329,6 +333,13 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                 ...copyPresent(value, ['params']), baked: value.src
             };
         } else {
+            if ((hasOwn(value, 'in') && !nonNegative(value.in))
+                || (hasOwn(value, 'speed') && !positive(value.speed))) {
+                blockers.push(`edit.json.layers[${index}] の in / speed が不正です。`);
+                return;
+            }
+            const sourceIn = hasOwn(value, 'in') ? value.in as number : 0;
+            const speed = hasOwn(value, 'speed') ? value.speed as number : 1;
             let src = sourceIdByPath.get(value.src);
             if (!src) {
                 do src = `l-${layerSourceSerial++}`; while (sourceIds.has(src));
@@ -336,7 +347,10 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                 sourceIdByPath.set(value.src, src);
                 sources.push({ id: src, path: value.src, proxy: null });
             }
-            source = { kind: 'media', src, in: 0, out: value.duration, ...copyPresent(value, ['chroma_key']) };
+            source = {
+                kind: 'media', src, in: sourceIn, out: sourceIn + (value.duration as number) * speed,
+                ...copyPresent(value, ['speed', 'chroma_key'])
+            };
             if (hasOwn(value, 'mask')) {
                 if (!nonEmpty(value.mask)) {
                     blockers.push(`edit.json.layers[${index}].mask が不正です。`);
