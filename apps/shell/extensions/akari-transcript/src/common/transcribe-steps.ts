@@ -51,3 +51,47 @@ export function completedColumns(state: TranscribeStepState, transcripts: readon
 export function initialEngineSelection(backend: string, compareSet: readonly string[]): { backend: string; compareSet: string[] } {
     return { backend: backend || 'auto', compareSet: [...new Set(compareSet)] };
 }
+
+/** JSON projections of the status RPCs; no dependency on the surfaces extension. */
+export interface TranscribeToolStatus {
+    id: string;
+    available: boolean;
+    unsupported?: boolean;
+    needs?: string[];
+    executable?: string;
+    model?: { available: boolean; path?: string };
+}
+export interface TranscribeConnectionStatus {
+    id: string;
+    configured: boolean;
+    doctor: { status: string; detail: string };
+}
+export interface TranscribeAvailability {
+    state: 'available' | 'needs' | 'unconfigured' | 'unsupported';
+    label: string;
+    needs: string[];
+}
+export function transcribeEngineAvailability(backend: string, tools: readonly TranscribeToolStatus[],
+    connections: readonly TranscribeConnectionStatus[]): TranscribeAvailability {
+    const ready = (): TranscribeAvailability => ({ state: 'available', label: '使える', needs: [] });
+    const needs = (items: string[]): TranscribeAvailability => ({ state: 'needs', label: `準備が要る（${items.join('・')}）`, needs: items });
+    if (backend.startsWith('cloud:')) {
+        const providerId = backend === 'cloud:scribe' ? 'elevenlabs' : backend.slice(6);
+        const connection = connections.find(row => row.id === providerId);
+        if (!connection) { return needs(['接続状況を確認できませんでした']); }
+        if (!connection.configured || connection.doctor.status === 'unconfigured') {
+            return { state: 'unconfigured', label: '鍵が未登録', needs: [] };
+        }
+        if (connection.doctor.status === 'ok') { return ready(); }
+        return needs([connection.doctor.status === 'unauthorized' ? '鍵の接続確認に失敗' : '接続確認が必要']);
+    }
+    const tool = tools.find(row => row.id === (backend === 'whisper-cpp' ? 'whisper' : backend));
+    if (!tool) { return needs(['道具の状態を確認できませんでした']); }
+    if (tool.unsupported) { return { state: 'unsupported', label: 'この OS では使えない', needs: tool.needs ?? [] }; }
+    if (tool.available) { return ready(); }
+    if (tool.needs?.length) { return needs(tool.needs); }
+    if (backend === 'whisper-cpp') {
+        return needs([...(!tool.executable ? ['本体が無い'] : []), ...(!tool.model?.available ? ['モデルが無い'] : [])]);
+    }
+    return needs(['利用条件の確認が必要']);
+}

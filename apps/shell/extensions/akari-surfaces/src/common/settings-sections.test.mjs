@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
-    resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
+    resolveSettingsSectionId, settingsSectionElementId, settingsSectionScrollTop, normalizeQualityTier,
     normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES
 } from '../../lib/common/settings-sections.js';
@@ -92,4 +92,23 @@ test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
     assert.equal(existsSync(new URL('../browser/akari-settings-widget.tsx', import.meta.url)), false);
     assert.equal(source('../browser/akari-surfaces-frontend-module.ts').includes('AkariSettingsWidget'), false);
     assert.equal(source('../browser/akari-settings-dialog.ts').includes('akari-settings-widget'), false);
+});
+
+
+test('非同期ロードで上の節が伸びるたびに現在の幾何から指定節の位置を補正する', () => {
+    // Attach initially reaches the end of the still mostly empty pane.
+    assert.equal(settingsSectionScrollTop({ scrollTop: 0, sectionTop: 450, viewportTop: 100, maxScrollTop: 200 }), 200);
+    // Connections arrives first, pushing tools far below the viewport.
+    assert.equal(settingsSectionScrollTop({ scrollTop: 200, sectionTop: 1150, viewportTop: 100, maxScrollTop: 1500 }), 1250);
+    // A later Store response changes the layout again; no retry-count limit.
+    assert.equal(settingsSectionScrollTop({ scrollTop: 1250, sectionTop: 180, viewportTop: 100, maxScrollTop: 1700 }), 1330);
+    assert.equal(settingsSectionScrollTop({ scrollTop: 1330, sectionTop: 100, viewportTop: 100, maxScrollTop: 1700 }), undefined);
+});
+
+test('前の節への移動・縮小・末尾の短い節でもスクロール範囲を超えず、整列後は動かさない', () => {
+    assert.equal(settingsSectionScrollTop({ scrollTop: 500, sectionTop: -200, viewportTop: 100, maxScrollTop: 1500 }), 200);
+    assert.equal(settingsSectionScrollTop({ scrollTop: 100, sectionTop: -100, viewportTop: 100, maxScrollTop: 1500 }), 0);
+    assert.equal(settingsSectionScrollTop({ scrollTop: 300, sectionTop: 400, viewportTop: 100, maxScrollTop: 300 }), undefined);
+    assert.equal(settingsSectionScrollTop({ scrollTop: 0, sectionTop: 200, viewportTop: 100, maxScrollTop: -100 }), undefined);
+    assert.equal(settingsSectionScrollTop({ scrollTop: 100, sectionTop: 100.5, viewportTop: 100, maxScrollTop: 1500 }), undefined);
 });

@@ -1,7 +1,8 @@
+import { whisperModelLocations, isWhisperModelFilename, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
 import { execFile } from 'child_process';
 import { constants as fsConstants, promises as fs } from 'fs';
 import { homedir } from 'os';
-import { dirname, join } from 'path';
+import { delimiter, dirname, isAbsolute, join } from 'path';
 import type {
     AkariToolCheckResponse,
     AkariToolCheckResult,
@@ -23,6 +24,8 @@ export interface ToolDetectionOptions {
     now?: () => Date;
     runCommand?: (command: string, args: string[], env: NodeJS.ProcessEnv) => Promise<CommandResult>;
     pathExists?: (path: string) => Promise<boolean>;
+    repoRoot?: string;
+    /** Recursive entries, relative to the requested directory (fs.readdir semantics). */
     listDir?: (path: string) => Promise<string[]>;
     /** Electron パッケージ実行時の `process.resourcesPath`。既定は実プロセスの値。 */
     resourcesPath?: string;
@@ -35,7 +38,7 @@ export interface ToolDetectionOptions {
 }
 
 interface ExecutableSpec {
-    id: Exclude<AkariToolId, 'voicevox' | 'xcode-clt'>;
+    id: Exclude<AkariToolId, 'voicevox' | 'xcode-clt' | 'speech-analyzer'>;
     tier: AkariToolTier;
     envNames: string[];
     commands: (platform: NodeJS.Platform) => string[];
@@ -71,7 +74,6 @@ const EXECUTABLE_SPECS: ExecutableSpec[] = [
 ];
 
 const DEV_VENDOR_UPWARD_MAX_DEPTH = 12;
-const WHISPER_MODEL_FILENAME_PATTERN = /^ggml-.*\.bin$/;
 
 export async function defaultRunCommand(
     command: string,
@@ -109,7 +111,10 @@ export async function detectTools(options: ToolDetectionOptions = {}): Promise<A
     if (platform === 'darwin') {
         tools.push(await detectCommandLineTools(env, runCommand));
     }
-    await attachWhisperModelState(tools, env, homeDir, pathExists, listDir);
+    const repoRoot = options.repoRoot ?? await resolveToolRepoRoot(resourcesPath, devSearchRoots, pathExists);
+    const cltIndex = tools.findIndex(tool => tool.id === 'xcode-clt');
+    tools.splice(cltIndex < 0 ? tools.length : cltIndex, 0, await detectSpeechAnalyzer(platform, repoRoot, env, runCommand, pathExists));
+    await attachWhisperModelState(tools, env, homeDir, repoRoot, pathExists, listDir);
     return {
         platform,
         checkedAt: (options.now ?? (() => new Date()))().toISOString(),
@@ -247,6 +252,7 @@ async function attachWhisperModelState(
     tools: AkariToolCheckResult[],
     env: NodeJS.ProcessEnv,
     homeDir: string,
+    repoRoot: string,
     pathExists: (path: string) => Promise<boolean>,
     listDir: (path: string) => Promise<string[]>
 ): Promise<void> {
@@ -254,13 +260,15 @@ async function attachWhisperModelState(
     if (index === -1) {
         return;
     }
-    const modelPath = await findWhisperModelPath(env, homeDir, pathExists, listDir);
-    const modelAvailable = modelPath !== undefined;
     const whisper = tools[index];
+    const bin = await resolveWhisperBinPath(whisper.executable, env, pathExists);
+    const modelPath = await findWhisperModelPath(env, homeDir, repoRoot, bin, pathExists, listDir);
+    const modelAvailable = modelPath !== undefined;
     tools[index] = {
         ...whisper,
         available: whisper.available && modelAvailable,
-        model: { available: modelAvailable, path: modelPath }
+        model: { available: modelAvailable, path: modelPath },
+        needs: [...(!whisper.available ? ['本体が無い'] : []), ...(!modelAvailable ? ['モデルが無い'] : [])]
     };
 }
 
@@ -270,19 +278,68 @@ export function akariToolsModelsDir(homeDir: string): string {
 }
 
 async function findWhisperModelPath(
-    env: NodeJS.ProcessEnv,
-    homeDir: string,
-    pathExists: (path: string) => Promise<boolean>,
-    listDir: (path: string) => Promise<string[]>
+    env: NodeJS.ProcessEnv, homeDir: string, repoRoot: string, bin: string,
+    pathExists: (path: string) => Promise<boolean>, listDir: (path: string) => Promise<string[]>
 ): Promise<string | undefined> {
-    const override = env.AKARI_WHISPER_MODEL;
-    if (override && await pathExists(override)) {
-        return override;
+    for (const location of whisperModelLocations({ env, homeDir, repoRoot, bin })) {
+        const candidates = location.recursive
+            ? (await listDir(location.path)).map(entry => join(location.path, entry)).filter(isWhisperModelFilename)
+            : [location.path];
+        for (const candidate of candidates) {
+            if (!isWhisperModelExcluded(candidate) && await pathExists(candidate)) { return candidate; }
+        }
     }
-    const dir = akariToolsModelsDir(homeDir);
-    const entries = await listDir(dir);
-    const match = entries.find(name => WHISPER_MODEL_FILENAME_PATTERN.test(name));
-    return match ? join(dir, match) : undefined;
+    return undefined;
+}
+
+async function resolveWhisperBinPath(executable: string | undefined, env: NodeJS.ProcessEnv,
+    pathExists: (path: string) => Promise<boolean>): Promise<string> {
+    if (!executable) { return ''; }
+    if (isAbsolute(executable) || executable.includes('/') || executable.includes('\\')) { return executable; }
+    for (const directory of (env.PATH ?? '').split(delimiter)) {
+        const candidate = join(directory, executable);
+        if (await pathExists(candidate)) { return candidate; }
+    }
+    return executable;
+}
+
+async function resolveToolRepoRoot(resourcesPath: string | undefined, searchRoots: string[],
+    pathExists: (path: string) => Promise<boolean>): Promise<string> {
+    for (const start of [...(resourcesPath ? [resourcesPath] : []), ...searchRoots]) {
+        let dir = start;
+        for (let depth = 0; depth < DEV_VENDOR_UPWARD_MAX_DEPTH; depth++) {
+            if (await pathExists(join(dir, 'packages/akari-tools/src/media/transcribe.mjs'))) { return dir; }
+            const parent = dirname(dir);
+            if (parent === dir) { break; }
+            dir = parent;
+        }
+    }
+    return searchRoots[0] ?? resourcesPath ?? process.cwd();
+}
+
+async function detectSpeechAnalyzer(platform: NodeJS.Platform, repoRoot: string, env: NodeJS.ProcessEnv,
+    runCommand: ToolDetectionOptions['runCommand'], pathExists: (path: string) => Promise<boolean>
+): Promise<AkariToolCheckResult> {
+    const base = { id: 'speech-analyzer' as const, tier: 'recommended' as const, available: false };
+    if (platform !== 'darwin') { return { ...base, unsupported: true }; }
+    const candidates = [
+        join(repoRoot, 'skills/analyze-footage/bin/transcribe-sa.mjs'),
+        join(repoRoot, 'packages/akari-launcher/vendor/skills/analyze-footage/bin/transcribe-sa.mjs')
+    ];
+    for (const script of candidates) {
+        if (!await pathExists(script)) { continue; }
+        try {
+            // The CLI uses this same read-only check. Electron must run the helper as Node.
+            const result = await runCommand(process.execPath, [script, '--check'], { ...env, ELECTRON_RUN_AS_NODE: '1' });
+            if (!result.ok) { break; }
+            const value = JSON.parse(result.stdout);
+            if (value.available === true) { return { ...base, available: true }; }
+            const reason = String(value.reason ?? 'SpeechAnalyzer の利用条件を確認してください');
+            if (/macOS.*26 未満/.test(reason)) { return { ...base, unsupported: true, needs: [reason] }; }
+            return { ...base, needs: [/swiftc/.test(reason) ? 'Command Line Tools が無い' : reason] };
+        } catch { break; }
+    }
+    return { ...base, needs: ['SpeechAnalyzer の利用可否を確認できませんでした'] };
 }
 
 async function defaultPathExists(path: string): Promise<boolean> {
@@ -296,7 +353,7 @@ async function defaultPathExists(path: string): Promise<boolean> {
 
 async function defaultListDir(path: string): Promise<string[]> {
     try {
-        return await fs.readdir(path);
+        return await fs.readdir(path, { recursive: true });
     } catch {
         return [];
     }

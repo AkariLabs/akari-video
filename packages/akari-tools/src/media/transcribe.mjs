@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, readFileSync, readdirSync } from "node:fs";
+import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +19,7 @@ import {
   detectUnrecognizedSpans,
   UNRECOGNIZED_DEFAULTS,
 } from "./unrecognized-spans.mjs";
+import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
   applyWordBook,
@@ -218,19 +219,8 @@ export function resolveWhisper(options = {}) {
   ].filter(Boolean);
   const bin = binCandidates.find(executableFile);
   if (!bin) return null;
-  const modelCandidates = [
-    process.env.WHISPER_CPP_MODEL,
-    ...findModels(path.join(os.homedir(), ".akari", "tools", "models")),
-    ...findModels(path.join(repoRoot, "models")),
-    ...findModels(path.join(repoRoot, "whisper.cpp", "models")),
-    ...findModels(path.join(os.homedir(), ".cache", "whisper.cpp")),
-    ...findModels(path.join(os.homedir(), "Library", "Caches", "whisper.cpp")),
-    ...findModels(path.resolve(path.dirname(bin), "..", "share", "whisper-cpp")),
-    ...findModels("/opt/homebrew/share/whisper-cpp"),
-    ...findModels("/usr/local/share/whisper-cpp"),
-    ...findModels(path.join(os.homedir(), "Library", "Application Support", "com.prakashjoshipax.VoiceInk", "WhisperModels")),
-  ].filter(Boolean);
-  const model = modelCandidates.find((candidate) => existsSync(candidate) && !path.basename(candidate).startsWith("for-tests-") && !path.basename(candidate).includes(".en."));
+  const modelCandidates = whisperModelCandidates({ env: process.env, homeDir: os.homedir(), repoRoot, bin });
+  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate));
   return model ? { bin, model } : null;
 }
 
@@ -249,17 +239,6 @@ function findOnPath(name) {
     if (executableFile(candidate)) return candidate;
   }
   return null;
-}
-
-function findModels(root) {
-  if (!existsSync(root)) return [];
-  try {
-    return readdirSync(root, { recursive: true })
-      .map((entry) => path.join(root, String(entry)))
-      .filter((entry) => /^ggml-.*\.bin$/i.test(path.basename(entry)));
-  } catch {
-    return [];
-  }
 }
 
 function validateCloudBackend(requested, target) {

@@ -1,3 +1,7 @@
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { AkariNewProjectService, AkariToolCheckResult } from '../common/akari-new-project-protocol';
+import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { CommonCommands } from '@theia/core/lib/browser';
@@ -20,7 +24,7 @@ import {
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
-    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId
+    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, settingsSectionScrollTop
 } from '../common/settings-sections';
 
 const ENGINE_LABELS: Record<string, string> = {
@@ -40,9 +44,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
     protected storeReconnect = false;
     protected storeStatusGeneration = 0;
+    // Keep the latest navigation target across asynchronous layout changes until
+    // the user takes control of the content scroll position.
     protected pendingSection: SettingsSectionId | undefined;
+    protected sectionScrollFrame: number | undefined;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
+    protected readonly toolsView: SettingsToolsView;
     protected compareEnabled: boolean;
     protected compareDraft: string[];
 
@@ -51,7 +59,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly service: AkariConnectionsService,
         protected readonly storeService: AkariProjectService,
         protected readonly windows: WindowService,
-        protected readonly commands: CommandService
+        protected readonly commands: CommandService,
+        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -66,12 +75,16 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }
         });
         this.toDispose.push(this.storeController);
+        this.toolsView = new SettingsToolsView({ title: '道具', onWorkspaceCreated: async () => undefined, onFinished: () => undefined },
+            files, env, toolsService, commands);
+        this.toDispose.push(this.toolsView);
         this.buildDom();
         for (const section of SETTINGS_SECTIONS) { this.renderSection(section.id); }
         this.toDispose.push(preferences.onPreferenceChanged(change => {
             const section = sectionForPreferenceKey(change.preferenceName);
             if (section) { this.renderSection(section); }
         }));
+        void this.toolsView.refresh();
         void this.loadConnections();
         void this.storeController.refreshStatus();
     }
@@ -127,13 +140,42 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     scrollToSection(section: SettingsSectionId): void {
         this.pendingSection = section;
+        for (const item of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]'))) {
+            const active = item.getAttribute('data-settings-nav') === section;
+            if (active) { item.setAttribute('aria-current', 'true'); }
+            else { item.removeAttribute('aria-current'); }
+            Object.assign(item.style, {
+                background: active ? 'var(--theia-list-activeSelectionBackground)' : '',
+                color: active ? 'var(--theia-list-activeSelectionForeground)' : '',
+                borderInlineStartColor: active ? 'var(--theia-focusBorder)' : 'transparent',
+                fontWeight: active ? '700' : '400'
+            });
+        }
         if (!this.isAttached) { return; }
         this.sections.get(section)?.scrollIntoView({ block: 'start' });
-        for (const item of Array.from(this.contentNode.querySelectorAll('[data-settings-nav]'))) {
-            if (item.getAttribute('data-settings-nav') === section) { item.setAttribute('aria-current', 'true'); }
-            else { item.removeAttribute('aria-current'); }
-        }
-        this.pendingSection = undefined;
+    }
+
+    protected scheduleSectionScroll(): void {
+        if (!this.pendingSection || !this.isAttached || this.isDisposed || this.sectionScrollFrame !== undefined) { return; }
+        this.sectionScrollFrame = window.requestAnimationFrame(() => {
+            this.sectionScrollFrame = undefined;
+            if (!this.pendingSection || !this.isAttached || this.isDisposed) { return; }
+            const section = this.sections.get(this.pendingSection);
+            if (!section) { return; }
+            const top = settingsSectionScrollTop({
+                scrollTop: this.body.scrollTop,
+                sectionTop: section.getBoundingClientRect().top,
+                viewportTop: this.body.getBoundingClientRect().top + this.body.clientTop,
+                maxScrollTop: this.body.scrollHeight - this.body.clientHeight
+            });
+            if (top === undefined) { return; }
+            // Layout correction must finish immediately, even when a preceding
+            // navigation started a smooth scroll. Only the content pane moves.
+            const behavior = this.body.style.scrollBehavior;
+            this.body.style.scrollBehavior = 'auto';
+            this.body.scrollTop = top;
+            this.body.style.scrollBehavior = behavior;
+        });
     }
 
     protected override onAfterAttach(msg: Message): void {
@@ -148,13 +190,33 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             armed = result.armed;
             if (result.close) { this.close(); }
         });
+        // Observe the sections, not just the fixed-height scrolling pane: tools,
+        // connections and Store can each resize after the dialog has attached.
+        const observer = new ResizeObserver(() => this.scheduleSectionScroll());
+        for (const section of this.sections.values()) { observer.observe(section); }
+        observer.observe(this.body);
+        observer.observe(this.notice);
+        this.toDisposeOnDetach.push({ dispose: () => {
+            observer.disconnect();
+            if (this.sectionScrollFrame !== undefined) {
+                window.cancelAnimationFrame(this.sectionScrollFrame);
+                this.sectionScrollFrame = undefined;
+            }
+        } });
+        const releaseScroll = () => { this.pendingSection = undefined; };
+        for (const type of ['wheel', 'touchmove', 'pointerdown'] as const) {
+            this.addEventListener(this.body, type, releaseScroll);
+        }
+        this.addEventListener(this.node, 'keydown', event => {
+            if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) { releaseScroll(); }
+        });
         if (this.pendingSection) { this.scrollToSection(this.pendingSection); }
     }
 
     protected navigation(label: string, target: SettingsSectionId): HTMLButtonElement {
         const button = action(label, () => this.scrollToSection(target));
         button.setAttribute('data-settings-nav', target);
-        Object.assign(button.style, { display: 'block', textAlign: 'left', width: '100%', margin: '4px 0', padding: '8px', whiteSpace: 'normal' });
+        Object.assign(button.style, { display: 'block', textAlign: 'left', width: '100%', margin: '4px 0', padding: '8px', whiteSpace: 'normal', borderInlineStart: '3px solid transparent' });
         return button;
     }
 
@@ -163,8 +225,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         if (id === 'connections') { return; }
         const section = this.sections.get(id)!;
         section.replaceChildren(element('h2', SETTINGS_SECTIONS.find(item => item.id === id)!.label));
-        if (id === 'start' || id === 'tools') {
-            section.append(description(id === 'start' ? '初回セットアップで動画づくりの準備を進めます。' : '初回セットアップで道具の導入状況を確認できます。'),
+        if (id === 'tools') {
+            section.append(this.toolsView.content);
+        } else if (id === 'start') {
+            section.append(description('初回セットアップで動画づくりの準備を進めます。'),
                 action('初回セットアップを開く', () => {
                     this.close();
                     void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP.id);
@@ -427,6 +491,52 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 }
 
+/** Embed the read-only first-run dialog's tool view; inherit its rows, selection,
+ * install results and progress polling so the two screens cannot drift. Never openSetup:
+ * settings must not write the onboarding marker or create a workspace. */
+class SettingsToolsView extends AkariFirstRunSetupDialog {
+    get content(): HTMLElement { return this.body; }
+    refresh(): Promise<void> { return this.recheckTools(); }
+
+    protected override buildDom(): void {
+        this.body.append(this.errorNotice, this.panel);
+    }
+
+    protected override renderState(): void {
+        if (this.isDisposed) { return; }
+        this.selectedToolIds.delete('speech-analyzer');
+        for (const tool of this.toolCheck?.tools ?? []) {
+            if (tool.unsupported) { this.selectedToolIds.delete(tool.id); }
+        }
+        super.renderState();
+        this.panel.querySelector('[data-akari-setup-next-workspace]')?.remove();
+        const recheck = this.panel.querySelector('[data-akari-tool-recheck]');
+        if (recheck && !this.checkingTools) { recheck.textContent = '確認し直す'; }
+    }
+
+    protected override createToolRow(tool: AkariToolCheckResult): HTMLElement {
+        const row = super.createToolRow(tool);
+        if (tool.unsupported || tool.id === 'speech-analyzer') {
+            row.querySelector('input')?.remove();
+            const status = row.querySelector('[data-akari-tool-availability-label]');
+            if (status) { status.textContent = tool.unsupported ? 'この OS では使えない' : tool.available ? '使える' : '準備が要る'; }
+        }
+        const model = row.querySelector<HTMLElement>('[data-akari-tool-model-state]');
+        if (model && tool.model?.path) {
+            const voiceInk = /[\\/]com\.prakashjoshipax\.VoiceInk[\\/]/.test(tool.model.path);
+            model.textContent = `${tool.available ? '使える · ' : ''}モデル: ${voiceInk ? 'VoiceInk のモデルを使います · ' : ''}${tool.model.path}`;
+            model.style.overflowWrap = 'anywhere';
+        }
+        if (tool.needs?.length) { row.lastElementChild?.append(description(tool.needs.join(' · '))); }
+        return row;
+    }
+
+    override dispose(): void {
+        this.stopProgressPolling();
+        super.dispose();
+    }
+}
+
 @injectable()
 export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
@@ -434,11 +544,23 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
     @inject(WindowService) protected readonly windows!: WindowService;
     @inject(CommandService) protected readonly commands!: CommandService;
+    @inject(AkariNewProjectService) protected readonly tools!: AkariNewProjectService;
+    @inject(FileService) protected readonly files!: FileService;
+    @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
     protected dialog: AkariSettingsDialog | undefined;
     protected pendingSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
+        // Reuse the existing RPC proxies. Opening a second channel for the same path hangs
+        // in Theia; other extensions couple here only through path strings and JSON.
+        commands.registerCommand({ id: 'akari.settings.readStatus' }, {
+            execute: (path: string) => {
+                if (path === '/services/akari-surfaces-new-project') { return this.tools.checkTools(); }
+                if (path === '/services/akari-surfaces-connections') { return this.connections.listConnections(); }
+                throw new Error('Unknown status service');
+            }
+        });
         commands.registerCommand({ id: 'akari.settings.open', label: 'AKARI Video の設定' }, {
             execute: (arg?: unknown) => {
                 const section = resolveSettingsSectionId(arg);
@@ -456,7 +578,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env);
         this.dialog = dialog;
         if (this.pendingSection) { dialog.scrollToSection(this.pendingSection); }
         try { await dialog.open(); }

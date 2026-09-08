@@ -5,7 +5,7 @@ import { PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
-import { advanceTranscribeSteps, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
+import { transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
 
 // Radar values: explainers/2026-09-07-transcribe-four-screens-v2-fix2.html.
@@ -102,6 +102,9 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     protected ready: Promise<void>;
     protected eventFloor = '';
     protected confirming = false;
+    protected toolStatus: TranscribeToolStatus[] | undefined;
+    protected connectionStatus: TranscribeConnectionStatus[] | undefined;
+    protected checkingAvailability = false;
 
     constructor(protected readonly root: URI, protected readonly relativePath: string,
         protected readonly preferences: PreferenceService, protected readonly service: AkariProjectService,
@@ -121,6 +124,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         this.contentNode.append(this.steps, this.body, this.notice, this.foot);
         this.ready = this.initialize().catch(error => { this.notice.textContent = String(error); });
         this.render();
+        void this.refreshAvailability();
     }
     get value(): TranscribeDialogResult | undefined { return this.result; }
     protected override handleEnter(event: KeyboardEvent): boolean {
@@ -201,18 +205,50 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             }
         }
     }
+    protected async refreshAvailability(): Promise<void> {
+        if (this.checkingAvailability || this.isDisposed) { return; }
+        this.checkingAvailability = true;
+        this.render();
+        await Promise.all([
+            this.commands.executeCommand<{ tools: TranscribeToolStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-new-project')
+                .then(result => { this.toolStatus = result?.tools ?? []; }, () => { this.toolStatus = []; }),
+            this.commands.executeCommand<{ providers: TranscribeConnectionStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-connections')
+                .then(result => { this.connectionStatus = result?.providers ?? []; }, () => { this.connectionStatus = []; })
+        ]);
+        this.checkingAvailability = false;
+        if (!this.isDisposed) { this.render(); }
+    }
+
     protected renderCards(): void {
         for (const line of transcribeSummary(this.artifacts, this.alreadyTranscribed)) this.body.append(transcribeElement('p', line));
         const auto = transcribeElement('label');
         const radio = transcribeElement('input'); radio.type = 'radio'; radio.name = 'transcribe-engine'; radio.checked = this.selection.backend === 'auto';
         radio.onchange = () => { this.selection.backend = 'auto'; };
         auto.append(radio, 'おまかせ（ローカル優先）'); this.body.append(auto);
+        this.body.append(transcribeButton(this.checkingAvailability ? '確認中…' : '確認し直す', () => void this.refreshAvailability(), this.checkingAvailability));
         const cards = transcribeElement('div'); Object.assign(cards.style, { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px', marginTop: '14px' });
         for (const engine of TRANSCRIBE_ENGINE_CARDS) {
             const card = transcribeElement('section'); card.dataset.backend = engine.id;
             Object.assign(card.style, { padding: '14px', border: '1px solid #434952', borderRadius: '10px', background: '#292e36', minWidth: '0' });
+            card.append(transcribeElement('strong', engine.label));
+            const statusLoaded = engine.id.startsWith('cloud:') ? this.connectionStatus !== undefined : this.toolStatus !== undefined;
+            if (!statusLoaded) {
+                card.append(transcribeElement('p', '確認中…'));
+            } else {
+                const availability = transcribeEngineAvailability(engine.id, this.toolStatus ?? [], this.connectionStatus ?? []);
+                const badge = availability.state === 'needs' || availability.state === 'unconfigured'
+                    ? transcribeButton(availability.label, () => {
+                        void this.commands.executeCommand('akari.settings.open', availability.state === 'unconfigured' ? 'connections' : 'tools')
+                            .then(() => this.refreshAvailability(), error => { this.notice.textContent = String(error); });
+                    })
+                    : transcribeElement('span', availability.label);
+                badge.dataset.akariEngineAvailability = availability.state;
+                badge.setAttribute('role', availability.state === 'needs' || availability.state === 'unconfigured' ? 'button' : 'status');
+                Object.assign(badge.style, { display: 'inline-block', margin: '6px 0 0 8px', fontSize: '12px', lineHeight: '1.5' });
+                card.append(badge);
+            }
             const known = this.artifacts.transcripts.some(item => item.backend === backendKey(engine.id));
-            card.append(transcribeElement('strong', engine.label), transcribeElement('p', `${known ? '起こした結果あり' : '未確認'} · ${engine.place} · ${engine.hourlyUsd ? `$${engine.hourlyUsd.toFixed(2)} / 時` : '無料'}`));
+            card.append(transcribeElement('p', `${known ? '起こした結果あり' : '未確認'} · ${engine.place} · ${engine.hourlyUsd ? `$${engine.hourlyUsd.toFixed(2)} / 時` : '無料'}`));
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 220 130'); svg.style.width = '200px'; svg.setAttribute('aria-label', '速度・精度・句読点・フィラー・日本語の5軸');
             const point = (i: number, scale: number) => [110 + Math.cos(-Math.PI / 2 + i * Math.PI * 2 / 5) * 42 * scale, 65 + Math.sin(-Math.PI / 2 + i * Math.PI * 2 / 5) * 42 * scale];
             for (const scale of [.33, .66, 1]) {

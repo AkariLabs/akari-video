@@ -39,6 +39,10 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         name: 'Blender CLI', badge: 'アドバンス', purpose: '高度な 3D 素材の事前レンダーに使います。',
         sizeLabel: '約 700MB'
     },
+    'speech-analyzer': {
+        name: 'SpeechAnalyzer', badge: '推奨', purpose: 'この Mac で高速に文字起こしします。',
+        sizeLabel: 'macOS に付属', note: 'macOS 26 以上が必要です。Command Line Tools が無い場合は、下の行から導入してください。'
+    },
     'xcode-clt': {
         name: 'macOS: Command Line Tools', badge: '推奨', purpose: 'プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。',
         sizeLabel: '約 2GB',

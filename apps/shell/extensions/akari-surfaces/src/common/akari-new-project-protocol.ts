@@ -27,7 +27,7 @@
 export const AKARI_NEW_PROJECT_SERVICE_PATH = '/services/akari-surfaces-new-project';
 export const AkariNewProjectService = Symbol('AkariNewProjectService');
 
-export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt';
+export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt' | 'speech-analyzer';
 export type AkariToolTier = 'required' | 'advanced' | 'recommended';
 
 export interface AkariToolCheckResult {
@@ -36,6 +36,8 @@ export interface AkariToolCheckResult {
     available: boolean;
     version?: string;
     executable?: string;
+    unsupported?: boolean;
+    needs?: string[];
     /**
      * whisper 行のみ持つ、認識モデル（`ggml-*.bin`）の取得状態（進捗バー + 同梱化タスク・
      * 正本 `planning/notes-2026-08-17-install-progress-and-bundled-tools.md` §3）。
