@@ -5881,7 +5881,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const result = await window.electronAkariPreview.captureVisualThumbnail(page);
                     if (!valid()) throw new Error('Stale visual thumbnail input');
                     this.failedVisualThumbnails.delete(id);
-                    return result;
+                    return typeof result === 'string' ? { image: result } : result;
                 } catch (error) {
                     if (valid()) this.failedVisualThumbnails.add(id); throw error;
                 } finally {
@@ -5901,11 +5901,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     objectFit: 'contain', pointerEvents: 'none', background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
                 element.prepend(picture);
             }
-            if (picture.getAttribute('src') !== value) picture.src = value;
+            const source = value.croppedImage ?? value.image;
+            if (picture.getAttribute('src') !== source) picture.src = source;
+            // The cropped copy fills the band; uncropped captures keep their original framing.
+            Object.assign(picture.style, {
+                objectFit: value.croppedImage ? 'cover' : 'contain',
+                objectPosition: value.croppedImage ? '50% 50%' : ''
+            });
+            // Hover shows the full frame, so keep the uncropped source reachable from the band image.
+            if (value.croppedImage) picture.dataset.akariUncroppedImage = value.image;
+            else delete picture.dataset.akariUncroppedImage;
             // Paint the cached bitmap across long clips, including their partially visible ends.
             // Keep the img as the decoded source for short clips, hover, and image observers.
             Object.assign(element.style, {
-                backgroundImage: `url("${value}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
+                backgroundImage: `url("${source}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
                 backgroundSize: 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
                 backgroundPosition: 'left center, 0 0'
             });
@@ -5947,8 +5956,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 hide();
                 const popup = document.createElement('div');
                 const image = element.querySelector<HTMLImageElement>('.akari-visual-thumbnail-image');
-                if (image) { const enlarged = image.cloneNode() as HTMLImageElement;
-                    Object.assign(enlarged.style, { position: 'relative', width: '320px', height: '180px', display: 'block', visibility: 'visible' }); popup.append(enlarged); }
+                if (image) {
+                    const enlarged = document.createElement('img');
+                    enlarged.alt = ''; enlarged.draggable = false;
+                    enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
+                    Object.assign(enlarged.style, { position: 'relative', width: '320px', height: '180px', display: 'block',
+                        visibility: 'visible', objectFit: 'contain', pointerEvents: 'none',
+                        background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
+                    popup.append(enlarged);
+                }
                 const name = document.createElement('div'); name.textContent = element.title; popup.append(name);
                 const bounds = element.getBoundingClientRect();
                 Object.assign(popup.style, { position: 'fixed', left: `${Math.max(0, Math.min(bounds.left, window.innerWidth - 340))}px`,
