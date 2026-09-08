@@ -780,6 +780,7 @@ export function evaluationPlanFromResolvedTimeline(
   const resolved = outputToSource(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
   const base = resolved.segment?.kind === 'src' && cutIndex != null
+    && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd
     ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources, timeline.fps)]
     : [];
   return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
@@ -795,6 +796,7 @@ export function evaluationPlanFromTimelineMap(
   const outputSeconds = timeUs / 1e6;
   const resolved = outputToSource(timelineMap.segments, outputSeconds);
   const base = resolved.segment?.kind === 'src' && resolved.sourceT != null
+    && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd
     ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)]
     : [];
   return { timeUs, base, layers: [], transition: { type: 'hard-cut', progress: 0 }, output };

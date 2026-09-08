@@ -308,16 +308,19 @@ export async function lintProject(input, options = {}) {
     paths,
     structure.sourceIds,
   );
-  // 総尺は edit-store の共通定義で決める。映像本体がある間は従来の visual 最大終端のままで、
-  // 0 秒のときだけ overlays / 音声の終端へ後退する。cuts が構造的に不正なときは従来どおり
-  // timeline を null にして下流の尺検証を止める。
+  // 全素材の最大終端を出力尺とする。外部字幕の output 区間も同じ出力軸へ加える。
+  // cuts が構造的に不正なら下流の尺検証は止める。
   const timelineDuration = cutsStructureResult === null ? null : timelineDurationSeconds(internalEdit);
-  const timeline = timelineDuration?.seconds ?? null;
+  const captionRows = Array.isArray(captionsState.value) ? captionsState.value
+    : Array.isArray(captionsState.value?.captions) ? captionsState.value.captions : [];
+  const outputCaptionEnd = captionRows.reduce((end, cue) =>
+    cue?.time_domain === 'output' && Number.isFinite(cue.end) ? Math.max(end, cue.end) : end, 0);
+  const timeline = timelineDuration ? Math.max(timelineDuration.seconds, outputCaptionEnd) : null;
   if (timelineDuration?.basis === "overlays-audio") {
     addFinding(findings, {
       severity: "info",
       check: "timeline.duration-derived",
-      message: `映像素材が無いため尺を overlays / 音声の終端 ${formatNumber(timeline)} 秒から導出した`,
+      message: `尺を overlays / 字幕 / 音声の終端 ${formatNumber(timeline)} 秒から導出した`,
       path: "edit.json#tracks",
     });
   }

@@ -367,7 +367,7 @@ test('timelineDurationSeconds は映像なしの html 2 件・入れ子 group・
   assert.deepEqual(timelineDurationSeconds(internal), { seconds: 7, basis: 'overlays-audio' });
 });
 
-test('timelineDurationSeconds は bgm だけのタイムラインを empty とする', () => {
+test('timelineDurationSeconds は明示尺の bgm だけでも出力尺を持つ', () => {
   const internal = readInternalEdit({
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -377,7 +377,7 @@ test('timelineDurationSeconds は bgm だけのタイムラインを empty と�
       source: { kind: 'media', src: 'music', in: 0, out: 10 },
     }] }],
   });
-  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 0, basis: 'empty' });
+  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 10, basis: 'overlays-audio' });
 });
 
 test('readInternalSources returns the v2 source table', () => {
@@ -956,4 +956,10 @@ test('a whole-region freeze (positive duration, entirely covered by freeze) is n
   const item = internal.tracks[0].items[0];
   assert.notEqual(item.legacy.value, undefined, 'a whole-region freeze clip has a real, positive duration and must not be dropped like a genuine duration:0 item');
   assert.ok(item.legacy.value.out > item.legacy.value.in, `expected a non-empty trim window to seed the freeze hold from, got ${JSON.stringify(item.legacy.value)}`);
+});
+
+test('映像の後ろに置いたHTMLも出力尺を延長する', () => {
+  const doc = base();
+  doc.tracks.push({id:'html-tail',lane:'visual',items:[{id:'tail',at:90,duration:60,source:{kind:'html',path:'tail.html'}}]});
+  assert.deepEqual(timelineDurationSeconds(readInternalEdit(doc)), {seconds:5,basis:'overlays-audio'});
 });

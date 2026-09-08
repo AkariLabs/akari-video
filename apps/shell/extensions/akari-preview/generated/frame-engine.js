@@ -5639,13 +5639,10 @@ ${indent}`);
       }
       function timelineDurationSeconds(internal) {
         const visualEnd = visualContentEndSeconds(internal);
-        if (visualEnd > 0) {
-          return { seconds: visualEnd, basis: "visual" };
-        }
         let fallbackEnd = 0;
         const walk = (item, lane) => {
           const isFallbackVisual = lane === "visual" && ["html", "group", "captions", "caption"].includes(item.source.kind);
-          const isFallbackAudio = lane === "audio" && (item.legacy.collection === "narration" || item.legacy.collection === "sfx");
+          const isFallbackAudio = lane === "audio" && item.duration > 0;
           if (isFallbackVisual || isFallbackAudio) {
             fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
           }
@@ -5656,6 +5653,8 @@ ${indent}`);
           for (const item of track.items)
             walk(item, track.lane);
         }
+        if (visualEnd >= fallbackEnd && visualEnd > 0)
+          return { seconds: visualEnd, basis: "visual" };
         return fallbackEnd > 0 ? { seconds: fallbackEnd, basis: "overlays-audio" } : { seconds: 0, basis: "empty" };
       }
       function* walkItems(internal) {
@@ -21322,13 +21321,13 @@ void main() {
     }
     const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
-    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
+    const base = resolved.segment?.kind === "src" && cutIndex != null && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources, timeline.fps)] : [];
     return { timeUs, frameIndex, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;
     const resolved = (0, import_edit_store2.outputToSource)(timelineMap.segments, outputSeconds);
-    const base = resolved.segment?.kind === "src" && resolved.sourceT != null ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)] : [];
+    const base = resolved.segment?.kind === "src" && resolved.sourceT != null && outputSeconds >= resolved.segment.outStart && outputSeconds <= resolved.segment.outEnd ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)] : [];
     return { timeUs, base, layers: [], transition: { type: "hard-cut", progress: 0 }, output };
   }
   function legacyLayerFromSegment(segment, sourceSeconds, sources) {
