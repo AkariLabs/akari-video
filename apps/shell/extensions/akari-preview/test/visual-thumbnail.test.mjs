@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { realpathSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -74,7 +75,10 @@ test('3D thumbnails stream each local asset once and use the selected overlay te
     streamed.push(uri);
     return { id: String(streamed.length), url: `http://127.0.0.1:1234/asset/${streamed.length}` };
   }, async () => assert.fail('successful preparation must retain streams'));
-  assert.deepEqual(streamed, assetPaths.map(path => pathToFileURL(join(root, path)).href));
+  // prepareVisualThumbnailPage は symlink 脱出を塞ぐため realpath 済みの絶対パスから file URL を組む。
+  // macOS の os.tmpdir() は /var/folders/... （/private/var/... への symlink）なので、期待値も
+  // 「実パスを realpath → pathToFileURL」の順で組む（入力の path は mkdtemp の戻り値のまま渡す）。
+  assert.deepEqual(streamed, assetPaths.map(path => pathToFileURL(realpathSync(join(root, path))).href));
   assert.deepEqual(page.streamIds, ['1', '2', '3', '4']);
   for (const uri of streamed) assert.ok(page.dependencyUris.includes(uri));
   const mounted = JSON.parse(page.html.match(/await runtime\.mount\((.*)\);/)[1]);
@@ -108,7 +112,7 @@ test('3D thumbnail environment and selected textures reject absolute paths and U
       await assert.rejects(prepareVisualThumbnailPage(path, 'card', assets, async uri => {
         streamed.push(uri); return { id: 'model', url: 'http://127.0.0.1:1234/model' };
       }, async id => released.push(id)), TypeError, `${field}: ${invalid}`);
-      assert.deepEqual(streamed, [pathToFileURL(join(root, 'model.glb')).href]);
+      assert.deepEqual(streamed, [pathToFileURL(realpathSync(join(root, 'model.glb'))).href]);
       assert.deepEqual(released, ['model']);
     }
   }
