@@ -16,7 +16,7 @@ import { AkariHomeWidget } from './akari-home-widget';
 import { AkariProjectLauncherCommandContribution } from './akari-project-launcher-dialog';
 import { AkariPreferenceContribution } from './akari-preferences';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
-import { AkariWelcomeWindowTitleContribution } from './akari-welcome-window-title-contribution';
+import { AkariWelcomeWindowTitleContribution, AkariWelcomeWindowTitleUpdater } from './akari-welcome-window-title-contribution';
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 
 import { AkariSettingsCommandContribution } from './akari-settings-dialog';
@@ -79,6 +79,8 @@ export default new ContainerModule(bind => {
     // 「ホーム」になってしまう。akari-welcome-window-title-contribution.ts 参照）。
     bind(AkariWelcomeWindowTitleContribution).toSelf().inSingletonScope();
     bind(WindowTitleContribution).toService(AkariWelcomeWindowTitleContribution);
+    bind(AkariWelcomeWindowTitleUpdater).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariWelcomeWindowTitleUpdater);
 
     bind(AkariSurfaceOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariSurfaceOpenHandler);

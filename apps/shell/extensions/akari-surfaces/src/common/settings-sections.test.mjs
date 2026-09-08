@@ -147,7 +147,10 @@ test('全 akari スキーマキーをフォールバックに頼らずページ�
             }
         }
     }
-    assert.ok(schemaKeys.size >= 11, 'both preference schemas must be read');
+    // task 2026-09-08: akari.developerMode のスキーマは akari-project が所有するため 11 → 10。
+    assert.ok(schemaKeys.size >= 10, 'both preference schemas must be read');
+    assert.ok(dialog.includes('this.preferenceCheckbox(AKARI_DEVELOPER_MODE,'),
+        'akari.developerMode has a form and can be saved');
 });
 
 test('全ページは共通の見出しと説明を持ち、hidden で切り替えてページ内だけスクロールする', () => {
