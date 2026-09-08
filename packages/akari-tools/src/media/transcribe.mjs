@@ -13,7 +13,7 @@ import {
   runChecked,
   sha256File,
 } from "./common.mjs";
-import { recordObservation } from "./record.mjs";
+import { recordEngineTranscript, recordObservation } from "./record.mjs";
 import {
   classifyWhisperMarker,
   detectUnrecognizedSpans,
@@ -32,6 +32,7 @@ const speechAnalyzerScript = path.join(repoRoot, "skills", "analyze-footage", "b
 const cloudScript = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-cloud.mjs");
 
 export async function transcribeMedia(targetArgument, options = {}) {
+  const started = performance.now();
   const target = resolveTarget(targetArgument, options);
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
@@ -50,7 +51,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
     const rawResult = { ...cached, cache: { hit: true, key } };
     const result = await applyResolvedWordBook(rawResult, target, options);
-    await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+    await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
     return result;
   }
 
@@ -71,7 +72,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
         const rawResult = { ...cached, cache: { hit: true, key } };
         const result = await applyResolvedWordBook(rawResult, target, options);
-        await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+        await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
         return result;
       }
       segments = options.backendRunner
@@ -79,20 +80,22 @@ export async function transcribeMedia(targetArgument, options = {}) {
         : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
     }
   }
-  segments = normalizeSegments(segments, range);
+  const costUsd = backend.startsWith("cloud:") ? segments?.cost_estimate_usd ?? null : null;
+  segments = normalizeSegments(Array.isArray(segments) ? segments : segments?.segments, range);
   segments = await attachUnrecognizedSpans(segments, target.inputPath, range, ffmpeg, options);
   const rawResult = {
     path: target.displayPath,
     range,
     backend,
     no_speech: segments.length === 0,
+    ...(backend.startsWith("cloud:") ? { cost_usd: costUsd } : {}),
     segments,
     cache: { hit: false, key },
     generated_at: generatedAt(options),
   };
   await writeFile(cachePath, `${JSON.stringify(rawResult, null, 2)}\n`, "utf8");
   const result = await applyResolvedWordBook(rawResult, target, options);
-  await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+  await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
   return result;
 }
 
@@ -158,10 +161,11 @@ function speechAnalyzerAvailable(options) {
   }
 }
 
-function resolveWhisper(options) {
+export function resolveWhisper(options = {}) {
   if (options.whisperAvailable === false) return null;
   if (options.whisperBin && options.whisperModel) return { bin: options.whisperBin, model: options.whisperModel };
   const binCandidates = [
+    process.env.AKARI_WHISPER_BIN,
     process.env.WHISPER_CPP_BIN,
     "/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli",
     path.join(repoRoot, "packages", "media-bin", "vendor", `${process.platform}-${process.arch}`, process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli"),
@@ -283,7 +287,7 @@ function runCloud(wavPath, projectRoot, connectionId, range, options) {
     "--duration", String(range.out - range.in), "--project-root", projectRoot, "--approved",
   ], options);
   const value = JSON.parse(result.stdout);
-  return value.segments ?? value.transcript ?? [];
+  return { segments: value.segments ?? value.transcript ?? [], cost_estimate_usd: value.cost_estimate_usd ?? null };
 }
 
 export function normalizeWhisperJson(value) {
@@ -378,7 +382,7 @@ async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, optio
   });
 }
 
-function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
+export function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
   const result = runChecked(ffmpeg, [
     "-hide_banner", "-nostdin",
     "-ss", String(range.in), "-to", String(range.out), "-i", inputPath,
@@ -405,7 +409,15 @@ function numericOption(value, fallback, label, positive = true) {
   return resolved;
 }
 
-async function recordTranscribe(target, result, range, backend, lang, noRecord) {
+async function recordTranscribe(target, result, range, backend, lang, noRecord, rawResult, started) {
+  if (!noRecord) await recordEngineTranscript(target, {
+    backend,
+    generated_at: result.generated_at,
+    source: { path: target.displayPath, range: result.range },
+    elapsed_sec: formatNumber((performance.now() - started) / 1000),
+    cost_usd: backend.startsWith("cloud:") ? rawResult.cost_usd ?? null : null,
+    segments: rawResult.segments,
+  });
   await recordObservation({
     target,
     kind: "transcribe",

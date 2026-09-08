@@ -10,6 +10,42 @@ export function analysisPathForTarget(target) {
   return path.join(target.projectRoot, ".akari", "sidecars", `${target.projectRelative}.analysis`, "analysis.json");
 }
 
+export function transcriptsDirForTarget(target) {
+  const analysisPath = analysisPathForTarget(target);
+  return analysisPath ? path.join(path.dirname(analysisPath), "transcripts") : null;
+}
+
+export async function recordEngineTranscript(target, { backend, generated_at, source, elapsed_sec, cost_usd, segments }) {
+  const directory = transcriptsDirForTarget(target);
+  if (!directory) return null;
+  const name = backend.replace(/:/g, "-");
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(`backend 名が不正です: ${backend}`);
+  await mkdir(directory, { recursive: true });
+  const output = path.join(directory, `${name}.json`);
+  const lockPath = `${output}.lock`;
+  const lock = await acquireLock(lockPath);
+  const temporary = `${output}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`;
+  try {
+    const value = { version: 1, backend: name, generated_at, source, elapsed_sec, cost_usd: cost_usd ?? null, segments };
+    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    if (existsSync(output)) {
+      const previous = JSON.parse(readFileSync(output, "utf8"));
+      const stamp = String(previous.generated_at).replace(/[^A-Za-z0-9_-]/g, "-");
+      let archive = path.join(directory, `${name}.${stamp}.json`);
+      for (let suffix = 2; existsSync(archive); suffix += 1) {
+        archive = path.join(directory, `${name}.${stamp}-${suffix}.json`);
+      }
+      await rename(output, archive);
+    }
+    await rename(temporary, output);
+    return output;
+  } finally {
+    await unlink(temporary).catch(() => {});
+    await lock.close();
+    await unlink(lockPath).catch(() => {});
+  }
+}
+
 export async function recordObservation({ target, kind, result, args = {}, outputs = [], range, noRecord = false }) {
   const analysisPath = analysisPathForTarget(target);
   if (noRecord || !analysisPath) return null;

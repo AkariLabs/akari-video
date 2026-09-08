@@ -7,6 +7,8 @@
 - `akari media filmstrip <target>` — 素材全体の流れをコンタクトシートにする。
 - `akari media waveform <target>` — 波形、無音区間、ラウドネスを調べる。
 - `akari media transcribe <target>` — ローカル既定の時刻付き文字起こしを返す。
+- `akari media transcribe-diff <target> [--engines a,b,c]` — 最新のエンジン別文字起こしを文字単位で比較し、`diff.json` と JSON 要約を返す。句読点だけの差は除外し、1 エンジンなら比較を省略する。
+- `akari media transcribe-cuts <target> [--basis b] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]` — フィラー・言い直し・無音・未認識を `cuts.json` に候補として保存し、JSON 要約を返す。既存の採否を引き継ぎ、手直しした字幕に重なる候補は既定 OFF にする。
 - `akari media audio-level <projectDir>` — `gain_db` 未指定の音声素材を測り、役割別の提案値を表にする。`--write` で `edit.json` へ数値を保存し、`--json` で JSON 配列を返す。
 
 ## 音声素材の挿入レベル

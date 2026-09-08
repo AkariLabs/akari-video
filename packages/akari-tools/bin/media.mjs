@@ -7,16 +7,20 @@ import { filmstripMedia } from "../src/media/filmstrip.mjs";
 import { grabMedia } from "../src/media/grab.mjs";
 import { parseTime } from "../src/media/common.mjs";
 import { probeMedia } from "../src/media/probe.mjs";
+import { transcribeDiffMedia } from "../src/media/transcribe-diff.mjs";
+import { transcribeCutsMedia } from "../src/media/transcribe-cuts.mjs";
 import { transcribeMedia } from "../src/media/transcribe.mjs";
 import { waveformMedia } from "../src/media/waveform.mjs";
 import { audioLevelProject, formatAudioLevelTable } from "../src/audio-level.mjs";
 
-const commands = ["probe", "grab", "filmstrip", "waveform", "transcribe", "audio-level"];
+const commands = ["probe", "grab", "filmstrip", "waveform", "transcribe", "transcribe-diff", "transcribe-cuts", "audio-level"];
 const usage = [
   "使い方: akari media <subcommand> <target> [options]",
   "",
   "サブコマンド:",
   ...commands.map((command) => `  ${command}`),
+  "  transcribe-diff <target> [--engines a,b,c]",
+  "  transcribe-cuts <target> [--basis b] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
 ].join("\n");
 
 export async function runMediaCli(argv, options = {}) {
@@ -52,12 +56,14 @@ export async function runMediaCli(argv, options = {}) {
       filmstrip: filmstripMedia,
       waveform: waveformMedia,
       transcribe: transcribeMedia,
+      "transcribe-diff": transcribeDiffMedia,
+      "transcribe-cuts": transcribeCutsMedia,
     })[subcommand](target, commandOptions);
     for (const item of Array.isArray(result) ? result : [result]) stdout(JSON.stringify(item));
     return 0;
   } catch (error) {
     stderr(error instanceof Error ? error.message : String(error));
-    return 1;
+    return error?.exitCode === 2 ? 2 : 1;
   }
 }
 
@@ -147,6 +153,13 @@ function allowedValueOptions(subcommand) {
     "--word-book": ["wordBookPath", String],
     "--unrecognized-min-gap": ["unrecognizedMinGap", numberValue],
     "--unrecognized-min-voiced": ["unrecognizedMinVoiced", numberValue],
+  };
+  if (subcommand === "transcribe-diff") return { "--engines": ["engines", String] };
+  if (subcommand === "transcribe-cuts") return {
+    "--basis": ["basis", String],
+    "--silence-min": ["silenceMin", numberValue],
+    "--silence-break": ["silenceBreak", numberValue],
+    "--silence-keep": ["silenceKeep", numberValue],
   };
   if (subcommand === "audio-level") return {
     "--targets": ["targets", jsonObjectValue],
