@@ -1,0 +1,19 @@
+2026-09-08 / task/2026-09-08-bottom-panel-plus-button
+
+L0
+- apps/shell: npm run build:ext — exit 0
+- apps/shell: npm run lint — exit 0 (lint.txt)
+- apps/shell/extensions/akari-shell-strip: npm test — exit 0, 211 passed, 0 failed (tests.txt)
+- apps/shell: ../../node_modules/.bin/theia build --mode production — exit 0 (bundle.txt)
+- バンドル内の AkariBottomPanelCuration を確認。
+
+L1 未取得
+- 同期済み Electron の --version が exit 134、stdout/stderr とも出力なし。
+- templates/project-default を /tmp の隔離ワークスペースへ複写し、
+  THEIA_CONFIG_DIR と --user-data-dir も隔離して起動したが同じく exit 134。
+- 起動コマンド:
+  THEIA_CONFIG_DIR=<隔離config> node_modules/electron/dist/Electron.app/Contents/MacOS/Electron
+    <worktree>/apps/shell <隔離workspace> --remote-debugging-port=9387
+    --user-data-dir=<隔離user-data> --no-sandbox
+- アプリの画面生成に到達できず、契約 (a)〜(d) のスクリーンショットは未取得。
+  終了原因を特定できるログは得られていない。L0 のテストを実機証拠とは扱わない。

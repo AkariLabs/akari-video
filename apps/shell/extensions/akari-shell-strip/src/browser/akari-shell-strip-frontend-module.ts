@@ -16,6 +16,7 @@ import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
 import { AkariRightPanelCuration } from './akari-right-panel-curation';
+import { AkariBottomPanelCuration } from './akari-bottom-panel-curation';
 import { AkariExportPreferenceContribution } from './akari-export-preferences';
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
@@ -84,6 +85,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(FrontendApplicationContribution).toService(AkariTerminalMenuCuration);
     bind(AkariRightPanelCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariRightPanelCuration);
+    bind(AkariBottomPanelCuration).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariBottomPanelCuration);
 
     // S18(a): 起動フェイルセーフ（レイアウト復元 try/catch + タイムアウト）
     // S18(b)（Workspace Trust ダイアログ無効化）はコード不要 —

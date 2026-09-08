@@ -1,0 +1,205 @@
+{
+  "label": "session-dirty",
+  "workspace": "<SCRATCH>/ws",
+  "timeline": [
+    {
+      "atSeconds": 5,
+      "ready": false,
+      "bottomTabs": [],
+      "bottomTabIds": [],
+      "rightTabIds": [
+        "akari-partner-onboarding",
+        "akari-review-panel-widget"
+      ],
+      "mainTabIds": [
+        "akari-home-widget"
+      ],
+      "bottomPanelHidden": true,
+      "addButtons": [],
+      "popupItems": null
+    },
+    {
+      "atSeconds": 10,
+      "ready": true,
+      "bottomTabs": [],
+      "bottomTabIds": [],
+      "rightTabIds": [
+        "akari-partner-onboarding",
+        "akari-daihon-widget",
+        "akari-cuts-widget",
+        "akari-review-panel-widget"
+      ],
+      "mainTabIds": [
+        "akari-home-widget"
+      ],
+      "bottomPanelHidden": true,
+      "addButtons": [],
+      "popupItems": null
+    }
+  ],
+  "wideViewport": {
+    "width": 2200,
+    "height": 1100
+  },
+  "afterTimeline": {
+    "bottomTabs": [
+      {
+        "id": "akari-annotations-widget",
+        "label": "タイムライン",
+        "title": "",
+        "rect": {
+          "x": 228,
+          "y": 677,
+          "w": 139,
+          "h": 27
+        }
+      }
+    ],
+    "bottomTabIds": [
+      "akari-annotations-widget"
+    ],
+    "rightTabIds": [
+      "akari-partner-onboarding",
+      "akari-daihon-widget",
+      "akari-cuts-widget",
+      "akari-review-panel-widget"
+    ],
+    "mainTabIds": [
+      "akari-home-widget"
+    ],
+    "bottomPanelHidden": false,
+    "addButtons": [
+      {
+        "text": "+",
+        "title": "下パネルに追加",
+        "ariaLabel": "下パネルに追加",
+        "hidden": false,
+        "inTabRow": true,
+        "rect": {
+          "x": 1678,
+          "y": 673,
+          "w": 28,
+          "h": 35
+        }
+      }
+    ],
+    "popupItems": null
+  },
+  "setupResults": {
+    "terminalA": true,
+    "terminalB": true,
+    "problems": true,
+    "output": true,
+    "debugConsole": true
+  },
+  "bottomTabs": [
+    {
+      "id": "akari-annotations-widget",
+      "label": "タイムライン",
+      "title": "",
+      "rect": {
+        "x": 228,
+        "y": 677,
+        "w": 139,
+        "h": 27
+      }
+    },
+    {
+      "id": "outputView",
+      "label": "Output",
+      "title": "",
+      "rect": {
+        "x": 370,
+        "y": 677,
+        "w": 105,
+        "h": 27
+      }
+    },
+    {
+      "id": "debug-console",
+      "label": "Debug Console",
+      "title": "",
+      "rect": {
+        "x": 478,
+        "y": 677,
+        "w": 156,
+        "h": 27
+      }
+    },
+    {
+      "id": "terminal-1",
+      "label": "zsh",
+      "title": "",
+      "rect": {
+        "x": 637,
+        "y": 677,
+        "w": 84,
+        "h": 27
+      }
+    },
+    {
+      "id": "terminal-2",
+      "label": "zsh",
+      "title": "",
+      "rect": {
+        "x": 724,
+        "y": 677,
+        "w": 84,
+        "h": 27
+      }
+    },
+    {
+      "id": "problems",
+      "label": "Problems",
+      "title": "",
+      "rect": {
+        "x": 812,
+        "y": 677,
+        "w": 120,
+        "h": 27
+      }
+    }
+  ],
+  "bottomTabIds": [
+    "akari-annotations-widget",
+    "outputView",
+    "debug-console",
+    "terminal-1",
+    "terminal-2",
+    "problems"
+  ],
+  "rightTabIds": [
+    "akari-partner-onboarding",
+    "akari-daihon-widget",
+    "akari-cuts-widget",
+    "akari-review-panel-widget"
+  ],
+  "mainTabIds": [
+    "akari-home-widget"
+  ],
+  "bottomPanelHidden": false,
+  "addButtons": [
+    {
+      "text": "+",
+      "title": "下パネルに追加",
+      "ariaLabel": "下パネルに追加",
+      "hidden": false,
+      "inTabRow": true,
+      "rect": {
+        "x": 1678,
+        "y": 673,
+        "w": 28,
+        "h": 35
+      }
+    }
+  ],
+  "popupItems": null,
+  "storedLayout": {
+    "key": null
+  },
+  "reachedReady": true,
+  "failedToStart": false,
+  "profile": "<SCRATCH>/profile1",
+  "phase": "setup",
+  "devMode": false
+}

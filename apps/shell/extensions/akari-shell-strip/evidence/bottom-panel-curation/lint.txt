@@ -1,0 +1,4 @@
+
+> @akari-video/shell@0.1.56 lint
+> eslint "extensions/*/src/**/*.{ts,tsx}"
+
