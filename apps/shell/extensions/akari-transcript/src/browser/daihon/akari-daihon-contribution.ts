@@ -28,20 +28,26 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
 
     async onDidInitializeLayout(_app: FrontendApplication): Promise<void> {
         // Layout must finish even when project files or a widget factory are unavailable.
+        let daihon: AkariDaihonWidget | undefined;
+        let cuts: AkariCutsWidget | undefined;
         try {
-            const cuts = await this.ensureCutsWidget();
-            try {
-                void cuts.configure().catch(error => cuts.showError(error));
-            } catch (error) {
-                cuts.showError(error);
-            }
+            daihon = await this.ensureWidget();
+        } catch (error) {
+            console.warn('[akari-daihon] layout initialization failed', error);
+        }
+        try {
+            cuts = await this.ensureCutsWidget();
         } catch (error) {
             console.warn('[akari-cuts] layout initialization failed', error);
         }
-        try {
-            await this.ensureWidget();
-        } catch (error) {
-            console.warn('[akari-daihon] layout initialization failed', error);
+        // Attach both tabs before starting independent reads; never await configuration here.
+        for (const widget of [daihon, cuts]) {
+            if (!widget) continue;
+            try {
+                void widget.configure().catch(error => widget.showError(error));
+            } catch (error) {
+                widget.showError(error);
+            }
         }
     }
 
@@ -68,7 +74,6 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'right', rank: DAIHON_PANEL_RANK });
         }
-        void widget.configure().catch(error => console.warn('[akari-daihon] configuration failed', error));
         return widget;
     }
 }

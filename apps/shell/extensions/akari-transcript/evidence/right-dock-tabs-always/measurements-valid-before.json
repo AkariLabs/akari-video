@@ -1,0 +1,139 @@
+{
+  "label": "valid-before",
+  "workspace": "/tmp/right-dock-tabs-always/ws-valid",
+  "timeline": [
+    {
+      "atSeconds": 10,
+      "ready": true,
+      "tabs": [
+        "カット",
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "カット",
+        "パートナーを追加",
+        "注釈",
+        "台本"
+      ],
+      "preloadVisible": false
+    }
+  ],
+  "tabs": [
+    {
+      "label": "カット",
+      "text": "カット",
+      "icon": "lm-TabBar-tabIcon no-icon",
+      "rect": {
+        "x": 1072,
+        "y": 10,
+        "w": 48,
+        "h": 32
+      },
+      "closable": false,
+      "closeIconVisible": false
+    },
+    {
+      "label": "パートナーを追加",
+      "text": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "rect": {
+        "x": 1072,
+        "y": 46,
+        "w": 48,
+        "h": 48
+      },
+      "closable": false,
+      "closeIconVisible": false
+    },
+    {
+      "label": "注釈",
+      "text": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "rect": {
+        "x": 1072,
+        "y": 290,
+        "w": 48,
+        "h": 48
+      },
+      "closable": true,
+      "closeIconVisible": false
+    },
+    {
+      "label": "台本",
+      "text": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "rect": {
+        "x": 1072,
+        "y": 342,
+        "w": 48,
+        "h": 48
+      },
+      "closable": true,
+      "closeIconVisible": false
+    },
+    {
+      "label": "カット",
+      "text": "カット",
+      "icon": "lm-TabBar-tabIcon no-icon",
+      "rect": {
+        "x": 1072,
+        "y": 609,
+        "w": 14,
+        "h": 52
+      },
+      "closable": false,
+      "closeIconVisible": false
+    },
+    {
+      "label": "パートナーを追加",
+      "text": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "rect": {
+        "x": 1086,
+        "y": 609,
+        "w": 62,
+        "h": 32
+      },
+      "closable": false,
+      "closeIconVisible": false
+    },
+    {
+      "label": "注釈",
+      "text": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "rect": {
+        "x": 1148,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      },
+      "closable": true,
+      "closeIconVisible": false
+    },
+    {
+      "label": "台本",
+      "text": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "rect": {
+        "x": 1210,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      },
+      "closable": true,
+      "closeIconVisible": false
+    }
+  ],
+  "preloadVisible": false,
+  "homeAttached": true,
+  "daihonAttached": true,
+  "cutsAttached": true,
+  "reviewAttached": true,
+  "partnerAttached": true,
+  "daihonFooter": "台本を読み取れません: Unable to read file 'captions.json' (EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, open '/private/tmp/right-dock-tabs-always/ws-valid/captions.json')",
+  "cutsNotice": "",
+  "cutsClickError": "TimeoutError: elementHandle.click: Timeout 8000ms exceeded.",
+  "reviewClickError": "TimeoutError: elementHandle.click: Timeout 8000ms exceeded.",
+  "reachedReady": true,
+  "failedToStart": false
+}

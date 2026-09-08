@@ -1,0 +1,30 @@
+2026-09-08 right-dock-tabs-always — verification evidence
+
+L0:
+- npm run --prefix apps/shell build:ext: exit 0
+- npm run --prefix apps/shell lint: exit 0
+- npm test --prefix apps/shell/extensions/akari-transcript: exit 0; 181 passed, 0 failed
+  cuts-tab-attach.test.mjs retains its original 14 cases and adds 10 cases.
+  Real AkariDaihonWidget instance with a stubbed DOM verifies closable=false and
+  configure failure -> showError -> notify -> footer text.
+  Rejected and synchronously throwing configure calls cannot reject layout;
+  both tabs attach first with ranks 190/191. Either factory failing does not
+  prevent the other tab attaching. Restored tabs are not attached twice, and
+  open commands do not restart configuration.
+- npm test --prefix apps/shell/extensions/akari-annotations: exit 0; 1081 passed, 0 failed
+  Fixed order includes partner / daihon / cuts / review / inspector / meter,
+  mirror IDs match widget factories, review rank is 195, and the heavy review
+  widget's closable assignment is checked statically. Timeline stays closable.
+- git diff --check: exit 0
+
+L1 attempted, not verified:
+- From apps/shell, node ../../node_modules/@theia/cli/bin/theia build --mode production:
+  exit 0; browser/node/electron bundles built with zero errors.
+- Launched node_modules/electron/dist/Electron.app/Contents/MacOS/Electron with
+  apps/shell and a temporary copy of templates/project-default, isolated
+  THEIA_CONFIG_DIR and --user-data-dir, --remote-debugging-port=21985, --no-sandbox.
+- Electron exited 134 without log output. The isolated config and user-data
+  directories remained empty, and fetching the CDP target list failed.
+- Process inspection was denied by the sandbox (operation not permitted: ps).
+- Startup four-tab screenshot and malformed-edit.json notices could not be
+  observed in Electron in this environment. No GUI PASS is claimed.
