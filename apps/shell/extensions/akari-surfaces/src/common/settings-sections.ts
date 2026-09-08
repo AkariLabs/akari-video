@@ -50,6 +50,8 @@ export const AKARI_EXPORT_ENCODER = 'akari.export.encoder';
 export const AKARI_EXPORT_CODEC = 'akari.export.codec';
 export const AKARI_EXPORT_FPS = 'akari.export.fps';
 export const AKARI_EXPORT_OUTPUT_DIRECTORY = 'akari.export.outputDirectory';
+// カタログのスキーマは akari-project/akari-project-frontend-module.ts が所有。設定キーは文字列ミラー。
+export const AKARI_CATALOG_ROOT = 'akari.catalog.root';
 
 export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[]> = {
     start: [],
@@ -58,7 +60,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     connections: [], // AKARI Store は PreferenceService ではなく接続サービスが所有する。
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
-    tools: [],
+    tools: [AKARI_CATALOG_ROOT],
     developer: [AKARI_DEVELOPER_MODE, WORKBENCH_COLOR_THEME]
 };
 
