@@ -17,6 +17,7 @@ import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
+import { akariMenuRows } from '../common/menu-rows';
 
 interface MenuAction {
     id: string;
@@ -36,11 +37,6 @@ interface SkillEntry {
 // 増やさないため定数として直接持つ（akari-project の 'files' 参照など、
 // 既存コードにも同じ「文字列 id だけ知っている」パターンがある）。
 const HOME_WIDGET_ID = 'akari-home-widget';
-
-const SHOW_CHANGES_COMMAND = 'akari.project.showChanges';
-const OPEN_ANNOTATIONS_COMMAND = 'akari.annotations.open';
-const OPEN_TRANSCRIPT_COMMAND = 'akari.transcript.open';
-const OPEN_CUTS_COMMAND = 'akari.cuts.open';
 
 const EDIT_JSON_RELATIVE_PATH = 'edit.json';
 const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
@@ -131,13 +127,12 @@ export class AkariMenuWidget extends ReactWidget {
 
     protected get actions(): MenuAction[] {
         return [
-            { id: OPEN_ANNOTATIONS_COMMAND, label: 'タイムライン', icon: 'codicon codicon-comment', run: () => this.runCommand(OPEN_ANNOTATIONS_COMMAND) },
-            { id: OPEN_TRANSCRIPT_COMMAND, label: '文字起こし', icon: 'codicon codicon-comment-discussion', run: () => this.runCommand(OPEN_TRANSCRIPT_COMMAND) },
-            { id: OPEN_CUTS_COMMAND, label: 'カット候補を開く', icon: 'codicon codicon-edit', run: () => this.runCommand(OPEN_CUTS_COMMAND) },
-            { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home', run: () => void this.openOverview() },
-            { id: 'akari.home.openFirstRunSetup', label: 'セットアップ', icon: 'codicon codicon-tools', run: () => this.runCommand('akari.home.openFirstRunSetup') },
-            { id: 'akari.home.openProjectLauncher', label: 'プロジェクト・ランチャー', icon: 'codicon codicon-layout', run: () => this.runCommand('akari.home.openProjectLauncher') },
-            { id: SHOW_CHANGES_COMMAND, label: '変更を見る', icon: 'codicon codicon-diff', run: () => this.runCommand(SHOW_CHANGES_COMMAND) },
+            ...akariMenuRows().map(row => ({
+                ...row,
+                run: () => row.id === 'akari.menu.openOverview'
+                    ? void this.openOverview()
+                    : this.runCommand(row.id)
+            })),
             this.browserPreviewAction()
         ];
     }
