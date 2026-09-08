@@ -7,6 +7,7 @@ import {
 } from '@theia/core/lib/browser';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { OPEN_AKARI_DAIHON } from '../akari-transcript-commands';
+import { AkariCutsWidget } from './akari-cuts-widget';
 import { AkariDaihonWidget } from './akari-daihon-widget';
 
 const DAIHON_PANEL_RANK = 190;
@@ -25,6 +26,9 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
 
     async onDidInitializeLayout(_app: FrontendApplication): Promise<void> {
         await this.ensureWidget();
+        const cuts = await this.widgetManager.getOrCreateWidget<AkariCutsWidget>(AkariCutsWidget.FACTORY_ID);
+        await cuts.configure();
+        if (!cuts.isAttached) this.shell.addWidget(cuts, { area: 'right', rank: DAIHON_PANEL_RANK + 1 });
     }
 
     async open(): Promise<AkariDaihonWidget> {

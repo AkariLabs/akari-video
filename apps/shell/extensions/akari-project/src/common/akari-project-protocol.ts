@@ -216,12 +216,46 @@ export type StoreDevicePollOutcome =
     | { status: 'network-error' | 'error'; error: string };
 
 export type TranscriptState = 'none' | 'running' | 'done';
-export interface TranscribeMaterialRequest { projectRoot: string; relativePath: string }
+export interface TranscribeOptions {
+    backend?: string;
+    compareSet?: string[];
+    autoCuts?: boolean;
+    /** One UI confirmation, before any audio is sent to the selected cloud engines. */
+    approved?: boolean;
+}
+export interface TranscribeArtifactRequest { projectRoot: string; relativePath: string }
+export interface TranscribeMaterialRequest extends TranscribeArtifactRequest, TranscribeOptions {}
+export interface MaterialTranscriptEvent {
+    type: 'material-transcript'; id: string; relativePath: string;
+    status: 'running' | 'completed' | 'failed';
+    stage: 'transcribing' | 'diffing' | 'cutting' | 'completed' | 'failed';
+    backend?: string; error?: string; elapsed_sec?: number;
+}
+export interface EngineTranscript {
+    backend: string; generated_at: string; elapsed_sec: number; cost_usd: number | null;
+    segments: { start: number; end: number; text: string; [key: string]: unknown }[];
+}
+export interface TranscribeDiff {
+    engines: string[]; agreement: number;
+    items: { id: string; start: number; end: number; kind: string; texts: Record<string, string> }[];
+}
+export interface TranscribeCuts {
+    basis: string;
+    candidates: { id: string; kind: 'filler' | 'redo' | 'silence' | 'unrecognized'; start: number; end: number;
+        text: string | null; on: boolean; default_on: boolean; reason: string; [key: string]: unknown }[];
+    hand_edited: { candidate: string; line: number }[];
+    [key: string]: unknown;
+}
+export interface TranscribeArtifacts { transcripts: EngineTranscript[]; diff: TranscribeDiff | null; cuts: TranscribeCuts | null }
+export interface WriteCutsSelectionRequest extends TranscribeArtifactRequest { on: Record<string, boolean> }
 export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
-export interface BuildCaptionsRequest { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean }
+export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean }
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    readTranscribeArtifacts(request: TranscribeArtifactRequest): Promise<TranscribeArtifacts>;
+    writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void>;
+    applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }>;
     transcribeMaterial(request: TranscribeMaterialRequest): Promise<void>;
     transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>>;
     buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult>;
