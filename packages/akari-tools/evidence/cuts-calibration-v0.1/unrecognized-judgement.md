@@ -1,6 +1,6 @@
 # 未認識候補 8 件の判定表（dogfood 素材・minGapSec 変更の可否を決めるため）
 
-- 素材: `akari-video-internal/fieldtest/2026-09-08-transcribe-compare-dogfood/assets/talk-0507-first3min.mp4`（3 分・語り）
+- 素材: `talk-0507-first3min.mp4`（非公開の内部記録（`akari-video-internal`）の実機検証 transcribe-compare-dogfood 2026-09-08）（3 分・語り）
 - 対象: 2026-09-08 実測の `cuts.json`（`basis: whisper-cpp` / `minGapSec = 0.45`）が出した `kind: "unrecognized"` 8 件
 - 判定日: 2026-09-08 / 判定者: 実装レーンのラッパー
 - 判定材料は 3 つ。**すべて機械で取り直した一次値**（codex には判定させていない）

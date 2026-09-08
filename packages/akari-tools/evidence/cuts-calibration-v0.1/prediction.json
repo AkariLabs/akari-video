@@ -4,7 +4,7 @@
   "written_at": "2026-09-08T20:20:00+09:00",
   "written_before": "実装着手・未認識 8 件の聴取判定のいずれよりも前（このファイル単独のコミットで固定する）",
   "material": {
-    "project": "akari-video-internal/fieldtest/2026-09-08-transcribe-compare-dogfood",
+    "project": "akari-video-internal: fieldtest transcribe-compare-dogfood 2026-09-08",
     "target": "assets/talk-0507-first3min.mp4",
     "note": "内部リポは読み取り専用。実行は一時ディレクトリへ複製して行う"
   },

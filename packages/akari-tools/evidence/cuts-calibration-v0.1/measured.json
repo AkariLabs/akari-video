@@ -5,7 +5,7 @@
   "implementation_commit": "814f7988",
   "prediction_commit": "6afdc938",
   "how": {
-    "material": "akari-video-internal/fieldtest/2026-09-08-transcribe-compare-dogfood（内部リポは読み取り専用）",
+    "material": "akari-video-internal: fieldtest transcribe-compare-dogfood 2026-09-08（内部リポは読み取り専用）",
     "workspace": "/tmp/akari-cuts-cal/runA・runB へ複製して実行（内部リポの .akari/ は一切書き換えていない）",
     "cli": "node packages/akari-tools/bin/media.mjs（worktree のソース直）",
     "note": "transcribe の cache は unrecognized 付与後の結果を保存するため、minGapSec の変更を反映するには .akari/cache/transcribe/ を消して起こし直す必要がある（runA でそうした）"

@@ -51,6 +51,8 @@ jobs:
             "apps/shell/extensions/akari-surfaces/src/node/tool-install.test.mjs:340|synthetic test path (/Users/fixture) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:65|synthetic test path (/Users/fixture/) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:71|synthetic test path (/Users/fixture/) — identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:101|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
+            "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:107|synthetic test path (/Users/fixture/) — identifies no machine; shortenHomePath fixture"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:90|synthetic residual path (file:///Users/another/) — the redactor under test must be handed a /Users/<name>/ shape to prove it collapses one to <path>; identifies no machine"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:91|synthetic residual path (/private/tmp/unrelated/) — same test, the /private/tmp/ shape; identifies no machine"
             "apps/shell/extensions/akari-preview/evidence/item-keyframes/prepare-fixture.mjs:14|realpath guard: asserts the fixture dir is under /private/tmp/ (macOS /tmp symlink breaks the Theia workspace boundary) — generic prefix, identifies no machine"
