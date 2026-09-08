@@ -6,6 +6,7 @@ import {
   clipSpansToRange,
   detectUnrecognizedSpans,
   subtractSilences,
+  UNRECOGNIZED_ALGO_VERSION,
   UNRECOGNIZED_DEFAULTS,
 } from "../src/media/unrecognized-spans.mjs";
 
@@ -95,11 +96,28 @@ test("無音を引いた残り 0.3 秒は採用する", () => {
   ]);
 });
 
-test("セグメント先頭と末尾の隙間も検出する", () => {
+test("セグメント先頭と末尾の word 時刻の欠けは検出しない", () => {
   const segment = { start: 0, end: 2, words: [{ start: 0.5, end: 1.5 }] };
-  assert.deepEqual(detectUnrecognizedSpans(segment, [], { minGapSec: 0.45 }), [
-    { start: 0, end: 0.5 }, { start: 1.5, end: 2 },
-  ]);
+  assert.deepEqual(detectUnrecognizedSpans(segment, [], { minGapSec: 0.45 }), []);
+});
+
+test("未認識アルゴリズムは version 2", () => {
+  assert.equal(UNRECOGNIZED_ALGO_VERSION, 2);
+});
+
+for (const [name, words, expected] of [
+  ["先頭欠け", [{ start: 1, end: 3 }], []],
+  ["末尾欠け", [{ start: 0, end: 2 }], []],
+  ["中間 gap", [{ start: 0, end: 1 }, { start: 2, end: 3 }], [{ start: 1, end: 2 }]],
+]) {
+  test(`segment 端規則: ${name}`, () => {
+    assert.deepEqual(detectUnrecognizedSpans({ start: 0, end: 3, words }, []), expected);
+  });
+}
+
+test("有効な word が無い場合は segment 全域を候補にする", () => {
+  const segment = { start: 0, end: 3, words: [{ start: 1, end: 1 }, { start: 5, end: 6 }, { start: NaN, end: 2 }] };
+  assert.deepEqual(detectUnrecognizedSpans(segment, []), [{ start: 0, end: 3 }]);
 });
 
 test("words 無しセグメントは全区間を候補にする", () => {
