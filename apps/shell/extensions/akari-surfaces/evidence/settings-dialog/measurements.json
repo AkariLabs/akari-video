@@ -1,0 +1,78 @@
+{
+  "task": "2026-09-08-settings-transcribe-and-keys",
+  "verified": "L0+L1",
+  "measuredAt": "2026-09-08T02:15:00Z",
+  "environment": {
+    "platform": "darwin arm64",
+    "node": "v26.3.0",
+    "electron": "node_modules/electron/dist/Electron.app（apps/shell を production ビルドして直起動）",
+    "isolation": "THEIA_CONFIG_DIR / --user-data-dir / AKARI_CREDENTIALS_FILE / AKARI_HOME を全て一時ディレクトリへ向けた（本物の ~/.config/akari-video/credentials.env と ~/.akari は無改変）"
+  },
+  "L0": {
+    "build:ext": "0 errors",
+    "lint": "0 errors",
+    "test:shell": {
+      "before": { "tests": 2833, "pass": 2829, "fail": 4 },
+      "after": { "tests": 2846, "pass": 2842, "fail": 4 },
+      "failSetIdentical": true,
+      "preexistingFailures": [
+        "3D thumbnail environment and selected textures reject absolute paths and URLs (akari-preview)",
+        "3D thumbnails stream each local asset once and use the selected overlay texture (akari-preview)",
+        "shell fragment assets use shared resolution and registered stream URLs (akari-preview)",
+        "validate-asset の import は node: 組み込みモジュールだけを参照する (apps/shell/test)"
+      ]
+    },
+    "credentialsFileTests": { "file": "src/common/credentials-file.test.mjs", "tests": 13, "pass": 13 },
+    "akariSurfacesSuite": { "before": 112, "after": 125 },
+    "listConnections": {
+      "order": ["fal", "elevenlabs", "groq", "replicate", "openrouter"],
+      "first": "fal",
+      "containsAkariCloud": false
+    },
+    "nonLeak": {
+      "fakeKey": "sk_TESTSECRET_0123456789",
+      "secretInRpcPayloads": false,
+      "secretInConsoleOutput": false,
+      "consoleCallsDuringRpc": 0,
+      "grepHitsOutsideCredentialsEnv": 0,
+      "credentialsEnvMode": "600",
+      "connectionsJsonWritten": false
+    },
+    "doctorCli": {
+      "helpExit": 0,
+      "tooManyArgsExit": 2,
+      "templateProjectRun": "BEFORE(HEAD 版) と AFTER で stdout / stderr / 生成ファイル集合が完全一致。connections.json の差分は last_checked のタイムスタンプのみ"
+    }
+  },
+  "L1": {
+    "activityBarTabs": [
+      "shell-tab-akari-role-buckets-widget",
+      "shell-tab-search-view-container",
+      "shell-tab-vsx-extensions-view-container",
+      "shell-tab-akari-settings-opener",
+      "shell-tab-akari-menu-widget"
+    ],
+    "dialogLayout": { "flexDirection": "row", "nav": { "x": 180, "w": 197 }, "main": { "x": 377, "w": 843 } },
+    "navItems": ["はじめかた", "書き出し", "プレビュー品質", "文字起こし", "接続と API キー", "通知", "道具", "開発者モード"],
+    "providerRows": ["fal", "elevenlabs", "groq", "replicate", "openrouter"],
+    "passwordInput": { "type": "password", "autocomplete": "off" },
+    "groqFakeKey": { "status": "unauthorized", "text": "繋がらない（認証されませんでした（HTTP 401）。）", "masked": "sk_••••6789" },
+    "storageRadios": [
+      { "label": "いまのファイル（<一時パス>）", "checked": true, "disabled": false },
+      { "label": "暗号化して保存（この Mac のログイン鍵で） · 次", "checked": false, "disabled": true }
+    ],
+    "storeRow": "AKARI Store / 素材・パックの購入と取得（デバイス接続）/ 未接続 / 確認（鍵の入力欄なし）",
+    "settingsJson": {
+      "akari.transcribe.backend": "cloud:groq",
+      "akari.transcribe.compareSet": ["whisper-cpp"],
+      "akari.transcribe.autoCuts": false
+    }
+  },
+  "screenshots": {
+    "01-dialog-transcribe.png": "⚙ から開いた設定ポップアップ（左ナビ + 右本文・文字起こし節）",
+    "02-connections.png": "接続と API キー節（fal 先頭・おすすめ札）",
+    "03-groq-401.png": "Groq に偽の鍵を登録 →「繋がらない（HTTP 401）」+ sk_••••6789",
+    "04-store-and-storage.png": "鍵の保存先（暗号化は disabled + 「次」）と AKARI Store 行",
+    "05-transcribe.png": "文字起こしの 3 キーを設定した状態"
+  }
+}

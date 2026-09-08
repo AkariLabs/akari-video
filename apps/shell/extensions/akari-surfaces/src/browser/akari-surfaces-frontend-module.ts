@@ -20,7 +20,16 @@ import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
 import { AkariWelcomeWindowTitleContribution } from './akari-welcome-window-title-contribution';
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 
+import { AkariSettingsCommandContribution } from './akari-settings-dialog';
+import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+
 export default new ContainerModule(bind => {
+    bind(AkariConnectionsService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_CONNECTIONS_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(AkariSettingsCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariSettingsCommandContribution);
+
     bind(AkariModeSwitchContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariModeSwitchContribution);
     bind(CommandContribution).toService(AkariModeSwitchContribution);
@@ -69,9 +78,7 @@ export default new ContainerModule(bind => {
     bind(AkariWelcomeWindowTitleContribution).toSelf().inSingletonScope();
     bind(WindowTitleContribution).toService(AkariWelcomeWindowTitleContribution);
 
-    // akari-shell-strip registers the same factory id for its Wave 0 placeholder.
-    // WidgetManager builds a Map in contribution order, so this later registration
-    // deliberately overwrites that entry without editing the owner extension.
+    // Keep the existing AKARI Store panel reachable from the home card.
     bind(AkariSettingsWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(ctx => ({
         id: AkariSettingsWidget.ID,
