@@ -1,5 +1,13 @@
 import type { OverlayRuntimeAssetUrls } from './akari-preview-protocol';
 
+export interface VisualThumbnailContentRect { x: number; y: number; width: number; height: number; }
+
+/** Capture result; contentRect uses page.width × page.height coordinates. */
+export interface VisualThumbnailCapture {
+    image: string;
+    contentRect?: VisualThumbnailContentRect;
+}
+
 export interface VisualThumbnailRequest {
     editUri: string;
     itemId: string;
