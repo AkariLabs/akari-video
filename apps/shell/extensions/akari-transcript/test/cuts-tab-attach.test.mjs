@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { guardInitLayout } from '../../akari-theme/lib/browser/init-layout-guard.js';
 
 const require = createRequire(import.meta.url);
 const { DisposableCollection } = require('@theia/core/lib/common/disposable');
@@ -51,6 +52,7 @@ daihonModules['@theia/core/shared/inversify'] = inversify;
 const { AkariDaihonWidget } = load(daihonPath, daihonModules);
 const daihonId = AkariDaihonWidget.FACTORY_ID;
 const { AkariDaihonContribution, OPEN_AKARI_CUTS } = load('../lib/browser/daihon/akari-daihon-contribution.js', {
+    'akari-theme/lib/browser/init-layout-guard': { guardInitLayout },
     '@theia/core/lib/common': {}, '@theia/core/lib/browser': {},
     '@theia/core/shared/inversify': inversify,
     '../akari-transcript-commands': { OPEN_AKARI_DAIHON: { id: 'akari.daihon.open' } },

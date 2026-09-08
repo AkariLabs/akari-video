@@ -12,5 +12,10 @@
     "skipLibCheck": true,
     "strict": false
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../akari-theme"
+    }
+  ]
 }

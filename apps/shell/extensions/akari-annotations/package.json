@@ -22,7 +22,8 @@
     "@theia/filesystem": "1.73.1",
     "@theia/workspace": "1.73.1",
     "akari-preview": "file:../akari-preview",
-    "@akari-video/edit-store": "file:../../../../packages/edit-store"
+    "@akari-video/edit-store": "file:../../../../packages/edit-store",
+    "akari-theme": "file:../akari-theme"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

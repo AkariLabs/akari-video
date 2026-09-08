@@ -12,7 +12,9 @@
     "jsx": "react",
     "skipLibCheck": true,
     "strict": false,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "composite": true,
+    "tsBuildInfoFile": "lib/tsconfig.tsbuildinfo"
   },
   "include": ["src"]
 }

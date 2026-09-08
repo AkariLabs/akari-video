@@ -1,3 +1,4 @@
+import { guardInitLayout } from './init-layout-guard';
 import { injectable } from '@theia/core/shared/inversify';
 import { FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
@@ -147,9 +148,11 @@ export class AkariShellCardLayoutContribution implements FrontendApplicationCont
      * どちらも ApplicationShell.createLayout() が spacing:0 で作っており、
      * 生成後に参照を保持していないため DOM ではなく widget の親から辿る。
      */
-    onDidInitializeLayout(app: FrontendApplication): void {
-        this.applyGap('left-right', app.shell.leftPanelHandler.container.parent);
-        this.applyGap('main-bottom', app.shell.mainPanel.parent);
+    onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        return guardInitLayout('akari-theme', () => {
+            this.applyGap('left-right', app.shell.leftPanelHandler.container.parent);
+            this.applyGap('main-bottom', app.shell.mainPanel.parent);
+        });
     }
 
     /**

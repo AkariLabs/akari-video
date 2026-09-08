@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { CommandRegistry, DisposableCollection } from '@theia/core/lib/common';
@@ -33,28 +34,30 @@ export class AkariBottomPanelCuration implements FrontendApplicationContribution
     protected creatingTerminal = false;
 
     async onDidInitializeLayout(app: FrontendApplication): Promise<void> {
-        if (this.shell) return;
-        this.shell = app.shell;
-        // 復元済みの集合をここで確定する。追加イベントや F6 では掃除を繰り返さない。
-        const startupWidgets = [...app.shell.bottomPanel.widgets()];
-        if (!this.developerMode.isEnabled) {
-            for (const widget of startupWidgets) {
-                if (shouldCloseAtStartup({
-                    id: widget.id,
-                    area: app.shell.getAreaFor(widget),
-                    isTerminal: widget instanceof TerminalWidget,
-                    kind: widget instanceof TerminalWidget ? widget.kind : undefined
-                })) {
-                    await app.shell.closeWidget(widget.id);
+        return guardInitLayout('akari-shell-strip', async () => {
+            if (this.shell) return;
+            this.shell = app.shell;
+            // 復元済みの集合をここで確定する。追加イベントや F6 では掃除を繰り返さない。
+            const startupWidgets = [...app.shell.bottomPanel.widgets()];
+            if (!this.developerMode.isEnabled) {
+                for (const widget of startupWidgets) {
+                    if (shouldCloseAtStartup({
+                        id: widget.id,
+                        area: app.shell.getAreaFor(widget),
+                        isTerminal: widget instanceof TerminalWidget,
+                        kind: widget instanceof TerminalWidget ? widget.kind : undefined
+                    })) {
+                        await app.shell.closeWidget(widget.id);
+                    }
                 }
             }
-        }
-        this.reconcile();
-        this.toDispose.push(app.shell.onDidAddWidget(() => this.reconcile()));
-        this.toDispose.push(this.developerMode.onDidChange(() => this.reconcile()));
-        // 分割・移動・最後のタブのクローズでも tab bar 自体が入れ替わるため追従する。
-        app.shell.bottomPanel.layoutModified.connect(this.reconcile, this);
-        this.toDispose.push({ dispose: () => app.shell.bottomPanel.layoutModified.disconnect(this.reconcile, this) });
+            this.reconcile();
+            this.toDispose.push(app.shell.onDidAddWidget(() => this.reconcile()));
+            this.toDispose.push(this.developerMode.onDidChange(() => this.reconcile()));
+            // 分割・移動・最後のタブのクローズでも tab bar 自体が入れ替わるため追従する。
+            app.shell.bottomPanel.layoutModified.connect(this.reconcile, this);
+            this.toDispose.push({ dispose: () => app.shell.bottomPanel.layoutModified.disconnect(this.reconcile, this) });
+        });
     }
 
     protected reconcile(): void {

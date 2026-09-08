@@ -28,7 +28,8 @@
     "@theia/plugin-ext": "1.73.1",
     "akari-project": "file:../akari-project",
     "akari-shell-strip": "file:../akari-shell-strip",
-    "electron-updater": "^6.8.9"
+    "electron-updater": "^6.8.9",
+    "akari-theme": "file:../akari-theme"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

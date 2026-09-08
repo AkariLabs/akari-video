@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import URI from '@theia/core/lib/common/uri';
 import {
     CommandContribution,
@@ -201,12 +202,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * レイアウトの復元後に順序を保証できない（reconcileRightPanelOrder の JSDoc 参照）ため、
      * レイアウト初期化の直後と、対象 widget が追加されるたびに明示的に並べ直す。
      */
-    onDidInitializeLayout(app: FrontendApplication): void {
-        this.reconcileRightPanelOrder();
-        app.shell.onDidAddWidget(widget => {
-            if (RIGHT_PANEL_FIXED_ORDER.includes(widget.id)) {
-                this.reconcileRightPanelOrder();
-            }
+    onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        return guardInitLayout('akari-annotations', () => {
+            this.reconcileRightPanelOrder();
+            app.shell.onDidAddWidget(widget => {
+                if (RIGHT_PANEL_FIXED_ORDER.includes(widget.id)) {
+                    this.reconcileRightPanelOrder();
+                }
+            });
         });
     }
 

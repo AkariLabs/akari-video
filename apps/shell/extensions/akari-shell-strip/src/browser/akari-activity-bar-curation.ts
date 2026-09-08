@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, FrontendApplication, ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
@@ -111,36 +112,38 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
     protected shell?: ApplicationShell;
     protected loggedIds = new Set<string>();
 
-    onDidInitializeLayout(app: FrontendApplication): void {
-        this.shell = app.shell;
-        // 起動時一括フィルタ（PoC 由来、pass 1）。
-        this.reconcileLeftPanel('onDidInitializeLayout');
-        void this.ensureModeAppropriateAssetView('onDidInitializeLayout');
-        void this.ensureMenuWidgetAttachment('onDidInitializeLayout');
+    onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        return guardInitLayout('akari-shell-strip', () => {
+            this.shell = app.shell;
+            // 起動時一括フィルタ（PoC 由来、pass 1）。
+            this.reconcileLeftPanel('onDidInitializeLayout');
+            void this.ensureModeAppropriateAssetView('onDidInitializeLayout');
+            void this.ensureMenuWidgetAttachment('onDidInitializeLayout');
 
-        // S15 常時フィルタ: 左パネルに何か追加されるたび（VS Code 拡張の
-        // 遅延 view container 追加を含む）に再走査する。
-        //
-        // 検証済み（task 2026-07-15-shell-sa-foundation, report.md 参照）:
-        // 起動 3 秒後に allowlist 外の widget を左パネルへ直接 addWidget する
-        // 一時テストコードで実測し、onDidAddWidget イベントが実際に fire して
-        // 5個目のアイコンが即座に隠されることをログ + スクリーンショットで
-        // 確認済み（`evidence/theia-start-s15-testwidget.log` /
-        // `evidence/03-s15-dynamic-test-4icons-after-late-add.png`）。
-        // テストコード自体は納品物から除去済み（本コメントに実測結果のみ残す）。
-        app.shell.onDidAddWidget((widget: Widget) => {
-            this.reconcileLeftPanel(`onDidAddWidget:${widget.id}`);
-        });
+            // S15 常時フィルタ: 左パネルに何か追加されるたび（VS Code 拡張の
+            // 遅延 view container 追加を含む）に再走査する。
+            //
+            // 検証済み（task 2026-07-15-shell-sa-foundation, report.md 参照）:
+            // 起動 3 秒後に allowlist 外の widget を左パネルへ直接 addWidget する
+            // 一時テストコードで実測し、onDidAddWidget イベントが実際に fire して
+            // 5個目のアイコンが即座に隠されることをログ + スクリーンショットで
+            // 確認済み（`evidence/theia-start-s15-testwidget.log` /
+            // `evidence/03-s15-dynamic-test-4icons-after-late-add.png`）。
+            // テストコード自体は納品物から除去済み（本コメントに実測結果のみ残す）。
+            app.shell.onDidAddWidget((widget: Widget) => {
+                this.reconcileLeftPanel(`onDidAddWidget:${widget.id}`);
+            });
 
-        // 左パネルのタブ切り替え（素材 ⇄ 検索 ⇄ パートナー…）ではウィジェットの
-        // 追加が起きないので onDidAddWidget では拾えない。タイトル帯の出し入れは
-        // tabBar.currentChanged（Lumino シグナル）に直接ぶら下げる。
-        this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => this.reconcileSidePanelTitleBar());
+            // 左パネルのタブ切り替え（素材 ⇄ 検索 ⇄ パートナー…）ではウィジェットの
+            // 追加が起きないので onDidAddWidget では拾えない。タイトル帯の出し入れは
+            // tabBar.currentChanged（Lumino シグナル）に直接ぶら下げる。
+            this.leftPanelInternals()?.tabBar?.currentChanged?.connect(() => this.reconcileSidePanelTitleBar());
 
-        // developer mode の切り替え時に「素材」の表示先を即座に入れ替える。
-        // トグルはアプリ再起動なしに反映される想定（task.md 要件）。
-        this.developerMode.onDidChange(() => {
-            void this.ensureModeAppropriateAssetView('developerModeChanged');
+            // developer mode の切り替え時に「素材」の表示先を即座に入れ替える。
+            // トグルはアプリ再起動なしに反映される想定（task.md 要件）。
+            this.developerMode.onDidChange(() => {
+                void this.ensureModeAppropriateAssetView('developerModeChanged');
+            });
         });
     }
 

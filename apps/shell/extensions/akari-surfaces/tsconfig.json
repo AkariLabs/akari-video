@@ -14,5 +14,10 @@
     "strict": false,
     "resolveJsonModule": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../akari-theme"
+    }
+  ]
 }

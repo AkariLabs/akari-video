@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     ApplicationShell,
@@ -66,12 +67,14 @@ export class AkariPartnerContribution implements FrontendApplicationContribution
      * 実ウィンドウ幅から確定ピクセル値として明示的に補正する。
      */
     async onDidInitializeLayout(app: FrontendApplication): Promise<void> {
-        const hadPersistedLayout = (await this.storageService.getData(LAYOUT_STORAGE_KEY)) !== undefined;
-        if (!hadPersistedLayout) {
-            this.correctFirstLaunchPaneWidth(app);
-        }
-        const onboarding = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
-        await onboarding.restorePartnerTerminals();
+        return guardInitLayout('akari-partner', async () => {
+            const hadPersistedLayout = (await this.storageService.getData(LAYOUT_STORAGE_KEY)) !== undefined;
+            if (!hadPersistedLayout) {
+                this.correctFirstLaunchPaneWidth(app);
+            }
+            const onboarding = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+            await onboarding.restorePartnerTerminals();
+        });
     }
 
     /**
