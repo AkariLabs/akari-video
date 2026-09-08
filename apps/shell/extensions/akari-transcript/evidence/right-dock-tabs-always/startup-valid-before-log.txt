@@ -1,0 +1,335 @@
+Electron main: loading modules... [0.599 s since electron main start]
+Electron main: container created [0.783 s since electron main start]
+Electron main: modules loaded [0.811 s since electron main start]
+Electron main: resolving application [0.811 s since electron main start]
+Electron main: application resolved [0.816 s since electron main start]
+
+DevTools listening on ws://127.0.0.1:21995/devtools/browser/522504a2-5385-41e8-bd5f-efd77995a980
+Showing main window early
+Backend main: entry point loaded [3.277 s since backend process start]
+Backend server: loading modules... [3.282 s since backend process start]
+Backend server: container created [4.092 s since backend process start]
+Backend server: modules loaded [5.137 s since backend process start]
+Configuration directory URI: 'file:///var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.theia'
+Backend server: resolving application [5.201 s since backend process start]
+Configuring to accept webviews on '^.+\.webview\..+$' hostname.
+2026-09-08T08:14:03.136Z root WARN Backend A1.initialize took longer than the expected maximum 50 milliseconds: 529.8 ms [5.771 s since backend process start]
+2026-09-08T08:14:03.138Z root WARN Backend Object.initialize took longer than the expected maximum 50 milliseconds: 527.9 ms [5.771 s since backend process start]
+2026-09-08T08:14:03.138Z root WARN Backend Jde.initialize took longer than the expected maximum 50 milliseconds: 638.2 ms [5.881 s since backend process start]
+2026-09-08T08:14:03.159Z core:BackendApplication INFO configured all backend app contributions
+2026-09-08T08:14:03.162Z root INFO Settings file not found at '/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.theia/backend-settings.json'. Falling back to defaults.
+2026-09-08T08:14:03.187Z core:BackendApplication INFO Theia app listening on http://127.0.0.1:53848.
+2026-09-08T08:14:03.191Z root INFO Backend application startup sequence completed (async work may still be pending): 47.9 ms [6.010 s since backend process start]
+2026-09-08T08:14:03.191Z root INFO All backend contributions settled: 806.1 ms [6.010 s since backend process start]
+2026-09-08T08:14:03.192Z root WARN The local plugin referenced by local-dir:/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.theia/plugins does not exist.
+2026-09-08T08:14:03.192Z root WARN The local plugin referenced by local-dir:/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.theia/deployedPlugins does not exist.
+2026-09-08T08:14:03.193Z root INFO Resolve plugins list: 23.5 ms [6.013 s since backend process start]
+Starting backend: 6274.1 ms [7.102 s since electron main start]
+2026-09-08T08:14:03.195Z root INFO Deploy plugins list: 26.0 ms [6.015 s since backend process start]
+Attaching security token: 6.3 ms [7.109 s since electron main start]
+Skip checkForUpdates because application is not packed and dev update config is not forced
+Vh.onStart took longer than the expected maximum 50 milliseconds: 66.2 ms [7.177 s since electron main start]
+oS.onStart took longer than the expected maximum 50 milliseconds: 64.2 ms [7.178 s since electron main start]
+ZO.onStart: 4.0 ms [7.178 s since electron main start]
+nF.onStart: 3.9 ms [7.178 s since electron main start]
+zh.onStart: 3.9 ms [7.178 s since electron main start]
+sF.onStart: 3.7 ms [7.178 s since electron main start]
+cF.onStart: 3.1 ms [7.178 s since electron main start]
+nL.onStart: 3.1 ms [7.178 s since electron main start]
+Starting contributions: 68.9 ms [7.178 s since electron main start]
+Startup sequence completed: 6350.7 ms [7.178 s since electron main start]
+[95240:0908/171403.855603:INFO:CONSOLE:3] "exposing theia core electron api", source: /Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/preload.js (3)
+[95240:0908/171403.856504:INFO:CONSOLE:3] "exposing theia filesystem electron api", source: /Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/preload.js (3)
+[95240:0908/171404.438809:INFO:CONSOLE:13185] "Frontend: loading modules... [1.136 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171404.492043:INFO:CONSOLE:13185] "Frontend: container created [1.219 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171404.506479:INFO:CONSOLE:2] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/renderer_init (2)
+2026-09-08T08:14:06.096Z akari-partner INFO [akari CLI] registry から取得しています: https://registry.npmjs.org/akari-video/0.1.54
+2026-09-08T08:14:06.096Z akari-partner INFO [akari CLI] v0.1.54 を配備しました: /var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.akari/cli/0.1.54
+2026-09-08T08:14:06.097Z akari-partner INFO [akari CLI] シム生成: /var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-LXLWxi/.akari/cli/bin/akari
+[95240:0908/171406.122811:INFO:CONSOLE:433] "sending initial connect on avfR39yBorpMBAGxAAAB", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:06.130Z root INFO creating connection for 1
+[95240:0908/171406.131277:INFO:CONSOLE:433] "initial connect received on avfR39yBorpMBAGxAAAB", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171406.141587:INFO:CONSOLE:13185] "Frontend: preloaded [2.869 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171406.688691:INFO:CONSOLE:13185] "Frontend: core modules loaded [3.416 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171407.098836:INFO:CONSOLE:434] "Property with id 'akari.developerMode' already exists", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (434)
+[95240:0908/171407.174077:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.176493:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.177951:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.179348:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.180820:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.182250:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.183877:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (11)
+[95240:0908/171407.212598:INFO:CONSOLE:13185] "Frontend: modules loaded [3.940 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171407.212714:INFO:CONSOLE:13185] "Frontend: resolving application [3.940 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171407.216360:INFO:CONSOLE:13185] "Frontend: application resolved [3.943 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (13185)
+[95240:0908/171407.808863:INFO:CONSOLE:433] "2026-09-08T08:14:07.808Z root WARN Linked preference "workbench.colorCustomizations" not found.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171407.808963:INFO:CONSOLE:433] "2026-09-08T08:14:07.808Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:07.810Z root WARN Linked preference "workbench.colorCustomizations" not found.
+2026-09-08T08:14:07.810Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.
+[95240:0908/171407.864439:INFO:CONSOLE:433] "2026-09-08T08:14:07.864Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 411.5 ms [4.577 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:07.866Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 411.5 ms [4.577 s since frontend page start]
+Opening channel for service path '/services/electron-window'.
+[95240:0908/171407.891577:INFO:CONSOLE:433] "2026-09-08T08:14:07.891Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171407.891752:INFO:CONSOLE:433] "2026-09-08T08:14:07.891Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at JF.init (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:2203:14706)
+    at IIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:7179)
+    at OEn (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:6992)
+    at PIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:7763)
+    at qIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:9650)
+    at file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:9869", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:07.892Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):
+2026-09-08T08:14:07.892Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at JF.init (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:2203:14706)
+    at IIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:7179)
+    at OEn (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:6992)
+    at PIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:7763)
+    at qIo (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:9650)
+    at file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:11:9869
+[95240:0908/171408.117311:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117379:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117578:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117609:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117688:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[95240:0908/171408.117716:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117754:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117776:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117829:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117851:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117873:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117894:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117927:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.117949:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118156:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118183:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118216:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118238:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118259:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118286:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118306:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118327:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118347:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118367:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118393:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118417:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118438:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118459:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118481:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118502:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118560:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118615:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118638:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118684:WARNING:electron/shell/browser/ui/accelerator_util.cc:65] Cmd++ doesn't contain a valid key
+[95240:0908/171408.118773:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118797:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118826:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118847:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118872:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.118892:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119262:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119337:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119489:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119514:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119535:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119565:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119637:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119659:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119680:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119708:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119729:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119749:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119768:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119788:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119813:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119833:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119910:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119931:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119951:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119971:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.119990:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120013:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120038:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120059:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120083:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120103:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120128:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120147:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120229:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120250:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120275:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120297:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120331:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120351:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120371:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120391:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120411:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120436:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120456:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120480:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120503:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120537:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120559:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120580:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120612:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120632:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120651:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120710:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120730:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120757:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120776:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120796:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120847:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120868:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120888:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120914:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120939:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.120977:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171408.642897:INFO:CONSOLE:433] "2026-09-08T08:14:08.642Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171408.643028:INFO:CONSOLE:433] "2026-09-08T08:14:08.642Z root WARN     at _event._event.Object.assign.maxListeners (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189191)", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:08.643Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):
+2026-09-08T08:14:08.644Z root WARN     at _event._event.Object.assign.maxListeners (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189191)
+[95240:0908/171409.320988:INFO:CONSOLE:433] "2026-09-08T08:14:09.320Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (86):", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171409.321131:INFO:CONSOLE:433] "2026-09-08T08:14:09.320Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189335)", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:09.321Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (86):
+2026-09-08T08:14:09.322Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189335)
+[95240:0908/171409.604444:INFO:CONSOLE:433] "2026-09-08T08:14:09.604Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171409.604604:INFO:CONSOLE:433] "2026-09-08T08:14:09.604Z root WARN     at _event._event.Object.assign.maxListeners (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189191)", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:09.607Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):
+2026-09-08T08:14:09.608Z root WARN     at _event._event.Object.assign.maxListeners (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189191)
+[95240:0908/171410.051601:INFO:CONSOLE:433] "2026-09-08T08:14:10.051Z root WARN Frontend est.onStart took longer than the expected maximum 100 milliseconds: 2124.8 ms [6.778 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.051Z root WARN Frontend est.onStart took longer than the expected maximum 100 milliseconds: 2124.8 ms [6.778 s since frontend page start]
+[95240:0908/171410.066140:INFO:CONSOLE:433] "2026-09-08T08:14:10.065Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.066660:INFO:CONSOLE:433] "2026-09-08T08:14:10.066Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.066829:INFO:CONSOLE:433] "2026-09-08T08:14:10.066Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.067Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]
+2026-09-08T08:14:10.067Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]
+2026-09-08T08:14:10.067Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]
+[95240:0908/171410.103616:INFO:CONSOLE:433] "2026-09-08T08:14:10.103Z root INFO [4e5453a7-14f0-4cca-a301-d6e5bb664e3c] Waiting for backend deployment: 48.2 ms [6.830 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.104Z root INFO [4e5453a7-14f0-4cca-a301-d6e5bb664e3c] Waiting for backend deployment: 48.2 ms [6.830 s since frontend page start]
+[95240:0908/171410.194101:INFO:CONSOLE:433] "2026-09-08T08:14:10.193Z root INFO Start frontend contributions: 2951.0 ms [6.895 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.194341:INFO:CONSOLE:433] "2026-09-08T08:14:10.194Z root INFO Changed application state from 'init' to 'started_contributions'.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.194Z root INFO Start frontend contributions: 2951.0 ms [6.895 s since frontend page start]
+2026-09-08T08:14:10.194Z root INFO Changed application state from 'init' to 'started_contributions'.
+[95240:0908/171410.205222:INFO:CONSOLE:433] "2026-09-08T08:14:10.205Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.205313:INFO:CONSOLE:433] "2026-09-08T08:14:10.205Z root INFO >>> Restoring the layout state...", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.205815:INFO:CONSOLE:433] "2026-09-08T08:14:10.205Z root INFO [4e5453a7-14f0-4cca-a301-d6e5bb664e3c] Loading plugin contributions", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.205935:INFO:CONSOLE:433] "2026-09-08T08:14:10.205Z root INFO <<< Nothing to restore.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.205Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.
+2026-09-08T08:14:10.206Z root INFO >>> Restoring the layout state...
+2026-09-08T08:14:10.212Z root INFO [4e5453a7-14f0-4cca-a301-d6e5bb664e3c] Loading plugin contributions
+2026-09-08T08:14:10.213Z root INFO <<< Nothing to restore.
+[95240:0908/171410.250958:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251026:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251098:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251190:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251212:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251286:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251314:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251389:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[95240:0908/171410.251416:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251452:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251474:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251523:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251546:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251567:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251591:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251612:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251632:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.251831:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.337119:INFO:CONSOLE:433] "2026-09-08T08:14:10.336Z root WARN Frontend Nf.initializeLayout took longer than the expected maximum 100 milliseconds: 120.7 ms [7.061 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.338Z root WARN Frontend Nf.initializeLayout took longer than the expected maximum 100 milliseconds: 120.7 ms [7.061 s since frontend page start]
+[95240:0908/171410.392891:INFO:CONSOLE:433] "2026-09-08T08:14:10.392Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (147):", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.393086:INFO:CONSOLE:433] "2026-09-08T08:14:10.392Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189335)", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.395Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (147):
+2026-09-08T08:14:10.395Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js:1709:1189335)
+[95240:0908/171410.399947:INFO:CONSOLE:433] "2026-09-08T08:14:10.399Z root INFO Initialize the workbench layout: 190.0 ms [7.122 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.402Z root INFO Initialize the workbench layout: 190.0 ms [7.122 s since frontend page start]
+[95240:0908/171410.402209:INFO:CONSOLE:433] "2026-09-08T08:14:10.401Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.404Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.
+[95240:0908/171410.434099:INFO:CONSOLE:433] "2026-09-08T08:14:10.433Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434279:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434326:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434376:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434415:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434455:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434501:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434549:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434589:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434625:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.434666:INFO:CONSOLE:433] "2026-09-08T08:14:10.434Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.436Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container
+2026-09-08T08:14:10.436Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}
+2026-09-08T08:14:10.437Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container
+[95240:0908/171410.452995:INFO:CONSOLE:433] "2026-09-08T08:14:10.446Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.453434:INFO:CONSOLE:433] "2026-09-08T08:14:10.446Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.453507:INFO:CONSOLE:433] "2026-09-08T08:14:10.446Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.453569:INFO:CONSOLE:433] "2026-09-08T08:14:10.446Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171410.453730:INFO:CONSOLE:433] "2026-09-08T08:14:10.451Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:10.458Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}
+2026-09-08T08:14:10.458Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}
+2026-09-08T08:14:10.458Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}
+2026-09-08T08:14:10.458Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view
+2026-09-08T08:14:10.458Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}
+[95240:0908/171410.570296:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570395:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570508:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570670:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570702:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570790:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570827:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.570931:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[95240:0908/171410.570967:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571027:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571058:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571128:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571159:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571190:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571223:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571252:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571283:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171410.571554:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[95240:0908/171412.165998:INFO:CONSOLE:433] "2026-09-08T08:14:12.165Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:12.166Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding
+[95240:0908/171413.942926:INFO:CONSOLE:433] "2026-09-08T08:14:13.942Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:13.944Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget
+[95240:0908/171414.159341:INFO:CONSOLE:433] "2026-09-08T08:14:14.159Z root WARN Frontend bsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 3721.9 ms [10.886 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:14.159Z root WARN Frontend bsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 3721.9 ms [10.886 s since frontend page start]
+[95240:0908/171414.166774:INFO:CONSOLE:433] "2026-09-08T08:14:14.166Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:14.167Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}
+[95240:0908/171414.170824:INFO:CONSOLE:433] "2026-09-08T08:14:14.170Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:14.174Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}
+[95240:0908/171414.980771:INFO:CONSOLE:433] "2026-09-08T08:14:14.980Z root INFO Replace loading indicator with ready workbench UI (animation): 805.5 ms [11.707 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171414.981274:INFO:CONSOLE:433] "2026-09-08T08:14:14.981Z root INFO Changed application state from 'initialized_layout' to 'ready'.", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+[95240:0908/171414.981510:INFO:CONSOLE:433] "2026-09-08T08:14:14.981Z root INFO All frontend contributions settled: 7763.9 ms [11.708 s since frontend page start]", source: file:///Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:14:14.982Z root INFO Replace loading indicator with ready workbench UI (animation): 805.5 ms [11.707 s since frontend page start]
+2026-09-08T08:14:14.982Z root INFO Frontend application startup sequence completed (async work may still be pending): 7610.0 ms [17.802 s since backend process start]
+2026-09-08T08:14:14.983Z root INFO Changed application state from 'initialized_layout' to 'ready'.
+2026-09-08T08:14:14.983Z root INFO All frontend contributions settled: 7763.9 ms [11.708 s since frontend page start]

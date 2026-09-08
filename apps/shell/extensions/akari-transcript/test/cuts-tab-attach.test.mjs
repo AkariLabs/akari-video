@@ -10,7 +10,7 @@ const view = require('../lib/common/cuts-view.js');
 const decorator = () => () => {};
 const element = (_tag, text = '') => ({
     textContent: text, style: {}, dataset: {}, children: [],
-    setAttribute() {},
+    setAttribute() {}, addEventListener() {}, classList: { add() {} },
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; }
 });
@@ -22,10 +22,10 @@ class BaseWidget {
 }
 function load(path, modules) {
     const exports = {};
-    new Function('require', 'exports', readFileSync(new URL(path, import.meta.url), 'utf8'))(id => {
+    new Function('require', 'exports', 'document', 'window', readFileSync(new URL(path, import.meta.url), 'utf8'))(id => {
         assert.ok(id in modules, `unexpected dependency: ${id}`);
         return modules[id];
-    }, exports);
+    }, exports, { createElement: element, getElementById: () => true, addEventListener() {} }, { addEventListener() {} });
     return exports;
 }
 const inversify = { inject: decorator, injectable: decorator, postConstruct: decorator };
@@ -40,13 +40,22 @@ const { AkariCutsWidget } = load('../lib/browser/daihon/akari-cuts-widget.js', {
     '../../common/cuts-view': view,
     './akari-transcribe-dialog': { transcribeElement: element, transcribeButton: () => element('button') }
 });
-const daihonId = 'akari-daihon-widget';
+const daihonPath = '../lib/browser/daihon/akari-daihon-widget.js';
+const daihonRequire = createRequire(new URL(daihonPath, import.meta.url));
+const daihonModules = Object.fromEntries(
+    [...readFileSync(new URL(daihonPath, import.meta.url), 'utf8').matchAll(/require\("([^"]+)"\)/g)]
+        .map(([, id]) => [id, id.startsWith('../../common/') || id === '../caption-store' ? daihonRequire(id) : {}])
+);
+daihonModules['@theia/core/lib/browser'] = { BaseWidget };
+daihonModules['@theia/core/shared/inversify'] = inversify;
+const { AkariDaihonWidget } = load(daihonPath, daihonModules);
+const daihonId = AkariDaihonWidget.FACTORY_ID;
 const { AkariDaihonContribution, OPEN_AKARI_CUTS } = load('../lib/browser/daihon/akari-daihon-contribution.js', {
     '@theia/core/lib/common': {}, '@theia/core/lib/browser': {},
     '@theia/core/shared/inversify': inversify,
     '../akari-transcript-commands': { OPEN_AKARI_DAIHON: { id: 'akari.daihon.open' } },
     './akari-cuts-widget': { AkariCutsWidget },
-    './akari-daihon-widget': { AkariDaihonWidget: { FACTORY_ID: daihonId } }
+    './akari-daihon-widget': { AkariDaihonWidget }
 });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => {
@@ -58,7 +67,9 @@ function contribution(configure, daihonConfigure = async () => {}) {
     const cuts = new AkariCutsWidget();
     cuts.id = AkariCutsWidget.FACTORY_ID;
     cuts.configure = configure.bind(cuts);
-    const daihon = { id: daihonId, configure: daihonConfigure };
+    const daihon = new AkariDaihonWidget();
+    daihon.id = daihonId;
+    daihon.configure = daihonConfigure.bind(daihon);
     const attached = [], activated = [];
     const instance = new AkariDaihonContribution();
     instance.widgetManager = { async getOrCreateWidget(id) { return id === cuts.id ? cuts : daihon; } };
@@ -299,4 +310,79 @@ test('old project RPC completion cannot overwrite the new project', async () => 
     assert.equal(h.widget.root.toString(), 'file:///new');
     assert.equal(h.widget.cuts, null);
     assert.equal(h.widget.notice.textContent, '');
+});
+
+
+test('daihon and cuts remain unclosable right-dock tabs', () => {
+    const { daihon, cuts } = contribution(async () => {});
+    daihon.init();
+    cuts.init();
+    assert.equal(daihon.title.closable, false);
+    assert.equal(cuts.title.closable, false);
+    assert.ok(daihon.title.iconClass?.trim(), 'daihon must have a visible tab icon');
+    assert.ok(cuts.title.iconClass?.trim(), 'cuts must have a visible tab icon');
+});
+
+for (const failed of ['daihon', 'cuts']) {
+    for (const failure of ['reject', 'throw']) {
+        test(`${failed} configure ${failure}: both ranked tabs attach before reads and layout resolves`, async () => {
+            const calls = [];
+            const configure = name => function () {
+                assert.deepEqual(h.attached, [
+                    [daihonId, { area: 'right', rank: 190 }],
+                    [AkariCutsWidget.FACTORY_ID, { area: 'right', rank: 191 }]
+                ]);
+                calls.push(name);
+                if (name !== failed) return Promise.resolve();
+                const error = new Error(`${failed} unreadable`);
+                if (failure === 'throw') throw error;
+                return Promise.reject(error);
+            };
+            const h = contribution(configure('cuts'), configure('daihon'));
+            await assert.doesNotReject(h.instance.onDidInitializeLayout());
+            await tick();
+            assert.deepEqual(calls, ['daihon', 'cuts']);
+            if (failed === 'daihon') {
+                assert.equal(h.daihon.footer.textContent, '台本を読み取れません: daihon unreadable');
+            } else {
+                assert.match(h.cuts.notice.textContent, /cuts unreadable/);
+            }
+        });
+    }
+    for (const failure of ['reject', 'throw']) {
+        test(`${failed} factory ${failure} does not prevent the other tab attaching`, async t => {
+            t.mock.method(console, 'warn', () => {});
+            const h = contribution(async () => {});
+            h.instance.widgetManager.getOrCreateWidget = id => {
+                if (id === h[failed].id) {
+                    const error = new Error('factory unavailable');
+                    if (failure === 'throw') throw error;
+                    return Promise.reject(error);
+                }
+                return Promise.resolve(id === daihonId ? h.daihon : h.cuts);
+            };
+            await assert.doesNotReject(h.instance.onDidInitializeLayout());
+            assert.equal(h[failed === 'daihon' ? 'cuts' : 'daihon'].isAttached, true);
+        });
+    }
+}
+
+test('restored tabs are not attached twice and opening daihon never restarts configuration', async () => {
+    for (const initializeLayout of [false, true]) {
+        let configurations = 0;
+        const h = contribution(async () => {}, async () => { configurations++; });
+        h.daihon.isAttached = true;
+        h.cuts.isAttached = true;
+        if (initializeLayout) await h.instance.onDidInitializeLayout();
+        const commands = new Map();
+        h.instance.registerCommands({ registerCommand(command, handler) { commands.set(command.id, handler); } });
+        await commands.get('akari.daihon.open').execute();
+        await commands.get('akari.daihon.open').execute();
+        assert.equal(configurations, initializeLayout ? 1 : 0);
+        assert.deepEqual(h.attached, []);
+        h.daihon.isAttached = false;
+        await commands.get('akari.daihon.open').execute();
+        assert.deepEqual(h.attached, [[daihonId, { area: 'right', rank: 190 }]]);
+        assert.equal(configurations, initializeLayout ? 1 : 0);
+    }
 });

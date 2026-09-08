@@ -13,9 +13,9 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 const { computeRightPanelOrder } = require('../lib/browser/right-panel-order.js');
 
-const FIXED_ORDER = ['partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector', 'akari-audio-meter-widget'];
+const FIXED_ORDER = ['partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector', 'akari-audio-meter-widget'];
 
-test('actual fixed order places the audio meter after inspector and mirrors the preview factory ID', () => {
+test('actual fixed order pins partner / daihon / cuts / review / inspector / meter and mirrors factory IDs', () => {
     const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
     const source = ts.createSourceFile('contribution.ts', read('../src/browser/akari-annotations-contribution.ts'), ts.ScriptTarget.Latest, true);
     const declarations = source.statements.filter(ts.isVariableStatement)
@@ -33,33 +33,38 @@ test('actual fixed order places the audio meter after inspector and mirrors the 
     const meterId = factoryId('../../akari-preview/src/browser/akari-audio-meter-widget.ts');
     const reviewId = factoryId('../src/browser/akari-review-panel-widget.ts');
     const inspectorId = factoryId('../src/browser/akari-inspector-widget.ts');
+    const daihonId = factoryId('../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts');
+    const cutsId = factoryId('../../akari-transcript/src/browser/daihon/akari-cuts-widget.ts');
+    assert.equal(Number(initializer('REVIEW_PANEL_RANK')), 195);
     const audioId = new Function(`return ${initializer('AUDIO_METER_WIDGET_ID')};`)();
     assert.equal(audioId, meterId);
     const fixed = new Function('AkariReviewPanelWidget', 'AkariInspectorWidget', `
         const PARTNER_WIDGET_ID = ${initializer('PARTNER_WIDGET_ID')};
         const AUDIO_METER_WIDGET_ID = ${initializer('AUDIO_METER_WIDGET_ID')};
+        const DAIHON_WIDGET_ID = ${initializer('DAIHON_WIDGET_ID')};
+        const CUTS_WIDGET_ID = ${initializer('CUTS_WIDGET_ID')};
         return ${initializer('RIGHT_PANEL_FIXED_ORDER')};
     `)({ FACTORY_ID: reviewId }, { FACTORY_ID: inspectorId });
-    const expected = ['akari-partner-onboarding', reviewId, 'akari-daihon-widget', inspectorId, meterId];
+    const expected = ['akari-partner-onboarding', daihonId, cutsId, reviewId, inspectorId, meterId];
     assert.deepEqual(fixed, expected);
-    const current = [meterId, 'agent-2', inspectorId, reviewId, 'agent-1', 'akari-daihon-widget', expected[0]];
+    const current = [cutsId, meterId, 'agent-2', inspectorId, reviewId, 'agent-1', 'akari-daihon-widget', expected[0]];
     const ordered = computeRightPanelOrder(current, fixed);
     assert.deepEqual(ordered, ['agent-2', 'agent-1', ...expected]);
     assert.deepEqual(computeRightPanelOrder(ordered, fixed), ordered);
 });
 
 test('computeRightPanelOrder: already-correct order is a no-op', () => {
-    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector'];
+    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector'];
     assert.deepEqual(computeRightPanelOrder(current, FIXED_ORDER), current);
 });
 
 test('computeRightPanelOrder: repro of the reported bug — fixed 3 pinned ahead of an existing agent tab', () => {
     // reconcileRightPanelOrder() 旧実装（tabBar.insertTab(0..2, …) で固定 3 枚を絶対位置へ強奪）
     // が発生させていた壊れた並び。エージェント端末タブが固定 3 枚の下へ押し出されている。
-    const broken = ['partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector', 'agent-1'];
+    const broken = ['partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector', 'agent-1'];
     assert.deepEqual(
         computeRightPanelOrder(broken, FIXED_ORDER),
-        ['agent-1', 'partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector']
+        ['agent-1', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector']
     );
 });
 
@@ -67,16 +72,16 @@ test('computeRightPanelOrder: multiple agent tabs keep their existing relative o
     const current = ['partner-onboarding', 'agent-2', 'review-panel', 'agent-1', 'akari-daihon-widget', 'inspector'];
     assert.deepEqual(
         computeRightPanelOrder(current, FIXED_ORDER),
-        ['agent-2', 'agent-1', 'partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector']
+        ['agent-2', 'agent-1', 'partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector']
     );
 });
 
 test('computeRightPanelOrder: newly-added agent tab lands ahead of the fixed 3 (acceptance (b))', () => {
     // rank 挿入で既に先頭寄りに入った状態からの再調整（reconcile は冪等であるべき）。
-    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector'];
+    const current = ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector'];
     assert.deepEqual(
         computeRightPanelOrder(current, FIXED_ORDER),
-        ['agent-1', 'agent-2', 'partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector']
+        ['agent-1', 'agent-2', 'partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'review-panel', 'inspector']
     );
 });
 
@@ -89,10 +94,19 @@ test('computeRightPanelOrder: no agent tabs — fixed 3 keep fixedOrder\'s relat
     const current = ['inspector', 'akari-daihon-widget', 'partner-onboarding', 'review-panel'];
     assert.deepEqual(
         computeRightPanelOrder(current, FIXED_ORDER),
-        ['partner-onboarding', 'review-panel', 'akari-daihon-widget', 'inspector']
+        ['partner-onboarding', 'akari-daihon-widget', 'review-panel', 'inspector']
     );
 });
 
 test('computeRightPanelOrder: empty input', () => {
     assert.deepEqual(computeRightPanelOrder([], FIXED_ORDER), []);
+});
+
+
+test('review right-dock tab is unclosable while the temporary timeline remains closable', () => {
+    const review = readFileSync(new URL('../src/browser/akari-review-panel-widget.ts', import.meta.url), 'utf8');
+    const timeline = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+    assert.match(review, /this\.title\.closable = false;/);
+    assert.doesNotMatch(review, /this\.title\.closable = true;/);
+    assert.match(timeline, /this\.title\.closable = true;/);
 });

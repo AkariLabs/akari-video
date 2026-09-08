@@ -33,6 +33,7 @@ export class AkariCutsWidget extends BaseWidget {
 
     @postConstruct() protected init(): void {
         this.id = AkariCutsWidget.FACTORY_ID; this.title.label = 'カット'; this.title.caption = '文字起こしのカット候補'; this.title.closable = false;
+        this.title.iconClass = 'codicon codicon-checklist';
         this.node.dataset.akariCuts = 'true';
         Object.assign(this.node.style, { display: 'flex', flexDirection: 'column', background: '#20242b', color: '#e9ecf2', height: '100%', overflow: 'hidden' });
         for (const node of [this.picker, this.band, this.foot, this.notice]) Object.assign(node.style, { margin: '8px 10px' });

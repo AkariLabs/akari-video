@@ -255,7 +255,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.title.label = '台本';
         this.title.caption = '字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）';
         this.title.iconClass = 'codicon codicon-list-selection';
-        this.title.closable = true;
+        this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-daihon-widget');
         this.node.setAttribute('data-akari-ui', 'panel:daihon');
         this.node.setAttribute('data-akari-ui-label', '台本');
@@ -363,6 +363,10 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         document.addEventListener('click', closePopFromOutside);
         this.toDispose.push({ dispose: () => document.removeEventListener('click', closePopFromOutside) });
+    }
+
+    showError(error: unknown): void {
+        this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
     }
 
     async configure(): Promise<void> {
