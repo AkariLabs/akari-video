@@ -20,7 +20,7 @@ const usage = [
   "サブコマンド:",
   ...commands.map((command) => `  ${command}`),
   "  transcribe-diff <target> [--engines a,b,c]",
-  "  transcribe-cuts <target> [--basis b] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
+  "  transcribe-cuts <target> [--basis b] [--filler on] [--redo on] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
 ].join("\n");
 
 export async function runMediaCli(argv, options = {}) {
@@ -157,6 +157,8 @@ function allowedValueOptions(subcommand) {
   if (subcommand === "transcribe-diff") return { "--engines": ["engines", String] };
   if (subcommand === "transcribe-cuts") return {
     "--basis": ["basis", String],
+    "--filler": ["filler", String],
+    "--redo": ["redo", String],
     "--silence-min": ["silenceMin", numberValue],
     "--silence-break": ["silenceBreak", numberValue],
     "--silence-keep": ["silenceKeep", numberValue],

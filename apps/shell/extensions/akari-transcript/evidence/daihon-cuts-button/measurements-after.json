@@ -1,0 +1,253 @@
+{
+  "label": "after",
+  "workspace": "<SCRATCH-WS>",
+  "cutsPath": "<SCRATCH-WS>/.akari/sidecars/assets/take-01.mp4.analysis/cuts.json",
+  "steps": [
+    {
+      "step": "1-daihon-front",
+      "rightTabs": [
+        {
+          "id": "akari-partner-onboarding",
+          "title": "パートナーを追加",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-daihon-widget",
+          "title": "台本",
+          "current": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-cuts-widget",
+          "title": "カット",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-review-panel-widget",
+          "title": "注釈",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 294,
+            "w": 48,
+            "h": 48
+          }
+        }
+      ],
+      "rightTabOrder": [
+        "akari-partner-onboarding",
+        "akari-daihon-widget",
+        "akari-cuts-widget",
+        "akari-review-panel-widget"
+      ],
+      "currentRightTab": "akari-daihon-widget",
+      "cutsButton": {
+        "text": "カット候補へ（3 / 22）",
+        "title": "カット候補パネルを開いて候補の採否を選ぶ（ON 件数 / 全件）",
+        "className": "akari-daihon-cuts",
+        "rect": {
+          "x": 717,
+          "y": 90,
+          "w": 119,
+          "h": 19
+        }
+      },
+      "headerOrder": [
+        "akari-daihon-title",
+        "akari-daihon-count",
+        "akari-daihon-spacer",
+        "theia-button",
+        "akari-daihon-tpl",
+        "akari-daihon-qc",
+        "akari-daihon-silence",
+        "akari-daihon-cuts"
+      ],
+      "daihonVisible": true,
+      "cutsWidgetVisible": false,
+      "cutsWidgetRows": "take-01フィラー 6 / 言い直し 6 / 無音 5 / 未認識 5 / 根拠: cloud-scribe0.5–0.9 · フィラーえー、L1 fixture1.7–2.1 · 言い直しで、で、L1 fixture2.9–3.3 · 無音（音声なし）L1 fixture4.1–4.5 · 未認識（音声なし）L1",
+      "preloadVisible": false
+    },
+    {
+      "step": "2-after-click",
+      "rightTabs": [
+        {
+          "id": "akari-partner-onboarding",
+          "title": "パートナーを追加",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-daihon-widget",
+          "title": "台本",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-cuts-widget",
+          "title": "カット",
+          "current": true,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-review-panel-widget",
+          "title": "注釈",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 294,
+            "w": 48,
+            "h": 48
+          }
+        }
+      ],
+      "rightTabOrder": [
+        "akari-partner-onboarding",
+        "akari-daihon-widget",
+        "akari-cuts-widget",
+        "akari-review-panel-widget"
+      ],
+      "currentRightTab": "akari-cuts-widget",
+      "cutsButton": {
+        "text": "カット候補へ（3 / 22）",
+        "title": "カット候補パネルを開いて候補の採否を選ぶ（ON 件数 / 全件）",
+        "className": "akari-daihon-cuts",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        }
+      },
+      "headerOrder": [
+        "akari-daihon-title",
+        "akari-daihon-count",
+        "akari-daihon-spacer",
+        "theia-button",
+        "akari-daihon-tpl",
+        "akari-daihon-qc",
+        "akari-daihon-silence",
+        "akari-daihon-cuts"
+      ],
+      "daihonVisible": false,
+      "cutsWidgetVisible": true,
+      "cutsWidgetRows": "take-01フィラー 6 / 言い直し 6 / 無音 5 / 未認識 5 / 根拠: cloud-scribe0.5–0.9 · フィラーえー、L1 fixture1.7–2.1 · 言い直しで、で、L1 fixture2.9–3.3 · 無音（音声なし）L1 fixture4.1–4.5 · 未認識（音声なし）L1",
+      "preloadVisible": false
+    },
+    {
+      "step": "3-after-cuts-json-change",
+      "rightTabs": [
+        {
+          "id": "akari-partner-onboarding",
+          "title": "パートナーを追加",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-daihon-widget",
+          "title": "台本",
+          "current": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-cuts-widget",
+          "title": "カット",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "w": 48,
+            "h": 48
+          }
+        },
+        {
+          "id": "akari-review-panel-widget",
+          "title": "注釈",
+          "current": false,
+          "rect": {
+            "x": 1072,
+            "y": 294,
+            "w": 48,
+            "h": 48
+          }
+        }
+      ],
+      "rightTabOrder": [
+        "akari-partner-onboarding",
+        "akari-daihon-widget",
+        "akari-cuts-widget",
+        "akari-review-panel-widget"
+      ],
+      "currentRightTab": "akari-daihon-widget",
+      "cutsButton": {
+        "text": "カット候補へ（7 / 22）",
+        "title": "カット候補パネルを開いて候補の採否を選ぶ（ON 件数 / 全件）",
+        "className": "akari-daihon-cuts",
+        "rect": {
+          "x": 717,
+          "y": 90,
+          "w": 119,
+          "h": 19
+        }
+      },
+      "headerOrder": [
+        "akari-daihon-title",
+        "akari-daihon-count",
+        "akari-daihon-spacer",
+        "theia-button",
+        "akari-daihon-tpl",
+        "akari-daihon-qc",
+        "akari-daihon-silence",
+        "akari-daihon-cuts"
+      ],
+      "daihonVisible": true,
+      "cutsWidgetVisible": false,
+      "cutsWidgetRows": "take-01フィラー 6 / 言い直し 6 / 無音 5 / 未認識 5 / 根拠: cloud-scribe0.5–0.9 · フィラーえー、L1 fixture1.7–2.1 · 言い直しで、で、L1 fixture2.9–3.3 · 無音（音声なし）L1 fixture4.1–4.5 · 未認識（音声なし）L1",
+      "preloadVisible": false
+    }
+  ],
+  "reachedReady": true,
+  "failedToStart": false,
+  "profile": "<SCRATCH-PROFILE>"
+}

@@ -1,8 +1,8 @@
-import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
-import { handEditedLines } from '../../common/cuts-view';
+import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { captionsButtonLabel } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
@@ -152,8 +152,8 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
-.akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
 .akari-daihon-pop { position:fixed; z-index:40; background:#20252e; border:1px solid #3a4356; border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,.5); min-width:168px; overflow-y:auto; overscroll-behavior:contain; }
 .akari-daihon-pop .akari-daihon-pttl { font-size:10.5px; color:#6b7480; padding:2px 6px; }
@@ -223,6 +223,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly tplButton = document.createElement('button');
     protected readonly qcButton = document.createElement('button');
     protected readonly silenceButton = document.createElement('button');
+    protected readonly cutsButton = document.createElement('button');
     protected readonly rowsNode = document.createElement('div');
     protected readonly selectionBar = document.createElement('div');
     protected readonly selectionCount = document.createElement('span');
@@ -298,8 +299,19 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsButton.style.cssText = 'min-height:36px;padding:8px 14px;font-weight:600;white-space:normal';
         this.captionsButton.disabled = true;
         this.captionsButton.addEventListener('click', () => void this.buildCaptions());
+        this.cutsButton.type = 'button';
+        this.cutsButton.className = 'akari-daihon-cuts';
+        this.cutsButton.textContent = cutsJumpButtonLabel(null);
+        this.cutsButton.title = 'カット候補パネルを開いて候補の採否を選ぶ（ON 件数 / 全件）';
+        this.cutsButton.addEventListener('click', async () => {
+            try {
+                await this.commands.executeCommand('akari.cuts.open');
+            } catch (error) {
+                this.notify(`カット候補を開けません: ${this.errorMessage(error)}`);
+            }
+        });
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.tplButton, this.qcButton, this.silenceButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -479,6 +491,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected async reload(): Promise<void> {
+        this.cutsButton.textContent = cutsJumpButtonLabel(null);
         await this.refreshCaptionsButton().catch(error => {
             this.captionsButton.disabled = true;
             this.notify(this.errorMessage(error));
@@ -501,13 +514,18 @@ export class AkariDaihonWidget extends BaseWidget {
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
             this.handEditedCaptionIds.clear();
+            let combinedCuts: TranscribeCuts | null = null;
             for (const source of await this.captionSources()) {
                 const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
                     .catch(error => { this.notify(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
+                if (artifacts?.cuts) {
+                    combinedCuts = { ...artifacts.cuts, candidates: [...(combinedCuts?.candidates ?? []), ...artifacts.cuts.candidates] };
+                }
                 for (const line of handEditedLines(artifacts?.cuts ?? null)) {
                     const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
                 }
             }
+            this.cutsButton.textContent = cutsJumpButtonLabel(combinedCuts);
             this.renderRows(next);
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);

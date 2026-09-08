@@ -19,6 +19,9 @@ export function cutsSummary(cuts: TranscribeCuts | null): { count: number; secon
 export function handEditedLines(cuts: TranscribeCuts | null): number[] {
     return [...new Set((cuts?.hand_edited ?? []).map(item => item.line).filter(line => Number.isInteger(line) && line > 0))];
 }
+export function cutsJumpButtonLabel(cuts: TranscribeCuts | null): string {
+    return `カット候補へ（${cutsSummary(cuts).count} / ${cuts?.candidates.length ?? 0}）`;
+}
 export function isHandEditedCandidate(cuts: TranscribeCuts | null, id: string): boolean {
     return !!cuts?.hand_edited?.some(item => item.candidate === id);
 }
