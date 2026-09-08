@@ -1,0 +1,467 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "0. 台本パネルを開き、未文字起こしの素材が 1 件ある",
+      "pass": true,
+      "detail": {
+        "label": "文字起こしして字幕を作る",
+        "rows": 0
+      },
+      "elapsedMs": 2259
+    },
+    {
+      "name": "1-a. 既定は簡単モード: ステップ・比較チェック・radar が無く、操作部品は 3 つだけ",
+      "pass": true,
+      "detail": {
+        "mode": "simple",
+        "step": "1",
+        "nav": 0,
+        "navButtons": 0,
+        "badges": [
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ]
+        ],
+        "checkboxes": 0,
+        "radars": 0,
+        "cards": 4,
+        "engineRadios": 5,
+        "availabilityBadges": 4,
+        "availabilityButtons": 0,
+        "switchLinks": 1,
+        "switchLabel": "アドバンス（比較・差分）に切り替える",
+        "actionButtons": [
+          "起こす"
+        ],
+        "allButtons": [
+          "起こす",
+          "アドバンス（比較・差分）に切り替える"
+        ],
+        "progress": null,
+        "title": "文字起こし"
+      },
+      "elapsedMs": 9954
+    },
+    {
+      "name": "1-b. whisper のカードを選び「起こす」を押すと、同じ画面に進捗 1 行が出る",
+      "pass": true,
+      "detail": {
+        "mode": "simple",
+        "step": "1",
+        "nav": 0,
+        "navButtons": 0,
+        "badges": [
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ]
+        ],
+        "checkboxes": 0,
+        "radars": 0,
+        "cards": 4,
+        "engineRadios": 5,
+        "availabilityBadges": 4,
+        "availabilityButtons": 0,
+        "switchLinks": 1,
+        "switchLabel": "アドバンス（比較・差分）に切り替える",
+        "actionButtons": [
+          "起こす"
+        ],
+        "allButtons": [
+          "起こす",
+          "アドバンス（比較・差分）に切り替える"
+        ],
+        "progress": "起こしています… 0:00 / 0:30",
+        "title": "文字起こし"
+      },
+      "elapsedMs": 326
+    },
+    {
+      "name": "1-c. 完了すると人の操作 0 回で閉じ、台本に行が入る",
+      "pass": true,
+      "detail": {
+        "closed": true,
+        "label": "字幕を作る",
+        "rows": 10,
+        "footer": "秒数や語をクリックするとプレビューへシークします。",
+        "transcriptEvents": 4,
+        "captionCount": 10
+      },
+      "elapsedMs": 33427
+    },
+    {
+      "name": "2-a. 済みの素材でも簡単モードは 2 ボタン（台本へ / 起こし直す）",
+      "pass": true,
+      "detail": {
+        "mode": "simple",
+        "step": "1",
+        "nav": 0,
+        "navButtons": 0,
+        "badges": [
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ]
+        ],
+        "checkboxes": 0,
+        "radars": 0,
+        "cards": 4,
+        "engineRadios": 5,
+        "availabilityBadges": 2,
+        "availabilityButtons": 0,
+        "switchLinks": 1,
+        "switchLabel": "アドバンス（比較・差分）に切り替える",
+        "actionButtons": [
+          "台本へ",
+          "起こし直す"
+        ],
+        "allButtons": [
+          "台本へ",
+          "起こし直す",
+          "アドバンス（比較・差分）に切り替える"
+        ],
+        "progress": null,
+        "title": "文字起こし"
+      },
+      "elapsedMs": 295
+    },
+    {
+      "name": "2-b. 切替リンクでアドバンスへ（ダイアログは閉じず、従来の DOM が揃う）",
+      "pass": true,
+      "detail": {
+        "mode": "advanced",
+        "step": "1",
+        "nav": 1,
+        "navButtons": 6,
+        "badges": [
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "BUTTON",
+            "button"
+          ],
+          [
+            "unconfigured",
+            "BUTTON",
+            "button"
+          ]
+        ],
+        "checkboxes": 4,
+        "radars": 4,
+        "cards": 4,
+        "engineRadios": 5,
+        "availabilityBadges": 4,
+        "availabilityButtons": 2,
+        "switchLinks": 1,
+        "switchLabel": "簡単モードに戻す",
+        "actionButtons": [
+          "1 エンジン",
+          "2 起こす",
+          "3 差分",
+          "4 注釈・辞書〔先〕",
+          "5 まとめ〔先〕",
+          "› 字幕へ",
+          "確認し直す",
+          "設定で登録",
+          "このまま字幕へ",
+          "起こし直す",
+          "比べる"
+        ],
+        "allButtons": [
+          "1 エンジン",
+          "2 起こす",
+          "3 差分",
+          "4 注釈・辞書〔先〕",
+          "5 まとめ〔先〕",
+          "› 字幕へ",
+          "確認し直す",
+          "鍵が未登録",
+          "鍵が未登録",
+          "設定で登録",
+          "このまま字幕へ",
+          "起こし直す",
+          "比べる",
+          "簡単モードに戻す"
+        ],
+        "progress": null,
+        "title": "文字起こしして字幕を作る"
+      },
+      "elapsedMs": 8954
+    },
+    {
+      "name": "2-c. もう一度押すと簡単に戻り、ダイアログは開いたまま",
+      "pass": true,
+      "detail": {
+        "mode": "simple",
+        "step": "1",
+        "nav": 0,
+        "navButtons": 0,
+        "badges": [
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "available",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ],
+          [
+            "unconfigured",
+            "SPAN",
+            "status"
+          ]
+        ],
+        "checkboxes": 0,
+        "radars": 0,
+        "cards": 4,
+        "engineRadios": 5,
+        "availabilityBadges": 4,
+        "availabilityButtons": 0,
+        "switchLinks": 1,
+        "switchLabel": "アドバンス（比較・差分）に切り替える",
+        "actionButtons": [
+          "台本へ",
+          "起こし直す"
+        ],
+        "allButtons": [
+          "台本へ",
+          "起こし直す",
+          "アドバンス（比較・差分）に切り替える"
+        ],
+        "progress": null,
+        "title": "文字起こし"
+      },
+      "elapsedMs": 406
+    },
+    {
+      "name": "3-a. 設定「文字起こし」節: 簡単のとき比較・カットの行は畳まれる",
+      "pass": true,
+      "detail": {
+        "modeRadios": [
+          [
+            "simple",
+            true
+          ],
+          [
+            "advanced",
+            false
+          ]
+        ],
+        "checkboxes": 0,
+        "advancedNotice": 1,
+        "heading": "文字起こし",
+        "hidden": false
+      },
+      "elapsedMs": 59
+    },
+    {
+      "name": "3-b. アドバンスを選ぶと比較の組とカット候補の行が戻る",
+      "pass": true,
+      "detail": {
+        "modeRadios": [
+          [
+            "simple",
+            false
+          ],
+          [
+            "advanced",
+            true
+          ]
+        ],
+        "checkboxes": 6,
+        "advancedNotice": 0,
+        "heading": "文字起こし",
+        "hidden": false
+      },
+      "elapsedMs": 267
+    }
+  ],
+  "screenshots": [
+    "01-simple-default-popup.png",
+    "02-simple-progress.png",
+    "03-daihon-rows-after-simple.png",
+    "04-simple-already-transcribed.png",
+    "05-advanced-after-switch.png",
+    "06-settings-simple.png",
+    "07-settings-advanced.png"
+  ],
+  "simpleCensus": {
+    "mode": "simple",
+    "step": "1",
+    "nav": 0,
+    "navButtons": 0,
+    "badges": [
+      [
+        "available",
+        "SPAN",
+        "status"
+      ],
+      [
+        "available",
+        "SPAN",
+        "status"
+      ],
+      [
+        "unconfigured",
+        "SPAN",
+        "status"
+      ],
+      [
+        "unconfigured",
+        "SPAN",
+        "status"
+      ]
+    ],
+    "checkboxes": 0,
+    "radars": 0,
+    "cards": 4,
+    "engineRadios": 5,
+    "availabilityBadges": 4,
+    "availabilityButtons": 0,
+    "switchLinks": 1,
+    "switchLabel": "アドバンス（比較・差分）に切り替える",
+    "actionButtons": [
+      "起こす"
+    ],
+    "allButtons": [
+      "起こす",
+      "アドバンス（比較・差分）に切り替える"
+    ],
+    "progress": null,
+    "title": "文字起こし"
+  },
+  "advancedCensus": {
+    "mode": "advanced",
+    "step": "1",
+    "nav": 1,
+    "navButtons": 6,
+    "badges": [
+      [
+        "available",
+        "SPAN",
+        "status"
+      ],
+      [
+        "available",
+        "SPAN",
+        "status"
+      ],
+      [
+        "unconfigured",
+        "BUTTON",
+        "button"
+      ],
+      [
+        "unconfigured",
+        "BUTTON",
+        "button"
+      ]
+    ],
+    "checkboxes": 4,
+    "radars": 4,
+    "cards": 4,
+    "engineRadios": 5,
+    "availabilityBadges": 4,
+    "availabilityButtons": 2,
+    "switchLinks": 1,
+    "switchLabel": "簡単モードに戻す",
+    "actionButtons": [
+      "1 エンジン",
+      "2 起こす",
+      "3 差分",
+      "4 注釈・辞書〔先〕",
+      "5 まとめ〔先〕",
+      "› 字幕へ",
+      "確認し直す",
+      "設定で登録",
+      "このまま字幕へ",
+      "起こし直す",
+      "比べる"
+    ],
+    "allButtons": [
+      "1 エンジン",
+      "2 起こす",
+      "3 差分",
+      "4 注釈・辞書〔先〕",
+      "5 まとめ〔先〕",
+      "› 字幕へ",
+      "確認し直す",
+      "鍵が未登録",
+      "鍵が未登録",
+      "設定で登録",
+      "このまま字幕へ",
+      "起こし直す",
+      "比べる",
+      "簡単モードに戻す"
+    ],
+    "progress": null,
+    "title": "文字起こしして字幕を作る"
+  },
+  "finished": {
+    "closed": true,
+    "label": "字幕を作る",
+    "rows": 10,
+    "footer": "秒数や語をクリックするとプレビューへシークします。",
+    "transcriptEvents": 4,
+    "captionCount": 10
+  },
+  "consoleErrors": [],
+  "electronPid": 5589,
+  "pass": true
+}
