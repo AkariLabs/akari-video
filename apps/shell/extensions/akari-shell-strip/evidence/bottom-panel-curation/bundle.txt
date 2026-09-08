@@ -1,0 +1,17 @@
+Found cached ffmpeg library.
+Hashes are equal, not replacing the ffmpeg library.
+"<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Libraries/libffmpeg.dylib" does not contain proprietary codecs (13 found).
+(node:70543) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[build/browser] Build started
+
+[build/browser] Finished with 0 errors in 6881ms.
+
+[build/node] Build started
+
+[build/node] Finished with 0 errors in 3225ms.
+
+[build/electron] Build started
+
+[build/electron] Finished with 0 errors in 61ms.
+
