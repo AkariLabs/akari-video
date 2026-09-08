@@ -296,23 +296,36 @@ export function normalizeWhisperJson(value) {
     const start = Number(segment.offsets?.from ?? segment.start) / (segment.offsets ? 1000 : 1);
     const end = Number(segment.offsets?.to ?? segment.end) / (segment.offsets ? 1000 : 1);
     const markers = [];
-    const words = (segment.tokens ?? segment.words ?? []).flatMap((token) => {
+    const words = [];
+    let pending = null;
+    for (const token of segment.tokens ?? segment.words ?? []) {
       const wordStart = Number(token.offsets?.from ?? token.start) / (token.offsets ? 1000 : 1);
       const wordEnd = Number(token.offsets?.to ?? token.end) / (token.offsets ? 1000 : 1);
       const markerKind = classifyWhisperMarker(token.text);
-      if (markerKind === "non-speech" && wordEnd > wordStart) {
-        markers.push({ start: wordStart, end: wordEnd });
-        return [];
+      if (markerKind === "non-speech") {
+        if (wordEnd > wordStart) markers.push({ start: wordStart, end: wordEnd });
+        continue;
       }
-      if (markerKind === "control") return [];
+      if (markerKind === "control") continue;
       const text = String(token.text ?? "").replace(/\uFFFD/g, "").trim();
-      return text && wordEnd > wordStart ? [{ start: wordStart, end: wordEnd, text }] : [];
-    });
+      if (!text || !Number.isFinite(wordStart) || !Number.isFinite(wordEnd)) continue;
+      if (wordEnd <= wordStart) {
+        // 連続する 0 長・負長トークンは、最初の from と文字順を保持する。
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
+        continue;
+      }
+      words.push({ start: pending?.start ?? wordStart, end: wordEnd, text: (pending?.text ?? "") + text });
+      pending = null;
+    }
+    if (pending && words.length) words.at(-1).text += pending.text;
+    const text = String(segment.text ?? "").replace(/\uFFFD/g, "").trim();
+    const useWords = words.length && words.every((word) => word.end > word.start)
+      && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "");
     return {
       start,
       end,
-      text: String(segment.text ?? "").replace(/\uFFFD/g, "").trim(),
-      ...(words.length ? { words } : {}),
+      text,
+      ...(useWords ? { words } : {}),
       ...(markers.length ? { markers } : {}),
     };
   });
@@ -328,15 +341,27 @@ function normalizeSegments(segments, range) {
     const text = String(segment.text ?? "").trim();
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) return [];
     const normalized = { start: formatNumber(Math.max(range.in, start)), end: formatNumber(Math.min(range.out, end)), text };
-    const words = (segment.words ?? []).flatMap((word) => {
-      const wordStart = Number(word.start) + offset;
-      const wordEnd = Number(word.end) + offset;
+    const words = [];
+    let pending = null;
+    const clampWordTime = (time) => formatNumber(Math.max(normalized.start, Math.min(normalized.end, time + offset)));
+    for (const word of segment.words ?? []) {
+      if (!Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) continue;
+      const wordStart = clampWordTime(Number(word.start));
+      const wordEnd = clampWordTime(Number(word.end));
       const wordText = String(word.text ?? "").replace(/\uFFFD/g, "").trim();
-      return wordText && wordEnd > wordStart
-        ? [{ start: formatNumber(Math.max(normalized.start, wordStart)), end: formatNumber(Math.min(normalized.end, wordEnd)), text: wordText }]
-        : [];
-    }).filter((word) => word.end > word.start);
-    if (words.length) normalized.words = words;
+      if (!wordText) continue;
+      if (wordEnd <= wordStart) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
+        continue;
+      }
+      words.push({ start: pending?.start ?? wordStart, end: wordEnd, text: (pending?.text ?? "") + wordText });
+      pending = null;
+    }
+    if (pending && words.length) words.at(-1).text += pending.text;
+    if (words.length && words.every((word) => word.end > word.start)
+        && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "")) {
+      normalized.words = words;
+    }
     const markers = (segment.markers ?? []).flatMap((marker) => {
       const markerStart = Number(marker.start) + offset;
       const markerEnd = Number(marker.end) + offset;
