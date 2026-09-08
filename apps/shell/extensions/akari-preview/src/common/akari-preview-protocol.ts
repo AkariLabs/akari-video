@@ -346,6 +346,9 @@ export type SetHighPerformanceGpuResult =
     | { ok: false; reason: string; state: GpuPreferenceState };
 
 export interface AkariPreviewService {
+    prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
+        assetUri: string; duration: number; time: number; mtime: number; size: number;
+    }>;
     prepareVisualThumbnail(request: import('./visual-thumbnail').VisualThumbnailRequest): Promise<import('./visual-thumbnail').VisualThumbnailPage>;
     promotePreviewAudioSidecars(request: import('./preview-audio-priority').PromotePreviewAudioSidecarsRequest):
         Promise<import('./preview-audio-priority').PromotePreviewAudioSidecarsResult>;

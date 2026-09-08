@@ -1,5 +1,5 @@
 import { readInternalEdit, type InternalItem } from '@akari-video/edit-store';
-import { readFile, realpath } from 'fs/promises';
+import { readFile, realpath, readdir, stat } from 'fs/promises';
 import { dirname, resolve, relative, isAbsolute, join } from 'path';
 import { pathToFileURL } from 'url';
 import { expandBagOverlays } from '../common/preview-parts';
@@ -64,6 +64,29 @@ export async function prepareVisualThumbnailPage(
     const overlays = expandBagOverlays(internal, ref => htmlByPath.get(ref) ?? ref)
         .filter(value => selected.has(String(value.id)) || selected.has(String(value.parentId)));
     if (!overlays.length) throw new Error('This item has no renderable overlay');
+    const start = target?.at ?? Number(overlays[0].start);
+    const duration = target?.duration ?? Number(overlays[0].duration);
+    return { ...await buildVisualThumbnailPage(overlays, { width: internal.output.width, height: internal.output.height, fps: internal.output.fps }, start + duration / 2, assets,
+        root, createStream, disposeStream, { dependencies, htmlByPath, htmlPathById }), editSnapshot: snapshot };
+}
+
+/** The shared asset rewriting/stream lifetime and renderer path for clips and material cards. */
+export async function buildVisualThumbnailPage(
+    overlays: Record<string, unknown>[], output: { width: number; height: number; fps: number }, time: number,
+    assets: OverlayRuntimeAssetUrls, root: string,
+    createStream: (uri: string) => Promise<VideoStreamReference>, disposeStream: (id: string) => Promise<void>,
+    inputs: { dependencies?: Set<string>; htmlByPath?: Map<string, string>; htmlPathById?: Map<string, string> } = {}
+): Promise<VisualThumbnailPage> {
+    const { dependencies = new Set<string>(), htmlByPath = new Map<string, string>(), htmlPathById = new Map<string, string>() } = inputs;
+    const localPath = async (path: string): Promise<string> => {
+        const target = await realpath(resolve(root, path));
+        const rel = relative(root, target);
+        if (rel === '..' || rel.startsWith('..\\') || rel.startsWith('../') || isAbsolute(rel)) {
+            throw new Error('Thumbnail input is outside the project');
+        }
+        dependencies.add(pathToFileURL(target).href);
+        return target;
+    };
     const streams: string[] = [];
     const streamByUri = new Map<string, VideoStreamReference>();
     const stream = async (uri: string): Promise<VideoStreamReference> => {
@@ -87,13 +110,13 @@ export async function prepareVisualThumbnailPage(
                 css = css.replace(match[0], match[4].trim() ? `@media ${match[4]}{${imported}}` : imported);
             }
             const rewritten = await rewritePreviewFragmentAssets(`<style>${css}</style>`,
-                { projectRoot: root, htmlPath: ref, overlayId: itemId }, stream);
+                { projectRoot: root, htmlPath: ref, overlayId: String(overlays[0].id) }, stream);
             if (rewritten.warnings.length) throw new Error(rewritten.warnings.join('\n'));
             return rewritten.html.slice(7, -8);
         };
         for (const overlay of overlays) {
             const ref = String(overlay.html ?? '');
-            let html = htmlByPath.get(ref) ?? ref;
+            let html = htmlByPath.get(ref) ?? (ref.trimStart().startsWith('<') ? ref : await readFile(await localPath(ref), 'utf8'));
             const originalRef = htmlPathById.get(String(overlay.id)) ?? htmlPathById.get(String(overlay.parentId)) ?? ref;
             const htmlPath = originalRef.trimStart().startsWith('<') ? 'inline.html' : originalRef;
             for (const match of [...html.matchAll(/<link\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi)]) {
@@ -117,14 +140,63 @@ export async function prepareVisualThumbnailPage(
             }
             overlay.html = html;
         }
-        const start = target?.at ?? Number(overlays[0].start);
-        const duration = target?.duration ?? Number(overlays[0].duration);
-        const output = internal.output;
-        return { ...visualThumbnailPage(overlays, {
-            width: output.width, height: output.height, fps: output.fps
-        }, start + duration / 2, assets), streamIds: streams, dependencyUris: [...dependencies], editSnapshot: snapshot };
+        return { ...visualThumbnailPage(overlays, output, time, assets), streamIds: streams, dependencyUris: [...dependencies] };
     } catch (error) {
         await Promise.all(streams.map(disposeStream));
         throw error;
     }
+}
+
+/** Resolve groups here so the material tree's click-target policy remains independent. */
+export async function prepareAssetVisualThumbnailPage(
+    assetPath: string, workspaceRoot: string, time: number | undefined, assets: OverlayRuntimeAssetUrls,
+    createStream: (uri: string) => Promise<VideoStreamReference>, disposeStream: (id: string) => Promise<void>
+): Promise<VisualThumbnailPage & { assetUri: string; duration: number; time: number; mtime: number; size: number }> {
+    const contained = async (path: string): Promise<string> => {
+        const target = await realpath(path);
+        const rel = relative(workspaceRoot, target);
+        if (rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || isAbsolute(rel)) {
+            throw new Error('Thumbnail input is outside the workspace');
+        }
+        return target;
+    };
+    let path = await contained(assetPath);
+    if ((await stat(path)).isDirectory() || /[\\/]meta\.json$/i.test(path)) {
+        const directory = (await stat(path)).isDirectory() ? path : dirname(path);
+        const names = (await readdir(directory)).filter(name => /\.html?$/i.test(name)).sort();
+        const name = names.find(name => name === 'overlay.html') ?? names.find(name => name === 'index.html') ?? names[0];
+        if (!name) throw new Error('Material group has no HTML fragment');
+        path = await contained(join(directory, name));
+    }
+    if (!/\.html?$/i.test(path)) throw new Error('Material must be an HTML fragment');
+    const metadata = await stat(path);
+    const html = await readFile(path, 'utf8');
+    // Styles/scripts may precede the fragment root; only inspect the first content element.
+    const markup = html.replace(/<!--[\s\S]*?-->|<(style|script)\b[^>]*>[\s\S]*?<\/\1\s*>|<link\b[^>]*>|<!doctype[^>]*>/gi, '');
+    const rootTag = markup.match(/<[a-z][^>]*>/i)?.[0] ?? '';
+    const declared = Number(rootTag.match(/\bdata-duration\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)?.slice(1).find(value => value !== undefined));
+    const duration = Number.isFinite(declared) && declared > 0 ? declared : 5;
+    if (time !== undefined && (!Number.isFinite(time) || time < 0 || time >= duration)) throw new Error('Invalid thumbnail time');
+    const at = time ?? duration / 2;
+    let root = dirname(path);
+    let output = { width: 1920, height: 1080, fps: 30 };
+    for (;;) {
+        try {
+            const editPath = await contained(join(root, 'edit.json'));
+            const declaredOutput = JSON.parse(await readFile(editPath, 'utf8'))?.output;
+            const positive = (value: unknown, fallback: number): number =>
+                typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+            output = { width: positive(declaredOutput?.width, 1920), height: positive(declaredOutput?.height, 1080),
+                fps: positive(declaredOutput?.fps, 30) };
+            break;
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        if (root === workspaceRoot) break;
+        root = dirname(root);
+    }
+    const assetUri = pathToFileURL(path).href;
+    const page = await buildVisualThumbnailPage([{ id: 'asset', html: path, start: 0, duration }], output, at,
+        assets, root, createStream, disposeStream, { htmlByPath: new Map([[path, html]]), dependencies: new Set([assetUri]) });
+    return { ...page, assetUri, duration, time: at, mtime: metadata.mtimeMs, size: metadata.size };
 }

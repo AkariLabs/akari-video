@@ -675,6 +675,16 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot);
     }
 
+    async prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']> {
+        const assetPath = await realpath(this.filePath(request.assetUri));
+        const roots = await this.resolveWorkspaceRoots();
+        const root = roots.filter(value => this.contains(value, assetPath)).sort((a, b) => b.length - a.length)[0];
+        if (!root) throw new Error('Material is outside the workspace');
+        const { prepareAssetVisualThumbnailPage } = await import('./visual-thumbnail-page');
+        return prepareAssetVisualThumbnailPage(assetPath, root, request.time, await this.getOverlayRuntimeAssetUrls(),
+            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id));
+    }
+
     async rewriteFragmentAssets(request: FragmentAssetPreviewRequest): Promise<FragmentAssetPreviewResult> {
         const projectRoot = await realpath(this.filePath(request.projectRootUri));
         const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
