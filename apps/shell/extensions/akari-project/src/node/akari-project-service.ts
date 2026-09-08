@@ -1185,11 +1185,11 @@ try {
 
     /**
      * `.akari/cache/thumbnails/` に既存キャッシュがあればそれを返し、なければ ffmpeg
-     * （PATH から解決）で生成する。ffmpeg 不在・生成失敗はどちらも例外を投げず
+     * （環境変数 → PATH → 同梱バイナリから解決）で生成する。音声は波形 PNG。ffmpeg 不在・生成失敗はどちらも例外を投げず
      * available=false（プレースホルダ運用）にフォールバックする（task.md 指定）。
      * `.akari/cache/` 以外へは書かない。
      */
-    async resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image'): Promise<MaterialThumbnailOutcome> {
+    async resolveMaterialThumbnail(projectUri: string, relativePath: string, kind: 'video' | 'image' | 'audio'): Promise<MaterialThumbnailOutcome> {
         const root = this.fsPath(projectUri);
         const sourcePath = join(root, relativePath);
         let stat: { size: number; mtimeMs: number };
@@ -1199,7 +1199,7 @@ try {
             return { available: false };
         }
         const key = deriveThumbnailCacheKey(relativePath, stat.size, stat.mtimeMs);
-        const extension = kind === 'video' ? '.jpg' : (extname(sourcePath).toLowerCase() || '.jpg');
+        const extension = kind === 'audio' ? '.png' : kind === 'video' ? '.jpg' : (extname(sourcePath).toLowerCase() || '.jpg');
         const cacheFileName = thumbnailCacheFileName(key, extension);
         const cacheDirectory = join(root, '.akari', 'cache', 'thumbnails');
         const cachePath = join(cacheDirectory, cacheFileName);
@@ -1218,7 +1218,7 @@ try {
     }
 
     protected async generateThumbnail(
-        kind: 'video' | 'image',
+        kind: 'video' | 'image' | 'audio',
         sourcePath: string,
         cacheDirectory: string,
         cachePath: string,
@@ -1232,7 +1232,11 @@ try {
         await fs.mkdir(cacheDirectory, { recursive: true });
         const temporaryPath = join(cacheDirectory, `.tmp-${process.pid}-${cacheFileName}`);
         const scaleFilter = "scale='min(320,iw)':-2";
-        const args = kind === 'video'
+        // 波形引数の正本は packages/audio-library-setup/shared/waveform-preview.mjs（そちらを変えたらここも合わせる）。
+        // 同梱 ffmpeg フォールバックを保つため、同モジュールを import せず resolveFfmpegPath を使う。
+        const args = kind === 'audio'
+            ? ['-y', '-i', sourcePath, '-filter_complex', 'showwavespic=s=640x120:colors=0d6efd', '-frames:v', '1', temporaryPath]
+            : kind === 'video'
             ? ['-y', '-ss', '00:00:00.5', '-i', sourcePath, '-frames:v', '1', '-vf', scaleFilter, temporaryPath]
             : ['-y', '-i', sourcePath, '-vf', scaleFilter, temporaryPath];
         try {
