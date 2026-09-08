@@ -9,7 +9,7 @@ import { TerminalCommands } from '@theia/terminal/lib/browser/terminal-frontend-
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import {
     BOTTOM_PANEL_MENU_ITEMS, BottomPanelMenuItemId, PARTNER_TERMINAL_KIND,
-    shouldCloseAtStartup, TIMELINE_WIDGET_ID
+    shouldCloseAtStartup
 } from '../common/bottom-panel-curation';
 
 // akari-menu-widget.tsx と同様、annotations 拡張へ依存せず既存の再表示経路を呼ぶ。
@@ -186,9 +186,9 @@ export class AkariBottomPanelCuration implements FrontendApplicationContribution
         const shell = this.shell;
         if (!shell) return;
         if (id === 'timeline') {
-            const existing = [...shell.bottomPanel.widgets()].find(widget => widget.id === TIMELINE_WIDGET_ID);
-            if (existing) await shell.activateWidget(existing.id);
-            else await this.commands.executeCommand(OPEN_TIMELINE_COMMAND);
+            // 再表示・前面化・作成の振り分けは annotations 側の openOrCreateTimeline() に一本化する（司令塔裁定 6）。
+            // 1 本目が自動アタッチ済みでも「+」から作成ポップアップへ到達できるようにする。
+            await this.commands.executeCommand(OPEN_TIMELINE_COMMAND);
             return;
         }
         if (this.creatingTerminal) return;
