@@ -1,0 +1,945 @@
+{
+  "label": "after",
+  "checks": {
+    "menu-has-partner-row": {
+      "ok": true,
+      "detail": [
+        "パートナー",
+        "台本",
+        "カット候補",
+        "注釈",
+        "タイムライン（下パネル）",
+        "ホーム",
+        "セットアップ",
+        "プロジェクト・ランチャー",
+        "変更を見る",
+        "ブラウザプレビュー"
+      ]
+    },
+    "partner-tab-front-after-row-click": {
+      "ok": true,
+      "detail": {
+        "beforeClick": "注釈",
+        "after": "パートナーを追加"
+      }
+    },
+    "onboarding-unchanged-after-row-click": {
+      "ok": true,
+      "detail": {
+        "beforeClick": {
+          "flowState": null,
+          "dialogCount": 0,
+          "dialogTitles": [],
+          "terminalTabs": [],
+          "partnerVisible": false,
+          "partnerTextLength": 329
+        },
+        "after": {
+          "flowState": null,
+          "dialogCount": 0,
+          "dialogTitles": [],
+          "terminalTabs": [],
+          "partnerVisible": true,
+          "partnerTextLength": 357
+        }
+      }
+    },
+    "settings-tools-has-catalog-root-row": {
+      "ok": true,
+      "detail": {
+        "dialogPresent": true,
+        "sectionPresent": true,
+        "sectionHidden": false,
+        "heading": "道具",
+        "inputs": [
+          {
+            "ariaLabel": "カタログの素材フォルダ",
+            "value": "",
+            "className": "theia-input"
+          }
+        ],
+        "buttons": [
+          "確認し直す",
+          "選んだ道具をインストール（1）",
+          "フォルダを選ぶ"
+        ],
+        "labels": [
+          "カタログの素材フォルダ"
+        ],
+        "paragraphs": [
+          "動画づくりに必要な道具の状態を確認し、セットアップします。",
+          "必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。",
+          "あとから AI パートナーとの会話で「道具をそろえて」と頼んでも、同じ道具を導入できます。",
+          "動画・音声の変換、プレビュー、書き出しに使います。",
+          "素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。",
+          "認識モデル · 約574MB · 未取得",
+          "モデルが無い",
+          "許可された動画素材の取得に使います。",
+          "高度な 3D 素材の事前レンダーに使います。",
+          "ローカルの日本語ナレーション生成に使います。",
+          "利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。",
+          "この Mac で高速に文字起こしします。",
+          "プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。",
+          "カタログタブが読む素材フォルダ。空欄のときは自動で探します。"
+        ],
+        "rects": {
+          "installActionsRow": {
+            "x": 241,
+            "y": 490,
+            "w": 820,
+            "h": 67
+          },
+          "catalogLabel": {
+            "x": 261,
+            "y": 569,
+            "w": 302,
+            "h": 15
+          },
+          "catalogInput": {
+            "x": 407,
+            "y": 561,
+            "w": 156,
+            "h": 30
+          }
+        },
+        "verticalOverlapPx": {
+          "label": 0,
+          "input": 0
+        },
+        "topElementAtCatalogLabel": "LABEL:カタログの素材フォルダ"
+      }
+    },
+    "settings-tools-has-folder-picker": {
+      "ok": true,
+      "detail": [
+        "確認し直す",
+        "選んだ道具をインストール（1）",
+        "フォルダを選ぶ"
+      ]
+    },
+    "catalog-row-not-covered-by-install-bar": {
+      "ok": true,
+      "detail": {
+        "rects": {
+          "installActionsRow": {
+            "x": 241,
+            "y": 490,
+            "w": 820,
+            "h": 67
+          },
+          "catalogLabel": {
+            "x": 261,
+            "y": 569,
+            "w": 302,
+            "h": 15
+          },
+          "catalogInput": {
+            "x": 407,
+            "y": 561,
+            "w": 156,
+            "h": 30
+          }
+        },
+        "overlap": {
+          "label": 0,
+          "input": 0
+        },
+        "top": "LABEL:カタログの素材フォルダ"
+      }
+    },
+    "begin-onboarding-does-change-state": {
+      "ok": true,
+      "detail": {
+        "afterRowClick": {
+          "flowState": null,
+          "dialogCount": 0,
+          "dialogTitles": [],
+          "terminalTabs": [],
+          "partnerVisible": true,
+          "partnerTextLength": 357
+        },
+        "afterBeginOnboarding": {
+          "flowState": "working",
+          "dialogCount": 1,
+          "dialogTitles": [
+            "Claude Code CLI へ接続"
+          ],
+          "terminalTabs": [],
+          "partnerVisible": true,
+          "partnerTextLength": 384
+        }
+      }
+    }
+  },
+  "timeline": [
+    {
+      "atSeconds": 10,
+      "ready": true,
+      "rightTabs": [
+        "パートナーを追加",
+        "台本",
+        "カット",
+        "注釈",
+        "パートナーを追加",
+        "台本",
+        "カット",
+        "注釈"
+      ]
+    }
+  ],
+  "movedAwayFromPartner": true,
+  "before": {
+    "rows": [
+      {
+        "label": "パートナー",
+        "icon": "codicon codicon-add",
+        "disabled": false
+      },
+      {
+        "label": "台本",
+        "icon": "codicon codicon-list-selection",
+        "disabled": false
+      },
+      {
+        "label": "カット候補",
+        "icon": "codicon codicon-checklist",
+        "disabled": false
+      },
+      {
+        "label": "注釈",
+        "icon": "codicon codicon-comment-discussion",
+        "disabled": false
+      },
+      {
+        "label": "タイムライン（下パネル）",
+        "icon": "codicon codicon-comment",
+        "disabled": false
+      },
+      {
+        "label": "ホーム",
+        "icon": "codicon codicon-home",
+        "disabled": false
+      },
+      {
+        "label": "セットアップ",
+        "icon": "codicon codicon-tools",
+        "disabled": false
+      },
+      {
+        "label": "プロジェクト・ランチャー",
+        "icon": "codicon codicon-layout",
+        "disabled": false
+      },
+      {
+        "label": "変更を見る",
+        "icon": "codicon codicon-diff",
+        "disabled": false
+      },
+      {
+        "label": "ブラウザプレビュー",
+        "icon": "codicon codicon-globe",
+        "disabled": false
+      }
+    ],
+    "menuVisible": false,
+    "rightTabs": [
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 10,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 62,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 114,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 166,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1134,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1196,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": true,
+        "rect": {
+          "x": 1258,
+          "y": 609,
+          "w": 62,
+          "h": 32
+        }
+      }
+    ],
+    "rightFrontTab": "注釈",
+    "bottomTabs": [],
+    "onboarding": {
+      "flowState": null,
+      "dialogCount": 0,
+      "dialogTitles": [],
+      "terminalTabs": [],
+      "partnerVisible": false,
+      "partnerTextLength": 329
+    }
+  },
+  "menuVisible": true,
+  "rows": [
+    {
+      "label": "パートナー",
+      "icon": "codicon codicon-add",
+      "disabled": false
+    },
+    {
+      "label": "台本",
+      "icon": "codicon codicon-list-selection",
+      "disabled": false
+    },
+    {
+      "label": "カット候補",
+      "icon": "codicon codicon-checklist",
+      "disabled": false
+    },
+    {
+      "label": "注釈",
+      "icon": "codicon codicon-comment-discussion",
+      "disabled": false
+    },
+    {
+      "label": "タイムライン（下パネル）",
+      "icon": "codicon codicon-comment",
+      "disabled": false
+    },
+    {
+      "label": "ホーム",
+      "icon": "codicon codicon-home",
+      "disabled": false
+    },
+    {
+      "label": "セットアップ",
+      "icon": "codicon codicon-tools",
+      "disabled": false
+    },
+    {
+      "label": "プロジェクト・ランチャー",
+      "icon": "codicon codicon-layout",
+      "disabled": false
+    },
+    {
+      "label": "変更を見る",
+      "icon": "codicon codicon-diff",
+      "disabled": false
+    },
+    {
+      "label": "ブラウザプレビュー",
+      "icon": "codicon codicon-globe",
+      "disabled": false
+    }
+  ],
+  "beforeClick": {
+    "rows": [
+      {
+        "label": "パートナー",
+        "icon": "codicon codicon-add",
+        "disabled": false
+      },
+      {
+        "label": "台本",
+        "icon": "codicon codicon-list-selection",
+        "disabled": false
+      },
+      {
+        "label": "カット候補",
+        "icon": "codicon codicon-checklist",
+        "disabled": false
+      },
+      {
+        "label": "注釈",
+        "icon": "codicon codicon-comment-discussion",
+        "disabled": false
+      },
+      {
+        "label": "タイムライン（下パネル）",
+        "icon": "codicon codicon-comment",
+        "disabled": false
+      },
+      {
+        "label": "ホーム",
+        "icon": "codicon codicon-home",
+        "disabled": false
+      },
+      {
+        "label": "セットアップ",
+        "icon": "codicon codicon-tools",
+        "disabled": false
+      },
+      {
+        "label": "プロジェクト・ランチャー",
+        "icon": "codicon codicon-layout",
+        "disabled": false
+      },
+      {
+        "label": "変更を見る",
+        "icon": "codicon codicon-diff",
+        "disabled": false
+      },
+      {
+        "label": "ブラウザプレビュー",
+        "icon": "codicon codicon-globe",
+        "disabled": false
+      }
+    ],
+    "menuVisible": true,
+    "rightTabs": [
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 10,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 62,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 114,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 166,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1134,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1196,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": true,
+        "rect": {
+          "x": 1258,
+          "y": 609,
+          "w": 62,
+          "h": 32
+        }
+      }
+    ],
+    "rightFrontTab": "注釈",
+    "bottomTabs": [],
+    "onboarding": {
+      "flowState": null,
+      "dialogCount": 0,
+      "dialogTitles": [],
+      "terminalTabs": [],
+      "partnerVisible": false,
+      "partnerTextLength": 329
+    }
+  },
+  "after": {
+    "rows": [
+      {
+        "label": "パートナー",
+        "icon": "codicon codicon-add",
+        "disabled": false
+      },
+      {
+        "label": "台本",
+        "icon": "codicon codicon-list-selection",
+        "disabled": false
+      },
+      {
+        "label": "カット候補",
+        "icon": "codicon codicon-checklist",
+        "disabled": false
+      },
+      {
+        "label": "注釈",
+        "icon": "codicon codicon-comment-discussion",
+        "disabled": false
+      },
+      {
+        "label": "タイムライン（下パネル）",
+        "icon": "codicon codicon-comment",
+        "disabled": false
+      },
+      {
+        "label": "ホーム",
+        "icon": "codicon codicon-home",
+        "disabled": false
+      },
+      {
+        "label": "セットアップ",
+        "icon": "codicon codicon-tools",
+        "disabled": false
+      },
+      {
+        "label": "プロジェクト・ランチャー",
+        "icon": "codicon codicon-layout",
+        "disabled": false
+      },
+      {
+        "label": "変更を見る",
+        "icon": "codicon codicon-diff",
+        "disabled": false
+      },
+      {
+        "label": "ブラウザプレビュー",
+        "icon": "codicon codicon-globe",
+        "disabled": false
+      }
+    ],
+    "menuVisible": true,
+    "rightTabs": [
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 10,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 62,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 114,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 166,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 609,
+          "w": 62,
+          "h": 32
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1134,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1196,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": false,
+        "rect": {
+          "x": 1258,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      }
+    ],
+    "rightFrontTab": "パートナーを追加",
+    "bottomTabs": [],
+    "onboarding": {
+      "flowState": null,
+      "dialogCount": 0,
+      "dialogTitles": [],
+      "terminalTabs": [],
+      "partnerVisible": true,
+      "partnerTextLength": 357
+    }
+  },
+  "settingsCommand": {
+    "ok": true,
+    "known": true
+  },
+  "settingsScroll": {
+    "scrollTop": 476.5,
+    "scrollHeight": 1066,
+    "clientHeight": 590
+  },
+  "settingsTools": {
+    "dialogPresent": true,
+    "sectionPresent": true,
+    "sectionHidden": false,
+    "heading": "道具",
+    "inputs": [
+      {
+        "ariaLabel": "カタログの素材フォルダ",
+        "value": "",
+        "className": "theia-input"
+      }
+    ],
+    "buttons": [
+      "確認し直す",
+      "選んだ道具をインストール（1）",
+      "フォルダを選ぶ"
+    ],
+    "labels": [
+      "カタログの素材フォルダ"
+    ],
+    "paragraphs": [
+      "動画づくりに必要な道具の状態を確認し、セットアップします。",
+      "必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。",
+      "あとから AI パートナーとの会話で「道具をそろえて」と頼んでも、同じ道具を導入できます。",
+      "動画・音声の変換、プレビュー、書き出しに使います。",
+      "素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。",
+      "認識モデル · 約574MB · 未取得",
+      "モデルが無い",
+      "許可された動画素材の取得に使います。",
+      "高度な 3D 素材の事前レンダーに使います。",
+      "ローカルの日本語ナレーション生成に使います。",
+      "利用時は、音声ライブラリごとの規約に従ったクレジット表記が必要です。",
+      "この Mac で高速に文字起こしします。",
+      "プロジェクトの履歴・差分・スナップショットと、AI 分析の高速文字起こし・目線バー・指フレーム・人物マットに使います。",
+      "カタログタブが読む素材フォルダ。空欄のときは自動で探します。"
+    ],
+    "rects": {
+      "installActionsRow": {
+        "x": 241,
+        "y": 490,
+        "w": 820,
+        "h": 67
+      },
+      "catalogLabel": {
+        "x": 261,
+        "y": 569,
+        "w": 302,
+        "h": 15
+      },
+      "catalogInput": {
+        "x": 407,
+        "y": 561,
+        "w": 156,
+        "h": 30
+      }
+    },
+    "verticalOverlapPx": {
+      "label": 0,
+      "input": 0
+    },
+    "topElementAtCatalogLabel": "LABEL:カタログの素材フォルダ"
+  },
+  "beginOnboardingCommand": {
+    "ok": true,
+    "known": true
+  },
+  "contrast": {
+    "rows": [
+      {
+        "label": "パートナー",
+        "icon": "codicon codicon-add",
+        "disabled": false
+      },
+      {
+        "label": "台本",
+        "icon": "codicon codicon-list-selection",
+        "disabled": false
+      },
+      {
+        "label": "カット候補",
+        "icon": "codicon codicon-checklist",
+        "disabled": false
+      },
+      {
+        "label": "注釈",
+        "icon": "codicon codicon-comment-discussion",
+        "disabled": false
+      },
+      {
+        "label": "タイムライン（下パネル）",
+        "icon": "codicon codicon-comment",
+        "disabled": false
+      },
+      {
+        "label": "ホーム",
+        "icon": "codicon codicon-home",
+        "disabled": false
+      },
+      {
+        "label": "セットアップ",
+        "icon": "codicon codicon-tools",
+        "disabled": false
+      },
+      {
+        "label": "プロジェクト・ランチャー",
+        "icon": "codicon codicon-layout",
+        "disabled": false
+      },
+      {
+        "label": "変更を見る",
+        "icon": "codicon codicon-diff",
+        "disabled": false
+      },
+      {
+        "label": "ブラウザプレビュー",
+        "icon": "codicon codicon-globe",
+        "disabled": false
+      }
+    ],
+    "menuVisible": true,
+    "rightTabs": [
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 10,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 62,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 114,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": false,
+        "rect": {
+          "x": 1072,
+          "y": 166,
+          "w": 48,
+          "h": 48
+        }
+      },
+      {
+        "bar": 0,
+        "label": "パートナーを追加",
+        "current": true,
+        "rect": {
+          "x": 1072,
+          "y": 609,
+          "w": 62,
+          "h": 32
+        }
+      },
+      {
+        "bar": 0,
+        "label": "台本",
+        "current": false,
+        "rect": {
+          "x": 1134,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "カット",
+        "current": false,
+        "rect": {
+          "x": 1196,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      },
+      {
+        "bar": 0,
+        "label": "注釈",
+        "current": false,
+        "rect": {
+          "x": 1258,
+          "y": 609,
+          "w": 62,
+          "h": 52
+        }
+      }
+    ],
+    "rightFrontTab": "パートナーを追加",
+    "bottomTabs": [],
+    "onboarding": {
+      "flowState": "working",
+      "dialogCount": 1,
+      "dialogTitles": [
+        "Claude Code CLI へ接続"
+      ],
+      "terminalTabs": [],
+      "partnerVisible": true,
+      "partnerTextLength": 384
+    }
+  },
+  "failures": [],
+  "pass": true,
+  "reachedReady": true,
+  "failedToStart": false
+}
