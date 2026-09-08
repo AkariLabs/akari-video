@@ -1,5 +1,5 @@
 export const UNRECOGNIZED_DEFAULTS = Object.freeze({
-  minGapSec: 0.45,
+  minGapSec: 0.8,
   minVoicedSec: 0.3,
   silenceDb: -35,
   silenceMinSec: 0.2,

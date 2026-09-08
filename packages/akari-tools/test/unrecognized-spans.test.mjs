@@ -28,9 +28,20 @@ test("通常語と閉じていない括弧は marker にしない", () => {
 
 test("既定値は契約値で固定される", () => {
   assert.deepEqual(UNRECOGNIZED_DEFAULTS, {
-    minGapSec: 0.45, minVoicedSec: 0.3, silenceDb: -35, silenceMinSec: 0.2,
+    minGapSec: 0.8, minVoicedSec: 0.3, silenceDb: -35, silenceMinSec: 0.2,
   });
 });
+
+test("較正済み minGapSec は 0.8 秒", () => {
+  assert.equal(UNRECOGNIZED_DEFAULTS.minGapSec, 0.8);
+});
+
+for (const [gap, end] of [[0.45, 0.65], [0.799, 0.999], [0.8, 1], [0.801, 1.001]]) {
+  test(`既定値で ${gap} 秒の語間隙は ${gap < 0.8 ? "除外" : "採用"}`, () => {
+    const segment = { start: 0, end: 2, words: [{ start: 0, end: 0.2 }, { start: end, end: 2 }] };
+    assert.deepEqual(detectUnrecognizedSpans(segment, []), gap < 0.8 ? [] : [{ start: 0.2, end }]);
+  });
+}
 
 test("subtractSilences は先頭の無音を引く", () => {
   assert.deepEqual(subtractSilences({ start: 1, end: 3 }, [{ start: 0.5, end: 1.2 }]), [
@@ -58,14 +69,14 @@ test("0.44 秒の語間隙は採用しない", () => {
   const segment = {
     start: 0, end: 1, words: [{ start: 0, end: 0.2 }, { start: 0.64, end: 1 }],
   };
-  assert.deepEqual(detectUnrecognizedSpans(segment, []), []);
+  assert.deepEqual(detectUnrecognizedSpans(segment, [], { minGapSec: 0.45 }), []);
 });
 
 test("0.45 秒の語間隙は採用する", () => {
   const segment = {
     start: 0, end: 1, words: [{ start: 0, end: 0.2 }, { start: 0.65, end: 1 }],
   };
-  assert.deepEqual(detectUnrecognizedSpans(segment, []), [{ start: 0.2, end: 0.65 }]);
+  assert.deepEqual(detectUnrecognizedSpans(segment, [], { minGapSec: 0.45 }), [{ start: 0.2, end: 0.65 }]);
 });
 
 test("無音を引いた残り 0.29 秒は採用しない", () => {
@@ -86,13 +97,13 @@ test("無音を引いた残り 0.3 秒は採用する", () => {
 
 test("セグメント先頭と末尾の隙間も検出する", () => {
   const segment = { start: 0, end: 2, words: [{ start: 0.5, end: 1.5 }] };
-  assert.deepEqual(detectUnrecognizedSpans(segment, []), [
+  assert.deepEqual(detectUnrecognizedSpans(segment, [], { minGapSec: 0.45 }), [
     { start: 0, end: 0.5 }, { start: 1.5, end: 2 },
   ]);
 });
 
 test("words 無しセグメントは全区間を候補にする", () => {
-  assert.deepEqual(detectUnrecognizedSpans({ start: 0.1, end: 0.8 }, []), [
+  assert.deepEqual(detectUnrecognizedSpans({ start: 0.1, end: 0.8 }, [], { minGapSec: 0.45 }), [
     { start: 0.1, end: 0.8 },
   ]);
 });
