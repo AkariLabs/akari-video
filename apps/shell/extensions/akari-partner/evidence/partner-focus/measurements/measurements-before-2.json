@@ -1,0 +1,41 @@
+{
+  "label": "before-2",
+  "startedAt": "2026-09-08T19:40:48.845Z",
+  "pid": 58426,
+  "timeline": [
+    {
+      "atMs": 7158,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "partnerAttached": true,
+      "homeAttached": true
+    },
+    {
+      "atMs": 8166,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "partnerAttached": true,
+      "homeAttached": true
+    }
+  ],
+  "shellAttached": true,
+  "preloadVisible": false,
+  "partnerAttached": true,
+  "homeAttached": true,
+  "readyMs": 7619,
+  "reachedReady": true,
+  "failedToStart": false,
+  "focusWarnIds": [
+    "akari-partner-onboarding"
+  ],
+  "focusWarnCount": 1,
+  "focusWarnLines": [
+    "warning: 2026-09-08T19:40:57.347Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "[58426:0909/044057.347719:INFO:CONSOLE:433] \"2026-09-08T19:40:57.347Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T19:40:57.349Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding"
+  ],
+  "partnerFocusWarn": true,
+  "guardTimeouts": [],
+  "consoleErrors": [],
+  "leftoverProcesses": 0
+}
