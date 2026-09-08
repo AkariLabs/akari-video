@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
-import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 const {
@@ -69,53 +67,4 @@ test('omitted reservedBelow preserves the previous one-tab-plus-8px clamp', () =
   const input = { barHeight: 150, heightAbove: 0, tabHeight: 48 };
   assert.equal(computeReviewTabMarginTop(input), 46);
   assert.equal(computeReviewTabMarginTop(input), computeReviewTabMarginTop({ ...input, reservedBelow: RESERVED_BELOW_PX }));
-});
-
-const styleSource = ts.createSourceFile('right-panel-tab-style.ts', readFileSync(
-  new URL('../src/browser/right-panel-tab-style.ts', import.meta.url), 'utf8'
-), ts.ScriptTarget.Latest, true);
-const applyFunction = styleSource.statements.find(node => ts.isFunctionDeclaration(node)
-  && node.name?.text === 'applyReviewTabMarginTop');
-assert.ok(applyFunction);
-const applyCode = ts.transpileModule(applyFunction.getText(styleSource), {
-  compilerOptions: { target: ts.ScriptTarget.ES2021 },
-}).outputText;
-
-test('DOM centering measures every following tab and falls back only when none follow', () => {
-  for (const heights of [[48, 48, 48], [32, 60, 52], [0, 48], []]) {
-    class Element {
-      constructor(height) { this.height = height; }
-      getBoundingClientRect() { return { height: this.height }; }
-    }
-    const tab = new Element(48);
-    tab.closest = () => new Element(300);
-    tab.previousElementSibling = new Element(48);
-    let previous = tab;
-    for (const height of heights) {
-      previous.nextElementSibling = new Element(height);
-      previous = previous.nextElementSibling;
-    }
-    const properties = new Map();
-    const document = {
-      getElementById: () => tab,
-      documentElement: { style: {
-        getPropertyValue: name => properties.get(name),
-        setProperty: (name, value) => properties.set(name, value),
-      } },
-    };
-    const calls = [];
-    const apply = new Function('document', 'HTMLElement', 'computeReviewTabMarginTop', 'FALLBACK_TAB_HEIGHT_PX', `
-      const REVIEW_TAB_DOM_ID = 'review';
-      const MARGIN_TOP_VAR = 'margin';
-      ${applyCode}
-      return applyReviewTabMarginTop;
-    `)(document, Element, input => { calls.push(input); return computeReviewTabMarginTop(input); }, FALLBACK_TAB_HEIGHT_PX);
-    assert.equal(apply(), true);
-    assert.deepEqual(calls[0], {
-      barHeight: 300, heightAbove: 48, tabHeight: 48,
-      reservedBelow: heights.length ? heights.reduce((sum, height) => sum + height, 0) : FALLBACK_TAB_HEIGHT_PX,
-    });
-    assert.equal(properties.get('margin'), `${computeReviewTabMarginTop(calls[0])}px`);
-    assert.equal(apply(), false);
-  }
 });

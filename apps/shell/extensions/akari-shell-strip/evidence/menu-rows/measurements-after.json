@@ -1,0 +1,899 @@
+{
+  "label": "after",
+  "workspace": "/tmp/menu-rows-l1/ws",
+  "timeline": [
+    {
+      "atSeconds": 10,
+      "ready": true,
+      "rightTabs": [
+        "パートナーを追加",
+        "台本",
+        "カット",
+        "注釈",
+        "パートナーを追加",
+        "台本",
+        "カット",
+        "注釈"
+      ]
+    }
+  ],
+  "rightTabsInitial": [
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 10,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 62,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 114,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 166,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1134,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1196,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": true,
+      "rect": {
+        "x": 1258,
+        "y": 609,
+        "w": 62,
+        "h": 32
+      }
+    }
+  ],
+  "rightSideTabsInitial": [
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 10,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 62,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 114,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 166,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1134,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1196,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": true,
+      "rect": {
+        "x": 1258,
+        "y": 609,
+        "w": 62,
+        "h": 32
+      }
+    }
+  ],
+  "rightTabGapsInitial": [
+    52,
+    52,
+    52,
+    443,
+    0,
+    0,
+    0
+  ],
+  "menuTabClicks": [
+    "clicked@24,242"
+  ],
+  "menuTabClick": "clicked@24,242",
+  "rows": [
+    {
+      "label": "パートナー",
+      "icon": "codicon codicon-add",
+      "disabled": false
+    },
+    {
+      "label": "台本",
+      "icon": "codicon codicon-list-selection",
+      "disabled": false
+    },
+    {
+      "label": "カット候補",
+      "icon": "codicon codicon-checklist",
+      "disabled": false
+    },
+    {
+      "label": "注釈",
+      "icon": "codicon codicon-comment-discussion",
+      "disabled": false
+    },
+    {
+      "label": "タイムライン（下パネル）",
+      "icon": "codicon codicon-comment",
+      "disabled": false
+    },
+    {
+      "label": "ホーム",
+      "icon": "codicon codicon-home",
+      "disabled": false
+    },
+    {
+      "label": "セットアップ",
+      "icon": "codicon codicon-tools",
+      "disabled": false
+    },
+    {
+      "label": "プロジェクト・ランチャー",
+      "icon": "codicon codicon-layout",
+      "disabled": false
+    },
+    {
+      "label": "変更を見る",
+      "icon": "codicon codicon-diff",
+      "disabled": false
+    },
+    {
+      "label": "ブラウザプレビュー",
+      "icon": "codicon codicon-globe",
+      "disabled": false
+    }
+  ],
+  "menuVisible": true,
+  "rowClicks": {
+    "台本": {
+      "click": "clicked",
+      "rightCurrent": [
+        "台本",
+        "台本"
+      ],
+      "bottomCurrent": [
+        "タイムライン"
+      ],
+      "visibleWidgets": {
+        "partner": false,
+        "daihon": true,
+        "cuts": false,
+        "review": false,
+        "timeline": true,
+        "menu": true
+      },
+      "rightTabs": [
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 10
+        },
+        {
+          "label": "台本",
+          "current": true,
+          "y": 62
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 114
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 166
+        },
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "台本",
+          "current": true,
+          "y": 609
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 609
+        }
+      ],
+      "bottomTabs": [
+        {
+          "label": "zsh",
+          "current": false
+        },
+        {
+          "label": "タイムライン",
+          "current": true
+        },
+        {
+          "label": "Problems",
+          "current": false
+        }
+      ]
+    },
+    "カット候補": {
+      "click": "clicked",
+      "rightCurrent": [
+        "カット",
+        "カット"
+      ],
+      "bottomCurrent": [
+        "タイムライン"
+      ],
+      "visibleWidgets": {
+        "partner": false,
+        "daihon": false,
+        "cuts": true,
+        "review": false,
+        "timeline": true,
+        "menu": true
+      },
+      "rightTabs": [
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 10
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 62
+        },
+        {
+          "label": "カット",
+          "current": true,
+          "y": 114
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 166
+        },
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "カット",
+          "current": true,
+          "y": 609
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 609
+        }
+      ],
+      "bottomTabs": [
+        {
+          "label": "zsh",
+          "current": false
+        },
+        {
+          "label": "タイムライン",
+          "current": true
+        },
+        {
+          "label": "Problems",
+          "current": false
+        }
+      ]
+    },
+    "注釈": {
+      "click": "clicked",
+      "rightCurrent": [
+        "注釈",
+        "注釈"
+      ],
+      "bottomCurrent": [
+        "タイムライン"
+      ],
+      "visibleWidgets": {
+        "partner": false,
+        "daihon": false,
+        "cuts": false,
+        "review": true,
+        "timeline": true,
+        "menu": true
+      },
+      "rightTabs": [
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 10
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 62
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 114
+        },
+        {
+          "label": "注釈",
+          "current": true,
+          "y": 166
+        },
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "注釈",
+          "current": true,
+          "y": 609
+        }
+      ],
+      "bottomTabs": [
+        {
+          "label": "zsh",
+          "current": false
+        },
+        {
+          "label": "タイムライン",
+          "current": true
+        },
+        {
+          "label": "Problems",
+          "current": false
+        }
+      ]
+    },
+    "タイムライン（下パネル）": {
+      "click": "clicked",
+      "rightCurrent": [
+        "注釈",
+        "注釈"
+      ],
+      "bottomCurrent": [
+        "タイムライン"
+      ],
+      "visibleWidgets": {
+        "partner": false,
+        "daihon": false,
+        "cuts": false,
+        "review": true,
+        "timeline": true,
+        "menu": true
+      },
+      "rightTabs": [
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 10
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 62
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 114
+        },
+        {
+          "label": "注釈",
+          "current": true,
+          "y": 166
+        },
+        {
+          "label": "パートナーを追加",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "注釈",
+          "current": true,
+          "y": 609
+        }
+      ],
+      "bottomTabs": [
+        {
+          "label": "zsh",
+          "current": false
+        },
+        {
+          "label": "タイムライン",
+          "current": true
+        },
+        {
+          "label": "Problems",
+          "current": false
+        }
+      ]
+    },
+    "パートナー": {
+      "click": "clicked",
+      "rightCurrent": [
+        "パートナーを追加",
+        "パートナーを追加"
+      ],
+      "bottomCurrent": [
+        "タイムライン"
+      ],
+      "visibleWidgets": {
+        "partner": true,
+        "daihon": false,
+        "cuts": false,
+        "review": false,
+        "timeline": true,
+        "menu": true
+      },
+      "rightTabs": [
+        {
+          "label": "パートナーを追加",
+          "current": true,
+          "y": 10
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 62
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 114
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 166
+        },
+        {
+          "label": "パートナーを追加",
+          "current": true,
+          "y": 609
+        },
+        {
+          "label": "台本",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "カット",
+          "current": false,
+          "y": 609
+        },
+        {
+          "label": "注釈",
+          "current": false,
+          "y": 609
+        }
+      ],
+      "bottomTabs": [
+        {
+          "label": "zsh",
+          "current": false
+        },
+        {
+          "label": "タイムライン",
+          "current": true
+        },
+        {
+          "label": "Problems",
+          "current": false
+        }
+      ]
+    }
+  },
+  "bottomPreState": {
+    "switchedTo": "zsh",
+    "bottomCurrent": [
+      "zsh"
+    ]
+  },
+  "rightTabsFinal": [
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 10,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 62,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 114,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 166,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 609,
+        "w": 62,
+        "h": 32
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1134,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1196,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": false,
+      "rect": {
+        "x": 1258,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    }
+  ],
+  "rightSideTabsFinal": [
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 10,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 62,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 114,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": false,
+      "rect": {
+        "x": 1072,
+        "y": 166,
+        "w": 48,
+        "h": 48
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "パートナーを追加",
+      "icon": "lm-TabBar-tabIcon codicon codicon-add",
+      "current": true,
+      "rect": {
+        "x": 1072,
+        "y": 609,
+        "w": 62,
+        "h": 32
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "台本",
+      "icon": "lm-TabBar-tabIcon codicon codicon-list-selection",
+      "current": false,
+      "rect": {
+        "x": 1134,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "カット",
+      "icon": "lm-TabBar-tabIcon codicon codicon-checklist",
+      "current": false,
+      "rect": {
+        "x": 1196,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    },
+    {
+      "bar": 0,
+      "barClass": "lm-Widget lm-TabBar theia-app-right theia-app-sides",
+      "label": "注釈",
+      "icon": "lm-TabBar-tabIcon codicon codicon-comment-discussion",
+      "current": false,
+      "rect": {
+        "x": 1258,
+        "y": 609,
+        "w": 62,
+        "h": 52
+      }
+    }
+  ],
+  "rightTabGapsFinal": [
+    52,
+    52,
+    52,
+    443,
+    0,
+    0,
+    0
+  ],
+  "reachedReady": true,
+  "failedToStart": false
+}
