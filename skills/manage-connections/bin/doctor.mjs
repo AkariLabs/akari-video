@@ -22,47 +22,48 @@ async function loadDependencies() {
 }
 
 const usage = "使い方: node skills/manage-connections/bin/doctor.mjs [プロジェクトルート|connections.json]";
-const argument = process.argv[2];
-
-if (process.argv.length > 3) {
-  console.error(usage);
-  process.exit(2);
-}
-
-if (argument === "--help" || argument === "-h") {
-  console.log(usage);
-  process.exit(0);
-}
-
-const inputPath = path.resolve(argument ?? process.cwd());
-const connectionsPath = inputPath.endsWith(".json")
-  ? inputPath
-  : path.join(inputPath, ".akari", "connections.json");
-const projectRoot = inputPath.endsWith(".json")
-  ? path.dirname(path.dirname(connectionsPath))
-  : inputPath;
-const reportPath = path.join(projectRoot, "connections-report.html");
-const credentialsPath = path.resolve(
-  process.env.AKARI_CREDENTIALS_FILE ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
-);
-const timeoutMs = 5_000;
+export const timeoutMs = 5_000;
 
 async function main() {
+  const argument = process.argv[2];
+
+  if (process.argv.length > 3) {
+    console.error(usage);
+    process.exit(2);
+  }
+
+  if (argument === "--help" || argument === "-h") {
+    console.log(usage);
+    process.exit(0);
+  }
+
+  const inputPath = path.resolve(argument ?? process.cwd());
+  const connectionsPath = inputPath.endsWith(".json")
+    ? inputPath
+    : path.join(inputPath, ".akari", "connections.json");
+  const projectRoot = inputPath.endsWith(".json")
+    ? path.dirname(path.dirname(connectionsPath))
+    : inputPath;
+  const reportPath = path.join(projectRoot, "connections-report.html");
+  const credentialsPath = path.resolve(
+    process.env.AKARI_CREDENTIALS_FILE ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
+  );
   await loadDependencies();
+  const context = { inputPath, connectionsPath, projectRoot, reportPath, credentialsPath };
   if (inputPath.endsWith(".json")) {
-    await mainLegacy();
+    await mainLegacy(context);
     return;
   }
-  await mainResolved();
+  await mainResolved(context);
 }
 
-async function mainLegacy() {
-  const registry = readRegistry();
-  const credentialState = readCredentials();
+async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
+  const registry = readRegistry(connectionsPath);
+  const credentialState = readCredentials(credentialsPath);
   const checkedAt = new Date().toISOString();
 
   if (!credentialState.exists) {
-    printCredentialGuide(registry);
+    printCredentialGuide(registry, credentialsPath);
   } else if (!credentialState.securePermissions) {
     console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
   }
@@ -74,7 +75,7 @@ async function mainLegacy() {
 
   const jsonOutput = `${JSON.stringify(registry, null, 2)}\n`;
   refuseSecretLeak(jsonOutput, credentialState.values);
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt);
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
   refuseSecretLeak(htmlOutput, credentialState.values);
 
   fs.writeFileSync(connectionsPath, jsonOutput, "utf8");
@@ -86,14 +87,14 @@ async function mainLegacy() {
   console.log(`接続レポート: ${reportPath}`);
 }
 
-async function mainResolved() {
+async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   const resolved = await resolveConnections({ projectRoot });
   const registry = clone(resolved.effective);
-  const credentialState = readCredentials();
+  const credentialState = readCredentials(credentialsPath);
   const checkedAt = new Date().toISOString();
 
   if (!credentialState.exists) {
-    printCredentialGuide(registry);
+    printCredentialGuide(registry, credentialsPath);
   } else if (!credentialState.securePermissions) {
     console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
   }
@@ -129,7 +130,7 @@ async function mainResolved() {
     writeRegistry(resolved.layers.workspace.path, workspaceRegistry, credentialState.values);
   }
 
-  const htmlOutput = renderReport(registry, results, credentialState, checkedAt);
+  const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
   refuseSecretLeak(htmlOutput, credentialState.values);
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
@@ -144,7 +145,7 @@ async function mainResolved() {
   console.log(`接続レポート: ${reportPath}`);
 }
 
-function readRegistry() {
+function readRegistry(connectionsPath) {
   let value;
   try {
     value = JSON.parse(fs.readFileSync(connectionsPath, "utf8"));
@@ -198,7 +199,7 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function readCredentials() {
+function readCredentials(credentialsPath) {
   let stat;
   try {
     stat = fs.statSync(credentialsPath);
@@ -277,7 +278,7 @@ async function inspectProvider(provider, credentialState, checkedAt) {
   return { id, configured: true, doctor };
 }
 
-const adapters = {
+export const adapters = {
   fal: (secret, checkedAt) =>
     checkGet("https://rest.alpha.fal.ai/billing/user_balance", { Authorization: `Key ${secret}` }, checkedAt),
   replicate: (secret, checkedAt) =>
@@ -375,7 +376,7 @@ function extractEnvName(value) {
   return match ? match[1] : null;
 }
 
-function printCredentialGuide(registry) {
+function printCredentialGuide(registry, credentialsPath) {
   console.log(`credentials.env がありません: ${credentialsPath}`);
   console.log(`作成後に chmod 600 ${credentialsPath} を実行してください。キーは人間が取得して配置してください。`);
   for (const provider of registry.providers) {
@@ -394,7 +395,7 @@ function refuseSecretLeak(output, values) {
   }
 }
 
-function renderReport(registry, results, credentialState, checkedAt) {
+function renderReport(registry, results, credentialState, checkedAt, credentialsPath) {
   const resultById = new Map(results.map((item) => [item.id, item]));
   const cards = registry.providers.map((provider) => {
     const result = resultById.get(provider.id);

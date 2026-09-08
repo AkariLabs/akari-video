@@ -79,6 +79,7 @@ const ALLOWLIST: CurationEntry[] = [
     { id: 'search-view-container', label: '検索' },
     { id: 'vsx-extensions-view-container', label: 'パートナー / 拡張' },
     { id: 'akari-settings-widget', label: null },
+    { id: 'akari-settings-opener', label: null },
     { id: MENU_WIDGET_ID, label: null }
 ];
 

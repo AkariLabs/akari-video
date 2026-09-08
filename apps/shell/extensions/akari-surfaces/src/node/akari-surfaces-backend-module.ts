@@ -3,7 +3,15 @@ import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/com
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 import { AkariNewProjectServiceImpl } from './akari-new-project-service';
 
+import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+import { AkariConnectionsServiceImpl } from './akari-connections-service';
+
 export default new ContainerModule(bind => {
+    bind(AkariConnectionsServiceImpl).toSelf().inSingletonScope();
+    bind(AkariConnectionsService).toService(AkariConnectionsServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_CONNECTIONS_SERVICE_PATH, () => context.container.get(AkariConnectionsService))
+    ).inSingletonScope();
     bind(AkariNewProjectServiceImpl).toSelf().inSingletonScope();
     bind(AkariNewProjectService).toService(AkariNewProjectServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>
