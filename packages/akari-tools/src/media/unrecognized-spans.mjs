@@ -1,3 +1,6 @@
+// 1: segment 端も gap とした v0.1 / 2: word 時刻の端の欠けを除外する v0.2
+export const UNRECOGNIZED_ALGO_VERSION = 2;
+
 export const UNRECOGNIZED_DEFAULTS = Object.freeze({
   minGapSec: 0.8,
   minVoicedSec: 0.3,
@@ -52,8 +55,12 @@ export function detectUnrecognizedSpans(segment, silences, options = {}) {
     return Number.isFinite(start) && Number.isFinite(end) && end > start ? [{ start, end }] : [];
   }));
   const gaps = complementSpans({ start: segmentStart, end: segmentEnd }, words);
+  // 語間の根拠だけを最初〜最後の有効 word に限定する。マーカーは全域を使う。
+  const wordGaps = words.length
+    ? complementSpans({ start: words[0].start, end: words.at(-1).end }, words)
+    : gaps;
 
-  const voicedGaps = gaps.flatMap((gap) => {
+  const voicedGaps = wordGaps.flatMap((gap) => {
     if (duration(gap) < minGapSec) return [];
     return subtractSilences(gap, silences).filter((span) => duration(span) >= minVoicedSec);
   });

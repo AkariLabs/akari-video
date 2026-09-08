@@ -17,6 +17,7 @@ import { recordEngineTranscript, recordObservation } from "./record.mjs";
 import {
   classifyWhisperMarker,
   detectUnrecognizedSpans,
+  UNRECOGNIZED_ALGO_VERSION,
   UNRECOGNIZED_DEFAULTS,
 } from "./unrecognized-spans.mjs";
 import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
@@ -59,6 +60,20 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const range = normalizeRange(options.in, options.out, duration);
   const lang = options.lang ?? "auto";
   const sha256 = sha256File(target.inputPath);
+  const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
+  // 未認識は ASR cache と独立した派生値。hit / miss とも現在の設定で付与する。
+  const rawResult = {
+    ...asrResult,
+    segments: await attachUnrecognizedSpans(asrResult.segments, target.inputPath, range, ffmpeg, options),
+  };
+  const result = await applyResolvedWordBook(rawResult, target, options);
+  const recordedResult = result.cache.hit ? { ...result, generated_at: generatedAt(options) } : result;
+  await recordTranscribe(target, recordedResult, options.in === undefined && options.out === undefined ? undefined : range, result.backend, lang, options.noRecord, rawResult, started);
+  return result;
+}
+
+// ASR 層は normalizeSegments 直後の結果を保存し、markers を含む根拠を保持する。
+async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options }) {
   let backendInfo = await selectBackend(options.backend, target, options);
   let backend = backendInfo.name;
   const cacheDirectory = target.projectRoot
@@ -69,10 +84,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
 
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
-    const rawResult = { ...cached, cache: { hit: true, key } };
-    const result = await applyResolvedWordBook(rawResult, target, options);
-    await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
-    return result;
+    return { ...cached, cache: { hit: true, key } };
   }
 
   let segments = [];
@@ -90,10 +102,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
       if (existsSync(cachePath)) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
-        const rawResult = { ...cached, cache: { hit: true, key } };
-        const result = await applyResolvedWordBook(rawResult, target, options);
-        await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
-        return result;
+        return { ...cached, cache: { hit: true, key } };
       }
       segments = options.backendRunner
         ? await options.backendRunner({ backend, inputPath: target.inputPath, range, lang, target })
@@ -102,7 +111,6 @@ export async function transcribeMedia(targetArgument, options = {}) {
   }
   const costUsd = backend.startsWith("cloud:") ? segments?.cost_estimate_usd ?? null : null;
   segments = normalizeSegments(Array.isArray(segments) ? segments : segments?.segments, range);
-  segments = await attachUnrecognizedSpans(segments, target.inputPath, range, ffmpeg, options);
   const rawResult = {
     path: target.displayPath,
     range,
@@ -114,9 +122,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
     generated_at: generatedAt(options),
   };
   await writeFile(cachePath, `${JSON.stringify(rawResult, null, 2)}\n`, "utf8");
-  const result = await applyResolvedWordBook(rawResult, target, options);
-  await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
-  return result;
+  return rawResult;
 }
 
 async function applyResolvedWordBook(result, target, options) {
@@ -406,6 +412,8 @@ function normalizeSegments(segments, range) {
 }
 
 async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, options) {
+  // 旧 cache の判定と版は持ち越さない。markers は再計算の入力として残す。
+  segments = segments.map(({ unrecognized: _unrecognized, unrecognized_algo_version: _version, ...segment }) => segment);
   if (options.unrecognized === false || segments.length === 0) {
     return segments.map(withoutInternalMarkers);
   }
@@ -431,7 +439,7 @@ async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, optio
   return segments.map((segment) => {
     const unrecognized = detectUnrecognizedSpans(segment, silences, { minGapSec, minVoicedSec });
     const clean = withoutInternalMarkers(segment);
-    return unrecognized.length ? { ...clean, unrecognized } : clean;
+    return unrecognized.length ? { ...clean, unrecognized, unrecognized_algo_version: UNRECOGNIZED_ALGO_VERSION } : clean;
   });
 }
 
