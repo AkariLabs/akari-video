@@ -9,6 +9,78 @@ import { fixture, json, putJson, silenceSpans } from "./fixtures/transcribe-comp
 
 const readCuts = (f) => json(path.join(f.directory, "cuts.json"));
 
+test("フィラー候補は SA の文字 words と whisper の語 words で件数・区間・reason が一致する", async (t) => {
+  const text = "あの、前、えーと、後、まあ！";
+  const results = [];
+  for (const [backend, tokens] of [
+    ["speech-analyzer", Array.from(text)],
+    ["whisper-cpp", ["あの", "前", "えーと", "後", "まあ"]],
+  ]) {
+    const f = await fixture(t, [backend]);
+    const file = path.join(f.directory, `transcripts/${backend}.json`);
+    const data = await json(file);
+    let cursor = 0;
+    const words = tokens.map((token) => {
+      const at = text.indexOf(token, cursor);
+      cursor = at + token.length;
+      return { text: token, start: 1 + at * 0.25, end: 1 + cursor * 0.25 };
+    });
+    data.segments = [{ text, start: 1, end: 1 + text.length * 0.25, words }];
+    await putJson(file, data);
+    for (const filler of ["off", "on"]) {
+      const summary = await transcribeCutsMedia(f.target, { ...f.options, filler, silencesRunner: async () => [] });
+      const fillers = (await readCuts(f)).candidates.filter((c) => c.kind === "filler");
+      assert.equal(summary.by_kind.filler, 3, backend);
+      assert.deepEqual(fillers.map((c) => c.text), ["あの、", "えーと、", "まあ"]);
+      assert.deepEqual(fillers.map((c) => c.reason), ["冒頭のフィラー", "フィラー", "フィラー"]);
+      assert.ok(fillers.every((c) => c.default_on === (filler === "on") && c.timing === undefined));
+      if (filler === "off") results.push({ count: summary.by_kind.filler, spans: fillers.map((c) => [c.start, c.end]) });
+    }
+  }
+  assert.deepEqual(results[0], results[1]);
+  assert.deepEqual(results[0].spans, [[1, 1.5], [2.25, 3], [3.75, 4.25]]);
+});
+
+test("連続同一フィラーの塊は言い直しに譲り、離れた同一・連続する別語彙は残す", async (t) => {
+  const f = await fixture(t, ["speech-analyzer"]);
+  const file = path.join(f.directory, "transcripts/speech-analyzer.json");
+  const data = await json(file);
+  for (const [text, fillers, redos] of [
+    ["あの、あの", 0, 1], ["あの、あの、あの", 0, 1],
+    ["あのあの", 0, 1], ["あの、 \tあの", 0, 0],
+    ["あの、まあ", 2, 0], ["あの、前、あの", 2, 0], ["あの。あの", 2, 0],
+    ["まあ、あの、あの、えーと", 2, 1],
+  ]) {
+    data.segments = [{ text, start: 0, end: text.length * 0.5 }];
+    await putJson(file, data);
+    const summary = await transcribeCutsMedia(f.target, { ...f.options, silencesRunner: async () => [] });
+    assert.equal(summary.by_kind.filler, fillers, text);
+    assert.equal(summary.by_kind.redo, redos, text);
+  }
+});
+
+test("採用フィラーと重なる言い直しは落とし、端が接する言い直しは残す", async (t) => {
+  const f = await fixture(t, ["speech-analyzer"]);
+  const file = path.join(f.directory, "transcripts/speech-analyzer.json");
+  const data = await json(file);
+  for (const [text, fillers, redos] of [["あのね、あのね", 2, 0], ["あの説明説明", 1, 0], ["あの、説明説明", 1, 1]]) {
+    const words = Array.from(text).map((char, i) => ({ text: char, start: i * 0.5, end: (i + 1) * 0.5 }));
+    // Give the comma no duration so the filler and the following redo touch exactly.
+    if (text === "あの、説明説明") for (let i = 3; i < words.length; i += 1) {
+      words[i].start -= 0.5;
+      words[i].end -= 0.5;
+    }
+    data.segments = [{ text, start: 0, end: text.length * 0.5, words }];
+    await putJson(file, data);
+    const summary = await transcribeCutsMedia(f.target, { ...f.options, silencesRunner: async () => [] });
+    assert.equal(summary.by_kind.filler, fillers, text);
+    assert.equal(summary.by_kind.redo, redos, text);
+    const candidates = (await readCuts(f)).candidates;
+    assert.ok(candidates.filter((c) => c.kind === "redo").every((redo) => candidates
+      .filter((c) => c.kind === "filler").every((filler) => !(filler.start < redo.end && filler.end > redo.start))));
+  }
+});
+
 test("countFillerHits は長い語彙を優先し非重複で数える", () => {
   assert.equal(countFillerHits("あのー"), 1);
   assert.equal(countFillerHits("あのーそのーえーとうーん"), 4);
@@ -264,7 +336,7 @@ test("全フィラー語彙、語単位の中間フィラー、3 回の redo は
   const cuts = await readCuts(f);
   assert.equal(cuts.candidates.filter((c) => c.kind === "filler").length, 15);
   const mid = cuts.candidates.find((c) => c.kind === "filler" && c.start === 21);
-  assert.equal(mid.text, "、あの、");
+  assert.equal(mid.text, "あの、");
   assert.equal(mid.end, 22);
   assert.equal(mid.timing, undefined);
   const redo = cuts.candidates.find((c) => c.kind === "redo" && c.start === 24);

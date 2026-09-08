@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "task": "2026-09-09-filler-extraction-v0.2",
+  "written_at": "2026-09-09T03:05:00+09:00",
+  "written_before": "実装着手より前（このファイル単独のコミットで固定する。実装コミットはこの後）",
+  "material": {
+    "project": "akari-video-internal: fieldtest transcribe-compare-dogfood 2026-09-08",
+    "target": "assets/talk-0507-first3min.mp4",
+    "transcripts": "内部リポにコミット済みの 2026-09-08 実測版（speech-analyzer 13 segments / whisper-cpp 44 segments）を起こし直さずそのまま使う",
+    "note": "内部リポは読み取り専用。実行は <TMP>/akari-filler-v02/runSA・runWH へ複製して行う"
+  },
+  "baseline_measured_2026_09_09": {
+    "note": "実装前の現状（本予測を書く直前に同じ複製ワークスペースで実測）",
+    "SA_auto": {
+      "basis": "speech-analyzer",
+      "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+      "candidates": 15,
+      "by_kind": { "filler": 2, "redo": 0, "silence": 5, "unrecognized": 8 },
+      "elapsed_sec": 45.9
+    },
+    "WH_explicit": {
+      "basis": "whisper-cpp",
+      "candidates": 17,
+      "by_kind": { "filler": 4, "redo": 0, "silence": 5, "unrecognized": 8 },
+      "elapsed_sec": 19.8
+    },
+    "countFillerHits_totals": {
+      "speech-analyzer": { "total": 20, "by_word": { "あの": 9, "まあ": 7, "その": 4 } },
+      "whisper-cpp": { "total": 4, "by_word": { "その": 3, "まあ": 1 } }
+    }
+  },
+  "predictions": [
+    {
+      "id": "p1-filler-sa",
+      "claim": "本文走査 + 文字時刻からの区間復元にしたあと、SA basis のフィラー候補は countFillerHits の合計と同数になる",
+      "value": 20,
+      "range": [16, 20],
+      "confidence": "medium",
+      "why": "抽出規則を countFillerHits と同一の走査（FILLERS_LONGEST_FIRST を startsWith で当てる非重複スキャン）にするので、原理的にはヒット数と 1:1 になる。減る経路は 3 つだけ想定する: (a) 連続する同一フィラーの塊を言い直しに譲る規則（SA 本文を読むかぎり『あの、あの』型の連続は見当たらないので 0 件と読む） (b) 同一 start:end の重複統合 (c) 候補 id が 0.1 秒バケット（filler-<start>）で衝突したときの統合。(b)(c) はどちらも 20 件が 180 秒に散っているので当たりにくい。受け入れ条件の下限 16（80%）は満たすと読む",
+      "acceptance": ">= 16（countFillerHits 合計 20 の 80%）"
+    },
+    {
+      "id": "p2-filler-whisper",
+      "claim": "whisper basis のフィラー候補は減らず、countFillerHits の合計と同数になる",
+      "value": 4,
+      "range": [4, 4],
+      "confidence": "high",
+      "why": "whisper のヒットは その 3 / まあ 1 の計 4 で、現行抽出（words の isFiller）でも 4 件出ている。本文走査に替えても同じ 4 か所に当たる。減らないことが受け入れ条件"
+    },
+    {
+      "id": "p3-span-median",
+      "claim": "SA basis のフィラー候補の区間長の中央値",
+      "value": 0.45,
+      "range": [0.3, 0.7],
+      "acceptance": "<= 0.8 秒",
+      "confidence": "medium",
+      "why": "SA の words は 1 文字単位で実時刻付き（推定ではない）。語彙は 2〜3 文字なので 1 文字あたり 0.15〜0.25 秒として 0.3〜0.7 秒。SA 本文は読点が少なく、直後の読点を足しても読点自体は characterTiming で無視されるため区間長は伸びない"
+    },
+    {
+      "id": "p4-redo-overlap",
+      "claim": "フィラー候補と言い直し候補の区間重複",
+      "value": 0,
+      "confidence": "high",
+      "why": "SA basis の言い直し候補は現状 0 件（v0.1 実測）。加えて『連続する同一フィラーは言い直しに譲る』規則と『重なったらフィラーを優先し言い直しを落とす』規則を入れるので、定義上 0 になる"
+    },
+    {
+      "id": "p5-redo-sa",
+      "claim": "SA basis の言い直し候補件数は本改修で変わらない",
+      "value": 0,
+      "confidence": "high",
+      "why": "言い直しの正規表現には触らない。落とすのはフィラーと重なった場合だけで、SA basis はもともと 0 件"
+    },
+    {
+      "id": "p6-other-kinds",
+      "claim": "無音・未認識は本改修で変わらない（SA basis で silence 5 / unrecognized 8）",
+      "value": { "silence": 5, "unrecognized": 8 },
+      "confidence": "high",
+      "why": "どちらも textCandidates を通らない"
+    },
+    {
+      "id": "p7-total-sa",
+      "claim": "SA basis の候補総数",
+      "value": 33,
+      "range": [29, 33],
+      "confidence": "medium",
+      "why": "filler 20 + redo 0 + silence 5 + unrecognized 8 = 33（実装前は 15）"
+    },
+    {
+      "id": "p8-basis-unchanged",
+      "claim": "countFillerHits を findFillerSpans().length に置き換えても basis 自動選択の理由文字列は変わらない",
+      "value": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+      "confidence": "medium",
+      "why": "走査を正規化本文（comparisonText）の上で行い、区間だけを元テキストの索引へ写し戻す実装にすれば、ヒット数の意味は現行と完全に一致する。元テキストを直接走査する実装にすると『あ、の』のような読点跨ぎが落ちてヒット数が変わりうるので、正規化本文側で走査する"
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "task": "2026-09-09-filler-extraction-v0.2",
+  "measured_at": "2026-09-09",
+  "prediction_commit": "c841a817",
+  "implementation_commit": "817fc1aa",
+  "how": {
+    "material": "akari-video-internal: fieldtest transcribe-compare-dogfood 2026-09-08（内部リポは読み取り専用）",
+    "target": "assets/talk-0507-first3min.mp4（3 分・語り）",
+    "workspace": "<TMP>/akari-filler-v02/{runSA,runWH}（実装前）と <TMP>/akari-filler-v02/{afterSA,afterWH}（実装後）へ複製して実行。内部リポ配下は 1 バイトも書き換えていない（35 ファイルの sha256 一覧を前後で照合）",
+    "cli": "node packages/akari-tools/bin/media.mjs（worktree のソース直）",
+    "transcripts": "内部リポにコミット済みの 2026-09-08 実測版をそのまま使用（起こし直していない）。speech-analyzer 13 segments / whisper-cpp 44 segments",
+    "note": "実装前後で同じ transcripts・同じ複製手順を使ったので、差分はフィラー抽出の変更だけに帰属する"
+  },
+  "runs": {
+    "SA_auto_before": {
+      "command": "akari media transcribe-cuts assets/talk-0507-first3min.mp4（--basis 無指定）",
+      "stdout": { "basis": "speech-analyzer", "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+        "candidates": 15, "by_kind": { "filler": 2, "redo": 0, "silence": 5, "unrecognized": 8 } },
+      "elapsed_sec": 45.9
+    },
+    "SA_auto_after": {
+      "command": "同上",
+      "stdout": { "basis": "speech-analyzer", "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+        "candidates": 33, "by_kind": { "filler": 20, "redo": 0, "silence": 5, "unrecognized": 8 } },
+      "elapsed_sec": 13.8,
+      "filler_spans": {
+        "count": 20,
+        "count_filler_hits_total": 20,
+        "ratio_to_hits": 1.0,
+        "duration_sec": { "median": 0.54, "mean": 0.603, "min": 0.18, "max": 1.38,
+          "sorted": [0.18, 0.24, 0.3, 0.3, 0.36, 0.36, 0.36, 0.42, 0.42, 0.54, 0.54, 0.66, 0.72, 0.78, 0.78, 0.84, 0.9, 0.96, 1.02, 1.38] },
+        "estimated_timing": 0,
+        "reason_breakdown": { "冒頭のフィラー": 2, "フィラー": 18 },
+        "by_word": { "あの": 9, "まあ": 7, "その": 4 },
+        "overlap_with_redo": 0,
+        "candidates": [
+          { "id": "filler-21.1", "start": 21.12, "end": 22.5, "text": "あの" },
+          { "id": "filler-26.8", "start": 26.82, "end": 27.78, "text": "あの" },
+          { "id": "filler-33.5", "start": 33.48, "end": 33.9, "text": "まあ", "reason": "冒頭のフィラー" },
+          { "id": "filler-38.9", "start": 38.94, "end": 39.3, "text": "まあ" },
+          { "id": "filler-56.5", "start": 56.52, "end": 56.76, "text": "あの" },
+          { "id": "filler-62.3", "start": 62.28, "end": 63.06, "text": "あの" },
+          { "id": "filler-65.2", "start": 65.22, "end": 65.88, "text": "まあ" },
+          { "id": "filler-66.5", "start": 66.54, "end": 66.96, "text": "その" },
+          { "id": "filler-90.0", "start": 90, "end": 90.54, "text": "まあ" },
+          { "id": "filler-96.5", "start": 96.54, "end": 96.84, "text": "その" },
+          { "id": "filler-98.3", "start": 98.28, "end": 98.82, "text": "まあ" },
+          { "id": "filler-110.4", "start": 110.4, "end": 110.58, "text": "その" },
+          { "id": "filler-113.6", "start": 113.64, "end": 114.54, "text": "まあ" },
+          { "id": "filler-116.7", "start": 116.7, "end": 117, "text": "あの", "reason": "冒頭のフィラー" },
+          { "id": "filler-118.3", "start": 118.32, "end": 119.34, "text": "あの" },
+          { "id": "filler-130.5", "start": 130.5, "end": 130.86, "text": "その" },
+          { "id": "filler-140.4", "start": 140.4, "end": 141.24, "text": "あの" },
+          { "id": "filler-154.8", "start": 154.8, "end": 155.58, "text": "まあ" },
+          { "id": "filler-155.6", "start": 155.58, "end": 155.94, "text": "あの" },
+          { "id": "filler-161.6", "start": 161.64, "end": 162.36, "text": "あの" }
+        ]
+      }
+    },
+    "WH_explicit_before": {
+      "command": "akari media transcribe-cuts … --basis whisper-cpp",
+      "stdout": { "basis": "whisper-cpp", "basis_reason": "explicit (--basis whisper-cpp)",
+        "candidates": 17, "by_kind": { "filler": 4, "redo": 0, "silence": 5, "unrecognized": 8 } },
+      "elapsed_sec": 19.8
+    },
+    "WH_explicit_after": {
+      "command": "同上",
+      "stdout": { "basis": "whisper-cpp", "basis_reason": "explicit (--basis whisper-cpp)",
+        "candidates": 17, "by_kind": { "filler": 4, "redo": 0, "silence": 5, "unrecognized": 8 } },
+      "elapsed_sec": 16.7,
+      "filler_spans": {
+        "count": 4,
+        "count_filler_hits_total": 4,
+        "ratio_to_hits": 1.0,
+        "duration_sec": { "median": 0.29, "mean": 0.235, "min": 0.02, "max": 0.34, "sorted": [0.02, 0.26, 0.32, 0.34] },
+        "estimated_timing": 0,
+        "overlap_with_redo": 0,
+        "candidates": [
+          { "id": "filler-66.7", "start": 66.73, "end": 67.07, "text": "その" },
+          { "id": "filler-95.4", "start": 95.44, "end": 95.46, "text": "その" },
+          { "id": "filler-130.1", "start": 130.11, "end": 130.37, "text": "その" },
+          { "id": "filler-179.5", "start": 179.52, "end": 179.84, "text": "まあ" }
+        ]
+      }
+    }
+  },
+  "acceptance": {
+    "prediction_before_implementation": { "required": true, "measured": "c841a817（予測）→ 817fc1aa（実装）。git log の順序で確認", "pass": true },
+    "sa_filler_vs_count_filler_hits": { "required": ">= 80% (>= 16 / 20)", "measured": "20 / 20 = 100%", "pass": true },
+    "span_median_sec": { "required": "<= 0.8", "measured": 0.54, "pass": true },
+    "overlap_with_redo": { "required": 0, "measured": 0, "pass": true },
+    "whisper_not_reduced": { "required": ">= 4（実装前と同数以上）", "measured": 4, "pass": true },
+    "akari_tools_npm_test": { "required": "fail 0", "measured": "tests 365 / pass 364 / fail 0 / skipped 1（43.9 秒）", "pass": true }
+  },
+  "scoreboard": [
+    { "id": "p1-filler-sa", "predicted": 20, "range": [16, 20], "measured": 20, "hit": true,
+      "note": "連続同一フィラーの塊は SA 本文に 1 件も無く（予測どおり）、start:end 重複も候補 id の 0.1 秒バケット衝突も起きなかったので、countFillerHits と 1:1 の 20 件になった" },
+    { "id": "p2-filler-whisper", "predicted": 4, "measured": 4, "hit": true,
+      "note": "実装前も 4 件。同じ 4 か所（その 3 / まあ 1）を本文走査でも当てている" },
+    { "id": "p3-span-median", "predicted": 0.45, "range": [0.3, 0.7], "measured": 0.54, "hit": "range",
+      "note": "点予測 0.45 は外し・レンジ内。受け入れ条件 <= 0.8 は満たす。平均 0.603 / 最長 1.38 秒" },
+    { "id": "p4-redo-overlap", "predicted": 0, "measured": 0, "hit": true },
+    { "id": "p5-redo-sa", "predicted": 0, "measured": 0, "hit": true },
+    { "id": "p6-other-kinds", "predicted": { "silence": 5, "unrecognized": 8 }, "measured": { "silence": 5, "unrecognized": 8 }, "hit": true },
+    { "id": "p7-total-sa", "predicted": 33, "range": [29, 33], "measured": 33, "hit": true },
+    { "id": "p8-basis-unchanged", "predicted": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+      "measured": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)", "hit": true,
+      "note": "正規化本文の上で走査し区間だけ元テキストへ写し戻す実装にしたので、countFillerHits の値は現行と完全一致。既存の basis テスト 5 件も無改変で通った" }
+  ],
+  "verification": {
+    "packages/akari-tools npm test": { "tests": 365, "pass": 364, "fail": 0, "skipped": 1, "duration_sec": 43.9 },
+    "npm run test:unit (CI pure lane)": { "tests": 1908, "pass": 1902, "fail": 0, "skipped": 6, "duration_sec": 381, "entries": 16 }
+  },
+  "findings": [
+    "SA basis の最長スパン 1.38 秒（filler-21.1「あの」21.12–22.5）は抽出の誤りではなく SpeechAnalyzer 自身の語時刻。SA の words は 1 文字単位だが、当該「あ」に 21.12–22.32（1.2 秒）が割り当てられており、直前の間・引き伸ばしが文字へ寄せられている。同種は filler-118.3（「あ」118.32–119.22）。中央値・受け入れ条件には影響しないが、切ると前の語の余韻まで落ちる可能性がある",
+    "whisper basis の filler-95.4 は区間 0.02 秒。whisper-cpp の語時刻が潰れている箇所で、これも抽出ではなくエンジン側の時刻。0.02 秒のカットは実質無音の除去にしかならない",
+    "SA の「まああの」（154.8–155.94）は 2 件のフィラー候補として隣接して出る（まあ 154.8–155.58 / あの 155.58–155.94）。語彙が異なるので『連続同一は言い直しに譲る』規則には当たらず、意図どおり両方残る",
+    "旧実装が SA で拾えていた 2 件は segment 先頭のフィラーのみ（FILLER_PREFIX 由来）。新実装ではその 2 件が『冒頭のフィラー』として同じ reason のまま残り、文中の 18 件が新たに増えた形になっている"
+  ],
+  "follow_ups": [
+    "『連続する同一フィラーは言い直しに譲る』の判定で、フィラー間のすき間を [、,\\s]* としている。読点で繋がった連続は言い直しの正規表現が拾うが、空白だけで繋がった連続（「あの あの」）は言い直しの正規表現が区切り文字に空白を許さないためどちらの候補にもならず、静かに落ちる。dogfood では該当 0 件だが、空白で分かち書きするエンジン（cloud 系）を basis にすると当たりうる。次の較正の種",
+    "フィラー候補の区間は basis エンジンの語時刻をそのまま信じている。SA は間を直前の文字へ寄せる癖があり、最長 1.38 秒のスパンが出る。切り位置の精度を上げるなら、語時刻ではなく silencedetect の無音境界へスナップする案がある",
+    "unrecognized 8 件は 2026-09-08 実測の transcripts（minGapSec 0.45 時代）をそのまま使ったため v0.1 の再実測値（起こし直し後 1 件）とは異なる。本票はフィラー抽出の単独効果を見るために transcripts を固定しており、未認識の件数は本票の評価対象外"
+  ]
+}
