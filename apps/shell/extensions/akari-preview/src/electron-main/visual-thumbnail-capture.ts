@@ -47,8 +47,17 @@ export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise
                 let croppedImage: string | undefined;
                 if (crop) {
                     try {
-                        // The capture is one DIP per page unit, so the page-coordinate rectangle crops directly.
-                        const cropped = bitmap.crop(crop).resize({ width: crop.width, height: crop.height });
+                        // nativeImage.crop() works in getSize() coordinates, which are twice the page on HiDPI captures.
+                        const scaleX = size.width / page.width, scaleY = size.height / page.height;
+                        const region = {
+                            x: Math.min(size.width - 1, Math.max(0, Math.round(crop.x * scaleX))),
+                            y: Math.min(size.height - 1, Math.max(0, Math.round(crop.y * scaleY))),
+                            width: Math.max(1, Math.round(crop.width * scaleX)),
+                            height: Math.max(1, Math.round(crop.height * scaleY))
+                        };
+                        region.width = Math.min(region.width, size.width - region.x);
+                        region.height = Math.min(region.height, size.height - region.y);
+                        const cropped = bitmap.crop(region).resize({ width: crop.width, height: crop.height });
                         const croppedSize = cropped.getSize();
                         if (croppedSize.width === crop.width && croppedSize.height === crop.height) croppedImage = cropped.toDataURL();
                     } catch {
