@@ -1,10 +1,13 @@
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { handEditedLines } from '../../common/cuts-view';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { captionsButtonLabel } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { BaseWidget, ApplicationShell, OpenerService } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -205,6 +208,11 @@ export class AkariDaihonWidget extends BaseWidget {
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
 
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(ApplicationShell) protected readonly applicationShell!: ApplicationShell;
+    @inject(OpenerService) protected readonly opener!: OpenerService;
+    protected readonly handEditedCaptionIds = new Set<string>();
+
     @inject(QuickPickService)
     protected readonly quickPick!: QuickPickService;
 
@@ -371,7 +379,8 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.reload();
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const relevant = (this.editUri && event.contains(this.editUri))
-                || (this.captionsUri && event.contains(this.captionsUri));
+                || (this.captionsUri && event.contains(this.captionsUri))
+                || event.changes.some(change => change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
             if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
             }
@@ -438,7 +447,24 @@ export class AkariDaihonWidget extends BaseWidget {
             const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
             if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
             this.captionsButton.textContent = '字幕を作成中…';
-            const request = { projectRoot, source: source.id, transcribeFirst: states[source.path] !== 'done' };
+            const compareSet = this.preferences.get<string[]>('akari.transcribe.compareSet', []);
+            let options = {};
+            if (states[source.path] !== 'done' || compareSet.length) {
+                let stopListening: (() => void) | undefined;
+                const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
+                    this.projectService, this.fileService, this.commands, async (start, end) => {
+                        stopListening?.();
+                        stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
+                            this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
+                        if (dialog.isDisposed) stopListening();
+                    });
+                try {
+                    const selected = await dialog.open();
+                    if (!selected) return;
+                    options = selected;
+                } finally { stopListening?.(); }
+            }
+            const request = { projectRoot, source: source.id, ...options, transcribeFirst: false };
             const result = await this.projectService.buildCaptions(request);
             if (result.needsForce) {
                 const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
@@ -476,7 +502,16 @@ export class AkariDaihonWidget extends BaseWidget {
             );
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
+            this.handEditedCaptionIds.clear();
+            for (const source of await this.captionSources()) {
+                const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
+                    .catch(error => { this.notify(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
+                for (const line of handEditedLines(artifacts?.cuts ?? null)) {
+                    const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
+                }
+            }
             this.renderRows(next);
+            for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
             this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
@@ -590,6 +625,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const root = document.createElement('div');
         root.className = 'akari-daihon-row';
         root.dataset.captionId = row.id;
+        if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
         root.classList.toggle('iscut', row.outStart === null);
         root.classList.toggle('selected', this.selection.selected.includes(row.id));
         root.classList.toggle('qc-hidden', this.qcFilter && rowIssues(row).length === 0);
