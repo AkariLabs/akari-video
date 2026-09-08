@@ -1,15 +1,26 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
-import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
-import { CommandContribution, CommandRegistry } from '@theia/core/lib/common';
+import { CommonCommands } from '@theia/core/lib/browser';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { Message } from '@theia/core/shared/@lumino/messaging';
+import { CommandContribution, CommandRegistry, CommandService } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
+import { StoreConnectionFlowController, StoreConnectionFlowState } from 'akari-project/lib/common/store-connection-flow';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { AKARI_BORDER, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import {
     AkariConnectionsService, ConnectionDoctor, ConnectionRow, ConnectionsList, TRANSCRIBE_BACKENDS, TranscribeBackend
 } from '../common/akari-connections-protocol';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
-import { AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET } from './akari-preferences';
+import { AkariHomeCommands } from './akari-home-command-contribution';
+import {
+    AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
+    AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION,
+    WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
+    SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
+    normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
+    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId
+} from '../common/settings-sections';
 
 const ENGINE_LABELS: Record<string, string> = {
     'speech-analyzer': 'SpeechAnalyzer（この Mac）', 'whisper-cpp': 'Whisper.cpp（ローカル）',
@@ -22,6 +33,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
     protected readonly storage = element('div');
+    protected readonly storeRow = element('article');
+    protected readonly sections = new Map<SettingsSectionId, HTMLElement>();
+    protected readonly storeController: StoreConnectionFlowController;
+    protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
+    protected storeReconnect = false;
+    protected storeStatusGeneration = 0;
+    protected pendingSection: SettingsSectionId | undefined;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
     protected compareEnabled: boolean;
@@ -31,19 +49,30 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly preferences: PreferenceService,
         protected readonly service: AkariConnectionsService,
         protected readonly storeService: AkariProjectService,
-        protected readonly openStore: () => Promise<void>
+        protected readonly windows: WindowService,
+        protected readonly commands: CommandService
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
         this.compareEnabled = this.compareDraft.length > 0;
-        this.buildDom();
-        this.renderTranscribe();
-        this.toDispose.push(preferences.onPreferenceChanged(change => {
-            if (change.preferenceName.startsWith('akari.transcribe.')) {
-                this.renderTranscribe();
+        this.storeController = new StoreConnectionFlowController(storeService, {
+            openVerificationUrl: url => windows.openNewWindow(url, { external: true }),
+            onChange: state => {
+                if (this.isDisposed) { return; }
+                this.storeState = state;
+                this.renderStore();
+                void this.refreshStoreEntitlements();
             }
+        });
+        this.toDispose.push(this.storeController);
+        this.buildDom();
+        for (const section of SETTINGS_SECTIONS) { this.renderSection(section.id); }
+        this.toDispose.push(preferences.onPreferenceChanged(change => {
+            const section = sectionForPreferenceKey(change.preferenceName);
+            if (section) { this.renderSection(section); }
         }));
         void this.loadConnections();
+        void this.storeController.refreshStatus();
     }
 
     get value(): void { return undefined; }
@@ -70,49 +99,121 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         nav.setAttribute('aria-label', '設定の項目');
         Object.assign(nav.style, { flex: '0 0 180px', maxWidth: '32%', overflowY: 'auto', padding: '16px 8px', borderRight: AKARI_BORDER.hairline });
         nav.append(element('h3', '設定'));
-        for (const [label, target] of [
-            ['はじめかた', 'start'], ['書き出し', 'export'], ['プレビュー品質', 'quality'],
-            ['文字起こし', 'transcribe'], ['接続と API キー', 'connections'], ['通知', 'notifications'], ['道具', 'tools']
-        ]) {
-            nav.append(this.navigation(label, target));
+        for (const section of SETTINGS_SECTIONS) {
+            if (section.group === 'developer') { nav.append(element('h3', '開発者')); }
+            nav.append(this.navigation(section.label, section.id));
         }
-        nav.append(element('h3', '開発者'), this.navigation('開発者モード', 'developer'));
         Object.assign(this.body.style, { flex: '1', minWidth: '0', overflowY: 'auto', padding: '20px 24px', scrollBehavior: 'smooth' });
         this.notice.setAttribute('role', 'alert');
         this.notice.style.color = 'var(--theia-errorForeground)';
         this.body.append(this.notice);
-        for (const [label, id] of [['はじめかた', 'start'], ['書き出し', 'export'], ['プレビュー品質', 'quality']]) {
-            this.body.append(this.later(label, id));
+        for (const section of SETTINGS_SECTIONS) {
+            const node = section.id === 'transcribe' ? this.transcribe
+                : section.id === 'connections' ? this.connections : element('section');
+            node.id = settingsSectionElementId(section.id);
+            node.setAttribute('data-akari-settings-section', section.id);
+            node.style.paddingBottom = '20px';
+            this.sections.set(section.id, node);
+            this.body.append(node);
         }
-        this.transcribe.id = 'akari-settings-transcribe';
-        this.transcribe.setAttribute('data-akari-settings-section', 'transcribe');
-        this.connections.id = 'akari-settings-connections';
-        this.connections.setAttribute('data-akari-settings-section', 'connections');
+        this.storeRow.setAttribute('data-akari-store-settings', 'true');
+        styleCard(this.storeRow);
         this.connections.append(element('h2', '接続と API キー'), description('登録後は末尾 4 桁だけを表示します。鍵はレポート・差分・チャットへ出しません。'), this.providerList, this.storage);
-        this.providerList.textContent = '接続を読み込んでいます…';
-        this.body.append(this.transcribe, this.connections);
-        for (const [label, id] of [['通知', 'notifications'], ['道具', 'tools'], ['開発者モード', 'developer']]) {
-            this.body.append(this.later(label, id));
-        }
+        this.providerList.append(description('接続を読み込んでいます…'), this.storeRow);
+        this.renderStore();
         this.contentNode.append(nav, this.body);
     }
 
-    protected navigation(label: string, target: string): HTMLButtonElement {
-        const button = action(label, () => {
-            this.body.querySelector(`#akari-settings-${target}`)?.scrollIntoView({ block: 'start' });
-            for (const item of Array.from(this.contentNode.querySelectorAll('[data-settings-nav]'))) { item.removeAttribute('aria-current'); }
-            button.setAttribute('aria-current', 'true');
-        });
+    scrollToSection(section: SettingsSectionId): void {
+        this.pendingSection = section;
+        if (!this.isAttached) { return; }
+        this.sections.get(section)?.scrollIntoView({ block: 'start' });
+        for (const item of Array.from(this.contentNode.querySelectorAll('[data-settings-nav]'))) {
+            if (item.getAttribute('data-settings-nav') === section) { item.setAttribute('aria-current', 'true'); }
+            else { item.removeAttribute('aria-current'); }
+        }
+        this.pendingSection = undefined;
+    }
+
+    protected override onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        if (this.pendingSection) { this.scrollToSection(this.pendingSection); }
+    }
+
+    protected navigation(label: string, target: SettingsSectionId): HTMLButtonElement {
+        const button = action(label, () => this.scrollToSection(target));
         button.setAttribute('data-settings-nav', target);
         Object.assign(button.style, { display: 'block', textAlign: 'left', width: '100%', margin: '4px 0', padding: '8px', whiteSpace: 'normal' });
-        if (target === 'transcribe' || target === 'connections') { button.style.color = 'var(--theia-textLink-foreground)'; }
         return button;
     }
 
-    protected later(label: string, id: string): HTMLElement {
-        const row = element('div', `${label} · 後で`);
-        row.id = `akari-settings-${id}`;
-        Object.assign(row.style, { color: 'var(--theia-descriptionForeground)', padding: '8px 0', fontSize: '12px' });
+    protected renderSection(id: SettingsSectionId): void {
+        if (id === 'transcribe') { this.renderTranscribe(); return; }
+        if (id === 'connections') { return; }
+        const section = this.sections.get(id)!;
+        section.replaceChildren(element('h2', SETTINGS_SECTIONS.find(item => item.id === id)!.label));
+        if (id === 'start' || id === 'tools') {
+            section.append(description(id === 'start' ? '初回セットアップで動画づくりの準備を進めます。' : '初回セットアップで道具の導入状況を確認できます。'),
+                action('初回セットアップを開く', () => {
+                    this.close();
+                    void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP.id);
+                }));
+        } else if (id === 'quality') {
+            const current = normalizeQualityTier(this.preferences.get(AKARI_QUALITY_TIER));
+            for (const option of QUALITY_TIER_CHOICES) {
+                const radio = choice('radio', option.label, current === option.value);
+                radio.input.name = 'akari-quality-tier';
+                radio.input.value = option.value;
+                radio.input.addEventListener('change', () => this.savePreference(AKARI_QUALITY_TIER, option.value));
+                section.append(radio.label);
+            }
+        } else if (id === 'notifications') {
+            section.append(this.preferenceCheckbox(AKARI_AGENT_TURN_END_NOTIFICATION, 'AI 完了通知', true),
+                description('Claude Code などの処理が終わったとき、通知でお知らせします（ウィンドウが背面のときだけ）。'));
+        } else if (id === 'developer') {
+            const theme = normalizeTheme(this.preferences.get(WORKBENCH_COLOR_THEME));
+            const themes: { value: string; label: string }[] = [...THEME_CHOICES];
+            if (!themes.some(option => option.value === theme)) { themes.push({ value: theme, label: theme }); }
+            section.append(this.preferenceCheckbox(AKARI_DEVELOPER_MODE, 'Developer mode', false),
+                description('HTML をコードとして開き、フル設定を利用できるようにします。'),
+                this.preferenceSelect(WORKBENCH_COLOR_THEME, 'テーマ', themes, theme));
+        } else if (id === 'export') {
+            const directory = element('input');
+            directory.type = 'text'; directory.className = 'theia-input';
+            directory.setAttribute('aria-label', '書き出し先フォルダの URI');
+            directory.value = normalizeOutputDirectory(this.preferences.get(AKARI_EXPORT_OUTPUT_DIRECTORY));
+            directory.addEventListener('change', () => this.savePreference(AKARI_EXPORT_OUTPUT_DIRECTORY, directory.value));
+            const directoryLabel = element('label', '書き出し先フォルダの URI ');
+            directoryLabel.append(directory);
+            section.append(this.preferenceSelect(AKARI_EXPORT_QUALITY, '書き出し画質', EXPORT_QUALITY_CHOICES,
+                normalizeExportQuality(this.preferences.get(AKARI_EXPORT_QUALITY))), directoryLabel,
+                description('空欄ではプロジェクトの exports/ を使います。'),
+                description('エンコーダーは書き出しダイアログと同じ設定です。くわしい設定から変更できます。'),
+                action('くわしい設定（フル設定を開く）', () => {
+                    this.close();
+                    void this.commands.executeCommand(CommonCommands.OPEN_PREFERENCES.id);
+                }));
+        }
+    }
+
+    protected preferenceCheckbox(key: string, label: string, fallback: boolean): HTMLLabelElement {
+        const control = choice('checkbox', label, this.preferences.get<boolean>(key, fallback));
+        control.input.setAttribute('aria-label', label);
+        control.input.addEventListener('change', () => this.savePreference(key, control.input.checked));
+        return control.label;
+    }
+
+    protected preferenceSelect(key: string, label: string, options: readonly { value: string; label: string }[], current: string): HTMLLabelElement {
+        const control = element('select');
+        control.className = 'theia-select'; control.setAttribute('aria-label', label);
+        for (const item of options) {
+            const option = element('option', item.label); option.value = item.value; control.append(option);
+        }
+        control.value = current;
+        control.addEventListener('change', () => this.savePreference(key, control.value));
+        const row = element('label', `${label} `);
+        Object.assign(row.style, { display: 'block', margin: '10px 0' });
+        row.append(control);
         return row;
     }
 
@@ -158,7 +259,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected savePreference(key: string, value: unknown): void {
         this.preferenceWrites = this.preferenceWrites.then(() => this.preferences.set(key, value, PreferenceScope.User)).catch(() => {
             this.notice.textContent = '設定を保存できませんでした。';
-            this.renderTranscribe();
+            if (!this.isDisposed) {
+                const section = sectionForPreferenceKey(key);
+                if (section) { this.renderSection(section); }
+            }
         });
     }
 
@@ -166,25 +270,65 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         try {
             const list = await this.service.listConnections();
             if (this.isDisposed) { return; }
-            this.providerList.replaceChildren(...list.providers.map(row => this.providerRow(row)));
-            const store = element('article');
-            styleCard(store);
-            const status = element('span', list.store.connected ? '接続済み' : '未接続');
-            status.setAttribute('role', 'status');
-            store.append(element('strong', 'AKARI Store'), description('素材・パックの購入と取得（デバイス接続）'), status, action('確認', () => {
-                this.close();
-                void this.openStore().catch(() => undefined);
-            }));
-            this.providerList.append(store);
+            this.providerList.replaceChildren(...list.providers.map(row => this.providerRow(row)), this.storeRow);
             this.renderStorage(list.credentials);
-            if (list.store.connected) {
-                try {
-                    const view = await this.storeService.getAssetCatalogView(undefined);
-                    if (storeReconnectRequired(true, view.entitlementsStatus)) { status.textContent = STORE_RECONNECT_REQUIRED_MESSAGE; }
-                } catch { /* Keep the same saved-credential status as home. */ }
-            }
         } catch {
-            this.providerList.replaceChildren(description('接続一覧を読み込めませんでした。'), action('再読み込み', () => void this.loadConnections()));
+            this.providerList.replaceChildren(description('接続一覧を読み込めませんでした。'), action('再読み込み', () => void this.loadConnections()), this.storeRow);
+        }
+    }
+
+    protected async refreshStoreEntitlements(): Promise<void> {
+        const generation = ++this.storeStatusGeneration;
+        if (!this.storeState.connection.connected || this.storeState.phase !== 'idle') {
+            this.storeReconnect = false;
+            this.renderStore();
+            return;
+        }
+        try {
+            const view = await this.storeService.getAssetCatalogView(undefined);
+            if (this.isDisposed || generation !== this.storeStatusGeneration) { return; }
+            this.storeReconnect = storeReconnectRequired(true, view.entitlementsStatus);
+            this.renderStore();
+        } catch { /* Keep the saved-credential status if the catalog is unavailable. */ }
+    }
+
+    protected renderStore(): void {
+        const state = this.storeState;
+        const busy = state.phase === 'starting' || state.phase === 'pending';
+        const status = element('span', state.connectionLoading ? '接続を確認しています…'
+            : state.phase === 'starting' ? '接続を開始しています…'
+                : state.phase === 'pending' ? `ブラウザで承認してください · 確認コード: ${state.userCode ?? ''}`
+                    : this.storeReconnect ? STORE_RECONNECT_REQUIRED_MESSAGE
+                        : state.connection.connected ? `接続中 · ${state.connection.email ?? state.connection.identifier ?? ''}` : '未接続');
+        status.setAttribute('role', 'status');
+        const url = (state.connection.url ?? 'https://akari-oss.app/api/store').replace(/\/api\/store\/?$/, '/lab/');
+        const controls = element('div');
+        Object.assign(controls.style, { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' });
+        controls.append(action('ストアを開く', () => this.windows.openNewWindow(url, { external: true })));
+        if (busy) {
+            controls.append(action('キャンセル', () => this.storeController.cancel()));
+        } else {
+            if (!state.connection.connected || this.storeReconnect) {
+                const connect = action(this.storeReconnect ? '再接続する' : '接続する', () => void this.storeController.start());
+                connect.disabled = state.connectionLoading;
+                controls.append(connect);
+            }
+            if (state.connection.connected) {
+                const disconnect = action('切断する', () => {
+                    disconnect.disabled = true;
+                    void this.storeController.disconnect().catch(() => {
+                        this.notice.textContent = 'AKARI Store から切断できませんでした。';
+                        if (!this.isDisposed) { this.renderStore(); }
+                    });
+                });
+                disconnect.disabled = state.connectionLoading;
+                controls.append(disconnect);
+            }
+        }
+        this.storeRow.replaceChildren(element('strong', 'AKARI Store'),
+            description('動画に使える素材や演出パックを探して購入できます。接続すると、購入済みの素材を AKARI Video で使えます。'), status, controls);
+        if (state.error) {
+            const error = description(state.error); error.setAttribute('role', 'alert'); this.storeRow.append(error);
         }
     }
 
@@ -277,13 +421,20 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(AkariConnectionsService) protected readonly connections!: AkariConnectionsService;
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
-    @inject(WidgetManager) protected readonly widgets!: WidgetManager;
-    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
+    @inject(WindowService) protected readonly windows!: WindowService;
+    @inject(CommandService) protected readonly commands!: CommandService;
+    protected dialog: AkariSettingsDialog | undefined;
+    protected pendingSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({ id: 'akari.settings.open', label: 'AKARI Video の設定' }, {
-            execute: () => {
+            execute: (arg?: unknown) => {
+                const section = resolveSettingsSectionId(arg);
+                if (section) {
+                    this.pendingSection = section;
+                    this.dialog?.scrollToSection(section);
+                }
                 if (!this.opened) {
                     this.opened = this.openSettings().finally(() => { this.opened = undefined; });
                 }
@@ -294,12 +445,15 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, async () => {
-            const widget = await this.widgets.getOrCreateWidget('akari-settings-widget');
-            if (!widget.isAttached) { await this.shell.addWidget(widget, { area: 'left', rank: 400 }); }
-            await this.shell.activateWidget(widget.id);
-        });
-        try { await dialog.open(); } finally { dialog.dispose(); }
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands);
+        this.dialog = dialog;
+        if (this.pendingSection) { dialog.scrollToSection(this.pendingSection); }
+        try { await dialog.open(); }
+        finally {
+            this.dialog = undefined;
+            this.pendingSection = undefined;
+            dialog.dispose();
+        }
     }
 }
 

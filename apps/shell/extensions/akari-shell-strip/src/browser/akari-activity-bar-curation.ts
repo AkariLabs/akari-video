@@ -71,14 +71,13 @@ interface LeftPanelInternals {
 
 // 既定 5 アイコン = 素材 / 検索 / パートナー・拡張 / 設定 / メニュー（task.md スコープ2 + 本ラウンド追加分）。
 // 「素材」は下記 MODE_SENSITIVE_PAIR の 2 id のどちらか一方だけが常時表示される。
-// akari-settings-widget は AkariSettingsContribution.onStart、
+// akari-settings-opener は AkariSettingsContribution.onStart、
 // akari-menu-widget は AkariMenuContribution.onStart で追加される自前 widget。
 const ALLOWLIST: CurationEntry[] = [
     { id: EXPLORER_VIEW_CONTAINER_ID, label: '素材' },
     { id: ROLE_BUCKETS_WIDGET_ID, label: null },
     { id: 'search-view-container', label: '検索' },
     { id: 'vsx-extensions-view-container', label: 'パートナー / 拡張' },
-    { id: 'akari-settings-widget', label: null },
     { id: 'akari-settings-opener', label: null },
     { id: MENU_WIDGET_ID, label: null }
 ];

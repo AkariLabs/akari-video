@@ -1,0 +1,90 @@
+{
+  "task": "2026-09-08-settings-migrate-legacy-widget",
+  "verified": "L0+L1",
+  "measuredAt": "2026-09-08T06:10:00Z",
+  "environment": {
+    "platform": "darwin arm64",
+    "node": "v26.3.0",
+    "electron": "node_modules/electron/dist/Electron.app（apps/shell を production ビルドして直起動）",
+    "isolation": "THEIA_CONFIG_DIR / --user-data-dir / AKARI_CREDENTIALS_FILE / AKARI_HOME を全て一時ディレクトリ（/tmp/lane-settings2/l1/**）へ向けた。本物の ~/.config/akari-video/credentials.env は md5 e8e995678c499150d5958bf882b78a79 / mtime 2026-09-08 14:34:22 のまま無改変"
+  },
+  "L0": {
+    "buildExt": { "before": "exit 0 / 0 errors", "after": "exit 0 / 0 errors" },
+    "lint": "exit 0 / 0 errors",
+    "theiaProductionBuild": "browser 0 errors / node 0 errors / electron 0 errors",
+    "testShell": {
+      "before": { "tests": 2892, "pass": 2892, "fail": 0 },
+      "after": { "tests": 2900, "pass": 2900, "fail": 0 },
+      "failSetIdentical": true,
+      "note": "BEFORE / AFTER とも失敗ゼロ（失敗集合は空で一致）"
+    },
+    "akariSurfacesSuite": { "before": 125, "after": 133 },
+    "settingsSectionsTests": { "file": "src/common/settings-sections.test.mjs", "tests": 8, "pass": 8 }
+  },
+  "L1": {
+    "railGearCount": {
+      "startup": 1,
+      "afterAllNavClicks": 1,
+      "afterDeveloperModeOn": 1,
+      "afterDialogClose": 1,
+      "afterHomeStoreSettings": 1,
+      "afterInjectedLayoutReload": 1,
+      "countedBy": ".theia-app-left の可視タブ（id 末尾 -hidden の採寸用複製を除外）中の .codicon-settings-gear"
+    },
+    "railTabIds": [
+      "shell-tab-akari-role-buckets-widget",
+      "shell-tab-search-view-container",
+      "shell-tab-vsx-extensions-view-container",
+      "shell-tab-akari-settings-opener",
+      "shell-tab-akari-menu-widget"
+    ],
+    "legacyWidgetTabPresent": false,
+    "navItems": ["start", "export", "quality", "transcribe", "connections", "notifications", "tools", "developer"],
+    "sectionIds": [
+      "akari-settings-start", "akari-settings-export", "akari-settings-quality",
+      "akari-settings-transcribe", "akari-settings-connections", "akari-settings-notifications",
+      "akari-settings-tools", "akari-settings-developer"
+    ],
+    "legacyFiveItems": {
+      "qualityTier": { "ui": "draft / final のラジオ", "wrote": "final" },
+      "theme": { "ui": "ダーク / ライトの select", "wrote": "light → dark" },
+      "developerMode": { "ui": "チェックボックス", "wrote": true, "effect": "左レールの「素材」が akari-role-buckets-widget → explorer-view-container へ入れ替わった" },
+      "agentTurnEndNotification": { "ui": "チェックボックス", "wrote": false },
+      "akariStore": { "rowCount": 1, "status": "未接続", "buttons": ["ストアを開く", "接続する"] }
+    },
+    "settingsJson": {
+      "akari.qualityTier": "final",
+      "akari.notifications.agentTurnEnd": false,
+      "akari.developerMode": true,
+      "workbench.colorTheme": "dark",
+      "akari.export.quality": "high",
+      "akari.export.outputDirectory": "file:///tmp/lane-settings2/exports"
+    },
+    "homeStoreSettings": {
+      "command": "akari.settings.open + { section: 'connections' }",
+      "dialogCount": 1,
+      "navAriaCurrent": "connections",
+      "connectionsSectionTopOffsetPx": 0
+    },
+    "savedLayoutRestore": {
+      "method": "localStorage の theia:<workspace>:layout の leftPanel.items へ factoryId 'akari-settings-widget' を注入して reload",
+      "injectedItems": ["explorer-view-container", "search-view-container", "akari-partner-catalog-factory", "akari-settings-opener", "akari-menu-widget", "akari-settings-widget"],
+      "afterReloadLegacyWidgetDomNodes": 0,
+      "afterReloadRailGearCount": 1,
+      "consoleErrorsMentioningLegacyWidget": 0
+    },
+    "consoleErrors": {
+      "coldStartPlusDialogOpen": 0,
+      "afterCdpPageReload": "9〜11 件（RangeError: Maximum call stack size exceeded ほか）。注入なしの素の reload でも同数出るため CDP からの page.reload() に由来し、本変更とも旧 widget 注入とも無関係"
+    },
+    "otherGearIcons": "レール外に Theia 標準の左サイドバー下部メニュー（.theia-sidebar-menu-item）の歯車が 1 つ残る（Theia 本体の Manage。本票のスコープ外）"
+  },
+  "screenshots": {
+    "01-startup.png": "起動直後。左レールは 素材 / 検索 / パートナー・拡張 / ⚙ / ≡ の 5 個で歯車は 1 個",
+    "02-after-all-navs.png": "⚙ → 設定ダイアログの 8 ナビを全部押した後。レールの歯車は 1 個のまま",
+    "03-home-store-settings.png": "ホームの「AKARI Store · 未接続」を押した後。設定ダイアログが 1 枚だけ開き、接続と API キー節が先頭に来ている",
+    "04-after-injected-layout-restore.png": "保存レイアウトへ旧 widget を注入して再読み込みした後。復元されずレールは 5 個のまま",
+    "05-developer-section-light.png": "開発者モード節（Developer mode ON + テーマ light 適用中）",
+    "06-connections-store-row.png": "接続と API キー節末尾の AKARI Store 行（状態 + ストアを開く / 接続する）"
+  }
+}
