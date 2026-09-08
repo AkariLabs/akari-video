@@ -37,6 +37,14 @@ Windows（WSL2 含む）に対応しています。詳細は [dev/windows-build.
 
 ## エラー対処
 
+**Q. チャットが途中で切れます**
+パートナーを「拡張」形態（Claude Code 拡張 / Codex 拡張）で使っている場合、
+拡張ホストが再起動すると会話が切れます。長い作業には CLI 形態をおすすめします
+（パートナー欄で「推奨」が付いている `Claude Code CLI` は PTY タブなので巻き込まれません）。
+切れた後は、パートナー欄で `/akari` と打つと今の状況から続けられます。
+ターミナルからは `akari --continue` です。詳細は
+[続きから再開する](./resume-session.ja.md)。
+
 **Q. edit-lint が FAIL する**
 `.akari/reports/edit-lint-report.html` に件数と理由が出ます。
 「lint の FAIL を直して」で対応まで頼めます。FAIL のままでは書き出しに進めません。

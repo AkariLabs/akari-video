@@ -12,6 +12,12 @@ interface PartnerCatalogEntryBase {
     agent: PartnerAgentId;
     name: string;
     description: string;
+    /**
+     * 選ぶ前に読ませたい注意書き（任意）。ピッカーはこのフィールドの有無だけで
+     * 表示を決める — `form` からの導出はしない（task/2026-09-08-partner-form-caution
+     * 指示1: 将来 form が増えてもデータ側の宣言だけで済むようにする）。
+     */
+    caution?: string;
     recommended: boolean;
 }
 

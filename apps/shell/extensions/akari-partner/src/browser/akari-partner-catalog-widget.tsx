@@ -80,6 +80,7 @@ export class AkariPartnerCatalogWidget extends ReactWidget {
             <strong>{entry.name}</strong>
             <code style={{ display: 'block', marginTop: 5, opacity: 0.72, fontSize: 11 }}>{entry.id}</code>
             <p style={{ margin: '8px 0', opacity: 0.76, fontSize: 12, lineHeight: 1.4 }}>{entry.description}</p>
+            {entry.caution && <p style={cautionStyle} data-partner-caution={entry.id}>{entry.caution}</p>}
             {verifiesBinary && <div style={{ fontSize: 11, color: 'var(--theia-list-warningForeground, #cca700)', marginBottom: 8 }}>
                 導入時にプラットフォーム用バイナリを検証
             </div>}
@@ -118,6 +119,17 @@ const slotLabelStyle: React.CSSProperties = {
     fontSize: 10,
     fontWeight: 600,
     letterSpacing: '0.06em'
+};
+
+// entry.caution（任意フィールド）の 1 行。description（opacity 0.76）より読ませたいので
+// opacity を上げ、色はこのファイルが既に使っている警告前景（バイナリ検証の注記と同じ
+// --theia-list-warningForeground）をそのまま流用する — 新しい色定数は足さない。
+const cautionStyle: React.CSSProperties = {
+    margin: '0 0 8px',
+    opacity: 0.92,
+    fontSize: 11,
+    lineHeight: 1.45,
+    color: 'var(--theia-list-warningForeground, #cca700)'
 };
 
 const badgeStyle: React.CSSProperties = {

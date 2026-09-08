@@ -41,6 +41,15 @@ are your "edit history," directly.
 
 ## Error handling
 
+**Q. My chat cuts off partway through**
+If you run a partner in its "extension" form (the Claude Code / Codex extensions),
+the conversation is cut off whenever the extension host restarts. For long sessions we
+recommend the CLI form (`Claude Code CLI`, the entry marked as recommended in the partner
+pane, runs in a PTY tab and is not affected).
+After a cutoff, type `/akari` in the partner pane to continue from the current state; from
+a terminal, use `akari --continue`. See
+[Resume where you left off](./resume-session.md) for details.
+
 **Q. edit-lint FAILs**
 `.akari/reports/edit-lint-report.html` shows the count and reasons. You can ask
 "fix the lint FAILs" to have it handled for you. You can't proceed to export while
