@@ -1,0 +1,10 @@
+[
+  {
+    "scenario": "empty-and-drop",
+    "pass": true
+  },
+  {
+    "scenario": "existing",
+    "pass": true
+  }
+]

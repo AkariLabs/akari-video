@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "src-1", "path": "../assets/take-a.mp4" }
+  ],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "clip-1", "at": 25, "duration": 60, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 2 } }
+    ] }
+  ]
+}
