@@ -1,0 +1,23 @@
+{
+  "note": "codex（サンドボックス内）の自己検証と、ラッパー（サンドボックス外）の再実測を並べて残す。合否はラッパーの実測を正とする。",
+  "codexSandbox": {
+    "note": "codex-companion のサンドボックスは 127.0.0.1 への listen を許可しないため、akari-preview の HTTP テスト 15 件が listen EPERM で落ちる。Electron も SIGABRT で起動できない。どちらも製品側の赤ではない。",
+    "checks": [
+      { "cwd": "apps/shell", "command": "npm run build:ext", "exitCode": 0 },
+      { "cwd": "apps/shell", "command": "npm run lint", "exitCode": 0 },
+      { "cwd": ".", "command": "npm run test:shell", "exitCode": 1, "tests": 3033, "pass": 3018, "fail": 15,
+        "failure": "All 15 failures are akari-preview HTTP tests: listen EPERM: operation not permitted 127.0.0.1" }
+    ]
+  },
+  "wrapperMeasured": {
+    "note": "ラッパーが worktree 内で実測（2026-09-08 19:28-19:30 JST・codex の追加ガード適用後）。ログは lint.log / test-shell.log。",
+    "checks": [
+      { "cwd": "apps/shell", "command": "npm run build:ext", "exitCode": 0 },
+      { "cwd": "apps/shell", "command": "npm run lint", "exitCode": 0, "log": "lint.log" },
+      { "cwd": ".", "command": "npm run test:shell", "exitCode": 0, "tests": 3033, "pass": 3033, "fail": 0,
+        "annotations": { "tests": 1101, "pass": 1101, "fail": 0 }, "log": "test-shell.log" },
+      { "cwd": ".", "command": "node --test apps/shell/extensions/akari-annotations/test/timeline-empty-state.test.mjs", "exitCode": 0, "tests": 4, "pass": 4 },
+      { "cwd": "apps/shell", "command": "npm run build (theia build --mode production)", "exitCode": 0, "note": "L1 の実機起動に必要なバンドル生成" }
+    ]
+  }
+}

@@ -605,7 +605,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.review.location = location;
         const widget = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID);
         this.trackTimelineWidget(widget);
-        await widget.configure(location);
+        await widget.configure(location, uri => this.refreshLocationEditUri(uri));
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'bottom' });
         }
@@ -733,6 +733,20 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected async locate(): Promise<ProjectLocation | undefined> {
         this.projectLocationPromise ??= this.resolveProjectLocation();
         return this.projectLocationPromise;
+    }
+
+    /** 初回の素材追加・外部作成で見つかった edit.json をセッションの参照へ反映する。 */
+    async refreshLocationEditUri(uri: URI): Promise<ProjectLocation | undefined> {
+        const location = await this.locate();
+        if (!location) return undefined;
+        const updated = {
+            ...location, editUri: uri,
+            captionsUri: uri.parent.resolve('captions.json'),
+            reviewUri: uri.parent.resolve('review.json')
+        };
+        this.projectLocationPromise = Promise.resolve(updated);
+        this.review.location = updated;
+        return updated;
     }
 
     protected async resolveProjectLocation(): Promise<ProjectLocation | undefined> {

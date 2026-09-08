@@ -5,6 +5,7 @@ import { CommandService, Disposable, MessageService } from '@theia/core/lib/comm
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { FileChangeType } from '@theia/filesystem/lib/common/files';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import 'akari-preview/lib/electron-common/electron-api';
@@ -38,6 +39,7 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { createTimelineEdit, relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
 import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
 import { trackHeaderControls } from '../common/track-header-controls';
 import { isTrackLocked, lockedTrackMessage } from '../common/track-lock-guard';
@@ -790,6 +792,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly annotationsClient!: AkariAnnotationsClientImpl;
 
     protected location: ProjectLocation | undefined;
+    protected timelineEmpty = false;
+    protected createEditPromise?: Promise<void>;
+    protected refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>;
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
@@ -4405,10 +4410,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn('素材を追加できません（パスが空です）。');
             return;
         }
+        if (!this.location) {
+            this.messages.warn('プロジェクトを開いてから素材を追加してください。');
+            return;
+        }
+        // 素材カード / OS ドロップのパスは root 相対。初回だけ生成先の edit.json 相対へ直す。
+        const initialMaterialUri = !this.location.editUri
+            ? this.resolveEditMediaUri(relativePath, this.location.root.resolve('edit.json')) : undefined;
+        try {
+            if (!this.location.editUri) await this.ensureTimelineEdit();
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`素材を追加できません: ${detail}`);
+            this.messages.error(`素材を追加できません: ${detail}`);
+            return;
+        }
         const location = this.location;
         if (!location?.editUri) {
-            this.messages.warn('edit.json が見つからないため素材を追加できません。');
+            const message = '素材を追加できません: edit.json が見つかりません。';
+            this.showNotice(message);
+            this.messages.error(message);
             return;
+        }
+        if (initialMaterialUri) {
+            relativePath = location.editUri.scheme === initialMaterialUri.scheme
+                && location.editUri.authority === initialMaterialUri.authority
+                ? relativeTimelineMaterialPath(location.editUri.parent.path.toString(), initialMaterialUri.path.toString())
+                : initialMaterialUri.toString();
         }
         let durationSeconds = 0;
         let fallbackNote = '';
@@ -5131,12 +5159,51 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
-    async configure(location: ProjectLocation): Promise<void> {
+    protected async adoptTimelineEdit(uri: URI): Promise<void> {
+        if (!this.location || this.location.editUri || !await this.fileService.exists(uri)) return;
+        const location = await this.refreshLocationEditUri?.(uri);
+        this.location = location ?? {
+            ...this.location, editUri: uri,
+            captionsUri: uri.parent.resolve('captions.json'), reviewUri: uri.parent.resolve('review.json')
+        };
+        this.title.caption = `タイムライン — ${this.location.reviewUri.toString()}`;
+        await this.reloadEdit();
+    }
+
+    protected async ensureTimelineEdit(): Promise<void> {
+        if (this.location?.editUri) return;
+        // 同時の初回追加でも雛形を一度だけ作り、外部で先に作られた編集を上書きしない。
+        this.createEditPromise ??= (async () => {
+            const uri = this.location!.root.resolve('project').resolve('edit.json');
+            if (!await this.fileService.exists(uri)) {
+                await this.fileService.createFolder(uri.parent);
+                try {
+                    await this.fileService.createFile(uri,
+                        BinaryBuffer.fromString(JSON.stringify(createTimelineEdit(), null, 2) + '\n'),
+                        { overwrite: false });
+                } catch (error) {
+                    if (!await this.fileService.exists(uri)) throw error;
+                }
+            }
+            await this.adoptTimelineEdit(uri);
+        })();
+        try {
+            await this.createEditPromise;
+        } finally {
+            this.createEditPromise = undefined;
+        }
+    }
+
+    async configure(
+        location: ProjectLocation,
+        refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>
+    ): Promise<void> {
         if (this.configured) {
             return;
         }
         this.configured = true;
         this.location = location;
+        this.refreshLocationEditUri = refreshLocationEditUri;
         this.title.caption = `タイムライン — ${location.reviewUri.toString()}`;
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
@@ -5156,6 +5223,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!this.location) {
                 return;
+            }
+            if (!this.location.editUri && !this.createEditPromise) {
+                const edit = event.changes.find(change => {
+                    if (change.type === FileChangeType.DELETED || change.resource.path.base !== 'edit.json') return false;
+                    const relative = this.location!.root.relative(change.resource)?.toString();
+                    // 初回探索と同じく、隠しディレクトリや依存内の雛形は開かない。
+                    return !!relative && !relative.split('/').some(part => part.startsWith('.') || part === 'node_modules');
+                });
+                if (edit) void this.adoptTimelineEdit(edit.resource).catch(error => {
+                    this.showNotice(`編集データを読み込めません: ${this.errorMessage(error)}`);
+                });
             }
             let visualChanged = false;
             for (const [id, dependencies] of this.visualDependencies) {
@@ -5404,6 +5482,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async reloadEdit(sourceOverride?: string): Promise<void> {
         const generation = ++this.editReloadGeneration;
+        this.timelineEmpty = !!this.location && !this.location.editUri;
         if (this.location?.editUri) {
             try {
                 const diskSource = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();
@@ -6716,6 +6795,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.beginKeyedRender('strip');
         this.beginKeyedRender('ruler');
         this.renderRuler();
+
+        if (this.timelineEmpty) {
+            this.keyedNode('strip', 'timeline-empty-state', 'empty', () => {
+                const message = document.createElement('p');
+                message.dataset.akariUiLabel = 'タイムライン空状態';
+                message.textContent = timelineEmptyStateMessage(false);
+                Object.assign(message.style, {
+                    margin: '24px', color: 'var(--theia-descriptionForeground)',
+                    lineHeight: '1.6', pointerEvents: 'none'
+                });
+                return message;
+            });
+        }
 
         // レーン構造は Premiere 型配置原則（R6 契約 §1 裁定 1・2026-07-25）: 見せ場 → 字幕帯
         // → オーバーレイのトラック行（track 降順）→ レイヤー → クリップ帯 → オーディオ（複数
