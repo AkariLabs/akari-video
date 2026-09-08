@@ -267,6 +267,8 @@ export class AkariHomeWidget extends ReactWidget {
     protected readonly storeService: AkariProjectService;
 
     protected watching = false;
+    // 起動時のホーム表示に必要なデータがすべて揃ったことを DOM から観測する。
+    protected homeReady = false;
 
     // --- F11 ウェルカム画面（状態 0・task 2026-08-05-welcome-screen） ---
     // `workspaceService.roots` が空（プロジェクト未選択で起動）のときだけ true。
@@ -389,31 +391,51 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     async start(): Promise<void> {
+        const timings: Record<string, number> = {};
+        const perf = typeof performance !== 'undefined'
+            && typeof performance.mark === 'function' && typeof performance.measure === 'function'
+            ? performance : undefined;
+        const measureStep = async <T,>(step: string, run: () => Promise<T>): Promise<T> => {
+            const name = `akari-home:${step}`;
+            perf?.mark(`${name}:start`);
+            try {
+                return await run();
+            } finally {
+                if (perf) {
+                    perf.mark(`${name}:end`);
+                    timings[`${step} (ms)`] = perf.measure(name, `${name}:start`, `${name}:end`).duration;
+                    // CDP が後から読む measure は残し、一時 mark だけを片付ける。
+                    perf.clearMarks?.(`${name}:start`);
+                    perf.clearMarks?.(`${name}:end`);
+                }
+            }
+        };
         // F11: ウェルカム判定は roots の有無だけを見る軽い判定なので最初に済ませる
         // （後続のロードが終わるのを待たせない）。
-        await this.refreshWelcomeMode();
-        await this.loadHomeFlow();
-        await this.loadCreatorRootProjects();
+        await measureStep('refreshWelcomeMode', () => this.refreshWelcomeMode());
+        await measureStep('loadHomeFlow', () => this.loadHomeFlow());
+        await measureStep('loadCreatorRootProjects', () => this.loadCreatorRootProjects());
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
-        await this.loadStandaloneProjects();
-        const firstRunWillAutoOpen = await this.initializeFirstRunSetup();
-        // ランチャー（正本 §3.2）: 完全初回はセットアップが優先するため、その場合はここでは
-        // 開かない — セットアップの onFinished からの明示 open に続きを委ねる。
-        await this.initializeProjectLauncher(firstRunWillAutoOpen);
+        await measureStep('loadStandaloneProjects', () => this.loadStandaloneProjects());
+        const firstRunWillAutoOpen = await measureStep('initializeFirstRunSetup', () => this.initializeFirstRunSetup());
         // U2: 状態バッジの解決（creatorRootUri）の後に読む — 現在地がチャンネルの
         // 内側かどうかの判定に使うため。
-        await this.refreshCurrentLocation();
-        // 更新チェック（契約の起動非ブロック原則）: キャッシュの読み比較は待つが
-        // （ローカル I/O のみ・十分高速）、バックグラウンド fetch はここで await しない
-        // （loadUpdateStatus 内で fire-and-forget にしてある）。
-        await this.loadUpdateStatus();
+        await measureStep('refreshCurrentLocation', () => this.refreshCurrentLocation());
+        this.homeReady = true;
+        this.update();
+        // ランチャーは別モーダルでホーム面のデータを作らないため後段へ（初回セットアップの優先判定は引き継ぐ）。
+        await measureStep('initializeProjectLauncher', () => this.initializeProjectLauncher(firstRunWillAutoOpen));
+        // 更新バナーはホームの判定・一覧に依存されず、結果取得時に再描画されるため後段へ。
+        await measureStep('loadUpdateStatus', () => this.loadUpdateStatus());
         // U3: electron-updater の main プロセスイベント購読（DL 済み・再起動ボタン状態）。
         // 同期メソッド（内部の IPC 呼び出しは fire-and-forget）— 起動をブロックしない。
         // 未署名の開発ビルド（`window.electronAkariUpdater` 不在）では何もせず沈黙する。
         this.initUpdaterEvents();
-        // F2: 「更新されました」ポップアップ（U2 のリモートフィード比較とは独立・
-        // ローカル前回起動記録のみで判定。起動を待たせないほど重くはないため await する）。
-        await this.checkVersionNotice();
+        // バージョン通知は独立したトーストと起動記録の更新で、ホーム面のデータを作らないため後段へ。
+        await measureStep('checkVersionNotice', () => this.checkVersionNotice());
+        if (perf) {
+            console.table([timings]);
+        }
         if (this.watching) {
             return;
         }
@@ -427,6 +449,14 @@ export class AkariHomeWidget extends ReactWidget {
                 void this.refreshHomeFlow();
             }
         }));
+    }
+
+    protected override onActivateRequest(msg: Message): void {
+        super.onActivateRequest(msg);
+        if (!this.node.contains(document.activeElement)) {
+            this.node.tabIndex = -1;
+            this.node.focus({ preventScroll: true });
+        }
     }
 
     /**
@@ -2079,6 +2109,7 @@ export class AkariHomeWidget extends ReactWidget {
             <div
                 className='akari-home-surface'
                 data-akari-home-stage='dashboard'
+                data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 data-akari-dropzone='true'
                 onDragOver={this.handleDragOver}
                 onDragLeave={this.handleDragLeave}
@@ -2114,6 +2145,7 @@ export class AkariHomeWidget extends ReactWidget {
             <div
                 className='akari-home-surface akari-home-welcome'
                 data-akari-home-stage='welcome'
+                data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 style={homeFlowStyles.welcomeSurface}
             >
                 <div style={homeFlowStyles.welcomeStack}>
