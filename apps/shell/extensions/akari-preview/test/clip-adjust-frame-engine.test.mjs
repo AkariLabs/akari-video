@@ -48,6 +48,6 @@ test('shell frame-engine parses item cube text before planning cuts and layers',
   assert.match(source, /const resolveSummaryItemAdjust = \(item, summary\) =>/u);
   assert.match(source, /lut: engine\.parseCube\(cubeText\)/u);
   assert.match(source, /return resolveSummaryItemAdjust\(\{[\s\S]+?\}, value\);/u);
-  assert.match(source, /const layer = resolveSummaryItemAdjust\(rawLayer, value\)/u);
+  assert.match(source, /const \{ renderTrack, trackId: _trackId, \.\.\.renderLayer \} = rawLayer;\s+const layer = resolveSummaryItemAdjust\(\{ \.\.\.renderLayer,\s+\.\.\.\(Number\.isInteger\(renderTrack\) \? \{ track: renderTrack \} : \{\}\) \}, value\);/u);
   assert.match(source, /engine\.buildResolvedTimelinePlan\(nextCuts, \{\s+fps,\s+layers: nextLayers/u);
 });

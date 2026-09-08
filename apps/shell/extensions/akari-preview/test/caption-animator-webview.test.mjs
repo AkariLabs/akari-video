@@ -193,3 +193,76 @@ test('chars の HTML エスケープは render-cut の captionCharRenderer と�
         + '<span class="akari-caption__char" data-akari-char="3">&gt;</span>'
         + '<span class="akari-caption__char" data-akari-char="4">&amp;</span>');
 });
+
+for (const engine of [true, false]) {
+    test(`${engine ? 'frame-engine' : 'DOM video'}: tick/seek は実際の選択関数で字幕・cut・layer と HTML を排他化する`, () => {
+        const view = harness({ engine, cues: [cue] });
+        let selected = null;
+        const events = [];
+        const microtasks = [];
+        const overlay = {
+            children: [], style: { visibility: 'visible' },
+            getAttribute: name => name === 'data-overlay-id' ? 'html-1' : null,
+            getBoundingClientRect: () => ({ left: 40, top: 20, width: 120, height: 60 }),
+            dispatchEvent(event) { events.push(event); selected = this; }
+        };
+        Object.assign(view.context, {
+            stage: {
+                querySelector: selector => selector.includes('data-overlay-id') ? selected : selected && {},
+                querySelectorAll: () => [overlay]
+            },
+            getComputedStyle: element => element.style,
+            MouseEvent: class { constructor(type, options) { Object.assign(this, { type }, options); } },
+            KeyboardEvent: class { constructor(type, options) { Object.assign(this, { type }, options); } },
+            queueMicrotask: task => microtasks.push(task)
+        });
+        view.context.window.addEventListener('keydown', event => {
+            events.push(event);
+            if (event.key === 'Escape') selected = null;
+        });
+        view.context.summary.layers = [{ id: 'layer-1' }];
+        view.context.video.dataset = { akariCutId: 'cut-1' };
+        const selectHtml = () => {
+            view.run("requestedOverlayId = 'html-1';");
+            view.tick(4);
+            assert.equal(selected, overlay);
+            assert.equal(view.run('applyingOverlaySelection'), 'html-1');
+            microtasks.shift()();
+            assert.equal(view.run('applyingOverlaySelection'), undefined);
+            assert.deepEqual([events.at(-1).type, events.at(-1).clientX, events.at(-1).clientY], ['click', 100, 50]);
+        };
+        selectHtml();
+        view.tick(4.2);
+        assert.equal(events.length, 1, 'already selected HTML is not clicked again');
+        view.context.requestedCutId = 'cut-1';
+        view.context.cutSelected = true;
+        view.context.selectedLayerId = 'layer-1';
+        view.selectionEffects.length = 0;
+        view.run("selectCaption('c1', { report: false });");
+        assert.equal(view.context.selectedCaptionId, 'c1');
+        assert.equal(view.context.requestedCutId, undefined);
+        assert.equal(view.context.cutSelected, false);
+        assert.equal(view.context.selectedLayerId, null);
+        assert.deepEqual(view.selectionEffects, ['cut-box', 'caption-box']);
+        assert.equal(view.run('requestedOverlayId'), null);
+        view.seek(4.5);
+        assert.equal(selected, null);
+        assert.equal(events.at(-1).key, 'Escape');
+        const count = events.length;
+        view.tick(4.6);
+        assert.equal(events.length, count, 'cleared HTML is not cleared again');
+        for (const kind of ['Cut', 'Layer']) {
+            selectHtml();
+            view.run(kind === 'Cut' ? 'selectCut({ report: false });'
+                : "selectLayer('layer-1', { report: false });");
+            assert.equal(view.context.selectedCaptionId, null);
+            assert.equal(view.context.cutSelected, kind === 'Cut');
+            assert.equal(view.context.selectedLayerId, kind === 'Layer' ? 'layer-1' : null);
+            assert.equal(view.run('requestedOverlayId'), null);
+            if (engine) view.installEngineSeek().seek(4.5);
+            else view.seek(4.5);
+            assert.equal(selected, null);
+            assert.equal(events.at(-1).key, 'Escape');
+        }
+    });
+}
