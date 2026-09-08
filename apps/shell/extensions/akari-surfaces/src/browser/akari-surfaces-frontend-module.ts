@@ -20,6 +20,7 @@ import { AkariWelcomeWindowTitleContribution } from './akari-welcome-window-titl
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 
 import { AkariSettingsCommandContribution } from './akari-settings-dialog';
+import { AkariSettingsDialogStyleContribution } from './style/akari-settings-dialog-style';
 import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
 
 export default new ContainerModule(bind => {
@@ -28,6 +29,8 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
     bind(AkariSettingsCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariSettingsCommandContribution);
+    bind(AkariSettingsDialogStyleContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariSettingsDialogStyleContribution);
 
     bind(AkariModeSwitchContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariModeSwitchContribution);
