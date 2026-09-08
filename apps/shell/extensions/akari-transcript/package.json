@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf lib",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs src/common/*.test.mjs"
   },
   "dependencies": {
     "@akari-video/edit-store": "file:../../../../packages/edit-store",

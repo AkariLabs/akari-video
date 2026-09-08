@@ -76,3 +76,13 @@ export function normalizeExportQuality(value: unknown): typeof EXPORT_QUALITY_CH
 export function normalizeOutputDirectory(value: unknown): string {
     return typeof value === 'string' ? value : '';
 }
+
+/** Recompute from current geometry after every resize; clamping also makes short
+ * end sections settle without repeatedly trying an unreachable scroll position. */
+export function settingsSectionScrollTop(layout: {
+    scrollTop: number; sectionTop: number; viewportTop: number; maxScrollTop: number;
+}): number | undefined {
+    const top = Math.max(0, Math.min(Math.max(0, layout.maxScrollTop),
+        layout.scrollTop + layout.sectionTop - layout.viewportTop));
+    return Math.abs(top - layout.scrollTop) < 1 ? undefined : top;
+}

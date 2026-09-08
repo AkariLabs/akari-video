@@ -46,3 +46,10 @@ test('sizeLabel にコマンド文字列や URL が紛れ込んでいない', ()
         }
     }
 });
+
+test('SpeechAnalyzer guidance points to the existing macOS CLT installer', () => {
+    assert.equal(TOOL_UI['speech-analyzer'].name, 'SpeechAnalyzer');
+    assert.equal(TOOL_UI['speech-analyzer'].badge, '推奨');
+    assert.match(TOOL_UI['speech-analyzer'].note, /macOS 26/);
+    assert.match(TOOL_UI['speech-analyzer'].note, /Command Line Tools/);
+});

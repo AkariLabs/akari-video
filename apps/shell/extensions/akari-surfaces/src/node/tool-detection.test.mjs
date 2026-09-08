@@ -221,7 +221,7 @@ test('whisper: 本体は検出できてもモデル未取得なら行全体は a
     assert.equal(whisper.model.path, undefined);
 });
 
-test('whisper モデル: AKARI_WHISPER_MODEL の実在パスが最優先で検出される', async t => {
+test('whisper モデル: WHISPER_CPP_MODEL の実在パスが最優先で検出される', async t => {
     const scratch = await mkdtemp(join(tmpdir(), 'akari-tools-whisper-model-env-'));
     t.after(() => rm(scratch, { recursive: true, force: true }));
     const customModel = join(scratch, 'custom-model.bin');
@@ -233,7 +233,7 @@ test('whisper モデル: AKARI_WHISPER_MODEL の実在パスが最優先で検�
     await chmod(fakeWhisper, 0o755);
 
     const result = await detectTools({
-        platform: 'linux', env: { PATH: bin, AKARI_WHISPER_MODEL: customModel }, homeDir: scratch
+        platform: 'linux', env: { PATH: bin, WHISPER_CPP_MODEL: customModel }, homeDir: scratch
     });
     const whisper = tool(result, 'whisper');
     assert.equal(whisper.model.available, true);
@@ -241,7 +241,7 @@ test('whisper モデル: AKARI_WHISPER_MODEL の実在パスが最優先で検�
     assert.equal(whisper.available, true);
 });
 
-test('whisper モデル: 何も無ければ未取得（AKARI_WHISPER_MODEL 未設定・models/ ディレクトリ自体が無い）', async t => {
+test('whisper モデル: 何も無ければ未取得（WHISPER_CPP_MODEL 未設定・models/ ディレクトリ自体が無い）', async t => {
     const scratch = await mkdtemp(join(tmpdir(), 'akari-tools-whisper-model-none-'));
     t.after(() => rm(scratch, { recursive: true, force: true }));
 
@@ -249,4 +249,95 @@ test('whisper モデル: 何も無ければ未取得（AKARI_WHISPER_MODEL 未�
     const whisper = tool(result, 'whisper');
     assert.equal(whisper.model.available, false);
     assert.equal(whisper.model.path, undefined);
+});
+
+// The CLI and shell consume this exact ordered table and exclusion predicate.
+import { whisperModelLocations, whisperModelCandidates, isWhisperModelExcluded } from '../../../../../../packages/akari-tools/src/media/whisper-model-candidates.mjs';
+
+test('CLI model locations keep their priority, recursive search and exclusions', async t => {
+    const scratch = await mkdtemp(join(tmpdir(), 'akari-model-candidates-'));
+    t.after(() => rm(scratch, { recursive: true, force: true }));
+    const options = { env: { WHISPER_CPP_MODEL: join(scratch, 'override.bin') }, homeDir: scratch, repoRoot: join(scratch, 'repo'), bin: join(scratch, 'bin/whisper-cli') };
+    const locations = whisperModelLocations(options);
+    assert.deepEqual(locations.map(item => item.path), [
+        options.env.WHISPER_CPP_MODEL,
+        join(scratch, '.akari/tools/models'), join(scratch, 'repo/models'), join(scratch, 'repo/whisper.cpp/models'),
+        join(scratch, '.cache/whisper.cpp'), join(scratch, 'Library/Caches/whisper.cpp'), join(scratch, 'share/whisper-cpp'),
+        '/opt/homebrew/share/whisper-cpp', '/usr/local/share/whisper-cpp',
+        join(scratch, 'Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels')
+    ]);
+    assert.equal(locations[0].recursive, false);
+    assert.ok(locations.slice(1).every(item => item.recursive));
+    for (const candidate of ['for-tests-model.bin', 'ggml-tiny.en.bin']) assert.equal(isWhisperModelExcluded(candidate), true);
+    assert.equal(isWhisperModelExcluded('/for-tests-parent/ggml-large.bin'), false);
+    const nested = join(locations[1].path, 'nested/GGML-large.BIN');
+    await mkdir(join(locations[1].path, 'nested'), { recursive: true });
+    await writeFile(nested, 'test');
+    assert.ok(whisperModelCandidates(options).includes(nested));
+    assert.equal(whisperModelCandidates(options)[0], options.env.WHISPER_CPP_MODEL);
+});
+
+test('VoiceInk alone is ready; removing it makes the model missing; nested English models are ignored', async t => {
+    const scratch = await mkdtemp(join(tmpdir(), 'akari-model-voiceink-'));
+    t.after(() => rm(scratch, { recursive: true, force: true }));
+    const voiceInk = join(scratch, 'Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/nested');
+    await mkdir(voiceInk, { recursive: true });
+    const model = join(voiceInk, 'ggml-large-v3-turbo-q5_0.bin');
+    await writeFile(model, 'test');
+    await writeFile(join(voiceInk, 'ggml-tiny.en.bin'), 'test');
+    const options = {
+        platform: 'darwin', env: {}, homeDir: scratch, repoRoot: scratch, devSearchRoots: [],
+        // Isolate global Homebrew paths without changing the real installation.
+        pathExists: async path => path.startsWith(scratch) && await import('node:fs').then(fs => fs.existsSync(path)),
+        listDir: async path => path.startsWith(scratch) ? await import('node:fs/promises').then(fs => fs.readdir(path, { recursive: true })).catch(() => []) : [],
+        runCommand: async command => ({ ok: command === 'whisper-cli', stdout: 'ok', stderr: '' })
+    };
+    let result = tool(await detectTools(options), 'whisper');
+    assert.equal(result.available, true);
+    assert.deepEqual(result.model, { available: true, path: model });
+    await rm(model);
+    result = tool(await detectTools(options), 'whisper');
+    assert.equal(result.available, false);
+    assert.deepEqual(result.needs, ['モデルが無い']);
+});
+
+test('shell uses WHISPER_CPP_MODEL first and excludes test/English overrides', async () => {
+    for (const override of ['/override.bin', '/for-tests-model.bin', '/ggml-tiny.en.bin']) {
+        const result = await detectTools({
+            platform: 'linux', homeDir: '/isolated', repoRoot: '/repo', devSearchRoots: [],
+            env: { WHISPER_CPP_MODEL: override }, pathExists: async () => true,
+            listDir: async path => path === '/isolated/.akari/tools/models' ? ['ggml-large.bin'] : [],
+            runCommand: async () => ({ ok: true, stdout: '', stderr: '' })
+        });
+        assert.equal(tool(result, 'whisper').model.path, override === '/override.bin' ? override : '/isolated/.akari/tools/models/ggml-large.bin');
+    }
+});
+
+test('SpeechAnalyzer uses the CLI --check helper on macOS and reports OS / CLT conditions', async () => {
+    for (const [value, expected] of [
+        [{ available: true }, { available: true }],
+        [{ available: false, reason: 'swiftc が PATH 上にありません' }, { available: false, needs: ['Command Line Tools が無い'] }],
+        [{ available: false, reason: 'macOS 15.0 は 26 未満です' }, { available: false, unsupported: true, needs: ['macOS 15.0 は 26 未満です'] }]
+    ]) {
+        const calls = [];
+        const result = await detectTools({
+            platform: 'darwin', env: {}, homeDir: '/isolated', repoRoot: '/repo', devSearchRoots: [], listDir: async () => [],
+            pathExists: async path => path === '/repo/skills/analyze-footage/bin/transcribe-sa.mjs',
+            runCommand: async (command, args, env) => {
+                calls.push({ command, args, env });
+                return { ok: args.includes('--check'), stdout: JSON.stringify(value), stderr: '' };
+            }
+        });
+        assert.deepEqual(tool(result, 'speech-analyzer'), { id: 'speech-analyzer', tier: 'recommended', ...expected });
+        assert.ok(calls.some(call => call.command === process.execPath && call.args[0] === '/repo/skills/analyze-footage/bin/transcribe-sa.mjs' && call.args[1] === '--check' && call.env.ELECTRON_RUN_AS_NODE === '1'));
+    }
+    for (const platform of ['linux', 'win32']) {
+        const calls = [];
+        const result = await detectTools({ platform, env: {}, homeDir: '/isolated', repoRoot: '/repo', devSearchRoots: [],
+            pathExists: async () => false, listDir: async () => [],
+            runCommand: async (_, args) => { calls.push(args); return { ok: false, stdout: '', stderr: '' }; }
+        });
+        assert.deepEqual(tool(result, 'speech-analyzer'), { id: 'speech-analyzer', tier: 'recommended', available: false, unsupported: true });
+        assert.equal(calls.some(args => args.includes('--check')), false);
+    }
 });

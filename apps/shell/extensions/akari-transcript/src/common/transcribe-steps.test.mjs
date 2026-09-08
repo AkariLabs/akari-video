@@ -88,3 +88,29 @@ test('compare needs at least two distinct checked engines and never falls back t
         assert.equal(transcribeExitOptions('compare', { backend: 'speech-analyzer', compareSet }), undefined);
     }
 });
+
+import { transcribeEngineAvailability } from '../../lib/common/transcribe-steps.js';
+test('engine badges distinguish ready, missing model/CLT, missing key and unsupported OS', () => {
+    assert.deepEqual(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: true }], []),
+        { state: 'available', label: '使える', needs: [] });
+    assert.deepEqual(transcribeEngineAvailability('whisper-cpp', [{ id: 'whisper', available: false, executable: '/bin/whisper', model: { available: false } }], []),
+        { state: 'needs', label: '準備が要る（モデルが無い）', needs: ['モデルが無い'] });
+    assert.deepEqual(transcribeEngineAvailability('speech-analyzer', [{ id: 'speech-analyzer', available: false, needs: ['Command Line Tools が無い'] }], []),
+        { state: 'needs', label: '準備が要る（Command Line Tools が無い）', needs: ['Command Line Tools が無い'] });
+    assert.deepEqual(transcribeEngineAvailability('speech-analyzer', [{ id: 'speech-analyzer', available: false, unsupported: true }], []),
+        { state: 'unsupported', label: 'この OS では使えない', needs: [] });
+    for (const id of ['scribe', 'groq']) {
+        const providerId = id === 'scribe' ? 'elevenlabs' : id;
+        assert.deepEqual(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: false, doctor: { status: 'unconfigured', detail: '' } }]),
+            { state: 'unconfigured', label: '鍵が未登録', needs: [] });
+        assert.equal(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: true, doctor: { status: 'ok', detail: '' } }]).state, 'available');
+        for (const status of ['unchecked', 'unauthorized', 'setup_required']) {
+            assert.equal(transcribeEngineAvailability(`cloud:${id}`, [], [{ id: providerId, configured: true, doctor: { status, detail: '' } }]).state, 'needs');
+        }
+    }
+});
+test('missing status is never treated as a ready engine or an unregistered key', () => {
+    for (const id of ['speech-analyzer', 'whisper-cpp', 'cloud:scribe', 'cloud:groq']) {
+        assert.equal(transcribeEngineAvailability(id, [], []).state, 'needs');
+    }
+});
