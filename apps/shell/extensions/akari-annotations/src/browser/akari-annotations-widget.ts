@@ -1250,6 +1250,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
         // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
+        this.stripScroll.addEventListener('pointerdown', () => { this.suppressNextStripClick = false; }, true);
         const hideHoverSeek = (): void => { this.seekHoverPoint = undefined; this.hoverSeek.style.display = 'none'; };
         const refreshHoverSeek = (): void => { this.hoverSeek.style.display = 'none'; this.scheduleSeekHoverRefresh(); };
         for (const surface of [this.stripScroll, this.rulerBar]) {
@@ -11338,6 +11339,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.preventDefault();
             event.stopPropagation();
             if (!state.dragged) {
+                // Opening the inspector can replace/reflow the chip before the synthesized click.
+                // Consume that click even if the browser retargets it to the empty strip.
+                this.suppressNextStripClick = true;
                 this.cancelDrag(state);
                 // ソーストリマー（R6c-2）: クリップ本体（cut-move 判定＝エッジ以外）へのダブルクリックで
                 // トリマーモードへ入る。ブラウザ標準 'dblclick' は上記 preventDefault により

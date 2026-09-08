@@ -194,7 +194,11 @@ const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
     if (nextSignature !== mountedSignature && !remounting) {
       mountedSignature = nextSignature;
       const presentation = snapshotPresentation();
+      const stage = document.getElementById('overlay-stage');
+      // Caption and transition hosts belong to the preview, not the overlay runtime.
+      const hosts = stage ? [...stage.children].filter(element => !element.hasAttribute('data-overlay-id')) : [];
       remounting = Promise.resolve(mount(summary)).then(() => {
+        if (stage) stage.append(...hosts);
         restorePresentation(presentation);
         tick(timelineTime, isPlaying);
       }).catch(error => console.error('[akari-preview] overlay remount failed', error))

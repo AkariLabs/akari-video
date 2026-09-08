@@ -10133,6 +10133,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
+                if (nextId) window.akari.interaction?.clearSelection?.();
                 if (nextId === selectedLayerId) {
                     updateLayerSelectBox();
                     return;
@@ -10143,8 +10144,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 for (const button of layerPerspectivePresetButtons) button.classList.remove('is-active');
                 selectedLayerId = nextId;
                 // ㉓ 選択の排他制御: layer を選ぶと cut/caption 選択は外れる（逆方向はそれぞれの select 側）。
-                if (nextId && typeof deselectCut === 'function') deselectCut({ report: true });
-                if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: true });
+                if (nextId && typeof deselectCut === 'function') deselectCut({ report: false });
+                if (nextId && typeof deselectCaption === 'function') deselectCaption({ report: false });
                 if (nextId) {
                     const measured = findLayerEntry(nextId);
                     // 選択時点のフレームで測り直す（updateLayerSelectBox が遅延計測する）
@@ -10903,6 +10904,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const selectCut = options => {
                 const report = !options || options.report !== false;
+                window.akari.interaction?.clearSelection?.();
                 if (cutSelected) {
                     updateCutSelectBox();
                     if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
@@ -10910,8 +10912,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 cutSelected = true;
                 ensureCutSourceNaturalSize();
-                selectLayer(null, { report: true });
-                if (typeof deselectCaption === 'function') deselectCaption({ report: true });
+                selectLayer(null, { report: false });
+                if (typeof deselectCaption === 'function') deselectCaption({ report: false });
                 updateCutSelectBox();
                 if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
             };
@@ -11220,6 +11222,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
+                if (captionId) window.akari.interaction?.clearSelection?.();
                 if (captionId === selectedCaptionId) {
                     updateCaptionSelectBox();
                     if (report) window.akari.reportCaptionSelection(selectedCaptionId);
@@ -11227,8 +11230,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 selectedCaptionId = captionId;
                 if (captionId) {
-                    selectLayer(null, { report: true });
-                    deselectCut({ report: true });
+                    selectLayer(null, { report: false });
+                    deselectCut({ report: false });
                 }
                 updateCaptionSelectBox();
                 if (report) window.akari.reportCaptionSelection(selectedCaptionId);
@@ -14510,6 +14513,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const selectedOverlayId = selected?.getAttribute('data-overlay-id') || null;
                 if (selectedOverlayId !== lastReportedOverlayId) {
                     lastReportedOverlayId = selectedOverlayId;
+                    if (selectedOverlayId) {
+                        selectLayer(null, { report: false });
+                        deselectCut({ report: false });
+                        deselectCaption({ report: false });
+                    }
                     requestedOverlayId = undefined;
                     window.akari.reportOverlaySelection(selectedOverlayId);
                 }
