@@ -1,11 +1,11 @@
 import { ApplicationShell, BaseWidget, OpenerService } from '@theia/core/lib/browser';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, DisposableCollection } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
-import { CUT_KIND_LABELS, cutsSummary, isHandEditedCandidate } from '../../common/cuts-view';
+import { CUT_KIND_LABELS, cutsSummary, cutsViewNotice, isHandEditedCandidate } from '../../common/cuts-view';
 import { listenTranscribeRange, transcribeButton, transcribeElement } from './akari-transcribe-dialog';
 
 @injectable()
@@ -26,7 +26,10 @@ export class AkariCutsWidget extends BaseWidget {
     protected readonly foot = transcribeElement('div');
     protected readonly notice = transcribeElement('p');
     protected tail = Promise.resolve();
-    protected configured = false;
+    protected listening = false;
+    protected readonly watches = new DisposableCollection();
+    protected configuration = 0;
+    protected loading = 0;
 
     @postConstruct() protected init(): void {
         this.id = AkariCutsWidget.FACTORY_ID; this.title.label = 'カット'; this.title.caption = '文字起こしのカット候補'; this.title.closable = false;
@@ -38,42 +41,106 @@ export class AkariCutsWidget extends BaseWidget {
         this.picker.onchange = () => { this.source = this.picker.value; this.queueReload(); };
         this.notice.setAttribute('role', 'status'); this.node.append(this.picker, this.band, this.list, this.foot, this.notice);
     }
+    showError(error: unknown): void {
+        this.notice.textContent = cutsViewNotice(!!this.root, error);
+    }
     async configure(): Promise<void> {
-        if (this.configured) return; this.configured = true;
-        const workspace = (await this.workspace.roots)[0]?.resource;
-        if (!workspace) return;
-        const find = async (directory: URI): Promise<URI | undefined> => {
+        const configuration = ++this.configuration;
+        ++this.loading;
+        this.watches.dispose();
+        this.root = undefined;
+        this.source = '';
+        this.cuts = null;
+        this.picker.replaceChildren();
+        this.band.textContent = '';
+        this.list.replaceChildren();
+        this.foot.replaceChildren();
+        this.notice.textContent = cutsViewNotice(false);
+        try {
+            if (!this.listening) {
+                this.listening = true;
+                // Keep the final cleanup registered when a reconfiguration disposes the watches.
+                this.toDispose.push({ dispose: () => this.watches.dispose() });
+                this.toDispose.push(this.workspace.onWorkspaceChanged(() => {
+                    void this.configure().catch(error => this.showError(error));
+                }));
+                this.toDispose.push(this.files.onDidFilesChange(event => {
+                    if (event.changes.some(change => change.resource.path.base === 'edit.json'
+                        && !this.root?.isEqualOrParent(change.resource))) {
+                        void this.configure().catch(error => this.showError(error));
+                    } else if (event.changes.some(change => this.root?.isEqualOrParent(change.resource)
+                        && ['edit.json', 'cuts.json'].includes(change.resource.path.base))) this.queueReload();
+                }));
+            }
+            const workspaces = await this.workspace.roots;
+            if (configuration !== this.configuration || this.isDisposed) return;
+            // Watch the workspace even before edit.json exists, so creating a project is observed.
+            for (const workspace of workspaces) {
+                try {
+                    const watch = await this.files.watch(workspace.resource, { recursive: true, excludes: [] });
+                    if (configuration !== this.configuration || this.isDisposed) { watch.dispose(); return; }
+                    this.watches.push(watch);
+                } catch (error) {
+                    console.warn('[akari-cuts] file watching is unavailable', error);
+                }
+            }
+            for (const workspace of workspaces) {
+                const root = await this.find(workspace.resource);
+                if (configuration !== this.configuration || this.isDisposed) return;
+                if (root) { this.root = root; break; }
+            }
+            this.notice.textContent = cutsViewNotice(!!this.root);
+            await this.reload();
+        } catch (error) {
+            if (configuration === this.configuration && !this.isDisposed) this.showError(error);
+        }
+    }
+    protected async find(directory: URI, depth = 0): Promise<URI | undefined> {
+        if (depth > 6 || this.isDisposed) return undefined;
+        try {
             if (await this.files.exists(directory.resolve('edit.json'))) return directory;
+            if (depth === 6) return undefined;
             const stat = await this.files.resolve(directory);
             for (const child of stat.children ?? []) {
                 if (child.isDirectory && !child.resource.path.base.startsWith('.') && child.resource.path.base !== 'node_modules') {
-                    const root = await find(child.resource); if (root) return root;
+                    const root = await this.find(child.resource, depth + 1);
+                    if (root) return root;
                 }
             }
-            return undefined;
-        };
-        this.root = await find(workspace);
-        if (!this.root) { this.notice.textContent = 'edit.json のあるプロジェクトを開いてください'; return; }
-        this.toDispose.push(await this.files.watch(this.root, { recursive: true, excludes: [] }));
-        this.toDispose.push(this.files.onDidFilesChange(event => {
-            if (event.changes.some(change => this.root!.isEqualOrParent(change.resource)
-                && ['edit.json', 'cuts.json'].includes(change.resource.path.base))) this.queueReload();
-        }));
-        await this.reload();
+        } catch {
+            // Unreadable directories (including TCC / EACCES) must not prevent startup.
+        }
+        return undefined;
     }
     protected queueReload(): void {
-        this.tail = this.tail.then(() => this.reload()).catch(error => { this.notice.textContent = String(error); });
+        this.tail = this.tail.then(() => this.reload()).catch(error => this.showError(error));
     }
     protected async reload(): Promise<void> {
-        if (!this.root) return;
-        const edit = JSON.parse((await this.files.readFile(this.root.resolve('edit.json'))).value.toString());
-        const sources: { id: string; path: string }[] = edit.sources ?? (edit.source ? [{ id: 'source', ...edit.source }] : []);
-        this.picker.replaceChildren();
-        for (const source of sources) { const option = transcribeElement('option', source.id); option.value = source.path; this.picker.append(option); }
-        if (!sources.some(source => source.path === this.source)) this.source = sources[0]?.path ?? '';
-        this.picker.value = this.source;
-        this.cuts = this.source ? (await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.source })).cuts : null;
-        this.renderCuts();
+        const root = this.root;
+        if (!root) return;
+        const configuration = this.configuration, loading = ++this.loading;
+        const current = () => configuration === this.configuration && loading === this.loading && !this.isDisposed;
+        try {
+            const edit = JSON.parse((await this.files.readFile(root.resolve('edit.json'))).value.toString());
+            if (!current()) return;
+            const sources: { id: string; path: string }[] = edit.sources ?? (edit.source ? [{ id: 'source', ...edit.source }] : []);
+            const source = sources.some(item => item.path === this.source) ? this.source : sources[0]?.path ?? '';
+            this.picker.replaceChildren();
+            for (const item of sources) { const option = transcribeElement('option', item.id); option.value = item.path; this.picker.append(option); }
+            this.source = source;
+            this.picker.value = source;
+            const cuts = source ? (await this.service.readTranscribeArtifacts({ projectRoot: root.toString(), relativePath: source })).cuts : null;
+            if (!current()) return;
+            this.cuts = cuts;
+            this.notice.textContent = cutsViewNotice(true);
+            this.renderCuts();
+        } catch (error) {
+            if (current()) {
+                this.cuts = null;
+                this.renderCuts();
+                this.showError(error);
+            }
+        }
     }
     protected renderCuts(): void {
         const summary = cutsSummary(this.cuts);
