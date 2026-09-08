@@ -33,7 +33,7 @@ test('後続の mousedown で武装を更新し、主ボタン以外の click �
     assert.deepEqual(dialogOutsideClick(true, 'click', overlay, overlay, 2), { armed: false, close: false });
 });
 
-test('ブラーと薄暗背景は設定オーバーレイだけに適用し、opacity のみを遷移する', () => {
+test('ブラーと薄暗背景は設定オーバーレイだけに適用し、ページ切替も同じ範囲に閉じる', () => {
     const css = AKARI_SETTINGS_DIALOG_CSS;
     assert.match(css, /backdrop-filter:\s*blur\(6px\)/);
     assert.match(css, /-webkit-backdrop-filter:\s*blur\(6px\)/);
@@ -42,5 +42,12 @@ test('ブラーと薄暗背景は設定オーバーレイだけに適用し、op
     const transitions = [...css.matchAll(/transition:\s*([^;]+);/g)].map(match => match[1]);
     assert.deepEqual(transitions, ['opacity 120ms ease', 'none']);
     const selectors = [...css.matchAll(/([^{}]+)\{/g)].map(match => match[1].trim()).filter(selector => !selector.startsWith('@media'));
-    assert.deepEqual(selectors, Array(2).fill('.lm-Widget.dialogOverlay[data-akari-settings-dialog]'));
+    assert.deepEqual(selectors, [
+        '[data-akari-settings-dialog] [data-akari-settings-section][hidden]',
+        '.lm-Widget.dialogOverlay[data-akari-settings-dialog]',
+        '.lm-Widget.dialogOverlay[data-akari-settings-dialog]'
+    ]);
+    for (const selector of selectors) {
+        assert.ok(selector.includes('[data-akari-settings-dialog]'), selector);
+    }
 });

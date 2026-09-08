@@ -3,6 +3,10 @@ import type { FrontendApplicationContribution } from '@theia/core/lib/browser';
 
 // 表示属性の付与漏れやフェード中の detach で透明のまま残らないよう、フェードインは行わない。
 export const AKARI_SETTINGS_DIALOG_CSS = `
+[data-akari-settings-dialog] [data-akari-settings-section][hidden] {
+    display: none !important;
+}
+
 .lm-Widget.dialogOverlay[data-akari-settings-dialog] {
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);

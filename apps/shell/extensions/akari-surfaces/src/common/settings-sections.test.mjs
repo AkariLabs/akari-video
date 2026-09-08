@@ -3,7 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
-    resolveSettingsSectionId, settingsSectionElementId, settingsSectionScrollTop, normalizeQualityTier,
+    resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
+    SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
+    normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES
 } from '../../lib/common/settings-sections.js';
@@ -94,21 +96,115 @@ test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
     assert.equal(source('../browser/akari-settings-dialog.ts').includes('akari-settings-widget'), false);
 });
 
-
-test('非同期ロードで上の節が伸びるたびに現在の幾何から指定節の位置を補正する', () => {
-    // Attach initially reaches the end of the still mostly empty pane.
-    assert.equal(settingsSectionScrollTop({ scrollTop: 0, sectionTop: 450, viewportTop: 100, maxScrollTop: 200 }), 200);
-    // Connections arrives first, pushing tools far below the viewport.
-    assert.equal(settingsSectionScrollTop({ scrollTop: 200, sectionTop: 1150, viewportTop: 100, maxScrollTop: 1500 }), 1250);
-    // A later Store response changes the layout again; no retry-count limit.
-    assert.equal(settingsSectionScrollTop({ scrollTop: 1250, sectionTop: 180, viewportTop: 100, maxScrollTop: 1700 }), 1330);
-    assert.equal(settingsSectionScrollTop({ scrollTop: 1330, sectionTop: 100, viewportTop: 100, maxScrollTop: 1700 }), undefined);
+test('ページ選択では全 8 節のうち自分だけを表示する', () => {
+    for (const { id: selected } of SETTINGS_SECTIONS) {
+        const visible = SETTINGS_SECTIONS.filter(({ id }) => isSettingsSectionVisible(id, selected));
+        assert.deepEqual(visible.map(({ id }) => id), [selected]);
+    }
 });
 
-test('前の節への移動・縮小・末尾の短い節でもスクロール範囲を超えず、整列後は動かさない', () => {
-    assert.equal(settingsSectionScrollTop({ scrollTop: 500, sectionTop: -200, viewportTop: 100, maxScrollTop: 1500 }), 200);
-    assert.equal(settingsSectionScrollTop({ scrollTop: 100, sectionTop: -100, viewportTop: 100, maxScrollTop: 1500 }), 0);
-    assert.equal(settingsSectionScrollTop({ scrollTop: 300, sectionTop: 400, viewportTop: 100, maxScrollTop: 300 }), undefined);
-    assert.equal(settingsSectionScrollTop({ scrollTop: 0, sectionTop: 200, viewportTop: 100, maxScrollTop: -100 }), undefined);
-    assert.equal(settingsSectionScrollTop({ scrollTop: 100, sectionTop: 100.5, viewportTop: 100, maxScrollTop: 1500 }), undefined);
+test('最後のページの復元は明示指定を優先し、不正な保存値は無視する', () => {
+    assert.equal(SETTINGS_LAST_SECTION_KEY, 'akari.settings.lastSection');
+    for (const { id } of SETTINGS_SECTIONS) {
+        assert.equal(initialSettingsSection(id, 'tools'), id);
+        assert.equal(initialSettingsSection({ section: id }, 'tools'), id);
+        assert.equal(initialSettingsSection(undefined, id), id);
+        assert.equal(initialSettingsSection('unknown', id), id);
+        assert.equal(initialSettingsSection({ section: 'unknown' }, id), id);
+        assert.equal(initialSettingsSection(id, 'unknown'), id);
+    }
+    for (const stored of [undefined, null, '', 'unknown', {}, [], 1, true]) {
+        assert.equal(initialSettingsSection(undefined, stored), 'start');
+        assert.equal(initialSettingsSection('unknown', stored), 'start');
+    }
+});
+
+test('全 akari スキーマキーをフォールバックに頼らずページに掲載する', () => {
+    const declared = Object.values(SECTION_PREFERENCE_KEYS).flat();
+    const schemaKeys = new Set();
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    for (const path of ['../browser/akari-preferences.ts', '../../../akari-shell-strip/src/browser/akari-export-preferences.ts']) {
+        const schema = source(path);
+        const constants = new Map([...schema.matchAll(/export const (\w+) = '(akari\.[^']+)'/g)]
+            .map(([, name, key]) => [name, key]));
+        for (const match of schema.matchAll(/(?:\[(\w+)\]|['"](akari\.[^'"]+)['"])\s*:\s*\{/g)) {
+            const key = match[2] ?? constants.get(match[1]);
+            if (!key) { continue; }
+            schemaKeys.add(key);
+            assert.ok(declared.includes(key), `${key} must be listed explicitly`);
+            const section = sectionForPreferenceKey(key);
+            assert.ok(section, key);
+            assert.ok(SECTION_PREFERENCE_KEYS[section].includes(key), key);
+            if (match[1]) {
+                assert.ok(dialog.includes(`this.preferences.get(${match[1]})`) ||
+                    dialog.includes(`this.preferences.get<boolean>(${match[1]},`) ||
+                    dialog.includes(`this.preferences.get<TranscribeBackend>(${match[1]},`) ||
+                    dialog.includes(`this.preferences.get<string[]>(${match[1]},`) ||
+                    dialog.includes(`this.preferenceCheckbox(${match[1]},`), `${key} has a form`);
+                assert.ok(dialog.includes(`this.savePreference(${match[1]},`) ||
+                    dialog.includes(`this.preferenceSelect(${match[1]},`) ||
+                    dialog.includes(`this.preferenceCheckbox(${match[1]},`), `${key} can be saved`);
+            }
+        }
+    }
+    assert.ok(schemaKeys.size >= 11, 'both preference schemas must be read');
+});
+
+test('全ページは共通の見出しと説明を持ち、hidden で切り替えてページ内だけスクロールする', () => {
+    for (const { id } of SETTINGS_SECTIONS) {
+        assert.equal(typeof SETTINGS_SECTION_DESCRIPTIONS[id], 'string');
+        assert.ok(SETTINGS_SECTION_DESCRIPTIONS[id].trim().length > 0, id);
+        assert.equal(SETTINGS_SECTION_DESCRIPTIONS[id].includes('\n'), false, id);
+    }
+    assert.equal(SETTINGS_SECTION_DESCRIPTIONS.quality,
+        '現在はこの値を読む機能がありません（AI 生成の品質段階として予約）');
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /element\('h2', SETTINGS_SECTIONS\.find\(item => item\.id === id\)!\.label\)/);
+    assert.match(dialog, /description\(SETTINGS_SECTION_DESCRIPTIONS\[id\]\)/);
+    assert.match(dialog, /section\.replaceChildren\(\.\.\.this\.sectionHeading\(id\)\)/);
+    assert.match(dialog, /this\.transcribe\.replaceChildren\(\.\.\.this\.sectionHeading\('transcribe'\)\)/);
+    assert.match(dialog, /this\.connections\.append\(\.\.\.this\.sectionHeading\('connections'\)/);
+    assert.match(dialog, /node\.hidden = true/);
+    assert.match(dialog, /node\.hidden = !isSettingsSectionVisible\(id, section\)/);
+    assert.match(dialog, /if \(!node\.hidden\) \{ node\.scrollTop = 0; \}/);
+    assert.match(dialog, /Object\.assign\(node\.style, \{[^}]*minHeight: '0', overflowY: 'auto'/);
+    assert.doesNotMatch(dialog, /scrollIntoView|scheduleSectionScroll|settingsSectionScrollTop|ResizeObserver|releaseScroll/);
+});
+
+test('ページの保存と復元は保存不可でも動き、コマンドからの直接指定を渡す', () => {
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /try \{ stored = localStorage\.getItem\(SETTINGS_LAST_SECTION_KEY\); \} catch/);
+    assert.match(dialog, /this\.showSection\(initialSettingsSection\(initialSection, stored\)\)/);
+    assert.match(dialog, /try \{ localStorage\.setItem\(SETTINGS_LAST_SECTION_KEY, section\); \} catch/);
+    assert.match(dialog, /action\(label, \(\) => this\.showSection\(target\)\)/);
+    assert.match(dialog, /const section = resolveSettingsSectionId\(arg\)/);
+    assert.match(dialog, /this\.dialog\?\.showSection\(section\)/);
+    assert.match(dialog, /new AkariSettingsDialog\([^;]*this\.requestedSection\)/);
+});
+
+test('形式・fps・OS ごとのエンコーダは有効値を保持し、不正値を既定に戻す', () => {
+    for (const { value } of EXPORT_CODEC_CHOICES) { assert.equal(normalizeExportCodec(value), value); }
+    for (const value of [24, 30, 60]) { assert.equal(normalizeExportFps(value), value); }
+    for (const [platform, encoders] of [
+        ['darwin', ['auto', 'videotoolbox', 'x264']],
+        ['win32', ['auto', 'nvenc', 'qsv', 'amf', 'mf', 'x264']],
+        ['linux', ['auto', 'x264']]
+    ]) {
+        for (const value of encoders) { assert.equal(normalizeExportEncoder(value, platform), value); }
+        for (const value of [undefined, null, 1, false, {}, [], '', 'unknown']) {
+            assert.equal(normalizeExportEncoder(value, platform), 'auto');
+        }
+    }
+    assert.equal(normalizeExportEncoder('nvenc', 'darwin'), 'auto');
+    assert.equal(normalizeExportEncoder('videotoolbox', 'win32'), 'auto');
+    assert.equal(normalizeExportEncoder('mf', 'linux'), 'auto');
+    for (const value of [undefined, null, 1, false, {}, [], '', 'unknown', '30', 25, 29.97]) {
+        assert.equal(normalizeExportCodec(value), 'h264');
+        assert.equal(normalizeExportFps(value), undefined);
+    }
+    assert.deepEqual(EXPORT_FPS_CHOICES.map(({ value }) => normalizeExportFps(Number(value))), [undefined, 24, 30, 60]);
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /this\.preferenceSelect\(AKARI_EXPORT_FPS,[\s\S]*?value => normalizeExportFps\(Number\(value\)\)/);
+    assert.match(dialog, /this\.savePreference\(key, toPreferenceValue\(control\.value\)\)/);
+    assert.match(dialog, /this\.preferences\.set\(key, value, PreferenceScope\.User\)/);
 });
