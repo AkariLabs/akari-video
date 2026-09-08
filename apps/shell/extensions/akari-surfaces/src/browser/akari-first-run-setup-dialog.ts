@@ -23,6 +23,7 @@ import {
 import {
     deriveToolSelection,
     describeToolInstallOutcome,
+    filterInstallableSelection,
     formatInstallProgressLabel,
     shortenHomePath,
     ToolSelectionSnapshot
@@ -31,7 +32,7 @@ import {
     computeDownloadPercent,
     formatDownloadProgressLabel
 } from '../common/tool-install-progress';
-import { TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
+import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
 
 const INSTALL_PROGRESS_POLL_INTERVAL_MS = 500;
 const INDETERMINATE_PROGRESS_STYLE_ID = 'akari-tool-install-indeterminate-style';
@@ -301,12 +302,13 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             this.renderState();
         });
         const hasUninstalled = tools.some(tool => !tool.available);
+        const installableCount = filterInstallableSelection(tools, this.selectedToolIds).size;
         const install = createButton(
-            this.installingTools ? 'インストール中…' : `選んだ道具をインストール（${this.selectedToolIds.size}）`,
+            this.installingTools ? 'インストール中…' : `選んだ道具をインストール（${installableCount}）`,
             'main'
         );
         install.setAttribute('data-akari-tool-install-selected', 'true');
-        install.disabled = this.installingTools || this.selectedToolIds.size === 0;
+        install.disabled = this.installingTools || installableCount === 0;
         install.addEventListener('click', () => void this.installSelectedTools());
         actions.append(next);
         if (hasUninstalled || this.toolCheck === undefined) {
@@ -317,6 +319,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
 
     protected createToolRow(tool: AkariToolCheckResult): HTMLElement {
         const info = TOOL_UI[tool.id];
+        const rowState = deriveToolRowState(tool);
         const row = document.createElement('article');
         row.setAttribute('data-akari-tool-id', tool.id);
         row.setAttribute('data-akari-tool-available', String(tool.available));
@@ -331,7 +334,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             width: '24px', height: '24px', flex: '0 0 auto', display: 'inline-flex',
             alignItems: 'center', justifyContent: 'center', marginTop: '1px'
         });
-        if (tool.available) {
+        if (tool.unsupported) {
+            leading.setAttribute('aria-hidden', 'true');
+        } else if (!rowState.showCheckbox) {
             leading.textContent = '✓';
             leading.setAttribute('aria-hidden', 'true');
             Object.assign(leading.style, {
@@ -378,7 +383,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             color: 'var(--theia-descriptionForeground)', fontSize: '10.5px', fontFamily: 'monospace'
         });
         const availability = document.createElement('span');
-        availability.textContent = tool.available ? 'インストール済み' : '未インストール';
+        availability.textContent = rowState.label;
         availability.setAttribute('data-akari-tool-availability-label', 'true');
         Object.assign(availability.style, {
             padding: '2px 7px', borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '10.5px', fontWeight: '700',
@@ -400,9 +405,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             color: BODY_TEXT_COLOR, fontSize: '12px', lineHeight: '1.6', margin: '5px 0 0'
         });
         body.append(nameRow, purpose);
-        if (info.note && (tool.id !== 'xcode-clt' || !tool.available)) {
+        if (shouldShowToolNote(tool)) {
             const note = document.createElement('p');
-            note.textContent = info.note;
+            note.textContent = info.note ?? '';
             Object.assign(note.style, {
                 margin: '7px 0 0', color: BODY_TEXT_COLOR, fontSize: '11.5px', lineHeight: '1.55', fontWeight: '600'
             });
@@ -502,7 +507,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         if (this.installingTools) {
             return;
         }
-        const ids = [...this.selectedToolIds];
+        const ids = [...filterInstallableSelection(this.toolCheck?.tools ?? [], this.selectedToolIds)];
         if (ids.length === 0) {
             return;
         }

@@ -53,7 +53,7 @@ export interface AkariToolCheckResponse {
     tools: AkariToolCheckResult[];
 }
 
-export type AkariToolInstallOutcome = 'installed' | 'external-installer-opened' | 'failed';
+export type AkariToolInstallOutcome = 'installed' | 'external-installer-opened' | 'failed' | 'skipped';
 
 export interface AkariToolInstallResult {
     id: AkariToolId;
