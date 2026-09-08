@@ -38,5 +38,5 @@
     "warning: 2026-09-08T12:49:17.575Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined"
   ],
   "consoleErrors": [],
-  "error": "Error: ENOTEMPTY, Directory not empty: /var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-PFbbOO '/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-l1-PFbbOO'\n    at rmSync (node:fs:1206:18)\n    at finish (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/extensions/akari-theme/evidence/init-layout-hardening/run-l1.mjs:88:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/extensions/akari-theme/evidence/init-layout-hardening/run-l1.mjs:114:5"
+  "error": "Error: ENOTEMPTY, Directory not empty: <TMP>/akari-l1-PFbbOO '<TMP>/akari-l1-PFbbOO'\n    at rmSync (node:fs:1206:18)\n    at finish (file://<WORKTREE>/apps/shell/extensions/akari-theme/evidence/init-layout-hardening/run-l1.mjs:88:5)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-theme/evidence/init-layout-hardening/run-l1.mjs:114:5"
 }
