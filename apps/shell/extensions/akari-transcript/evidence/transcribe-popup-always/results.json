@@ -1,0 +1,113 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 済みの素材でボタンの文言は「字幕を作る」のまま",
+      "pass": true,
+      "detail": {
+        "label": "字幕を作る",
+        "disabled": false,
+        "rows": 5
+      }
+    },
+    {
+      "name": "2. 済みでもクリックで必ずポップアップが開き、要約と 3 出口が出る",
+      "pass": true,
+      "detail": {
+        "step": "1",
+        "summary": [
+          "2026-09-07T22:15:33Z · speech-analyzer · 5 行",
+          "2026-09-07T22:14:05Z · whisper-cpp · 5 行",
+          "比べる組: whisper-cpp / speech-analyzer"
+        ],
+        "foot": [
+          "1 エンジン",
+          "2 起こす",
+          "3 差分",
+          "4 注釈・辞書〔先〕",
+          "5 まとめ〔先〕",
+          "› 字幕へ",
+          "設定で登録",
+          "このまま字幕へ",
+          "起こし直す",
+          "比べる"
+        ],
+        "exits": [
+          {
+            "label": "このまま字幕へ",
+            "disabled": false,
+            "visible": true
+          },
+          {
+            "label": "起こし直す",
+            "disabled": false,
+            "visible": true
+          },
+          {
+            "label": "比べる",
+            "disabled": true,
+            "visible": true
+          }
+        ],
+        "defaultBorder": "rgb(240, 131, 43)"
+      }
+    },
+    {
+      "name": "3. diff.json があるのでステップバー「3 差分」が最初から押せる",
+      "pass": true,
+      "detail": {
+        "before": {
+          "label": "3 差分",
+          "disabled": false,
+          "visible": true
+        },
+        "step": "3",
+        "head": [
+          "時刻",
+          "whisper-cpp",
+          "speech-analyzer",
+          "人の手"
+        ],
+        "rows": 4,
+        "lead": "差分 3 件 · 一致 72%"
+      }
+    },
+    {
+      "name": "4. ステップ 1 に戻って 2 つチェックすると「比べる」が押せる",
+      "pass": true,
+      "detail": {
+        "compare": {
+          "label": "比べる",
+          "disabled": false,
+          "visible": true
+        },
+        "checked": [
+          "speech-analyzer",
+          "whisper-cpp"
+        ]
+      }
+    },
+    {
+      "name": "5. 既定ボタン「このまま字幕へ」が Enter で押せ、文字起こしを走らせずに字幕を作る",
+      "pass": true,
+      "detail": {
+        "dialog": "closed",
+        "captionsButton": "字幕を作成中…",
+        "label": "字幕を作る",
+        "footer": "秒数や語をクリックするとプレビューへシークします。",
+        "eventsBefore": 0,
+        "eventsAfter": 0,
+        "captionsRebuilt": true,
+        "captionCount": 5
+      }
+    }
+  ],
+  "screenshots": [
+    "01-daihon-done-material.png",
+    "02-popup-three-exits.png",
+    "03-step3-diff-direct.png",
+    "04-compare-enabled.png",
+    "05-after-enter-default-exit.png"
+  ],
+  "pass": true
+}

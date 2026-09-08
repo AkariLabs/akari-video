@@ -5,7 +5,7 @@ import { PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
-import { advanceTranscribeSteps, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, TranscribeStepState } from '../../common/transcribe-steps';
+import { advanceTranscribeSteps, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
 
 // Radar values: explainers/2026-09-07-transcribe-four-screens-v2-fix2.html.
@@ -82,7 +82,7 @@ export async function listenTranscribeRange(commands: CommandService, shell: App
     return stop;
 }
 
-export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | undefined> {
+export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult | undefined> {
     protected artifacts: TranscribeArtifacts = { transcripts: [], diff: null, cuts: null };
     protected selection: { backend: string; compareSet: string[] };
     protected state: TranscribeStepState = { step: 1, engines: {}, completedOrder: [], finished: false };
@@ -93,8 +93,11 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
     protected readonly seen = new Set<string>();
     protected eventTail = Promise.resolve();
     protected running = false;
-    protected accepted = false;
+    protected result: TranscribeDialogResult | undefined;
+    // AbstractDialog wires acceptButton to immediate acceptance on attach; our start button is async.
+    protected defaultButton: HTMLButtonElement | undefined;
     protected baselineReady = false;
+    protected artifactsLoaded = false;
     protected approved = false;
     protected ready: Promise<void>;
     protected eventFloor = '';
@@ -103,7 +106,8 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
     constructor(protected readonly root: URI, protected readonly relativePath: string,
         protected readonly preferences: PreferenceService, protected readonly service: AkariProjectService,
         protected readonly files: FileService, protected readonly commands: CommandService,
-        protected readonly listen: (start: number, end: number) => Promise<void>) {
+        protected readonly listen: (start: number, end: number) => Promise<void>,
+        protected readonly alreadyTranscribed = false) {
         super({ title: '文字起こしして字幕を作る' });
         this.selection = initialEngineSelection(preferences.get('akari.transcribe.backend', 'auto'), preferences.get<string[]>('akari.transcribe.compareSet', []));
         this.node.dataset.akariTranscribeDialog = 'true';
@@ -118,10 +122,24 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
         this.ready = this.initialize().catch(error => { this.notice.textContent = String(error); });
         this.render();
     }
-    get value(): TranscribeOptions | undefined { return this.accepted ? { ...this.selection, autoCuts: this.preferences.get('akari.transcribe.autoCuts', true), approved: this.approved } : undefined; }
-    protected override handleEnter(_event: KeyboardEvent): boolean { return false; }
+    get value(): TranscribeDialogResult | undefined { return this.result; }
+    protected override handleEnter(event: KeyboardEvent): boolean {
+        if (event.isComposing || event.repeat || event.target instanceof HTMLTextAreaElement || this.running || this.confirming) return false;
+        if (event.target instanceof HTMLButtonElement && event.target !== this.defaultButton) return false;
+        if (!this.defaultButton || this.defaultButton.disabled) return false;
+        this.defaultButton.click();
+        return true;
+    }
+    protected reuse(): void {
+        if (!this.baselineReady || this.running || this.confirming) return;
+        this.result = transcribeExitOptions('reuse', this.selection);
+        void this.accept();
+    }
     protected async initialize(): Promise<void> {
         this.artifacts = await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.relativePath });
+        this.baselineReady = this.alreadyTranscribed || this.artifacts.transcripts.length > 0;
+        this.artifactsLoaded = true;
+        this.render();
         this.toDispose.push(await this.files.watch(this.root.resolve('.akari'), { recursive: true, excludes: [] }));
         this.toDispose.push(this.files.onDidFilesChange(event => {
             for (const change of event.changes) {
@@ -145,27 +163,46 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
         this.node.dataset.step = String(this.state.step);
         this.steps.replaceChildren();
         ['1 エンジン', '2 起こす', '3 差分', '4 注釈・辞書〔先〕', '5 まとめ〔先〕', '› 字幕へ'].forEach((label, index) => {
-            const disabled = index >= 3 || index + 1 > this.state.step || (index === 0 && this.running);
-            const button = transcribeButton(label, () => { if (index === 0 && !this.running) { this.state.step = 1; this.render(); } }, disabled);
+            const disabled = index >= 3 || (index === 2 ? !this.artifacts.diff : index + 1 > this.state.step) || (index === 0 && this.running);
+            const button = transcribeButton(label, () => {
+                if (index === 0 && !this.running) this.state.step = 1;
+                else if (index === 2 && this.artifacts.diff) this.state.step = 3;
+                else if (index === 1) this.state.step = 2;
+                this.render();
+            }, disabled);
             if (index + 1 === this.state.step) { button.style.borderColor = '#f0832b'; button.setAttribute('aria-current', 'step'); }
             if (index === 3 || index === 4) button.style.borderStyle = 'dashed';
             this.steps.append(button);
         });
         this.body.replaceChildren(); this.foot.replaceChildren();
+        this.defaultButton = undefined;
         if (this.state.step === 1) this.renderCards();
         else if (this.state.step === 2) this.renderProgress();
         else this.renderDiff();
-        if (this.state.step === 1) this.foot.append(transcribeElement('span', 'この場の選択だけに適用'), transcribeButton('起こす ▸', () => void this.start()));
+        if (this.state.step === 1) {
+            this.foot.append(transcribeElement('span', 'この場の選択だけに適用'));
+            if (this.baselineReady) {
+                this.defaultButton = transcribeButton('このまま字幕へ', () => this.reuse());
+                this.defaultButton.style.borderColor = '#f0832b';
+                this.foot.append(this.defaultButton, transcribeButton('起こし直す', () => void this.start('redo')),
+                    transcribeButton('比べる', () => void this.start('compare'), this.selection.compareSet.length < 2));
+            } else {
+                this.defaultButton = transcribeButton('起こす ▸', () => void this.start(), !this.artifactsLoaded);
+                this.foot.append(this.defaultButton);
+            }
+        }
         else {
             this.foot.append(transcribeElement('span', this.state.step === 3 ? 'まとめは先の機能' : '先に終わったエンジンから列が埋まります'));
-            if (this.state.finished && !this.running) {
+            if ((this.state.finished || this.artifacts.diff) && !this.running) {
                 this.foot.append(transcribeButton(`${this.artifacts.transcripts.length} つとも残す（何もしない）`, () => this.close()));
-                this.foot.append(transcribeButton('字幕へ', () => { this.accepted = true; void this.accept(); }, !this.baselineReady));
+                this.defaultButton = transcribeButton('字幕へ', () => this.reuse(), !this.baselineReady);
+                this.foot.append(this.defaultButton);
                 if (!this.baselineReady) this.foot.append(transcribeButton('エンジンを選び直す', () => { this.state.step = 1; this.render(); }));
             }
         }
     }
     protected renderCards(): void {
+        for (const line of transcribeSummary(this.artifacts, this.alreadyTranscribed)) this.body.append(transcribeElement('p', line));
         const auto = transcribeElement('label');
         const radio = transcribeElement('input'); radio.type = 'radio'; radio.name = 'transcribe-engine'; radio.checked = this.selection.backend === 'auto';
         radio.onchange = () => { this.selection.backend = 'auto'; };
@@ -187,7 +224,11 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
             const use = transcribeElement('label'), useInput = transcribeElement('input'); useInput.type = 'radio'; useInput.name = 'transcribe-engine'; useInput.checked = this.selection.backend === engine.id;
             useInput.onchange = () => { this.selection.backend = engine.id; }; use.append(useInput, '使う ');
             const compare = transcribeElement('label'), checkbox = transcribeElement('input'); checkbox.type = 'checkbox'; checkbox.checked = this.selection.compareSet.includes(engine.id);
-            checkbox.onchange = () => { this.selection.compareSet = checkbox.checked ? [...this.selection.compareSet, engine.id] : this.selection.compareSet.filter(id => id !== engine.id); };
+            checkbox.onchange = () => {
+                this.selection.compareSet = checkbox.checked ? [...this.selection.compareSet, engine.id] : this.selection.compareSet.filter(id => id !== engine.id);
+                const compareButton = Array.from(this.foot.querySelectorAll('button')).find(button => button.textContent === '比べる');
+                if (compareButton) compareButton.disabled = this.selection.compareSet.length < 2;
+            };
             compare.append(checkbox, '比べるときに使う'); card.append(use, compare); cards.append(card);
         }
         const fal = transcribeElement('section');
@@ -229,12 +270,15 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
         }
         this.body.append(table);
     }
-    protected async start(): Promise<void> {
+    protected async start(exit?: Exclude<TranscribeExit, 'reuse'>): Promise<void> {
         if (this.running || this.confirming) return;
         this.confirming = true;
         try {
         await this.ready;
-        const backends = this.selection.compareSet.length ? this.selection.compareSet : [this.selection.backend];
+        const options: TranscribeOptions | undefined = exit ? transcribeExitOptions(exit, this.selection)
+            : { ...this.selection, compareSet: [...this.selection.compareSet] };
+        if (!options) return;
+        const backends = options.compareSet?.length ? options.compareSet : [options.backend || 'auto'];
         const clouds = TRANSCRIBE_ENGINE_CARDS.filter(engine => backends.includes(engine.id) && engine.hourlyUsd);
         if (clouds.length) {
             // Probe is read-only; estimate from source metadata, never from a guessed duration.
@@ -246,11 +290,16 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
             if (!this.approved) return;
         }
         if (this.isDisposed) return;
+        if (exit) {
+            this.result = transcribeExitOptions(exit, { ...options, approved: this.approved, autoCuts: this.preferences.get('akari.transcribe.autoCuts', true) });
+            void this.accept();
+            return;
+        }
         this.eventFloor = new Date().toISOString().replace(/[:.]/g, '-');
         this.running = true; this.baselineReady = false; this.seen.clear(); this.notice.textContent = '';
         this.state = startTranscribeSteps(backends); this.render();
         try {
-            await this.service.transcribeMaterial({ projectRoot: this.root.toString(), relativePath: this.relativePath, ...this.selection, approved: this.approved, autoCuts: this.preferences.get('akari.transcribe.autoCuts', true) });
+            await this.service.transcribeMaterial({ projectRoot: this.root.toString(), relativePath: this.relativePath, ...options, approved: this.approved, autoCuts: this.preferences.get('akari.transcribe.autoCuts', true) });
             this.baselineReady = true;
         } catch (error) { this.notice.textContent = String(error); }
         finally {
@@ -263,7 +312,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeOptions | un
             } catch (error) { this.notice.textContent = String(error); }
             this.baselineReady ||= this.state.engines[backendKey(backends[0])] === 'completed';
             this.running = false; this.state.finished = true; this.render();
-            if (backends.length === 1 && this.baselineReady && !this.isDisposed) { this.accepted = true; void this.accept(); }
+            if (backends.length === 1 && this.baselineReady && !this.isDisposed) { this.result = transcribeExitOptions('reuse', options); void this.accept(); }
         }
         } finally { this.confirming = false; }
     }
