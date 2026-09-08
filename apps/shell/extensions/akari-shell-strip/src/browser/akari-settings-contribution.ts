@@ -20,7 +20,7 @@ export class AkariSettingsOpener extends BaseWidget {
     }
 
     protected override onActivateRequest(_message: Message): void {
-        // Collapse before the asynchronous dialog acquires focus; keep the icon at rank 400.
+        // Collapse before the asynchronous dialog acquires focus; reconcileLeftPanelOrder guarantees the icon order.
         this.shell.collapsePanel('left');
         void this.commands.executeCommand('akari.settings.open').catch(() => undefined);
     }

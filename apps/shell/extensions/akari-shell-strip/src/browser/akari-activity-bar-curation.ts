@@ -3,6 +3,7 @@ import { FrontendApplicationContribution, FrontendApplication, ApplicationShell,
 import { Widget } from '@theia/core/shared/@lumino/widgets';
 import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
+import { computeLeftPanelOrder } from './left-panel-order';
 
 /**
  * AKARI Video shell — S15 動的 activity bar curation。
@@ -80,6 +81,16 @@ const ALLOWLIST: CurationEntry[] = [
     { id: 'vsx-extensions-view-container', label: 'パートナー / 拡張' },
     { id: 'akari-settings-opener', label: null },
     { id: MENU_WIDGET_ID, label: null }
+];
+
+/** 保存レイアウトの順序や後からの追加にかかわらず、ALLOWLIST の順に揃える。 */
+const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
+    EXPLORER_VIEW_CONTAINER_ID,
+    ROLE_BUCKETS_WIDGET_ID,
+    'search-view-container',
+    'vsx-extensions-view-container',
+    'akari-settings-opener',
+    MENU_WIDGET_ID
 ];
 
 const ALLOW_IDS = new Set(ALLOWLIST.map(e => e.id));
@@ -217,7 +228,24 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             title.owner.dispose();
         }
 
+        this.reconcileLeftPanelOrder();
         this.reconcileSidePanelTitleBar();
+    }
+
+    protected reconcileLeftPanelOrder(): void {
+        const tabBar = this.shell?.leftPanelHandler.tabBar;
+        if (!tabBar) {
+            return;
+        }
+        const titles = Array.from(tabBar.titles).filter(title => !title.owner.isDisposed);
+        const titlesById = new Map(titles.map(title => [title.owner.id, title]));
+        const targetOrder = computeLeftPanelOrder(titles.map(title => title.owner.id), LEFT_PANEL_FIXED_ORDER);
+        targetOrder.forEach((id, index) => {
+            const title = titlesById.get(id);
+            if (title && tabBar.titles[index] !== title) {
+                tabBar.insertTab(index, title);
+            }
+        });
     }
 
     protected leftPanelInternals(): LeftPanelInternals | undefined {

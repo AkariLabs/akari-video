@@ -1,0 +1,388 @@
+Electron main: loading modules... [0.864 s since electron main start]
+Electron main: container created [1.021 s since electron main start]
+Electron main: modules loaded [1.053 s since electron main start]
+Electron main: resolving application [1.053 s since electron main start]
+Electron main: application resolved [1.059 s since electron main start]
+
+DevTools listening on ws://127.0.0.1:21992/devtools/browser/8d38c9ae-db64-4e04-867c-08948727c3e1
+Showing main window early
+Backend main: entry point loaded [2.090 s since backend process start]
+Backend server: loading modules... [2.095 s since backend process start]
+Backend server: container created [2.900 s since backend process start]
+Backend server: modules loaded [3.575 s since backend process start]
+Configuration directory URI: 'file://<SCRATCH>/akari-l1-left-KGmi44/.theia'
+Backend server: resolving application [3.696 s since backend process start]
+Configuring to accept webviews on '^.+\.webview\..+$' hostname.
+2026-09-08T08:57:49.716Z root WARN Backend A1.initialize took longer than the expected maximum 50 milliseconds: 417.5 ms [4.200 s since backend process start]
+2026-09-08T08:57:49.718Z root WARN Backend Object.initialize took longer than the expected maximum 50 milliseconds: 415.6 ms [4.200 s since backend process start]
+2026-09-08T08:57:49.719Z root WARN Backend Jde.initialize took longer than the expected maximum 50 milliseconds: 461.3 ms [4.246 s since backend process start]
+2026-09-08T08:57:49.730Z core:BackendApplication INFO configured all backend app contributions
+2026-09-08T08:57:49.732Z root INFO Settings file not found at '<SCRATCH>/akari-l1-left-KGmi44/.theia/backend-settings.json'. Falling back to defaults.
+2026-09-08T08:57:49.773Z core:BackendApplication INFO Theia app listening on http://127.0.0.1:56366.
+2026-09-08T08:57:49.775Z root INFO Backend application startup sequence completed (async work may still be pending): 53.2 ms [4.311 s since backend process start]
+2026-09-08T08:57:49.775Z root INFO All backend contributions settled: 607.7 ms [4.311 s since backend process start]
+Starting backend: 4405.7 ms [5.479 s since electron main start]
+2026-09-08T08:57:49.781Z root WARN The local plugin referenced by local-dir:<SCRATCH>/akari-l1-left-KGmi44/.theia/plugins does not exist.
+2026-09-08T08:57:49.781Z root WARN The local plugin referenced by local-dir:<SCRATCH>/akari-l1-left-KGmi44/.theia/deployedPlugins does not exist.
+2026-09-08T08:57:49.781Z root INFO Resolve plugins list: 47.6 ms [4.317 s since backend process start]
+2026-09-08T08:57:49.784Z root INFO Deploy plugins list: 50.6 ms [4.320 s since backend process start]
+Attaching security token: 7.0 ms [5.486 s since electron main start]
+Skip checkForUpdates because application is not packed and dev update config is not forced
+Vh.onStart: 9.8 ms [5.498 s since electron main start]
+oS.onStart: 8.2 ms [5.498 s since electron main start]
+ZO.onStart: 2.8 ms [5.498 s since electron main start]
+nF.onStart: 2.7 ms [5.498 s since electron main start]
+zh.onStart: 2.7 ms [5.498 s since electron main start]
+sF.onStart: 2.5 ms [5.498 s since electron main start]
+cF.onStart: 2.1 ms [5.498 s since electron main start]
+nL.onStart: 2.0 ms [5.498 s since electron main start]
+Starting contributions: 11.9 ms [5.498 s since electron main start]
+Startup sequence completed: 4426.0 ms [5.499 s since electron main start]
+[38029:0908/175750.127202:INFO:CONSOLE:3] "exposing theia core electron api", source: <WORKTREE>/apps/shell/lib/frontend/preload.js (3)
+[38029:0908/175750.128287:INFO:CONSOLE:3] "exposing theia filesystem electron api", source: <WORKTREE>/apps/shell/lib/frontend/preload.js (3)
+[38029:0908/175750.613901:INFO:CONSOLE:13185] "Frontend: loading modules... [0.785 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175750.662911:INFO:CONSOLE:13185] "Frontend: container created [0.862 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175750.673926:INFO:CONSOLE:2] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/renderer_init (2)
+2026-09-08T08:57:52.652Z akari-partner INFO [akari CLI] registry から取得しています: https://registry.npmjs.org/akari-video/0.1.55
+2026-09-08T08:57:52.652Z akari-partner INFO [akari CLI] v0.1.55 を配備しました: <SCRATCH>/akari-l1-left-KGmi44/.akari/cli/0.1.55
+2026-09-08T08:57:52.652Z akari-partner INFO [akari CLI] シム生成: <SCRATCH>/akari-l1-left-KGmi44/.akari/cli/bin/akari
+[38029:0908/175752.687874:INFO:CONSOLE:433] "sending initial connect on xcSTlx-7NzUeh_AOAAAB", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:52.705Z root INFO creating connection for 1
+[38029:0908/175752.706593:INFO:CONSOLE:433] "initial connect received on xcSTlx-7NzUeh_AOAAAB", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175752.827274:INFO:CONSOLE:13185] "Frontend: preloaded [3.026 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175753.332744:INFO:CONSOLE:13185] "Frontend: core modules loaded [3.531 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175753.684362:INFO:CONSOLE:434] "Property with id 'akari.developerMode' already exists", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (434)
+[38029:0908/175753.754472:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.756572:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.757344:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.758332:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.759468:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.760410:INFO:CONSOLE:11] "RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.762490:INFO:CONSOLE:11] "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[38029:0908/175753.787043:INFO:CONSOLE:13185] "Frontend: modules loaded [3.986 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175753.787145:INFO:CONSOLE:13185] "Frontend: resolving application [3.986 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175753.790794:INFO:CONSOLE:13185] "Frontend: application resolved [3.989 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13185)
+[38029:0908/175753.905003:INFO:CONSOLE:11] "Uncaught (in promise) RangeError: Maximum call stack size exceeded", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (11)
+[pageerror] Maximum call stack size exceeded
+[38029:0908/175754.335247:INFO:CONSOLE:433] "2026-09-08T08:57:54.334Z root WARN Linked preference "workbench.colorCustomizations" not found.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175754.335354:INFO:CONSOLE:433] "2026-09-08T08:57:54.335Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175754.382860:INFO:CONSOLE:433] "2026-09-08T08:57:54.382Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 385.5 ms [4.570 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175754.406315:INFO:CONSOLE:433] "2026-09-08T08:57:54.406Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175754.406477:INFO:CONSOLE:433] "2026-09-08T08:57:54.406Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at JF.init (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:2203:14706)
+    at MIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:7179)
+    at jEn (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:6992)
+    at FIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:7763)
+    at GIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:9650)
+    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:9869", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+Opening channel for service path '/services/electron-window'.
+[38029:0908/175754.659029:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659126:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659394:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659436:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659556:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[38029:0908/175754.659594:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659646:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659679:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659751:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659782:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659812:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659843:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659872:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.659902:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660173:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660218:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660264:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660295:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660326:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660363:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660393:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660423:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660473:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660505:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660542:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660575:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660609:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660641:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660679:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660709:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660795:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660873:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660904:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.660970:WARNING:electron/shell/browser/ui/accelerator_util.cc:65] Cmd++ doesn't contain a valid key
+[38029:0908/175754.661086:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661117:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661156:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661189:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661234:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661264:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661499:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661555:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661839:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661879:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661901:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661920:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.661995:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662017:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662035:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662061:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662080:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662097:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662121:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662141:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662164:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662243:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662350:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662374:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662395:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662414:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662433:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662451:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662475:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662493:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662521:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662541:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662564:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662582:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662659:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662677:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662700:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662720:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662743:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662760:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662777:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662794:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662810:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662832:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662850:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662872:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662893:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662910:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662928:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662945:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662974:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.662992:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663009:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663061:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663081:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663104:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663128:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663148:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663188:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663205:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663223:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663244:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663266:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175754.663295:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+2026-09-08T08:57:54.697Z root WARN Linked preference "workbench.colorCustomizations" not found.
+2026-09-08T08:57:54.697Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.
+2026-09-08T08:57:54.697Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 385.5 ms [4.570 s since frontend page start]
+2026-09-08T08:57:54.698Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):
+2026-09-08T08:57:54.698Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at JF.init (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:2203:14706)
+    at MIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:7179)
+    at jEn (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:6992)
+    at FIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:7763)
+    at GIo (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:9650)
+    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:11:9869
+[38029:0908/175756.036458:INFO:CONSOLE:433] "2026-09-08T08:57:56.036Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175756.036624:INFO:CONSOLE:433] "2026-09-08T08:57:56.036Z root WARN     at _event._event.Object.assign.maxListeners (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189191)", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:56.037Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):
+2026-09-08T08:57:56.037Z root WARN     at _event._event.Object.assign.maxListeners (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189191)
+[38029:0908/175757.425337:INFO:CONSOLE:433] "2026-09-08T08:57:57.425Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (86):", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175757.425478:INFO:CONSOLE:433] "2026-09-08T08:57:57.425Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189335)", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:57.426Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (86):
+2026-09-08T08:57:57.426Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189335)
+[38029:0908/175757.683704:INFO:CONSOLE:433] "2026-09-08T08:57:57.683Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175757.683813:INFO:CONSOLE:433] "2026-09-08T08:57:57.683Z root WARN     at _event._event.Object.assign.maxListeners (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189191)", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:57.723Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):
+2026-09-08T08:57:57.723Z root WARN     at _event._event.Object.assign.maxListeners (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189191)
+[38029:0908/175758.317036:INFO:CONSOLE:433] "2026-09-08T08:57:58.316Z root WARN Frontend tst.onStart took longer than the expected maximum 100 milliseconds: 3876.6 ms [8.515 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.317Z root WARN Frontend tst.onStart took longer than the expected maximum 100 milliseconds: 3876.6 ms [8.515 s since frontend page start]
+[38029:0908/175758.338389:INFO:CONSOLE:433] "2026-09-08T08:57:58.338Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.338890:INFO:CONSOLE:433] "2026-09-08T08:57:58.338Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.338989:INFO:CONSOLE:433] "2026-09-08T08:57:58.338Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.339Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]
+2026-09-08T08:57:58.339Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]
+2026-09-08T08:57:58.339Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]
+[38029:0908/175758.378700:INFO:CONSOLE:433] "2026-09-08T08:57:58.378Z root INFO [de1d3343-49a6-4c94-a27f-e538f8c9fb3a] Waiting for backend deployment: 55.7 ms [8.577 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.475998:INFO:CONSOLE:433] "2026-09-08T08:57:58.475Z root INFO Start frontend contributions: 4658.5 ms [8.648 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.476206:INFO:CONSOLE:433] "2026-09-08T08:57:58.476Z root INFO Changed application state from 'init' to 'started_contributions'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.480937:INFO:CONSOLE:433] "2026-09-08T08:57:58.480Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.481015:INFO:CONSOLE:433] "2026-09-08T08:57:58.480Z root INFO >>> Restoring the layout state...", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.481484:INFO:CONSOLE:433] "2026-09-08T08:57:58.481Z root INFO [de1d3343-49a6-4c94-a27f-e538f8c9fb3a] Loading plugin contributions", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.481655:INFO:CONSOLE:433] "2026-09-08T08:57:58.481Z root INFO <<< Nothing to restore.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.532319:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532410:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532507:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532713:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532779:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532901:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.532944:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533054:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[38029:0908/175758.533109:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533182:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533322:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533489:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533520:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533540:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533563:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533579:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533596:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.533780:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+2026-09-08T08:57:58.379Z root INFO [de1d3343-49a6-4c94-a27f-e538f8c9fb3a] Waiting for backend deployment: 55.7 ms [8.577 s since frontend page start]
+2026-09-08T08:57:58.476Z root INFO Start frontend contributions: 4658.5 ms [8.648 s since frontend page start]
+2026-09-08T08:57:58.476Z root INFO Changed application state from 'init' to 'started_contributions'.
+2026-09-08T08:57:58.481Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.
+2026-09-08T08:57:58.482Z root INFO >>> Restoring the layout state...
+2026-09-08T08:57:58.488Z root INFO [de1d3343-49a6-4c94-a27f-e538f8c9fb3a] Loading plugin contributions
+2026-09-08T08:57:58.488Z root INFO <<< Nothing to restore.
+[38029:0908/175758.622984:INFO:CONSOLE:433] "2026-09-08T08:57:58.622Z root WARN Frontend Nf.initializeLayout took longer than the expected maximum 100 milliseconds: 132.3 ms [8.819 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.623Z root WARN Frontend Nf.initializeLayout took longer than the expected maximum 100 milliseconds: 132.3 ms [8.819 s since frontend page start]
+[38029:0908/175758.675657:INFO:CONSOLE:433] "2026-09-08T08:57:58.675Z root INFO Initialize the workbench layout: 189.9 ms [8.869 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.676981:INFO:CONSOLE:433] "2026-09-08T08:57:58.676Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.678648:INFO:CONSOLE:433] "2026-09-08T08:57:58.678Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (146):", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.678761:INFO:CONSOLE:433] "2026-09-08T08:57:58.678Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189335)", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.682Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (146):
+2026-09-08T08:57:58.682Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:430:9611)
+    at Proxy.l (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:434:41508)
+    at Sb.doInit (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:1709:1189335)
+[38029:0908/175758.707922:INFO:CONSOLE:433] "2026-09-08T08:57:58.707Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708263:INFO:CONSOLE:433] "2026-09-08T08:57:58.707Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708328:INFO:CONSOLE:433] "2026-09-08T08:57:58.707Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708392:INFO:CONSOLE:433] "2026-09-08T08:57:58.707Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708449:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708515:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708574:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708811:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708905:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.708956:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.709002:INFO:CONSOLE:433] "2026-09-08T08:57:58.708Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.682Z root INFO Initialize the workbench layout: 189.9 ms [8.869 s since frontend page start]
+2026-09-08T08:57:58.682Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.
+2026-09-08T08:57:58.710Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container
+2026-09-08T08:57:58.711Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}
+2026-09-08T08:57:58.712Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug
+[38029:0908/175758.720215:INFO:CONSOLE:433] "2026-09-08T08:57:58.718Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.720459:INFO:CONSOLE:433] "2026-09-08T08:57:58.718Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.720506:INFO:CONSOLE:433] "2026-09-08T08:57:58.718Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.720549:INFO:CONSOLE:433] "2026-09-08T08:57:58.718Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175758.722340:INFO:CONSOLE:433] "2026-09-08T08:57:58.722Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:57:58.771Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}
+2026-09-08T08:57:58.771Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}
+2026-09-08T08:57:58.771Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container
+2026-09-08T08:57:58.771Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}
+2026-09-08T08:57:58.773Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}
+2026-09-08T08:57:58.773Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}
+2026-09-08T08:57:58.773Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view
+2026-09-08T08:57:58.773Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}
+[38029:0908/175758.859770:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.859857:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.859967:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860090:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860122:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860211:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860248:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860352:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[38029:0908/175758.860388:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860442:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860475:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860721:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860756:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860780:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860800:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860817:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.860834:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175758.861019:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[38029:0908/175800.426426:INFO:CONSOLE:433] "2026-09-08T08:58:00.426Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:00.432Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding
+[38029:0908/175802.350781:INFO:CONSOLE:433] "2026-09-08T08:58:02.350Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:02.351Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget
+[38029:0908/175802.568448:INFO:CONSOLE:433] "2026-09-08T08:58:02.568Z root WARN Frontend wsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 3856.9 ms [12.766 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:02.569Z root WARN Frontend wsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 3856.9 ms [12.766 s since frontend page start]
+[38029:0908/175802.582381:INFO:CONSOLE:433] "2026-09-08T08:58:02.582Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:02.584Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}
+[38029:0908/175802.586697:INFO:CONSOLE:433] "2026-09-08T08:58:02.586Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:02.589Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}
+[38029:0908/175803.397564:INFO:CONSOLE:433] "2026-09-08T08:58:03.397Z root INFO Replace loading indicator with ready workbench UI (animation): 806.4 ms [13.595 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175803.397898:INFO:CONSOLE:433] "2026-09-08T08:58:03.397Z root INFO Changed application state from 'initialized_layout' to 'ready'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175803.398007:INFO:CONSOLE:433] "2026-09-08T08:58:03.397Z root INFO All frontend contributions settled: 9606.4 ms [13.596 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T08:58:03.401Z root INFO Replace loading indicator with ready workbench UI (animation): 806.4 ms [13.595 s since frontend page start]
+2026-09-08T08:58:03.401Z root INFO Changed application state from 'initialized_layout' to 'ready'.
+2026-09-08T08:58:03.401Z root INFO All frontend contributions settled: 9606.4 ms [13.596 s since frontend page start]
+2026-09-08T08:58:03.401Z root INFO Frontend application startup sequence completed (async work may still be pending): 9468.4 ms [17.935 s since backend process start]
+[38029:0908/175811.618931:INFO:CONSOLE:433] "2026-09-08T08:58:11.618Z root INFO Changed application state from 'ready' to 'closing_window'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175811.619306:INFO:CONSOLE:433] "2026-09-08T08:58:11.618Z root INFO >>> Storing the layout...", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175811.619384:INFO:CONSOLE:433] "2026-09-08T08:58:11.618Z root INFO <<< The layout has been successfully stored.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175811.619435:INFO:CONSOLE:433] "2026-09-08T08:58:11.618Z core:FrontendApplication INFO >>> Stopping frontend contributions...", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[38029:0908/175811.619471:INFO:CONSOLE:433] "2026-09-08T08:58:11.618Z core:FrontendApplication INFO <<< All frontend contributions have been stopped.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+Closing channel on service path '/services/electron-window'.
+2026-09-08T08:58:11.631Z root INFO socket closed
+2026-09-08T08:58:11.631Z root INFO closing connection for 1
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/localization-server'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/os'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/logger'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/commands'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/messageService'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/ChannelCloseService'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/remote-filesystem'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/envs'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/workspace'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/keyboard'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/stopwatch'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/application'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/i18n'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickInput'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/debug'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/task'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickPick'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/shell-terminal'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/search'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/hostedPlugin'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-ext'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-paths'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-registry'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/cli-preferences'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanagerserver'.
+2026-09-08T08:58:11.631Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanager'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpOAuthFrontendDelegate'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/request-service'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-annotations'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-quick-export'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-export-thumbnail'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-partner'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-connections'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/search-in-workspace'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview-server'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project-clean'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/terminals/838358175'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-new-project'.
+2026-09-08T08:58:11.634Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-environment'.
+2026-09-08T08:58:11.642Z root INFO >>> Stopping backend contributions...
+2026-09-08T08:58:11.643Z root INFO <<< All backend contributions have been stopped.

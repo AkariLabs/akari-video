@@ -18,6 +18,7 @@ import {
     AKARI_BORDER,
     AKARI_FAINT,
     AKARI_INK,
+    AKARI_LINE,
     AKARI_RADIUS,
     AKARI_SURFACE
 } from '../common/akari-surface-tokens';
@@ -37,6 +38,7 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { shouldShowProjectPath } from '../common/project-tree-policy';
 import { isUnorganizedRootEntry } from '../common/unorganized-materials';
 import { nextCandidateAssetName } from '../common/asset-naming';
+import { dataFileIcon, orderDataEntries } from '../common/output-data-order';
 import { AnalysisJson, deriveAnalysisDurationSeconds, formatDurationBadge } from '../common/analysis-summary';
 import { composeMaterialAskAgentPrompt, composeOutputAskAgentPrompt } from '../common/agent-context-packet';
 import {
@@ -1129,7 +1131,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const merged = [...dataEntries, ...planEntries, ...exportEntries, ...reportEntries];
         merged.sort((left, right) => right.mtime - left.mtime);
-        this.outputs = merged;
+        this.outputs = orderDataEntries(merged, PROJECT_DATA_FILES.map(file => file.name));
         this.outputsLoading = false;
         this.outputsLoadedOnce = true;
         this.update();
@@ -1361,7 +1363,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected outputIcon(entry: OutputEntry): string {
         switch (entry.kind) {
             case 'report': return 'codicon codicon-file-code';
-            case 'data': return 'codicon codicon-json';
+            case 'data': return dataFileIcon(entry.name);
             case 'plan': return 'codicon codicon-book';
             default: return this.placeholderIcon(this.classifyKind(entry.name));
         }
@@ -3407,11 +3409,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderOutputCard(entry: OutputEntry): React.ReactNode {
         const label = entry.title ?? entry.name;
+        const isEditData = entry.kind === 'data' && entry.name === 'edit.json';
         return (
             <div
                 key={entry.uri.toString()}
                 data-akari-output-path={entry.relativePath}
                 data-akari-output-kind={entry.kind}
+                data-akari-output-emphasis={isEditData ? 'edit' : undefined}
                 onClick={() => void this.openFile(entry.uri)}
                 onContextMenu={event => this.openOutputContextMenu(event, entry)}
                 title={label}
@@ -3423,7 +3427,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     padding: '6px 8px',
                     background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost
+                    border: AKARI_BORDER.ghost,
+                    ...(isEditData ? { borderLeft: `2px solid ${AKARI_LINE.accent}` } : {})
                 }}
             >
                 <div style={{
@@ -3442,11 +3447,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         : <span
                             className={this.outputIcon(entry)}
                             aria-hidden='true'
-                            style={{ fontSize: '1.1em', opacity: 0.55 }}
+                            style={{ fontSize: '1.1em', opacity: isEditData ? 0.85 : 0.55 }}
                         />}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em', fontWeight: isEditData ? 600 : undefined }}>
                         {label}
                     </span>
                     <span style={{ opacity: 0.65, fontSize: '0.72em' }}>
