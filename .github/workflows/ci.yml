@@ -55,6 +55,8 @@ jobs:
       - run: npm install --no-workspaces --ignore-scripts --no-audit --no-fund
       - run: node scripts/gen-skills-index.mjs --check --strict
       - run: node scripts/check-docs-sync.mjs
+      - name: check-extension-deps (拡張間 file: 依存 ⇄ build:ext 順序の照合)
+        run: node scripts/ci/check-extension-deps.mjs
 
   # packages/* + scripts/test + skills/* のユニットテストのうち、外部ツール（ffmpeg / Chrome / Electron /
   # ネイティブモジュール）を一切要さず、どの OS でも同じ結果になるもの。2026-09-02 の実測で main が緑の集合。
