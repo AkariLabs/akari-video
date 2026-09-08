@@ -1,4 +1,18 @@
-import { applyCaptionTextEdit, type CaptionTextEditRecord } from '@akari-video/edit-store';
+import {
+    applyCaptionTextEdit,
+    insertCaptionLine,
+    parseCaptions as parseCaptionRecords,
+    removeCaptionLine,
+    setCaptionTimingLine,
+    type CaptionRecord,
+    type CaptionTextEditRecord
+} from '@akari-video/edit-store';
+import {
+    createCaptionIdAllocator,
+    planInsertSpans,
+    planSplitSpans,
+    type CaptionLineOp
+} from '@akari-video/edit-store/lib/caption-line-diff';
 import { clipUnrecognizedToRange } from '../common/daihon-unrecognized';
 
 export interface CaptionSourceRef {
@@ -122,6 +136,296 @@ export function replaceCaptionDisplayTextLine(source: string, captionId: string,
             : `字幕 ${captionId} が字幕データに複数あります。`);
     }
     return updated;
+}
+
+/**
+ * 1 行の `words`（単語タイミング）を落とす行手術。行の結合は複数行のテキストと時刻を 1 行へ
+ * 畳むため、既存 words を再導出できる保証が無い（task 2026-09-08-caption-line-ops 指示 C-9）。
+ * replaceCaptionLine と同じく「1 レコード 1 物理行」を前提にその行だけを書き換える。
+ * words を持たない行に対しては本文を変えない（冪等）。
+ */
+export function removeCaptionWordsLine(source: string, captionId: string): string {
+    if (!captionId) {
+        throw new Error('字幕の識別情報がありません。');
+    }
+    const lines = source.match(/.*(?:\r\n|\n|$)/g)?.filter(line => line.length > 0) ?? [];
+    let matches = 0;
+    const updated = lines.map(line => {
+        const idMatch = line.match(/"id"\s*:\s*"((?:\\.|[^"\\])*)"/);
+        if (!idMatch || decodeJsonString(idMatch[1]) !== captionId) {
+            return line;
+        }
+        matches++;
+        const openIndex = line.indexOf('{');
+        const closeIndex = line.lastIndexOf('}');
+        if (openIndex < 0 || closeIndex < openIndex) {
+            throw new Error(`字幕 ${captionId} の1行形式を確認できません。`);
+        }
+        const record = JSON.parse(line.slice(openIndex, closeIndex + 1)) as Record<string, unknown>;
+        if (record.words === undefined) {
+            return line;
+        }
+        delete record.words;
+        return line.slice(0, openIndex) + JSON.stringify(record) + line.slice(closeIndex + 1);
+    }).join('');
+    if (matches !== 1) {
+        throw new Error(matches === 0
+            ? `字幕 ${captionId} が字幕データにありません。`
+            : `字幕 ${captionId} が字幕データに複数あります。`);
+    }
+    return updated;
+}
+
+export interface CaptionLineOpCounts {
+    replace: number;
+    split: number;
+    merge: number;
+    remove: number;
+    insert: number;
+}
+
+export interface CaptionLineOpsResult {
+    /** 全操作を適用したあとの captions.json 本文（呼び出し側が lint ゲート越しに 1 回だけ書く）。 */
+    source: string;
+    /** 拒否・スキップした操作の理由。空なら全部保存できた。 */
+    notices: string[];
+    counts: CaptionLineOpCounts;
+    /** 保存できた操作の数（拒否したものは数えない）。 */
+    applied: number;
+    /** 字幕の件数が変わったか（フッター文言の切り替えに使う）。 */
+    lineCountChanged: boolean;
+}
+
+export interface CaptionLineOpsOptions {
+    /** 整文（display_text）表示中の字幕 id。replace のときだけ display_text 側を書き換える。 */
+    displayTextIds?: ReadonlySet<string>;
+}
+
+const EMPTY_LINE_NOTICE = '空の行は字幕になりません。文字を入れると保存します。';
+const SPLIT_TOO_SHORT_NOTICE = 'この行は短すぎて分割できません。';
+const INSERT_NO_GAP_NOTICE = 'ここには字幕を追加できません（前後に隙間がありません）。';
+const MERGE_STYLE_LOST_NOTICE = '結合したため 2 行目以降のスタイル指定は失われました。';
+const UNREADABLE_RECORD_NOTICE = 'この行の字幕データを解釈できないため、この操作は保存しません。';
+
+/**
+ * diffCaptionLines が返した操作列を captions.json 本文へ適用する
+ * （task 2026-09-08-caption-line-ops 指示 E-12・司令塔裁定 3 = 一括適用）。
+ *
+ * 書き戻しは既存の外科手術関数の合成だけで行う:
+ *   replace → replaceCaptionLine / replaceCaptionDisplayTextLine
+ *   remove  → removeCaptionLine
+ *   insert  → insertCaptionLine
+ *   split   → removeCaptionLine + insertCaptionLine ×n
+ *   merge   → replaceCaptionLine + setCaptionTimingLine + removeCaptionWordsLine + removeCaptionLine ×(n-1)
+ *
+ * 拒否された操作があっても成功した分は残す（指示 15）。時刻は元の字幕の値だけから決めるので、
+ * 同じ入力からは常に同じ本文になる。
+ */
+export function applyCaptionLineOps(
+    source: string,
+    ops: readonly CaptionLineOp[],
+    options: CaptionLineOpsOptions = {}
+): CaptionLineOpsResult {
+    const captions = parseCaptions(source).captions;
+    const byId = new Map(captions.map(caption => [caption.id, caption]));
+    const allocateId = createCaptionIdAllocator(captions.map(caption => caption.id));
+    const counts: CaptionLineOpCounts = { replace: 0, split: 0, merge: 0, remove: 0, insert: 0 };
+    const notices: string[] = [];
+    const addNotice = (message: string): void => {
+        if (!notices.includes(message)) notices.push(message);
+    };
+    let current = source;
+
+    for (const group of groupCaptionLineOps(ops)) {
+        if (group.kind === 'insert') {
+            const texts: string[] = [];
+            for (const text of group.texts) {
+                const normalized = normalizeLineText(text);
+                if (normalized) texts.push(normalized);
+                else addNotice(EMPTY_LINE_NOTICE);
+            }
+            if (texts.length === 0) continue;
+            const anchor = group.afterId === undefined
+                ? -1
+                : captions.findIndex(caption => caption.id === group.afterId);
+            const previousEnd = anchor < 0 ? 0 : captions[anchor].end;
+            const spans = planInsertSpans(previousEnd, captions[anchor + 1]?.start, texts.length);
+            if (!spans) {
+                addNotice(INSERT_NO_GAP_NOTICE);
+                continue;
+            }
+            for (let index = 0; index < texts.length; index++) {
+                current = insertCaptionLine(current, {
+                    id: allocateId(),
+                    start: spans[index].start,
+                    end: spans[index].end,
+                    text: texts[index],
+                    speaker: null,
+                    sourceRef: null,
+                    edited: true
+                });
+                counts.insert++;
+            }
+            continue;
+        }
+
+        const op = group.op;
+        if (op.kind === 'replace') {
+            const caption = byId.get(op.id);
+            const text = normalizeLineText(op.text);
+            if (!caption) continue;
+            if (!text) {
+                addNotice(EMPTY_LINE_NOTICE);
+                continue;
+            }
+            current = options.displayTextIds?.has(op.id) && caption.displayText !== undefined
+                ? replaceCaptionDisplayTextLine(current, op.id, text)
+                : replaceCaptionLine(current, op.id, text);
+            counts.replace++;
+            continue;
+        }
+
+        if (op.kind === 'remove') {
+            if (!byId.has(op.id)) continue;
+            current = removeCaptionLine(current, op.id);
+            counts.remove++;
+            continue;
+        }
+
+        if (op.kind === 'split') {
+            const caption = byId.get(op.id);
+            if (!caption) continue;
+            const texts = op.texts.map(normalizeLineText);
+            if (texts.some(text => !text)) {
+                addNotice(EMPTY_LINE_NOTICE);
+                continue;
+            }
+            const spans = planSplitSpans(caption.start, caption.end, texts);
+            if (!spans) {
+                addNotice(SPLIT_TOO_SHORT_NOTICE);
+                continue;
+            }
+            const base = toInsertableRecord(caption);
+            if (!base) {
+                addNotice(UNREADABLE_RECORD_NOTICE);
+                continue;
+            }
+            current = removeCaptionLine(current, op.id);
+            for (let index = 0; index < texts.length; index++) {
+                const unrecognized = clipUnrecognizedToRange(
+                    caption.unrecognized,
+                    spans[index].start,
+                    spans[index].end
+                );
+                current = insertCaptionLine(current, {
+                    ...base,
+                    // 1 本目は元の id を残す（overlay の anchor.caption を切らない）。
+                    // 増えた行だけ新しい id を振る。
+                    id: index === 0 ? op.id : allocateId(),
+                    start: spans[index].start,
+                    end: spans[index].end,
+                    text: texts[index],
+                    edited: true,
+                    ...(unrecognized.length > 0 ? { unrecognized } : {})
+                });
+            }
+            counts.split++;
+            continue;
+        }
+
+        const head = byId.get(op.ids[0]);
+        const tail = byId.get(op.ids[op.ids.length - 1]);
+        const text = normalizeLineText(op.text);
+        if (!head || !tail) continue;
+        if (!text) {
+            addNotice(EMPTY_LINE_NOTICE);
+            continue;
+        }
+        if (op.ids.slice(1).some(id => !sameLineStyle(head, byId.get(id)))) {
+            addNotice(MERGE_STYLE_LOST_NOTICE);
+        }
+        current = replaceCaptionLine(current, head.id, text);
+        current = setCaptionTimingLine(current, head.id, head.start, tail.end, head.timeDomain ?? null, true);
+        current = removeCaptionWordsLine(current, head.id);
+        for (const id of op.ids.slice(1)) {
+            current = removeCaptionLine(current, id);
+        }
+        counts.merge++;
+    }
+
+    const applied = counts.replace + counts.split + counts.merge + counts.remove + counts.insert;
+    return {
+        source: current,
+        notices,
+        counts,
+        applied,
+        lineCountChanged: counts.split + counts.merge + counts.remove + counts.insert > 0
+    };
+}
+
+type CaptionLineOpGroup =
+    | { kind: 'insert'; afterId: string | undefined; texts: string[] }
+    | { kind: 'single'; op: Exclude<CaptionLineOp, { kind: 'insert' }> };
+
+/** 同じ位置へ続けて入る insert は 1 つの隙間へまとめて割り付ける。 */
+function groupCaptionLineOps(ops: readonly CaptionLineOp[]): CaptionLineOpGroup[] {
+    const groups: CaptionLineOpGroup[] = [];
+    for (const op of ops) {
+        if (op.kind !== 'insert') {
+            groups.push({ kind: 'single', op });
+            continue;
+        }
+        const previous = groups[groups.length - 1];
+        if (previous?.kind === 'insert' && previous.afterId === op.afterId) {
+            previous.texts.push(op.text);
+        } else {
+            groups.push({ kind: 'insert', afterId: op.afterId, texts: [op.text] });
+        }
+    }
+    return groups;
+}
+
+function normalizeLineText(text: string): string {
+    return text.normalize('NFC').trim();
+}
+
+/** 結合で捨てられる側のスタイル指定が実際に head と違うか（違うときだけ notice を出す）。 */
+function sameLineStyle(head: Caption, other: Caption | undefined): boolean {
+    if (!other) return true;
+    return JSON.stringify(head.textStyle ?? null) === JSON.stringify(other.textStyle ?? null)
+        && (head.stylePreset ?? null) === (other.stylePreset ?? null)
+        && (head.style ?? null) === (other.style ?? null);
+}
+
+/**
+ * 分割後の行の雛形（元の行固有プロパティを引き継ぐ CaptionRecord）を作る。
+ * text_style は snake_case のままでは insertCaptionLine が読めないため edit-store の
+ * parseCaptions で camelCase へ正規化する。**style_preset は渡さない** —
+ * edit-store の parseCaptions はプリセットを text_style へ展開してしまうので、
+ * 参照のまま持ち回るために正規化の外で足し直す。
+ * words / display_text / display_fragments は引き継がない（指示 C-9）。
+ */
+function toInsertableRecord(caption: Caption): CaptionRecord | undefined {
+    const probe = {
+        id: caption.id,
+        start: caption.start,
+        end: caption.end,
+        text: caption.text,
+        speaker: caption.speaker,
+        sourceRef: caption.sourceRef,
+        edited: caption.edited,
+        ...(caption.timeDomain === undefined ? {} : { time_domain: caption.timeDomain }),
+        ...(caption.textStyle === undefined ? {} : { text_style: caption.textStyle })
+    };
+    const [normalized] = parseCaptionRecords(JSON.stringify([probe])).captions;
+    if (!normalized) return undefined;
+    return {
+        ...normalized,
+        ...(caption.src === undefined ? {} : { src: caption.src }),
+        ...(caption.style === undefined ? {} : { style: caption.style as CaptionRecord['style'] }),
+        ...(caption.stylePreset === undefined ? {} : { stylePreset: caption.stylePreset }),
+        ...(caption.extra === undefined ? {} : { extra: caption.extra })
+    };
 }
 
 /** 配列ルート / オブジェクトルートの両形式からレコード列と形式情報を取り出す。 */

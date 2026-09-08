@@ -12,6 +12,9 @@ import {
   updateCaptionFieldsInSource,
   updateCaptionTextStyleInSource,
 } from '../lib/caption-store.js';
+// 行の分割・追加の時刻割り付け（task 2026-09-08-caption-line-ops 指示 B）。書き戻し側の
+// insertCaptionLine / removeCaptionLine と同じ契約を守る純関数なのでここで一緒に検証する。
+import { planInsertSpans, planSplitSpans } from '../lib/caption-line-diff.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 // caption-display.test.mjs が使う「共有パリティ fixture」を再利用する。ここに載っている
@@ -560,4 +563,55 @@ test('reference_height_px は integer >= 1 だけを取り込み、cue 側がフ
   ]));
   assert.equal(both.captions[0].textStyle.referenceHeightPx, 720);
   assert.equal('layout' in both.captions[0].textStyle, false, 'schema の併用禁止: zone と同じ向きで layout を落とす');
+});
+
+// --- 行の分割・追加の時刻割り付け（task 2026-09-08-caption-line-ops 指示 B-2 / B-5） ---
+
+test('split の時刻は分割後テキストの文字数比で按分し、境界は元の区間内に収まる', () => {
+  // [0, 4] を 2 文字 : 4 文字 で割る → 境界は 0 + 4 × 2/6 = 1.333
+  assert.deepEqual(planSplitSpans(0, 4, ['あい', 'うえおか']), [
+    { start: 0, end: 1.333 },
+    { start: 1.333, end: 4 },
+  ]);
+  // 等しい文字数なら等分。末尾は必ず元の end に一致する（丸め誤差を末尾へ寄せない）
+  assert.deepEqual(planSplitSpans(10, 13, ['a', 'b', 'c']), [
+    { start: 10, end: 11 },
+    { start: 11, end: 12 },
+    { start: 12, end: 13 },
+  ]);
+  // words があっても使わない契約なので、planSplitSpans の入力に words は現れない
+  assert.equal(planSplitSpans(0, 4, ['あい', 'うえおか']).at(-1).end, 4);
+});
+
+test('split は分割後の各行が 0.2 秒を持てないとき拒否する（undefined）', () => {
+  // 区間そのものが 0.2 × 行数 に足りない
+  assert.equal(planSplitSpans(0, 0.3, ['あ', 'い']), undefined);
+  // 総尺は足りるが文字数比が偏って先頭が 0.091 秒になる
+  assert.equal(planSplitSpans(0, 1, ['あ', 'いうえおかきくけこさ']), undefined);
+  // ちょうど 0.2 秒ずつは通す（境界値）
+  assert.deepEqual(planSplitSpans(0, 0.4, ['あ', 'い']), [
+    { start: 0, end: 0.2 },
+    { start: 0.2, end: 0.4 },
+  ]);
+  // 1 行しかない / 区間が潰れている入力は分割にならない
+  assert.equal(planSplitSpans(0, 4, ['あい']), undefined);
+  assert.equal(planSplitSpans(4, 4, ['あ', 'い']), undefined);
+});
+
+test('insert は直前行の end から次行の start までの隙間へ置き、隙間が足りなければ拒否する', () => {
+  // 広い隙間では既定尺 1 秒で置く（隙間を埋め尽くさない）
+  assert.deepEqual(planInsertSpans(2, 5, 1), [{ start: 2, end: 3 }]);
+  // 狭い隙間は等分して詰める（0.25 秒ずつ）
+  assert.deepEqual(planInsertSpans(2, 2.5, 2), [
+    { start: 2, end: 2.25 },
+    { start: 2.25, end: 2.5 },
+  ]);
+  // 隙間が 0.2 秒未満 / 行数 × 0.2 秒に足りないときは拒否
+  assert.equal(planInsertSpans(2, 2.1, 1), undefined);
+  assert.equal(planInsertSpans(2, 2.3, 2), undefined);
+  // 次行が無い（末尾への追加）は既定尺 1 秒ずつ並べる
+  assert.deepEqual(planInsertSpans(9.5, undefined, 2), [
+    { start: 9.5, end: 10.5 },
+    { start: 10.5, end: 11.5 },
+  ]);
 });
