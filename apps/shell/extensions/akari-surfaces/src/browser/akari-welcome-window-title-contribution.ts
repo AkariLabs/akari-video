@@ -1,5 +1,7 @@
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { WindowTitleContribution, WindowTitleService } from '@theia/core/lib/browser/window/window-title-service';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
+import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { FrontendApplicationConfigProvider } from '@theia/core/lib/browser/frontend-application-config-provider';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -33,9 +35,39 @@ const INTAKE_RELATIVE_PATH = '.akari/intake.json';
  * （`WindowTitleService` はコアの実装なので、文字列置換以外の上書き手段が無い —
  * `enhanceTitle(title, parts)` の `parts.get('rootName')` が実際に使われた生の
  * rootName と一致する前提で、そのまま出現箇所だけを置換する）。
+ *
+ * task 2026-09-08: WorkspaceService 自身が WindowTitleService を注入するため、
+ * WindowTitleService.init() から構築されるこの contribution は依存注入をゼロに保つ。
+ * enhanceTitle で遅延プロバイダを引いても同期解決の循環が閉じるので、ローカル状態だけを読む。
+ * 監視と状態更新は FrontendApplicationContribution として構築される updater に分離する。
  */
 @injectable()
 export class AkariWelcomeWindowTitleContribution implements WindowTitleContribution {
+
+    protected opened = false;
+    protected resolvedTitle: string | null = null;
+
+    setTitleState(opened: boolean, resolvedTitle: string | null): boolean {
+        const changed = this.opened !== opened || this.resolvedTitle !== resolvedTitle;
+        this.opened = opened;
+        this.resolvedTitle = resolvedTitle;
+        return changed;
+    }
+
+    enhanceTitle(title: string, parts: Map<string, string | undefined>): string {
+        if (!this.opened) {
+            return FrontendApplicationConfigProvider.get().applicationName;
+        }
+        const rootName = parts.get('rootName');
+        if (this.resolvedTitle && rootName && rootName !== this.resolvedTitle) {
+            return title.split(rootName).join(this.resolvedTitle);
+        }
+        return title;
+    }
+}
+
+@injectable()
+export class AkariWelcomeWindowTitleUpdater implements FrontendApplicationContribution {
 
     @inject(WorkspaceService)
     protected readonly workspaceService: WorkspaceService;
@@ -46,26 +78,36 @@ export class AkariWelcomeWindowTitleContribution implements WindowTitleContribut
     @inject(FileService)
     protected readonly fileService: FileService;
 
+    @inject(AkariWelcomeWindowTitleContribution)
+    protected readonly contribution: AkariWelcomeWindowTitleContribution;
+
+    protected readonly toDispose = new DisposableCollection();
     protected intakeUri: URI | undefined;
-    protected resolvedTitle: string | null = null;
+    protected titleUpdated = false;
 
     @postConstruct()
     protected init(): void {
-        this.workspaceService.onWorkspaceChanged(() => void this.refresh());
-        this.fileService.onDidFilesChange(event => {
+        this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => void this.refresh()));
+        this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (this.intakeUri && event.contains(this.intakeUri)) {
                 void this.refresh();
             }
-        });
+        }));
         void this.refresh();
+    }
+
+    onStop(): void {
+        this.toDispose.dispose();
     }
 
     protected async refresh(): Promise<void> {
         const roots = await this.workspaceService.roots;
         this.intakeUri = roots[0]?.resource.resolve(INTAKE_RELATIVE_PATH);
-        const previous = this.resolvedTitle;
-        this.resolvedTitle = this.intakeUri ? await this.readTitle(this.intakeUri) : null;
-        if (this.resolvedTitle !== previous) {
+        const title = this.intakeUri ? await this.readTitle(this.intakeUri) : null;
+        const changed = this.contribution.setTitleState(this.workspaceService.opened, title);
+        // 未選択・title 無しで状態が既定値のままでも、初回は必ず反映する。
+        if (changed || !this.titleUpdated) {
+            this.titleUpdated = true;
             // タイトルパーツ自体は変わっていないが、enhanceTitle を再評価させたい
             // だけなので空更新で updateTitle() を再トリガーする（公式 API はこれのみ）。
             this.windowTitleService.update({});
@@ -81,14 +123,4 @@ export class AkariWelcomeWindowTitleContribution implements WindowTitleContribut
         }
     }
 
-    enhanceTitle(title: string, parts: Map<string, string | undefined>): string {
-        if (!this.workspaceService.opened) {
-            return FrontendApplicationConfigProvider.get().applicationName;
-        }
-        const rootName = parts.get('rootName');
-        if (this.resolvedTitle && rootName && rootName !== this.resolvedTitle) {
-            return title.split(rootName).join(this.resolvedTitle);
-        }
-        return title;
-    }
 }

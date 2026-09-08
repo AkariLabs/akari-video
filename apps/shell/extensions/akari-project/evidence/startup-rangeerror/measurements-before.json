@@ -1,0 +1,57 @@
+{
+  "label": "before",
+  "workspace": "<WORKSPACE>",
+  "profile": "<SCRATCH>",
+  "reload": false,
+  "exceptions": [],
+  "consoleErrors": [
+    {
+      "type": "warning",
+      "text": "Property with id 'akari.developerMode' already exists",
+      "callSite": [
+        "addSchema (bundle.js:75663:23)",
+        "<anonymous> (bundle.js:75631:20)",
+        "init (bundle.js:75629:59)",
+        "_postConstruct (bundle.js:4993:43)",
+        "_getInstanceAfterPostConstruct (bundle.js:4982:37)",
+        "resolveInstance (bundle.js:5021:18)",
+        "_getResolvedFromBinding (bundle.js:5117:58)",
+        "<anonymous> (bundle.js:5135:24)"
+      ]
+    },
+    {
+      "type": "error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at tryAndThrowErrorIfStackOverflow (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:4075:15)\n    at _resolveFactoryFromBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5102:65)\n    at _getResolvedFromBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5120:22)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5135:24\n    at _resolveInScope (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5129:18)\n    at _resolveBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5134:16)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5097:18\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5090:20\n    at Array.map (<anonymous>)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5088:32",
+      "callSite": [
+        "getContributions (bundle.js:8385:27)",
+        "updateTitle (bundle.js:513877:59)",
+        "init (bundle.js:513840:16)",
+        "_postConstruct (bundle.js:4993:43)",
+        "_getInstanceAfterPostConstruct (bundle.js:4982:37)",
+        "resolveInstance (bundle.js:5021:18)",
+        "_getResolvedFromBinding (bundle.js:5117:58)",
+        "<anonymous> (bundle.js:5135:24)"
+      ]
+    },
+    {
+      "type": "error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5102:147\n    at tryAndThrowErrorIfStackOverflow (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:4076:19)\n    at _resolveFactoryFromBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5102:65)\n    at _getResolvedFromBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5120:22)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5135:24\n    at _resolveInScope (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5129:18)\n    at _resolveBinding (file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5134:16)\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5097:18\n    at file://<WORKTREE>/apps/shell/lib/frontend/bundle.js:5090:20\n    at Array.map (<anonymous>)",
+      "callSite": [
+        "getContributions (bundle.js:8385:27)",
+        "updateTitle (bundle.js:513877:59)",
+        "init (bundle.js:513840:16)",
+        "_postConstruct (bundle.js:4993:43)",
+        "_getInstanceAfterPostConstruct (bundle.js:4982:37)",
+        "resolveInstance (bundle.js:5021:18)",
+        "_getResolvedFromBinding (bundle.js:5117:58)",
+        "<anonymous> (bundle.js:5135:24)"
+      ]
+    }
+  ],
+  "rangeErrorCount": 7,
+  "alreadyExistsCount": 1,
+  "developerModeAlreadyExists": 1,
+  "reachedReady": true,
+  "failedToStart": false,
+  "pass": false
+}

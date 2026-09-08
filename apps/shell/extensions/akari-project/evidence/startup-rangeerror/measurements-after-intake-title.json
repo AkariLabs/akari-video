@@ -1,0 +1,15 @@
+{
+  "label": "after-intake-title",
+  "workspace": "<WORKSPACE>",
+  "profile": "<SCRATCH>",
+  "reload": false,
+  "exceptions": [],
+  "consoleErrors": [],
+  "documentTitle": "ホーム - L1 タイトル検証",
+  "rangeErrorCount": 0,
+  "alreadyExistsCount": 0,
+  "developerModeAlreadyExists": 0,
+  "reachedReady": true,
+  "failedToStart": false,
+  "pass": true
+}

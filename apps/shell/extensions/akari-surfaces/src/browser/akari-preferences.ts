@@ -8,9 +8,10 @@ export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
 
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+// 読む側の文字列ミラー。スキーマは akari-project/src/browser/akari-project-frontend-module.ts が所有する。
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 // パートナー PTY（Claude Code 等）の応答完了 OS 通知（読む側: akari-partner の
-// PartnerTurnNotifier — developerMode と同じく、スキーマはここが所有し読む側は文字列ミラー）。
+// PartnerTurnNotifier — スキーマはここが所有し読む側は文字列ミラー）。
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
 
 const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
@@ -32,11 +33,6 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
             enum: ['draft', 'final'],
             default: 'draft',
             description: 'AKARI Video の書き出し品質ティア'
-        },
-        [AKARI_DEVELOPER_MODE]: {
-            type: 'boolean',
-            default: false,
-            description: '開発者向けのファイル表示とフル設定を有効にする'
         },
         [AKARI_AGENT_TURN_END_NOTIFICATION]: {
             type: 'boolean',
