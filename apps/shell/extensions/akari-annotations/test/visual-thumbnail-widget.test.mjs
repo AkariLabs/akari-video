@@ -156,7 +156,7 @@ test('the real file watcher invalidates motion/edit.json and motion/credit.json 
   let renders = 0, editReloads = 0;
   const w = { location: { root: new U('file:///project'), editUri: uri('edit.json'), reviewUri: uri('review.json'), captionsUri: uri('captions.json') },
     visualInputEpoch: 0, visualDependencies: new Map([['child', [uri('motion/edit.json'), uri('motion/credit.json')]], ['other', [uri('other.html')]]]),
-    visualDependencyRevisions: new Map(), failedVisualThumbnails: new Set(), renderStrip: () => renders++,
+    htmlPartsCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Set(), renderStrip: () => renders++,
     reloadEdit: async () => editReloads++, reloadReview: async () => {}, reloadCaptions: async () => {}, isRecentWrite: () => false };
   const change = path => install.call(w)({ changes: [{ resource: uri(path) }], contains: target => target?.toString() === uri(path).toString() });
   change('motion/edit.json'); change('motion/credit.json');
