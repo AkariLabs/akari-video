@@ -944,7 +944,7 @@ try {
     protected async transcribeFile(root: string, relativePath: string): Promise<string> {
         const destination = resolve(root, relativePath);
         let current = destination;
-        while (true) {
+        for (;;) {
             const real = await fs.realpath(current).catch(error => {
                 if (error.code === 'ENOENT') return undefined;
                 throw error;
