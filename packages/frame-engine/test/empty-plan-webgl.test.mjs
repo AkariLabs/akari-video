@@ -119,7 +119,7 @@ test('layer compositor path matches the source-space fx pass revision', () => {
   );
   // r1 replaces inline fx uniforms with conditional prep/effect draws, then restores the
   // composite framebuffer and viewport. The no-fx base draw hash above stays unchanged.
-  assert.equal(sha256(section), 'a8e964e94cd6cf39aa7f28e8333fd6d2949df5294e4d9f0c2c26dc761d4be4da');
+  assert.equal(sha256(section), '791ca46e625d97f613b6be28db04c7fd83270065cfd0f3f57bada0deacec781e');
 });
 
 test('FX program cache and pass dispatch match the compile-time specialization revision', () => {
@@ -127,4 +127,16 @@ test('FX program cache and pass dispatch match the compile-time specialization r
   // FX section separately: lazy programs, cached locations and per-pass uniforms.
   const section = sourceSection('  private fxPassProgramFor(', '  private snapshotBaseFx(');
   assert.equal(sha256(section), '03764771c26a0c3a1b065e3f7dcc7ac2e995c901e917adf76b78a567962d522f');
+});
+
+test('a transparent preview plane leaves uncovered DOM pixels transparent', async () => {
+  const canvas = fakeCanvas(1, 1);
+  const compositor = new WebGL2Compositor(canvas, { transparent: true, synchronization: 'finish' });
+  const output = { width: 1, height: 1, colorSpace: 'bt709-limited' };
+  const plan = { timeUs: 0, base: [], layers: [], output };
+  try {
+    const surface = await compositor.compose([], [], output, new FrameMetrics(), plan);
+    assert.deepEqual([...await surface.readRgba()], [0, 0, 0, 0]);
+    surface.close();
+  } finally { compositor.dispose(); }
 });

@@ -98,7 +98,7 @@ test('tracks-only v2 は bgm/sfx/narration と trim/fade/ducking/track を損失
 
   assert.deepEqual(projectLegacyAudioView(internal), {
     bgm: {
-      path: 'audio/music.wav', in: 4, fadeIn: 1.25, fadeOut: 2.5, gain_db: -18,
+      path: 'audio/music.wav', t: 0, duration: 10, in: 4, fadeIn: 1.25, fadeOut: 2.5, gain_db: -18,
       ducking: true, id: 'bgm', track: 2, gainDb: -18,
     },
     sfx: [{

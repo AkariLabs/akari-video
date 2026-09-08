@@ -158,6 +158,61 @@ test('v2 media mask survives projection to a path-backed legacy layer and migrat
   assert.equal(projectLegacyEdit(readInternalEdit(result.doc)).layers[0].mask, 'person.mask.mp4');
 });
 
+test('v2 media layer preserves source in and speed through legacy projection and migration', () => {
+  const original = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'grid', path: 'source-grid.mp4' }],
+    tracks: [
+      { id: 'base', lane: 'visual', items: [
+        { id: 'back', at: 0, duration: 2160, source: { kind: 'media', src: 'grid', in: 0, out: 72 } },
+      ] },
+      { id: 'front-track', lane: 'visual', items: [
+        { id: 'front', at: 180, duration: 510, transform: { scale: 0.45 },
+          source: { kind: 'media', src: 'grid', in: 38, out: 72, speed: 2 } },
+      ] },
+    ],
+  };
+  const projected = projectLegacyEdit(readInternalEdit(original));
+  const layer = projected.layers.find(item => item.id === 'front');
+  assert.equal(layer.src, 'source-grid.mp4');
+  assert.deepEqual(
+    { in: layer.in, speed: layer.speed, t: layer.t, duration: layer.duration },
+    { in: 38, speed: 2, t: 6, duration: 17 },
+  );
+  const result = migrateEditToV2({
+    version: 1, output: original.output, sources: original.sources,
+    cuts: projected.cuts, overlays: projected.overlays, layers: projected.layers,
+  });
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  const item = result.doc.tracks.flatMap(track => track.items ?? [])
+    .find(candidate => candidate.id === 'front');
+  assert.deepEqual(item.source, original.tracks[1].items[0].source);
+  assert.deepEqual({ at: item.at, duration: item.duration }, { at: 180, duration: 510 });
+  assert.deepEqual(
+    projectLegacyEdit(readInternalEdit(result.doc)).layers.find(item => item.id === 'front'),
+    layer,
+  );
+});
+
+test('legacy layer trim and speed reject invalid values and sources that cannot preserve them', () => {
+  for (const fields of [
+    { in: -1 }, { in: null }, { in: '2' }, { in: Infinity },
+    { speed: 0 }, { speed: -1 }, { speed: null }, { speed: '2' }, { speed: Infinity },
+    { kind: 'filter', src: undefined, filter: { type: 'invert' }, in: 1 },
+    { kind: 'filter', src: undefined, filter: { type: 'invert' }, speed: 2 },
+    { kind: 'baked', preset: 'title', in: 1 },
+    { kind: 'baked', preset: 'title', speed: 2 },
+  ]) {
+    const doc = base(1);
+    doc.layers = [{ id: 'pip', t: 0, duration: 1, kind: 'video', src: 'pip.mp4', ...fields }];
+    if (doc.layers[0].src === undefined) delete doc.layers[0].src;
+    const result = migrateEditToV2(doc);
+    assert.equal(result.ok, false, JSON.stringify(fields));
+    assert.match(result.blockers.join('\n'), /layers\[0\].*(in|speed)/u);
+  }
+});
+
 test('legacy layer mask that cannot be resolved through sources[].path fails loudly', () => {
   const doc = base(1);
   doc.layers = [{ id: 'person', t: 0, duration: 1, kind: 'video', src: 'person.mp4', mask: 'missing.mask.mp4' }];

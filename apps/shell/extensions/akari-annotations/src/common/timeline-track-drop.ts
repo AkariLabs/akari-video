@@ -19,18 +19,7 @@ export interface TimelineTrackDropHit {
     readonly insertIndex?: number;
 }
 
-/**
- * 映像クリップの縦方向ドロップ先を決める純関数。
- *
- * 2026-08-22 の裁定:
- * - 段間挿入は廃止する。6px の段間ギャップより広い挿入帯を各段の上下へ張ると、隣の段へ
- *   入る前に必ず緑線を踏むため。段本体と段間ギャップは既存の items[] 段を優先する。
- * - 新規段は visual トラック群の上端・下端を実際に越えた外側で作る。上側は beats 帯や
- *   中央寄せ余白を含めて距離無制限。下側も次の audio 段本体まで（audio が無ければ距離無制限）。
- *   audio 段の本体へ入った場合は lane 越えとして拒否する。
- * - captions の content 段はアイテムの着地先にはしないが、visual 群の外縁計算には含める。
- *   これにより字幕段が最上段でも、その上は正当な「新しい最上段」の挿入先になる。
- */
+/** 映像クリップの着地先。段の境界付近だけを新しいトラックへの差し込み先にする。 */
 export function hitTestTimelineTrackDrop(
     localY: number,
     layouts: readonly TimelineTrackDropLayout[],
@@ -44,6 +33,16 @@ export function hitTestTimelineTrackDrop(
     const fallback = eligible.find(layout => layout.track === originalTrack) ?? eligible[0];
     if (!fallback || visual.length === 0) {
         return { track: originalTrack, top: 0, height: 0, rejected: true };
+    }
+
+    for (let index = 0; index < visual.length - 1; index++) {
+        const upper = visual[index];
+        const lower = visual[index + 1];
+        const boundary = (upper.top + upper.height + lower.top) / 2;
+        if (Math.abs(localY - boundary) <= 4) {
+            return { track: fallback.track, top: boundary, height: fallback.height,
+                rejected: false, insertIndex: upper.rawIndex };
+        }
     }
 
     const containing = ordered.find(layout =>

@@ -733,3 +733,19 @@ test('invalidateSource does not start warmup after dispose', async () => {
   assert.equal(scheduler.state().liveDecoders, 0);
   assert.equal(scheduler.state().coverage.warmed, 0);
 });
+
+test('stacked cuts warm independent streams of the same source at their own trim positions', async () => {
+  const ids = ['grid'];
+  const timeline = timelineFixture({ cuts: [
+    { src: 'grid', in: 0, out: 72 },
+    { src: 'grid', in: 38, out: 72, at: 6, track: 5, transform: { scale: 0.45 } },
+  ] });
+  const runtime = fakeRuntime(ids);
+  const scheduler = createScheduler(timeline, ids, runtime);
+  scheduler.warmupNextBoundary();
+  await flushMicrotasks();
+  const pinned = runtime.prefetched.filter(item => item.pin);
+  assert.ok(pinned.some(item => item.streamId === 'cut-0' && item.sourceTimeUs >= 6e6 && item.sourceTimeUs < 6.1e6));
+  assert.ok(pinned.some(item => item.streamId === 'layer-cut-1' && item.sourceTimeUs >= 38e6 && item.sourceTimeUs < 38.1e6));
+  scheduler.dispose();
+});

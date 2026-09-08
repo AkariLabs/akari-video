@@ -122,6 +122,8 @@ export interface ChromaKeySummary {
 }
 
 export interface LayerSummaryBase {
+    in?: number;
+    speed?: number;
     id: string;
     t: number;
     duration: number;
@@ -327,6 +329,8 @@ export function buildLayerSummaryBase(
     }
 
     const base: LayerSummaryBase = {
+        ...(typeof record.in === 'number' && Number.isFinite(record.in) ? { in: record.in } : {}),
+        ...(typeof record.speed === 'number' && record.speed > 0 ? { speed: record.speed } : {}),
         id: record.id as string,
         t: record.t as number,
         duration: record.duration as number,

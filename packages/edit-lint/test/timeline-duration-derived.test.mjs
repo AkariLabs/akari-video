@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { lintProject } from "../src/edit-lint.mjs";
 
-async function withProject({ visual = false }, callback) {
+async function withProject({ visual = false, visualFrames = 180 }, callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-duration-derived-"));
   try {
     await mkdir(join(root, "overlays"));
@@ -30,8 +30,8 @@ async function withProject({ visual = false }, callback) {
     if (visual) {
       sources.push({ id: "main", path: "assets/main.mp4" });
       tracks.unshift({ id: "video", lane: "visual", items: [{
-        id: "main-1", at: 0, duration: 180,
-        source: { kind: "media", src: "main", in: 0, out: 6 },
+        id: "main-1", at: 0, duration: visualFrames,
+        source: { kind: "media", src: "main", in: 0, out: visualFrames / 30 },
       }] });
     }
     await writeFile(join(root, "edit.json"), `${JSON.stringify({
@@ -66,5 +66,11 @@ test("映像素材がある構成で timeline.duration-derived は出ない", as
       0,
       JSON.stringify(result.findings, null, 2),
     );
+  });
+});
+
+test("映像終端より後ろのHTMLと音声も有効な出力範囲になる", async () => {
+  await withProject({ visual:true, visualFrames:60 }, result => {
+    assert.equal(result.findings.filter(f => f.severity === 'error' && ['overlays.timeline','audio.sfx.timeline'].includes(f.check)).length,0);
   });
 });

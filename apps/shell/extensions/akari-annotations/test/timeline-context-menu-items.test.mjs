@@ -82,3 +82,10 @@ test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 →
         }
     }
 });
+
+test('shared item capability enables split for projected video layers and HTML on any track', () => {
+  for (const kind of ['cut', 'layer', 'overlay']) {
+    assert.ok(buildTimelineClipMenuItems(kind, false, { canSplit: true }).some(item => item.id === 'split'));
+    assert.ok(!buildTimelineClipMenuItems(kind, false, { canSplit: false }).some(item => item.id === 'split'));
+  }
+});

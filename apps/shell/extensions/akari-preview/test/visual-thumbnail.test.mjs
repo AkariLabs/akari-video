@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { realpathSync } from 'node:fs';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -55,7 +55,7 @@ test('capture host preserves portrait aspect, waits for fonts/images/3D, and esc
 });
 
 test('3D thumbnails stream each local asset once and use the selected overlay texture', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'akari-thumbnail-materials-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'akari-thumbnail-materials-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const assetPaths = ['model.glb', 'room.png', 'selected.png', 'icon.png'];
   for (const path of assetPaths) await writeFile(join(root, path), 'asset');
@@ -93,7 +93,7 @@ test('3D thumbnails stream each local asset once and use the selected overlay te
 });
 
 test('3D thumbnail environment and selected textures reject absolute paths and URLs', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'akari-thumbnail-material-boundary-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'akari-thumbnail-material-boundary-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'model.glb'), 'model');
   const path = join(root, 'edit.json');

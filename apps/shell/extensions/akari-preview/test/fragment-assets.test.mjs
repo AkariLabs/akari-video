@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { realpathSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +10,7 @@ import test from 'node:test';
 const { rewritePreviewFragmentAssets } = createRequire(import.meta.url)('../lib/node/fragment-assets.js');
 
 test('shell fragment assets use shared resolution and registered stream URLs', async t => {
-    const projectRoot = await mkdtemp(join(tmpdir(), 'shell-fragment-assets-'));
+    const projectRoot = await realpath(await mkdtemp(join(tmpdir(), 'shell-fragment-assets-')));
     t.after(() => rm(projectRoot, { recursive: true, force: true }));
     await mkdir(join(projectRoot, 'assets'));
     await writeFile(join(projectRoot, 'assets/logo.png'), 'image');

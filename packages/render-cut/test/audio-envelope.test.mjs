@@ -119,3 +119,13 @@ test('analysis.json 不在の speech 鍵は warning 1 行と空区間へ劣化�
     assert.equal(command.warnings.filter(message => /analysis\.json is unavailable/u.test(message)).length, 1);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a timed BGM is trimmed independently of the longer video output', () => {
+  const { root, command } = fixture({ audio: { bgm: { path: 'music.wav', duration: 2, t: 1, fadeOut: 0.5 } } });
+  try {
+    const graph = command.args[command.args.indexOf('-filter_complex') + 1];
+    assert.match(graph, /atrim=duration=2/);
+    assert.match(graph, /adelay=1000:all=1/);
+    assert.doesNotMatch(graph, /atrim=duration=5/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

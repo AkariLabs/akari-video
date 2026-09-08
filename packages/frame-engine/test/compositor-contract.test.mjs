@@ -402,3 +402,34 @@ test('layer-style cut box matches the layer program forwardInverse on identical 
     assert.ok(inside > 0, `case ${caseIndex} sampled no pixel inside the box`);
   }
 });
+
+test('stacked cuts retain base fit and off-centre framing at different source dimensions', async () => {
+  const { compositeCutGeometry } = await import('../dist/compositor/webgl2.js');
+  for (const [sw, sh] of [[1920, 1080], [640, 480], [800, 1600]]) {
+    const outW = 1920, outH = 1080;
+    for (const framing of [{ x: 0, y: 0, width: 1, height: 1 }, { x: 0.1, y: 0.2, width: 0.6, height: 0.5 }]) {
+      const transform = { x: 125, y: -80, scale: 0.45, rotateDegrees: 25 };
+      const cut = { framing, transform, opacity: 1 };
+      const geometry = compositeCutGeometry(cut, sw, sh, outW, outH);
+      const inverse = forwardInverse(geometry.visual, geometry.width, geometry.height, outW, outH);
+      const fit = Math.min(outW / sw, outH / sh);
+      for (let py = 100; py < outH; py += 73) for (let px = 100; px < outW; px += 91) {
+        const dx = px - outW / 2 - transform.x, dy = py - outH / 2 - transform.y;
+        const a = transform.rotateDegrees * Math.PI / 180;
+        const u = (Math.cos(a) * dx + Math.sin(a) * dy) / transform.scale / outW + 0.5;
+        const v = (-Math.sin(a) * dx + Math.cos(a) * dy) / transform.scale / outH + 0.5;
+        const sx = ((framing.x + u * framing.width) * outW - (outW - sw * fit) / 2) / (sw * fit);
+        const sy = ((framing.y + v * framing.height) * outH - (outH - sh * fit) / 2) / (sh * fit);
+        const expectedVisible = [u, v, sx, sy].every(value => value >= 0 && value <= 1);
+        const cu = inverse[0] * px + inverse[3] * py + inverse[6];
+        const cv = inverse[1] * px + inverse[4] * py + inverse[7];
+        const visible = [cu, cv].every(value => value >= 0 && value <= 1);
+        assert.equal(visible, expectedVisible);
+        if (visible) {
+          assert.ok(Math.abs(geometry.visual.crop.x + cu * geometry.visual.crop.width - sx) < 1e-5);
+          assert.ok(Math.abs(geometry.visual.crop.y + cv * geometry.visual.crop.height - sy) < 1e-5);
+        }
+      }
+    }
+  }
+});

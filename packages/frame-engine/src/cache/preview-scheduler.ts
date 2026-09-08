@@ -226,7 +226,9 @@ export function createPreviewScheduler({
     }
     for (const layer of plan.layers) {
       if (layer.kind === 'image' || layer.kind === 'filter') continue;
-      const declared = layerSources.get(layer.id);
+      const declared = layer.cutVisual
+        ? { src: timeline.cuts[Number(layer.id.slice('cut-'.length))]?.cut.src, mask: null }
+        : layerSources.get(layer.id);
       append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, 'layer');
       if (layer.mask) {
         append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, 'mask');

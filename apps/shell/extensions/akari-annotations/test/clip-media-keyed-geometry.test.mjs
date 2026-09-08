@@ -20,7 +20,7 @@ function call(methodSource, callNeedle) {
 
 test('再利用 cut は前回と異なるメディア幾何だけを既存ノードへ反映する', () => {
   const renderStrip = method('protected renderStrip(): void', 'protected laneBand');
-  const geometryUpdate = call(renderStrip, 'this.updateClipMediaGeometry');
+  const geometryUpdate = call(renderStrip, 'this.updateClipMediaGeometry(element, cut,');
   for (const identifier of ['element', 'cut', 'clipWidth', 'segment', 'cutLayout.height']) {
     assert.ok(geometryUpdate.includes(identifier), identifier);
   }

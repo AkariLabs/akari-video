@@ -268,25 +268,20 @@ export function visualContentEndSeconds(internal: InternalEdit): number {
 }
 
 /**
- * 出力タイムラインの総尺。映像本体がある間は visualContentEndSeconds を唯一の正本とし、
- * 映像本体が 0 秒のときだけ overlays / 字幕 / narration / sfx の最大終端へ後退する。
- * BGM は総尺に合わせて切られる素材なので、後退尺には含めない。
+ * 出力タイムラインの総尺は全素材の最大終端。映像の後ろの HTML・字幕・音声も出力対象。
+ * 実尺未解決（duration=0）の音源はここでは延長せず、再生・書き出し時のプローブで補完する。
  */
 export function timelineDurationSeconds(internal: InternalEdit): {
     seconds: number;
     basis: 'visual' | 'overlays-audio' | 'empty';
 } {
     const visualEnd = visualContentEndSeconds(internal);
-    if (visualEnd > 0) {
-        return { seconds: visualEnd, basis: 'visual' };
-    }
-
     let fallbackEnd = 0;
     const walk = (item: InternalItem, lane: InternalLane): void => {
         const isFallbackVisual = lane === 'visual'
             && ['html', 'group', 'captions', 'caption'].includes(item.source.kind);
         const isFallbackAudio = lane === 'audio'
-            && (item.legacy.collection === 'narration' || item.legacy.collection === 'sfx');
+            && item.duration > 0;
         if (isFallbackVisual || isFallbackAudio) {
             fallbackEnd = Math.max(fallbackEnd, item.at + item.duration);
         }
@@ -297,6 +292,7 @@ export function timelineDurationSeconds(internal: InternalEdit): {
         for (const item of track.items) walk(item, track.lane);
     }
 
+    if (visualEnd >= fallbackEnd && visualEnd > 0) return { seconds: visualEnd, basis: 'visual' };
     return fallbackEnd > 0
         ? { seconds: fallbackEnd, basis: 'overlays-audio' }
         : { seconds: 0, basis: 'empty' };
@@ -936,6 +932,7 @@ function buildV2VisualItem(
             if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
+                    in: item.source.in,
                     track: ref, ...common, ...copyMediaSourceFields(item.source),
                 ...('audio' in item && item.audio === false ? { audio: false as const } : {})
                 };
@@ -1182,6 +1179,7 @@ function buildV2AudioItem(
     if (role === 'bgm') {
         const value: EditAudioBgm = {
             id: 'bgm',
+            ...(duration > 0 ? { t: at, duration } : {}),
             path: resolvedPath,
             track: ref,
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
@@ -1200,6 +1198,7 @@ function buildV2AudioItem(
                 id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     path: resolvedPath,
+                    ...(duration > 0 ? { t: at, duration } : {}),
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
                     ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
                     ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),

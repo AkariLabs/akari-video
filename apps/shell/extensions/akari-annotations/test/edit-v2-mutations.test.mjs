@@ -572,3 +572,29 @@ test('木 item の数値 write は tree-ops updateItem で入れ子を更新す�
     .find(item => item.id === 'g-write').items[0];
   assert.deepEqual(nested.transform, { x: 110, y: 5 });
 });
+
+test('split uses item identity with HTML on V1 and transformed video on an upper track', () => {
+  const doc = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'grid', path: 'grid.mp4' }], tracks: [
+      { id: 'v1', lane: 'visual', items: [{ id: 'html', at: 0, duration: 300, source: { kind: 'html', path: 'test.html' } }] },
+      { id: 'v14', lane: 'visual', items: [{ id: 'mp4', at: 180, duration: 300, transform: { scale: 0.45 }, source: { kind: 'media', src: 'grid', in: 38, out: 58, speed: 2 } }] }
+    ] };
+  const movie = valid(splitItem(doc, { itemId: 'mp4', atFrames: 240 }));
+  assert.equal(movie.tracks[1].items.length, 2);
+  assert.deepEqual(movie.tracks[1].items.map(i => [i.at, i.duration, i.transform.scale]), [[180, 60, 0.45], [240, 240, 0.45]]);
+  assert.equal(movie.tracks[1].items[1].source.in, 42);
+  assert.equal(movie.tracks[0].items.length, 1);
+  const html = valid(splitItem(movie, { itemId: 'html', atFrames: 90 }));
+  assert.deepEqual(html.tracks[0].items.map(i => [i.at, i.duration, i.source.path]), [[0, 90, 'test.html'], [90, 210, 'test.html']]);
+});
+
+test('pinning automatic BGM prevents subsequent visual edits from extending its duration', async () => {
+  const { pinAutomaticBgmDuration } = await import('../lib/common/edit-v2-mutations.js');
+  const doc = { ...fixture, tracks: [{ id: 'audio', lane: 'audio', items: [
+    { id: 'bgm', role: 'bgm', at: 0, duration: 0, source: { kind: 'media', src: 'music', in: 0 } }
+  ] }] };
+  const first = pinAutomaticBgmDuration(doc, 2730);
+  assert.equal(doc.tracks[0].items[0].duration, 0);
+  assert.equal(first.tracks[0].items[0].duration, 2730);
+  assert.equal(pinAutomaticBgmDuration(first, 4500).tracks[0].items[0].duration, 2730);
+});

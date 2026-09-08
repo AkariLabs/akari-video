@@ -420,6 +420,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインで時刻を選び、ここにコメントを書きます。';
 
+        this.toDispose.push(this.notice);
         this.node.append(
             this.toolbar,
             this.composerRow,

@@ -311,13 +311,16 @@ export function buildAudioMixCommand({
   }
 
   let bgmLabel = null;
-  if (audio.bgm) {
+  if (audio.bgm && Number(audio.bgm.t ?? 0) < duration) {
+    const bgmStart = Math.max(0, Number(audio.bgm.t ?? 0));
+    const bgmDuration = Math.min(duration - bgmStart,
+      Number(audio.bgm.duration) > 0 ? Number(audio.bgm.duration) : duration - bgmStart);
     const bgmSourcePath = resolve(projectRoot, audio.bgm.path);
     const bgmIn = resolveBgmInSeconds(audio.bgm, ffprobeCommand, bgmSourcePath);
     warnings.push(...bgmIn.warnings);
     if (bgmIn.seconds > 0) args.push("-ss", formatNumber(bgmIn.seconds));
     args.push("-stream_loop", "-1", "-i", bgmSourcePath);
-    const bgmFade = resolveBgmFadeSeconds(audio.bgm, duration);
+    const bgmFade = resolveBgmFadeSeconds(audio.bgm, bgmDuration);
     warnings.push(...bgmFade.warnings);
     // afade は volume/atrim に直結し、その後に決定論 envelope を amultiply する。
     // 乗算同士なので可換だが、この順序を契約として固定する。
@@ -326,28 +329,32 @@ export function buildAudioMixCommand({
     const bgmEnvelope = createClipEnvelope({
       item: audio.bgm,
       intervals: audio.bgm.ducking === true ? duckIntervals : [],
-      clipStartSec: 0,
-      clipDurationSec: duration,
+      clipStartSec: bgmStart,
+      clipDurationSec: bgmDuration,
     });
     if (bgmEnvelope) {
       const envelopeInput = appendEnvelopeInput({
-        args, workDirectory, label: "bgm", envelope: bgmEnvelope, durationSec: duration,
+        args, workDirectory, label: "bgm", envelope: bgmEnvelope, durationSec: bgmDuration,
         envelopes, inputIndex,
       });
       inputIndex += 1;
       if (bgmEnvelope.keyframed) keyframedItems.add(audio.bgm.id ?? "bgm");
       if (bgmEnvelope.ducked) duckedItems.add(audio.bgm.id ?? "bgm");
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base]`,
       );
       filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm]`);
       filters.push(`[bgm_base][env_bgm]amultiply[bgm_env]`);
       bgmLabel = "[bgm_env]";
     } else {
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)}[bgm]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)}[bgm]`,
       );
       bgmLabel = "[bgm]";
+    }
+    if (bgmStart > 0) {
+      filters.push(`${bgmLabel}adelay=${Math.round(bgmStart * 1000)}:all=1[bgm_delayed]`);
+      bgmLabel = "[bgm_delayed]";
     }
     labels.push(bgmLabel);
   }

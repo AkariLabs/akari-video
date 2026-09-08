@@ -80,7 +80,8 @@ function harness(overrides = {}) {
     window.akari = { frameEngineClock: {}, exitFullscreen() { exits++; } };
     const previewPane = eventTarget();
     previewPane.getBoundingClientRect = () => ({ left: 0, top: 0, right: 800, bottom: 450 });
-    const video = { dataset: { akariCutIndex: '0' }, style: { visibility: '' } };
+    const video = { dataset: { akariCutIndex: '0' }, style: { visibility: '', zIndex: '1' },
+        getBoundingClientRect: () => ({ left: 40, top: 30, right: 760, bottom: 430, width: 720, height: 400 }) };
     let exits = 0;
     const calls = [];
     const context = {
@@ -88,6 +89,8 @@ function harness(overrides = {}) {
         stillImage: { style: { display: 'none' } },
         previewStage: { getBoundingClientRect: () => ({ left: 40, top: 30, right: 760, bottom: 430 }) },
         frameEngineMediaIdle: true, layerEntries: [],
+        segments: [{kind: 'src', track: 0}], activeSegmentIndex: 0,
+        allTracksHiddenByScope: {cuts:false}, hiddenTracksByScope:{cuts:new Set()},
         layerGeometryHitAt: entry => entry.hit,
         document: { elementsFromPoint: () => [] },
         findLayerEntry: () => null, layerAlphaAtPoint: () => 255,
@@ -134,11 +137,14 @@ test('engine hits only selectable cuts inside the client-space output frame', ()
         }
         context.video.dataset.akariCutIndex = '0';
         context.video.style.visibility = 'hidden';
+        assert.equal(context.hit(inside), context.video, 'idle legacy video is not logical visibility');
+        context.hiddenTracksByScope.cuts.add(0);
         assert.equal(context.hit(inside), null);
+        context.hiddenTracksByScope.cuts.clear();
         context.stillImage.style.display = '';
         assert.equal(context.hit(inside), context.video, 'visible stills remain selectable');
         context.stillImage.style.display = 'none';
-        const layer = { video: { style: {}, videoWidth: 100, videoHeight: 100 }, hit: true };
+        const layer = { video: { style: { zIndex: '2' }, videoWidth: 100, videoHeight: 100 }, hit: true };
         context.layerEntries.push(layer);
         assert.equal(context.hit(inside), layer.video, 'layer hits precede the cut visibility guard');
     }
@@ -194,7 +200,7 @@ test('empty or hidden cuts allow release inside the stage; real cut hits preserv
     for (const kind of ['empty', 'hidden', 'visible']) {
         const { context, calls, dispatchPointer } = harness({ cutSelected: true });
         if (kind === 'empty') context.video.dataset.akariCutIndex = '';
-        if (kind === 'hidden') context.video.style.visibility = 'hidden';
+        if (kind === 'hidden') context.hiddenTracksByScope.cuts.add(0);
         const position = { clientX: 400, clientY: 200 };
         dispatchPointer('pointerdown', position);
         dispatchPointer('pointerup', position);
@@ -294,4 +300,30 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
         near(context.layer.width, 640 * scale);
         near(context.layer.height, 100 * scale);
     }
+});
+
+test('media hits use transformed cut bounds and numeric track order instead of layer array order', () => {
+    const { context } = harness();
+    const point = { clientX: 400, clientY: 200 };
+    context.video.getBoundingClientRect = () => ({ left: 300, top: 150, right: 500, bottom: 250, width: 200, height: 100 });
+    const front = { video: { style: { zIndex: '10' }, videoWidth: 640, videoHeight: 360 }, hit: true };
+    const back = { video: { style: { zIndex: '2' }, videoWidth: 640, videoHeight: 360 }, hit: true };
+    context.layerEntries.push(front, back);
+    assert.equal(context.hit(point), front.video);
+    context.video.style.zIndex = '11';
+    assert.equal(context.hit(point), context.video);
+    assert.equal(context.hit({ clientX: 200, clientY: 200 }), front.video, 'outside the scaled cut exposes the lower track');
+    context.video.style.zIndex = '1';
+    front.video.style.display = 'none';
+    assert.equal(context.hit(point), back.video);
+    back.hit = false;
+    assert.equal(context.hit(point), context.video, 'outside the crop geometry exposes the cut');
+    assert.equal(context.hit({ clientX: 200, clientY: 200 }), null);
+    front.video.style.display = '';
+    front.video.videoWidth = 0;
+    assert.equal(context.hit(point), context.video, 'unmeasured media is not selectable');
+    front.video.naturalWidth = 640;
+    front.video.naturalHeight = 360;
+    front.video.videoHeight = 0;
+    assert.equal(context.hit(point), front.video, 'still images use their natural dimensions');
 });

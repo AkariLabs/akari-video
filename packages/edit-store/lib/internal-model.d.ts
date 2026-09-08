@@ -202,9 +202,8 @@ export declare function readInternalSources(source: string | unknown): InternalS
  */
 export declare function visualContentEndSeconds(internal: InternalEdit): number;
 /**
- * 出力タイムラインの総尺。映像本体がある間は visualContentEndSeconds を唯一の正本とし、
- * 映像本体が 0 秒のときだけ overlays / 字幕 / narration / sfx の最大終端へ後退する。
- * BGM は総尺に合わせて切られる素材なので、後退尺には含めない。
+ * 出力タイムラインの総尺は全素材の最大終端。映像の後ろの HTML・字幕・音声も出力対象。
+ * 実尺未解決（duration=0）の音源はここでは延長せず、再生・書き出し時のプローブで補完する。
  */
 export declare function timelineDurationSeconds(internal: InternalEdit): {
     seconds: number;

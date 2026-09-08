@@ -1319,6 +1319,8 @@ var AkariEditKernel = (() => {
     if (gainDb === null) return null;
     const timelineT = typeof spec.t === "number" && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
     if (timelineT >= timelineDurationSec) return null;
+    const itemEndSec = finitePositive(spec.duration) ? Math.min(timelineDurationSec, timelineT + spec.duration) : timelineDurationSec;
+    if (startAtSec >= itemEndSec) return null;
     const sidecar = validSidecar(spec.sidecar);
     if (spec.sidecar && !sidecar) warnings.push(`${label}: sidecar declaration is invalid; using source`);
     const materialDurationSec = sidecar ? sidecar.durationSec : spec.durationSec;
@@ -1338,7 +1340,7 @@ var AkariEditKernel = (() => {
       return null;
     }
     const timelineStartSec = startAtSec + delaySec;
-    const timelineAvailableSec = timelineDurationSec - timelineStartSec;
+    const timelineAvailableSec = itemEndSec - timelineStartSec;
     const durationSec = Math.min(
       timelineAvailableSec,
       loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate
@@ -1361,7 +1363,7 @@ var AkariEditKernel = (() => {
       gainEvents: bgmFadeGainEvents(
         spec.fadeIn,
         spec.fadeOut,
-        timelineDurationSec,
+        itemEndSec,
         timelineStartSec,
         durationSec,
         baseGain
@@ -1369,7 +1371,7 @@ var AkariEditKernel = (() => {
       envelopeEvents: scheduledEnvelopeEvents(
         spec,
         timelineT,
-        timelineDurationSec - timelineT,
+        itemEndSec - timelineT,
         elapsedSec,
         durationSec,
         duckIntervals
@@ -2911,6 +2913,7 @@ var AkariEditKernel = (() => {
             duration,
             kind: "video",
             src: path ?? item.source.src,
+            in: item.source.in,
             track: ref,
             ...common,
             ...copyMediaSourceFields(item.source),
@@ -3233,6 +3236,7 @@ var AkariEditKernel = (() => {
     if (role === "bgm") {
       const value2 = {
         id: "bgm",
+        ...duration > 0 ? { t: at, duration } : {},
         path: resolvedPath,
         track: ref,
         ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
@@ -3257,6 +3261,7 @@ var AkariEditKernel = (() => {
           source,
           declaration: {
             path: resolvedPath,
+            ...duration > 0 ? { t: at, duration } : {},
             ...item.source.in !== void 0 ? { in: item.source.in } : {},
             ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
             ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},

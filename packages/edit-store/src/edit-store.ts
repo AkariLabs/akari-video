@@ -45,6 +45,8 @@ export type LayerBlendMode =
     | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
 
 export interface EditLayer {
+    in?: number;
+    speed?: number;
     id: string;
     t: number;
     duration: number;
@@ -133,6 +135,8 @@ export interface CutTrackSegment {
 }
 
 export interface EditAudioBgm {
+    t?: number;
+    duration?: number;
     id: 'bgm';
     path: string;
     track?: number;

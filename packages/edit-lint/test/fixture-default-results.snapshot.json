@@ -2072,8 +2072,8 @@
       "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
     },
     "overlay-range": {
-      "exit_code": 1,
-      "verdict": "fail",
+      "exit_code": 0,
+      "verdict": "pass",
       "findings": [
         {
           "severity": "warning",
@@ -2082,14 +2082,10 @@
           "path": "edit.json#output.geometry"
         },
         {
-          "severity": "error",
-          "check": "overlays.timeline",
-          "message": "overlay ends after timeline duration 10s",
-          "path": "edit.json#overlays[0]",
-          "range": {
-            "start": 9,
-            "end": 11
-          }
+          "severity": "info",
+          "check": "timeline.duration-derived",
+          "message": "尺を overlays / 字幕 / 音声の終端 11 秒から導出した",
+          "path": "edit.json#tracks"
         }
       ],
       "skipped": [
@@ -2773,8 +2769,8 @@
       ]
     },
     "speed-exceeds-timeline-invalid": {
-      "exit_code": 1,
-      "verdict": "fail",
+      "exit_code": 0,
+      "verdict": "pass",
       "findings": [
         {
           "severity": "warning",
@@ -2783,14 +2779,10 @@
           "path": "edit.json#output.geometry"
         },
         {
-          "severity": "error",
-          "check": "overlays.timeline",
-          "message": "overlay ends after timeline duration 10s",
-          "path": "edit.json#overlays[0]",
-          "range": {
-            "start": 8,
-            "end": 12
-          }
+          "severity": "info",
+          "check": "timeline.duration-derived",
+          "message": "尺を overlays / 字幕 / 音声の終端 12 秒から導出した",
+          "path": "edit.json#tracks"
         }
       ],
       "skipped": [

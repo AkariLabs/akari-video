@@ -367,7 +367,7 @@ test('timelineDurationSeconds は映像なしの html 2 件・入れ子 group・
   assert.deepEqual(timelineDurationSeconds(internal), { seconds: 7, basis: 'overlays-audio' });
 });
 
-test('timelineDurationSeconds は bgm だけのタイムラインを empty とする', () => {
+test('timelineDurationSeconds は明示尺の bgm だけでも出力尺を持つ', () => {
   const internal = readInternalEdit({
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -377,7 +377,7 @@ test('timelineDurationSeconds は bgm だけのタイムラインを empty と�
       source: { kind: 'media', src: 'music', in: 0, out: 10 },
     }] }],
   });
-  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 0, basis: 'empty' });
+  assert.deepEqual(timelineDurationSeconds(internal), { seconds: 10, basis: 'overlays-audio' });
 });
 
 test('readInternalSources returns the v2 source table', () => {
@@ -453,7 +453,7 @@ test('v2 audio tracks project sfx, narration, and bgm to their exact legacy shap
     },
   ]);
   assert.deepEqual(view.audioBgm, {
-    id: 'bgm', path: 'music.wav', track: 2, fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
+    id: 'bgm', t: 0, duration: 10, path: 'music.wav', track: 2, fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
   });
   assert.notEqual(view.audioNarration[0].track, view.audioBgm.track);
   assert.deepEqual(internal.tracks.slice(0, 4).map(track => track.legacy.ref), [0, 1, 2, 3]);
@@ -956,4 +956,24 @@ test('a whole-region freeze (positive duration, entirely covered by freeze) is n
   const item = internal.tracks[0].items[0];
   assert.notEqual(item.legacy.value, undefined, 'a whole-region freeze clip has a real, positive duration and must not be dropped like a genuine duration:0 item');
   assert.ok(item.legacy.value.out > item.legacy.value.in, `expected a non-empty trim window to seed the freeze hold from, got ${JSON.stringify(item.legacy.value)}`);
+});
+
+test('映像の後ろに置いたHTMLも出力尺を延長する', () => {
+  const doc = base();
+  doc.tracks.push({id:'html-tail',lane:'visual',items:[{id:'tail',at:90,duration:60,source:{kind:'html',path:'tail.html'}}]});
+  assert.deepEqual(timelineDurationSeconds(readInternalEdit(doc)), {seconds:5,basis:'overlays-audio'});
+});
+
+test('cross-track media promotion preserves a trimmed source clock after resizing', () => {
+  const edit = { version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'grid', path: 'source-grid.mp4' }], tracks: [
+      { id: 'v1', lane: 'visual', items: [{ id: 'back', at: 0, duration: 2160, source: { kind: 'media', src: 'grid', in: 0, out: 72 } }] },
+      { id: 'v5', lane: 'visual', items: [{ id: 'front', at: 180, duration: 510, transform: { scale: 0.45 }, source: { kind: 'media', src: 'grid', in: 38, out: 72, speed: 2 } }] },
+    ] };
+  const internal = readInternalEdit(edit);
+  const front = internal.tracks[1].items[0];
+  assert.equal(front.legacy.collection, 'layers');
+  assert.equal(front.declaration.in, 38);
+  assert.equal(front.declaration.speed, 2);
+  assert.equal(front.declaration.duration, 17);
 });

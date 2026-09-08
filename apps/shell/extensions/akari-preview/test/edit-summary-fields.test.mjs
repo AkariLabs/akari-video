@@ -89,7 +89,7 @@ test('v2 layer mask resolves a sources id or projected path through ensureAssetS
     assert.match(handler, /if \(assetUri && !assetUris\.some\(uri => uri\.toString\(\) === key\)\) assetUris\.push\(assetUri\)/);
     assert.match(handler, /const registerLayerMasks = layers => \{[\s\S]*?sourceUrls\.set\(maskUrl, maskUrl\)/);
     assert.match(handler, /registerLayerMasks\(engineLayers\)/);
-    assert.match(handler, /registerLayerMasks\(nextLayers\);\s*const nextTimeline = engine\.buildResolvedTimelinePlan/);
+    assert.match(handler, /registerLayerMasks\(nextLayers\);\s*let nextTimeline = engine\.buildResolvedTimelinePlan/);
     // Incremental media changes rebuild the timeline, scheduler and sources via updateModel.
     assert.match(handler, /updateModel\(nextSummary\) \{\s*return queueEngineSummaryUpdate\(\(\) => nextSummary, true\)/);
 });
@@ -359,4 +359,12 @@ test('a realistic edit.json (2 PiP layers with crop+perspective, 1 cut with fram
     assert.ok(cuts[0].framing);
     assert.equal(cuts[0].framing.keyframes.length, 2);
     assert.deepEqual(cuts[0].freeze, { at_sec: 4, duration_sec: 2 });
+});
+
+
+test('projected trimmed video layers preserve their source clock in the preview summary', () => {
+    const result = buildLayerSummaryBase({ id: 'v5', t: 6, duration: 34, kind: 'video', src: 'grid.mp4', in: 38, speed: 2 }, 'layers[0]', value => value ?? {}, new Map([['normal', 'normal']]), () => {});
+    assert.equal(result.ok, true);
+    assert.equal(result.base.in, 38);
+    assert.equal(result.base.speed, 2);
 });

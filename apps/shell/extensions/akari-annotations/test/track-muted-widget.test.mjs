@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { projectLegacyEdit, readInternalEdit } from '@akari-video/edit-store';
 import { withCaptionsDisplaySupplement } from '../lib/common/derive-timeline-tracks.js';
 import {
-  prepareV2KeyframeDistribution, setTrackFlag, stringifyEditV2,
+  pinAutomaticBgmDuration, prepareV2KeyframeDistribution, setTrackFlag, stringifyEditV2,
 } from '../lib/common/edit-v2-mutations.js';
 
 // Execute the real handlers and commit path without booting Theia DOM / DI.
@@ -14,7 +14,7 @@ const source = ts.createSourceFile('akari-annotations-widget.ts', readFileSync(
 ), ts.ScriptTarget.Latest, true);
 const names = [
   'trackFlagStorageKey', 'applyStoredTrackFlags', 'toggleTimelineTrackFlag',
-  'commitEditMutation', 'writeEditSnapshotGuarded',
+  'commitEditMutation', 'performEditMutation', 'frameAt', 'writeEditSnapshotGuarded',
 ];
 const widget = source.statements.find(statement => ts.isClassDeclaration(statement)
   && statement.members.some(member => member.name?.getText(source) === 'commitEditMutation'));
@@ -27,12 +27,15 @@ const code = ts.transpileModule(`class Handler { ${methods.join('\n')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 },
 }).outputText;
 const Handler = new Function(
-  'setV2TrackFlag', 'prepareV2KeyframeDistribution', 'stringifyEditV2', 'TRACK_FLAG_STORAGE_PREFIX', 'withCaptionsDisplaySupplement',
+  'pinAutomaticBgmDuration', 'setV2TrackFlag', 'prepareV2KeyframeDistribution', 'stringifyEditV2', 'TRACK_FLAG_STORAGE_PREFIX', 'withCaptionsDisplaySupplement',
   `${code}\nreturn Handler;`
-)(setTrackFlag, prepareV2KeyframeDistribution, stringifyEditV2, 'test-track-flags', withCaptionsDisplaySupplement);
+)(pinAutomaticBgmDuration, setTrackFlag, prepareV2KeyframeDistribution, stringifyEditV2, 'test-track-flags', withCaptionsDisplaySupplement);
 
 function fixture() {
   const context = new Handler();
+  context.editMutationTail = Promise.resolve();
+  context.fps = 30;
+  context.contentEndDuration = () => 1;
   context.localLockedTrackIds = new Set();
   context.computeAudioDisplayTracks = () => { context.displayTimelineTracks = context.timelineTracks; };
   context.computeBgmDisplayTrack = () => {};

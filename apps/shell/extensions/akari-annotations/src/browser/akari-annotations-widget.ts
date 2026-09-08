@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -140,6 +141,7 @@ import {
     setTrackFlag as setV2TrackFlag,
     reorderTracks as reorderV2Tracks,
     splitItem as splitV2Item,
+    pinAutomaticBgmDuration,
     stringifyEditV2,
     moveTreeV2Item,
     moveV2Keyframe,
@@ -205,7 +207,8 @@ import {
     SnapExclusion,
     SnapResolution as SnapResult
 } from '../common/timeline-snap';
-import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
+import { nearestTimelineViewStart } from '../common/selection-reveal';
+import { resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     computeMaterialGhostRange,
     CutDropPlan,
@@ -393,7 +396,8 @@ const LANE_GAP = 2;
 const SUBROW_HEIGHT = 22;
 const SUBROW_GAP = 2;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
-const STRIP_BOTTOM_MARGIN = 2;
+const STRIP_TOP_MARGIN = 24;
+const STRIP_BOTTOM_MARGIN = 24;
 const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
 const TRANSITION_BADGE_SIZE_PX = 16;
@@ -688,7 +692,7 @@ type DragPreview =
     | { kind: 'caption'; id: string; start: number; end: number; timeDomain: 'source' | 'output';
         storedTimeDomain?: 'source' | 'output';
         originalStart: number; originalEnd: number; originalTimeDomain?: 'source' | 'output'; originalEdited: boolean }
-    | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number;
+    | { kind: 'overlay-move'; id: string; start: number; track: number; rejected?: boolean; insertTrack?: number;
         targetTrackId?: string; insertIndex?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
     | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean;
@@ -759,6 +763,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
     protected readonly stripContent = document.createElement('div');
+    protected readonly hoverSeek = document.createElement('div');
+    protected seekHoverPoint: { x: number; y: number } | undefined;
+    protected seekHoverRefresh: number | undefined;
     protected readonly playhead = document.createElement('div');
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
@@ -886,7 +893,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly clipMediaGeometries = new WeakMap<HTMLDivElement, ClipMediaGeometry>();
     protected readonly dragListenerConfigs = new WeakMap<HTMLDivElement, {
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail;
-        onRazorClick?: (event: MouseEvent) => void;
     }>();
     protected readonly dragListenerInstalled = new WeakSet<HTMLDivElement>();
     protected readonly trimmerListenerDetails = new WeakMap<HTMLDivElement,
@@ -1032,11 +1038,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         const pause = (): void => {
+            this.lastManualScrollAt = Date.now();
             this.visualPointerDown = true;
             this.visualThumbnails.setPaused(true);
             this.visualHover?.remove(); this.visualHover = undefined;
         };
         const resume = (): void => {
+            this.lastManualScrollAt = Date.now();
             this.visualPointerDown = false;
             this.visualThumbnails.setPaused(this.visualPlaying);
         };
@@ -1193,6 +1201,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         Object.assign(this.timelineOverlay.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: '9'
         });
+        Object.assign(this.hoverSeek.style, {
+            position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
+            borderLeft: '1px dashed var(--theia-descriptionForeground, #aaa)', opacity: '.8',
+            pointerEvents: 'none', boxSizing: 'border-box'
+        });
+        this.hoverSeek.dataset.testid = 'akari-timeline-hover-seek';
+        this.hoverSeek.setAttribute('aria-hidden', 'true');
         Object.assign(this.playhead.style, {
             position: 'absolute', top: '0', bottom: '0', width: '2px',
             background: PLAYHEAD_COLOR, left: '0%', pointerEvents: 'none',
@@ -1207,7 +1222,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             `<svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">` +
             `<path d="M0 0H14V10L7 16L0 10Z" fill="${PLAYHEAD_COLOR}"/></svg>`;
         this.playheadHandle.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
-        this.playhead.appendChild(this.playheadHandle);
+        const playheadLineHit = document.createElement('div');
+        playheadLineHit.dataset.testid = 'akari-playhead-line-hit';
+        Object.assign(playheadLineHit.style, {
+            position: 'absolute', top: '16px', bottom: '0', left: '-3px', width: '8px',
+            pointerEvents: 'auto', cursor: 'ew-resize'
+        });
+        playheadLineHit.addEventListener('pointerdown', event => this.onPlayheadHandlePointerDown(event));
+        this.playhead.append(playheadLineHit, this.playheadHandle);
         Object.assign(this.snapGuide.style, {
             position: 'absolute', top: '0', bottom: '0', width: '1px', display: 'none',
             background: SNAP_GUIDE_COLOR_DEFAULT, pointerEvents: 'none'
@@ -1218,7 +1240,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             color: 'var(--theia-editor-foreground, #fff)',
             background: 'var(--theia-editorHoverWidget-background, rgba(30,30,30,.9))',
             border: '1px solid var(--theia-editorHoverWidget-border, rgba(255,255,255,.2))',
-            borderRadius: '3px', pointerEvents: 'none'
+            borderRadius: '3px', pointerEvents: 'none', zIndex: '12'
         });
         Object.assign(this.trackInsertIndicator.style, {
             position: 'absolute', left: '0', right: '0', height: '2px', display: 'none',
@@ -1241,7 +1263,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pointerEvents: 'none', zIndex: '10', boxSizing: 'border-box'
         });
         this.timelineOverlay.append(
-            this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
+            this.hoverSeek, this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
             this.materialGhost
         );
         // ㉖ 全域クリックシーク: strip 単体ではなく stripScroll（中央寄せの上下ギャップ・
@@ -1249,6 +1271,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
         // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
+        this.stripScroll.addEventListener('pointerdown', () => { this.suppressNextStripClick = false; }, true);
+        const hideHoverSeek = (): void => { this.seekHoverPoint = undefined; this.hoverSeek.style.display = 'none'; };
+        const refreshHoverSeek = (): void => { this.hoverSeek.style.display = 'none'; this.scheduleSeekHoverRefresh(); };
+        for (const surface of [this.stripScroll, this.rulerBar]) {
+            surface.addEventListener('pointermove', event => {
+                this.seekHoverPoint = event.buttons === 0 ? { x: event.clientX, y: event.clientY } : undefined;
+                this.updateHoverSeek(event);
+            });
+            surface.addEventListener('pointerleave', hideHoverSeek);
+            surface.addEventListener('pointerdown', hideHoverSeek, true);
+            surface.addEventListener('wheel', refreshHoverSeek, { passive: true });
+        }
+        this.stripScroll.addEventListener('scroll', refreshHoverSeek);
+        window.addEventListener('blur', hideHoverSeek);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener('blur', hideHoverSeek);
+            if (this.seekHoverRefresh !== undefined) cancelAnimationFrame(this.seekHoverRefresh);
+        }));
+
         this.strip.addEventListener('pointerdown', () => {
             // 押下位置→時刻の換算は確定済みの幾何を読むため、保留中のズーム描画を先に流す。
             this.flushStripRender();
@@ -1271,15 +1312,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
         this.trackHeaderColumn.addEventListener('wheel', event => this.onTrackHeaderWheel(event), { passive: false });
 
-        Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
+        this.stripScroll.classList.add('akari-timeline-scroll');
+        Object.assign(this.stripScroll.style, { minHeight: '0', overflowX: 'hidden', overflowY: 'scroll', scrollbarGutter: 'stable', overflowAnchor: 'none' });
         Object.assign(this.hScrollbarTrack.style, {
-            position: 'relative', height: '14px', margin: '0 10px 8px 10px', flex: 'none',
+            position: 'relative', height: '8px', margin: '0 10px 8px 10px', flex: 'none',
             background: 'var(--theia-scrollbarSlider-background, rgba(121,121,121,.35))',
-            borderRadius: '7px', cursor: 'pointer', display: 'none'
+            borderRadius: '4px', cursor: 'pointer', display: 'block'
         });
+        const scrollStyle = document.createElement('style');
+        scrollStyle.textContent = '.akari-timeline-scroll::-webkit-scrollbar{width:8px;height:8px}.akari-timeline-scroll::-webkit-scrollbar-track{background:transparent}.akari-timeline-scroll::-webkit-scrollbar-thumb{background:var(--theia-scrollbarSlider-hoverBackground,rgba(100,100,100,.75));border-radius:4px}';
+        this.node.appendChild(scrollStyle);
         this.hScrollbarTrack.setAttribute('data-testid', 'akari-timeline-hscrollbar-track');
         Object.assign(this.hScrollbarThumb.style, {
-            position: 'absolute', top: '2px', bottom: '2px', left: '0%', width: '100%',
+            position: 'absolute', top: '0', bottom: '0', left: '0%', width: '100%',
             background: 'var(--theia-scrollbarSlider-hoverBackground, rgba(100,100,100,.75))',
             borderRadius: '5px', cursor: 'grab'
         });
@@ -1323,6 +1368,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = TIMELINE_FOOTER_DEFAULT_HINT;
 
+        this.toDispose.push(this.notice);
         this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice.node, this.footer);
         const style = document.createElement('style');
         style.textContent = `
@@ -1408,10 +1454,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-strip-layer-baked {
         background: var(--theia-charts-blue, #3794ff);
-        opacity: .76;
-    }
-    .akari-annotations-widget .akari-annotations-strip-layer-video {
-        background: var(--theia-charts-purple, #b180d7);
         opacity: .76;
     }
     .akari-annotations-widget .akari-annotations-strip-audio-sfx {
@@ -2259,6 +2301,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (selection || hadMultiSelection) {
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
+                if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
                 this.syncRightPane();
             }
             return;
@@ -2266,30 +2309,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selection = selection;
         this.pushSelectionSnapshot();
         this.applySelectionClass();
-        // オーバーレイ選択はタイムライン⇔プレビューwebviewで双方向同期する（クリップ/字幕には対応先がないため対象外）。
-        if (notifyPreview && (previous?.kind === 'overlay' || previous?.kind === 'item'
-            || selection?.kind === 'overlay' || selection?.kind === 'item')) {
-            window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, {
-                detail: {
-                    editUri: this.location?.editUri?.toString() ?? '',
-                    overlayId: selection?.kind === 'overlay' || selection?.kind === 'item'
-                        ? selection.id : null
-                }
-            }));
-        }
-        // CF-select: レイヤー選択も同様に双方向同期する（overlay と同型）。
-        if (notifyPreview && (previous?.kind === 'layer' || selection?.kind === 'layer')) {
-            window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, {
-                detail: {
-                    editUri: this.location?.editUri?.toString() ?? '',
-                    layerId: selection?.kind === 'layer' ? selection.id : null
-                }
-            }));
-        }
+        if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
         // 素材選択では現在の再生位置を保ったまま出力プレビューを開く。
         if (selection) {
             this.revealOutputPreview();
         }
+    }
+
+    protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
+        let target: { kind: 'cut' | 'caption'; id: string } | null = null;
+        let overlayId: string | null = null;
+        let layerId: string | null = null;
+        if (selection?.kind === 'cut') {
+            const id = this.cutItemIds[selection.index];
+            if (id) target = { kind: 'cut', id };
+        } else if (selection?.kind === 'caption') target = { kind: 'caption', id: selection.id };
+        else if (selection?.kind === 'layer') layerId = selection.id;
+        else if (selection?.kind === 'overlay') overlayId = selection.id;
+        else if (selection?.kind === 'item') {
+            const raw = this.rawKeyframeItem(selection.id);
+            const captionId = captionIdForTreeSelection(selection, raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            if (captionId) target = { kind: 'caption', id: captionId };
+            else if (this.cutItemIds.includes(selection.id)) target = { kind: 'cut', id: selection.id };
+            else if (this.layers.some(layer => layer.id === selection.id)) layerId = selection.id;
+            else overlayId = selection.id;
+        }
+        const editUri = this.location?.editUri?.toString() ?? '';
+        window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri, selection: target } }));
+        window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, { detail: { editUri, overlayId } }));
+        window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, { detail: { editUri, layerId } }));
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
@@ -2494,7 +2542,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         try {
             const audioUri = this.resolveEditMediaUri(audio.path, this.location.editUri).toString();
             const durationResult = await this.ensureAudioDurationFetch(audio.path, audioUri);
-            const fallbackDisplayDuration = bgm ? this.contentEndDuration()
+            const fallbackDisplayDuration = bgm ? this.bgmDisplayEnd()
                 : narration ? this.narrationDisplayDuration(narration) : sfx!.duration;
             const sourceInSeconds = 'in' in audio ? audio.in ?? 0 : 0;
             const fallbackSourceDuration = Math.max(
@@ -2503,7 +2551,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             const sourceDurationSeconds = typeof durationResult === 'number'
                 ? durationResult : fallbackSourceDuration;
-            const durationSeconds = bgm ? this.contentEndDuration()
+            const durationSeconds = bgm ? this.bgmDisplayEnd()
                 : narration ? this.narrationDisplayDuration(narration)
                     : this.resolveSfxDisplayDuration(sfx!, sourceInSeconds, sourceDurationSeconds);
             const waveformKey = `sfxwave:${audio.path}`;
@@ -2620,13 +2668,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.shell.rightPanelHandler.tabBar.currentTitle?.owner.id,
                 showInspector
             );
-            if (action === 'open-inspector') {
-                await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
-            } else if (action === 'attach-inspector') {
+            if (action === 'attach-inspector') {
                 // 焦点は奪わずタブとして常駐だけさせる（reveal しない）
                 await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, { attachOnly: true });
-            } else if (action === 'show-partner') {
-                await this.shell.activateWidget(PARTNER_WIDGET_ID);
             }
         }).catch(error => {
             console.warn('[akari-annotations] failed to synchronize the right pane', error);
@@ -3016,7 +3060,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(typeof raw?.role === 'string' ? { role: raw.role } : {}),
                 collection: request.audioKind,
                 durationSec: request.audioKind === 'bgm'
-                    ? this.contentEndDuration()
+                    ? this.bgmDisplayEnd()
                     : request.audioKind === 'narration'
                         ? this.narrationDisplayDuration(current as EditAudioNarrationWithEnvelope)
                         : (current as EditAudioSfxWithFade).duration
@@ -3552,18 +3596,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return selection.kind === 'cut' ? `cut:${selection.index}` : `${selection.kind}:${selection.id}`;
     }
 
+    protected selectionRenderKeys(selection: TimelineSelection): string[] {
+        if (!selection) return [];
+        const keys = [this.selectionKey(selection)];
+        if (selection.kind === 'item') {
+            const index = this.cutItemIds.indexOf(selection.id);
+            if (index >= 0) keys.push(`cut:${index}`);
+            if (this.layers.some(layer => layer.id === selection.id)) keys.push(`layer:${selection.id}`);
+            if (this.overlays.some(overlay => overlay.id === selection.id)) keys.push(`overlay:${selection.id}`);
+            const raw = this.rawKeyframeItem(selection.id);
+            const captionId = captionIdForTreeSelection(selection, raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            if (captionId) keys.push(`caption:${captionId}`);
+        } else if (selection.kind === 'cut') {
+            const id = this.cutItemIds[selection.index];
+            if (id) keys.push(`item:${id}`);
+        } else if (selection.kind === 'caption') {
+            const row = this.captionTreeRow(selection.id);
+            if (row) keys.push(`item:${row.id}`);
+        } else {
+            keys.push(`item:${selection.id}`);
+        }
+        return keys;
+    }
+
     protected applySelectionClass(): void {
-        const selection = this.selection;
-        const selectedKeys = new Set(this.multiSelection.map(item => this.selectionKey(item)));
+        const selectedKeys = new Set([...this.multiSelection, this.selection].flatMap(item => this.selectionRenderKeys(item)));
         for (const element of Array.from(this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]'))) {
             const kind = element.dataset.akariItemKind;
             const id = element.dataset.akariItemId;
             const itemKey = kind && id !== undefined ? `${kind}:${id}` : '';
-            const selected = selectedKeys.has(itemKey) || (selection !== undefined && selection.kind === kind
-                && (selection.kind === 'cut' ? String(selection.index) === id : selection.id === id));
+            const selected = selectedKeys.has(itemKey);
             element.classList.toggle('akari-annotations-selected', selected);
         }
-        const currentKey = this.selectionKey(selection);
         for (const element of Array.from(
             this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-tree-row-id]')
         )) {
@@ -3574,7 +3638,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const rowKey = this.selectionKey(this.selectionForTreeRow(row));
             element.classList.toggle(
-                'akari-annotations-selected', selectedKeys.has(rowKey) || rowKey === currentKey
+                'akari-annotations-selected', selectedKeys.has(rowKey)
             );
         }
     }
@@ -3584,7 +3648,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (overlayId === null) {
-            if (this.selection?.kind === 'overlay') {
+            if (this.selection?.kind === 'overlay' || (this.selection?.kind === 'item'
+                && this.selectionRenderKeys(this.selection).some(key => key.startsWith('overlay:')))) {
                 this.applySelection(undefined, false);
             }
             return;
@@ -3595,8 +3660,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 kind: 'item', id: treeRow.id, itemKind: treeRow.itemKind,
                 parentId: treeRow.parentId, trackId: treeRow.trackId
             }, false);
+            this.revealPreviewSelection();
         } else if (this.overlays.some(overlay => overlay.id === overlayId)) {
             this.applySelection({ kind: 'overlay', id: overlayId }, false);
+            this.revealPreviewSelection();
         }
     }
 
@@ -3606,13 +3673,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (layerId === null) {
-            if (this.selection?.kind === 'layer') {
+            if (this.selection?.kind === 'layer' || (this.selection?.kind === 'item'
+                && this.selectionRenderKeys(this.selection).some(key => key.startsWith('layer:')))) {
                 this.applySelection(undefined, false);
             }
             return;
         }
         if (this.layers.some(layer => layer.id === layerId)) {
             this.applySelection({ kind: 'layer', id: layerId }, false);
+            this.revealPreviewSelection();
         }
     }
 
@@ -3622,7 +3691,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (cutId === null) {
-            if (this.selection?.kind === 'cut') {
+            if (this.selection?.kind === 'cut' || (this.selection?.kind === 'item'
+                && this.selectionRenderKeys(this.selection).some(key => key.startsWith('cut:')))) {
                 this.applySelection(undefined, false);
             }
             return;
@@ -3630,6 +3700,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const index = this.cutItemIds.indexOf(cutId);
         if (index >= 0) {
             this.applySelection({ kind: 'cut', index }, false);
+            this.revealPreviewSelection();
         }
     }
 
@@ -3639,13 +3710,55 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (captionId === null) {
-            if (this.selection?.kind === 'caption') {
+            if (this.selection?.kind === 'caption' || (this.selection?.kind === 'item'
+                && this.selectionRenderKeys(this.selection).some(key => key.startsWith('caption:')))) {
                 this.applySelection(undefined, false);
             }
             return;
         }
         if (this.captions.some(caption => caption.id === captionId)) {
             this.applySelection({ kind: 'caption', id: captionId }, false);
+            this.revealPreviewSelection();
+        }
+    }
+
+    protected revealPreviewSelection(): void {
+        const selection = this.selection;
+        if (!selection || this.dragState) return;
+        const keys = new Set(this.selectionRenderKeys(selection));
+        const id = selection.kind === 'cut' ? this.cutItemIds[selection.index] : selection.id;
+        const row = this.timelineTreeRows.find(candidate => candidate.id === id);
+        const captionKey = [...keys].find(key => key.startsWith('caption:'));
+        const caption = captionKey ? this.captions.find(cue => cue.id === captionKey.slice(8)) : undefined;
+        let range: [number, number] | undefined;
+        if (caption) {
+            const ranges = this.captionRangeToOutputRanges(caption.id, caption.start, caption.end);
+            range = ranges.find(([start, end]) => start <= this.playheadT && this.playheadT < end) ?? ranges[0];
+        } else if (row) range = [row.at, row.at + row.duration];
+        else if (selection.kind === 'cut') {
+            const segment = this.segments.find(candidate => candidate.index === selection.index);
+            if (segment) range = [segment.tlStart, segment.tlEnd];
+        }
+        if (range) {
+            const duration = this.visibleDuration();
+            const next = nearestTimelineViewStart(this.viewStart, duration, range[0], range[1], this.playheadT);
+            if (Math.abs(next - this.viewStart) > 0.000001) {
+                this.viewDuration = duration;
+                this.lastManualScrollAt = Date.now();
+                this.setViewStart(next);
+            }
+        }
+        const element = Array.from(this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]'))
+            .find(candidate => keys.has(`${candidate.dataset.akariItemKind}:${candidate.dataset.akariItemId}`));
+        if (!element) return;
+        const bounds = element.getBoundingClientRect();
+        const viewport = this.stripScroll.getBoundingClientRect();
+        if (bounds.height > viewport.height && bounds.top < viewport.bottom && bounds.bottom > viewport.top) return;
+        const delta = bounds.top < viewport.top ? bounds.top - viewport.top - 4
+            : bounds.bottom > viewport.bottom ? bounds.bottom - viewport.bottom + 4 : 0;
+        if (delta !== 0) {
+            this.lastManualScrollAt = Date.now();
+            this.stripScroll.scrollTop += delta;
         }
     }
 
@@ -3975,23 +4088,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return path.split('/').pop() || path;
     }
 
-    /** レザーモードでクリップをクリックした位置（出力秒→source 秒）で cuts を2分割する。 */
-    protected async performRazorSplitAt(segment: OutputSegment, clientX: number): Promise<void> {
-        const location = this.location;
-        if (!location?.editUri) {
-            return;
-        }
-        const outputT = this.timeAtClientX(clientX);
-        const sourceT = this.outputToSource(outputT);
-        if (sourceT - segment.in < MINIMUM_ITEM_DURATION || segment.out - sourceT < MINIMUM_ITEM_DURATION) {
+    /** Item IDs, output frames, and track ownership are shared by every visual media kind. */
+    protected splittableItemId(selection: TimelineSelectionItem | undefined): string | undefined {
+        if (!selection) return undefined;
+        const id = selection.kind === 'cut' ? this.cutItemId(selection.index) : selection.id;
+        const item = this.rawV2Item(id);
+        return item && ['media', 'html', 'telop', 'filter'].includes(item.source?.kind) ? id : undefined;
+    }
+
+    protected async performRazorSplitAt(selection: TimelineSelectionItem, clientX: number): Promise<void> {
+        const itemId = this.splittableItemId(selection);
+        const item = itemId ? this.rawV2Item(itemId) : undefined;
+        if (!itemId || !item || !this.location?.editUri) return;
+        const atFrames = this.frameAt(this.timeAtClientX(clientX));
+        const minimum = Math.ceil(MINIMUM_ITEM_DURATION * this.fps);
+        if (atFrames - item.at < minimum || item.at + item.duration - atFrames < minimum) {
             this.footer.textContent = 'クリップの端に近すぎるため分割できません（両側 0.15 秒以上必要です）';
             return;
         }
-        const index = segment.index;
         try {
-            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, {
-                itemId: this.cutItemId(index), atFrames: this.frameAt(outputT)
-            }));
+            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, { itemId, atFrames }), { optimistic: true });
             this.hideNotice();
             this.footer.textContent = 'クリップを分割しました。';
             this.revealOutputPreview();
@@ -4942,7 +5058,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.style.display = 'block';
         if (visibility.showInsertIndicator) {
             this.showTrackInsertIndicatorAt(target.top);
+            this.positionInsertionGhost(this.materialGhost, target.top, target.height);
         } else {
+            delete this.materialGhost.dataset.akariInsertionPreview;
             this.hideTrackInsertIndicator();
         }
     }
@@ -5045,6 +5163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.visualDependencyRevisions.set(id, (this.visualDependencyRevisions.get(id) ?? 0) + 1);
                 visualChanged = true;
             }
+            for (const change of event.changes) this.htmlPartsCache.delete(change.resource.toString());
             if (event.changes.some(change => this.location!.root.isEqualOrParent(change.resource)
                 && /\.(html?|css|js|mjs|json|png|jpe?g|webp|svg|gif|glb|gltf|bin|hdr|exr|ttf|otf|woff2?)$/i.test(change.resource.path.toString())
                 && !/\/(?:\.akari|\.git|exports)\//.test(change.resource.path.toString()))) {
@@ -5279,35 +5398,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
     }
 
-    protected async reloadEdit(): Promise<void> {
-        this.invalidateContentExtent();
-        this.editDocument = undefined;
-        this.itemLocations.clear();
-        this.cutItemIds = [];
-        this.cuts = [];
-        this.compatibilityCuts = [];
-        this.editSources = [];
-        this.sourceMap.clear();
-        this.overlays = [];
-        this.beats = [];
-        this.layers = [];
-        this.layerTransitionWarnings.clear();
-        this.audioSfx = [];
-        this.audioNarration = [];
-        this.audioSpeech = [];
-        this.audioBgm = undefined;
-        this.timelineTracks = [];
-        this.compatibilityTimelineTracks = [];
-        this.timelineTreeRows = [];
-        this.expandedTimelineTreeRows = [];
-        this.timelineTreeTracks = [];
-        this.timelineTreePartsByHtml.clear();
-        this.timelineCollapsedIds.clear();
-        this.treeRowsByTrack.clear();
-        this.fps = 30;
+    protected editReloadGeneration = 0;
+    protected readonly htmlPartsCache = new Map<string, Promise<Array<{ id: string; order: number }>>>();
+    protected editMutationTail: Promise<unknown> = Promise.resolve();
+
+    protected async reloadEdit(sourceOverride?: string): Promise<void> {
+        const generation = ++this.editReloadGeneration;
         if (this.location?.editUri) {
             try {
-                const diskSource = (await this.fileService.readFile(this.location.editUri)).value.toString();
+                const diskSource = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const source = await this.resolveLegacyEditForOpen(diskSource);
                 if (!source) {
                     throw new ReportedEditLoadFailure('古い edit.json を読み取り専用で開けません。');
@@ -5320,11 +5419,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (item.source.kind === 'html' && !partsByHtml.has(item.source.html)) {
                         const reference = item.source.html;
                         try {
-                            const html = reference.trimStart().startsWith('<')
-                                ? reference
-                                : (await this.fileService.readFile(this.location!.editUri.parent.resolve(reference)))
-                                    .value.toString();
-                            partsByHtml.set(reference, scanHtmlParts(html));
+                            if (reference.trimStart().startsWith('<')) partsByHtml.set(reference, scanHtmlParts(reference));
+                            else {
+                                const uri = this.location!.editUri.parent.resolve(reference);
+                                const key = uri.toString();
+                                let pending = this.htmlPartsCache.get(key);
+                                if (!pending) {
+                                    pending = this.fileService.readFile(uri).then(content => scanHtmlParts(content.value.toString()));
+                                    this.htmlPartsCache.set(key, pending);
+                                    void pending.catch(() => this.htmlPartsCache.delete(key));
+                                }
+                                partsByHtml.set(reference, await pending);
+                            }
                         } catch {
                             partsByHtml.set(reference, []);
                         }
@@ -5334,11 +5440,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 for (const track of internal.tracks) {
                     for (const item of track.items) await loadTreeParts(item);
                 }
+                const document = JSON.parse(source) as EditV2Document;
+                await this.hydrateDocumentMotionReferences(document);
+                if (generation !== this.editReloadGeneration) return;
+                this.invalidateContentExtent();
+                this.editDocument = undefined;
+                this.itemLocations.clear();
+                this.cutItemIds = [];
+                this.cuts = [];
+                this.compatibilityCuts = [];
+                this.editSources = [];
+                this.sourceMap.clear();
+                this.overlays = [];
+                this.beats = [];
+                this.layers = [];
+                this.layerTransitionWarnings.clear();
+                this.audioSfx = [];
+                this.audioNarration = [];
+                this.audioSpeech = [];
+                this.audioBgm = undefined;
+                this.timelineTracks = [];
+                this.compatibilityTimelineTracks = [];
+                this.timelineTreeRows = [];
+                this.expandedTimelineTreeRows = [];
+                this.timelineTreeTracks = [];
+                this.timelineTreePartsByHtml.clear();
+                this.timelineCollapsedIds.clear();
+                this.treeRowsByTrack.clear();
+                this.fps = 30;
                 this.timelineCollapsedState = new TimelineCollapsedState(this.location.root.toString());
                 this.timelineTreeTracks = internal.tracks;
                 this.timelineTreePartsByHtml = partsByHtml;
-                const document = JSON.parse(source) as EditV2Document;
-                await this.hydrateDocumentMotionReferences(document);
                 this.editDocument = document;
                 this.itemLocations = indexEditV2Items(document);
                 const layerCauses = new Map((document.version === 2
@@ -5405,15 +5537,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
         }
+        if (generation !== this.editReloadGeneration) return;
         this.rebuildSegments();
         this.notifyCaptionSourceMappingWarning();
         this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
+        if (generation !== this.editReloadGeneration) return;
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
-        this.renderStrip();
+        if (generation === this.editReloadGeneration) this.renderStrip();
     }
 
     protected async resolveLegacyEditForOpen(source: string): Promise<string | undefined> {
@@ -5495,8 +5629,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** 字幕以外のトラック高を StorageService から読み込む。edit.json は経由しない。 */
     protected async loadTrackHeights(): Promise<void> {
-        this.trackHeights.clear();
-        this.trackHeightLoadPromises.clear();
+        const generation = this.editReloadGeneration;
         const editUri = this.location?.editUri;
         if (!editUri) {
             return;
@@ -5508,6 +5641,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const height = typeof stored === 'number' && Number.isFinite(stored) ? this.clampTrackHeight(stored) : fallback;
             return [track.id, height] as const;
         }));
+        if (generation !== this.editReloadGeneration) return;
+        this.trackHeights.clear();
+        this.trackHeightLoadPromises.clear();
         for (const [id, height] of entries) {
             this.trackHeights.set(id, height);
         }
@@ -5523,21 +5659,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async applyStoredTrackFlags(): Promise<void> {
         const editUri = this.location?.editUri;
-        this.beatsLocked = false;
-        this.localLockedTrackIds.clear();
+        const generation = this.editReloadGeneration;
+        const lockedIds = new Set<string>();
         if (!editUri) return;
-        this.beatsLocked = await this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, 'beats', 'locked'), false);
+        const beatsLocked = await this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, 'beats', 'locked'), false);
         const migrateMutedIds = new Set<string>();
-        this.timelineTracks = await Promise.all(this.timelineTracks.map(async track => {
+        const tracks = await Promise.all(this.timelineTracks.map(async track => {
             const [hidden, muted, locked] = await Promise.all([
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'hidden'), false),
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'muted'), false),
                 this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'locked'), false)
             ]);
             if (track.muted !== true && muted === true) migrateMutedIds.add(track.id);
-            if (locked) this.localLockedTrackIds.add(track.id);
+            if (locked) lockedIds.add(track.id);
             return { ...track, locked, ...(hidden ? { hidden: true } : {}) };
         }));
+        if (generation !== this.editReloadGeneration) return;
+        this.beatsLocked = beatsLocked;
+        this.localLockedTrackIds.clear();
+        lockedIds.forEach(id => this.localLockedTrackIds.add(id));
+        this.timelineTracks = tracks;
         this.computeAudioDisplayTracks();
         this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
@@ -5549,7 +5690,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.localLockedTrackIds.add(track.id);
             }
         }));
-        if (migrateMutedIds.size === 0) return;
+        if (generation !== this.editReloadGeneration || migrateMutedIds.size === 0) return;
         try {
             // 保存成功後だけ表示へ反映する。reload しないので移行中に再入しない。
             await this.commitEditMutation('トラックのミュートを保存', doc =>
@@ -5802,15 +5943,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return editUri.parent.resolve(path).normalizePath();
     }
 
+    protected captionReloadGeneration = 0;
+
     protected async reloadCaptions(): Promise<void> {
-        this.invalidateContentExtent();
-        this.captions = [];
-        this.captionSources.clear();
-        this.defaultTextStyle = undefined;
+        const generation = ++this.captionReloadGeneration;
         if (this.location) {
             try {
                 const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                 const parsed = parseCaptions(source);
+                if (generation !== this.captionReloadGeneration) return;
+                this.invalidateContentExtent();
                 this.captions = parsed.captions;
                 this.captionSources = readCaptionSourceMap(source);
                 this.defaultTextStyle = parsed.defaultTextStyle;
@@ -5818,6 +5960,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showWarnings(parsed.warnings);
                 }
             } catch {
+                if (generation !== this.captionReloadGeneration) return;
+                this.invalidateContentExtent();
+                this.captions = [];
+                this.captionSources.clear();
+                this.defaultTextStyle = undefined;
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
@@ -5920,23 +6067,45 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.contentExtentRevision++;
     }
 
+    protected bgmDisplayEnd(): number {
+        const id = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+        const item = id ? this.rawV2Item(id) : undefined;
+        return item?.duration > 0 ? (Number(item.at ?? 0) + item.duration) / this.fps : this.contentEndDuration();
+    }
+
     protected computeContentEndDuration(): number {
+        const excluded = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
+        const captionsEnd = this.captions.reduce((maximum, caption) => excluded.has(caption.id) ? maximum
+            : caption.timeDomain === 'output' ? Math.max(maximum, caption.end)
+                : this.captionSourceRangeToOutputRanges(caption.start, caption.end, this.captionSourceForMapping(caption.id))
+                    .reduce((end, range) => Math.max(end, range[1]), maximum), 0);
+        const bgmDuration = this.audioBgm ? this.audioDurationCache.get(this.audioBgm.path) : undefined;
+        const bgmId = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+        const bgmItem = bgmId ? this.rawV2Item(bgmId) : undefined;
+        const bgmSource = bgmItem?.source?.kind === 'media' ? bgmItem.source : undefined;
+        const bgmOut = typeof bgmSource?.out === 'number' ? bgmSource.out
+            : typeof bgmDuration === 'number' ? bgmDuration : 0;
+        const bgmEnd = bgmItem?.duration > 0 ? (bgmItem.at + bgmItem.duration) / this.fps
+            : Math.max(0, bgmOut - (bgmSource?.in ?? 0))
+                / (this.audioBgm?.speed && this.audioBgm.speed > 0 ? this.audioBgm.speed : 1);
         if (this.cuts.length > 0) {
             // アウトプット軸: cuts 尺合計とオーバーレイ終端の大きい方（10 秒フロアは cuts があるときは外す）。
             const cutsDuration = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
             const overlaysEnd = this.overlays.reduce((max, overlay) => Math.max(max, overlay.start + overlay.duration), 0);
             const layersEnd = this.layers.reduce((max, layer) => Math.max(max, layer.t + layer.duration), 0);
-            const sfxEnd = this.audioSfx.reduce((max, sfx) => Math.max(max, sfx.t + sfx.duration), 0);
+            const sfxEnd = [...this.audioSfx, ...(this.audioSpeech ?? [])]
+                .reduce((max, sfx) => Math.max(max, this.sfxIntervalEnd(sfx)), 0);
             const narrationEnd = this.audioNarration.reduce(
                 (max, narration) => Math.max(max, narration.t + this.narrationDisplayDuration(narration)), 0);
-            return Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd, narrationEnd);
+            const timedEnd = Math.max(cutsDuration, overlaysEnd, layersEnd, sfxEnd, narrationEnd, captionsEnd);
+            return Math.max(timedEnd, bgmItem?.duration > 0 ? bgmEnd : timedEnd > 0 ? 0 : bgmEnd);
         }
         const candidates = [
-            10,
-            ...this.captions.map(caption => caption.end),
+            10, captionsEnd, bgmItem?.duration > 0 || (!captionsEnd && !this.overlays.length && !this.layers.length
+                && !this.audioSfx.length && !this.audioSpeech?.length && !this.audioNarration.length) ? bgmEnd : 0,
             ...this.overlays.map(overlay => overlay.start + overlay.duration),
             ...this.layers.map(layer => layer.t + layer.duration),
-            ...this.audioSfx.map(sfx => sfx.t + sfx.duration),
+            ...[...this.audioSfx, ...(this.audioSpeech ?? [])].map(sfx => this.sfxIntervalEnd(sfx)),
             ...this.audioNarration.map(narration => narration.t + this.narrationDisplayDuration(narration)),
             ...this.beats.map(beat => beat.t + 1),
             ...this.annotations.map(annotation => annotation.sourceT + 1)
@@ -6152,7 +6321,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.renderFocusBreadcrumbs();
-        let nextTop = topOffset;
+        let nextTop = topOffset + STRIP_TOP_MARGIN;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
         if (beats.height > 0) {
             nextTop += beats.height + LANE_GAP;
@@ -6217,7 +6386,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
                         // スクロール余白込みの表示全長（全体表示では contentEnd に10%余白）なので使わない
                         // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
-                        ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                        ? [{ start: 0, end: this.bgmDisplayEnd(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     ...this.audioNarration.filter(narration => this.narrationDisplayTrack(narration) === ref
                         && isTopLevelItem(narration.id))
                         .map(narration => ({
@@ -6508,6 +6677,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderStrip(): void {
+        this.hoverSeek.style.display = 'none';
         // 同期描画が別経路で走ったら、次フレームに予約済みの重複描画は 1 回ぶん省く。
         this.stripRenderThrottle.cancel();
         // 尺の集計（O(items)）は 1 描画につき 1 回だけ。ズーム 1 イベントで 8 回前後呼ばれていた。
@@ -6557,11 +6727,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 短ければ上下均等ギャップぶん topOffset を与えて全レーンを一様に下へずらす
         // （溢れる場合＝自然高さ ≥ ビューポート高のときは gap=0 のまま従来どおり上詰め + スクロール）。
         let stripHeight = this.calculateLaneLayout();
-        // calculateLaneLayout の戻り値は末尾に固定 STRIP_BOTTOM_MARGIN（最下段トラックの下の
-        // 化粧パディング、中央寄せとは無関係の既存デザイン）を含む。中央寄せの上下ギャップを
-        // 対称にするには、この固定パディングを除いた「純粋な積み上げ高さ」を基準に測る必要が
-        // ある（そのまま使うと下側だけ +STRIP_BOTTOM_MARGIN 分ずれて上下差が 1px を超える）。
-        const stackHeight = Math.max(0, stripHeight - STRIP_BOTTOM_MARGIN);
+        // Keep a small seekable gutter at both ends, even when the tracks overflow.
+        const stackHeight = stripHeight;
         const centerGapPx = viewportHeight > 0 ? Math.max(0, Math.floor((viewportHeight - stackHeight) / 2)) : 0;
         if (centerGapPx > 0) {
             this.calculateLaneLayout(centerGapPx);
@@ -6830,9 +6997,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const stride = this.timelineRowStride(layout.id);
             const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * stride;
             const transitionWarning = this.layerTransitionWarnings.get(layer.id);
+            const media = layer.kind === 'video' ? this.videoLayerMedia(layer) : undefined;
+            const clipWidth = stripLayoutWidthPx * Math.max(this.layoutPercent(end) - this.layoutPercent(layer.t), 0.3) / 100;
+            const height = stride - SUBROW_GAP;
+            const mediaGate = clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
+            const waveform = media && this.waveformCache.get(`${media.cut.src ?? ''}:${media.cut.in}:${media.cut.out}`);
             const { element, created } = this.keyedStripSegment(
-                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning]), layer.t, end, top, stride - SUBROW_GAP,
-                `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
+                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, mediaGate, height, Array.isArray(waveform) ? `ready:${waveform.length}` : waveform]), layer.t, end, top, height,
+                media ? 'akari-annotations-strip-layer akari-annotations-strip-clip' : `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
             element.dataset.akariItemId = layer.id;
@@ -6840,10 +7012,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             if (created) {
-                element.appendChild(this.segmentLabel(layer.id));
+                element.appendChild(media ? this.clipHeader(media.label, layer.duration) : this.segmentLabel(layer.id));
                 this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
                 const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
                 if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
+            }
+            if (media) {
+                element.classList.toggle('akari-annotations-strip-clip-micro', clipWidth < MICRO_CLIP_WIDTH_PX);
+                if (created) this.renderClipMedia(element, media.cut, clipWidth, media.segment, height, media.videoUri);
+                else this.updateClipMediaGeometry(element, media.cut, clipWidth, media.segment, height, media.videoUri);
             }
             if (created && transitionWarning) {
                 const warning = document.createElement('button');
@@ -6878,12 +7055,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         const bgmLayout = this.audioBgm
             ? this.trackLayout('audio', this.bgmDisplayTrack(this.audioBgm)) : undefined;
-        if (this.audioBgm && bgmLayout && this.isRangeMounted(0, this.contentEndDuration())) {
+        if (this.audioBgm && bgmLayout && this.isRangeMounted(0, this.bgmDisplayEnd())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
-            // バーはコンテンツ終端でトリムして描く（BGM は全編ベッドだが、書き出しで使われるのは
-            // 動画尺ぶんだけ。ソース mp3 の実尺やスクロール余白までバーを伸ばさない）
-            const end = this.contentEndDuration();
+            // The audio item's own end is independent of later captions and other visual items.
+            const end = this.bgmDisplayEnd();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             let actualDuration: number | undefined;
@@ -7173,7 +7349,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // ドラッグリスナー）を破棄・再生成していた。トリマー中の 1 本だけはウィング描画が幅依存なので
             // 従来どおり幾何込みで作り直す。メディア表示のゲート境界（幅 / 高さ）を跨ぐときは作り直す。
             const cutSignature = JSON.stringify([
-                cut, segment, cutLayout.height, cutTrimmerActive,
+                cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
                 unsupportedDeclaredTransitions.has(segment.index),
@@ -7226,7 +7402,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.renderTrimmerClip(
                         element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration
                     );
-                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                    element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                 }
                 this.installTrimmerDrag(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -7247,20 +7423,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 if (created) {
                     this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
-                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                    element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                 } else {
                     this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutLayout.height);
-                }
-                if (created && cut.src !== undefined) {
-                    const source = this.sourceMap.get(cut.src);
-                    if (source) {
-                        const badge = document.createElement('span');
-                        badge.className = 'akari-annotations-strip-clip-source';
-                        badge.dataset.akariSourceId = cut.src;
-                        badge.textContent = cut.src;
-                        badge.title = source.path;
-                        element.appendChild(badge);
-                    }
                 }
                 this.installDragListeners(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -7274,7 +7439,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         kind: 'cut-move', index: segment.index, originalAt: segment.tlStart,
                         originalTrack: segment.track, duration: segment.tlEnd - segment.tlStart
                     };
-                }, event => void this.performRazorSplitAt(segment, event.clientX));
+                });
                 if (this.toolMode === 'razor') {
                     element.style.cursor = 'crosshair';
                 }
@@ -7316,6 +7481,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyKeyframePropertySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();
+        this.scheduleSeekHoverRefresh();
     }
 
     protected updateChipHitAreas(): void {
@@ -7382,6 +7548,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected createDragGhost(element: HTMLDivElement): HTMLDivElement {
         const ghost = element.cloneNode(true) as HTMLDivElement;
         ghost.removeAttribute('title');
+        for (const child of Array.from(ghost.querySelectorAll<HTMLElement>('*'))) child.style.pointerEvents = 'none';
         ghost.classList.remove('akari-annotations-strip-hit-target');
         ghost.style.removeProperty('--akari-hit-pad-left');
         ghost.style.removeProperty('--akari-hit-pad-right');
@@ -9260,24 +9427,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** v2 全文を 1 回だけ parse/mutate/stringify し、undo/redo も全文で積む。 */
-    protected async commitEditMutation(
+    protected commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean; captions?: { before: string; after: string } }
+        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+    ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        const operation = this.editMutationTail.then(() => this.performEditMutation(label, mutate, options));
+        this.editMutationTail = operation.catch(() => undefined);
+        return operation;
+    }
+
+    protected async performEditMutation(
+        label: string,
+        mutate: (doc: EditV2Document) => EditV2Document,
+        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
         const before = (await this.fileService.readFile(editUri)).value.toString();
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const distribution = prepareV2KeyframeDistribution(mutate(raw));
+        const distribution = prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const after = stringifyEditV2(distribution.document);
         if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
             return { before, after, result: { committed: false } };
         }
         const motionChanges = await this.prepareMotionChanges(distribution.writes);
         await this.writeMotionChanges(motionChanges, 'after');
-        await this.writeEditSnapshotGuarded(after, options?.captions?.after);
+        if (options?.optimistic && options.reload !== false) await this.reloadEdit(after);
+        try {
+            await this.writeEditSnapshotGuarded(after, options?.captions?.after);
+        } catch (error) {
+            if (options?.optimistic) await this.reloadEdit();
+            throw error;
+        }
         if (options?.history !== false) {
             this.pushHistory({
                 label,
@@ -9295,7 +9478,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             });
         }
-        if (options?.reload !== false) await this.reloadEdit();
+        if (options?.reload !== false && !options?.optimistic) await this.reloadEdit();
         if (options?.reload !== false && options?.captions) await this.reloadCaptions();
         return { before, after, result: { committed: false } };
     }
@@ -9590,10 +9773,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return label;
     }
 
+    protected videoClipLabel(id: string, cut: EditCut, fallback = id): string {
+        const name = this.rawV2Item(id)?.name;
+        const path = cut.src ? this.sourceMap.get(cut.src)?.path : this.defaultSource?.path;
+        return typeof name === 'string' && name.length > 0 ? name : path?.split(/[\\/]/).pop() || fallback;
+    }
+
+    protected videoLayerMedia(layer: EditLayer): { cut: EditCut; segment: OutputSegment; videoUri: string; label: string } {
+        const raw = this.rawV2Item(layer.id);
+        const source = raw?.source?.kind === 'media' ? raw.source : undefined;
+        const src = source?.src ?? [...this.sourceMap.entries()].find(([, value]) => value.path === layer.src)?.[0];
+        const start = source?.in ?? 0;
+        const speed = typeof raw?.speed === 'number' && raw.speed > 0 ? raw.speed : 1;
+        const cut: EditCut = { src: src ?? layer.src, in: start, out: source?.out ?? start + layer.duration * speed, speed };
+        const videoUri = src ? this.cutVideoUri(cut)
+            : this.location ? this.resolveEditMediaUri(layer.src, this.location.editUri).toString() : '';
+        return {
+            cut, videoUri, label: this.videoClipLabel(layer.id, cut, layer.src.split(/[\\/]/).pop() || layer.id),
+            segment: { index: -1, src: cut.src, in: cut.in, out: cut.out, speed,
+                tlStart: layer.t, tlEnd: layer.t + layer.duration, track: layer.track ?? 0 }
+        };
+    }
+
     protected renderClipMedia(
-        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
+        videoUri = this.cutVideoUri(cut)
     ): void {
-        const videoUri = this.cutVideoUri(cut);
         // コンパクトティア（trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX）はフィルムストリップ・波形を
         // 描かない薄い帯にする（幅の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート）。
         if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX || !videoUri) {
@@ -9629,7 +9834,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * ビュー内に収まった clip はパンしてもこの 4 値が変わらないため何もしない。
      */
     protected updateClipMediaGeometry(
-        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
+        videoUri = this.cutVideoUri(cut)
     ): void {
         if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
             return;
@@ -9643,7 +9849,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!filmstrip && !canvas) {
             return;
         }
-        const videoUri = this.cutVideoUri(cut);
         if (!videoUri) {
             return;
         }
@@ -11217,16 +11422,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected installDragListeners(
         element: HTMLDivElement,
-        detail: (event: PointerEvent, rect: DOMRect) => DragDetail,
-        onRazorClick?: (event: MouseEvent) => void
+        detail: (event: PointerEvent, rect: DOMRect) => DragDetail
     ): void {
-        this.dragListenerConfigs.set(element, { detail, onRazorClick });
+        this.dragListenerConfigs.set(element, { detail });
         // keyedStripSegment resets pointer events on every update, including cache completion.
         element.style.pointerEvents = 'auto';
+        element.style.cursor = this.toolMode === 'razor' ? 'crosshair' : 'default';
         if (this.dragListenerInstalled.has(element)) return;
         this.dragListenerInstalled.add(element);
         element.style.touchAction = 'none';
-        element.style.cursor = 'default';
         element.addEventListener('click', event => {
             event.stopPropagation();
             const selection = this.timelineSelectionFromElement(element);
@@ -11235,7 +11439,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (this.toolMode === 'razor') {
-                this.dragListenerConfigs.get(element)?.onRazorClick?.(event);
+                if (selection) void this.performRazorSplitAt(selection, event.clientX);
             }
         });
         element.addEventListener('pointermove', event => {
@@ -11340,6 +11544,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.preventDefault();
             event.stopPropagation();
             if (!state.dragged) {
+                // Opening the inspector can replace/reflow the chip before the synthesized click.
+                // Consume that click even if the browser retargets it to the empty strip.
+                this.suppressNextStripClick = true;
                 this.cancelDrag(state);
                 // ソーストリマー（R6c-2）: クリップ本体（cut-move 判定＝エッジ以外）へのダブルクリックで
                 // トリマーモードへ入る。ブラウザ標準 'dblclick' は上記 preventDefault により
@@ -11515,14 +11722,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.hideTrackInsertIndicator();
             }
             const linkedRejected = this.updateLinkedDragGhost(state, at);
-            const rejected = hit.rejected || linkedRejected;
+            const rejected = hit.rejected || linkedRejected || this.dropWouldOverlap(
+                this.cutItemIds[state.index], at, state.duration, hit.targetTrackId, hit.insertIndex
+            );
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ レーンが異なります'
-                : `${this.formatTimestamp(at)} / 行 ${hit.track + 1}`);
+                ? '✕ 配置できません'
+                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(at)} / 尺 ${state.duration.toFixed(2)} 秒`);
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected, altKey: state.altKey,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
@@ -11713,12 +11922,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 insertIndex = hit.insertIndex;
                 state.ghost.style.top = `${hit.top}px`;
             }
+            rejected ||= this.dropWouldOverlap(state.id, t, itemDuration,
+                targetTrackId ?? this.itemLocations.get(state.id)?.trackId, insertIndex);
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ レーンが異なるため移動できません'
-                : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / 行 ${track + 1}`);
+                ? '✕ 配置できません'
+                : `${insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒`);
             return {
                 kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack,
                 targetTrackId, insertIndex
@@ -11872,9 +12083,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             state.ghost.style.top = `${hit.top}px`;
             state.ghost.dataset.akariTrack = String(hit.track);
-            this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
+            const rejected = hit.rejected || this.dropWouldOverlap(state.id, start, state.originalDuration, hit.targetTrackId, hit.insertIndex);
+            this.setGhostRejected(state.ghost, rejected);
+            this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
+            this.updateDragFeedback(state, rejected ? '✕ 配置できません'
+                : `${hit.insertIndex !== undefined ? 'ここへ差し込み / ' : '配置できます / '}${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
             return {
-                kind: 'overlay-move', id: state.id, start, track: hit.track,
+                kind: 'overlay-move', id: state.id, start, track: hit.track, rejected,
                 insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
@@ -11919,9 +12134,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.dragFeedback.textContent = text;
         this.dragFeedback.style.left = state.ghost.style.left;
         const ghostTop = parseFloat(state.ghost.style.top || '0');
-        const viewportTop = RULER_BAND_HEIGHT_PX + ghostTop - this.stripScroll.scrollTop;
+        let viewportTop = RULER_BAND_HEIGHT_PX + ghostTop - this.stripScroll.scrollTop;
+        if (this.trackInsertIndicator.style.display === 'block') {
+            if (state.ghost.parentElement !== this.timelineOverlay) this.timelineOverlay.appendChild(state.ghost);
+            viewportTop = this.positionInsertionGhost(state.ghost, ghostTop,
+                parseFloat(state.element.style.height) || state.element.getBoundingClientRect().height);
+        } else if (state.ghost.parentElement === this.timelineOverlay) {
+            this.strip.appendChild(state.ghost);
+            delete state.ghost.dataset.akariInsertionPreview;
+            Object.assign(state.ghost.style, {
+                height: state.element.style.height, opacity: '.5', borderStyle: 'dashed', zIndex: '8'
+            });
+        }
         this.dragFeedback.style.top = `${Math.max(0, viewportTop - 18)}px`;
         this.dragFeedback.style.display = 'block';
+    }
+
+    protected positionInsertionGhost(ghost: HTMLDivElement, stripTop: number, requestedHeight: number): number {
+        const height = Math.max(1, Math.min(requestedHeight, this.stripScroll.clientHeight - 4));
+        const top = Math.max(RULER_BAND_HEIGHT_PX + 2, Math.min(
+            RULER_BAND_HEIGHT_PX + stripTop - this.stripScroll.scrollTop,
+            RULER_BAND_HEIGHT_PX + this.stripScroll.clientHeight - height - 2
+        ));
+        Object.assign(ghost.style, {
+            top: `${top}px`, height: `${height}px`, opacity: '.85',
+            border: '2px solid #f97316', outline: 'none', zIndex: '11'
+        });
+        ghost.dataset.akariInsertionPreview = 'true';
+        return top;
     }
 
     protected showTrackInsertIndicatorAt(stripLocalTop: number): void {
@@ -12050,8 +12290,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.cuts[earlier]?.transitionOut?.duration ?? 0;
     }
 
+    protected dropWouldOverlap(id: string | undefined, start: number, duration: number, trackId?: string, insertIndex?: number): boolean {
+        if (insertIndex !== undefined || !trackId) return false;
+        const tracks = this.editDocument?.tracks;
+        const track = Array.isArray(tracks) ? tracks.find(candidate => candidate.id === trackId) : undefined;
+        const at = this.frameAt(start);
+        const end = at + Math.max(1, this.frameAt(duration));
+        return Array.isArray(track?.items) && track.items.some((item: { id: string; at: number; duration: number }) =>
+            item.id !== id && at < item.at + item.duration && end > item.at);
+    }
+
     protected setGhostRejected(ghost: HTMLDivElement, rejected: boolean): void {
         ghost.classList.toggle('akari-annotations-ghost-rejected', rejected);
+        ghost.style.outline = `2px solid ${rejected ? '#f14c4c' : '#f97316'}`;
+        if (rejected) this.hideSnapGuide();
     }
 
     protected setGhostSnapped(ghost: HTMLDivElement, snapped: boolean): void {
@@ -12365,29 +12617,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            const request = {
-                captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                captionId: preview.id, start: preview.start, end: preview.end,
-                timeDomain: preview.storedTimeDomain ?? null, edited: true
-            } as const;
-            const result = await this.annotationsService.setCaptionTiming(request);
-            this.pushHistory({
-                label: "字幕タイミングの調整",
-                undo: async () => {
-                    await this.annotationsService.setCaptionTiming({
-                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        captionId: preview.id, start: preview.originalStart, end: preview.originalEnd,
-                        timeDomain: preview.originalTimeDomain ?? null, edited: preview.originalEdited
-                    });
-                    await this.reloadCaptions();
-                },
-                redo: async () => {
-                    await this.annotationsService.setCaptionTiming(request);
-                    await this.reloadCaptions();
-                }
+            const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
+            const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end,
+                preview.storedTimeDomain ?? null, true);
+            await this.commitEditMutation('字幕タイミングの調整', doc => doc, {
+                captions: { before, after }, optimistic: true
             });
-            await this.reloadCaptions();
-            this.footer.textContent = this.writeResultMessage("字幕のタイミングを調整しました。", result);
+            this.footer.textContent = '字幕のタイミングを調整しました。';
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice("字幕のタイミングを更新できません: " + detail);
@@ -12580,7 +12816,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 default:
                     return;
             }
-            await this.commitEditMutation(label, mutate);
+            await this.commitEditMutation(label, mutate, { optimistic: true });
             if (createdTrackId) {
                 const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
                 this.showNotice(`${name} を追加しました`);
@@ -12670,6 +12906,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async performUndo(): Promise<void> {
+        await this.editMutationTail;
         if (!this.historyService.canUndo) {
             return;
         }
@@ -12685,6 +12922,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async performRedo(): Promise<void> {
+        await this.editMutationTail;
         if (!this.historyService.canRedo) {
             return;
         }
@@ -13008,11 +13246,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateScrollbar(): void {
-        const zoomed = this.viewDuration !== undefined;
-        this.hScrollbarTrack.style.display = zoomed ? 'block' : 'none';
-        if (!zoomed) {
-            return;
-        }
+        this.hScrollbarTrack.style.display = 'block';
         const total = this.totalDuration();
         const visible = this.visibleDuration();
         const widthPercent = total > 0 ? Math.min(100, Math.max(2, visible / total * 100)) : 100;
@@ -13064,7 +13298,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** playhead 上端のピン型ハンドルをドラッグしている間、継続的にプレビューへシークする（スクラブ）。 */
     protected onPlayheadHandlePointerDown(event: PointerEvent): void {
-        if (event.button !== 0) {
+        if (event.button !== 0 || this.dragState) {
             return;
         }
         event.preventDefault();
@@ -13147,8 +13381,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.materialCutDropPlan(clientX, track, durationSeconds).at;
     }
 
-    protected selectTimeAtClientX(clientX: number): void {
-        const outputT = this.timeAtClientX(clientX);
+    protected selectTimeAtClientX(clientX: number, outputT = this.timeAtClientX(clientX)): void {
         const sourceT = this.outputToSource(outputT);
         this.selectedSourceT = sourceT;
         this.playheadT = outputT;
@@ -13258,16 +13491,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    protected scheduleSeekHoverRefresh(): void {
+        if (!this.seekHoverPoint || this.seekHoverRefresh !== undefined) return;
+        this.seekHoverRefresh = requestAnimationFrame(() => {
+            this.seekHoverRefresh = undefined;
+            const point = this.seekHoverPoint;
+            if (!point) return;
+            this.updateHoverSeek({ clientX: point.x, buttons: 0, target: document.elementFromPoint(point.x, point.y) });
+        });
+    }
+
+    protected isSeekSurfaceTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return false;
+        if (!this.stripScroll.contains(target) && !this.rulerBar.contains(target)) return false;
+        if (this.playhead.contains(target)) return false;
+        return !target.closest(
+            '[data-akari-item-kind], [data-akari-keyframe-t], [data-akari-keyframe-property-row], '
+            + '.akari-beat-marker, .akari-annotations-pin, .akari-track-header-row, '
+            + '.akari-annotations-transition-drop-target, .akari-annotations-transition-popover, button, input, select, textarea, a, [role="button"]'
+        );
+    }
+
+    protected updateHoverSeek(event: Pick<PointerEvent, 'target' | 'buttons' | 'clientX'>): void {
+        const rect = this.strip.getBoundingClientRect();
+        if (event.buttons !== 0 || this.dragState || this.visualPointerDown
+            || !this.isSeekSurfaceTarget(event.target) || rect.width <= 0
+            || event.clientX < rect.left || event.clientX > rect.right) {
+            this.hoverSeek.style.display = 'none';
+            return;
+        }
+        const time = this.timeAtClientX(event.clientX);
+        this.hoverSeek.style.left = `${this.percent(time)}%`;
+        this.hoverSeek.dataset.time = String(time);
+        this.hoverSeek.style.display = 'block';
+    }
+
     protected onStripClick(event: MouseEvent): void {
         if (this.suppressNextStripClick) {
             this.suppressNextStripClick = false;
             return;
         }
-        if (event.target instanceof Element && event.target.closest('.akari-beat-marker')) {
-            return;
-        }
+        if (!this.isSeekSurfaceTarget(event.target)) return;
+        const rect = this.strip.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right) return;
+        this.hoverSeek.style.display = 'none';
+        const time = this.timeAtClientX(event.clientX);
         this.applySelection(undefined);
-        this.selectTimeAtClientX(event.clientX);
+        this.selectTimeAtClientX(event.clientX, time);
     }
 
     private wheelZoomDuration(currentDuration: number, deltaY: number): number {
@@ -13346,7 +13616,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const visibleDuration = this.visibleDuration();
         const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
-        if (this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
+        if (request.playing && !this.dragState && !this.visualPointerDown
+            && this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {
             if (this.playheadT > followEdge) {
                 const nextViewStart = this.playheadT - visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
                 if (nextViewStart > this.viewStart + 1e-6) {
@@ -13520,6 +13791,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             item.kind === 'item' ? 'overlay' : item.kind,
             this.clipboard !== undefined,
             row ? {
+                canSplit: this.splittableItemId(item) !== undefined,
                 canDetach: row.parentId !== undefined,
                 canConvertToTelop: row.itemKind === 'caption',
                 canGroup: this.multiSelection.length >= 2,
@@ -13527,7 +13799,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
                 collapsed: row.collapsed,
                 hasParent: row.parentId !== undefined
-            } : {},
+            } : { canSplit: this.splittableItemId(item) !== undefined },
             {
                 ...(item.kind === 'cut' && document ? { split: canSplitCutAudio(
                     document as unknown as EditV2, this.cutItemId(item.index),
@@ -13609,14 +13881,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (id === 'split') {
-            if (item.kind !== 'cut') {
-                return;
-            }
-            const segment = this.segments.find(candidate => candidate.index === item.index);
-            if (!segment) {
-                return;
-            }
-            void this.performRazorSplitAt(segment, clientX);
+            void this.performRazorSplitAt(item, clientX);
             return;
         }
         if (id === 'detach' && item.kind === 'item') {
@@ -13722,6 +13987,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
+        if (/^[VAT]\d+ を追加しました$/.test(message)) return;
         this.notice.setMessage(message);
     }
 

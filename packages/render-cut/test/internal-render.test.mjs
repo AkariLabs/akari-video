@@ -85,7 +85,7 @@ test("v2 renderer audio is derived from role-marked tracks while raw master is p
     gainDb: 1.5, gain_db: 1.5,
   }]);
   assert.deepEqual(edit.audio.bgm, {
-    id: "bgm", path: "music.wav", track: 2, in: 0, fadeIn: 1.25, fadeOut: 2.5,
+    id: "bgm", path: "music.wav", track: 2, t: 0, duration: 10, in: 0, fadeIn: 1.25, fadeOut: 2.5,
     gainDb: -18, ducking: true, gain_db: -18,
   });
   assert.notEqual(edit.audio.narration[0].track, edit.audio.bgm.track);

@@ -4,7 +4,7 @@
  * 呼び出し側 (akari-annotations-widget.ts) が id ごとに既存ハンドラへディスパッチする。
  *
  * v2 の visual item は source.kind に関係なく同じコピー経路を使う。字幕は sidecar の既存経路、
- * audio はトップレベル audio ブロックのためコピー対象外。分割は cut、削除は全種別。
+ * audio はトップレベル audio ブロックのためコピー対象外。分割可否は素材の共通操作判定、削除は全種別。
  */
 export type TimelineClipMenuItemKind = 'cut' | 'overlay' | 'caption' | 'layer' | 'audio';
 
@@ -22,6 +22,7 @@ export interface TimelineCutAudioMenuContext {
 }
 
 export interface TimelineTreeMenuContext {
+    canSplit?: boolean;
     canDetach?: boolean;
     canConvertToTelop?: boolean;
     canGroup?: boolean;
@@ -34,7 +35,7 @@ export interface TimelineTreeMenuContext {
 /** コピー対応種別（v2 visual item + 字幕）。 */
 const COPY_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['cut', 'caption', 'overlay', 'layer']);
 
-/** 分割対応種別（既存 razor performRazorSplitAt の対応範囲）。 */
+/** 互換呼び出しの既定。現行 UI は素材IDから canSplit を明示する。 */
 const SPLIT_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['cut']);
 
 /** 司令塔裁定3: 項目の並び = コピー → ペースト → 分割 → 削除（削除は danger 表示）。 */
@@ -49,7 +50,7 @@ export function buildTimelineClipMenuItems(
     if (hasClipboard) {
         items.push({ id: 'paste', label: 'ペースト' });
     }
-    if (SPLIT_CAPABLE_KINDS.has(kind)) {
+    if (tree.canSplit ?? SPLIT_CAPABLE_KINDS.has(kind)) {
         items.push({ id: 'split', label: '分割' });
     }
     if (tree.canDetach) items.push({ id: 'detach', label: '出す' });

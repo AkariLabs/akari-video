@@ -654,8 +654,6 @@ test("v2-item-duration-zero-invalid reports a clear, purpose-built message namin
 
 for (const [fixture, expectedCheck] of [
   ["missing-reference", "references.files"],
-  ["overlay-range", "overlays.timeline"],
-  ["speed-exceeds-timeline-invalid", "overlays.timeline"],
   ["data-mismatch", "overlays.data-attributes"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
@@ -2260,3 +2258,12 @@ test("max_characters rejects invalid values in default and per-caption styles", 
     }
   });
 });
+
+for (const fixture of ['overlay-range', 'speed-exceeds-timeline-invalid']) {
+  test(`${fixture}: HTML after the video extends the timeline`, async () => {
+    await withFixtures(async fixtures => {
+      const result = parseResult(run(join(fixtures, fixture)));
+      assert.ok(!result.findings.some(f => f.check === 'overlays.timeline' && f.severity === 'error'));
+    });
+  });
+}

@@ -209,6 +209,8 @@ interface GpuTimerExtension {
 }
 export interface WebGL2CompositorOptions {
   synchronization?: 'finish' | 'flush';
+  /** Transparent media planes for interleaving native DOM overlays in the preview. */
+  transparent?: boolean;
   uploadPath?: UploadPath;
   /** Diagnostic only. Consecutive stage boundaries; null ends the last stage.
    * The caller owns queries and must not wrap compose in another elapsed query.
@@ -678,7 +680,7 @@ export function buildBaseFragment(type: ResolvedTransition['type']): string {
 // render-cut evaluates non-normal blend into an RGB plane and then maskedmerge uses the layer's
 // opacity-adjusted alpha. The equivalent single-pass expression is
 // mix(dst, blendFn(dst, src), srcAlpha * opacity); normal is the same formula with blendFn=src.
-const LAYER_FRAGMENT = `#version 300 es
+const layerFragment = (transparent: boolean) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler3D;
@@ -779,7 +781,11 @@ void main() {
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
-  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+  ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
+  vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
+    + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
+  color = vec4(outAlpha > 0.0 ? mixed / outAlpha : vec3(0.0), outAlpha);`
+    : 'color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);'}
 }`;
 const COPY_FRAGMENT = `#version 300 es
 precision highp float;
@@ -965,6 +971,33 @@ export function forwardInverse(
   ]);
 }
 
+/** Match the base shader's fit/framing map when a cut is composited above another cut. */
+export function compositeCutGeometry(
+  cut: ResolvedCutVisual, srcW: number, srcH: number, outW: number, outH: number,
+): { visual: ResolvedLayerVisual; width: number; height: number } {
+  if (cut.layerStyle) return {
+    visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform }, width: srcW, height: srcH,
+  };
+  const fit = Math.min(outW / srcW, outH / srcH);
+  const axis = (start: number, length: number, source: number, out: number) => {
+    const offset = (out - source * fit) / 2;
+    const lo = Math.max(0, Math.min(1, (start * out - offset) / (source * fit)));
+    const hi = Math.max(0, Math.min(1, ((start + length) * out - offset) / (source * fit)));
+    const span = Math.max(1e-6, hi - lo);
+    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * cut.transform.scale;
+    return { lo, span, center, size: source * fit / length };
+  };
+  const x = axis(cut.framing.x, cut.framing.width, srcW, outW);
+  const y = axis(cut.framing.y, cut.framing.height, srcH, outH);
+  const angle = cut.transform.rotateDegrees * Math.PI / 180;
+  return { width: x.size, height: y.size, visual: {
+    crop: { x: x.lo, y: y.lo, width: x.span, height: y.span }, perspective: null,
+    transform: { ...cut.transform,
+      x: cut.transform.x + Math.cos(angle) * x.center - Math.sin(angle) * y.center,
+      y: cut.transform.y + Math.sin(angle) * x.center + Math.cos(angle) * y.center },
+  } };
+}
+
 const FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
 
 /**
@@ -1090,7 +1123,8 @@ export class WebGL2Compositor implements CompositorBackend {
   ) {
     this.canvas = canvas;
     const gl = canvas.getContext('webgl2', {
-      alpha: false,
+      alpha: options.transparent === true,
+      premultipliedAlpha: false,
       antialias: false,
       depth: false,
       preserveDrawingBuffer: true,
@@ -1104,7 +1138,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.stats.directUploadFallbackReason =
         `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
     }
-    this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.layerProgram = createProgram(gl, layerFragment(options.transparent === true));
     this.filterProgram = createProgram(gl, FILTER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
     this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
@@ -2047,7 +2081,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]!);
-      gl.clearColor(0, 0, 0, 1);
+      gl.clearColor(0, 0, 0, this.options.transparent ? 0 : 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
@@ -2160,24 +2194,28 @@ export class WebGL2Compositor implements CompositorBackend {
         gl.uniform1i(maskRotationLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
+      const geometry = layer.cutVisual
+        ? compositeCutGeometry(layer.cutVisual, width, height, output.width, output.height)
+        : { visual: layer.visual, width, height };
+      const visual = geometry.visual;
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
         inverseLoc,
         false,
         forwardInverse(
-          layer.visual,
-          width,
-          height,
+          visual,
+          geometry.width,
+          geometry.height,
           output.width,
           output.height,
         ),
       );
       gl.uniform4f(
         cropLoc,
-        layer.visual.crop.x,
-        layer.visual.crop.y,
-        layer.visual.crop.width,
-        layer.visual.crop.height,
+        visual.crop.x,
+        visual.crop.y,
+        visual.crop.width,
+        visual.crop.height,
       );
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
@@ -2185,8 +2223,8 @@ export class WebGL2Compositor implements CompositorBackend {
       const passes = planFxPasses(layer.adjustFx);
       let fxResult: FxResult | null = null;
       if (passes.length) {
-        const crop = layer.visual.crop;
-        const inverse = forwardInverse(layer.visual, width, height, output.width, output.height);
+        const crop = visual.crop;
+        const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
         fxResult = this.runFxPasses(passes, {
           size: { width, height }, crop, displayed: fxDisplayedSize(inverse),
           format: 'bitmap' in color || isVideoFrame(color) ? 2 : color.format === 'NV12' ? 1 : 0,

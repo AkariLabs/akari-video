@@ -52,7 +52,7 @@ test('cut の crop も transform と同じ version-routing ヘルパーを 1 pat
   assert.match(source, /cutWrite: \(cutIndex, cutId, patch\) => new Promise/);
   assert.match(
     source,
-    /write: patch => window\.akari\.engine\.cutWrite\([\s\S]*?Number\(video\.dataset\.akariCutIndex\),[\s\S]*?video\.dataset\.akariCutId \|\| undefined,[\s\S]*?patch/,
+    /write: patch => window\.akari\.engine\.cutWrite\([\s\S]*?Number\(cutSelectionVideo\(\)\.dataset\.akariCutIndex\),[\s\S]*?cutSelectionVideo\(\)\.dataset\.akariCutId \|\| undefined,[\s\S]*?patch/,
   );
   assert.match(source, /await target\.write\(\{ crop: finalCrop, transform: finalTransform \}\)/);
   // ホスト側は layerWrite と同じ crop 検証を通してから resolvePreviewItemWrite へ渡す。
