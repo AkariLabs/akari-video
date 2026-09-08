@@ -1,0 +1,39 @@
+{
+  "label": "before-valid-r1",
+  "workspace": "/tmp/init-layout-l1/ws-valid",
+  "startedAt": "2026-09-08T13:54:08.360Z",
+  "timeline": [
+    {
+      "atSeconds": 5,
+      "ready": true,
+      "preloadVisible": false
+    }
+  ],
+  "preloadVisible": false,
+  "shellAttached": true,
+  "rightTabs": [
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈"
+  ],
+  "leftIcons": 15,
+  "mainTabs": [
+    "ホーム"
+  ],
+  "homeAttached": true,
+  "daihonAttached": true,
+  "cutsAttached": true,
+  "reviewAttached": true,
+  "partnerAttached": true,
+  "gapApplied": true,
+  "readyMs": 10001,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardWarnings": [],
+  "consoleErrors": []
+}

@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
@@ -22,11 +23,13 @@ export class AkariRightPanelCuration implements FrontendApplicationContribution 
     protected restoringOutline = false;
     protected readonly loggedIds = new Set<string>();
 
-    onDidInitializeLayout(app: FrontendApplication): void {
-        this.shell = app.shell;
-        this.reconcile('onDidInitializeLayout');
-        app.shell.onDidAddWidget(widget => this.reconcile(`onDidAddWidget:${widget.id}`));
-        this.developerMode.onDidChange(enabled => this.reconcile(`developerMode:${enabled}`));
+    onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        return guardInitLayout('akari-shell-strip', () => {
+            this.shell = app.shell;
+            this.reconcile('onDidInitializeLayout');
+            app.shell.onDidAddWidget(widget => this.reconcile(`onDidAddWidget:${widget.id}`));
+            this.developerMode.onDidChange(enabled => this.reconcile(`developerMode:${enabled}`));
+        });
     }
 
     protected reconcile(trigger: string): void {

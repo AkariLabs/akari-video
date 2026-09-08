@@ -1,0 +1,39 @@
+{
+  "label": "before-nows-r3",
+  "workspace": null,
+  "startedAt": "2026-09-08T13:56:01.452Z",
+  "timeline": [
+    {
+      "atSeconds": 5,
+      "ready": true,
+      "preloadVisible": false
+    }
+  ],
+  "preloadVisible": false,
+  "shellAttached": true,
+  "rightTabs": [
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈"
+  ],
+  "leftIcons": 15,
+  "mainTabs": [
+    "ホーム"
+  ],
+  "homeAttached": true,
+  "daihonAttached": true,
+  "cutsAttached": true,
+  "reviewAttached": true,
+  "partnerAttached": true,
+  "gapApplied": true,
+  "readyMs": 5755,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardWarnings": [],
+  "consoleErrors": []
+}

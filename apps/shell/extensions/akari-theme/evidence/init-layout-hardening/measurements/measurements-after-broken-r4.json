@@ -1,0 +1,43 @@
+{
+  "label": "after-broken-r4",
+  "workspace": "/tmp/init-layout-l1/ws-broken",
+  "startedAt": "2026-09-08T12:51:35.964Z",
+  "timeline": [
+    {
+      "atSeconds": 5,
+      "ready": true,
+      "preloadVisible": false
+    }
+  ],
+  "preloadVisible": false,
+  "shellAttached": true,
+  "rightTabs": [
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈"
+  ],
+  "leftIcons": 15,
+  "mainTabs": [
+    "ホーム"
+  ],
+  "homeAttached": true,
+  "daihonAttached": true,
+  "cutsAttached": true,
+  "reviewAttached": true,
+  "partnerAttached": true,
+  "gapApplied": true,
+  "readyMs": 13413,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardWarnings": [
+    "warning: 2026-09-08T12:51:48.553Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined"
+  ],
+  "consoleErrors": [
+    "error: 2026-09-08T12:51:52.336Z root ERROR [akari-annotations] edit.json を読み込めませんでした SyntaxError: Expected double-quoted property name in JSON at position 43 (line 2 column 1)\n    at JSON.parse (<anonymous>)\n    at $Ma (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:2569:10692)\n    at oSn.readEdit (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12386:7062)\n    at oSn.reloadEdit (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12386:7754)\n    at async Promise.all (index 1)\n    at async oSn.reloadAll (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12386:4707)\n    at async oSn.configure (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12386:382)\n    at async eU.attachAt (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12864:27249)\n    at async eU.open (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12864:25531)\n    at async eU.openReviewPanel (file:///Users/ryoma/_edit/30_products/akari-video-wt/init-layout-hardening/apps/shell/lib/frontend/bundle.js:12864:27523)"
+  ]
+}

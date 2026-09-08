@@ -1,3 +1,4 @@
+import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import {
     ApplicationShell,
@@ -27,28 +28,30 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
     }
 
     async onDidInitializeLayout(_app: FrontendApplication): Promise<void> {
-        // Layout must finish even when project files or a widget factory are unavailable.
-        let daihon: AkariDaihonWidget | undefined;
-        let cuts: AkariCutsWidget | undefined;
-        try {
-            daihon = await this.ensureWidget();
-        } catch (error) {
-            console.warn('[akari-daihon] layout initialization failed', error);
-        }
-        try {
-            cuts = await this.ensureCutsWidget();
-        } catch (error) {
-            console.warn('[akari-cuts] layout initialization failed', error);
-        }
-        // Attach both tabs before starting independent reads; never await configuration here.
-        for (const widget of [daihon, cuts]) {
-            if (!widget) continue;
+        return guardInitLayout('akari-transcript', async () => {
+            // Layout must finish even when project files or a widget factory are unavailable.
+            let daihon: AkariDaihonWidget | undefined;
+            let cuts: AkariCutsWidget | undefined;
             try {
-                void widget.configure().catch(error => widget.showError(error));
+                daihon = await this.ensureWidget();
             } catch (error) {
-                widget.showError(error);
+                console.warn('[akari-daihon] layout initialization failed', error);
             }
-        }
+            try {
+                cuts = await this.ensureCutsWidget();
+            } catch (error) {
+                console.warn('[akari-cuts] layout initialization failed', error);
+            }
+            // Attach both tabs before starting independent reads; never await configuration here.
+            for (const widget of [daihon, cuts]) {
+                if (!widget) continue;
+                try {
+                    void widget.configure().catch(error => widget.showError(error));
+                } catch (error) {
+                    widget.showError(error);
+                }
+            }
+        });
     }
 
     async openCuts(): Promise<AkariCutsWidget> {
