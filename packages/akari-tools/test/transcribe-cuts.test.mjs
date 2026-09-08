@@ -3,11 +3,78 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { runMediaCli } from "../bin/media.mjs";
-import { transcribeCutsMedia } from "../src/media/transcribe-cuts.mjs";
-import { FILLER_LEXICON } from "../src/media/filler-lexicon.mjs";
+import { pickBasisByFillerHits, transcribeCutsMedia } from "../src/media/transcribe-cuts.mjs";
+import { countFillerHits, FILLER_LEXICON } from "../src/media/filler-lexicon.mjs";
 import { fixture, json, putJson, silenceSpans } from "./fixtures/transcribe-compare/helpers.mjs";
 
 const readCuts = (f) => json(path.join(f.directory, "cuts.json"));
+
+test("countFillerHits は長い語彙を優先し非重複で数える", () => {
+  assert.equal(countFillerHits("あのー"), 1);
+  assert.equal(countFillerHits("あのーそのーえーとうーん"), 4);
+  for (const filler of FILLER_LEXICON) assert.equal(countFillerHits(filler), 1, filler);
+});
+
+test("countFillerHits は句読点・空白を落として本文を走査する", () => {
+  assert.equal(countFillerHits("あの、まあ"), 2);
+  assert.equal(countFillerHits("説明。あ、の まあ！"), 2);
+});
+
+test("countFillerHits は語彙のない本文と空文字列なら 0 件", () => {
+  assert.equal(countFillerHits("説明です。"), 0);
+  assert.equal(countFillerHits(""), 0);
+});
+
+test("basis は words のない本文だけでもフィラーヒット数が最多のエンジンを選ぶ", () => {
+  const transcripts = [
+    { backend: "whisper-cpp", segments: [{ text: "えー、説明" }] },
+    { backend: "speech-analyzer", segments: [
+      { text: "あの、説明、まあ" },
+      { text: "えっと、説明" },
+    ] },
+  ];
+  const before = structuredClone(transcripts);
+  assert.deepEqual(pickBasisByFillerHits(transcripts), {
+    basis: transcripts[1], hits: 3, reason: "filler_hits=3 (speech-analyzer) > 1 (whisper-cpp)",
+  });
+  assert.deepEqual(transcripts, before);
+  assert.equal(pickBasisByFillerHits([transcripts[0]]).reason, "filler_hits=1 (whisper-cpp)");
+});
+
+test("basis のヒット数は words の文字単位・語単位・省略で変わらない", () => {
+  const text = "説明、あのー、まあ、その";
+  for (const words of [undefined, Array.from(text).map((text) => ({ text })),
+    ["説明", "あのー", "まあ", "その"].map((text) => ({ text }))]) {
+    const transcript = { backend: "speech-analyzer", segments: [{ text, ...(words ? { words } : {}) }] };
+    assert.deepEqual(pickBasisByFillerHits([transcript]), {
+      basis: transcript, hits: 3, reason: "filler_hits=3 (speech-analyzer)",
+    });
+  }
+});
+
+test("basis の同数ヒットは契約の優先順で選ぶ", () => {
+  const transcripts = ["cloud-groq", "speech-analyzer", "whisper-cpp", "cloud-scribe"]
+    .map((backend) => ({ backend, segments: [{ text: "あの、説明" }] }));
+  assert.equal(pickBasisByFillerHits(transcripts).reason,
+    "filler_hits=1 (cloud-scribe) > 1 (whisper-cpp) > 1 (speech-analyzer) > 1 (cloud-groq)");
+  while (transcripts.length) {
+    assert.equal(pickBasisByFillerHits(transcripts).basis, transcripts.at(-1));
+    transcripts.pop();
+  }
+});
+
+test("basis は全エンジン 0 件でも優先順、未知の backend 同士は入力順", () => {
+  const transcripts = ["unknown-first", "cloud-groq", "speech-analyzer", "whisper-cpp", "cloud-scribe"]
+    .map((backend) => ({ backend, segments: [{ text: "説明", words: [{ text: "説明" }] }] }));
+  while (transcripts.length) {
+    const result = pickBasisByFillerHits(transcripts);
+    assert.equal(result.basis, transcripts.at(-1));
+    assert.equal(result.hits, 0);
+    transcripts.pop();
+  }
+  const unknown = ["unknown-first", "unknown-second"].map((backend) => ({ backend, segments: [] }));
+  assert.equal(pickBasisByFillerHits(unknown).basis, unknown[0]);
+});
 
 test("fixture: filler 3 / redo 1 / silence 2 / unrecognized 1 はすべて既定 OFF", async (t) => {
   const f = await fixture(t);
@@ -32,6 +99,8 @@ test("fixture: filler 3 / redo 1 / silence 2 / unrecognized 1 はすべて既定
   const cuts = await readCuts(f);
   assert.equal(cuts.version, 1);
   assert.equal(cuts.basis, "cloud-scribe");
+  assert.equal(cuts.basis_reason, "filler_hits=3 (cloud-scribe) > 3 (whisper-cpp) > 0 (speech-analyzer)");
+  assert.equal(summary.basis_reason, cuts.basis_reason);
   assert.deepEqual(cuts.rules, { filler: "off", redo: "off", silence_min_sec: 1.5, silence_keep_sec: 0.5, silence_break_sec: 3, unrecognized: "off" });
   assert.deepEqual(cuts.hand_edited, []);
   assert.ok(cuts.candidates.every((c) => c.default_on === false && c.on === false));
@@ -117,8 +186,56 @@ test("basis 優先順と明示指定、無音の境界値と keep", async (t) =>
     silencesRunner: async () => [{ start: 0, end: 1.499 }, { start: 2, end: 3.5 }, { start: 4, end: 7 }],
   }), 0);
   assert.equal(JSON.parse(lines[0]).basis, "speech-analyzer");
+  assert.equal(JSON.parse(lines[0]).basis_reason, "explicit (--basis speech-analyzer)");
+  assert.equal((await readCuts(f)).basis_reason, "explicit (--basis speech-analyzer)");
   assert.deepEqual((await readCuts(f)).candidates.filter((c) => c.kind === "silence").map((c) => [c.start, c.end, c.on]), [[2, 3.25, false], [4, 6.75, false]]);
 });
+
+test("自動 basis は優先順よりフィラーヒット数を優先し、理由を sidecar と要約に残す", async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.directory, "transcripts/speech-analyzer.json");
+  const data = await json(file);
+  data.segments = Array.from({ length: 5 }, (_, i) => ({ start: i, end: i + 0.5, text: "あの、説明" }));
+  await putJson(file, data);
+  const summary = await transcribeCutsMedia(f.target, f.options);
+  const cuts = await readCuts(f);
+  assert.equal(summary.basis, "speech-analyzer");
+  assert.equal(cuts.basis, summary.basis);
+  assert.equal(summary.basis_reason, "filler_hits=5 (speech-analyzer) > 3 (cloud-scribe) > 3 (whisper-cpp)");
+  assert.equal(cuts.basis_reason, summary.basis_reason);
+});
+
+for (const [text, unit, count] of [["で、で、", "で", 2], ["あの、あの", "あの", 2], ["ちゃんと、ちゃんと、ちゃんと", "ちゃんと", 3]]) {
+  test(`言い直し正例 ${text}: 語境界を含めず最後の 1 回を残す`, async (t) => {
+    const f = await fixture(t, ["cloud-scribe"]);
+    const file = path.join(f.directory, "transcripts/cloud-scribe.json");
+    const data = await json(file);
+    for (const prefix of ["", ...Array.from("、,。！？.!? ").map((boundary) => `前${boundary}`)]) {
+      data.segments = [{ start: 0, end: 20, text: prefix + text,
+        words: Array.from({ length: count }, (_, i) => ({ text: unit, start: 10 + i, end: 11 + i })),
+      }];
+      await putJson(file, data);
+      await transcribeCutsMedia(f.target, f.options);
+      const redos = (await readCuts(f)).candidates.filter((c) => c.kind === "redo");
+      assert.equal(redos.length, 1, prefix + text);
+      assert.equal(redos[0].text, text);
+      assert.equal(redos[0].start, 10);
+      assert.equal(redos[0].end, 10 + count - 1);
+    }
+  });
+}
+
+for (const text of ["いい", "かか", "ここ", "かかる", "見ているいる"]) {
+  test(`言い直し負例 ${text}: 1 文字反復と語中の反復は拾わない`, async (t) => {
+    const f = await fixture(t, ["cloud-scribe"]);
+    const file = path.join(f.directory, "transcripts/cloud-scribe.json");
+    const data = await json(file);
+    data.segments = [{ start: 0, end: 2, text }];
+    await putJson(file, data);
+    await transcribeCutsMedia(f.target, f.options);
+    assert.deepEqual((await readCuts(f)).candidates.filter((c) => c.kind === "redo"), []);
+  });
+}
 
 test("未認識はエンジンをまたぐ和集合、退避版は無視", async (t) => {
   const f = await fixture(t);

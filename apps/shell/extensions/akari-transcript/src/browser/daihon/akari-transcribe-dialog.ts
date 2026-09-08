@@ -11,11 +11,12 @@ import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
 // Radar values: explainers/2026-09-07-transcribe-four-screens-v2-fix2.html.
 // Cloud rtf/hourlyUsd: skills/analyze-footage/bin/transcribe-cloud.mjs PROVIDERS.
 // Local figures are predictions, shown with dashed radar outlines, never detection results.
+// Filler axis calibrated against the 2026-09-08 transcribe-compare dogfood measurements.
 export const TRANSCRIBE_ENGINE_CARDS = [
     { id: 'speech-analyzer', label: 'SpeechAnalyzer', place: 'この Mac', hourlyUsd: 0, rtf: 0.08, predicted: true,
-        radar: [.95, .75, .8, .3, .8], color: '#4fc3c0', needs: 'macOS 26 + CLT', facts: '句読点あり / フィラーは落ちやすい' },
+        radar: [.95, .75, .8, .85, .8], color: '#4fc3c0', needs: 'macOS 26 + CLT', facts: '句読点あり / フィラーを残す' },
     { id: 'whisper-cpp', label: 'Whisper · large-v3-turbo', place: 'この Mac', hourlyUsd: 0, rtf: .47, predicted: true,
-        radar: [.4, .8, .8, .75, .85], color: '#b08cf0', needs: '同梱バイナリ + モデル', facts: '句読点あり / フィラーを残す' },
+        radar: [.4, .8, .8, .3, .85], color: '#b08cf0', needs: '同梱バイナリ + モデル', facts: '句読点あり / フィラーは落ちやすい' },
     { id: 'cloud:scribe', label: 'ElevenLabs Scribe', place: 'クラウド', hourlyUsd: .40, rtf: .025, predicted: false,
         radar: [.85, .9, .95, .95, .85], color: '#6fa8ff', needs: 'ElevenLabs の鍵・接続確認', facts: '句読点・フィラーを残す' },
     { id: 'cloud:groq', label: 'Groq Whisper', place: 'クラウド', hourlyUsd: .04, rtf: .002, predicted: false,

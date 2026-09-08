@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { formatNumber, generatedAt, probeRaw, resolveTools } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
-import { FILLER_PREFIX, isFiller } from "./filler-lexicon.mjs";
+import { countFillerHits, FILLER_PREFIX, isFiller } from "./filler-lexicon.mjs";
 import { runSilenceDetect } from "./transcribe.mjs";
 import { UNRECOGNIZED_DEFAULTS } from "./unrecognized-spans.mjs";
 import {
@@ -11,6 +11,24 @@ import {
 
 const BASIS_PRIORITY = ["cloud-scribe", "whisper-cpp", "speech-analyzer", "cloud-groq"];
 const overlap = (a, b) => a.start < b.end && a.end > b.start;
+
+export function pickBasisByFillerHits(transcripts) {
+  const priority = (backend) => {
+    const index = BASIS_PRIORITY.indexOf(backend);
+    return index < 0 ? BASIS_PRIORITY.length : index;
+  };
+  const ranked = transcripts.map((transcript, index) => ({
+    transcript, index,
+    // SA の words は 1 文字単位のため、トークン粒度の差を数えないよう本文を走査する。
+    hits: transcript.segments.reduce((total, segment) => total + countFillerHits(segment.text), 0),
+  })).sort((a, b) => b.hits - a.hits
+    || priority(a.transcript.backend) - priority(b.transcript.backend) || a.index - b.index);
+  return {
+    basis: ranked[0]?.transcript,
+    reason: `filler_hits=${ranked.map(({ transcript, hits }) => `${hits} (${transcript.backend})`).join(" > ")}`,
+    hits: ranked[0]?.hits ?? 0,
+  };
+}
 
 function numeric(value, fallback, label) {
   const resolved = value ?? fallback;
@@ -46,7 +64,8 @@ function textCandidates(segments, options) {
       seen.add(key);
       candidates.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on", reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
     }
-    const repeats = /([^、,。！？.!?\s]{1,6})(?:[、,]*\1)+[、,]*/gu;
+    // A punctuated one-character unit such as 「で、」 is itself two characters.
+    const repeats = /(?<![^、,。！？.!?\s])([^、,。！？.!?\s]{2,6}|[^、,。！？.!?\s][、,])(?:[、,]*\1)+[、,]*/gu;
     for (const match of text.matchAll(repeats)) {
       const unit = match[1];
       const last = match[0].lastIndexOf(unit);
@@ -99,8 +118,9 @@ export async function transcribeCutsMedia(argument, options = {}) {
   const target = comparisonTarget(argument, options);
   const transcripts = await readEngineTranscripts(target);
   const requested = options.basis?.replace(/:/g, "-");
-  const basis = requested ? transcripts.find((transcript) => transcript.backend === requested)
-    : BASIS_PRIORITY.map((name) => transcripts.find((transcript) => transcript.backend === name)).find(Boolean) ?? transcripts[0];
+  const { basis, reason: basisReason } = requested
+    ? { basis: transcripts.find((transcript) => transcript.backend === requested), reason: `explicit (--basis ${options.basis})` }
+    : pickBasisByFillerHits(transcripts);
   if (!basis) throw new Error(`根拠エンジンの文字起こしがありません: ${requested}`);
   const { ffmpeg, ffprobe } = resolveTools(options);
   let detected;
@@ -152,13 +172,13 @@ export async function transcribeCutsMedia(argument, options = {}) {
     const on = previousOn.get(candidate.id);
     candidate.on = typeof on === "boolean" ? on : candidate.default_on;
   }
-  const result = { version: 1, generated_at: generatedAt(options), basis: basis.backend,
+  const result = { version: 1, generated_at: generatedAt(options), basis: basis.backend, basis_reason: basisReason,
     rules: { filler, redo, silence_min_sec: silenceMin, silence_keep_sec: silenceKeep, silence_break_sec: silenceBreak, unrecognized: "off" },
     candidates: unique, hand_edited: handEdited };
   await writeSidecar(target, "cuts.json", result);
   const by_kind = { filler: 0, redo: 0, silence: 0, unrecognized: 0 };
   unique.forEach((candidate) => { by_kind[candidate.kind] += 1; });
   const enabled = unique.filter((candidate) => candidate.on);
-  return { basis: basis.backend, candidates: unique.length, by_kind, on: enabled.length,
+  return { basis: basis.backend, basis_reason: basisReason, candidates: unique.length, by_kind, on: enabled.length,
     seconds: formatNumber(enabled.reduce((sum, candidate) => sum + candidate.end - candidate.start, 0)) };
 }
