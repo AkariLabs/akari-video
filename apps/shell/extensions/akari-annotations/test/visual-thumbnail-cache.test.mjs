@@ -27,16 +27,27 @@ const until = async (predicate, timeout = 7000) => {
   while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); }
 };
 
+test('capture metadata survives cache hits and memory accounts for image strings', async t => {
+  const value = { image: 'pixels', contentRect: { x: 10, y: 20, width: 30, height: 40 } };
+  const cache = new VisualThumbnailCache(() => {});
+  t.after(() => cache.dispose());
+  const capture = job('metadata', async () => value);
+  cache.request(capture);
+  await until(() => cache.stats.captures === 1);
+  assert.equal(cache.request(capture), value);
+  assert.equal(cache.memoryBytes, 'metadata'.length * 2 + value.image.length * 2 + 480 * 320 * 4);
+});
+
 test('transient failures retry without file changes, honor pause, and stop after three attempts', async () => {
   const cache = new VisualThumbnailCache(() => {});
   let attempts = 0;
-  const recover = job('recover', async () => { if (++attempts === 1) throw Error('transient busy'); return 'image'; });
+  const recover = job('recover', async () => { if (++attempts === 1) throw Error('transient busy'); return { image: 'image' }; });
   cache.request(recover);
   await until(() => cache.stats.failures === 1);
   cache.setPaused(true); await wait(1200);
   assert.equal(attempts, 1);
   cache.setPaused(false);
-  await until(() => cache.request(recover) === 'image');
+  await until(() => cache.request(recover)?.image === 'image');
   assert.equal(attempts, 2);
   const permanent = job('timeout', async () => { throw Error('capture timed out'); });
   cache.request(permanent);
@@ -53,12 +64,12 @@ test('generation invalidation discards an asynchronous result instead of poisoni
   const cache = new VisualThumbnailCache(() => {});
   cache.request({ ...job('A', () => new Promise(resolve => { release = resolve; })), valid: () => generation === 1 });
   await until(() => release);
-  generation = 2; release('newer pixels');
+  generation = 2; release({ image: 'newer pixels' });
   await until(() => cache.stats.discarded === 1);
   assert.equal(cache.size, 0);
-  const undo = job('A', async () => 'A pixels');
+  const undo = job('A', async () => ({ image: 'A pixels' }));
   assert.equal(cache.request(undo), undefined);
-  await until(() => cache.request(undo) === 'A pixels');
+  await until(() => cache.request(undo)?.image === 'A pixels');
   cache.dispose();
 });
 
@@ -81,8 +92,8 @@ test('pauses playback/drag work, resumes visible-first, deduplicates queued and 
   const calls = [];
   const cache = new VisualThumbnailCache(() => {});
   cache.setPaused(true);
-  const a = job('project-A:title-v1', async () => { calls.push('a'); return 'image-a'; }, 20);
-  const b = job('project-A:html-v1', async () => { calls.push('b'); return 'image-b'; }, 0);
+  const a = job('project-A:title-v1', async () => { calls.push('a'); return { image: 'image-a' }; }, 20);
+  const b = job('project-A:html-v1', async () => { calls.push('b'); return { image: 'image-b' }; }, 0);
   cache.request(a); cache.request(a); cache.request(b);
   await wait(140);
   assert.deepEqual(calls, []);
@@ -90,11 +101,11 @@ test('pauses playback/drag work, resumes visible-first, deduplicates queued and 
   cache.setPaused(false);
   await wait(260);
   assert.deepEqual(calls, ['b', 'a']);
-  for (let i = 0; i < 100; i++) assert.equal(cache.request(a), 'image-a');
+  for (let i = 0; i < 100; i++) assert.deepEqual(cache.request(a), { image: 'image-a' });
   await wait(140);
   assert.equal(calls.length, 2, 'redraw/pan/zoom cache hits must not capture');
-  cache.request(job('project-B:title-v1', async () => 'other-project'));
-  cache.request(job('project-A:title-v2', async () => 'edited-title'));
+  cache.request(job('project-B:title-v1', async () => ({ image: 'other-project' })));
+  cache.request(job('project-A:title-v2', async () => ({ image: 'edited-title' })));
   await wait(260);
   assert.equal(cache.stats.captures, 4, 'project namespace and input revision are distinct');
   cache.dispose();
@@ -104,7 +115,7 @@ test('queue, entries, decoded memory and failures are bounded; unmounted work is
   const cache = new VisualThumbnailCache(() => {}, 2, 700000, 3);
   let active = 0; let peak = 0;
   let visible = true;
-  const capture = async () => { peak = Math.max(peak, ++active); await wait(10); active--; return 'image'; };
+  const capture = async () => { peak = Math.max(peak, ++active); await wait(10); active--; return { image: 'image' }; };
   cache.setPaused(true);
   for (let i = 0; i < 20; i++) cache.request({ ...job(String(i), capture, i), wanted: () => visible });
   assert.equal(cache.queued, 3);
@@ -127,9 +138,9 @@ test('pausing while an existing capture finishes prevents the next capture start
   let release; const calls = [];
   const cache = new VisualThumbnailCache(() => {});
   cache.request(job('first', () => { calls.push('first'); return new Promise(resolve => { release = resolve; }); }));
-  cache.request(job('second', async () => { calls.push('second'); return 'second'; }));
+  cache.request(job('second', async () => { calls.push('second'); return { image: 'second' }; }));
   await wait(140);
-  cache.setPaused(true); release('first');
+  cache.setPaused(true); release({ image: 'first' });
   await wait(160);
   assert.deepEqual(calls, ['first']);
   cache.setPaused(false); await wait(140);
@@ -140,8 +151,8 @@ test('pausing while an existing capture finishes prevents the next capture start
 test('a dense visible viewport cannot thrash the bounded cache; leaving the viewport permits new work', async () => {
   let firstVisible = true;
   const cache = new VisualThumbnailCache(() => {}, 1);
-  const first = { ...job('first', async () => 'first'), wanted: () => firstVisible };
-  const second = job('second', async () => 'second');
+  const first = { ...job('first', async () => ({ image: 'first' })), wanted: () => firstVisible };
+  const second = job('second', async () => ({ image: 'second' }));
   cache.request(first); await wait(140);
   for (let i = 0; i < 10; i++) { cache.request(first); cache.request(second); }
   await wait(250);
@@ -150,6 +161,6 @@ test('a dense visible viewport cannot thrash the bounded cache; leaving the view
   firstVisible = false;
   cache.request(second); await wait(140);
   assert.equal(cache.stats.captures, 2);
-  assert.equal(cache.request(second), 'second');
+  assert.deepEqual(cache.request(second), { image: 'second' });
   cache.dispose();
 });
