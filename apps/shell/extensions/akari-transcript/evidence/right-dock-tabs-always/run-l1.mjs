@@ -3,9 +3,9 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium } from '/Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always/node_modules/playwright-core/index.mjs';
+import { chromium } from 'playwright-core';
 
-const REPO = '/Users/ryoma/_edit/30_products/akari-video-wt/right-dock-tabs-always';
+const REPO = '<WORKTREE>';
 const SHELL = path.join(REPO, 'apps/shell');
 const ELECTRON = path.join(REPO, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
 const [, , workspace, label, portRaw] = process.argv;

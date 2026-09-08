@@ -130,7 +130,7 @@
   "cutsAttached": true,
   "reviewAttached": true,
   "partnerAttached": true,
-  "daihonFooter": "台本を読み取れません: Unable to read file 'captions.json' (EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, open '/private/tmp/right-dock-tabs-always/ws-valid/captions.json')",
+  "daihonFooter": "台本を読み取れません: Unable to read file 'captions.json' (EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, open '<SCRATCH>/ws-valid/captions.json')",
   "cutsNotice": "",
   "cutsClickError": "TimeoutError: elementHandle.click: Timeout 8000ms exceeded.",
   "reviewClickError": "TimeoutError: elementHandle.click: Timeout 8000ms exceeded.",
