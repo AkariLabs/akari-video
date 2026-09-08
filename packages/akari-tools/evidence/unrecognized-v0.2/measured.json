@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "task": "2026-09-09-unrecognized-v0.2-cache-and-edges",
+  "measured_at": "2026-09-09",
+  "prediction_commit": "8e87b126",
+  "how": {
+    "material": "akari-video-internal: fieldtest transcribe-compare-dogfood 2026-09-08（talk-0507-first3min.mp4 / 3 分・語り）。内部リポは読み取り専用",
+    "workspace": "<TMP>/akari-unrec-v02.*/before・after・sens へ複製して実行",
+    "cli": "node packages/akari-tools/bin/media.mjs（worktree のソース直）",
+    "key_point": "**.akari/cache/transcribe/ を一度も消していない**。前後とも cache.hit=true。cache ファイルは実行後も sha256 が複製元とバイト同一",
+    "no_write_to_internal": "find <INTERNAL>/fieldtest/2026-09-08-transcribe-compare-dogfood -newermt '2026-09-09 00:00' = 0 件"
+  },
+  "runs": {
+    "before_base_3966303e": {
+      "what": "実装前（基点 main）のコードで cache を残したまま transcribe を 2 backend 分 → transcribe-cuts",
+      "transcribe": {
+        "cache_hit": true,
+        "transcripts_unrecognized": { "speech-analyzer": 1, "whisper-cpp": 7, "total": 8 },
+        "spans": [
+          { "engine": "speech-analyzer", "start": 80.16, "end": 80.543 },
+          { "engine": "whisper-cpp", "start": 20.46, "end": 21.01 },
+          { "engine": "whisper-cpp", "start": 24.63, "end": 25.23 },
+          { "engine": "whisper-cpp", "start": 44.924, "end": 45.27 },
+          { "engine": "whisper-cpp", "start": 92.13, "end": 92.63 },
+          { "engine": "whisper-cpp", "start": 108.41, "end": 108.992 },
+          { "engine": "whisper-cpp", "start": 114.332, "end": 114.79 },
+          { "engine": "whisper-cpp", "start": 123.15, "end": 123.75 }
+        ],
+        "note": "UNRECOGNIZED_DEFAULTS.minGapSec は既に 0.8 なのに 0.45 時代の 8 件がそのまま残る = 遡及しない問題の再現"
+      },
+      "transcribe_cuts": {
+        "basis": "speech-analyzer",
+        "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+        "candidates": 15,
+        "by_kind": { "filler": 2, "redo": 0, "silence": 5, "unrecognized": 8 },
+        "on": 5,
+        "seconds": 6.47034
+      }
+    },
+    "after_this_branch": {
+      "what": "実装後。同じ複製元・同じ cache（消していない）で同じ 2 コマンド",
+      "transcribe": {
+        "cache_hit": true,
+        "elapsed_sec": { "speech-analyzer": 17.69, "whisper-cpp": 11.94 },
+        "asr_not_rerun_evidence": "2026-09-08 の起こし直しでは whisper-cpp が 75.8 秒かかった。今回 11.9 秒 = ASR は走らず silencedetect + 起動のみ",
+        "transcripts_unrecognized": { "speech-analyzer": 0, "whisper-cpp": 0, "total": 0 },
+        "unrecognized_algo_version": "span 0 件のため transcripts には現れない（版キーは unrecognized を持つ segment の兄弟キー）"
+      },
+      "transcribe_cuts": {
+        "basis": "speech-analyzer",
+        "basis_reason": "filler_hits=20 (speech-analyzer) > 4 (whisper-cpp)",
+        "candidates": 7,
+        "by_kind": { "filler": 2, "redo": 0, "silence": 5, "unrecognized": 0 },
+        "on": 5,
+        "seconds": 6.47034
+      }
+    },
+    "sensitivity_min_gap_0_45": {
+      "what": "cache を消さずに --unrecognized-min-gap 0.45 で transcribe（既定を変えたら次の transcribe で件数が変わることの実素材での証拠）",
+      "cache_hit": { "speech-analyzer": true, "whisper-cpp": true },
+      "transcripts_unrecognized": { "speech-analyzer": 0, "whisper-cpp": 4, "total": 4 },
+      "unrecognized_algo_version_in_transcripts": 2,
+      "spans_whisper_cpp": [
+        { "start": 24.63, "end": 25.23 }, { "start": 92.13, "end": 92.63 },
+        { "start": 108.41, "end": 108.992 }, { "start": 123.15, "end": 123.75 }
+      ],
+      "note": "0.45 時代の 7 件から 3 件（20.460 / 44.924 / 114.332）が落ちている。これが segment 端規則の単独効果で、判定表 #1・#3・#7（いずれも segment 頭・境界の word 時刻欠け）と一致する"
+    }
+  },
+  "scoreboard": [
+    { "id": "p1", "predicted": 0, "measured": 0, "hit": true, "note": "cache を消さずに 8 → 0" },
+    { "id": "p2", "predicted": 0, "measured": 0, "hit": true, "note": "cuts by_kind.unrecognized 8 → 0（候補総数も 15 → 7）" },
+    { "id": "p3", "predicted": 0, "measured": 0, "hit": true, "note": "80.160–80.543（SA の segment 末尾の欠け）が消えた。1 → 0" },
+    { "id": "p4", "predicted": 1, "measured": 1, "hit": true, "note": "テストで backendRunner 呼び出し 1 回のまま。実素材では whisper-cpp 75.8 秒 → 11.9 秒" },
+    { "id": "p5", "predicted": "件数が変わる", "measured": "0 件 → 4 件（--unrecognized-min-gap 0.45・cache hit のまま）", "hit": true },
+    { "id": "p6", "predicted": 0, "measured": 0, "hit": true, "note": "packages/akari-tools npm test fail 0" },
+    { "id": "p7", "predicted": 1, "range": [1, 2], "measured": 1, "hit": true, "note": "『セグメント先頭と末尾の隙間も検出する』1 件だけを反転（『… word 時刻の欠けは検出しない』）" },
+    { "id": "p8", "predicted": 0, "measured": 0, "hit": true, "note": "マーカー 3 テストは無改造で通った。マーカー由来は segment 全域の補集合と交差させたまま" }
+  ],
+  "verification": {
+    "packages/akari-tools npm test": { "tests": 366, "pass": 365, "fail": 0, "skipped": 1, "duration_sec": 35.8, "wall_sec": 37.9, "baseline_2026_09_08": { "tests": 355, "pass": 354, "fail": 0, "skipped": 1 } },
+    "npm run test:unit (CI pure lane)": { "tests": 1908, "pass": 1902, "fail": 0, "skipped": 6, "entries": 16, "wall_sec": 339 },
+    "governance leak scan": "exit 0"
+  },
+  "follow_ups": [
+    "unrecognized_algo_version は unrecognized を持つ segment の兄弟キーとして書く。0 件の素材では版が残らない（『どの版で 0 件だったか』は追えない）。transcripts/<backend>.json の top-level へ置くには record.mjs（本契約で編集禁止）と test/transcribe-record.test.mjs の top-level キー完全一致 assert の変更が要る",
+    "cache は今回から ASR 生結果（markers 込み・unrecognized 無し）を保存する。**2026-09-08 以前の cache には markers が無い**ので、旧 cache から再計算するとマーカー由来（契約 v0 §2 根拠 1）の span だけは復元できない。dogfood の transcripts には markers 付き segment が 0 件なので今回の実測には影響していない。新しく書かれる cache では解消する",
+    "docs/contract-2026-09-02-transcript-unrecognized-spans-v0.md §2 は『セグメント先頭・語間・末尾にある 0.45 秒以上の語の隙間』と書いてあり、閾値（0.8）も端規則も本文と食い違っている。docs/ は本契約のファイル境界外なので触っていない。契約 v0 の改訂票が要る"
+  ]
+}
