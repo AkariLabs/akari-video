@@ -1,6 +1,10 @@
 import type { TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
 
 export const CUT_KIND_LABELS = { filler: 'フィラー', redo: '言い直し', silence: '無音', unrecognized: '未認識' };
+export function cutsViewNotice(hasRoot: boolean, error?: unknown): string {
+    if (error !== undefined) return String(error);
+    return hasRoot ? '' : 'edit.json のあるプロジェクトを開いてください';
+}
 export function cutsSummary(cuts: TranscribeCuts | null): { count: number; seconds: number; kinds: Record<string, number> } {
     const candidates = cuts?.candidates ?? [];
     const selected = candidates.filter(candidate => candidate.on);

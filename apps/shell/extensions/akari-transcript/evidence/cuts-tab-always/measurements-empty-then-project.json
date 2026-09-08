@@ -1,0 +1,154 @@
+{
+  "scenario": "empty-folder-then-project",
+  "workspace": "/tmp/cuts-lane/l1/ws-empty",
+  "steps": [
+    {
+      "step": "startup-raw",
+      "state": {
+        "rightTabs": [
+          "注釈",
+          "パートナーを追加",
+          "台本",
+          "カット"
+        ],
+        "rightDockActive": [
+          "パートナーを追加"
+        ],
+        "preloadVisible": false,
+        "cutsWidgetPresent": true,
+        "cutsWidgetVisible": false,
+        "pickerOptions": [],
+        "band": "",
+        "listText": "",
+        "notice": "edit.json のあるプロジェクトを開いてください"
+      },
+      "screenshot": "00-startup-raw.png"
+    },
+    {
+      "step": "startup",
+      "state": {
+        "rightTabs": [
+          "注釈",
+          "パートナーを追加",
+          "台本",
+          "カット"
+        ],
+        "rightDockActive": [
+          "カット"
+        ],
+        "preloadVisible": false,
+        "cutsWidgetPresent": true,
+        "cutsWidgetVisible": true,
+        "pickerOptions": [],
+        "band": "",
+        "listText": "",
+        "notice": "edit.json のあるプロジェクトを開いてください"
+      },
+      "screenshot": "01-startup-cuts-tab.png"
+    },
+    {
+      "step": "project-appears",
+      "state": {
+        "rightTabs": [
+          "注釈",
+          "パートナーを追加",
+          "台本",
+          "カット"
+        ],
+        "rightDockActive": [
+          "カット"
+        ],
+        "preloadVisible": false,
+        "cutsWidgetPresent": true,
+        "cutsWidgetVisible": true,
+        "pickerOptions": [
+          {
+            "label": "main",
+            "value": "assets/clip.mp4"
+          },
+          {
+            "label": "broll",
+            "value": "assets/broll.mp4"
+          }
+        ],
+        "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 0 / 根拠: —",
+        "listText": "文字起こし後にカット候補がここに並びます",
+        "notice": ""
+      },
+      "screenshot": "02-project-appeared.png"
+    }
+  ],
+  "pid": 27924,
+  "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/cuts-tab-always-attached/apps/shell/lib/frontend/index.html?port=51510#/private/tmp/cuts-lane/l1/ws-empty",
+  "reachedReady": true,
+  "startupFailedInLog": false,
+  "menu": {
+    "menuTabFound": true,
+    "rowLabels": [
+      "タイムライン",
+      "文字起こし",
+      "カット候補を開く",
+      "ホーム",
+      "セットアップ",
+      "プロジェクト・ランチャー",
+      "変更を見る",
+      "ブラウザプレビュー",
+      "書き出し…",
+      "不要なデータを整理…"
+    ],
+    "clicked": true
+  },
+  "stateAtStartup": {
+    "rightTabs": [
+      "注釈",
+      "パートナーを追加",
+      "台本",
+      "カット"
+    ],
+    "rightDockActive": [
+      "カット"
+    ],
+    "preloadVisible": false,
+    "cutsWidgetPresent": true,
+    "cutsWidgetVisible": true,
+    "pickerOptions": [],
+    "band": "",
+    "listText": "",
+    "notice": "edit.json のあるプロジェクトを開いてください"
+  },
+  "stateAfterProjectAppears": {
+    "rightTabs": [
+      "注釈",
+      "パートナーを追加",
+      "台本",
+      "カット"
+    ],
+    "rightDockActive": [
+      "カット"
+    ],
+    "preloadVisible": false,
+    "cutsWidgetPresent": true,
+    "cutsWidgetVisible": true,
+    "pickerOptions": [
+      {
+        "label": "main",
+        "value": "assets/clip.mp4"
+      },
+      {
+        "label": "broll",
+        "value": "assets/broll.mp4"
+      }
+    ],
+    "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 0 / 根拠: —",
+    "listText": "文字起こし後にカット候補がここに並びます",
+    "notice": ""
+  },
+  "logHasFailedToStart": false,
+  "logHasReady": true,
+  "logStateLines": [
+    "2026-09-08T07:34:44.639Z root INFO Changed application state from 'init' to 'started_contributions'.",
+    "2026-09-08T07:34:44.649Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.",
+    "2026-09-08T07:34:44.775Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.",
+    "2026-09-08T07:34:48.446Z root INFO Changed application state from 'initialized_layout' to 'ready'."
+  ]
+}
