@@ -30,7 +30,8 @@ import { DiffUris } from '@theia/core/lib/browser/diff-uris';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { AkariProjectService, DroppedVideo } from '../common/akari-project-protocol';
+import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../common/akari-project-protocol';
+import { isDelegatedDropInput } from '../common/delegated-drop';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
@@ -67,6 +68,18 @@ const PROJECT_CONSENT_ACTION_USE = '使う';
 const PROJECT_CONSENT_ACTION_OPEN_ONLY = '開くだけ';
 const PARENT_HISTORY_NOTICE_MESSAGE =
     'このフォルダは別の変更履歴の中にあるため、このプロジェクト単体の変更履歴は記録されません。';
+
+/**
+ * タイムラインへ「落とした位置」で置く内部コマンド（task 2026-09-08-timeline-file-drop 指示9・10）。
+ * 拡張をまたぐ import は作らない流儀なので、akari-annotations 側の宣言と独立に文字列で持つ
+ * （TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID / akari-role-buckets-widget.tsx と同型）。
+ */
+const TIMELINE_ADD_MATERIAL_AT_POINT_COMMAND_ID = 'akari.timeline.addMaterialAtPoint';
+/** タイムライン widget の root クラス（akari-annotations-widget.ts が node に付けている）。 */
+const TIMELINE_WIDGET_SELECTOR = '.akari-annotations-widget';
+const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi)$/i;
+const AUDIO_EXTENSIONS = /\.(wav|mp3|m4a|aac|flac|ogg)$/i;
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp)$/i;
 
 @injectable()
 export class AkariProjectContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution, TabBarToolbarContribution {
@@ -182,8 +195,8 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             void this.watchOpenRoots();
         });
         document.addEventListener('dragover', event => {
-            if (this.isDelegatedDropzone(event.target) || this.isSelfHandledDropTarget(event.target)) {
-                // data-akari-dropzone を持つ場所、および Theia 本体のメインドックパネル
+            if (this.isDelegatedDrop(event) || this.isSelfHandledDropTarget(event.target)) {
+                // AKARI 内部ドラッグを受ける data-akari-dropzone、および Theia 本体のメインドックパネル
                 // （エディタ領域 — ファイルをタブとして開く自前の 3 点セットを既に持つ、
                 // application-shell.js の dockPanel.node 'dragover'/'drop'）は自前で完結する。
                 // ここで stopPropagation すると capture 段階の時点でそこまで event が
@@ -207,7 +220,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             }
         }, true);
         document.addEventListener('drop', event => {
-            if (this.isDelegatedDropzone(event.target)) {
+            if (this.isDelegatedDrop(event)) {
                 // 俯瞰の取り込みドロップゾーンなど、自前でコピーとメッセージ表示まで
                 // 完結させたい場所には割り込まない。
                 return;
@@ -216,14 +229,34 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             if (videos.length) {
                 event.preventDefault();
                 event.stopPropagation();
-                void this.handleVideoDrop(videos);
+                void this.handleVideoDrop(videos, {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    onTimeline: this.isTimelineDropTarget(event.target)
+                });
             }
         }, true);
     }
 
-    /** `data-akari-dropzone` を持つ要素（の子孫）へのドロップは、その場所の実装に委ねる。 */
-    protected isDelegatedDropzone(target: EventTarget | null): boolean {
-        return target instanceof Element && !!target.closest('[data-akari-dropzone]');
+    /**
+     * `data-akari-dropzone` の内側で起きた **AKARI 内部ドラッグ**（自前 MIME 付き）だけを
+     * その場所の実装に委ねる（task 2026-09-08-timeline-file-drop 指示2）。判定本体は DOM 非依存の
+     * 純関数 `isDelegatedDropInput`（common/delegated-drop.ts）で、ここはその薄い DOM 層。
+     *
+     * OS からのファイルドロップ（`types` が `Files` だけ）は委譲しない — 委譲先の drop ハンドラは
+     * 自 MIME 以外を無視して return するため、委譲すると受け皿が消えて無反応になる（issue #63）。
+     */
+    protected isDelegatedDrop(event: DragEvent): boolean {
+        const target = event.target;
+        return isDelegatedDropInput({
+            insideDropzone: target instanceof Element && !!target.closest('[data-akari-dropzone]'),
+            types: event.dataTransfer ? Array.from(event.dataTransfer.types) : []
+        });
+    }
+
+    /** ドロップ先がタイムライン widget の内側か（落とした位置へ置くかどうかの判定）。 */
+    protected isTimelineDropTarget(target: EventTarget | null): boolean {
+        return target instanceof Element && !!target.closest(TIMELINE_WIDGET_SELECTOR);
     }
 
     /**
@@ -316,7 +349,18 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         return `akari.project.parentHistoryNotice:${uri}`;
     }
 
-    protected async handleVideoDrop(videos: DroppedVideo[]): Promise<void> {
+    /**
+     * グローバルなファイルドロップの取り込み（task 2026-09-08-timeline-file-drop 指示9・10・12 で
+     * 「落とした位置へ置く」導線を追加）。
+     *
+     * options.onTimeline のとき、取り込んだ素材を落とした座標のトラック・時刻へ順に置く
+     * （`akari.timeline.addMaterialAtPoint`）。取り込み自体（recordDroppedVideos = video 限定）は
+     * 従来どおりで変えない（司令塔裁定2 — 音声・画像のタイムラインドロップは別タスク）。
+     */
+    protected async handleVideoDrop(
+        videos: DroppedVideo[],
+        options?: { clientX: number; clientY: number; onTimeline: boolean }
+    ): Promise<void> {
         const roots = await this.workspace.roots;
         const root = roots[0]?.resource;
         if (!root) {
@@ -328,7 +372,13 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             const imported = results.filter(result => result.success).length;
             const failed = results.length - imported;
             if (imported) {
-                this.messages.info(`${imported} 本の動画を素材に取り込みました。`);
+                const placed = options?.onTimeline
+                    ? await this.placeImportedOnTimeline(results, options.clientX, options.clientY)
+                    : 0;
+                this.messages.info(placed > 0
+                    ? `${imported} 本の動画をタイムラインに置きました。`
+                    : `${imported} 本の動画を素材に取り込みました。`
+                        + 'タイムラインへ置くには素材カードを右クリック →「タイムラインに追加」。');
                 const navigator = await this.widgets.getOrCreateWidget('files') as any;
                 await navigator.model?.refresh?.();
             }
@@ -345,11 +395,73 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         }
     }
 
+    /**
+     * 取り込み済みの素材を「落とした位置」へ順に置く（指示10）。置けた本数を返す。
+     *
+     * 取り込み結果（DroppedVideoImportResult）は `eventUri` しか持たず、`assets/` 上の実ファイル名は
+     * 同名衝突時に `stem-2.ext` へずれる（akari-project-service.ts の availableName）。ここで名前を
+     * 推測すると外すので、書かれた `.akari/events/*.json` の `asset` を読んで正とする
+     * （src/node/** は本タスクの編集対象外 — サービスの戻り値は変えない）。
+     */
+    protected async placeImportedOnTimeline(
+        results: DroppedVideoImportResult[], clientX: number, clientY: number
+    ): Promise<number> {
+        let placed = 0;
+        for (const result of results) {
+            if (!result.success) {
+                continue;
+            }
+            const relativePath = await this.importedAssetPath(result.eventUri);
+            const kind = this.classifyDroppedAssetKind(result.name);
+            if (!relativePath || !kind) {
+                continue;
+            }
+            try {
+                await this.commands.executeCommand(TIMELINE_ADD_MATERIAL_AT_POINT_COMMAND_ID, {
+                    relativePath, kind, clientX, clientY
+                });
+                placed++;
+            } catch {
+                // タイムラインへ置けなくても取り込みは成功している。ここで止めず、
+                // 「素材に取り込みました」側のメッセージで次の一手を案内する。
+            }
+        }
+        return placed;
+    }
+
+    /** `.akari/events/*.json` の `asset`（プロジェクト相対パス）を読む。読めなければ undefined。 */
+    protected async importedAssetPath(eventUri: string): Promise<string | undefined> {
+        try {
+            const content = await this.files.readFile(new URI(eventUri));
+            const value = JSON.parse(content.value.toString()) as { asset?: unknown };
+            return typeof value.asset === 'string' && value.asset ? value.asset : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * 拡張子からの素材種別（src/node/akari-project-service.ts の classifyDroppedAssetExtension と
+     * 同じ表）。グローバル経路が取り込むのは video だけだが、種別を固定せず分類結果を渡す（指示10）。
+     */
+    protected classifyDroppedAssetKind(name: string): 'video' | 'audio' | 'image' | undefined {
+        if (VIDEO_EXTENSIONS.test(name)) {
+            return 'video';
+        }
+        if (AUDIO_EXTENSIONS.test(name)) {
+            return 'audio';
+        }
+        if (IMAGE_EXTENSIONS.test(name)) {
+            return 'image';
+        }
+        return undefined;
+    }
+
     protected getDroppedVideos(transfer: DataTransfer | null): DroppedVideo[] {
         if (!transfer) {
             return [];
         }
-        const extensions = /\.(mp4|mov|m4v|webm|mkv|avi)$/i;
+        const extensions = VIDEO_EXTENSIONS;
         const fromFiles = Array.from(transfer.files)
             .filter(file => extensions.test(file.name))
             .map(file => {
