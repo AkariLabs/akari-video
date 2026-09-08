@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { formatNumber, generatedAt, probeRaw, resolveTools } from "./common.mjs";
 import { transcriptsDirForTarget } from "./record.mjs";
-import { countFillerHits, FILLER_PREFIX, isFiller } from "./filler-lexicon.mjs";
+import { countFillerHits, findFillerSpans } from "./filler-lexicon.mjs";
 import { runSilenceDetect } from "./transcribe.mjs";
 import { UNRECOGNIZED_DEFAULTS } from "./unrecognized-spans.mjs";
 import {
@@ -41,35 +41,28 @@ function textCandidates(segments, options) {
   for (const segment of segments) {
     const chars = segmentCharacters(segment);
     const text = segment.text;
-    const fillerRanges = [];
-    const prefix = FILLER_PREFIX.exec(text);
-    if (prefix) fillerRanges.push([0, prefix[0].length]);
-    let cursor = 0;
-    for (const word of segment.words ?? []) {
-      const at = text.indexOf(word.text, cursor);
-      if (at < 0) continue;
-      cursor = at + word.text.length;
-      if (!isFiller(word.text)) continue;
-      let from = at, to = cursor;
-      while (from > 0 && /[、,]/u.test(text[from - 1])) from -= 1;
-      while (to < text.length && /[、,]/u.test(text[to])) to += 1;
-      fillerRanges.push([from, to]);
-    }
+    const spans = findFillerSpans(text);
+    const consecutive = (a, b) => a && b && a.filler === b.filler && /^[、,\s]*$/u.test(text.slice(a.to, b.from));
+    // Leave every member of a repeated filler run to the redo extractor.
+    const fillerRanges = spans.filter((span, index) => !consecutive(spans[index - 1], span) && !consecutive(span, spans[index + 1]));
+    const fillers = [];
     const seen = new Set();
     const sliceChars = (from, to) => chars.slice(Array.from(text.slice(0, from)).length, Array.from(text.slice(0, to)).length);
-    for (const [from, to] of fillerRanges) {
+    for (const { from, to } of fillerRanges) {
       const timing = characterTiming(sliceChars(from, to));
       const key = `${timing.start}:${timing.end}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      candidates.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on", reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
+      fillers.push({ kind: "filler", ...timing, text: text.slice(from, to), default_on: options.filler === "on", reason: from === 0 ? "冒頭のフィラー" : "フィラー" });
     }
+    candidates.push(...fillers);
     // A punctuated one-character unit such as 「で、」 is itself two characters.
     const repeats = /(?<![^、,。！？.!?\s])([^、,。！？.!?\s]{2,6}|[^、,。！？.!?\s][、,])(?:[、,]*\1)+[、,]*/gu;
     for (const match of text.matchAll(repeats)) {
       const unit = match[1];
       const last = match[0].lastIndexOf(unit);
       const timing = characterTiming(sliceChars(match.index, match.index + last));
+      if (fillers.some((filler) => overlap(filler, timing))) continue;
       candidates.push({ kind: "redo", ...timing, text: match[0], default_on: options.redo === "on", reason: "言い直し。最後の 1 回を残す" });
     }
   }
