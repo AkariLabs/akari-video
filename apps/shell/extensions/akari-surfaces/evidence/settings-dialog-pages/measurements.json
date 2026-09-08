@@ -1,0 +1,228 @@
+{
+  "port": "9466",
+  "pages": [
+    {
+      "id": "start",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "start"
+      ],
+      "activeNav": [
+        "start"
+      ],
+      "heading": "はじめかた",
+      "headingTag": "H2",
+      "lead": "初回セットアップで動画づくりの準備を進めます。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "start"
+    },
+    {
+      "id": "export",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "export"
+      ],
+      "activeNav": [
+        "export"
+      ],
+      "heading": "書き出し",
+      "headingTag": "H2",
+      "lead": "書き出しの画質・形式・フレームレートと保存先の既定値を選びます。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "export"
+    },
+    {
+      "id": "quality",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "quality"
+      ],
+      "activeNav": [
+        "quality"
+      ],
+      "heading": "プレビュー品質",
+      "headingTag": "H2",
+      "lead": "現在はこの値を読む機能がありません（AI 生成の品質段階として予約）",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "quality"
+    },
+    {
+      "id": "transcribe",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "transcribe"
+      ],
+      "activeNav": [
+        "transcribe"
+      ],
+      "heading": "文字起こし",
+      "headingTag": "H2",
+      "lead": "文字起こしのエンジンと比較・カット候補の作り方を選びます。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "transcribe"
+    },
+    {
+      "id": "connections",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "connections"
+      ],
+      "activeNav": [
+        "connections"
+      ],
+      "heading": "接続と API キー",
+      "headingTag": "H2",
+      "lead": "外部サービスの接続と API キーを管理します。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": true,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "connections"
+    },
+    {
+      "id": "notifications",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "notifications"
+      ],
+      "activeNav": [
+        "notifications"
+      ],
+      "heading": "通知",
+      "headingTag": "H2",
+      "lead": "AI パートナーの処理が終わったときの通知を設定します。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "notifications"
+    },
+    {
+      "id": "tools",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "tools"
+      ],
+      "activeNav": [
+        "tools"
+      ],
+      "heading": "道具",
+      "headingTag": "H2",
+      "lead": "動画づくりに必要な道具の状態を確認し、セットアップします。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": true,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "tools"
+    },
+    {
+      "id": "developer",
+      "open": true,
+      "sections": 8,
+      "visible": [
+        "developer"
+      ],
+      "activeNav": [
+        "developer"
+      ],
+      "heading": "開発者モード",
+      "headingTag": "H2",
+      "lead": "開発者向けの表示とアプリのテーマを設定します。",
+      "bodyScrollHeight": 590,
+      "bodyClientHeight": 590,
+      "pageScrollable": false,
+      "pageOverflowY": "auto",
+      "pageScrollTop": 0,
+      "lastSection": "developer"
+    }
+  ],
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=60393#<SCRATCH>/ws",
+  "clearedLastSection": true,
+  "initialOpen": {
+    "open": true,
+    "sections": 8,
+    "visible": [
+      "start"
+    ],
+    "activeNav": [
+      "start"
+    ],
+    "heading": "はじめかた",
+    "headingTag": "H2",
+    "lead": "初回セットアップで動画づくりの準備を進めます。",
+    "bodyScrollHeight": 590,
+    "bodyClientHeight": 590,
+    "pageScrollable": false,
+    "pageOverflowY": "auto",
+    "pageScrollTop": 0,
+    "lastSection": "start"
+  },
+  "overlaysAfterEscape": 0,
+  "reopenRestored": {
+    "open": true,
+    "sections": 8,
+    "visible": [
+      "developer"
+    ],
+    "activeNav": [
+      "developer"
+    ],
+    "heading": "開発者モード",
+    "headingTag": "H2",
+    "lead": "開発者向けの表示とアプリのテーマを設定します。",
+    "bodyScrollHeight": 590,
+    "bodyClientHeight": 590,
+    "pageScrollable": false,
+    "pageOverflowY": "auto",
+    "pageScrollTop": 0,
+    "lastSection": "developer"
+  },
+  "commandOpen": true,
+  "commandOpenedSection": {
+    "open": true,
+    "sections": 8,
+    "visible": [
+      "connections"
+    ],
+    "activeNav": [
+      "connections"
+    ],
+    "heading": "接続と API キー",
+    "headingTag": "H2",
+    "lead": "外部サービスの接続と API キーを管理します。",
+    "bodyScrollHeight": 590,
+    "bodyClientHeight": 590,
+    "pageScrollable": true,
+    "pageOverflowY": "auto",
+    "pageScrollTop": 0,
+    "lastSection": "connections"
+  },
+  "overlaysAfterFinalEscape": 0,
+  "consoleErrors": []
+}

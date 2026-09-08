@@ -5,6 +5,8 @@ import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
 import { CommonCommands } from '@theia/core/lib/browser';
+import { OS } from '@theia/core/lib/common/os';
+import { buildExportEncoderChoices } from 'akari-shell-strip/lib/common/export-encoder-choices';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService } from '@theia/core/lib/common';
@@ -22,9 +24,12 @@ import {
     AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
+    AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
-    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, settingsSectionScrollTop
+    sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
+    SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection,
+    normalizeExportEncoder, normalizeExportCodec, normalizeExportFps
 } from '../common/settings-sections';
 
 const ENGINE_LABELS: Record<string, string> = {
@@ -44,10 +49,6 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
     protected storeReconnect = false;
     protected storeStatusGeneration = 0;
-    // Keep the latest navigation target across asynchronous layout changes until
-    // the user takes control of the content scroll position.
-    protected pendingSection: SettingsSectionId | undefined;
-    protected sectionScrollFrame: number | undefined;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
     protected readonly toolsView: SettingsToolsView;
@@ -60,7 +61,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly storeService: AkariProjectService,
         protected readonly windows: WindowService,
         protected readonly commands: CommandService,
-        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer
+        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer, initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -79,6 +80,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             files, env, toolsService, commands);
         this.toDispose.push(this.toolsView);
         this.buildDom();
+        let stored: string | null = null;
+        try { stored = localStorage.getItem(SETTINGS_LAST_SECTION_KEY); } catch { /* 保存不可でも設定は使える。 */ }
+        this.showSection(initialSettingsSection(initialSection, stored));
         for (const section of SETTINGS_SECTIONS) { this.renderSection(section.id); }
         this.toDispose.push(preferences.onPreferenceChanged(change => {
             const section = sectionForPreferenceKey(change.preferenceName);
@@ -117,29 +121,35 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             if (section.group === 'developer') { nav.append(element('h3', '開発者')); }
             nav.append(this.navigation(section.label, section.id));
         }
-        Object.assign(this.body.style, { flex: '1', minWidth: '0', overflowY: 'auto', padding: '20px 24px', scrollBehavior: 'smooth' });
+        Object.assign(this.body.style, { display: 'flex', flexDirection: 'column', flex: '1', minWidth: '0', minHeight: '0' });
         this.notice.setAttribute('role', 'alert');
-        this.notice.style.color = 'var(--theia-errorForeground)';
+        Object.assign(this.notice.style, { color: 'var(--theia-errorForeground)', flexShrink: '0', margin: '0 24px' });
         this.body.append(this.notice);
         for (const section of SETTINGS_SECTIONS) {
             const node = section.id === 'transcribe' ? this.transcribe
                 : section.id === 'connections' ? this.connections : element('section');
             node.id = settingsSectionElementId(section.id);
             node.setAttribute('data-akari-settings-section', section.id);
-            node.style.paddingBottom = '20px';
+            node.hidden = true;
+            node.setAttribute('aria-labelledby', `${node.id}-heading`);
+            Object.assign(node.style, { flex: '1', minHeight: '0', overflowY: 'auto', padding: '20px 24px' });
             this.sections.set(section.id, node);
             this.body.append(node);
         }
         this.storeRow.setAttribute('data-akari-store-settings', 'true');
         styleCard(this.storeRow);
-        this.connections.append(element('h2', '接続と API キー'), description('登録後は末尾 4 桁だけを表示します。鍵はレポート・差分・チャットへ出しません。'), this.providerList, this.storage);
+        this.connections.append(...this.sectionHeading('connections'), description('登録後は末尾 4 桁だけを表示します。鍵はレポート・差分・チャットへ出しません。'), this.providerList, this.storage);
         this.providerList.append(description('接続を読み込んでいます…'), this.storeRow);
         this.renderStore();
         this.contentNode.append(nav, this.body);
     }
 
-    scrollToSection(section: SettingsSectionId): void {
-        this.pendingSection = section;
+    showSection(section: SettingsSectionId): void {
+        for (const [id, node] of this.sections) {
+            node.hidden = !isSettingsSectionVisible(id, section);
+            if (!node.hidden) { node.scrollTop = 0; }
+        }
+        try { localStorage.setItem(SETTINGS_LAST_SECTION_KEY, section); } catch { /* 保存不可でもページは切り替える。 */ }
         for (const item of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]'))) {
             const active = item.getAttribute('data-settings-nav') === section;
             if (active) { item.setAttribute('aria-current', 'true'); }
@@ -151,31 +161,6 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 fontWeight: active ? '700' : '400'
             });
         }
-        if (!this.isAttached) { return; }
-        this.sections.get(section)?.scrollIntoView({ block: 'start' });
-    }
-
-    protected scheduleSectionScroll(): void {
-        if (!this.pendingSection || !this.isAttached || this.isDisposed || this.sectionScrollFrame !== undefined) { return; }
-        this.sectionScrollFrame = window.requestAnimationFrame(() => {
-            this.sectionScrollFrame = undefined;
-            if (!this.pendingSection || !this.isAttached || this.isDisposed) { return; }
-            const section = this.sections.get(this.pendingSection);
-            if (!section) { return; }
-            const top = settingsSectionScrollTop({
-                scrollTop: this.body.scrollTop,
-                sectionTop: section.getBoundingClientRect().top,
-                viewportTop: this.body.getBoundingClientRect().top + this.body.clientTop,
-                maxScrollTop: this.body.scrollHeight - this.body.clientHeight
-            });
-            if (top === undefined) { return; }
-            // Layout correction must finish immediately, even when a preceding
-            // navigation started a smooth scroll. Only the content pane moves.
-            const behavior = this.body.style.scrollBehavior;
-            this.body.style.scrollBehavior = 'auto';
-            this.body.scrollTop = top;
-            this.body.style.scrollBehavior = behavior;
-        });
     }
 
     protected override onAfterAttach(msg: Message): void {
@@ -190,49 +175,34 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             armed = result.armed;
             if (result.close) { this.close(); }
         });
-        // Observe the sections, not just the fixed-height scrolling pane: tools,
-        // connections and Store can each resize after the dialog has attached.
-        const observer = new ResizeObserver(() => this.scheduleSectionScroll());
-        for (const section of this.sections.values()) { observer.observe(section); }
-        observer.observe(this.body);
-        observer.observe(this.notice);
-        this.toDisposeOnDetach.push({ dispose: () => {
-            observer.disconnect();
-            if (this.sectionScrollFrame !== undefined) {
-                window.cancelAnimationFrame(this.sectionScrollFrame);
-                this.sectionScrollFrame = undefined;
-            }
-        } });
-        const releaseScroll = () => { this.pendingSection = undefined; };
-        for (const type of ['wheel', 'touchmove', 'pointerdown'] as const) {
-            this.addEventListener(this.body, type, releaseScroll);
-        }
-        this.addEventListener(this.node, 'keydown', event => {
-            if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) { releaseScroll(); }
-        });
-        if (this.pendingSection) { this.scrollToSection(this.pendingSection); }
     }
 
     protected navigation(label: string, target: SettingsSectionId): HTMLButtonElement {
-        const button = action(label, () => this.scrollToSection(target));
+        const button = action(label, () => this.showSection(target));
         button.setAttribute('data-settings-nav', target);
         Object.assign(button.style, { display: 'block', textAlign: 'left', width: '100%', margin: '4px 0', padding: '8px', whiteSpace: 'normal', borderInlineStart: '3px solid transparent' });
         return button;
+    }
+
+    protected sectionHeading(id: SettingsSectionId): HTMLElement[] {
+        const heading = element('h2', SETTINGS_SECTIONS.find(item => item.id === id)!.label);
+        heading.id = `${settingsSectionElementId(id)}-heading`;
+        heading.style.marginTop = '0';
+        return [heading, description(SETTINGS_SECTION_DESCRIPTIONS[id])];
     }
 
     protected renderSection(id: SettingsSectionId): void {
         if (id === 'transcribe') { this.renderTranscribe(); return; }
         if (id === 'connections') { return; }
         const section = this.sections.get(id)!;
-        section.replaceChildren(element('h2', SETTINGS_SECTIONS.find(item => item.id === id)!.label));
+        section.replaceChildren(...this.sectionHeading(id));
         if (id === 'tools') {
             section.append(this.toolsView.content);
         } else if (id === 'start') {
-            section.append(description('初回セットアップで動画づくりの準備を進めます。'),
-                action('初回セットアップを開く', () => {
-                    this.close();
-                    void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP.id);
-                }));
+            section.append(action('初回セットアップを開く', () => {
+                this.close();
+                void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP.id);
+            }));
         } else if (id === 'quality') {
             const current = normalizeQualityTier(this.preferences.get(AKARI_QUALITY_TIER));
             for (const option of QUALITY_TIER_CHOICES) {
@@ -253,6 +223,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 description('HTML をコードとして開き、フル設定を利用できるようにします。'),
                 this.preferenceSelect(WORKBENCH_COLOR_THEME, 'テーマ', themes, theme));
         } else if (id === 'export') {
+            const platform = OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux';
             const directory = element('input');
             directory.type = 'text'; directory.className = 'theia-input';
             directory.setAttribute('aria-label', '書き出し先フォルダの URI');
@@ -261,9 +232,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const directoryLabel = element('label', '書き出し先フォルダの URI ');
             directoryLabel.append(directory);
             section.append(this.preferenceSelect(AKARI_EXPORT_QUALITY, '書き出し画質', EXPORT_QUALITY_CHOICES,
-                normalizeExportQuality(this.preferences.get(AKARI_EXPORT_QUALITY))), directoryLabel,
+                normalizeExportQuality(this.preferences.get(AKARI_EXPORT_QUALITY))),
+                this.preferenceSelect(AKARI_EXPORT_ENCODER, 'エンコーダ', buildExportEncoderChoices(platform),
+                    normalizeExportEncoder(this.preferences.get(AKARI_EXPORT_ENCODER), platform)),
+                this.preferenceSelect(AKARI_EXPORT_CODEC, '形式 / コーデック', EXPORT_CODEC_CHOICES,
+                    normalizeExportCodec(this.preferences.get(AKARI_EXPORT_CODEC))),
+                this.preferenceSelect(AKARI_EXPORT_FPS, 'フレームレート', EXPORT_FPS_CHOICES,
+                    String(normalizeExportFps(this.preferences.get(AKARI_EXPORT_FPS)) ?? ''),
+                    value => normalizeExportFps(Number(value))), directoryLabel,
                 description('空欄ではプロジェクトの exports/ を使います。'),
-                description('エンコーダーは書き出しダイアログと同じ設定です。くわしい設定から変更できます。'),
                 action('くわしい設定（フル設定を開く）', () => {
                     this.close();
                     void this.commands.executeCommand(CommonCommands.OPEN_PREFERENCES.id);
@@ -278,14 +255,17 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         return control.label;
     }
 
-    protected preferenceSelect(key: string, label: string, options: readonly { value: string; label: string }[], current: string): HTMLLabelElement {
+    protected preferenceSelect(
+        key: string, label: string, options: readonly { value: string; label: string }[], current: string,
+        toPreferenceValue: (value: string) => unknown = value => value
+    ): HTMLLabelElement {
         const control = element('select');
         control.className = 'theia-select'; control.setAttribute('aria-label', label);
         for (const item of options) {
             const option = element('option', item.label); option.value = item.value; control.append(option);
         }
         control.value = current;
-        control.addEventListener('change', () => this.savePreference(key, control.value));
+        control.addEventListener('change', () => this.savePreference(key, toPreferenceValue(control.value)));
         const row = element('label', `${label} `);
         Object.assign(row.style, { display: 'block', margin: '10px 0' });
         row.append(control);
@@ -296,7 +276,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const backend = this.preferences.get<TranscribeBackend>(AKARI_TRANSCRIBE_BACKEND, 'auto');
         const compareSet = this.preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
         if (compareSet.length > 0) { this.compareDraft = compareSet; this.compareEnabled = true; }
-        this.transcribe.replaceChildren(element('h2', '文字起こし'));
+        this.transcribe.replaceChildren(...this.sectionHeading('transcribe'));
         const auto = choice('radio', 'おまかせ（この Mac のエンジンを優先）', backend === 'auto');
         const fixed = choice('radio', '決めたエンジンだけ使う', backend !== 'auto');
         auto.input.name = fixed.input.name = 'akari-transcribe-default';
@@ -548,7 +528,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(FileService) protected readonly files!: FileService;
     @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
     protected dialog: AkariSettingsDialog | undefined;
-    protected pendingSection: SettingsSectionId | undefined;
+    protected requestedSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
@@ -565,8 +545,8 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             execute: (arg?: unknown) => {
                 const section = resolveSettingsSectionId(arg);
                 if (section) {
-                    this.pendingSection = section;
-                    this.dialog?.scrollToSection(section);
+                    this.requestedSection = section;
+                    this.dialog?.showSection(section);
                 }
                 if (!this.opened) {
                     this.opened = this.openSettings().finally(() => { this.opened = undefined; });
@@ -578,13 +558,12 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.requestedSection);
         this.dialog = dialog;
-        if (this.pendingSection) { dialog.scrollToSection(this.pendingSection); }
         try { await dialog.open(); }
         finally {
             this.dialog = undefined;
-            this.pendingSection = undefined;
+            this.requestedSection = undefined;
             dialog.dispose();
         }
     }
