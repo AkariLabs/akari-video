@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
@@ -210,4 +211,80 @@ test('形式・fps・OS ごとのエンコーダは有効値を保持し、不�
     assert.match(dialog, /this\.preferenceSelect\(AKARI_EXPORT_FPS,[\s\S]*?value => normalizeExportFps\(Number\(value\)\)/);
     assert.match(dialog, /this\.savePreference\(key, toPreferenceValue\(control\.value\)\)/);
     assert.match(dialog, /this\.preferences\.set\(key, value, PreferenceScope\.User\)/);
+});
+
+
+test('文字起こしのモードは先頭に掲載し、既定は simple', () => {
+    assert.equal(SECTION_PREFERENCE_KEYS.transcribe[0], 'akari.transcribe.mode');
+    assert.match(SETTINGS_SECTION_DESCRIPTIONS.transcribe, /モード.*エンジン/);
+    assert.match(source('../browser/akari-preferences.ts'),
+        /\[AKARI_TRANSCRIBE_MODE\]:\s*\{\s*type: 'string', enum: \['simple', 'advanced'\], default: 'simple'/);
+});
+
+test('文字起こしのラジオ切替で比較・カットの説明とフォームを置き換え、設定値を保つ', async () => {
+    const require = createRequire(import.meta.url);
+    const sections = require('../../lib/common/settings-sections.js');
+    const protocol = require('../../lib/common/akari-connections-protocol.js');
+    const { PreferenceScope } = require('@theia/core/lib/common/preferences/preference-scope');
+    const element = tag => ({
+        tag, children: [], style: {}, attributes: {}, listeners: {}, textContent: '',
+        append(...children) { this.children.push(...children); },
+        replaceChildren(...children) { this.children = children; },
+        setAttribute(name, value) { this.attributes[name] = value; },
+        addEventListener(name, callback) { this.listeners[name] = callback; }
+    });
+    const code = source('../../lib/browser/akari-settings-dialog.js');
+    const modules = Object.fromEntries([...code.matchAll(/require\("([^"]+)"\)/g)].map(([, id]) => [id, {}]));
+    Object.assign(modules, {
+        '@theia/core/lib/browser/dialogs': { AbstractDialog: class {} },
+        './akari-first-run-setup-dialog': { AkariFirstRunSetupDialog: class {} },
+        '@theia/core/shared/inversify': { injectable: () => () => {}, inject: () => () => {} },
+        '@theia/core/lib/common/preferences': { PreferenceScope },
+        '../common/settings-sections': sections,
+        '../common/akari-connections-protocol': protocol
+    });
+    const exports = {};
+    new Function('require', 'exports', 'document', code)(id => {
+        assert.ok(id in modules, `unexpected dependency: ${id}`);
+        return modules[id];
+    }, exports, { createElement: element });
+    const dialog = Object.create(exports.AkariSettingsDialog.prototype);
+    const values = {
+        'akari.transcribe.compareSet': ['whisper-cpp', 'cloud:scribe'],
+        'akari.transcribe.autoCuts': false
+    }, writes = [];
+    Object.assign(dialog, {
+        transcribe: element('section'), notice: element('p'), compareDraft: [], compareEnabled: false,
+        preferenceWrites: Promise.resolve(),
+        preferences: {
+            get(key, fallback) { return values[key] ?? fallback; },
+            async set(key, value, scope) { values[key] = value; writes.push([key, value, scope]); dialog.renderTranscribe(); }
+        }
+    });
+    const all = node => [node, ...node.children.flatMap(all)];
+    const checkboxCount = () => all(dialog.transcribe).filter(node => node.tag === 'input' && node.type === 'checkbox').length;
+    const selectMode = async mode => {
+        all(dialog.transcribe).find(node => node.tag === 'input' && node.name === 'akari-transcribe-mode' && node.value === mode).listeners.change();
+        await dialog.preferenceWrites;
+    };
+    dialog.renderTranscribe();
+    const modes = dialog.transcribe.children.find(node => node.attributes.role === 'radiogroup');
+    assert.deepEqual(all(modes).filter(node => node.tag === 'input').map(node => [node.value, node.checked]),
+        [['simple', true], ['advanced', false]]);
+    assert.equal(checkboxCount(), 0);
+    assert.equal(all(dialog.transcribe).filter(node => node.textContent.includes('アドバンスで使います')).length, 1);
+    await selectMode('advanced');
+    assert.equal(checkboxCount(), 6);
+    assert.equal(all(dialog.transcribe).filter(node => node.textContent.includes('アドバンスで使います')).length, 0);
+    const checkboxes = all(dialog.transcribe).filter(node => node.tag === 'input' && node.type === 'checkbox');
+    assert.equal(checkboxes.at(-1).checked, false);
+    assert.equal(checkboxes.filter(node => node.checked).length, 3);
+    await selectMode('simple');
+    assert.equal(checkboxCount(), 0);
+    assert.deepEqual(writes, [
+        ['akari.transcribe.mode', 'advanced', PreferenceScope.User],
+        ['akari.transcribe.mode', 'simple', PreferenceScope.User]
+    ]);
+    assert.deepEqual(values['akari.transcribe.compareSet'], ['whisper-cpp', 'cloud:scribe']);
+    assert.equal(values['akari.transcribe.autoCuts'], false);
 });

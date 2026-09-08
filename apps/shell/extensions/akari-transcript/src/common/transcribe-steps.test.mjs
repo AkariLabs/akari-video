@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceTranscribeSteps, startTranscribeSteps, completedColumns, initialEngineSelection, transcribeSummary, transcribeExitOptions } from '../../lib/common/transcribe-steps.js';
+import { advanceTranscribeSteps, startTranscribeSteps, completedColumns, initialEngineSelection, transcribeSummary, transcribeExitOptions, transcribeModeView } from '../../lib/common/transcribe-steps.js';
 const event = (backend, stage, status) => ({ backend, stage, status });
 test('columns fill in completion order, not selection order', () => {
     let state = startTranscribeSteps(['speech-analyzer', 'whisper-cpp']);
@@ -112,5 +112,27 @@ test('engine badges distinguish ready, missing model/CLT, missing key and unsupp
 test('missing status is never treated as a ready engine or an unregistered key', () => {
     for (const id of ['speech-analyzer', 'whisper-cpp', 'cloud:scribe', 'cloud:groq']) {
         assert.equal(transcribeEngineAvailability(id, [], []).state, 'needs');
+    }
+});
+
+for (const [mode, alreadyTranscribed, buttons] of [
+    ['simple', false, ['起こす']],
+    ['simple', true, ['台本へ', '起こし直す']],
+    ['advanced', false, ['起こす ▸']],
+    ['advanced', true, ['このまま字幕へ', '起こし直す', '比べる']]
+]) {
+    test(`mode view: ${mode} / already transcribed = ${alreadyTranscribed}`, () => {
+        const selection = Object.freeze({ backend: 'whisper-cpp', compareSet: Object.freeze(['whisper-cpp', 'cloud:scribe']) });
+        assert.deepEqual(transcribeModeView(mode, alreadyTranscribed, selection), {
+            steps: mode === 'advanced', compareToggle: mode === 'advanced', radar: mode === 'advanced', buttons,
+            switchLink: mode === 'advanced' ? '簡単モードに戻す' : 'アドバンス（比較・差分）に切り替える'
+        });
+    });
+}
+test('invalid transcribe modes normalize to simple regardless of selection', () => {
+    for (const mode of [undefined, null, '', 'invalid', 'ADVANCED', 1, true, {}, []]) {
+        for (const done of [false, true]) {
+            assert.deepEqual(transcribeModeView(mode, done, {}), transcribeModeView('simple', done, {}));
+        }
     }
 });

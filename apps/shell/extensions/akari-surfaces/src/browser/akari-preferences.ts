@@ -3,6 +3,7 @@ import { injectable } from '@theia/core/shared/inversify';
 
 import { TRANSCRIBE_BACKENDS } from '../common/akari-connections-protocol';
 
+export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
@@ -16,6 +17,10 @@ export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnE
 
 const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
+        [AKARI_TRANSCRIBE_MODE]: {
+            type: 'string', enum: ['simple', 'advanced'], default: 'simple',
+            description: '文字起こしのモード（簡単 / アドバンス）'
+        },
         [AKARI_TRANSCRIBE_BACKEND]: {
             type: 'string', enum: ['auto', ...TRANSCRIBE_BACKENDS], default: 'auto',
             description: '文字起こしの既定エンジン（おまかせはローカルを優先）'

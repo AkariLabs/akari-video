@@ -21,7 +21,7 @@ import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../com
 import { dialogOutsideClick } from '../common/dialog-outside-click';
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import {
-    AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
+    AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
@@ -273,10 +273,23 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderTranscribe(): void {
+        const mode = this.preferences.get(AKARI_TRANSCRIBE_MODE) === 'advanced' ? 'advanced' : 'simple';
         const backend = this.preferences.get<TranscribeBackend>(AKARI_TRANSCRIBE_BACKEND, 'auto');
         const compareSet = this.preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
         if (compareSet.length > 0) { this.compareDraft = compareSet; this.compareEnabled = true; }
         this.transcribe.replaceChildren(...this.sectionHeading('transcribe'));
+        const modes = element('div');
+        Object.assign(modes.style, { display: 'flex', gap: '16px' });
+        modes.setAttribute('role', 'radiogroup');
+        modes.setAttribute('aria-label', '文字起こしのモード');
+        for (const [value, label] of [['simple', '簡単'], ['advanced', 'アドバンス']]) {
+            const option = choice('radio', label, mode === value);
+            option.input.name = 'akari-transcribe-mode';
+            option.input.value = value;
+            option.input.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_MODE, value));
+            modes.append(option.label);
+        }
+        this.transcribe.append(modes);
         const auto = choice('radio', 'おまかせ（この Mac のエンジンを優先）', backend === 'auto');
         const fixed = choice('radio', '決めたエンジンだけ使う', backend !== 'auto');
         auto.input.name = fixed.input.name = 'akari-transcribe-default';
@@ -290,6 +303,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         fixed.input.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_BACKEND, select.value));
         select.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_BACKEND, select.value));
         this.transcribe.append(auto.label, description('SpeechAnalyzer → Whisper の順。クラウドは自分で選んだときだけ使う'), fixed.label, select);
+        if (mode === 'simple') {
+            this.transcribe.append(description('比較・カット候補の自動作成: アドバンスで使います'));
+            return;
+        }
         const compare = choice('checkbox', '比べるときは、いつもこの組', this.compareEnabled);
         const engines = element('div');
         Object.assign(engines.style, { display: this.compareEnabled ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4px', marginLeft: '20px' });

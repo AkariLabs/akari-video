@@ -17,7 +17,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     start: '初回セットアップで動画づくりの準備を進めます。',
     export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
     quality: '現在はこの値を読む機能がありません（AI 生成の品質段階として予約）',
-    transcribe: '文字起こしのエンジンと比較・カット候補の作り方を選びます。',
+    transcribe: '文字起こしのモードとエンジンを選びます。',
     connections: '外部サービスの接続と API キーを管理します。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
     tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',
@@ -38,6 +38,7 @@ export function isSettingsSectionVisible(id: SettingsSectionId, selected: Settin
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
+export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
@@ -54,7 +55,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     start: [],
     export: [AKARI_EXPORT_QUALITY, AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, AKARI_EXPORT_OUTPUT_DIRECTORY],
     quality: [AKARI_QUALITY_TIER],
-    transcribe: [AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
+    transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     connections: [], // AKARI Store は PreferenceService ではなく接続サービスが所有する。
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [],
