@@ -24,6 +24,7 @@ import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-anno
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
+import { shouldUseKaraokeWords } from '../../common/karaoke-words';
 import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
 import {
     buildDaihonRows,
@@ -669,15 +670,18 @@ export class AkariDaihonWidget extends BaseWidget {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-qc';
             badge.textContent = issue.label;
-            badge.title = issue.label;
+            badge.title = issue.kind === 'karaoke-unhealthy'
+                ? `${issue.label} — 古い文字起こしデータの可能性があります。文字起こしをやり直すと直ります`
+                : issue.label;
             head.appendChild(badge);
         }
 
         const text = document.createElement('div');
         text.className = 'akari-daihon-row-text';
         const words: HTMLSpanElement[] = [];
-        const unknowns = placeUnrecognized(row.words, row.unrecognized);
-        if (row.words) {
+        const useKaraokeWords = shouldUseKaraokeWords(row.text, row.words);
+        const unknowns = placeUnrecognized(useKaraokeWords ? row.words : null, row.unrecognized);
+        if (row.words && useKaraokeWords) {
             row.words.forEach((word, index) => {
                 if (row.fragmentBreakWordIndex === index) text.appendChild(this.slash());
                 for (const placement of unknowns.filter(item => item.beforeWordIndex === index)) {
@@ -706,7 +710,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else {
             const span = this.word('', 0);
-            const split = row.fragmentBreakWordIndex;
+            const split = row.words?.length ? null : row.fragmentBreakWordIndex;
             if (split !== null) {
                 span.append(document.createTextNode(row.text.slice(0, split)), this.slash(), document.createTextNode(row.text.slice(split)));
             } else {
@@ -716,7 +720,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 event.stopPropagation();
                 void this.seek(row.outStart);
             });
-            words.push(span);
+            // 不一致の words の時刻で本文にカラオケ強調を付けない。
+            if (!row.words?.length) words.push(span);
             text.appendChild(span);
             for (const placement of unknowns) text.appendChild(this.unkChip(placement.span, row));
         }
