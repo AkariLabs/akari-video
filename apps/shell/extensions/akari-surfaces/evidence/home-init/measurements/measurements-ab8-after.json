@@ -1,0 +1,90 @@
+{
+  "label": "ab8-after",
+  "workspace": null,
+  "startedAt": "2026-09-08T18:48:32.043Z",
+  "pid": 37408,
+  "timeline": [
+    {
+      "atMs": 11746,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": "true",
+      "homeStage": "welcome"
+    },
+    {
+      "atMs": 12752,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": "true",
+      "homeStage": "welcome"
+    }
+  ],
+  "homeSurfaceMs": 11761,
+  "homeReadyMs": 12086,
+  "shellAttached": true,
+  "preloadVisible": false,
+  "homeAttached": true,
+  "homeReadyAttr": "true",
+  "homeStage": "welcome",
+  "measures": [
+    {
+      "name": "akari-home:refreshWelcomeMode",
+      "startTime": 5304,
+      "duration": 5.6
+    },
+    {
+      "name": "akari-home:loadHomeFlow",
+      "startTime": 5310,
+      "duration": 0.6
+    },
+    {
+      "name": "akari-home:loadCreatorRootProjects",
+      "startTime": 5311,
+      "duration": 205.6
+    },
+    {
+      "name": "akari-home:loadStandaloneProjects",
+      "startTime": 5516,
+      "duration": 50.6
+    },
+    {
+      "name": "akari-home:initializeFirstRunSetup",
+      "startTime": 5567,
+      "duration": 16.3
+    },
+    {
+      "name": "akari-home:refreshCurrentLocation",
+      "startTime": 5583,
+      "duration": 16.8
+    },
+    {
+      "name": "akari-home:initializeProjectLauncher",
+      "startTime": 5600,
+      "duration": 1
+    },
+    {
+      "name": "akari-home:loadUpdateStatus",
+      "startTime": 5601,
+      "duration": 179
+    },
+    {
+      "name": "akari-home:checkVersionNotice",
+      "startTime": 5781,
+      "duration": 276.9
+    }
+  ],
+  "readyMs": 12103,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardTimeouts": [],
+  "focusWarns": [
+    "warning: 2026-09-08T18:48:44.925Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "[37408:0909/034844.926480:INFO:CONSOLE:433] \"2026-09-08T18:48:44.925Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:48:44.927Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding"
+  ],
+  "homeFocusWarns": [],
+  "consoleErrors": [],
+  "leftoverProcesses": 0
+}
