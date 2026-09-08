@@ -1,17 +1,15 @@
-import type { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
-
 export interface VisualThumbnailJob {
     key: string;
     priority: number;
     wanted(): boolean;
     valid?(): boolean;
-    capture(): Promise<VisualThumbnailCapture>;
+    capture(): Promise<string>;
 }
 
 /** Bounded LRU and visible-first, single-flight work queue. It never owns DOM/renderers. */
 export class VisualThumbnailCache {
     readonly stats = { captures: 0, hits: 0, failures: 0, discarded: 0, generatedMs: 0 };
-    private readonly cache = new Map<string, VisualThumbnailCapture | null>();
+    private readonly cache = new Map<string, string | null>();
     private readonly queue = new Map<string, VisualThumbnailJob>();
     private readonly wantedByKey = new Map<string, () => boolean>();
     private readonly retries = new Map<string, { attempts: number; deadline: number; at: number }>();
@@ -30,7 +28,7 @@ export class VisualThumbnailCache {
     get memoryBytes(): number { return this.bytes; }
     get isPaused(): boolean { return this.paused || this.disposed; }
 
-    request(job: VisualThumbnailJob): VisualThumbnailCapture | null | undefined {
+    request(job: VisualThumbnailJob): string | null | undefined {
         if (this.cache.has(job.key)) {
             const value = this.cache.get(job.key)!;
             this.cache.delete(job.key); this.cache.set(job.key, value);
@@ -89,7 +87,7 @@ export class VisualThumbnailCache {
             && this.cache.size > 0 && [...this.wantedByKey.values()].every(wanted => wanted())) return;
         this.queue.delete(job.key); this.active = job.key;
         const start = performance.now();
-        let value: VisualThumbnailCapture | null = null;
+        let value: string | null = null;
         let transient = false;
         try { value = await job.capture(); this.stats.captures++; }
         catch (error) {
@@ -112,7 +110,7 @@ export class VisualThumbnailCache {
             if (at <= deadline) this.queue.set(job.key, job);
         } else this.retries.delete(job.key);
         // Account UTF-16 strings plus the decoded RGBA bitmap at the maximum capture size.
-        const cost = (key: string, data: VisualThumbnailCapture | null): number => key.length * 2 + (data ? data.image.length * 2 + 480 * 320 * 4 : 0);
+        const cost = (key: string, data: string | null): number => key.length * 2 + (data ? data.length * 2 + 480 * 320 * 4 : 0);
         if (cost(job.key, value) > this.maxBytes) value = null;
         if (this.cache.has(job.key)) this.bytes -= cost(job.key, this.cache.get(job.key)!);
         this.cache.set(job.key, value); this.bytes += cost(job.key, value);

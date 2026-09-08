@@ -5859,7 +5859,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const result = await window.electronAkariPreview.captureVisualThumbnail(page);
                     if (!valid()) throw new Error('Stale visual thumbnail input');
                     this.failedVisualThumbnails.delete(id);
-                    return typeof result === 'string' ? { image: result } : result;
+                    return result;
                 } catch (error) {
                     if (valid()) this.failedVisualThumbnails.add(id); throw error;
                 } finally {
@@ -5879,31 +5879,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     objectFit: 'contain', pointerEvents: 'none', background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
                 element.prepend(picture);
             }
-            if (picture.getAttribute('src') !== value.image) picture.src = value.image;
-            const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
-            let crop: import('../common/visual-thumbnail-crop').VisualThumbnailCropStyle | undefined;
-            if (value.contentRect && typeof output?.width === 'number' && output.width > 0
-                && typeof output.height === 'number' && output.height > 0) {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires -- Keep this synchronous display dependency within the method's edit boundary.
-                const { visualThumbnailCrop } = require('../common/visual-thumbnail-crop') as typeof import('../common/visual-thumbnail-crop');
-                // Capture bounds use the resized page, not the full edit output coordinates.
-                const pageScale = Math.min(480 / output.width, 320 / output.height, 1);
-                crop = visualThumbnailCrop(value.contentRect, {
-                    width: Math.max(1, Math.round(output.width * pageScale)),
-                    height: Math.max(1, Math.round(output.height * pageScale))
-                });
-            }
-            Object.assign(picture.style, {
-                objectFit: crop ? 'cover' : 'contain', objectPosition: crop?.objectPosition ?? '',
-                transform: crop ? `scale(${crop.scale})` : '', transformOrigin: crop?.objectPosition ?? ''
-            });
-            // Long clips hide the img and repeat its bitmap as a background, so crop that too.
-            // Background tiles need the vertical crop ratio rather than the cover scale.
+            if (picture.getAttribute('src') !== value) picture.src = value;
+            // Paint the cached bitmap across long clips, including their partially visible ends.
+            // Keep the img as the decoded source for short clips, hover, and image observers.
             Object.assign(element.style, {
-                backgroundImage: `url("${value.image}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
-                backgroundSize: crop ? `${crop.backgroundSize}, 12px 12px` : 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
-                backgroundPosition: crop ? `${crop.backgroundPosition}, 0 0` : 'left center, 0 0'
+                backgroundImage: `url("${value}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
+                backgroundSize: 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
+                backgroundPosition: 'left center, 0 0'
             });
+            const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
             const aspect = typeof output?.width === 'number' && output.width > 0
                 && typeof output.height === 'number' && output.height > 0 ? output.width / output.height : 16 / 9;
             const sizedPicture = picture;
