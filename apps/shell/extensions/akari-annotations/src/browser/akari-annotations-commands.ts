@@ -71,3 +71,14 @@ export const SELECT_IMAGE_BLOCK: Command = {
 export const ADD_MATERIAL_AT_PLAYHEAD: Command = {
     id: 'akari.timeline.addMaterialAtPlayhead'
 };
+
+/**
+ * Finder からタイムライン帯へ落とされた素材を「落とした位置・落とした行」へ置く内部コマンド
+ * （task 2026-09-08-timeline-file-drop 指示5）。akari-project 側のグローバル drop 経路
+ * （akari-project-contribution.ts の handleVideoDrop）から
+ * `{ relativePath, kind, clientX, clientY }` で呼ばれる。
+ * ADD_MATERIAL_AT_PLAYHEAD と同じく label なし内部コマンド。
+ */
+export const ADD_MATERIAL_AT_POINT: Command = {
+    id: 'akari.timeline.addMaterialAtPoint'
+};

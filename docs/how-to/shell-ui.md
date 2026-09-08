@@ -25,8 +25,14 @@ unsorted items, and exports; data / plan / report rows only get the open-style i
 ## Drag & drop onto the timeline
 
 Drag an asset card onto the timeline to place it: a duration ghost previews the span
-and you pick the target track while dragging. Video and image assets land in
-`layers[]`; audio lands in `audio.sfx[]`.
+and you pick the target track while dragging. Depending on the row you drop onto, video
+and image assets land either in `layers[]` (stacked visuals) or in `cuts` (the main
+cut track); audio lands in `audio.sfx[]`.
+
+You can also **drop files straight from Finder onto the timeline**. Video files are
+imported into `assets/` first and then placed at the position and row you dropped them
+on. Dropping outside the timeline (asset panel, home) only imports them; place them
+afterwards by right-clicking the asset card and choosing "Add to timeline".
 
 ## Timeline: clip right-click menu
 
