@@ -196,6 +196,16 @@
         ]
       },
       {
+        "from": "../../skills/analyze-footage/bin",
+        "to": "skills/analyze-footage/bin",
+        "filter": [
+          "transcribe-sa.mjs",
+          "transcribe-cloud.mjs",
+          "is-main-module.mjs",
+          "speechanalyzer-helper.swift"
+        ]
+      },
+      {
         "from": "../../skills/analyze-footage/bin/person-matte",
         "to": "skills/analyze-footage/bin/person-matte",
         "filter": [

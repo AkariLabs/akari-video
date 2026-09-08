@@ -28,8 +28,27 @@ import {
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
-const speechAnalyzerScript = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-sa.mjs");
-const cloudScript = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-cloud.mjs");
+const speechAnalyzerRequirements = "SpeechAnalyzer は macOS 26 以上 + Command Line Tools が必要です";
+
+function analyzeFootageScriptCandidates(name, options) {
+  const root = path.resolve(options.repoRoot ?? repoRoot);
+  return [
+    path.join(root, "skills", "analyze-footage", "bin", name),
+    path.join(root, "packages", "akari-launcher", "vendor", "skills", "analyze-footage", "bin", name),
+  ];
+}
+
+export function resolveAnalyzeFootageScript(name, options = {}) {
+  return analyzeFootageScriptCandidates(name, options).find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function missingScriptMessage(label, name, options) {
+  return `${label}実装が同梱されていません（${analyzeFootageScriptCandidates(name, options).join(" / ")}）`;
+}
+
+function writeBackendLog(options, message) {
+  (options.logger ?? options.stderr ?? console.error)(String(message).replace(/[\r\n]+/g, " "));
+}
 
 export async function transcribeMedia(targetArgument, options = {}) {
   const started = performance.now();
@@ -64,7 +83,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
     } catch (error) {
       const fallback = options.backend === undefined && backend === "speech-analyzer" ? resolveWhisper(options) : null;
       if (!fallback) throw error;
-      process.stderr.write(`SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}\n`);
+      writeBackendLog(options, `SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}`);
       backendInfo = { name: "whisper-cpp", ...fallback };
       backend = backendInfo.name;
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
@@ -136,7 +155,8 @@ async function selectBackend(requested, target, options) {
     throw new Error(`未対応の backend です: ${requested}`);
   }
   if (requested === "speech-analyzer") {
-    if (!speechAnalyzerAvailable(options)) throw new Error("SpeechAnalyzer を利用できません");
+    const availability = speechAnalyzerAvailability(options);
+    if (!availability.available) throw new Error(availability.message);
     return { name: requested };
   }
   if (requested === "whisper-cpp") {
@@ -144,20 +164,42 @@ async function selectBackend(requested, target, options) {
     if (!whisper) throw new Error("whisper.cpp の実行ファイルまたはモデルが見つかりません");
     return { name: requested, ...whisper };
   }
-  if (speechAnalyzerAvailable(options)) return { name: "speech-analyzer" };
+  const availability = speechAnalyzerAvailability(options);
+  if (availability.available) return { name: "speech-analyzer" };
   const whisper = resolveWhisper(options);
-  if (whisper) return { name: "whisper-cpp", ...whisper };
+  if (whisper) {
+    writeBackendLog(options, `SpeechAnalyzer を利用できないため whisper.cpp へフォールバックします: ${availability.reason}`);
+    return { name: "whisper-cpp", ...whisper };
+  }
   throw new Error("利用できるローカル文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）");
 }
 
-function speechAnalyzerAvailable(options) {
-  if (typeof options.speechAnalyzerAvailable === "boolean") return options.speechAnalyzerAvailable;
-  if (!existsSync(speechAnalyzerScript)) return false;
+export function speechAnalyzerAvailable(options = {}) {
+  return speechAnalyzerAvailability(options).available;
+}
+
+function speechAnalyzerAvailability(options) {
+  if (typeof options.speechAnalyzerAvailable === "boolean") {
+    return { available: options.speechAnalyzerAvailable, reason: speechAnalyzerRequirements, message: speechAnalyzerRequirements };
+  }
+  const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
+  if (!speechAnalyzerScript) {
+    return {
+      available: false,
+      reason: `SpeechAnalyzer の実装スクリプトが見つからない（${analyzeFootageScriptCandidates("transcribe-sa.mjs", options).join(" / ")}）`,
+      message: missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options),
+    };
+  }
   try {
     const result = runChecked(process.execPath, [speechAnalyzerScript, "--check"], options);
-    return JSON.parse(result.stdout).available === true;
-  } catch {
-    return false;
+    const value = JSON.parse(result.stdout);
+    const detail = String(value.reason ?? speechAnalyzerRequirements);
+    const reason = /macOS.*26 未満/.test(detail) ? `macOS 26 未満（${detail}）`
+      : /swiftc.*(?:ありません|無い)/.test(detail) ? `swiftc が無い（${detail}）` : detail;
+    return { available: value.available === true, reason, message: speechAnalyzerRequirements };
+  } catch (error) {
+    const message = `SpeechAnalyzer の利用可否チェックに失敗しました: ${error instanceof Error ? error.message : String(error)}`;
+    return { available: false, reason: message, message };
   }
 }
 
@@ -254,6 +296,8 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
 }
 
 async function runSpeechAnalyzer(wavPath, options) {
+  const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
+  if (!speechAnalyzerScript) throw new Error(missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options));
   const helperDirectory = path.join(os.tmpdir(), "akari-speech-analyzer");
   const moduleCache = path.join(helperDirectory, "clang-module-cache");
   await mkdir(helperDirectory, { recursive: true });
@@ -280,14 +324,19 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
-  if (!existsSync(cloudScript)) throw new Error("クラウド文字起こし実装が見つかりません");
+  const cloudScript = resolveAnalyzeFootageScript("transcribe-cloud.mjs", options);
+  if (!cloudScript) throw new Error(missingScriptMessage("クラウド文字起こしの", "transcribe-cloud.mjs", options));
   const provider = /groq/i.test(connectionId) ? "groq" : "scribe";
-  const result = runChecked(process.execPath, [
-    cloudScript, "--send", "--provider", provider, "--input", wavPath,
-    "--duration", String(range.out - range.in), "--project-root", projectRoot, "--approved",
-  ], options);
-  const value = JSON.parse(result.stdout);
-  return { segments: value.segments ?? value.transcript ?? [], cost_estimate_usd: value.cost_estimate_usd ?? null };
+  try {
+    const result = runChecked(process.execPath, [
+      cloudScript, "--send", "--provider", provider, "--input", wavPath,
+      "--duration", String(range.out - range.in), "--project-root", projectRoot, "--approved",
+    ], options);
+    const value = JSON.parse(result.stdout);
+    return { segments: value.segments ?? value.transcript ?? [], cost_estimate_usd: value.cost_estimate_usd ?? null };
+  } catch (error) {
+    throw new Error(`クラウド文字起こしの実行に失敗しました: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
 }
 
 export function normalizeWhisperJson(value) {
