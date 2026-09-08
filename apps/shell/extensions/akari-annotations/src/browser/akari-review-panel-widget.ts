@@ -183,7 +183,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.title.label = '注釈';
         this.title.caption = '注釈（レビューコメント）';
         this.title.iconClass = 'codicon codicon-comment-discussion';
-        this.title.closable = true;
+        this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-review-panel-widget');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:review');

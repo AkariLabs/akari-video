@@ -8,8 +8,7 @@ import { AkariProjectCleanService, AKARI_PROJECT_CLEAN_SERVICE_PATH } from '../c
 import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from '../common/export-thumbnail-protocol';
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
-import { AkariSettingsWidget } from './akari-settings-widget';
-import { AkariSettingsContribution } from './akari-settings-contribution';
+import { AkariSettingsContribution, AkariSettingsOpener } from './akari-settings-contribution';
 import { AkariMenuWidget } from './akari-menu-widget';
 import { AkariMenuContribution } from './akari-menu-contribution';
 import { AkariMenuCuration } from './akari-menu-curation';
@@ -56,11 +55,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariActivityBarCuration).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariActivityBarCuration);
 
-    // 4番目のアイコン（設定）のプレースホルダー widget
-    bind(AkariSettingsWidget).toSelf();
+    // 4番目のアイコン（設定）から surfaces のダイアログを開く。
+    bind(AkariSettingsOpener).toSelf();
     bind(WidgetFactory).toDynamicValue(ctx => ({
-        id: AkariSettingsWidget.ID,
-        createWidget: () => ctx.container.get(AkariSettingsWidget)
+        id: AkariSettingsOpener.ID,
+        createWidget: () => ctx.container.get(AkariSettingsOpener)
     })).inSingletonScope();
     bind(AkariSettingsContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariSettingsContribution);

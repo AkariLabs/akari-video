@@ -19,7 +19,7 @@ window.akari = window.akari || {};
 })();
 
 // オーバーレイランタイム
-// 契約: docs/planning/contract-2026-07-13-m1-m4.md §M2
+// 契約: docs/contract-2026-07-13-m1-m4.md §M2
 window.akari = window.akari || {};
 
 (() => {

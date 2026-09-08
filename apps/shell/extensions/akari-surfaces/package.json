@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf lib",
-    "test": "node --test src/common/*.test.mjs"
+    "test": "node --test src/common/*.test.mjs src/node/*.test.mjs"
   },
   "dependencies": {
     "@akari-video/edit-store": "file:../../../../packages/edit-store",

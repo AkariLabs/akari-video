@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -22,7 +23,10 @@ test('shell fragment assets use shared resolution and registered stream URLs', a
         uris.push(uri);
         return { id: 'logo', url };
     });
-    assert.deepEqual(uris.map(fileURLToPath), [join(projectRoot, 'assets/logo.png')]);
+    // resolveDeclaredProjectInput は symlink 脱出を塞ぐため realpath を返す。macOS の os.tmpdir() は
+    // /var/folders/... （/private/var/... への symlink）なので、期待値も同じ正規化を通す
+    // （入力の projectRoot は mkdtemp の戻り値のまま渡し、実装が正規化していることを検査し続ける）。
+    assert.deepEqual(uris.map(fileURLToPath), [realpathSync(join(projectRoot, 'assets/logo.png'))]);
     assert.equal(result.streams.length, 1);
     assert.equal(result.html, html.replaceAll('../../assets/logo.png', url)
         .replace('../assets/logo.png', 'about:invalid#overlays%2Fassets%2Flogo.png')

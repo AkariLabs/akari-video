@@ -1,24 +1,37 @@
-import { injectable, inject } from '@theia/core/shared/inversify';
-import { FrontendApplicationContribution, FrontendApplication, WidgetManager } from '@theia/core/lib/browser';
-import { AkariSettingsWidget } from './akari-settings-widget';
+import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
+import { FrontendApplicationContribution, FrontendApplication, WidgetManager, ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
+import { CommandService } from '@theia/core/lib/common';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 
-/**
- * 設定を activity bar の 4 番目のアイコンとして左パネルに追加する。
- * onStart（onDidInitializeLayout より後）で追加するため、
- * AkariActivityBarCuration の起動時一括フィルタの対象にはならない
- * （allowlist に akari-settings-widget を明示済みなので、後続の
- * onDidAddWidget 常時フィルタが走っても隠されない）。
- */
+/** Activity-bar entry only. The settings body lives in the surfaces dialog. */
+@injectable()
+export class AkariSettingsOpener extends BaseWidget {
+    static readonly ID = 'akari-settings-opener';
+    @inject(CommandService) protected readonly commands!: CommandService;
+    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
+
+    @postConstruct()
+    protected init(): void {
+        this.id = AkariSettingsOpener.ID;
+        this.title.label = '設定';
+        this.title.caption = 'AKARI Video の設定';
+        this.title.iconClass = 'codicon codicon-settings-gear';
+        this.title.closable = false;
+    }
+
+    protected override onActivateRequest(_message: Message): void {
+        // Collapse before the asynchronous dialog acquires focus; keep the icon at rank 400.
+        this.shell.collapsePanel('left');
+        void this.commands.executeCommand('akari.settings.open').catch(() => undefined);
+    }
+}
+
 @injectable()
 export class AkariSettingsContribution implements FrontendApplicationContribution {
-
-    @inject(WidgetManager)
-    protected readonly widgetManager!: WidgetManager;
+    @inject(WidgetManager) protected readonly widgetManager!: WidgetManager;
 
     async onStart(app: FrontendApplication): Promise<void> {
-        const widget = await this.widgetManager.getOrCreateWidget(AkariSettingsWidget.ID);
-        if (!widget.isAttached) {
-            app.shell.addWidget(widget, { area: 'left', rank: 400 });
-        }
+        const widget = await this.widgetManager.getOrCreateWidget(AkariSettingsOpener.ID);
+        if (!widget.isAttached) { await app.shell.addWidget(widget, { area: 'left', rank: 400 }); }
     }
 }

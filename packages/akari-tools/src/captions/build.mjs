@@ -1,3 +1,5 @@
+import { clipSpansToRange } from "../media/unrecognized-spans.mjs";
+
 const roundTime = (value) => Math.round(value * 1000) / 1000;
 const length = (text) => Array.from(text).length;
 
@@ -73,6 +75,16 @@ export function buildCaptionsFromTranscript(segments, {
         captions.splice(index, 1);
       }
     }
+  }
+  // 未認識区間は「セグメントの持ち物」なので、分割してできた各字幕へ丸ごと複製すると
+  // 自分の [start, end] の外の区間まで持ち回り、台本パネルが行頭・行末へ無関係な ?? を出す
+  // （placeUnrecognized は範囲外の span を行頭へ置く）。契約 §3 のとおり各字幕の範囲へ切り詰め、
+  // 空になったらキーごと落とす。正本: docs/contract-2026-09-02-transcript-unrecognized-spans-v0.md
+  for (const caption of captions) {
+    if (caption.unrecognized === undefined) continue;
+    const clipped = clipSpansToRange(caption.unrecognized, caption.start, caption.end);
+    if (clipped.length) caption.unrecognized = clipped;
+    else delete caption.unrecognized;
   }
   return { captions, warnings };
 }

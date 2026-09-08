@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, readFileSync, readdirSync } from "node:fs";
+import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -13,12 +13,13 @@ import {
   runChecked,
   sha256File,
 } from "./common.mjs";
-import { recordObservation } from "./record.mjs";
+import { recordEngineTranscript, recordObservation } from "./record.mjs";
 import {
   classifyWhisperMarker,
   detectUnrecognizedSpans,
   UNRECOGNIZED_DEFAULTS,
 } from "./unrecognized-spans.mjs";
+import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
   applyWordBook,
@@ -28,10 +29,30 @@ import {
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
-const speechAnalyzerScript = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-sa.mjs");
-const cloudScript = path.join(repoRoot, "skills", "analyze-footage", "bin", "transcribe-cloud.mjs");
+const speechAnalyzerRequirements = "SpeechAnalyzer は macOS 26 以上 + Command Line Tools が必要です";
+
+function analyzeFootageScriptCandidates(name, options) {
+  const root = path.resolve(options.repoRoot ?? repoRoot);
+  return [
+    path.join(root, "skills", "analyze-footage", "bin", name),
+    path.join(root, "packages", "akari-launcher", "vendor", "skills", "analyze-footage", "bin", name),
+  ];
+}
+
+export function resolveAnalyzeFootageScript(name, options = {}) {
+  return analyzeFootageScriptCandidates(name, options).find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function missingScriptMessage(label, name, options) {
+  return `${label}実装が同梱されていません（${analyzeFootageScriptCandidates(name, options).join(" / ")}）`;
+}
+
+function writeBackendLog(options, message) {
+  (options.logger ?? options.stderr ?? console.error)(String(message).replace(/[\r\n]+/g, " "));
+}
 
 export async function transcribeMedia(targetArgument, options = {}) {
+  const started = performance.now();
   const target = resolveTarget(targetArgument, options);
   const { ffmpeg, ffprobe } = resolveTools(options);
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
@@ -50,7 +71,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
     const rawResult = { ...cached, cache: { hit: true, key } };
     const result = await applyResolvedWordBook(rawResult, target, options);
-    await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+    await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
     return result;
   }
 
@@ -63,7 +84,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
     } catch (error) {
       const fallback = options.backend === undefined && backend === "speech-analyzer" ? resolveWhisper(options) : null;
       if (!fallback) throw error;
-      process.stderr.write(`SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}\n`);
+      writeBackendLog(options, `SpeechAnalyzer が失敗したため whisper.cpp へフォールバックします: ${error instanceof Error ? error.message : String(error)}`);
       backendInfo = { name: "whisper-cpp", ...fallback };
       backend = backendInfo.name;
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
@@ -71,7 +92,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
         const rawResult = { ...cached, cache: { hit: true, key } };
         const result = await applyResolvedWordBook(rawResult, target, options);
-        await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+        await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
         return result;
       }
       segments = options.backendRunner
@@ -79,20 +100,22 @@ export async function transcribeMedia(targetArgument, options = {}) {
         : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
     }
   }
-  segments = normalizeSegments(segments, range);
+  const costUsd = backend.startsWith("cloud:") ? segments?.cost_estimate_usd ?? null : null;
+  segments = normalizeSegments(Array.isArray(segments) ? segments : segments?.segments, range);
   segments = await attachUnrecognizedSpans(segments, target.inputPath, range, ffmpeg, options);
   const rawResult = {
     path: target.displayPath,
     range,
     backend,
     no_speech: segments.length === 0,
+    ...(backend.startsWith("cloud:") ? { cost_usd: costUsd } : {}),
     segments,
     cache: { hit: false, key },
     generated_at: generatedAt(options),
   };
   await writeFile(cachePath, `${JSON.stringify(rawResult, null, 2)}\n`, "utf8");
   const result = await applyResolvedWordBook(rawResult, target, options);
-  await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
+  await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord, rawResult, started);
   return result;
 }
 
@@ -133,7 +156,8 @@ async function selectBackend(requested, target, options) {
     throw new Error(`未対応の backend です: ${requested}`);
   }
   if (requested === "speech-analyzer") {
-    if (!speechAnalyzerAvailable(options)) throw new Error("SpeechAnalyzer を利用できません");
+    const availability = speechAnalyzerAvailability(options);
+    if (!availability.available) throw new Error(availability.message);
     return { name: requested };
   }
   if (requested === "whisper-cpp") {
@@ -141,27 +165,50 @@ async function selectBackend(requested, target, options) {
     if (!whisper) throw new Error("whisper.cpp の実行ファイルまたはモデルが見つかりません");
     return { name: requested, ...whisper };
   }
-  if (speechAnalyzerAvailable(options)) return { name: "speech-analyzer" };
+  const availability = speechAnalyzerAvailability(options);
+  if (availability.available) return { name: "speech-analyzer" };
   const whisper = resolveWhisper(options);
-  if (whisper) return { name: "whisper-cpp", ...whisper };
+  if (whisper) {
+    writeBackendLog(options, `SpeechAnalyzer を利用できないため whisper.cpp へフォールバックします: ${availability.reason}`);
+    return { name: "whisper-cpp", ...whisper };
+  }
   throw new Error("利用できるローカル文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）");
 }
 
-function speechAnalyzerAvailable(options) {
-  if (typeof options.speechAnalyzerAvailable === "boolean") return options.speechAnalyzerAvailable;
-  if (!existsSync(speechAnalyzerScript)) return false;
+export function speechAnalyzerAvailable(options = {}) {
+  return speechAnalyzerAvailability(options).available;
+}
+
+function speechAnalyzerAvailability(options) {
+  if (typeof options.speechAnalyzerAvailable === "boolean") {
+    return { available: options.speechAnalyzerAvailable, reason: speechAnalyzerRequirements, message: speechAnalyzerRequirements };
+  }
+  const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
+  if (!speechAnalyzerScript) {
+    return {
+      available: false,
+      reason: `SpeechAnalyzer の実装スクリプトが見つからない（${analyzeFootageScriptCandidates("transcribe-sa.mjs", options).join(" / ")}）`,
+      message: missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options),
+    };
+  }
   try {
     const result = runChecked(process.execPath, [speechAnalyzerScript, "--check"], options);
-    return JSON.parse(result.stdout).available === true;
-  } catch {
-    return false;
+    const value = JSON.parse(result.stdout);
+    const detail = String(value.reason ?? speechAnalyzerRequirements);
+    const reason = /macOS.*26 未満/.test(detail) ? `macOS 26 未満（${detail}）`
+      : /swiftc.*(?:ありません|無い)/.test(detail) ? `swiftc が無い（${detail}）` : detail;
+    return { available: value.available === true, reason, message: speechAnalyzerRequirements };
+  } catch (error) {
+    const message = `SpeechAnalyzer の利用可否チェックに失敗しました: ${error instanceof Error ? error.message : String(error)}`;
+    return { available: false, reason: message, message };
   }
 }
 
-function resolveWhisper(options) {
+export function resolveWhisper(options = {}) {
   if (options.whisperAvailable === false) return null;
   if (options.whisperBin && options.whisperModel) return { bin: options.whisperBin, model: options.whisperModel };
   const binCandidates = [
+    process.env.AKARI_WHISPER_BIN,
     process.env.WHISPER_CPP_BIN,
     "/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli",
     path.join(repoRoot, "packages", "media-bin", "vendor", `${process.platform}-${process.arch}`, process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli"),
@@ -172,19 +219,8 @@ function resolveWhisper(options) {
   ].filter(Boolean);
   const bin = binCandidates.find(executableFile);
   if (!bin) return null;
-  const modelCandidates = [
-    process.env.WHISPER_CPP_MODEL,
-    ...findModels(path.join(os.homedir(), ".akari", "tools", "models")),
-    ...findModels(path.join(repoRoot, "models")),
-    ...findModels(path.join(repoRoot, "whisper.cpp", "models")),
-    ...findModels(path.join(os.homedir(), ".cache", "whisper.cpp")),
-    ...findModels(path.join(os.homedir(), "Library", "Caches", "whisper.cpp")),
-    ...findModels(path.resolve(path.dirname(bin), "..", "share", "whisper-cpp")),
-    ...findModels("/opt/homebrew/share/whisper-cpp"),
-    ...findModels("/usr/local/share/whisper-cpp"),
-    ...findModels(path.join(os.homedir(), "Library", "Application Support", "com.prakashjoshipax.VoiceInk", "WhisperModels")),
-  ].filter(Boolean);
-  const model = modelCandidates.find((candidate) => existsSync(candidate) && !path.basename(candidate).startsWith("for-tests-") && !path.basename(candidate).includes(".en."));
+  const modelCandidates = whisperModelCandidates({ env: process.env, homeDir: os.homedir(), repoRoot, bin });
+  const model = modelCandidates.find((candidate) => existsSync(candidate) && !isWhisperModelExcluded(candidate));
   return model ? { bin, model } : null;
 }
 
@@ -203,17 +239,6 @@ function findOnPath(name) {
     if (executableFile(candidate)) return candidate;
   }
   return null;
-}
-
-function findModels(root) {
-  if (!existsSync(root)) return [];
-  try {
-    return readdirSync(root, { recursive: true })
-      .map((entry) => path.join(root, String(entry)))
-      .filter((entry) => /^ggml-.*\.bin$/i.test(path.basename(entry)));
-  } catch {
-    return [];
-  }
 }
 
 function validateCloudBackend(requested, target) {
@@ -250,6 +275,8 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
 }
 
 async function runSpeechAnalyzer(wavPath, options) {
+  const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
+  if (!speechAnalyzerScript) throw new Error(missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options));
   const helperDirectory = path.join(os.tmpdir(), "akari-speech-analyzer");
   const moduleCache = path.join(helperDirectory, "clang-module-cache");
   await mkdir(helperDirectory, { recursive: true });
@@ -276,14 +303,19 @@ function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
-  if (!existsSync(cloudScript)) throw new Error("クラウド文字起こし実装が見つかりません");
+  const cloudScript = resolveAnalyzeFootageScript("transcribe-cloud.mjs", options);
+  if (!cloudScript) throw new Error(missingScriptMessage("クラウド文字起こしの", "transcribe-cloud.mjs", options));
   const provider = /groq/i.test(connectionId) ? "groq" : "scribe";
-  const result = runChecked(process.execPath, [
-    cloudScript, "--send", "--provider", provider, "--input", wavPath,
-    "--duration", String(range.out - range.in), "--project-root", projectRoot, "--approved",
-  ], options);
-  const value = JSON.parse(result.stdout);
-  return value.segments ?? value.transcript ?? [];
+  try {
+    const result = runChecked(process.execPath, [
+      cloudScript, "--send", "--provider", provider, "--input", wavPath,
+      "--duration", String(range.out - range.in), "--project-root", projectRoot, "--approved",
+    ], options);
+    const value = JSON.parse(result.stdout);
+    return { segments: value.segments ?? value.transcript ?? [], cost_estimate_usd: value.cost_estimate_usd ?? null };
+  } catch (error) {
+    throw new Error(`クラウド文字起こしの実行に失敗しました: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+  }
 }
 
 export function normalizeWhisperJson(value) {
@@ -292,23 +324,36 @@ export function normalizeWhisperJson(value) {
     const start = Number(segment.offsets?.from ?? segment.start) / (segment.offsets ? 1000 : 1);
     const end = Number(segment.offsets?.to ?? segment.end) / (segment.offsets ? 1000 : 1);
     const markers = [];
-    const words = (segment.tokens ?? segment.words ?? []).flatMap((token) => {
+    const words = [];
+    let pending = null;
+    for (const token of segment.tokens ?? segment.words ?? []) {
       const wordStart = Number(token.offsets?.from ?? token.start) / (token.offsets ? 1000 : 1);
       const wordEnd = Number(token.offsets?.to ?? token.end) / (token.offsets ? 1000 : 1);
       const markerKind = classifyWhisperMarker(token.text);
-      if (markerKind === "non-speech" && wordEnd > wordStart) {
-        markers.push({ start: wordStart, end: wordEnd });
-        return [];
+      if (markerKind === "non-speech") {
+        if (wordEnd > wordStart) markers.push({ start: wordStart, end: wordEnd });
+        continue;
       }
-      if (markerKind === "control") return [];
+      if (markerKind === "control") continue;
       const text = String(token.text ?? "").replace(/\uFFFD/g, "").trim();
-      return text && wordEnd > wordStart ? [{ start: wordStart, end: wordEnd, text }] : [];
-    });
+      if (!text || !Number.isFinite(wordStart) || !Number.isFinite(wordEnd)) continue;
+      if (wordEnd <= wordStart) {
+        // 連続する 0 長・負長トークンは、最初の from と文字順を保持する。
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + text };
+        continue;
+      }
+      words.push({ start: pending?.start ?? wordStart, end: wordEnd, text: (pending?.text ?? "") + text });
+      pending = null;
+    }
+    if (pending && words.length) words.at(-1).text += pending.text;
+    const text = String(segment.text ?? "").replace(/\uFFFD/g, "").trim();
+    const useWords = words.length && words.every((word) => word.end > word.start)
+      && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "");
     return {
       start,
       end,
-      text: String(segment.text ?? "").replace(/\uFFFD/g, "").trim(),
-      ...(words.length ? { words } : {}),
+      text,
+      ...(useWords ? { words } : {}),
       ...(markers.length ? { markers } : {}),
     };
   });
@@ -324,15 +369,27 @@ function normalizeSegments(segments, range) {
     const text = String(segment.text ?? "").trim();
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) return [];
     const normalized = { start: formatNumber(Math.max(range.in, start)), end: formatNumber(Math.min(range.out, end)), text };
-    const words = (segment.words ?? []).flatMap((word) => {
-      const wordStart = Number(word.start) + offset;
-      const wordEnd = Number(word.end) + offset;
+    const words = [];
+    let pending = null;
+    const clampWordTime = (time) => formatNumber(Math.max(normalized.start, Math.min(normalized.end, time + offset)));
+    for (const word of segment.words ?? []) {
+      if (!Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end))) continue;
+      const wordStart = clampWordTime(Number(word.start));
+      const wordEnd = clampWordTime(Number(word.end));
       const wordText = String(word.text ?? "").replace(/\uFFFD/g, "").trim();
-      return wordText && wordEnd > wordStart
-        ? [{ start: formatNumber(Math.max(normalized.start, wordStart)), end: formatNumber(Math.min(normalized.end, wordEnd)), text: wordText }]
-        : [];
-    }).filter((word) => word.end > word.start);
-    if (words.length) normalized.words = words;
+      if (!wordText) continue;
+      if (wordEnd <= wordStart) {
+        pending = { start: pending?.start ?? wordStart, text: (pending?.text ?? "") + wordText };
+        continue;
+      }
+      words.push({ start: pending?.start ?? wordStart, end: wordEnd, text: (pending?.text ?? "") + wordText });
+      pending = null;
+    }
+    if (pending && words.length) words.at(-1).text += pending.text;
+    if (words.length && words.every((word) => word.end > word.start)
+        && words.map((word) => word.text).join("").replace(/\s/g, "") === text.replace(/\s/g, "")) {
+      normalized.words = words;
+    }
     const markers = (segment.markers ?? []).flatMap((marker) => {
       const markerStart = Number(marker.start) + offset;
       const markerEnd = Number(marker.end) + offset;
@@ -378,7 +435,7 @@ async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, optio
   });
 }
 
-function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
+export function runSilenceDetect({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options }) {
   const result = runChecked(ffmpeg, [
     "-hide_banner", "-nostdin",
     "-ss", String(range.in), "-to", String(range.out), "-i", inputPath,
@@ -405,7 +462,15 @@ function numericOption(value, fallback, label, positive = true) {
   return resolved;
 }
 
-async function recordTranscribe(target, result, range, backend, lang, noRecord) {
+async function recordTranscribe(target, result, range, backend, lang, noRecord, rawResult, started) {
+  if (!noRecord) await recordEngineTranscript(target, {
+    backend,
+    generated_at: result.generated_at,
+    source: { path: target.displayPath, range: result.range },
+    elapsed_sec: formatNumber((performance.now() - started) / 1000),
+    cost_usd: backend.startsWith("cloud:") ? rawResult.cost_usd ?? null : null,
+    segments: rawResult.segments,
+  });
   await recordObservation({
     target,
     kind: "transcribe",

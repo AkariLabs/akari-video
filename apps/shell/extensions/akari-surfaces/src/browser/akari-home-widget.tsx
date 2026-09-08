@@ -678,9 +678,7 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected async openStoreSettings(): Promise<void> {
-        const widget = await this.widgets.getOrCreateWidget('akari-settings-widget');
-        if (!widget.isAttached) { this.shell.addWidget(widget, { area: 'left', rank: 400 }); }
-        await this.shell.activateWidget(widget.id);
+        await this.commands.executeCommand('akari.settings.open', { section: 'connections' });
     }
 
     /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */

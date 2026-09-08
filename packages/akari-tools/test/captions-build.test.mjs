@@ -17,7 +17,8 @@ test("word boundaries preserve silence and source metadata deterministically", (
   assert.equal(result.captions[0].src, "s1");
   assert.equal(result.captions[0].edited, false);
   assert.equal(result.captions[0].words, first.words);
-  assert.equal(result.captions[0].unrecognized, first.unrecognized);
+  // 契約 §3: 空の unrecognized[] はキーごと書かない。
+  assert.ok(!Object.hasOwn(result.captions[0], "unrecognized"));
   assert.ok(!Object.hasOwn(result.captions[0], "time_domain"));
   assert.deepEqual(result.warnings, []);
   assert.equal(JSON.stringify(result), JSON.stringify(build(input, { src: "s1", idStart: 7 })));
@@ -167,4 +168,43 @@ test("phrase output is byte deterministic and does not mutate transcript", () =>
   assert.ok(result.captions.length >= 3);
   assert.equal(JSON.stringify(result), JSON.stringify(build(input)));
   assert.equal(JSON.stringify(input), before);
+});
+
+test("unrecognized spans are clipped to each caption instead of copied to every piece", () => {
+  // 1 セグメント（語 3 つ）を文字数上限で 3 つの字幕へ割る。未認識区間は 2 つ目の字幕の中だけにある。
+  const words = [
+    { start: 0, end: 1, text: "あいうえお" },
+    { start: 2, end: 3, text: "かきくけこ" },
+    { start: 3, end: 4, text: "さしすせそ" },
+  ];
+  const input = [{
+    start: 0,
+    end: 4,
+    text: "あいうえおかきくけこさしすせそ",
+    words,
+    unrecognized: [{ start: 2.2, end: 2.6 }],
+  }];
+  const { captions } = build(input, { maxCharacters: 5, splitMode: "none", minDurationSeconds: 0 });
+  assert.equal(captions.length, 3);
+  // 区間 [2.2, 2.6) を覆う字幕だけが持つ（1 つ目は end=1.3、3 つ目は start=3）。
+  assert.deepEqual(captions.map((cue) => cue.unrecognized ?? null), [null, [{ start: 2.2, end: 2.6 }], null]);
+  assert.ok(!Object.hasOwn(captions[0], "unrecognized"));
+  assert.ok(!Object.hasOwn(captions[2], "unrecognized"));
+});
+
+test("unrecognized spans straddling a caption edge are trimmed to that caption", () => {
+  const input = [{
+    start: 0,
+    end: 4,
+    text: "あいうえおかきくけこ",
+    words: [
+      { start: 0, end: 1, text: "あいうえお" },
+      { start: 2.5, end: 4, text: "かきくけこ" },
+    ],
+    unrecognized: [{ start: 0.5, end: 3 }],
+  }];
+  const { captions } = build(input, { maxCharacters: 5, splitMode: "none", minDurationSeconds: 0 });
+  assert.equal(captions.length, 2);
+  assert.deepEqual(captions[0].unrecognized, [{ start: 0.5, end: captions[0].end }]);
+  assert.deepEqual(captions[1].unrecognized, [{ start: captions[1].start, end: 3 }]);
 });

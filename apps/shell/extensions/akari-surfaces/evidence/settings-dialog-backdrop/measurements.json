@@ -1,0 +1,51 @@
+{
+  "port": "9455",
+  "steps": [],
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=49183#<SCRATCH>/lane-backdrop/l1/ws",
+  "overlayBefore": 0,
+  "gearTabFound": true,
+  "overlayStyle": {
+    "classes": "lm-Widget dialogOverlay",
+    "backdropFilter": "blur(6px)",
+    "backgroundColor": "rgba(0, 0, 0, 0.45)",
+    "transitionProperty": "opacity",
+    "transitionDuration": "0.12s",
+    "opacity": "1",
+    "overlayRect": {
+      "x": 0,
+      "y": 0,
+      "w": 1120,
+      "h": 668
+    },
+    "blockRect": {
+      "x": 39,
+      "y": 23,
+      "w": 1042,
+      "h": 622
+    },
+    "styleTagPresent": true
+  },
+  "points": {
+    "outside": {
+      "x": 20,
+      "y": 334
+    },
+    "inside": {
+      "x": 560,
+      "y": 63
+    }
+  },
+  "outsideTargetIsOverlay": true,
+  "openAfterDragToOutside": 1,
+  "openAfterInsideClick": 1,
+  "openAfterOutsideClick": 0,
+  "openAfterEscape": 0,
+  "openAfterRightClickOutside": 1,
+  "otherDialogs": {
+    "firstRunBackdropFilter": "none",
+    "firstRunBackground": "rgba(0, 0, 0, 0.3)",
+    "plainOverlayBackdropFilter": "none",
+    "plainOverlayBackground": "rgba(0, 0, 0, 0.3)"
+  },
+  "consoleErrors": []
+}

@@ -49,7 +49,7 @@ class MockResponse extends Writable {
 }
 
 // 回帰: keep-alive の接続が 1 本残っているだけで `server.close()` は解決せず、呼び出し側の finally が
-// `app.exit()` へ進めない（書き出しは完了しているのにアプリが終了しない）。tasks/2026-09-07-osr-exit-hang。
+// `app.exit()` へ進めない（書き出しは完了しているのにアプリが終了しない）。経緯は非公開の内部記録（`akari-video-internal`）の 2026-09-07「OSR 出口のハング」に残している。
 // 修正が外れたときはハングではなく 3 秒で fail するように Promise.race で測る。
 test("static server の close は keep-alive の接続が残っていても有限時間で解決する", async () => {
   const root = await mkdtemp(join(tmpdir(), "osr-static-close-"));

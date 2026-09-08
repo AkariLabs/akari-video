@@ -571,6 +571,16 @@ const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
 const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
 const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
+/**
+ * フッターの既定文言（task 2026-09-08-timeline-file-drop 指示13）。トラックが 1 本でもあるときは
+ * 従来どおり時刻選択の案内を出し、**0 本（空のタイムライン）のときだけ**「ここへ置ける」ことを言う。
+ * 取り込みだけが起きて何も出ないと「壊れている」と見分けが付かない（issue #64）。
+ */
+const TIMELINE_FOOTER_DEFAULT_HINT =
+    'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
+const TIMELINE_FOOTER_EMPTY_HINT =
+    '素材カードをここへドラッグすると置けます（Finder からのドロップも可）。';
+
 /** ゴースト・ドロップ挿入で使う D&D 中の素材ペイロード（送信側 dataTransfer/CustomEvent の共通形）。 */
 interface MaterialDragPayload {
     relativePath: string;
@@ -1073,8 +1083,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         // 素材カード D&D（task 2026-08-10-material-dnd-timeline 事実2）: タイムライン widget は
         // bottom エリア（#theia-main-content-panel の外）にあるため、akari-project-contribution.ts
-        // の isDelegatedDropzone に自分を素通しさせるため data-akari-dropzone を付ける
-        // （akari-role-buckets-widget.tsx:287 と同じ流儀）。
+        // の委譲判定に自分を素通しさせるため data-akari-dropzone を付ける
+        // （akari-role-buckets-widget.tsx:287 と同じ流儀）。委譲されるのは **AKARI 内部 MIME の
+        // ドラッグだけ**で、OS ファイルドロップはグローバル経路が拾う
+        // （task 2026-09-08-timeline-file-drop / isDelegatedDrop）。
         this.node.setAttribute('data-akari-dropzone', 'true');
 
         Object.assign(this.toolbar.style, {
@@ -1328,7 +1340,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         // 素材カード D&D の受け側 3 点セット（task 2026-08-10-material-dnd-timeline 指示3）。
         // 自 mime（application/x-akari-material）以外は preventDefault/stopPropagation せず
-        // 素通しする — 既存のファイルドロップ等（グローバルフォールバック）を壊さない。
+        // 素通しする。委譲規約はこう（task 2026-09-08-timeline-file-drop 指示4 で明文化）:
+        // **内部 MIME のドラッグだけが委譲される。OS ファイルドロップ（types が Files だけ）は
+        // グローバル経路（akari-project-contribution.ts）が拾う** — data-akari-dropzone が
+        // 内部 MIME 以外も委譲していた頃は、素通しした先の受け皿が消えて無反応になっていた（issue #63）。
         this.stripScroll.addEventListener('dragenter', event => this.handleMaterialDragEnter(event));
         this.stripScroll.addEventListener('dragover', event => this.handleMaterialDragOver(event));
         this.stripScroll.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
@@ -1351,7 +1366,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             borderTop: '1px solid var(--theia-widget-border)', color: 'var(--theia-descriptionForeground)',
             fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
         });
-        this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
+        this.footer.textContent = TIMELINE_FOOTER_DEFAULT_HINT;
 
         this.toDispose.push(this.notice);
         this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice.node, this.footer);
@@ -4332,6 +4347,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
+     * ドロップ座標つき素材追加コマンド（akari.timeline.addMaterialAtPoint）の受け側
+     * （task 2026-09-08-timeline-file-drop 指示7）。Finder からタイムライン帯へ落とした動画は
+     * `assets/` へ取り込まれたあとここへ来る。配置そのものは素材カード D&D と同じ
+     * placeMaterialAtPoint（共通実装）に委ねる — 落とした位置・落とした行に置かれる。
+     * 引数の絞り込みは D&D と同じ parseMaterialDragPayload を使う（種別・パスの検証が 1 か所）。
+     */
+    async addMaterialAtPoint(
+        relativePath: string, kind: string, clientX: number, clientY: number
+    ): Promise<void> {
+        const payload = parseMaterialDragPayload({ relativePath, kind });
+        if (!payload) {
+            this.messages.warn('素材を追加できません（種別またはパスが不正です）。');
+            return;
+        }
+        const target = this.resolveMaterialDropTarget(payload.kind, clientY);
+        if (this.isTrackLocked(target.targetTrackId)) {
+            this.showLockedTrack(target.targetTrackId);
+            return;
+        }
+        await this.placeMaterialAtTarget(payload, target, clientX);
+    }
+
+    /**
      * 素材追加の共通実装（task 2026-08-10-material-dnd-timeline 指示6、
      * task 2026-08-18-timeline-dnd-p0p1 で本編カット・音源行生成・尺の非クランプへ拡張）。
      * 再生ヘッド追加（addMaterialAtPlayhead）と D&D ドロップ（handleMaterialDrop）の両方が
@@ -4699,6 +4737,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.showLockedTrack(lockedTrackId, event);
             return;
         }
+        void this.placeMaterialAtTarget(payload, target, clientX);
+    }
+
+    /**
+     * 解決済みのドロップ先へ素材を置く共通実装（task 2026-09-08-timeline-file-drop 指示7）。
+     * 素材カード D&D（handleMaterialDrop）と、Finder からのファイルドロップ
+     * （addMaterialAtPoint 経由・グローバル drop 経路）の両方がここへ委譲する。
+     * ロック行の門番は各入口が自分で持つ（track-lock-widget.test.mjs の
+     * 「every timeline edit entry checks isTrackLocked before mutation」が要求する流儀）ので、
+     * ここへ来るのはロックされていない行だけ。対象外の帯は**理由をフッターに出して終わる**
+     * （無言 no-op を作らない）。
+     */
+    protected async placeMaterialAtTarget(
+        payload: MaterialDragPayload,
+        target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
+        clientX: number
+    ): Promise<void> {
         if (target.rejected) {
             this.footer.textContent = target.reason || '素材をここには置けません。';
             return;
@@ -4708,7 +4763,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
         const resolvedDuration = durationSeconds ?? this.materialGhostDurationSeconds(payload);
         const t = this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
-        void this.addMaterialAt(
+        await this.addMaterialAt(
             payload.relativePath, payload.kind, t, target.track,
             {
                 zone: target.zone,
@@ -6604,6 +6659,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return result;
     }
 
+    /**
+     * 既定文言だけを空状態に差し替える（task 2026-09-08-timeline-file-drop 指示13）。
+     * 直前の操作結果（「クリップを分割しました。」等）や拒否理由が出ているときは触らない —
+     * 既定文言のままのときだけ入れ替えるので、描画のたびにメッセージを消してしまうことはない。
+     */
+    protected updateDefaultFooterHint(): void {
+        const current = this.footer.textContent;
+        if (current !== TIMELINE_FOOTER_DEFAULT_HINT && current !== TIMELINE_FOOTER_EMPTY_HINT) {
+            return;
+        }
+        const next = this.displayTimelineTracks.length === 0
+            ? TIMELINE_FOOTER_EMPTY_HINT : TIMELINE_FOOTER_DEFAULT_HINT;
+        if (current !== next) {
+            this.footer.textContent = next;
+        }
+    }
+
     protected renderStrip(): void {
         this.hoverSeek.style.display = 'none';
         // 同期描画が別経路で走ったら、次フレームに予約済みの重複描画は 1 回ぶん省く。
@@ -6662,6 +6734,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.calculateLaneLayout(centerGapPx);
             stripHeight = stackHeight + centerGapPx * 2;
         }
+        this.updateDefaultFooterHint();
         const beatsBandTop = this.laneLayout.beats.top;
         const beatsBandHeight = this.laneLayout.beats.height;
 

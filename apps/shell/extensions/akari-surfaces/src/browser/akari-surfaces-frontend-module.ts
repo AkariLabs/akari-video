@@ -15,12 +15,23 @@ import { AkariModeSwitchContribution } from './akari-mode-switch-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
 import { AkariProjectLauncherCommandContribution } from './akari-project-launcher-dialog';
 import { AkariPreferenceContribution } from './akari-preferences';
-import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
 import { AkariWelcomeWindowTitleContribution } from './akari-welcome-window-title-contribution';
 import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../common/akari-new-project-protocol';
 
+import { AkariSettingsCommandContribution } from './akari-settings-dialog';
+import { AkariSettingsDialogStyleContribution } from './style/akari-settings-dialog-style';
+import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+
 export default new ContainerModule(bind => {
+    bind(AkariConnectionsService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_CONNECTIONS_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(AkariSettingsCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariSettingsCommandContribution);
+    bind(AkariSettingsDialogStyleContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariSettingsDialogStyleContribution);
+
     bind(AkariModeSwitchContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariModeSwitchContribution);
     bind(CommandContribution).toService(AkariModeSwitchContribution);
@@ -68,15 +79,6 @@ export default new ContainerModule(bind => {
     // 「ホーム」になってしまう。akari-welcome-window-title-contribution.ts 参照）。
     bind(AkariWelcomeWindowTitleContribution).toSelf().inSingletonScope();
     bind(WindowTitleContribution).toService(AkariWelcomeWindowTitleContribution);
-
-    // akari-shell-strip registers the same factory id for its Wave 0 placeholder.
-    // WidgetManager builds a Map in contribution order, so this later registration
-    // deliberately overwrites that entry without editing the owner extension.
-    bind(AkariSettingsWidget).toSelf();
-    bind(WidgetFactory).toDynamicValue(ctx => ({
-        id: AkariSettingsWidget.ID,
-        createWidget: () => ctx.container.get(AkariSettingsWidget)
-    })).inSingletonScope();
 
     bind(AkariSurfaceOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariSurfaceOpenHandler);

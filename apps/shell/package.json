@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.52",
+  "version": "0.1.55",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -193,6 +193,16 @@
           "bin/**/*",
           "src/**/*",
           "generated/**/*"
+        ]
+      },
+      {
+        "from": "../../skills/analyze-footage/bin",
+        "to": "skills/analyze-footage/bin",
+        "filter": [
+          "transcribe-sa.mjs",
+          "transcribe-cloud.mjs",
+          "is-main-module.mjs",
+          "speechanalyzer-helper.swift"
         ]
       },
       {

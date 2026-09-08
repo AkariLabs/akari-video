@@ -1,3 +1,4 @@
+import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
 import { injectable } from '@theia/core/shared/inversify';
@@ -10,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     AkariProjectService,
+    TranscribeArtifactRequest, TranscribeArtifacts, WriteCutsSelectionRequest, MaterialTranscriptEvent,
     TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
@@ -867,27 +869,211 @@ try {
     async transcribeMaterial(request: TranscribeMaterialRequest): Promise<void> {
         const target = await this.materialTarget(request.projectRoot, request.relativePath);
         if (this.transcriptions.has(target.path)) throw new Error('この素材は文字起こしを実行中です');
+        const selected = [...new Set(request.compareSet ?? [])];
+        const backends = selected.length ? selected : [request.backend ?? 'auto'];
+        if (backends.some(backend => !/^(auto|speech-analyzer|whisper-cpp|cloud:[A-Za-z0-9_-]+)$/.test(backend))) {
+            throw new Error('文字起こしエンジンが不正です');
+        }
         this.transcriptions.add(target.path);
-        const publish = async (status: string, error?: string): Promise<void> => {
+        const publish = async (status: MaterialTranscriptEvent['status'], stage: MaterialTranscriptEvent['stage'],
+            backend?: string, error?: string, elapsed_sec?: number): Promise<void> => {
             const id = this.eventId('material-transcript');
             await this.writeJsonAtomic(join(target.root, '.akari/events', `${id}.json`), {
-                version: 1, id, type: 'material-transcript', relativePath: target.relativePath, status, error
-            });
+                version: 1, id, type: 'material-transcript', relativePath: target.relativePath,
+                status, stage, backend, error, elapsed_sec
+            }).catch(error => console.warn('[akari-project] transcript event:', error));
         };
-        let failure: Error | undefined;
+        const failures: string[] = [];
         try {
             const cli = await this.findMediaTool('media');
-            await publish('running').catch(error => console.warn('[akari-project] transcript event:', error));
-            const result = await this.runNodeScript(cli, ['transcribe', target.relativePath], target.root);
-            if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
+            const results = await Promise.all(backends.map(async backend => {
+                const started = Date.now();
+                await publish('running', 'transcribing', backend);
+                try {
+                    // media.mjs has no --approved option. Its runCloud delegates to the existing
+                    // transcribe-cloud.mjs --send --approved path; gate entry here, before spawn.
+                    if (backend.startsWith('cloud:') && request.approved !== true) throw new Error('音声送信の承認がありません');
+                    const result = await this.runNodeScript(cli, ['transcribe', target.relativePath,
+                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root);
+                    if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
+                    if (backends.length > 1) await publish('completed', 'completed', backend, undefined, (Date.now() - started) / 1000);
+                    return { backend, stdout: result.stdout };
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    failures.push(`${backend}: ${message}`);
+                    if (backends.length > 1) await publish('failed', 'failed', backend, message);
+                    return undefined;
+                }
+            }));
+            const completed = results.filter((result): result is NonNullable<typeof result> => !!result);
+            // Each CLI writes analysis under its own lock. Once all writers have finished,
+            // retain the first selected engine's normalized (word-book processed) CLI result.
+            if (backends.length > 1 && results[0]) {
+                const baseline = results[0].stdout.trim().split('\n').flatMap(line => {
+                    try { const value = JSON.parse(line); return Array.isArray(value.segments) ? [value.segments] : []; }
+                    catch { return []; }
+                }).pop();
+                if (baseline) {
+                    const importModule = new Function('url', 'return import(url)');
+                    const record = await importModule(pathToFileURL(resolve(dirname(cli), '../src/media/record.mjs')).href);
+                    await record.updateAnalysisTranscript({ projectRoot: target.root, projectRelative: target.relativePath }, () => baseline);
+                }
+            }
+            const generate = async (stage: 'diffing' | 'cutting', args: string[]): Promise<void> => {
+                await publish('running', stage);
+                const result = await this.runNodeScript(cli, args, target.root);
+                if (result.code !== 0) {
+                    const message = result.stderr.trim() || `${stage} に失敗しました`;
+                    failures.push(message);
+                    await publish('failed', stage, undefined, message);
+                } else await publish('completed', stage);
+            };
+            if (completed.length >= 2) await generate('diffing', ['transcribe-diff', target.relativePath,
+                '--engines', completed.map(result => result.backend.replace(/:/g, '-')).join(',')]);
+            if (request.autoCuts && completed.length) await generate('cutting', ['transcribe-cuts', target.relativePath]);
         } catch (error) {
-            failure = error instanceof Error ? error : new Error(String(error));
+            failures.push(error instanceof Error ? error.message : String(error));
         } finally {
+            await publish(failures.length ? 'failed' : 'completed', 'completed', undefined, failures.join(' / ') || undefined);
             this.transcriptions.delete(target.path);
         }
-        await publish(failure ? 'failed' : 'completed', failure?.message)
-            .catch(error => console.warn('[akari-project] transcript event:', error));
-        if (failure) throw failure;
+        if (failures.length) throw new Error(failures.join(' / '));
+    }
+
+    /** Check every existing ancestor, including sidecars and symlinks, before reading/writing. */
+    protected async transcribeFile(root: string, relativePath: string): Promise<string> {
+        const destination = resolve(root, relativePath);
+        let current = destination;
+        for (;;) {
+            const real = await fs.realpath(current).catch(error => {
+                if (error.code === 'ENOENT') return undefined;
+                throw error;
+            });
+            if (real) {
+                const rel = relative(root, real);
+                if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('プロジェクト外のファイルは扱えません');
+                break;
+            }
+            if (dirname(current) === current) throw new Error('パスが不正です');
+            current = dirname(current);
+        }
+        return destination;
+    }
+
+    async readTranscribeArtifacts(request: TranscribeArtifactRequest): Promise<TranscribeArtifacts> {
+        const target = await this.materialTarget(request.projectRoot, request.relativePath);
+        const directory = `.akari/sidecars/${target.relativePath}.analysis`;
+        const read = async (name: string): Promise<any> => {
+            const file = await this.transcribeFile(target.root, `${directory}/${name}`);
+            try { return JSON.parse(await fs.readFile(file, 'utf8')); }
+            catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+        };
+        const transcriptsPath = await this.transcribeFile(target.root, `${directory}/transcripts`);
+        const names = await fs.readdir(transcriptsPath).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+        const transcripts = await Promise.all(names.filter(name => /^[A-Za-z0-9_-]+\.json$/.test(name)).sort()
+            .map(name => read(`transcripts/${name}`)));
+        return { transcripts: transcripts.filter(Boolean).map(({ backend, generated_at, elapsed_sec, cost_usd, segments }) =>
+            ({ backend, generated_at, elapsed_sec, cost_usd, segments })), diff: await read('diff.json'), cuts: await read('cuts.json') };
+    }
+
+    protected readonly transcribeWrites = new Map<string, Promise<unknown>>();
+    protected async serializeTranscribeWrite<T>(key: string, action: () => Promise<T>): Promise<T> {
+        const previous = this.transcribeWrites.get(key) ?? Promise.resolve();
+        const next = previous.catch(() => undefined).then(action);
+        this.transcribeWrites.set(key, next);
+        try { return await next; } finally { if (this.transcribeWrites.get(key) === next) this.transcribeWrites.delete(key); }
+    }
+
+    async writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void> {
+        const target = await this.materialTarget(request.projectRoot, request.relativePath);
+        await this.serializeTranscribeWrite(target.root, async () => {
+            if (!request.on || Object.values(request.on).some(value => typeof value !== 'boolean')) throw new Error('採否は真偽値で指定してください');
+            const file = await this.transcribeFile(target.root, `.akari/sidecars/${target.relativePath}.analysis/cuts.json`);
+            const original = await fs.readFile(file, 'utf8');
+            const cuts = JSON.parse(original);
+            for (const candidate of cuts.candidates) {
+                if (Object.prototype.hasOwnProperty.call(request.on, candidate.id)) candidate.on = request.on[candidate.id];
+            }
+            if (await fs.readFile(file, 'utf8') !== original) throw new Error('候補が更新されました。もう一度選択してください');
+            await this.writeJsonAtomic(file, cuts);
+        });
+    }
+
+    async applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }> {
+        const target = await this.materialTarget(request.projectRoot, request.relativePath);
+        return this.serializeTranscribeWrite(target.root, async () => {
+            const { cuts } = await this.readTranscribeArtifacts(request);
+            const candidates = cuts?.candidates.filter(candidate => candidate.on === true) ?? [];
+            if (!candidates.length) return { changed: false };
+            const file = await this.transcribeFile(target.root, 'edit.json');
+            const original = await fs.readFile(file, 'utf8');
+            const edit = JSON.parse(original);
+            const source = edit.version === 0 ? edit.source : edit.sources?.find((item: { path: string }) => item.path === target.relativePath);
+            if (!source || source.path !== target.relativePath) throw new Error('edit.json に対象素材がありません');
+            const ranges = candidates.map(candidate => ({ in: candidate.start, out: candidate.end, kind: 'row' as const, captionId: source.id }));
+            // cuts are retained ranges, not deletion records. Add boundaries by splitting the
+            // selected source only. Reapplying the same source ranges cannot cut them twice.
+            let next: string;
+            if (edit.version === 2) {
+                const matches = edit.tracks.some((track: any) => track.items?.some((item: any) => item.source?.src === source.id));
+                if (!matches) return { changed: false };
+                next = original;
+                for (const range of ranges) {
+                    const current = JSON.parse(next);
+                    // The shared kernel falls back to all sources when captionId is absent.
+                    // Once the last item for this source has gone, never take that fallback.
+                    if (!current.tracks.some((track: any) => track.items?.some((item: any) => item.source?.src === source.id))) break;
+                    next = applyCutRanges(next, [range]).source;
+                }
+                readEditV2(JSON.parse(next));
+            } else {
+                let existing = edit.cuts ?? [];
+                if (!existing.length && (edit.version === 0 || edit.sources.length === 1)) {
+                    const cli = await this.findMediaTool('media');
+                    const probe = await this.runNodeScript(cli, ['probe', target.relativePath, '--no-record'], target.root);
+                    if (probe.code !== 0) throw new Error(probe.stderr.trim() || '素材の尺を取得できません');
+                    const duration = JSON.parse(probe.stdout.trim()).duration_s;
+                    if (!Number.isFinite(duration) || duration <= 0) throw new Error('素材の尺が不正です');
+                    existing = [{ ...(edit.version === 1 ? { src: source.id } : {}), in: 0, out: duration }];
+                }
+                for (const range of ranges) {
+                    if (!Number.isFinite(range.in) || !Number.isFinite(range.out) || range.in < 0 || range.out <= range.in) throw new Error('カット範囲が不正です');
+                }
+                if (!existing.some((cut: any) => edit.version === 0 || cut.src === source.id)) throw new Error('対象素材のタイムライン区間がありません');
+                edit.cuts = existing.flatMap((cut: any) => {
+                    if (edit.version !== 0 && cut.src !== source.id) return [cut];
+                    let pieces = [{ ...cut }];
+                    for (const range of ranges) {
+                        pieces = pieces.flatMap(piece => {
+                            const start = Math.max(piece.in, range.in), end = Math.min(piece.out, range.out);
+                            if (end <= start) return [piece];
+                            return [
+                                ...(start > piece.in ? [{ ...piece, out: start }] : []),
+                                ...(end < piece.out ? [{ ...piece, in: end }] : [])
+                            ];
+                        });
+                    }
+                    if (typeof cut.at === 'number') {
+                        let cursor = cut.at;
+                        for (const piece of pieces) { piece.at = cursor; cursor += (piece.out - piece.in) / (cut.speed ?? 1); }
+                    }
+                    return pieces;
+                });
+                if (edit.version === 0 && !edit.cuts.length) throw new Error('素材全体を除くカットは追加できません');
+                next = JSON.stringify(edit, null, 2) + '\n';
+            }
+            if (JSON.stringify(JSON.parse(original)) === JSON.stringify(JSON.parse(next))) return { changed: false };
+            const temporary = `${file}.transcribe-${this.eventId('cuts')}.tmp`;
+            try {
+                await fs.writeFile(temporary, next, 'utf8');
+                const cli = await this.findMediaTool('media');
+                const validator = resolve(dirname(cli), '../../schemas/bin/validate-edit.mjs');
+                await execFileAsync(process.execPath, [validator, temporary], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
+                if (await fs.readFile(file, 'utf8') !== original) throw new Error('edit.json が変更されました。もう一度実行してください');
+                await fs.rename(temporary, file);
+            } finally { await fs.rm(temporary, { force: true }); }
+            return { changed: true };
+        });
     }
 
     async buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult> {
@@ -898,7 +1084,8 @@ try {
             : sources.find(item => item.id === request.source);
         if (!source) throw new Error(`素材を選んでください: ${sources.map(item => item.id).join(', ')}`);
         await this.materialTarget(root, source.path);
-        if (request.transcribeFirst) await this.transcribeMaterial({ projectRoot: root, relativePath: source.path });
+        if (request.transcribeFirst) await this.transcribeMaterial({ projectRoot: root, relativePath: source.path,
+            backend: request.backend, compareSet: request.compareSet, autoCuts: request.autoCuts, approved: request.approved });
         const cli = await this.findMediaTool('captions');
         const result = await this.runNodeScript(cli, [root, '--source', source.id, ...(request.force ? ['--force'] : [])], root);
         return interpretCaptionsResult(result.code, result.stdout, result.stderr);

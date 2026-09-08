@@ -343,7 +343,11 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     path.join('packages', 'preview-server', 'src', 'server.mjs'),
     path.join('packages', 'preview-server', 'public', 'index.html'),
     path.join('packages', 'preview-server', 'public', 'app.js'),
-    path.join('packages', 'preview-server', 'public', 'frame-engine.bundle.js')
+    path.join('packages', 'preview-server', 'public', 'frame-engine.bundle.js'),
+    // 文字起こしの実装は Node 子プロセスから起動するため extraResources（asar 外）が必要。
+    path.join('skills', 'analyze-footage', 'bin', 'transcribe-sa.mjs'),
+    path.join('skills', 'analyze-footage', 'bin', 'transcribe-cloud.mjs'),
+    path.join('packages', 'akari-launcher', 'vendor', 'skills', 'analyze-footage', 'bin', 'transcribe-sa.mjs')
   ];
   for (const relative of analysisReportRuntimeFiles) {
     const exists = await stat(path.join(resourcesDir, relative)).then(s => s.isFile(), () => false);

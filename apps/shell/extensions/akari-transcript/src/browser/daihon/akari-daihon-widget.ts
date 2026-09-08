@@ -1,10 +1,13 @@
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { handEditedLines } from '../../common/cuts-view';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { captionsButtonLabel } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService } from '@theia/core/lib/common';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { BaseWidget, ApplicationShell, OpenerService } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -21,6 +24,7 @@ import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-anno
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
+import { shouldUseKaraokeWords } from '../../common/karaoke-words';
 import { planDaihonUpdate, planHighlight } from '../../common/daihon-reconcile';
 import {
     buildDaihonRows,
@@ -205,6 +209,11 @@ export class AkariDaihonWidget extends BaseWidget {
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
 
+    @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(ApplicationShell) protected readonly applicationShell!: ApplicationShell;
+    @inject(OpenerService) protected readonly opener!: OpenerService;
+    protected readonly handEditedCaptionIds = new Set<string>();
+
     @inject(QuickPickService)
     protected readonly quickPick!: QuickPickService;
 
@@ -246,7 +255,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.title.label = '台本';
         this.title.caption = '字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）';
         this.title.iconClass = 'codicon codicon-list-selection';
-        this.title.closable = true;
+        this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-daihon-widget');
         this.node.setAttribute('data-akari-ui', 'panel:daihon');
         this.node.setAttribute('data-akari-ui-label', '台本');
@@ -356,6 +365,10 @@ export class AkariDaihonWidget extends BaseWidget {
         this.toDispose.push({ dispose: () => document.removeEventListener('click', closePopFromOutside) });
     }
 
+    showError(error: unknown): void {
+        this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
+    }
+
     async configure(): Promise<void> {
         if (this.configured) return;
         this.configured = true;
@@ -371,7 +384,8 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.reload();
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const relevant = (this.editUri && event.contains(this.editUri))
-                || (this.captionsUri && event.contains(this.captionsUri));
+                || (this.captionsUri && event.contains(this.captionsUri))
+                || event.changes.some(change => change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
             if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
             }
@@ -438,12 +452,22 @@ export class AkariDaihonWidget extends BaseWidget {
             const states = await this.projectService.transcriptStates({ projectRoot, relativePaths: [source.path] });
             if (states[source.path] === 'running') { this.notify('素材の処理が終わってから実行してください'); return; }
             this.captionsButton.textContent = '字幕を作成中…';
-            const request = { projectRoot, source: source.id, transcribeFirst: states[source.path] !== 'done' };
+            let stopListening: (() => void) | undefined;
+            const dialog = new AkariTranscribeDialog(this.editUri.parent, source.path, this.preferences,
+                this.projectService, this.fileService, this.commands, async (start, end) => {
+                    stopListening?.();
+                    stopListening = await listenTranscribeRange(this.commands, this.applicationShell, this.opener,
+                        this.editUri!.parent.resolve(source.path).normalizePath().toString(), start, end);
+                    if (dialog.isDisposed) stopListening();
+                }, states[source.path] === 'done');
+            const options = await dialog.open().finally(() => stopListening?.());
+            if (!options) return;
+            const request = { projectRoot, source: source.id, ...options };
             const result = await this.projectService.buildCaptions(request);
             if (result.needsForce) {
                 const confirmed = await new ConfirmDialog({ title: '字幕を作る', msg: '手直し済みの字幕があります。上書きしますか', ok: '上書きする', cancel: 'キャンセル' }).open();
                 if (!confirmed) return;
-                await this.projectService.buildCaptions({ ...request, force: true, transcribeFirst: false });
+                await this.projectService.buildCaptions({ ...request, force: true });
             }
             await this.reload();
         } catch (error) {
@@ -476,7 +500,16 @@ export class AkariDaihonWidget extends BaseWidget {
             );
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
+            this.handEditedCaptionIds.clear();
+            for (const source of await this.captionSources()) {
+                const artifacts = await this.projectService.readTranscribeArtifacts({ projectRoot: this.editUri.parent.toString(), relativePath: source.path })
+                    .catch(error => { this.notify(`カット候補の印を読み取れません: ${this.errorMessage(error)}`); return undefined; });
+                for (const line of handEditedLines(artifacts?.cuts ?? null)) {
+                    const caption = captions[line - 1]; if (caption) this.handEditedCaptionIds.add(caption.id);
+                }
+            }
             this.renderRows(next);
+            for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
             this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
@@ -590,6 +623,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const root = document.createElement('div');
         root.className = 'akari-daihon-row';
         root.dataset.captionId = row.id;
+        if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
         root.classList.toggle('iscut', row.outStart === null);
         root.classList.toggle('selected', this.selection.selected.includes(row.id));
         root.classList.toggle('qc-hidden', this.qcFilter && rowIssues(row).length === 0);
@@ -633,15 +667,18 @@ export class AkariDaihonWidget extends BaseWidget {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-qc';
             badge.textContent = issue.label;
-            badge.title = issue.label;
+            badge.title = issue.kind === 'karaoke-unhealthy'
+                ? `${issue.label} — 古い文字起こしデータの可能性があります。文字起こしをやり直すと直ります`
+                : issue.label;
             head.appendChild(badge);
         }
 
         const text = document.createElement('div');
         text.className = 'akari-daihon-row-text';
         const words: HTMLSpanElement[] = [];
-        const unknowns = placeUnrecognized(row.words, row.unrecognized);
-        if (row.words) {
+        const useKaraokeWords = shouldUseKaraokeWords(row.text, row.words);
+        const unknowns = placeUnrecognized(useKaraokeWords ? row.words : null, row.unrecognized);
+        if (row.words && useKaraokeWords) {
             row.words.forEach((word, index) => {
                 if (row.fragmentBreakWordIndex === index) text.appendChild(this.slash());
                 for (const placement of unknowns.filter(item => item.beforeWordIndex === index)) {
@@ -670,7 +707,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else {
             const span = this.word('', 0);
-            const split = row.fragmentBreakWordIndex;
+            const split = row.words?.length ? null : row.fragmentBreakWordIndex;
             if (split !== null) {
                 span.append(document.createTextNode(row.text.slice(0, split)), this.slash(), document.createTextNode(row.text.slice(split)));
             } else {
@@ -680,7 +717,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 event.stopPropagation();
                 void this.seek(row.outStart);
             });
-            words.push(span);
+            // 不一致の words の時刻で本文にカラオケ強調を付けない。
+            if (!row.words?.length) words.push(span);
             text.appendChild(span);
             for (const placement of unknowns) text.appendChild(this.unkChip(placement.span, row));
         }

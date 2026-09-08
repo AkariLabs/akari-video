@@ -1,0 +1,81 @@
+{
+  "scenario": "missing-source-before",
+  "workspace": "/tmp/cuts-lane/l1/ws-broken",
+  "steps": [
+    {
+      "step": "startup-raw",
+      "state": {
+        "rightTabs": [
+          "注釈",
+          "パートナーを追加",
+          "台本"
+        ],
+        "rightDockActive": [
+          "パートナーを追加"
+        ],
+        "preloadVisible": true,
+        "cutsWidgetPresent": false,
+        "cutsWidgetVisible": false
+      },
+      "screenshot": "00-startup-raw.png"
+    },
+    {
+      "step": "startup",
+      "state": {
+        "rightTabs": [
+          "注釈",
+          "パートナーを追加",
+          "台本"
+        ],
+        "rightDockActive": [
+          "パートナーを追加"
+        ],
+        "preloadVisible": true,
+        "cutsWidgetPresent": false,
+        "cutsWidgetVisible": false
+      },
+      "screenshot": "01-startup-cuts-tab.png"
+    }
+  ],
+  "pid": 30608,
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=51696#<SCRATCH>/cuts-lane/l1/ws-broken",
+  "reachedReady": false,
+  "startupFailedInLog": true,
+  "menu": {
+    "menuTabFound": true,
+    "rowLabels": [
+      "タイムライン",
+      "文字起こし",
+      "ホーム",
+      "セットアップ",
+      "プロジェクト・ランチャー",
+      "変更を見る",
+      "ブラウザプレビュー",
+      "書き出し…",
+      "不要なデータを整理…"
+    ],
+    "clicked": false
+  },
+  "stateAtStartup": {
+    "rightTabs": [
+      "注釈",
+      "パートナーを追加",
+      "台本"
+    ],
+    "rightDockActive": [
+      "パートナーを追加"
+    ],
+    "preloadVisible": true,
+    "cutsWidgetPresent": false,
+    "cutsWidgetVisible": false
+  },
+  "logHasFailedToStart": true,
+  "logHasReady": false,
+  "logStateLines": [
+    "2026-09-08T07:37:16.780Z root INFO Changed application state from 'init' to 'started_contributions'.",
+    "2026-09-08T07:37:16.785Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.",
+    "2026-09-08T07:37:16.987Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.",
+    "2026-09-08T07:37:20.670Z root ERROR Failed to start the frontend application.",
+    "2026-09-08T07:37:20.671Z root ERROR Error: ENOENT: no such file or directory, realpath '<SCRATCH>/cuts-lane/l1/ws-broken/assets/missing.mp4'"
+  ]
+}

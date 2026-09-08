@@ -6,6 +6,7 @@ import { AkariTranscriptContribution } from './akari-transcript-contribution';
 import { AkariTranscriptSeekService } from './akari-transcript-seek-service';
 import { AkariTranscriptWidget } from './akari-transcript-widget';
 import { AkariDaihonContribution } from './daihon/akari-daihon-contribution';
+import { AkariCutsWidget } from './daihon/akari-cuts-widget';
 import { AkariDaihonWidget } from './daihon/akari-daihon-widget';
 
 export default new ContainerModule(bind => {
@@ -28,6 +29,11 @@ export default new ContainerModule(bind => {
     bind(OpenHandler).toService(AkariTranscriptContribution);
     bind(CommandContribution).toService(AkariTranscriptContribution);
 
+    bind(AkariCutsWidget).toSelf().inSingletonScope();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariCutsWidget.FACTORY_ID,
+        createWidget: () => context.container.get(AkariCutsWidget)
+    })).inSingletonScope();
     bind(AkariDaihonWidget).toSelf().inSingletonScope();
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariDaihonWidget.FACTORY_ID,

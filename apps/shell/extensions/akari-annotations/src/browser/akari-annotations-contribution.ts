@@ -22,6 +22,7 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     ADD_MATERIAL_AT_PLAYHEAD,
+    ADD_MATERIAL_AT_POINT,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_CANVAS,
@@ -65,8 +66,12 @@ const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
 const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
 // Keep in sync with AkariAudioMeterWidget.FACTORY_ID without importing the preview browser module.
 const AUDIO_METER_WIDGET_ID = 'akari-audio-meter-widget';
-// 縦アイコンバー固定配置（task.md 指示2）: 注釈を AI とインスペクターの間の rank に置く。
-const REVIEW_PANEL_RANK = 150;
+// Keep in sync with AkariDaihonWidget.FACTORY_ID without importing the transcript browser module.
+const DAIHON_WIDGET_ID = 'akari-daihon-widget';
+// Keep in sync with AkariCutsWidget.FACTORY_ID without importing the transcript browser module.
+const CUTS_WIDGET_ID = 'akari-cuts-widget';
+// 右ドック固定配置: 注釈をカットとインスペクターの間の rank に置く。
+const REVIEW_PANEL_RANK = 195;
 const INSPECTOR_PANEL_RANK = 200;
 // Theia の SidePanelHandler.setLayoutData()（node_modules/@theia/core 実装を実測）は保存済み
 // レイアウトのタブ順をそのまま tabBar.addTab() で再生するだけで、rank による再ソートをしない。
@@ -74,8 +79,9 @@ const INSPECTOR_PANEL_RANK = 200;
 // 並びが崩れる（reconcileRightPanelOrder で起動のたびに明示的に揃え直す）。
 const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
     PARTNER_WIDGET_ID,
+    DAIHON_WIDGET_ID,
+    CUTS_WIDGET_ID,
     AkariReviewPanelWidget.FACTORY_ID,
-    'akari-daihon-widget',
     AkariInspectorWidget.FACTORY_ID,
     AUDIO_METER_WIDGET_ID
 ];
@@ -231,6 +237,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ADD_MATERIAL_AT_PLAYHEAD, {
             execute: (request: unknown) => this.addMaterialAtPlayhead(request)
+        });
+        commands.registerCommand(ADD_MATERIAL_AT_POINT, {
+            execute: (request: unknown) => this.addMaterialAtPoint(request)
         });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
@@ -535,6 +544,33 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             return;
         }
         await widget.addMaterialAtPlayhead(relativePath, kind);
+    }
+
+    /**
+     * ドロップ座標つき素材追加コマンド（ADD_MATERIAL_AT_POINT）の受け側
+     * （task 2026-09-08-timeline-file-drop 指示6）。受け方は addMaterialAtPlayhead と同じ流儀 —
+     * widget が未オープンなら `open()` で開いてから委譲し、relativePath / kind の型検証は widget 側に任せる。
+     * 座標だけはここで検証する（無いと「落とした位置」が決まらないため。不正なら warn 1 文で終わり）。
+     */
+    protected async addMaterialAtPoint(request: unknown): Promise<void> {
+        const payload = request as {
+            relativePath?: unknown; kind?: unknown; clientX?: unknown; clientY?: unknown;
+        } | undefined;
+        const relativePath = typeof payload?.relativePath === 'string' ? payload.relativePath : '';
+        const kind = typeof payload?.kind === 'string' ? payload.kind : '';
+        const clientX = payload?.clientX;
+        const clientY = payload?.clientY;
+        if (typeof clientX !== 'number' || !Number.isFinite(clientX)
+            || typeof clientY !== 'number' || !Number.isFinite(clientY)) {
+            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+            return;
+        }
+        const widget = await this.open();
+        if (!widget) {
+            this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
+            return;
+        }
+        await widget.addMaterialAtPoint(relativePath, kind, clientX, clientY);
     }
 
     /**

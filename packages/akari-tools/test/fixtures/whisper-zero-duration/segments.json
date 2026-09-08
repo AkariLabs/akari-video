@@ -1,0 +1,36 @@
+{
+  "transcription": [
+    {
+      "offsets": { "from": 180, "to": 4280 },
+      "text": "オス!AIで有意義な暮らしを作るエンジニアリョーマです",
+      "tokens": [
+        { "text": "[_BEG_]", "offsets": { "from": 180, "to": 180 } },
+        { "text": "オ", "offsets": { "from": 180, "to": 180 } },
+        { "text": "ス", "offsets": { "from": 230, "to": 260 } },
+        { "text": "!", "offsets": { "from": 260, "to": 260 } },
+        { "text": "AIで有", "offsets": { "from": 730, "to": 1070 } },
+        { "text": "意", "offsets": { "from": 1070, "to": 1070 } },
+        { "text": "義な暮らしを作るエンジニアリョーマです", "offsets": { "from": 1390, "to": 4280 } },
+        { "text": "[_TT_428]", "offsets": { "from": 4280, "to": 4280 } }
+      ]
+    },
+    {
+      "offsets": { "from": 4280, "to": 7060 },
+      "text": "ということで今日もやっていきたいと思います",
+      "tokens": [
+        { "text": "ということで今日", "offsets": { "from": 4830, "to": 5160 } },
+        { "text": "も", "offsets": { "from": 5160, "to": 5160 } },
+        { "text": "やっていきたいと思います", "offsets": { "from": 5490, "to": 7050 } }
+      ]
+    },
+    {
+      "offsets": { "from": 7060, "to": 12100 },
+      "text": "初心者でもわかるクロードコード活用編ということで",
+      "tokens": [
+        { "text": "初心者でもわかるクロードコード活用編", "offsets": { "from": 7110, "to": 11190 } },
+        { "text": "ということで", "offsets": { "from": 12100, "to": 12100 } },
+        { "text": "[_EOT_]", "offsets": { "from": 12100, "to": 12100 } }
+      ]
+    }
+  ]
+}

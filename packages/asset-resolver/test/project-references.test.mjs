@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
@@ -57,11 +57,13 @@ test('resolveLibraryFallback accepts only a declared regular file inside the lib
   await writeFile(file, 'frame', 'utf8');
   const references = [{ id: 'card', category: 'still' }];
 
+  // resolveLibraryFallback は symlink 脱出を塞ぐため realpath を返す。macOS の os.tmpdir() は
+  // /var/folders/... （/private/var/... への symlink）なので、期待値も同じ正規化を通す。
   assert.equal(resolveLibraryFallback({
     declaredPath: 'assets/still/card/nested/frame.png',
     references,
     akariAssetsDir: assetsDir,
-  }), file);
+  }), realpathSync(file));
   assert.equal(resolveLibraryFallback({
     declaredPath: 'assets/still/card/../../outside.png',
     references,

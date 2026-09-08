@@ -1,0 +1,276 @@
+{
+  "started_at": "2026-09-08T03:37:53.760Z",
+  "steps": [
+    {
+      "step": "00-cdp-port",
+      "portUp": true,
+      "waitedMs": "up to 120000"
+    },
+    {
+      "step": "01-ready",
+      "button": {
+        "text": "文字起こしして字幕を作る",
+        "disabled": false
+      },
+      "cutsWidget": true,
+      "tabs": [
+        "素材",
+        "検索",
+        "パートナー / 拡張",
+        "設定",
+        "メニュー",
+        "素材",
+        "検索",
+        "パートナー / 拡張",
+        "設定",
+        "メニュー",
+        "設定",
+        "素材",
+        "検索",
+        "パートナー / 拡張",
+        "メニュー",
+        "ホーム",
+        "zsh",
+        "Problems",
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "カット",
+        "パートナーを追加",
+        "注釈",
+        "台本",
+        "カット",
+        "注釈",
+        "パートナーを追加",
+        "カット",
+        "台本"
+      ]
+    },
+    {
+      "step": "01b-daihon-tab",
+      "found": true,
+      "x": 1096,
+      "y": 362
+    },
+    {
+      "step": "02a-button-rect",
+      "x": 836.3984375,
+      "y": 65,
+      "visible": true
+    },
+    {
+      "step": "1",
+      "open": true,
+      "steps": [
+        {
+          "label": "1 エンジン",
+          "disabled": false,
+          "dashed": false
+        },
+        {
+          "label": "2 起こす",
+          "disabled": true,
+          "dashed": false
+        },
+        {
+          "label": "3 差分",
+          "disabled": true,
+          "dashed": false
+        },
+        {
+          "label": "4 注釈・辞書〔先〕",
+          "disabled": true,
+          "dashed": true
+        },
+        {
+          "label": "5 まとめ〔先〕",
+          "disabled": true,
+          "dashed": true
+        },
+        {
+          "label": "› 字幕へ",
+          "disabled": true,
+          "dashed": false
+        }
+      ],
+      "cards": [
+        {
+          "backend": "speech-analyzer",
+          "compare": true
+        },
+        {
+          "backend": "whisper-cpp",
+          "compare": true
+        },
+        {
+          "backend": "cloud:scribe",
+          "compare": false
+        },
+        {
+          "backend": "cloud:groq",
+          "compare": false
+        }
+      ]
+    },
+    {
+      "step": "column-filled",
+      "backend": "speech-analyzer",
+      "at": "2026-09-08T03:38:22.577Z",
+      "order": [
+        "speech-analyzer"
+      ]
+    },
+    {
+      "step": "column-filled",
+      "backend": "whisper-cpp",
+      "at": "2026-09-08T03:38:28.564Z",
+      "order": [
+        "speech-analyzer",
+        "whisper-cpp"
+      ]
+    },
+    {
+      "step": "05-step3-auto-switch",
+      "autoSwitched": true,
+      "head": [
+        "時刻",
+        "speech-analyzer",
+        "whisper-cpp",
+        "人の手"
+      ],
+      "rows": 5,
+      "summary": "差分 5 件 · 一致 91%"
+    },
+    {
+      "step": "column-fill-order",
+      "order": [
+        "speech-analyzer",
+        "whisper-cpp"
+      ],
+      "step2seen": true
+    },
+    {
+      "step": "06-footer",
+      "found": true,
+      "label": "2 つとも残す（何もしない）",
+      "x": 252.5390625,
+      "y": 613.25
+    },
+    {
+      "step": "06b-cuts-tab-activated",
+      "activate": {
+        "found": true,
+        "x": 1096,
+        "y": 406
+      },
+      "cutsVisible": {
+        "w": 444,
+        "h": 603
+      }
+    },
+    {
+      "step": "07-cuts-initial",
+      "found": true,
+      "band": "フィラー 0 / 言い直し 0 / 無音 0 / 未認識 2 / 根拠: whisper-cpp",
+      "rows": [
+        {
+          "id": "unrecognized-13.0",
+          "on": false,
+          "text": "13.0–13.6 · 未認識（音声なし）未認識。決まるまで切らない",
+          "hand": false
+        },
+        {
+          "id": "unrecognized-23.8",
+          "on": false,
+          "text": "23.8–24.8 · 未認識（音声なし）未認識。決まるまで切らない",
+          "hand": false
+        }
+      ],
+      "footer": [
+        "切る 0 箇所・短くなる 0.0 秒"
+      ]
+    },
+    {
+      "step": "07b-toggle-target",
+      "id": "unrecognized-13.0",
+      "x": 660.5,
+      "y": 154.5,
+      "was": false,
+      "visible": true
+    },
+    {
+      "step": "08-cuts-after-toggle",
+      "toggled": "unrecognized-13.0",
+      "was": false,
+      "footerBefore": [
+        "切る 0 箇所・短くなる 0.0 秒"
+      ],
+      "footerAfter": [
+        "切る 1 箇所・短くなる 0.7 秒"
+      ],
+      "cutsJsonOn": [
+        {
+          "id": "unrecognized-13.0",
+          "on": true
+        },
+        {
+          "id": "unrecognized-23.8",
+          "on": false
+        }
+      ]
+    },
+    {
+      "step": "09-apply",
+      "notice": "タイムラインにカット点を入れました",
+      "editBefore": [
+        {
+          "src": "take",
+          "in": 0,
+          "out": 25
+        }
+      ],
+      "editAfter": [
+        {
+          "src": "take",
+          "in": 0,
+          "out": 12.96
+        },
+        {
+          "src": "take",
+          "in": 13.62,
+          "out": 25
+        }
+      ],
+      "captionsUnchanged": true
+    },
+    {
+      "0": {
+        "backend": "speech-analyzer",
+        "elapsed_sec": 9.53745,
+        "cost_usd": null,
+        "segments": 2
+      },
+      "1": {
+        "backend": "whisper-cpp",
+        "elapsed_sec": 15.446771,
+        "cost_usd": null,
+        "segments": 5
+      },
+      "step": "10-engine-transcripts"
+    },
+    {
+      "0": "transcribing/running/whisper-cpp",
+      "1": "transcribing/running/speech-analyzer",
+      "2": "completed/completed/speech-analyzer",
+      "3": "completed/completed/whisper-cpp",
+      "4": "diffing/running/-",
+      "5": "diffing/completed/-",
+      "6": "cutting/running/-",
+      "7": "cutting/completed/-",
+      "8": "completed/completed/-",
+      "step": "11-events"
+    }
+  ],
+  "ok": true,
+  "finished_at": "2026-09-08T03:38:40.734Z"
+}
