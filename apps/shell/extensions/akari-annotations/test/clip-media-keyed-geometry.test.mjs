@@ -26,10 +26,13 @@ test('再利用 cut は前回と異なるメディア幾何だけを既存ノー
   }
 
   const update = method('protected updateClipMediaGeometry(', 'protected renderSingleFrameFallback');
-  const widthGate = update.indexOf('MIN_CLIP_WIDTH_FOR_MEDIA_PX');
+  const mediaGate = update.indexOf('if (!canRenderClipMedia(');
   const mediaNodeCheck = update.indexOf(':scope > .akari-annotations-strip-clip-filmstrip');
   const layoutRead = update.indexOf('this.clipLocalGeometry');
-  assert.ok(widthGate >= 0 && widthGate < mediaNodeCheck && mediaNodeCheck < layoutRead);
+  assert.ok(mediaGate >= 0 && mediaGate < mediaNodeCheck && mediaNodeCheck < layoutRead,
+    '正のサイズと動画URIのゲート → メディアノード探索 → レイアウト読みの順に処理する');
+  assert.doesNotMatch(update, /MIN_CLIP_WIDTH_FOR_MEDIA_PX|MIN_TRACK_HEIGHT_FOR_MEDIA_PX/,
+    '極小帯・低トラック高を旧サイズゲートで早期 return しない');
   assert.ok(update.includes('!filmstrip && !canvas'));
   assert.ok(update.includes('sameClipMediaGeometry'));
   assert.ok(update.includes('this.renderFilmstripCells'));

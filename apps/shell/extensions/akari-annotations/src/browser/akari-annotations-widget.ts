@@ -81,6 +81,10 @@ import {
     waveformBucketForLocalPx,
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
+import {
+    canRenderClipMedia, clipWaveformBand, filmstripCellCount,
+    isMediaCacheFailure, MediaCacheFailure, mediaCacheRequestAttempt
+} from '../common/clip-media-policy';
 import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
 import { createRafThrottle } from './raf-throttle';
 import { createRevisionMemo } from './revision-memo';
@@ -934,12 +938,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
-    protected thumbnailCache = new Map<string, string | 'pending' | 'unavailable'>();
+    protected thumbnailCache = new Map<string, string | MediaCacheFailure>();
+    /** 各ノードが最後に参照した失敗だけを、次の描画要求で再試行判定する。 */
+    protected readonly clipMediaFailures = new WeakMap<HTMLDivElement, MediaCacheFailure[]>();
     /**
      * キーは `${videoUri}:${chunkIndex}`（素材 + ソース時間チャンク単位。クリップの
      * in/out は含まない — トリムしてもチャンクは再取得しない）。
      */
-    protected filmstripChunkCache = new Map<string, ClipFilmstripChunk | 'pending' | 'unavailable'>();
+    protected filmstripChunkCache = new Map<string, ClipFilmstripChunk | 'pending' | MediaCacheFailure>();
     protected filmstripContentRevision = 0;
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected readonly waveformTierCache = new AudioWaveformTierLru<
@@ -7108,10 +7114,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const media = layer.kind === 'video' ? this.videoLayerMedia(layer) : undefined;
             const clipWidth = stripLayoutWidthPx * Math.max(this.layoutPercent(end) - this.layoutPercent(layer.t), 0.3) / 100;
             const height = stride - SUBROW_GAP;
-            const mediaGate = clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
             const waveform = media && this.waveformCache.get(`${media.cut.src ?? ''}:${media.cut.in}:${media.cut.out}`);
             const { element, created } = this.keyedStripSegment(
-                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, mediaGate, height, Array.isArray(waveform) ? `ready:${waveform.length}` : waveform]), layer.t, end, top, height,
+                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, height, Array.isArray(waveform) ? `ready:${waveform.length}` : waveform]), layer.t, end, top, height,
                 media ? 'akari-annotations-strip-layer akari-annotations-strip-clip' : `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
@@ -7449,19 +7454,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const clipWidth = stripLayoutWidthPx * widthPercent / 100;
             const cutWaveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
             const cutTrimmerActive = this.trimmerItemId === segment.index;
-            const cutMediaGate = clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX
-                && cutLayout.height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX;
             // ズーム幾何（layoutViewDuration / stripLayoutWidthPx）とチャンク到着リビジョンは署名に入れない:
             // 再利用ノードは updateClipMediaGeometry が CSS / canvas だけを更新する（パンと同じ経路）。
             // 以前はズーム 1 イベントごとに全 cut チップ（フィルムストリップ最大 160 セル・波形 canvas・
             // ドラッグリスナー）を破棄・再生成していた。トリマー中の 1 本だけはウィング描画が幅依存なので
-            // 従来どおり幾何込みで作り直す。メディア表示のゲート境界（幅 / 高さ）を跨ぐときは作り直す。
+            // 従来どおり幾何込みで作り直す。
             const cutSignature = JSON.stringify([
                 cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
-                unsupportedDeclaredTransitions.has(segment.index),
-                cutMediaGate
+                unsupportedDeclaredTransitions.has(segment.index)
             ]);
             const { element, created } = this.keyedStripSegment(
                 `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,
@@ -9907,11 +9909,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
         videoUri = this.cutVideoUri(cut)
     ): void {
-        // コンパクトティア（trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX）はフィルムストリップ・波形を
-        // 描かない薄い帯にする（幅の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート）。
-        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX || !videoUri) {
+        if (!canRenderClipMedia(clipWidth, trackHeightPx, videoUri)) {
             return;
         }
+        // サブピクセルの帯は最小 1px の描画を親要素でクリップする。
+        clipWidth = Math.max(1, clipWidth);
+        trackHeightPx = Math.max(1, trackHeightPx);
+        this.clipMediaFailures.set(element, []);
         // フィルムストリップと波形を同じ写像（clipLocalOffsetPx / fullClipWidthPx）で
         // 位置合わせするため、ジオメトリはここで 1 回だけ計算して両方へ渡す。
         const geometry = this.clipLocalGeometry(segment);
@@ -9930,7 +9934,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const waveform = this.waveformCache.get(key);
         if (Array.isArray(waveform)) {
             if (geometry) {
-                element.appendChild(this.waveformCanvas(waveform, clipWidth, geometry, trackHeightPx));
+                const canvas = this.waveformCanvas(waveform, clipWidth, geometry, trackHeightPx);
+                const band = clipWaveformBand(trackHeightPx, WAVEFORM_BAND_HEIGHT_PX);
+                canvas.style.top = `${band.top}px`;
+                canvas.style.height = `${band.height}px`;
+                element.appendChild(canvas);
             }
         } else if (waveform === undefined) {
             this.fetchWaveform(key, cut, videoUri);
@@ -9945,19 +9953,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number,
         videoUri = this.cutVideoUri(cut)
     ): void {
-        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
+        if (!canRenderClipMedia(clipWidth, trackHeightPx, videoUri)) {
             return;
         }
-        // ゲート境界や chunk 到着時は cutSignature が変わり、created 側の renderClipMedia が走る。
-        // 既存メディアノードが無い clip はレイアウト幾何を読む必要がない。
+        // サブピクセルの帯は最小 1px の描画を親要素でクリップする。
+        clipWidth = Math.max(1, clipWidth);
+        trackHeightPx = Math.max(1, trackHeightPx);
+        // 正のサイズへ復帰した空ノードは、署名変更を待たずメディアを作る。
         const filmstrip = element.querySelector<HTMLDivElement>(
             ':scope > .akari-annotations-strip-clip-filmstrip'
         );
         const canvas = element.querySelector<HTMLCanvasElement>(':scope > canvas');
         if (!filmstrip && !canvas) {
-            return;
-        }
-        if (!videoUri) {
+            this.renderClipMedia(element, cut, clipWidth, segment, trackHeightPx, videoUri);
             return;
         }
         const geometry = this.clipLocalGeometry(segment);
@@ -9969,9 +9977,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // チャンク / サムネイル到着（filmstripContentRevision）は署名に入れないので、再利用ノードは
         // ここで「最後に描いたリビジョン」との差でセルだけ描き直す。
         const contentStale = this.clipMediaRevisions.get(element) !== this.filmstripContentRevision;
-        if (previous && sameClipMediaGeometry(previous, next) && !contentStale) {
+        const now = Date.now();
+        const retryDue = this.clipMediaFailures.get(element)?.some(
+            failure => mediaCacheRequestAttempt(failure, now) === 1
+        );
+        if (previous && sameClipMediaGeometry(previous, next) && !contentStale && !retryDue) {
             return;
         }
+        this.clipMediaFailures.set(element, []);
         this.clipMediaGeometries.set(element, next);
         this.clipMediaRevisions.set(element, this.filmstripContentRevision);
 
@@ -9985,18 +9998,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const waveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
         if (Array.isArray(waveform) && canvas) {
             this.updateWaveformCanvas(canvas, waveform, clipWidth, geometry, trackHeightPx);
+            const band = clipWaveformBand(trackHeightPx, WAVEFORM_BAND_HEIGHT_PX);
+            canvas.style.top = `${band.top}px`;
+            canvas.style.height = `${band.height}px`;
         }
     }
 
     protected renderSingleFrameFallback(element: HTMLDivElement, cut: EditCut, videoUri: string): void {
         const key = `${cut.src ?? ''}:${cut.in}:${cut.out}`;
         const thumbnail = this.thumbnailCache.get(key);
-        if (typeof thumbnail === 'string' && thumbnail !== 'pending' && thumbnail !== 'unavailable') {
+        if (typeof thumbnail === 'string' && thumbnail !== 'pending') {
             element.style.backgroundImage = `url(${thumbnail})`;
             element.style.backgroundSize = 'cover';
             element.style.backgroundPosition = 'center';
-        } else if (thumbnail === undefined) {
+        } else {
             this.fetchThumbnail(key, cut, videoUri);
+            const failure = this.thumbnailCache.get(key);
+            if (isMediaCacheFailure(failure)) this.clipMediaFailures.get(element)?.push(failure);
         }
     }
 
@@ -10062,7 +10080,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // totalCellCount 自体が巨大になっても cellWidthPx は目標値のまま保たれ、
         // 密度がズームに追随する（キャップで丸めて粗くならない）。
         const cellWidthPx = FILMSTRIP_TARGET_CELL_WIDTH_PX;
-        const totalCellCount = Math.max(1, Math.round(fullClipWidthPx / cellWidthPx));
+        const totalCellCount = filmstripCellCount(fullClipWidthPx, cellWidthPx);
 
         const visibleStartLocalPx = clipLocalOffsetPx;
         const visibleEndLocalPx = clipLocalOffsetPx + clipWidth;
@@ -10095,6 +10113,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const chunkIndex = filmstripChunkIndexFor(sourceT);
             const chunk = this.ensureFilmstripChunk(videoUri, chunkIndex);
             if (chunk === 'unavailable') {
+                const failure = this.filmstripChunkCache.get(this.filmstripChunkKey(videoUri, chunkIndex));
+                if (isMediaCacheFailure(failure)) this.clipMediaFailures.get(element)?.push(failure);
                 sawUnavailable = true;
                 continue;
             }
@@ -10611,12 +10631,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected ensureFilmstripChunk(videoUri: string, chunkIndex: number): ClipFilmstripChunk | 'pending' | 'unavailable' {
         const key = this.filmstripChunkKey(videoUri, chunkIndex);
         const cached = this.filmstripChunkCache.get(key);
-        if (cached !== undefined) {
-            return cached;
+        const attempt = mediaCacheRequestAttempt(cached, Date.now());
+        if (attempt === undefined) {
+            return isMediaCacheFailure(cached) ? 'unavailable' : cached;
         }
         this.filmstripChunkCache.set(key, 'pending');
-        this.fetchFilmstripChunk(videoUri, chunkIndex, key);
-        return 'pending';
+        this.fetchFilmstripChunk(videoUri, chunkIndex, key, attempt);
+        return isMediaCacheFailure(this.filmstripChunkCache.get(key)) ? 'unavailable' : 'pending';
     }
 
     protected filmstripChunkKey(videoUri: string, chunkIndex: number): string {
@@ -10642,7 +10663,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected fetchThumbnail(key: string, cut: EditCut, videoUri: string): void {
-        if (!this.location) {
+        const attempt = mediaCacheRequestAttempt(this.thumbnailCache.get(key), Date.now());
+        if (attempt === undefined || !this.location) {
             return;
         }
         this.thumbnailCache.set(key, 'pending');
@@ -10655,13 +10677,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (result.status === 'ready' && result.dataUri) {
                 this.thumbnailCache.set(key, result.dataUri);
             } else {
-                this.thumbnailCache.set(key, 'unavailable');
+                this.thumbnailCache.set(key, { status: 'unavailable', failedAt: Date.now(), attempt });
                 this.showFfmpegMissingNotice(result.reason);
             }
             this.filmstripContentRevision++;
             this.scheduleStripRender();
         }).catch(() => {
-            this.thumbnailCache.set(key, 'unavailable');
+            this.thumbnailCache.set(key, { status: 'unavailable', failedAt: Date.now(), attempt });
             this.filmstripContentRevision++;
             this.scheduleStripRender();
         });
@@ -10674,9 +10696,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 同期書き込みタイミングで担保する）。クリップの trim/move では呼ばれない
      * （キーが videoUri+chunkIndex のみで in/out を含まないため）。
      */
-    protected fetchFilmstripChunk(videoUri: string, chunkIndex: number, key: string): void {
+    protected fetchFilmstripChunk(videoUri: string, chunkIndex: number, key: string, attempt: 0 | 1): void {
         if (!this.location) {
-            this.filmstripChunkCache.set(key, 'unavailable');
+            this.filmstripChunkCache.set(key, { status: 'unavailable', failedAt: Date.now(), attempt });
             return;
         }
         void this.annotationsService.getClipFilmstripChunk({
@@ -10686,13 +10708,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (result.status === 'ready' && result.chunk) {
                 this.filmstripChunkCache.set(key, result.chunk);
             } else {
-                this.filmstripChunkCache.set(key, 'unavailable');
+                this.filmstripChunkCache.set(key, { status: 'unavailable', failedAt: Date.now(), attempt });
                 this.showFfmpegMissingNotice(result.reason);
             }
             this.filmstripContentRevision++;
             this.scheduleStripRender();
         }).catch(() => {
-            this.filmstripChunkCache.set(key, 'unavailable');
+            this.filmstripChunkCache.set(key, { status: 'unavailable', failedAt: Date.now(), attempt });
             this.filmstripContentRevision++;
             this.scheduleStripRender();
         });
