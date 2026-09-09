@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 const { prepareVisualThumbnailPage } = require('../lib/node/visual-thumbnail-page.js');
 const { visualThumbnailPage, visualThumbnailSampleTimes } = require('../lib/common/visual-thumbnail.js');
@@ -88,26 +87,46 @@ test('capture host preserves portrait aspect, waits for fonts/images/3D, and esc
   assert.doesNotMatch(page.html, /<\/script><img src=x>/);
 });
 
-test('reusable seek ticks before decoding images, waiting for fonts and two animation frames', async () => {
-  const events = [];
-  const img = { tagName: 'IMG', decode: async () => { events.push('image'); } };
-  const container = { querySelectorAll: () => [img] };
-  const window = { akari: { createOverlayRuntime: () => ({ configure() {}, mount: async () => {},
-    tick: (time, playing) => events.push(['tick', time, playing]) }), runtimes: { forContainer: () => [] } } };
+test('generated HTML defines one reusable seek with ordered readiness waits and only the initial midpoint call', () => {
   const page = visualThumbnailPage([], { width: 640, height: 360, fps: 30 }, [6, 3, 0.8, 0.2], assets);
-  vm.runInNewContext(page.html.match(/<script>\n([\s\S]*)<\/script>/)[1], {
-    window, document: { querySelectorAll: () => [container], fonts: { get ready() { events.push('fonts'); return Promise.resolve(); } } },
-    getComputedStyle: () => ({ backgroundImage: '', maskImage: '', borderImageSource: '', content: '', listStyleImage: '' }),
-    performance, requestAnimationFrame: callback => { events.push('raf'); callback(); }
-  });
-  await window.__akariThumbnailReady;
-  assert.deepEqual(events.filter(event => Array.isArray(event)), [['tick', 6, false], ['tick', 6, false]],
-    'initial midpoint uses the original two ticks with no extra seek before its capture');
-  for (const time of [3, 0.8, 0.2]) {
-    events.length = 0;
-    await window.__akariThumbnailSeek(time);
-    assert.deepEqual(events, [['tick', time, false], 'image', 'fonts', 'raf', 'raf']);
+  assert.deepEqual(page.sampleTimes, [6, 3, 0.8, 0.2]);
+  const { html } = page;
+  const seekDefinitions = [...html.matchAll(/window\.__akariThumbnailSeek\s*=\s*async\(t\)=>\{([\s\S]*?)\n \};/g)];
+  assert.equal(seekDefinitions.length, 1, 'exactly one reusable seek closure is defined');
+  assert.equal([...html.matchAll(/window\.__akariThumbnailSeek\s*=/g)].length, 1);
+  const seekBody = seekDefinitions[0][1];
+  const steps = [
+    'runtime.tick(t,false);',
+    'await waitForImages();',
+    'await document.fonts.ready;',
+    'await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));'
+  ];
+  let previousPosition = -1;
+  for (const step of steps) {
+    const position = seekBody.indexOf(step);
+    assert.ok(position > previousPosition, `seek must perform ${step} after the preceding step`);
+    assert.equal(seekBody.indexOf(step, position + step.length), -1, `seek performs ${step} only once`);
+    previousPosition = position;
   }
+  assert.equal([...seekBody.matchAll(/requestAnimationFrame\(/g)].length, 2);
+
+  const imagesDefinition = html.match(/const waitForImages=async\(\)=>\{([\s\S]*?)\n \};/);
+  assert.ok(imagesDefinition, 'image readiness helper is defined');
+  const imagesBody = imagesDefinition[1];
+  assert.match(imagesBody, /getComputedStyle\(element,pseudo\)/);
+  assert.ok(imagesBody.includes(String.raw`value.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/g)) urls.add(match[1]??match[2]??match[3])`),
+    'CSS url() values are collected for decoding');
+  assert.match(imagesBody, /await Promise\.all\(\[\.\.\.elements\.filter\(el=>el\.tagName==='IMG'\)\.map\(img=>img\.decode\(\)\),\s*\.\.\.\[\.\.\.urls\]\.map\(url=>\{const img=new Image\(\);img\.src=url;return img\.decode\(\);\}\)\]\);/,
+    'both IMG elements and images created from CSS URLs are awaited together');
+
+  const initialTickPosition = html.indexOf('runtime.tick(6,false);');
+  assert.ok(initialTickPosition >= 0 && initialTickPosition < seekDefinitions[0].index,
+    'the initial midpoint tick precedes the reusable seek definition');
+  assert.deepEqual([...html.matchAll(/runtime\.tick\(([^)]*)\)/g)].map(match => match[1]), ['6,false', 't,false'],
+    'only the initial tick and the parameterized seek tick are generated');
+  assert.deepEqual([...html.matchAll(/window\.__akariThumbnailSeek\(([^)]*)\)/g)].map(match => match[1]), ['6'],
+    'only the midpoint invokes seek; later candidates are supplied by the host');
+  assert.match(html, /return window\.__akariThumbnailSeek\(6\);\s*\}\)\(\);\s*<\/script><\/body><\/html>$/);
 });
 
 test('3D thumbnails stream each local asset once and use the selected overlay texture', async t => {
