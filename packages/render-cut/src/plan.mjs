@@ -1297,8 +1297,14 @@ function appendInputSeekedGapAwareAudioFilters({
   if (audioLabels.length === 1) {
     filters.push(`${audioLabels[0]}apad=whole_dur=${formatNumber(duration)}[joineda]`);
   } else {
+    // adelay=…:all=1 の入力は上流の asetpts=PTS-STARTPTS で 0 起点だが、
+    // ffmpeg 8.1 系は部分フレームの trim + 正の delay で先頭無音の PTS が
+    // AV_NOPTS_VALUE 起点になり、amix 経由の AAC/MP4 出力尺が潰れる。
+    // adelay は先頭に実サンプルの無音を詰めるため、amix 出力のサンプル列は
+    // 必ず出力タイムラインの 0 起点。N/SR/TB で振り直しても配置はずれず、
+    // PTS が正常な ffmpeg 7 系でも同じサンプル時刻になる（音自体は変更しない）。
     filters.push(
-      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[joineda]`,
+      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,asetpts=N/SR/TB,apad=whole_dur=${formatNumber(duration)}[joineda]`,
     );
   }
 }
@@ -1334,8 +1340,12 @@ function appendGapAwareAudioFilters({
   if (audioLabels.length === 1) {
     filters.push(`${audioLabels[0]}apad=whole_dur=${formatNumber(duration)}[joineda]`);
   } else {
+    // 絶対 trim 側も adelay=…:all=1 の入力 PTS は上流で 0 起点へ正規化済み。
+    // それでも ffmpeg 8.1 系の部分フレーム + delay で無音 PTS が壊れるため、
+    // amix 直後に振り直す。adelay の実無音サンプルで出力は必ず 0 起点なので
+    // N/SR/TB は配置を変えず、正常な ffmpeg 7 系のサンプル時刻も維持する。
     filters.push(
-      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[joineda]`,
+      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,asetpts=N/SR/TB,apad=whole_dur=${formatNumber(duration)}[joineda]`,
     );
   }
 }
