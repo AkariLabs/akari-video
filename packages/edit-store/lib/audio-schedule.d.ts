@@ -1,5 +1,5 @@
 import { DuckInterval } from './ducking';
-import type { EditCut } from './edit-store';
+import { type EditCut } from './edit-store';
 export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 export interface WebAudioDecodedItem {
     id?: string;
