@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planPaste, parseTimelineFragment, serializeTimelineFragment } from '../lib/common/timeline-clipboard.js';
+import { nextCaptionId, pasteTimelineFragment, planPaste, parseTimelineFragment, serializeTimelineFragment } from '../lib/common/timeline-clipboard.js';
+import { parseCaptions } from '../lib/common/caption-store.js';
 import { insertItem, splitItem, updateItem } from '../lib/common/edit-v2-mutations.js';
 
 const track = (id, kind = 'layers', items = []) => ({ id, kind, items });
@@ -12,6 +13,78 @@ const plan = (f, playhead, tracks, target) => {
     assert.equal(result.ok, true, JSON.stringify(result));
     return result;
 };
+
+const captionIds = ['c-0001', 'c-0002', 'c-0003', 'c-0004', 'c-0005', 'c-0006'];
+const pasteCaptions = (ids, count, mode = 'paste') => {
+    const records = ids.map((id, index) => ({ id, start: index * 2, end: index * 2 + 1,
+        text: `字幕 ${index + 1}`, speaker: null, sourceRef: null, edited: false, src: 'src1' }));
+    const before = {
+        edit: JSON.stringify({ version: 2, output: { fps: 30, width: 1920, height: 1080 },
+            sources: [{ id: 'src1', path: 'clip.mp4' }], tracks: [] }),
+        captions: JSON.stringify({ version: 1, captions: records })
+    };
+    const { captions, warnings } = parseCaptions(before.captions);
+    assert.deepEqual(warnings, []);
+    const options = {
+        fragment: fragment(...captions.slice(0, count).map(caption => ({
+            kind: 'captions', trackId: 'captions', trackIndex: 0,
+            t: caption.start, duration: caption.end - caption.start, payload: caption
+        }))),
+        playhead: 20, target: [], mode,
+        getTracks: () => [track('captions', 'captions', captions.map(caption => ({
+            id: caption.id, t: caption.start, duration: caption.end - caption.start
+        })))],
+        frameAt: seconds => Math.round(seconds * 30), captions, audioSfx: [], displayTimelineTracks: []
+    };
+    const original = structuredClone({ before, fragment: options.fragment, captions });
+    const after = pasteTimelineFragment(before, options);
+    assert.deepEqual({ before, fragment: options.fragment, captions }, original);
+    assert.deepEqual(JSON.parse(after.edit), JSON.parse(before.edit));
+    const result = JSON.parse(after.captions).captions;
+    assert.deepEqual(result.slice(0, records.length), records);
+    assert.equal(result.length, records.length + count);
+    return { captions: result, added: result.slice(records.length) };
+};
+
+test('字幕の採番は入力を変更せず、1 から最小の欠番を返す', () => {
+    const ids = Object.freeze(['c-0003', 'c-0001', 'c-0003', 'c-0001-copy', 'caption-old', 'c-0000']);
+    assert.equal(nextCaptionId(ids), 'c-0002');
+    assert.equal(nextCaptionId(ids), 'c-0002');
+    assert.equal(nextCaptionId([]), 'c-0001');
+});
+
+test('字幕の採番は 9999 を超えても重複せず桁を延ばす', () => {
+    const ids = Array.from({ length: 9999 }, (_, index) => `c-${String(index + 1).padStart(4, '0')}`);
+    assert.equal(nextCaptionId(ids), 'c-10000');
+    assert.equal(nextCaptionId([...ids, 'c-10000']), 'c-10001');
+});
+
+for (const mode of ['paste', 'duplicate']) {
+    test(`字幕を 1 件 ${mode} すると c-0007 になる`, () => {
+        const { added } = pasteCaptions(captionIds, 1, mode);
+        assert.deepEqual(added.map(caption => caption.id), ['c-0007']);
+        assert.deepEqual(added.map(caption => [caption.start, caption.end]), [[20, 21]]);
+    });
+
+    test(`字幕を 3 件 ${mode} すると c-0007..c-0009 になる`, () => {
+        const { added } = pasteCaptions(captionIds, 3, mode);
+        assert.deepEqual(added.map(caption => caption.id), ['c-0007', 'c-0008', 'c-0009']);
+        assert.deepEqual(added.map(caption => [caption.start, caption.end]), [[20, 21], [22, 23], [24, 25]]);
+    });
+}
+
+test('字幕を複数貼ると最小の欠番から順に埋める', () => {
+    const { added } = pasteCaptions(['c-0001', 'c-0003', 'c-0005', 'c-0006'], 3);
+    assert.deepEqual(added.map(caption => caption.id), ['c-0002', 'c-0004', 'c-0007']);
+});
+
+test('貼り付け結果の字幕 ID は captions 検査相当で指摘がない', () => {
+    const { captions } = pasteCaptions(captionIds, 3);
+    // edit-lint/src/edit-lint.mjs の validateCaptions は非公開のため、同じ ID 正規表現で代替する。
+    const findings = captions.filter(caption => !/^c-\d{4}$/.test(caption.id));
+    assert.deepEqual(findings, []);
+    assert.equal(new Set(captions.map(caption => caption.id)).size, captions.length);
+});
 
 test('(a) 1 個を後ろの再生ヘッドへ、総尺を越えても同じ段に貼る', () => {
     const result = plan(fragment(item()), 30, [track('v1')]);
