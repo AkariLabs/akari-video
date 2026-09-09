@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
+import { computeCutTimelineOffsets, computeVideoRuns, cutSpeed, needsGapAwareCutTimeline, resolveCutSegments, segmentDuration } from "./cut-timeline.mjs";
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
 import { predictedDuration } from "./plan.mjs";
 
@@ -13,6 +13,7 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   captionAnchorPositionVars,
+  normalizeCaptionClock,
   resolveCaptionReferenceScale,
   scaleCaptionPx,
 } = require("../../edit-store/lib/index.js");
@@ -801,6 +802,40 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
   }
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
+  }
+
+  if (needsGapAwareCutTimeline(cuts)) {
+    const cutSegments = resolveCutSegments(cuts);
+    const outputDuration = cutSegments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
+    const segments = computeVideoRuns(cutSegments, outputDuration).map((run) => (
+      run.kind === "gap"
+        ? run
+        : {
+            kind: "src", outStart: run.outStart, outEnd: run.outEnd,
+            src: run.cut.src, in: run.srcIn, out: run.srcOut, speed: cutSpeed(run.cut),
+          }
+    ));
+    if (segments.length === 0) return [];
+    // Share preview's projection over visible runs. Undeclared export cues remain source
+    // cues; the preview's legacy gap-to-output heuristic must not promote them here.
+    const occurrences = normalizeCaptionClock([{
+      start, end, clockDomain: "source",
+      ...(sourceId !== null ? { clockSourceId: sourceId } : {}),
+    }], segments);
+    return occurrences.map((occurrence) => {
+      // Visible runs are disjoint and every occurrence is clipped to one run. Recover
+      // its source window for word clipping and source-timed emphasis rendering.
+      const midpoint = (occurrence.start + occurrence.end) / 2;
+      const segment = segments.find((segment) => segment.kind === "src"
+        && segment.outStart <= midpoint && midpoint < segment.outEnd);
+      return {
+        start: occurrence.start,
+        duration: occurrence.end - occurrence.start,
+        sourceStart: Math.max(start, segment.in),
+        sourceEnd: Math.min(end, segment.out),
+        emphasisTimeScale: 1 / segment.speed,
+      };
+    });
   }
 
   const offsets = computeCutTimelineOffsets(cuts);
