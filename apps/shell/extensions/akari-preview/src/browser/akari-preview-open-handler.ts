@@ -8373,7 +8373,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         return current;
                     }
                     const collection = target.kind === 'cut' ? 'cuts'
-                        : target.kind === 'layer' || target.kind === 'item' ? 'layers' : null;
+                        : target.kind === 'item'
+                            ? (Array.isArray(current.cuts) && current.cuts.some(entry =>
+                                String(entry && entry.id) === String(target.id)) ? 'cuts' : 'layers')
+                            : target.kind === 'layer' ? 'layers' : null;
                     if (!collection) return current;
                     const entries = Array.isArray(current[collection]) ? current[collection] : [];
                     const index = target.kind === 'cut'
@@ -14921,11 +14924,16 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
                     } else if (typeof message.target.id === 'string') {
-                        const layerIdSelector = CSS.escape(message.target.id);
-                        const layerVideo = layersStage.querySelector(
-                            'video[data-akari-layer-id="' + layerIdSelector + '"], img[data-akari-layer-id="' + layerIdSelector + '"]'
-                        );
-                        if (layerVideo) applyLiveField(layerVideo);
+                        if (message.target.kind === 'item' && video.dataset.akariCutId === message.target.id) {
+                            if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                            applyLiveField(video);
+                        } else {
+                            const layerIdSelector = CSS.escape(message.target.id);
+                            const layerVideo = layersStage.querySelector(
+                                'video[data-akari-layer-id="' + layerIdSelector + '"], img[data-akari-layer-id="' + layerIdSelector + '"]'
+                            );
+                            if (layerVideo) applyLiveField(layerVideo);
+                        }
                     }
                     if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                     updateLayerSelectBox();
