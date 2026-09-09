@@ -1,0 +1,9 @@
+// 出所: akari-preview の src/browser/akari-preview-open-handler.ts（renderPlainCaptionFragment）。
+// 埋め込み CSS は単独で import できないため、静的規則のみ二重管理する。変更時は出所と同期する。
+export const CAPTION_HOVER_PREVIEW_CSS = `
+.akari-caption-hover-preview .akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}
+.akari-caption-hover-preview .akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}
+.akari-caption-hover-preview .akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}
+.akari-caption-hover-preview .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}
+.akari-caption-hover-preview .akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}
+`;

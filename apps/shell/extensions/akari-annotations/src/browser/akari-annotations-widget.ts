@@ -2,7 +2,8 @@ import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
-import { hoverPopupGeometry } from '../common/hover-popup-geometry';
+import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
+import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
@@ -5979,19 +5980,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
             Object.assign(text.style, { position: 'absolute', left: '0', bottom: '0', top: 'auto', zIndex: '2',
                 maxWidth: '100%', background: '#111c', color: '#fff', fontSize: '11px', lineHeight: '16px' });
         }
+        this.installVisualHover(element);
+    }
+
+    protected installVisualHover(element: HTMLDivElement): void {
         if (element.dataset.akariVisualHoverInstalled) return;
         element.dataset.akariVisualHoverInstalled = 'true';
         let timer: ReturnType<typeof setTimeout> | undefined;
-        const hide = (): void => { if (timer) clearTimeout(timer); this.visualHover?.remove(); this.visualHover = undefined; };
+        const hide = (): void => {
+            if (timer !== undefined) clearTimeout(timer);
+            timer = undefined;
+            this.visualHover?.remove(); this.visualHover = undefined;
+        };
         element.addEventListener('pointerleave', hide);
-        element.addEventListener('pointerenter', () => {
+        element.addEventListener('pointerdown', hide);
+        element.addEventListener('pointerenter', event => {
+            if (this.visualPointerDown || event.buttons !== 0) return;
             timer = setTimeout(() => {
-                if (this.visualPointerDown || !element.isConnected) return;
+                if (this.visualPointerDown || !element.isConnected || this.isDisposed) return;
                 hide();
                 const popup = document.createElement('div');
+                const caption = element.dataset.akariItemKind === 'caption'
+                    ? this.captions.find(item => item.id === element.dataset.akariItemId) : undefined;
                 const image = element.querySelector<HTMLImageElement>('.akari-visual-thumbnail-image');
                 let enlarged: HTMLImageElement | undefined;
-                if (image) {
+                let captionPreview: HTMLDivElement | undefined;
+                if (image && !caption) {
                     enlarged = document.createElement('img');
                     enlarged.alt = ''; enlarged.draggable = false;
                     Object.assign(enlarged.style, { position: 'relative', display: 'block',
@@ -6008,13 +6022,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const updateGeometry = (): void => {
                     if (this.visualHover !== popup || !element.isConnected || this.isDisposed) return;
                     const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
-                    const geometry = hoverPopupGeometry({
+                    const geometryInput = {
                         naturalWidth: enlarged?.naturalWidth, naturalHeight: enlarged?.naturalHeight,
                         width: typeof output?.width === 'number' ? output.width : undefined,
                         height: typeof output?.height === 'number' ? output.height : undefined,
                         bounds: element.getBoundingClientRect(), innerWidth: window.innerWidth, innerHeight: window.innerHeight,
                         nameHeight: 16, borderWidth: 1
-                    });
+                    };
+                    const geometry = hoverPopupGeometry(geometryInput);
+                    if (caption) {
+                        captionPreview?.remove();
+                        captionPreview = createCaptionHoverPreview(document, { ...geometryInput,
+                            text: caption.text, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) });
+                        popup.prepend(captionPreview);
+                    }
                     if (enlarged) Object.assign(enlarged.style, { width: `${geometry.imageWidth}px`, height: `${geometry.imageHeight}px` });
                     Object.assign(popup.style, { left: `${geometry.left}px`, top: `${geometry.top}px`,
                         width: `${geometry.imageWidth}px`, maxWidth: `${geometry.imageWidth}px` });
@@ -6024,7 +6045,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     enlarged.onload = updateGeometry;
                     enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
                 }
-            }, 450);
+            }, HOVER_POPUP_DELAY_MS);
         });
     }
 
@@ -7120,6 +7141,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
+            this.installVisualHover(element);
             element.dataset.akariLane = captionTrackLayout.id ?? 'captions';
             const treeRow = this.captionTreeRow(caption.id);
             if (treeRow) element.dataset.akariTreeRowId = treeRow.id;
