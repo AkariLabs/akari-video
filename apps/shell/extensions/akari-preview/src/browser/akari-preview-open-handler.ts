@@ -142,6 +142,7 @@ import {
     capturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
 } from '../common/preview-refresh-state';
+import { PreviewGestureGuard, reducePreviewGesture } from '../common/preview-gesture-guard';
 import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
@@ -1078,6 +1079,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // （ワークスペース watcher は realpath 済みの URI で通知してくるため、シンボリックリンクを
     // 跨ぐワークスペースでは URI 文字列が食い違う。suffix なら一致する）。
     protected readonly recentWrites = new Map<string, number>();
+    protected readonly previewGestureGuards = new WeakMap<PreviewWidgetMarker, PreviewGestureGuard>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
@@ -2368,6 +2370,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
         }));
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-gesture'
+                && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {
+                const result = reducePreviewGesture(
+                    this.previewGestureGuards.get(widget) ?? { active: false },
+                    { type: message.phase }
+                );
+                this.previewGestureGuards.set(widget, result.state);
+                if (result.refresh) {
+                    this.queueRefresh(widget, identityUri, kind,
+                        result.refresh.seekTimeOverride, result.refresh.forceRebuild, result.refresh.editSource);
+                }
+                return;
+            }
             const selectionKey = widget.akariPreviewEditUri?.normalizePath().toString();
             if (selectionKey && message?.type === 'akari-preview-cut-selected' && message.cutId) {
                 this.primaryTimelineSelections.set(selectionKey, { kind: 'cut', id: message.cutId });
@@ -2902,8 +2917,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         forceRebuild = false,
         editSource?: string
     ): void {
+        const deferDuringGesture = (): boolean => {
+            const result = reducePreviewGesture(
+                this.previewGestureGuards.get(widget) ?? { active: false },
+                { type: 'refresh', request: { seekTimeOverride, forceRebuild, editSource } }
+            );
+            this.previewGestureGuards.set(widget, result.state);
+            return !result.refresh;
+        };
+        if (widget.isDisposed || deferDuringGesture()) return;
+        const queuedWriteRevision = this.previewGestureGuards.get(widget)?.writeRevision;
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
+            // 順番待ち中に保存が完了した場合だけ古い通知本文を失効させる。
+            if (this.previewGestureGuards.get(widget)?.writeRevision !== queuedWriteRevision) editSource = undefined;
+            // Promise の順番待ち中に begin が届く場合も保留する。
+            if (widget.isDisposed || deferDuringGesture()) return Promise.resolve();
             const editUri = kind === 'output' ? widget.akariPreviewEditUri : undefined;
             const transport = editUri
                 ? this.reviewTransportByEdit.get(editUri.normalizePath().toString())
@@ -5355,7 +5384,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
             }
-            this.recentWrites.set(editUri.toString(), Date.now());
+            this.markRecentWrite(editUri);
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             respond(true);
         } catch (error) {
@@ -5405,7 +5434,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
             }
-            this.recentWrites.set(editUri.toString(), Date.now());
+            this.markRecentWrite(editUri);
             await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
             respond(true);
         } catch (error) {
@@ -7033,6 +7062,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
             window.akari.reportPrimarySelectionReady = () => vscode.postMessage({ type: 'akari-preview-primary-selection-ready' });
+            window.akari.reportGesture = phase => {
+                vscode.postMessage({ type: 'akari-preview-gesture', phase });
+            };
             window.akari.reportOverlaySelection = overlayId => {
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
@@ -8844,6 +8876,28 @@ body { display: grid; place-items: center; padding: 32px; }
             let pan = { x: 0, y: 0 };
             let drag = null;
             let selectionDragActive = false;
+            // 入力は pointerup で解放する。DOM と host refresh は未完了の保存ごとに保護する。
+            const selectionGestures = new Set();
+            const latestSelectionGesture = new WeakMap();
+            const beginSelectionGesture = target => {
+                selectionDragActive = true;
+                const gesture = { target, key: target.entry || target.media || target };
+                if (!selectionGestures.size) window.akari.reportGesture('begin');
+                selectionGestures.add(gesture);
+                latestSelectionGesture.set(gesture.key, gesture);
+                return gesture;
+            };
+            const endSelectionGesture = gesture => {
+                if (!selectionGestures.delete(gesture)) return;
+                if (!selectionGestures.size) window.akari.reportGesture('end');
+            };
+            const selectionGestureIsLatest = gesture => latestSelectionGesture.get(gesture.key) === gesture;
+            const selectionGestureProtects = (kind, entry) => {
+                for (const gesture of selectionGestures) {
+                    if (gesture.target.kind === kind && (kind === 'cut' || gesture.target.entry === entry)) return true;
+                }
+                return false;
+            };
             let suppressClick = false;
             let playbackErrored = false;
             // Decode-failure fallback is tracked per original source. This covers the primary
@@ -9394,6 +9448,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (visual) element.style.filter = visual.filter;
             };
             const applyCutVisual = segment => {
+                if (selectionGestureProtects('cut')) return;
                 if (!segment || segment.kind !== 'src') {
                     video.dataset.akariCutTransformActive = 'false';
                     for (const media of [video, stillImage]) {
@@ -9728,6 +9783,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return { spec: filter, element };
             });
             const applyIncrementalLayerSpec = (entry, layer) => {
+                if (selectionGestureProtects('layer', entry)) return;
                 // 非同期 telop の ready 後に通常のファイル更新が来ても、次の bake 待ちを示す
                 // proxyMissing モデルで既に表示中の src を巻き戻さない。
                 if (layer.proxyMissing && !layer.src && entry.spec.src && !entry.spec.proxyMissing) {
@@ -9835,9 +9891,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // クランプと同じ意味論をプレビュー側で独立実装したもの（パリティ契約が明記する意図的な
             // コード重複の方針に倣う — 2.2 節の描画既定などと同型）。
             const CROP_MIN = 0.02;
-            // 裁定 1: 辺バーは 28px の棒。枠の当該軸が 44px 未満だと角点（12px）と衝突するので隠す。
+            // 辺バーの当たり幅は維持し、小さい選択でも当該軸が 24px 以上なら表示する。
             // allowed=false は「この対象では辺バーそのものを出さない」（v2 でない cut / framing 持ち）。
-            const CROP_EDGE_MIN_BOX_PX = 44;
+            const CROP_EDGE_MIN_BOX_PX = 24;
             const applyCropEdgeVisibility = (box, widthPx, heightPx, allowed) => {
                 box.classList.toggle('akari-crop-edges-off', !allowed);
                 box.classList.toggle('akari-crop-edges-hide-x', !(widthPx >= CROP_EDGE_MIN_BOX_PX));
@@ -10418,10 +10474,11 @@ body { display: grid; place-items: center; padding: 32px; }
             // （dataset の読み書き先・layerWrite / cutWrite・RAF throttle）は記述子が持つ。
             // CF-write: 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
             const beginMediaTransformDrag = (target, startEvent, computeTransform) => {
+                if (selectionDragActive) return;
                 if (isPlaying) togglePlayback();
                 startEvent.preventDefault();
                 startEvent.stopPropagation();
-                selectionDragActive = true;
+                const gesture = beginSelectionGesture(target);
                 const pointerId = startEvent.pointerId;
                 const original = target.transformNow();
                 const captureTarget = startEvent.currentTarget;
@@ -10451,28 +10508,37 @@ body { display: grid; place-items: center; padding: 32px; }
                 const finish = async () => {
                     if (finished) return;
                     finished = true;
-                    cleanup();
-                    if (cancelled) {
-                        target.applyTransform(original);
-                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                        target.flushTransform();
-                        return;
-                    }
-                    if (!moved) return;
-                    target.flushTransform();
-                    // 書き戻し先を特定できない対象（cutIndex 未確定の cut）は静かに元へ戻す。
-                    if (!target.canWrite()) {
-                        target.applyTransform(original);
-                        target.flushTransform();
-                        return;
-                    }
-                    const finalTransform = target.transformNow();
                     try {
-                        await target.write({ transform: finalTransform });
-                    } catch (error) {
-                        window.akari.showWriteError(error);
-                        target.applyTransform(original);
+                        cleanup();
+                        if (cancelled) {
+                            target.applyTransform(original);
+                            // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                            target.flushTransform();
+                            return;
+                        }
+                        if (!moved) return;
                         target.flushTransform();
+                        // 書き戻し先を特定できない場合は理由を示して元へ戻す。
+                        if (!target.canWrite()) {
+                            window.akari.showWriteError('変更を保存できませんでした。対象を選択し直してください。');
+                            target.applyTransform(original);
+                            target.flushTransform();
+                            return;
+                        }
+                        const finalTransform = target.transformNow();
+                        try {
+                            await target.write({ transform: finalTransform });
+                            window.akari.reportGesture('saved');
+                        } catch (error) {
+                            window.akari.showWriteError(error);
+                            if (selectionGestureIsLatest(gesture)) {
+                                target.applyTransform(original);
+                                target.flushTransform();
+                            }
+                        }
+                    } finally {
+                        // 保存応答（または巻き戻し）まで DOM と refresh の保護を維持する。
+                        endSelectionGesture(gesture);
                     }
                 };
                 const onUp = upEvent => {
@@ -10740,6 +10806,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // マッピングはドラッグ開始時点の startTransform を最後まで使い続ける（ライブ補正で
             // 変わる transform.x/y を混ぜない）ため、この錨補正はハンドル自体の追従性に影響しない。
             const beginMediaCropDrag = (target, dir, event) => {
+                if (selectionDragActive) return;
                 const natural = target.naturalSize();
                 if (!(natural.width > 0) || !(natural.height > 0)) return;
                 const restorePoint = target.cropRestorePoint();
@@ -10751,11 +10818,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const original = target.cropNow();
                 event.preventDefault();
                 event.stopPropagation();
-                selectionDragActive = true;
+                const gesture = beginSelectionGesture(target);
                 const pointerId = event.pointerId;
                 const captureTarget = event.currentTarget;
                 let moved = false;
                 let cancelled = false;
+                let finished = false;
+                let lastClientX = event.clientX;
+                let lastClientY = event.clientY;
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 // 裁定 3: ⛶ モード外（= 辺バー）のときだけ、ドラッグ中の間だけゴースト枠を出す。
                 const ghosted = !cropModeActive;
@@ -10768,7 +10838,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     selectionDragActive = false;
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
-                    window.removeEventListener('pointercancel', onUp);
+                    window.removeEventListener('pointercancel', onCancel);
                     window.removeEventListener('keydown', onKeyDown, true);
                     if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
                         captureTarget.releasePointerCapture(pointerId);
@@ -10800,39 +10870,59 @@ body { display: grid; place-items: center; padding: 32px; }
                     )
                 });
                 const onMove = moveEvent => {
-                    if (moveEvent.pointerId !== pointerId) return;
+                    if (finished || moveEvent.pointerId !== pointerId) return;
+                    if (moveEvent.clientX === lastClientX && moveEvent.clientY === lastClientY) return;
+                    lastClientX = moveEvent.clientX;
+                    lastClientY = moveEvent.clientY;
                     moved = true;
                     const nextCrop = computeNext(moveEvent);
                     target.applyCropAndTransform(nextCrop, correctedTransformFor(nextCrop));
                 };
                 const finish = async () => {
-                    cleanup();
-                    if (cancelled || !moved) {
-                        if (moved) {
-                            target.restoreCrop(restorePoint);
-                            // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                            target.flushCrop();
-                        }
-                        return;
-                    }
-                    target.flushCrop();
-                    const finalCrop = target.cropNow();
-                    const finalTransform = target.transformNow();
-                    if (!target.canWrite()) {
-                        target.restoreCrop(restorePoint);
-                        target.flushCrop();
-                        return;
-                    }
+                    if (finished) return;
+                    finished = true;
                     try {
-                        await target.write({ crop: finalCrop, transform: finalTransform });
-                    } catch (error) {
-                        window.akari.showWriteError(error);
-                        target.restoreCrop(restorePoint);
+                        cleanup();
+                        if (cancelled || !moved) {
+                            if (moved) {
+                                target.restoreCrop(restorePoint);
+                                // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                                target.flushCrop();
+                            }
+                            return;
+                        }
                         target.flushCrop();
+                        const finalCrop = target.cropNow();
+                        const finalTransform = target.transformNow();
+                        if (!target.canWrite()) {
+                            window.akari.showWriteError('クロップを保存できませんでした。対象を選択し直してください。');
+                            target.restoreCrop(restorePoint);
+                            target.flushCrop();
+                            return;
+                        }
+                        try {
+                            await target.write({ crop: finalCrop, transform: finalTransform });
+                            window.akari.reportGesture('saved');
+                        } catch (error) {
+                            window.akari.showWriteError(error);
+                            if (selectionGestureIsLatest(gesture)) {
+                                target.restoreCrop(restorePoint);
+                                target.flushCrop();
+                            }
+                        }
+                    } finally {
+                        // 保存応答（または巻き戻し）まで DOM と refresh の保護を維持する。
+                        endSelectionGesture(gesture);
                     }
                 };
                 const onUp = upEvent => {
                     if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    onMove(upEvent);
+                    void finish();
+                };
+                const onCancel = cancelEvent => {
+                    if (cancelEvent.pointerId !== pointerId) return;
+                    cancelled = true;
                     void finish();
                 };
                 const onKeyDown = keyEvent => {
@@ -10842,7 +10932,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 window.addEventListener('pointermove', onMove);
                 window.addEventListener('pointerup', onUp);
-                window.addEventListener('pointercancel', onUp);
+                window.addEventListener('pointercancel', onCancel);
                 window.addEventListener('keydown', onKeyDown, true);
             };
             // ㉔ ⛶ クロップモードの 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。辺バーと同じ
@@ -11079,9 +11169,23 @@ body { display: grid; place-items: center; padding: 32px; }
             // 裁定 4・6: cut の crop 書き戻しは v2 の item id を持つ cut だけ（legacy schema に
             // cuts[].crop の席が無い）。framing を持つ cut は layer-style が framing を捨てるので
             // 辺バーを出さない（幾何統一済みの文書では両立するため除外しない）。
-            const cutCropEditable = () => Boolean(cutSelectionVideo().dataset.akariCutId)
-                && Number(summary.editVersion) === 2
-                && (outputGeometryIsSource || cutSelectionVideo().dataset.akariCutFraming !== 'true');
+            let cutCropNoticeKey = null;
+            const cutCropEditable = () => {
+                const media = cutSelectionVideo();
+                const isV2 = Number(summary.editVersion) === 2;
+                const editable = Boolean(media.dataset.akariCutId) && isV2
+                    && (outputGeometryIsSource || media.dataset.akariCutFraming !== 'true');
+                const noticeKey = !editable && cutSelected
+                    ? String(summary.editVersion) + ':' + (media.dataset.akariCutId || media.dataset.akariCutIndex)
+                    : null;
+                if (noticeKey !== null && noticeKey !== cutCropNoticeKey) {
+                    window.akari.showWriteError(!isV2
+                        ? 'この編集データ（v1）ではクロップできません。v2 へ移行してください'
+                        : 'この素材ではクロップできません。素材の ID とフレーミング設定を確認してください。');
+                }
+                cutCropNoticeKey = noticeKey;
+                return editable;
+            };
             const applyCutCropAndTransformNow = (crop, transform) => {
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
