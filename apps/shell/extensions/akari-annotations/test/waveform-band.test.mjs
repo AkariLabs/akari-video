@@ -46,16 +46,16 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
   const paint = (width = 2, height = 48) => widget.updateWaveformCanvas(canvas, peaks, width, placement, height);
   paint();
   assert.equal(canvas.width, 4);
-  assert.equal(canvas.height, 68);
+  assert.equal(canvas.height, 92);
   assert.equal(canvas.style.width, "2px");
-  assert.equal(canvas.style.height, "34px");
-  assert.equal(canvas.style.top, "14px");
+  assert.equal(canvas.style.height, "46px");
+  assert.equal(canvas.style.top, "1px");
   assert.equal(canvas.style.opacity, "1");
   assert.equal(calls.filter(([name]) => name === "fill").length, 1);
   const envelope = calls.find(([name]) => name === "fill")[1];
   assert.equal(envelope.closed, true);
   assert.deepEqual(envelope.points[0], [0, 0], "先頭px内の最大ピークを拾う");
-  assert.deepEqual(envelope.points.at(-1), [0, 34], "上下対称の閉パス");
+  assert.deepEqual(envelope.points.at(-1), [0, 46], "上下対称の閉パス");
   assert.equal(context.lineWidth, 1);
   assert.ok(calls.find(([name]) => name === "stroke")[1].points.every(([, y]) => y % 1 === 0.5));
   let count = calls.length;
@@ -75,16 +75,18 @@ test("動画波形はDPRを上限2で描き、全入力が同じならcanvasを�
   }
   paint(3, 96);
   assert.equal(canvas.width, 3);
-  assert.equal(canvas.height, 82);
+  assert.equal(canvas.height, 94);
   window.devicePixelRatio = 3;
   paint(3, 96);
   assert.equal(canvas.width, 6);
-  assert.equal(canvas.height, 164);
-  paint(3, 24);
-  count = calls.length;
-  paint(3, 25);
+  assert.equal(canvas.height, 188);
+  paint(3, 12);
   assert.equal(canvas.style.height, "12px");
-  assert.equal(canvas.style.top, "13px");
+  assert.equal(canvas.style.top, "0px");
+  count = calls.length;
+  paint(3, 13);
+  assert.equal(canvas.style.height, "12px");
+  assert.equal(canvas.style.top, "0.5px");
   assert.ok(calls.length > count, "帯高が同じでもtop変更で描き直す");
 });
 
@@ -126,25 +128,25 @@ test("音声専用レーンはDPRごとのmaster高さと転送元を使いCSS�
   assert.deepEqual(draw.slice(6), [0, 0, 100, band.heightPx], "転送先はCSS px");
 });
 
-test("波形帯はヘッダー後の全高を使いトラックの拡大に追従する", () => {
+test("波形帯はヘッダーを引かずアイテム中央でトラック高さいっぱいに拡大する", () => {
   assert.equal(WAVEFORM_BAND_MIN_HEIGHT_PX, 12);
-  assert.deepEqual(waveformBandLayout(28, 14), { topPx: 14, heightPx: 14 });
-  assert.deepEqual(waveformBandLayout(48, 14), { topPx: 14, heightPx: 34 });
-  assert.deepEqual(waveformBandLayout(96, 14), { topPx: 14, heightPx: 82 });
-  assert.deepEqual(waveformBandLayout(48.5, 14.25), { topPx: 14.25, heightPx: 34.25 });
+  assert.deepEqual(waveformBandLayout(28, 14), { topPx: 1, heightPx: 26 });
+  assert.deepEqual(waveformBandLayout(48, 14), { topPx: 1, heightPx: 46 });
+  assert.deepEqual(waveformBandLayout(96, 14), { topPx: 1, heightPx: 94 });
+  assert.deepEqual(waveformBandLayout(48.5, 14.25), { topPx: 1, heightPx: 46.5 });
 });
 
-test("残りが12px未満なら下端に寄せ、クリップ自体が12px未満なら最低高を優先する", () => {
-  assert.deepEqual(waveformBandLayout(24, 14), { topPx: 12, heightPx: 12 });
+test("波形帯は上下1pxの余白を取り、狭いクリップでは最低高12pxを優先する", () => {
+  assert.deepEqual(waveformBandLayout(24, 14), { topPx: 1, heightPx: 22 });
   assert.deepEqual(waveformBandLayout(12, 14), { topPx: 0, heightPx: 12 });
   assert.deepEqual(waveformBandLayout(10, 14), { topPx: 0, heightPx: 12 });
-  assert.deepEqual(waveformBandLayout(48, 100), { topPx: 36, heightPx: 12 });
+  assert.deepEqual(waveformBandLayout(48, 100), { topPx: 1, heightPx: 46 });
 });
 
-test("非有限・負の高さは0として扱う", () => {
+test("非有限・負のクリップ高は0として扱い、ヘッダー高はレイアウトに使わない", () => {
   for (const value of [NaN, Infinity, -Infinity, -1, 0]) {
     assert.deepEqual(waveformBandLayout(value, 14), { topPx: 0, heightPx: 12 });
-    assert.deepEqual(waveformBandLayout(48, value), { topPx: 0, heightPx: 48 });
+    assert.deepEqual(waveformBandLayout(48, value), { topPx: 1, heightPx: 46 });
   }
 });
 

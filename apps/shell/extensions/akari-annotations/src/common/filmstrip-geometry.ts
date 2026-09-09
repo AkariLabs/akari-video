@@ -554,21 +554,17 @@ export interface AudioWaveformBandLayout {
     heightPx: number;
 }
 
-/** ラベルを避けた残り領域の 90% を使い、上下 1px 以上を残して中央へ波形帯を置く。 */
-export function audioWaveformBandLayout(itemHeightPx: number, labelHeightPx: number): AudioWaveformBandLayout {
+const AUDIO_WAVEFORM_BAND_MIN_HEIGHT_PX = 12;
+
+/**
+ * 上下 1px の余白でアイテム中央に上下対称の帯を置き、最低高 12px を優先する。
+ * 第 2 引数は後方互換のために残す。ラベルは帯に重ねるため、レイアウトには使わない。
+ */
+export function audioWaveformBandLayout(itemHeightPx: number, _labelHeightPx: number): AudioWaveformBandLayout {
     const itemHeight = Number.isFinite(itemHeightPx) ? Math.max(0, itemHeightPx) : 0;
-    const labelHeight = Number.isFinite(labelHeightPx) ? Math.max(0, labelHeightPx) : 0;
-    const remaining = Math.max(0, itemHeight - labelHeight);
-    const scaledHeight = Math.round(remaining * 0.9);
-    // 固定の上限は設けない。十分な領域がある場合だけ、上下 1px の余白を優先する。
-    const heightPx = Math.max(12, remaining >= 14 ? Math.min(scaledHeight, remaining - 2) : scaledHeight);
-    const unclampedTop = labelHeight + (remaining - heightPx) / 2;
-    const maximumTop = Math.max(0, itemHeight - heightPx - 1);
-    const minimumTop = Math.min(maximumTop, labelHeight + 1);
-    return {
-        topPx: Math.max(0, Math.min(maximumTop, Math.max(minimumTop, unclampedTop))),
-        heightPx
-    };
+    const heightPx = Math.max(AUDIO_WAVEFORM_BAND_MIN_HEIGHT_PX, itemHeight - 2);
+    const topPx = Math.max(0, (itemHeight - heightPx) / 2);
+    return { topPx, heightPx };
 }
 
 export interface AudioSourceSliceWindowInput {

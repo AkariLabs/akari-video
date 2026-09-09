@@ -261,20 +261,27 @@ test('波形配置はクリップとcoverageが交差しなければ描画しな
   }), undefined);
 });
 
-test('audioWaveformBandLayout はラベル後の残り領域中央へ90%高で置く', () => {
-  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 19.5, heightPx: 31 });
+test('audioWaveformBandLayout はアイテム中央へトラック高さいっぱいに置きヘッダーを引かない', () => {
+  assert.deepEqual(audioWaveformBandLayout(28, 14), { topPx: 1, heightPx: 26 });
+  assert.deepEqual(audioWaveformBandLayout(56, 14), { topPx: 1, heightPx: 54 });
+  assert.deepEqual(audioWaveformBandLayout(52, 14), { topPx: 1, heightPx: 50 });
+  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 1, heightPx: 50 });
+  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 1, heightPx: 26 });
 });
 
 test('audioWaveformBandLayout は高さを12pxで下限クランプする', () => {
-  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 15, heightPx: 12 });
+  assert.deepEqual(audioWaveformBandLayout(12, 14), { topPx: 0, heightPx: 12 });
 });
 
 test('audioWaveformBandLayout は28pxの旧上限を越えて拡大する', () => {
-  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 22, heightPx: 74 });
+  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 1, heightPx: 98 });
 });
 
-test('audioWaveformBandLayout は帯が収まらない高さでも要素外へ出さない', () => {
+test('audioWaveformBandLayout は狭い高さや不正な高さでもtopを負にしない', () => {
   assert.deepEqual(audioWaveformBandLayout(10, 18), { topPx: 0, heightPx: 12 });
+  for (const height of [NaN, Infinity, -Infinity, -1, 0]) {
+    assert.deepEqual(audioWaveformBandLayout(height, 14), { topPx: 0, heightPx: 12 });
+  }
 });
 
 test('audioKeyframeMarkerPositions は範囲外をクランプし非有限を除いて時刻順にする', () => {
