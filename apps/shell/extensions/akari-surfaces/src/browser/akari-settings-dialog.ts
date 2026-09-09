@@ -24,6 +24,7 @@ import { AkariHomeCommands } from './akari-home-command-contribution';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
+    AKARI_TIMELINE_VISUAL_THUMBNAILS,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
@@ -238,6 +239,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 radio.input.addEventListener('change', () => this.savePreference(AKARI_QUALITY_TIER, option.value));
                 section.append(radio.label);
             }
+            section.append(this.preferenceCheckbox(AKARI_TIMELINE_VISUAL_THUMBNAILS, 'タイムラインに HTML / 3D 素材の絵を出す', false),
+                description('クリップごとに描画して撮るため、素材が多いプロジェクトでは開くのが遅くなります。オフのときは種別の色と名前だけを表示します'));
         } else if (id === 'notifications') {
             section.append(this.preferenceCheckbox(AKARI_AGENT_TURN_END_NOTIFICATION, 'AI 完了通知', true),
                 description('Claude Code などの処理が終わったとき、通知でお知らせします（ウィンドウが背面のときだけ）。'));

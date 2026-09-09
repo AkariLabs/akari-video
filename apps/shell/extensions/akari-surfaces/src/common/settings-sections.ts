@@ -36,6 +36,7 @@ export function isSettingsSectionVisible(id: SettingsSectionId, selected: Settin
 
 // スキーマは browser/akari-preferences.ts が所有。純関数側は文字列ミラー。
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 export const AKARI_AGENT_TURN_END_NOTIFICATION = 'akari.notifications.agentTurnEnd';
 export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
@@ -56,7 +57,7 @@ export const AKARI_CATALOG_ROOT = 'akari.catalog.root';
 export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[]> = {
     start: [],
     export: [AKARI_EXPORT_QUALITY, AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, AKARI_EXPORT_OUTPUT_DIRECTORY],
-    quality: [AKARI_QUALITY_TIER],
+    quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS],
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     connections: [], // AKARI Store は PreferenceService ではなく接続サービスが所有する。
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
