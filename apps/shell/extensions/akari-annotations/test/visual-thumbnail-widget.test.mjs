@@ -16,7 +16,7 @@ const method = klass.members.filter(node => ['renderVisualThumbnail', 'recordVis
   .map(node => node.getText(source)).join('\n');
 const code = ts.transpileModule(`class Widget { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 class Element {
-  isConnected = true; dataset = {}; style = {}; classList = { add() {} }; children = [];
+  isConnected = true; dataset = {}; style = {}; classList = { add() {}, remove() {} }; children = [];
   bounds = { left: 0, right: 100, top: 0, bottom: 100, width: 100, height: 100 };
   getBoundingClientRect() { return this.isConnected ? this.bounds : { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 }; }
   querySelector(selector) { return selector.includes('image') ? this.children.find(el => el.className === 'akari-visual-thumbnail-image') : undefined; }
@@ -29,7 +29,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async predicate => { const end = Date.now() + 4000; while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); } };
 function fixture(t, prepare) {
   const captures = [], frames = [];
-  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualThumbnailRetryPlan', 'isVisualThumbnailDiskEntry', 'pruneThumbnailIndex', 'visualThumbnailCacheFileName', 'BinaryBuffer', `${code};return Widget;`)(
+  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualThumbnailRetryPlan', 'isVisualThumbnailDiskEntry', 'pruneThumbnailIndex', 'visualThumbnailCacheFileName', 'BinaryBuffer', `const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails'; ${code};return Widget;`)(
     { requestAnimationFrame: callback => frames.push(callback),
       electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } } },
     { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot, visualThumbnailRetryPlan, isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName, BinaryBuffer);
@@ -290,4 +290,32 @@ test('disk corruption, key collisions and failed writes fall back without losing
   f.w.fileService.writeFile = async () => { throw Error('read only'); };
   f.render(); await until(() => f.element.dataset.akariVisualThumbnail === 'ready');
   assert.equal(f.captures.length, 1);
+});
+
+test('disabled visual thumbnails do not initialize disk, perform I/O, or capture', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
+  const disk = diskFixture();
+  const f = fixture(t);
+  f.w.location.root = disk.root;
+  f.w.fileService = disk.service;
+  f.w.preferences = { get(key, fallback) {
+    assert.equal(key, 'akari.timeline.visualThumbnails');
+    assert.equal(fallback, false);
+    return false;
+  } };
+  const initialize = t.mock.method(f.w, 'initializeVisualThumbnailDisk');
+  const read = t.mock.method(f.w, 'readVisualThumbnailDisk');
+  const io = Object.keys(disk.service).map(name => t.mock.method(disk.service, name));
+  const prepare = t.mock.method(f.w.visualPreviewService, 'prepareVisualThumbnail');
+  f.render(); f.render();
+  t.mock.timers.tick(120000);
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  assert.equal(initialize.mock.callCount(), 0);
+  assert.equal(read.mock.callCount(), 0);
+  for (const operation of io) assert.equal(operation.mock.callCount(), 0);
+  assert.equal(f.w.visualThumbnailDisk, undefined);
+  assert.equal(f.w.visualThumbnails.queued, 0);
+  assert.equal(f.w.visualThumbnails.stats.captures, 0);
+  assert.equal(prepare.mock.callCount(), 0);
+  assert.deepEqual(f.captures, []);
 });
