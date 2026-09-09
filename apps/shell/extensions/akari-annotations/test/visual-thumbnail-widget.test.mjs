@@ -5,6 +5,8 @@ import ts from 'typescript';
 import URI from '@theia/core/lib/common/uri.js';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
 import { visualThumbnailKey, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
+import { visualHoverMode } from '../lib/common/visual-hover-mode.js';
+import { hoverPopupGeometry } from '../lib/common/hover-popup-geometry.js';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const klass = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
@@ -22,12 +24,14 @@ class Element {
 }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async predicate => { const end = Date.now() + 4000; while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); } };
-function fixture(t, prepare) {
+function fixture(t, prepare, options = {}) {
   const captures = [], frames = [];
-  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', `${code};return Widget;`)(
+  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualHoverMode', 'hoverPopupGeometry',
+    `const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails'; ${code};return Widget;`)(
     { requestAnimationFrame: callback => frames.push(callback),
-      electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } } },
-    { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot);
+      electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } }, ...options.window },
+    options.document ?? { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot,
+    visualHoverMode, hoverPopupGeometry);
   const w = new Widget();
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
   Object.assign(w, { location: { editUri: root }, visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
@@ -42,7 +46,7 @@ function fixture(t, prepare) {
       marker: JSON.parse(request.editSnapshot).tracks[0].items[0].items[0].source.params.text, streamIds: [], dependencyUris: [] })),
       disposeAssetStream: async () => {} }
   });
-  const element = new Element();
+  const element = options.element ?? new Element();
   const render = () => w.renderVisualThumbnail(element, 'title', 'TITLE', {});
   w.visualThumbnails = new VisualThumbnailCache(render);
   t.after(() => w.visualThumbnails.dispose());
@@ -140,6 +144,158 @@ for (const obsolete of ['key', 'disposed', 'detached']) test(`deferred remount s
   f.frames.shift()();
   assert.equal(image.style.visibility, 'sentinel');
   assert.equal(f.frames.length, 0);
+});
+
+class HoverElement extends Element {
+  listeners = new Map();
+  classList = { add() {}, remove() {} };
+  constructor(tagName = 'div') { super(); this.tagName = tagName; }
+  append(el) { this.children.push(el); el.parent = this; }
+  remove() { if (this.parent) super.remove(); this.isConnected = false; }
+  addEventListener(type, callback) {
+    const callbacks = this.listeners.get(type) ?? [];
+    callbacks.push(callback); this.listeners.set(type, callbacks);
+  }
+  dispatch(type) { for (const callback of this.listeners.get(type) ?? []) callback(); }
+}
+
+function hoverFixture(t, prepare) {
+  const body = new HoverElement();
+  const f = fixture(t, prepare, { element: new HoverElement(),
+    document: { body, createElement: tagName => new HoverElement(tagName) },
+    window: { innerWidth: 1600, innerHeight: 1000 } });
+  let enabled = false;
+  f.w.preferences = { get: () => enabled };
+  f.w.renderStrip = f.render;
+  f.setEnabled = value => { enabled = value; };
+  f.body = body;
+  f.enter = () => f.element.dispatch('pointerenter');
+  f.leave = () => f.element.dispatch('pointerleave');
+  f.popupImage = () => f.w.visualHover?.children.find(child => child.tagName === 'img');
+  t.after(f.leave);
+  return f;
+}
+
+test('OFF installs hover on ten bands without requesting or painting thumbnails', async t => {
+  const f = hoverFixture(t);
+  let requests = 0;
+  f.w.visualThumbnails.request = () => { requests++; };
+  for (let i = 0; i < 10; i++) {
+    const element = new HoverElement();
+    f.w.renderVisualThumbnail(element, `clip-${i}`, `Clip ${i}`, {});
+    assert.equal(element.dataset.akariVisualHoverInstalled, 'true');
+    assert.equal(element.listeners.get('pointerenter').length, 1);
+    assert.equal(element.querySelector('image'), undefined);
+    assert.equal(element.style.backgroundImage, '');
+    assert.equal(element.dataset.akariVisualThumbnail, undefined);
+  }
+  await wait(200);
+  assert.equal(requests, 0);
+  assert.equal(f.w.visualThumbnails.stats.captures, 0);
+});
+
+test('OFF shows the name and loading line, requests one priority-zero full frame, and reuses it on re-hover', async t => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; }); t.after(() => release());
+  const f = hoverFixture(t, async request => {
+    await gate;
+    return { editSnapshot: request.editSnapshot, marker: { image: 'FULL', croppedImage: 'CROPPED' },
+      streamIds: [], dependencyUris: [] };
+  });
+  const request = f.w.visualThumbnails.request.bind(f.w.visualThumbnails);
+  const jobs = [];
+  f.w.visualThumbnails.request = job => { jobs.push(job); return request(job); };
+  f.render(); f.enter();
+  await until(() => f.w.visualHover);
+  assert.deepEqual(f.w.visualHover.children.filter(child => child.tagName !== 'img').map(child => child.textContent), ['TITLE', '撮影中…']);
+  assert.equal(f.popupImage().style.display, 'none');
+  assert.equal(jobs[0].priority, 0); assert.equal(jobs[0].wanted(), true);
+  release(); await until(() => f.popupImage()?.src === 'FULL');
+  assert.equal(f.popupImage().style.width, '480px');
+  assert.equal(f.popupImage().style.height, '270px');
+  assert.equal(f.element.querySelector('image'), undefined);
+  assert.equal(f.element.style.backgroundImage, '');
+  assert.equal(f.w.visualThumbnails.stats.captures, 1);
+  f.leave(); assert.equal(jobs[0].wanted(), false);
+  assert.equal(f.body.children.length, 0);
+  f.enter(); await until(() => f.popupImage()?.src === 'FULL');
+  assert.equal(f.w.visualThumbnails.stats.captures, 1);
+});
+
+test('OFF pointerleave cancels both the hover delay and queued capture', async t => {
+  const f = hoverFixture(t); f.render();
+  f.enter(); f.leave(); await wait(500);
+  assert.equal(f.w.visualHover, undefined);
+  assert.equal(f.w.visualThumbnails.queued, 0);
+  f.w.visualThumbnails.setPaused(true);
+  f.enter(); await until(() => f.w.visualThumbnails.queued === 1);
+  f.leave(); f.w.visualThumbnails.setPaused(false);
+  await until(() => f.w.visualThumbnails.queued === 0);
+  assert.equal(f.w.visualThumbnails.stats.captures, 0);
+  assert.equal(f.body.children.length, 0);
+});
+
+test('OFF leaving during preparation releases streams and permits a fresh hover capture', async t => {
+  let release, entered = false;
+  const gate = new Promise(resolve => { release = resolve; }); t.after(() => release());
+  const f = hoverFixture(t, async request => {
+    entered = true; await gate;
+    return { editSnapshot: request.editSnapshot, marker: 'FULL', streamIds: ['stream'], dependencyUris: [] };
+  });
+  const disposed = [];
+  f.w.visualPreviewService.disposeAssetStream = async id => { disposed.push(id); };
+  f.render(); f.enter(); await until(() => entered);
+  f.leave(); release(); await until(() => f.w.visualThumbnails.stats.discarded === 1);
+  assert.deepEqual(disposed, ['stream']);
+  assert.equal(f.w.visualThumbnails.size, 0);
+  assert.equal(f.captures.length, 0);
+  f.enter(); await until(() => f.popupImage()?.src === 'FULL');
+  assert.equal(f.captures.length, 1);
+  assert.equal(f.element.querySelector('image'), undefined);
+});
+
+test('OFF retained hover listeners use the latest edit and input in the ON-compatible cache key', async t => {
+  const f = hoverFixture(t); f.render();
+  f.w.editDocument.tracks[0].items[0].items[0].source.params.text = 'UPDATED';
+  const input = { revision: 2 };
+  f.w.renderVisualThumbnail(f.element, 'title', 'UPDATED TITLE', input);
+  f.enter(); await until(() => f.popupImage()?.src === 'UPDATED');
+  assert.equal(f.w.visualHover.children[1].textContent, 'UPDATED TITLE');
+  f.leave(); f.setEnabled(true);
+  f.w.renderVisualThumbnail(f.element, 'title', 'UPDATED TITLE', input);
+  assert.equal(f.element.querySelector('image').src, 'UPDATED');
+  assert.equal(f.w.visualThumbnails.stats.captures, 1);
+  assert.equal(f.element.listeners.get('pointerenter').length, 1);
+});
+
+test('OFF and ON preference events retain one listener and share captures in both directions', async t => {
+  let subscriber;
+  const visit = node => {
+    if (ts.isCallExpression(node) && node.expression.getText(source) === 'this.preferences.onPreferenceChanged') subscriber = node.arguments[0];
+    ts.forEachChild(node, visit);
+  };
+  visit(klass); assert.ok(subscriber);
+  const js = ts.transpileModule(`function install(){return ${subscriber.getText(source)};}`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const install = new Function(`const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails'; ${js};return install;`)();
+  const f = hoverFixture(t); f.render();
+  const change = enabled => {
+    f.setEnabled(enabled); install.call(f.w)({ preferenceName: 'akari.timeline.visualThumbnails' });
+  };
+  f.enter(); await until(() => f.popupImage()?.src === 'A');
+  change(true);
+  assert.equal(f.w.visualHover, undefined);
+  assert.equal(f.element.querySelector('image').src, 'A');
+  f.enter(); await until(() => f.popupImage()?.src === 'A');
+  change(false);
+  assert.equal(f.w.visualHover, undefined);
+  assert.equal(f.element.querySelector('image'), undefined);
+  assert.equal(f.element.style.backgroundImage, '');
+  assert.equal(f.element.dataset.akariVisualThumbnail, undefined);
+  f.enter(); await until(() => f.popupImage()?.src === 'A');
+  assert.equal(f.w.visualThumbnails.stats.captures, 1);
+  assert.equal(f.element.listeners.get('pointerenter').length, 1);
+  assert.equal(f.element.listeners.get('pointerleave').length, 1);
 });
 
 test('the real file watcher invalidates motion/edit.json and motion/credit.json without broad cache invalidation', () => {
