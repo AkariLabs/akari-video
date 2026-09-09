@@ -97,17 +97,27 @@ export function nearestSnapCandidate(
 /**
  * 1 点（トリム端・字幕端など）の吸着。閾値内の最寄り候補へ吸着し、無ければ value をそのまま返す。
  * thresholdSeconds が非正・非有限なら吸着しない。
+ * cut-trim だけは wouldOverlap を渡す。吸着で重なるときは合法な生の値に戻し、
+ * 生の値も重なるときは閾値内の合法な端を試す。どちらも無ければ従来どおり拒否対象を返す。
  */
 export function resolveSnapTime(
     value: number,
     candidates: readonly SnapCandidate[],
-    thresholdSeconds: number
+    thresholdSeconds: number,
+    wouldOverlap?: (time: number) => boolean
 ): SnapResolution {
     if (!Number.isFinite(value) || !Number.isFinite(thresholdSeconds) || thresholdSeconds <= 0) {
         return { time: value, snapped: false };
     }
     const nearest = nearestSnapCandidate(candidates, value);
     if (nearest !== undefined && Math.abs(nearest.time - value) <= thresholdSeconds) {
+        if (wouldOverlap?.(nearest.time)) {
+            if (!wouldOverlap(value)) return { time: value, snapped: false };
+            const fallback = nearestSnapCandidate(candidates.filter(candidate =>
+                Number.isFinite(candidate.time) && Math.abs(candidate.time - value) <= thresholdSeconds
+                && !wouldOverlap(candidate.time)), value);
+            if (fallback) return { time: fallback.time, snapped: true, candidate: fallback };
+        }
         return { time: nearest.time, snapped: true, candidate: nearest };
     }
     return { time: value, snapped: false };

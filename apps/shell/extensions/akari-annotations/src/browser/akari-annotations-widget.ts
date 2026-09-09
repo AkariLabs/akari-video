@@ -11761,7 +11761,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         movingEdge,
                         showGuide,
                         [{ time: segment.tlStart }, { time: segment.tlEnd }],
-                        { kind: 'cut', id: String(state.index) }
+                        { kind: 'cut', id: String(state.index) },
+                        time => this.cutWouldOverlap(
+                            state.index,
+                            state.edge === 'left' ? time : segment.tlStart,
+                            state.edge === 'left' ? segment.tlEnd - time : time - segment.tlStart,
+                            segment.track
+                        )
                     );
                 snapped = snap.snapped;
                 if (durationClamped) {
@@ -12474,7 +12480,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected snapTimeInOutputSpaceWithResult(
         value: number, showGuide: boolean, extraCandidates: readonly SnapCandidate[] = [],
-        exclude?: SnapExclusion
+        exclude?: SnapExclusion,
+        wouldOverlap?: (time: number) => boolean
     ): SnapResult {
         if (!this.snapEnabled) {
             this.hideSnapGuide();
@@ -12484,7 +12491,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (threshold === undefined) {
             return { time: value, snapped: false };
         }
-        const result = resolveSnapTime(value, this.outputSnapCandidates(extraCandidates, exclude), threshold);
+        const result = resolveSnapTime(value, this.outputSnapCandidates(extraCandidates, exclude), threshold, wouldOverlap);
         this.reflectSnapGuide(result, showGuide, time => time);
         return result;
     }
