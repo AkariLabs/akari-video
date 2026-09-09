@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
-import { ClipboardKind, PasteTrack, TimelineFragment, TimelineFragmentItem, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
+import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
+    fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
@@ -104,8 +105,7 @@ import {
     CaptionTextStylePatch,
     mergeCaptionTextStyles,
     parseCaptions,
-    removeCaptionLine,
-    insertCaptionLine
+    removeCaptionLine
 } from '../common/caption-store';
 import {
     EditAudioBgm,
@@ -534,11 +534,6 @@ export interface PreviewPlaybackTick {
     videoUri?: string;
     time?: number;
     playing?: boolean;
-}
-
-interface TimelineClipboardSnapshot {
-    edit: string;
-    captions?: string;
 }
 
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
@@ -13176,63 +13171,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected fragmentForSelection(selections: readonly TimelineSelectionItem[]): TimelineFragment | undefined {
-        const tracks = this.clipboardTracks();
-        const items: TimelineFragmentItem[] = [];
-        const selectedIds = new Set(selections.map(item => item.kind === 'cut' ? this.cutItemId(item.index) : item.id));
-        const findRaw = (entries: Array<Record<string, any>>, id: string): Record<string, any> | undefined => {
-            for (const entry of entries) {
-                if (entry.id === id) return entry;
-                const child = Array.isArray(entry.items) ? findRaw(entry.items, id) : undefined;
-                if (child) return child;
-            }
-            return undefined;
-        };
-        for (const selection of selections) {
-            const id = selection.kind === 'cut' ? this.cutItemId(selection.index) : selection.id;
-            // 親も選択済みなら、子は親の断片に含まれるため二重にコピーしない。
-            let parent = this.itemLocations.get(id)?.parentId;
-            let included = false;
-            while (parent) {
-                if (selectedIds.has(parent)) { included = true; break; }
-                parent = this.itemLocations.get(parent)?.parentId;
-            }
-            if (included) continue;
-            const trackId = this.trackIdOfSelection(selection);
-            const trackIndex = tracks.findIndex(track => track.id === trackId);
-            if (trackIndex < 0) continue;
-            const track = tracks[trackIndex];
-            const raw = findRaw((this.editDocument?.tracks as Array<Record<string, any>> | undefined) ?? [], id);
-            const captionId = selection.kind === 'caption' ? id
-                : selection.kind === 'item' && selection.itemKind === 'caption' && !raw
-                    ? captionIdForTreeSelection(selection) : undefined;
-            if (captionId !== undefined) {
-                const caption = this.captions.find(candidate => candidate.id === captionId);
-                if (!caption) continue;
-                const ranges = this.captionRangeToOutputRanges(caption.id, caption.start, caption.end);
-                for (const [start, end] of ranges) {
-                    items.push({ kind: 'captions', trackId: track.id, trackIndex, t: start, duration: end - start,
-                        payload: this.deepCopy(caption) as unknown as Record<string, unknown> });
-                }
-            } else if (raw) {
-                if (raw.role === 'bgm' || raw.role === 'narration') continue;
-                const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === id);
-                items.push({ kind: track.kind, trackId: track.id, trackIndex,
-                    t: row?.at ?? Number(raw.at) / this.fps, duration: row?.duration ?? Number(raw.duration) / this.fps,
-                    payload: this.deepCopy(raw) });
-            } else if (selection.kind === 'audio') {
-                const sfx = this.audioSfx.find(candidate => candidate.id === id);
-                if (!sfx) continue;
-                const audio = this.editDocument?.audio as Record<string, any> | undefined;
-                const original = (audio?.sfx as Array<Record<string, unknown>> | undefined)?.find((entry, index) =>
-                    (entry.id ?? `sfx-${index}`) === id);
-                if (!original) continue;
-                items.push({ kind: 'sfx', trackId: track.id, trackIndex, t: sfx.t,
-                    duration: this.sfxIntervalEnd(sfx) - sfx.t, payload: { ...this.deepCopy(original), id } });
-            }
-        }
-        if (!items.length) return undefined;
-        return { kind: 'akari-video/timeline-fragment', version: 1,
-            anchor: Math.min(...items.map(item => item.t)), items };
+        return fragmentForSelection({
+            selections, getTracks: () => this.clipboardTracks(),
+            selectionId: item => item.kind === 'cut' ? this.cutItemId(item.index) : item.id,
+            trackIdOfSelection: selection => this.trackIdOfSelection(selection),
+            captionIdForSelection: (selection, id, hasRaw) => selection.kind === 'caption' ? id
+                : selection.kind === 'item' && selection.itemKind === 'caption' && !hasRaw
+                    ? captionIdForTreeSelection(selection) : undefined,
+            itemLocations: this.itemLocations, editDocument: this.editDocument, captions: this.captions,
+            captionRangeToOutputRanges: (id, start, end) => this.captionRangeToOutputRanges(id, start, end),
+            rows: this.expandedTimelineTreeRows, fps: this.fps, audioSfx: this.audioSfx,
+            sfxIntervalEnd: item => this.sfxIntervalEnd(item)
+        });
     }
 
     protected copySelectedItem(): boolean {
@@ -13257,29 +13207,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 throw new Error('ロック中のトラックからは切り取れません。');
             }
             const before = await this.readClipboardSnapshot(fragment);
-            let doc = JSON.parse(before.edit) as EditV2Document;
-            let captions = before.captions;
-            for (const id of new Set(fragment.items.map(item => String(item.payload.id)))) {
-                const item = fragment.items.find(candidate => candidate.payload.id === id)!;
-                if (item.kind === 'captions' && !('source' in item.payload)) {
-                    captions = removeCaptionLine(captions!, id);
-                } else if (item.kind === 'sfx') {
-                    doc = removeAudioSfxPreferV2(doc, id);
-                } else {
-                    doc = this.itemLocations.get(id)?.parentId ? removeTreeV2Item(doc, id).document : removeV2Item(doc, id);
-                }
-            }
-            // 選択外の分離音声は残し、切り取った映像への参照だけを解除する。
-            const remaining = indexEditV2Items(doc);
-            const removedIds = new Set(fragment.items.map(item => String(item.payload.id)));
-            for (const track of doc.tracks as Array<Record<string, any>>) {
-                for (const item of track.items ?? []) {
-                    if (typeof item.link !== 'string' || !removedIds.has(item.link) || remaining.has(item.link)) continue;
-                    if (this.isTrackLocked(String(track.id))) throw new Error('リンク先の音声トラックはロック中です。');
-                    doc = updateV2Item(doc, { itemId: String(item.id), patch: { link: null } });
-                }
-            }
-            await this.commitTimelineSnapshot(before, { edit: stringifyEditV2(doc), captions }, 'クリップの切り取り');
+            const after = cutTimelineFragment(before, {
+                fragment, itemLocations: this.itemLocations, isTrackLocked: id => this.isTrackLocked(id)
+            });
+            await this.commitTimelineSnapshot(before, after, 'クリップの切り取り');
             this.applySelection(undefined);
         });
     }
@@ -13335,123 +13266,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): Promise<void> {
         return this.queueClipboardMutation(async () => {
             const before = await this.readClipboardSnapshot(fragment);
-            let doc = JSON.parse(before.edit) as EditV2Document;
-            let tracks = this.clipboardTracks();
-            // 段間へのドロップも、同じ貼り付け計画へ空の段として渡す。
-            if (insertIndex !== undefined) {
-                const kind = fragment.items[0].kind;
-                doc = insertV2Track(doc, { index: insertIndex, lane: kind === 'sfx' ? 'audio' : 'visual' });
-                const id = String((doc.tracks as Array<Record<string, unknown>>)[insertIndex].id);
-                tracks = [...tracks];
-                tracks.splice(insertIndex, 0, { id, kind, items: [] });
-                target = [id];
-            }
-            const plan = planPaste({ fragment, playhead, tracks, target, mode: label === 'クリップの複製' ? 'duplicate' : 'paste' });
-            if (plan.ok === false) throw new Error(plan.reason);
-            const trackIds = new Map<string, string>();
-            for (const track of plan.newTracks) {
-                const rawTracks = doc.tracks as Array<Record<string, unknown>>;
-                const above = trackIds.get(track.aboveTrackId) ?? track.aboveTrackId;
-                const sourceIndex = rawTracks.findIndex(candidate => candidate.id === above);
-                const index = sourceIndex >= 0 ? sourceIndex + 1
-                    : track.kind === 'sfx' ? rawTracks.filter(candidate => candidate.lane === 'audio').length : rawTracks.length;
-                doc = insertV2Track(doc, { index, lane: track.kind === 'sfx' ? 'audio' : 'visual' });
-                trackIds.set(track.id, String((doc.tracks as Array<Record<string, unknown>>)[index].id));
-            }
-            for (const cut of plan.cuts) {
-                for (const itemId of cut.splitIds) doc = splitV2Item(doc, { itemId, atFrames: this.frameAt(cut.at) });
-                const track = (doc.tracks as Array<Record<string, any>>).find(candidate => candidate.id === cut.trackId)!;
-                for (const item of track.items ?? []) {
-                    if (Number(item.at) >= this.frameAt(cut.at)) {
-                        doc = updateV2Item(doc, { itemId: String(item.id),
-                            patch: { at: Number(item.at) + this.frameAt(cut.duration) } });
-                    }
-                }
-            }
-            let captions = before.captions;
-            const usedIds = [...indexEditV2Items(doc).keys(), ...this.captions.map(caption => caption.id),
-                ...this.audioSfx.map(item => item.id)];
-            const copiedIds = new Map<string, string>();
-            const cloneItem = (original: Record<string, any>): Record<string, any> => {
-                const item = this.deepCopy(original);
-                item.id = this.nextCopyId(`${String(original.id)}-copy`, usedIds);
-                usedIds.push(item.id);
-                copiedIds.set(String(original.id), item.id);
-                if (Array.isArray(item.items)) item.items = item.items.map(cloneItem);
-                return item;
-            };
-            const copies = plan.placements.map(placement => ({ ...placement, payload: cloneItem(placement.item.payload) }));
-            const relink = (item: Record<string, any>): void => {
-                if (typeof item.link === 'string') {
-                    if (copiedIds.has(item.link)) item.link = copiedIds.get(item.link);
-                    else delete item.link;
-                }
-                if (Array.isArray(item.items)) item.items.forEach(relink);
-            };
-            for (const placement of copies) {
-                const item = placement.payload;
-                relink(item);
-                const trackId = trackIds.get(placement.trackId) ?? placement.trackId;
-                if (placement.item.kind === 'captions' && !('source' in item)) {
-                    const caption = item as CaptionRecord;
-                    caption.start = placement.t;
-                    caption.end = placement.t + placement.item.duration;
-                    caption.timeDomain = 'output';
-                    caption.sourceRef = null;
-                    caption.edited = true;
-                    // 元素材の単語時刻は出力秒へ線形に写してスタイルとともに保つ。
-                    const shift = (t: number): number => placement.t + (t - Number(placement.item.payload.start))
-                        * placement.item.duration / (Number(placement.item.payload.end) - Number(placement.item.payload.start));
-                    caption.words = caption.words?.map(word => ({ ...word, start: shift(word.start), end: shift(word.end) }));
-                    caption.unrecognized = caption.unrecognized?.map(range => ({ start: shift(range.start), end: shift(range.end) }));
-                    captions = insertCaptionLine(captions!, caption);
-                    continue;
-                }
-                item.at = this.frameAt(placement.t);
-                if (placement.item.kind === 'sfx') {
-                    const rawTrack = (doc.tracks as Array<Record<string, unknown>>).find(track => track.id === trackId);
-                    const legacyItem: Record<string, unknown> = { ...item, t: placement.t,
-                        track: this.displayTimelineTracks.find(track => track.id === trackId)?.ref ?? 0 };
-                    delete legacyItem.at;
-                    if (!item.source && rawTrack) {
-                        const sources = (doc.sources ?? []) as Array<Record<string, unknown>>;
-                        let source = sources.find(candidate => candidate.path === item.path);
-                        if (!source) {
-                            source = { id: this.nextCopyId('audio-copy-source', sources.map(entry => String(entry.id))), path: item.path };
-                            doc = { ...doc, sources: [...sources, source] };
-                        }
-                        const { id, gain_db, fade_in, fade_out } = item;
-                        const input = Number(item.in ?? 0);
-                        Object.assign(item, { id, gain_db, fade_in, fade_out,
-                            duration: this.frameAt(placement.item.duration),
-                            source: { kind: 'media', src: source.id, in: input, out: Number(item.out ?? input + placement.item.duration * Number(item.speed ?? 1)) } });
-                        if (Array.isArray(item.keyframes)) item.keyframes = item.keyframes.map((point: Record<string, unknown>) =>
-                            ({ ...point, t: this.frameAt(Number(point.t)) }));
-                        for (const key of ['path', 't', 'track', 'in', 'out']) delete item[key];
-                    }
-                    doc = insertAudioSfxPreferV2(doc, { trackId: rawTrack ? trackId : undefined, item, legacyItem });
-                } else {
-                    const destination = (doc.tracks as Array<Record<string, any>>).find(track => track.id === trackId)!;
-                    const nextIndex = destination.items.findIndex((entry: Record<string, unknown>) => Number(entry.at) > Number(item.at));
-                    doc = insertV2Item(doc, trackId, item, nextIndex < 0 ? destination.items.length : nextIndex);
-                }
-            }
-            await this.commitTimelineSnapshot(before, { edit: stringifyEditV2(doc), captions }, label);
+            const after = pasteTimelineFragment(before, {
+                fragment, playhead, target, insertIndex, getTracks: () => this.clipboardTracks(),
+                mode: label === 'クリップの複製' ? 'duplicate' : 'paste',
+                frameAt: seconds => this.frameAt(seconds), captions: this.captions, audioSfx: this.audioSfx,
+                displayTimelineTracks: this.displayTimelineTracks
+            });
+            await this.commitTimelineSnapshot(before, after, label);
             this.hideNotice();
-            this.footer.textContent = `${copies.length} 件を${label === 'クリップの複製' ? '複製' : '貼り付け'}しました。`;
+            this.footer.textContent = `${fragment.items.length} 件を${label === 'クリップの複製' ? '複製' : '貼り付け'}しました。`;
         });
-    }
-
-    protected nextCopyId(base: string, ids: string[]): string {
-        const used = new Set(ids);
-        if (!used.has(base)) {
-            return base;
-        }
-        let sequence = 2;
-        while (used.has(`${base}-${sequence}`)) {
-            sequence++;
-        }
-        return `${base}-${sequence}`;
     }
 
     protected deepCopy<T>(value: T): T {
