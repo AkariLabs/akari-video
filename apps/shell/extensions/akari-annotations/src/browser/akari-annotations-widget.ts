@@ -8,6 +8,7 @@ import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -324,6 +325,8 @@ import {
     resolveTimelineClipName
 } from './timeline-selection-model';
 
+// スキーマは akari-surfaces が所有。拡張間の依存を増やさず文字列をミラーする。
+const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
@@ -743,6 +746,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(StorageService)
     protected readonly storage!: StorageService;
 
+    @inject(PreferenceService)
+    protected readonly preferences!: PreferenceService;
+
     protected readonly toolbar = document.createElement('div');
     protected readonly selectToolButton = document.createElement('button');
     protected readonly razorToolButton = document.createElement('button');
@@ -1072,6 +1078,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             document.removeEventListener('dragend', resume, true);
             window.removeEventListener('blur', resume);
             this.visualThumbnails.dispose(); this.visualHover?.remove();
+        }));
+        this.toDispose.push(this.preferences.onPreferenceChanged(event => {
+            if (event.preferenceName !== AKARI_TIMELINE_VISUAL_THUMBNAILS) return;
+            if (!this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false)) {
+                this.visualInputEpoch++;
+            }
+            this.renderStrip();
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
         this.title.label = 'タイムライン';
@@ -5857,6 +5870,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderVisualThumbnail(element: HTMLDivElement, id: string, label: string, input: unknown): void {
+        // PreferenceService を持たない文脈（本メソッドだけを切り出して回す既存単体テスト）では
+        // 設定を読めない。その場合は導入前の挙動（撮る）を保つ。
+        const visualThumbnailsEnabled = this.preferences
+            ? this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false) : true;
+        if (!visualThumbnailsEnabled) {
+            element.querySelector(':scope > .akari-visual-thumbnail-image')?.remove();
+            element.style.backgroundImage = '';
+            delete element.dataset.akariVisualThumbnail;
+            element.classList.remove('akari-visual-thumbnail-clip');
+            this.visualKeys.delete(element);
+            element.querySelector(':scope > .akari-annotations-segment-label')?.removeAttribute('style');
+            return;
+        }
         const editUri = this.location?.editUri?.toString();
         if (!editUri || !window.electronAkariPreview?.captureVisualThumbnail) return;
         const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);

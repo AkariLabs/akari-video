@@ -9,6 +9,7 @@ export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
 
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
+export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 // 読む側の文字列ミラー。スキーマは akari-project/src/browser/akari-project-frontend-module.ts が所有する。
 export const AKARI_DEVELOPER_MODE = 'akari.developerMode';
 // パートナー PTY（Claude Code 等）の応答完了 OS 通知（読む側: akari-partner の
@@ -38,6 +39,10 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
             enum: ['draft', 'final'],
             default: 'draft',
             description: 'AKARI Video の書き出し品質ティア'
+        },
+        [AKARI_TIMELINE_VISUAL_THUMBNAILS]: {
+            type: 'boolean', default: false,
+            description: 'タイムラインに HTML / 3D 素材の絵を出す（オフのときは種別の色と名前だけ）'
         },
         [AKARI_AGENT_TURN_END_NOTIFICATION]: {
             type: 'boolean',
