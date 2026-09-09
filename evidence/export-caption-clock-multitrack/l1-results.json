@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-09-09T16:38:05.480Z",
+  "multitrack": {
+    "lint": {
+      "exit": 0,
+      "verdict": "pass"
+    },
+    "fixed": {
+      "export": {
+        "exit": 0,
+        "stdoutTail": [
+          "PROGRESS frame=1272 total=1272",
+          "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+          "PASS: exports/multitrack-fixed.mp4"
+        ],
+        "stderrTail": [
+          "[OpenH264] this = 0x0x10c053a3b40, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+          "sysctlbyname for kern.hv_vmm_present failed with status -1"
+        ]
+      },
+      "probe": {
+        "durationSeconds": 42.4,
+        "videoStream": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 360,
+          "nb_frames": "1272",
+          "avg_frame_rate": "30/1"
+        }
+      },
+      "captionBandBrightPixels": {
+        "cue1-on-first-visible-run@1.75s": 1247,
+        "cue1-on-last-visible-run@6.1s": 1246,
+        "cue14-near-tail@39.7s": 1535,
+        "after-last-cue@41.5s": 0
+      }
+    },
+    "baseline": {
+      "lintExit": 0,
+      "export": {
+        "exit": 0,
+        "stdoutTail": [
+          "PROGRESS frame=3333 total=3333",
+          "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+          "PASS: exports/multitrack-baseline.mp4"
+        ],
+        "stderrTail": [
+          "[OpenH264] this = 0x0x11406de6690, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+          "sysctlbyname for kern.hv_vmm_present failed with status -1"
+        ]
+      },
+      "probe": {
+        "durationSeconds": 111.1,
+        "videoStream": {
+          "codec_name": "h264",
+          "width": 640,
+          "height": 360,
+          "nb_frames": "3333",
+          "avg_frame_rate": "30/1"
+        }
+      },
+      "captionBandBrightPixels": {
+        "cue1-on-first-visible-run@1.75s": 1247,
+        "cue1-on-last-visible-run@6.1s": 11,
+        "cue14-near-tail@39.7s": 0,
+        "after-last-cue@41.5s": 1276
+      }
+    }
+  },
+  "serial": {
+    "fixed": {
+      "exit": 0,
+      "bytes": 878890,
+      "sha256": "a912a30ddbf2ff4887029374c18ba5066c7f4d3758d26e4144a8c798bb2f3389"
+    },
+    "baseline": {
+      "exit": 0,
+      "bytes": 878890,
+      "sha256": "a912a30ddbf2ff4887029374c18ba5066c7f4d3758d26e4144a8c798bb2f3389"
+    },
+    "byteIdentical": true
+  },
+  "leftoverElectronProcesses": 0
+}
