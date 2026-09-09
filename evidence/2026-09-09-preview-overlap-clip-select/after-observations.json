@@ -1,0 +1,633 @@
+{
+  "label": "after",
+  "steps": {
+    "timeline_open": {
+      "ok": true,
+      "value": null
+    },
+    "a_before_click": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": false,
+        "layerBox": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": []
+    },
+    "a_geometry": {
+      "stage": {
+        "left": 36,
+        "top": 57.125,
+        "width": 332,
+        "height": 186.75,
+        "layoutWidth": 332,
+        "layoutHeight": 187,
+        "scale": 0.51875
+      },
+      "inner": {
+        "x": 202,
+        "y": 150.5
+      },
+      "point": {
+        "x": 423.9140625,
+        "y": 189.5
+      },
+      "calibration": {
+        "outer": {
+          "x": 221.9140625,
+          "y": 39
+        },
+        "seen": {
+          "x": 202,
+          "y": 150.5
+        },
+        "offset": {
+          "x": 221.9140625,
+          "y": 39
+        }
+      }
+    },
+    "a_click_preview": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 102.3984375,
+          "top": 94.46875,
+          "width": 199.1953125,
+          "height": 112.046875
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "mid-item"
+      ],
+      "png": "after-a-click-preview.png"
+    },
+    "b_timeline_target": {
+      "x": 474.24609375,
+      "y": 515.515625
+    },
+    "b_select_from_timeline": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 102.3984375,
+          "top": 94.46875,
+          "width": 199.1953125,
+          "height": 112.046875
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "mid-item"
+      ],
+      "png": "after-b-select-from-timeline.png"
+    },
+    "d_geometry": {
+      "stage": {
+        "left": 36,
+        "top": 57.125,
+        "width": 332,
+        "height": 186.75,
+        "layoutWidth": 332,
+        "layoutHeight": 187,
+        "scale": 0.51875
+      },
+      "inner": {
+        "x": 202,
+        "y": 150.5
+      },
+      "point": {
+        "x": 423.9140625,
+        "y": 189.5
+      },
+      "calibration": {
+        "outer": {
+          "x": 221.9140625,
+          "y": 39
+        },
+        "seen": {
+          "x": 202,
+          "y": 150.5
+        },
+        "offset": {
+          "x": 221.9140625,
+          "y": 39
+        }
+      }
+    },
+    "d_three_stack": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 143.8984375,
+          "top": 117.8125,
+          "width": 116.1953125,
+          "height": 65.359375
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "block",
+            "videoWidth": 640,
+            "videoHeight": 360,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "top-item"
+      ],
+      "png": "after-d-three-stack.png"
+    },
+    "e_hide_metadata": [
+      {
+        "id": "mid-item",
+        "videoWidth": 0,
+        "readyState": 4,
+        "display": "block"
+      },
+      {
+        "id": "top-item",
+        "videoWidth": 0,
+        "readyState": 4,
+        "display": "none"
+      }
+    ],
+    "e_geometry": {
+      "stage": {
+        "left": 36,
+        "top": 57.125,
+        "width": 332,
+        "height": 186.75,
+        "layoutWidth": 332,
+        "layoutHeight": 187,
+        "scale": 0.51875
+      },
+      "inner": {
+        "x": 202,
+        "y": 150.5
+      },
+      "point": {
+        "x": 423.9140625,
+        "y": 189.5
+      },
+      "calibration": {
+        "outer": {
+          "x": 221.9140625,
+          "y": 39
+        },
+        "seen": {
+          "x": 202,
+          "y": 150.5
+        },
+        "offset": {
+          "x": 221.9140625,
+          "y": 39
+        }
+      }
+    },
+    "e_click_without_metadata": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 102.3984375,
+          "top": 94.46875,
+          "width": 199.1953125,
+          "height": 112.046875
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "mid-item"
+      ],
+      "png": "after-e-click-without-metadata.png"
+    },
+    "f_geometry": {
+      "stage": {
+        "left": 36,
+        "top": 57.125,
+        "width": 332,
+        "height": 186.75,
+        "layoutWidth": 332,
+        "layoutHeight": 187,
+        "scale": 0.51875
+      },
+      "inner": {
+        "x": 202,
+        "y": 150.5
+      },
+      "point": {
+        "x": 423.9140625,
+        "y": 189.5
+      },
+      "calibration": {
+        "outer": {
+          "x": 221.9140625,
+          "y": 39
+        },
+        "seen": {
+          "x": 202,
+          "y": 150.5
+        },
+        "offset": {
+          "x": 221.9140625,
+          "y": 39
+        }
+      }
+    },
+    "f_three_stack_without_metadata": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 143.8984375,
+          "top": 117.8125,
+          "width": 116.1953125,
+          "height": 65.359375
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "top-item"
+      ],
+      "png": "after-f-three-stack-without-metadata.png"
+    },
+    "g_cut_only_area": {
+      "point": {
+        "x": 277.8340625,
+        "y": 189.5
+      },
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": false,
+        "layerBox": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        },
+        "cutBoxActive": true,
+        "cutBox": {
+          "width": 332,
+          "height": 186.75
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "0"
+      ],
+      "png": "after-g-cut-only-area.png"
+    },
+    "c_hide_metadata": [
+      {
+        "id": "mid-item",
+        "videoWidth": 0,
+        "readyState": 4,
+        "display": "block"
+      },
+      {
+        "id": "top-item",
+        "videoWidth": 0,
+        "readyState": 4,
+        "display": "none"
+      }
+    ],
+    "c_selection_before_drag": {
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 102.3984375,
+          "top": 94.46875,
+          "width": 199.1953125,
+          "height": 112.046875
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "mid-item"
+      ]
+    },
+    "c_edit_before": {
+      "base-item": {
+        "x": 0,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      },
+      "mid-item": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.6,
+        "rotate": 0
+      },
+      "top-item": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.35,
+        "rotate": 0
+      }
+    },
+    "c_edit_after": {
+      "base-item": {
+        "x": 0,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      },
+      "mid-item": {
+        "x": 192.7710843373494,
+        "y": 0,
+        "scale": 0.6,
+        "rotate": 0
+      },
+      "top-item": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.35,
+        "rotate": 0
+      }
+    },
+    "c_drag": {
+      "dragPixels": 100,
+      "outputPixels": 100,
+      "preview": {
+        "engineClock": true,
+        "engineCanvas": true,
+        "layerBoxActive": true,
+        "layerBox": {
+          "left": 202.3984375,
+          "top": 94.46875,
+          "width": 199.1953125,
+          "height": 112.046875
+        },
+        "cutBoxActive": false,
+        "cutBox": {
+          "width": 0,
+          "height": 0
+        },
+        "media": [
+          {
+            "id": "mid-item",
+            "z": "1",
+            "display": "block",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "192.7710843373494",
+            "scale": "0.6"
+          },
+          {
+            "id": "top-item",
+            "z": "2",
+            "display": "none",
+            "videoWidth": 0,
+            "videoHeight": 0,
+            "readyState": 4,
+            "transformX": "0",
+            "scale": "0.35"
+          }
+        ]
+      },
+      "timeline": [
+        "mid-item"
+      ],
+      "png": "after-c-drag-100px.png"
+    }
+  },
+  "stage": {
+    "left": 36,
+    "top": 57.125,
+    "width": 332,
+    "height": 186.75,
+    "layoutWidth": 332,
+    "layoutHeight": 187,
+    "scale": 0.51875
+  },
+  "leftoverProcesses": 0,
+  "webviewExceptions": [
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy."
+  ]
+}
