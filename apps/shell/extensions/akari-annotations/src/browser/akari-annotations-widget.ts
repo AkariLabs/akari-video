@@ -5,6 +5,7 @@ import { clipKindBadge, ClipKindBadgeContext, ClipKindBadgeItem } from '../commo
 import { timelineTabCaption } from '../common/timeline-tab-caption';
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
+import { visualHoverMode } from '../common/visual-hover-mode';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
@@ -1093,6 +1094,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
         this.toDispose.push(this.preferences.onPreferenceChanged(event => {
             if (event.preferenceName !== AKARI_TIMELINE_VISUAL_THUMBNAILS) return;
+            this.visualHover?.remove(); this.visualHover = undefined;
             if (!this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false)) {
                 this.visualInputEpoch++;
             }
@@ -6038,132 +6040,137 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 設定を読めない。その場合は導入前の挙動（撮る）を保つ。
         const visualThumbnailsEnabled = this.preferences
             ? this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false) : true;
-        if (!visualThumbnailsEnabled) {
+        if (visualHoverMode(visualThumbnailsEnabled) === 'hover-only') {
             element.querySelector(':scope > .akari-visual-thumbnail-image')?.remove();
             element.style.backgroundImage = '';
             delete element.dataset.akariVisualThumbnail;
             element.classList.remove('akari-visual-thumbnail-clip');
             this.visualKeys.delete(element);
             element.querySelector(':scope > .akari-annotations-segment-label')?.removeAttribute('style');
-            return;
-        }
-        const editUri = this.location?.editUri?.toString();
-        if (!editUri || !window.electronAkariPreview?.captureVisualThumbnail) return;
-        if (!this.initializeVisualThumbnailDisk()) { element.dataset.akariVisualThumbnail = 'pending'; return; }
-        const root = this.location?.root;
-        const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);
-        const sourceKey = visualThumbnailKey(editUri, id, [input, editSnapshot, 0]);
-        const restored = this.visualThumbnailDisk?.revisions.get(sourceKey);
-        if (!this.visualDependencyRevisions.has(id) && restored
-            && restored.key === visualThumbnailKey(editUri, id, [input, editSnapshot, restored.revision])) {
-            this.visualDependencyRevisions.set(id, restored.revision);
-        }
-        const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
-        const epoch = this.visualInputEpoch;
-        const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
-        const valid = (): boolean => !this.isDisposed && this.location?.editUri?.toString() === editUri
-            && this.visualInputEpoch === epoch && (this.visualDependencyRevisions.get(id) ?? 0) === dependencyRevision
-            && visualThumbnailSnapshot(this.editDocument, id) === editSnapshot;
-        this.visualKeys.set(element, key);
-        const rect = element.getBoundingClientRect();
-        const viewport = this.stripScroll.getBoundingClientRect();
-        const visible = (): boolean => {
-            if (!element.isConnected || this.visualKeys.get(element) !== key) return false;
-            const bounds = element.getBoundingClientRect();
-            const view = this.stripScroll.getBoundingClientRect();
-            return bounds.right > view.left && bounds.left < view.right && bounds.bottom > view.top && bounds.top < view.bottom;
-        };
-        const value = this.visualThumbnails.request({ key, priority: Math.abs(rect.left - viewport.left), wanted: visible, valid,
-            readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
-            capture: async () => {
-                const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
-                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
-                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
-                    throw new Error('Visual thumbnail unavailable');
-                });
-                try {
-                    if (!valid()) throw new Error('Stale visual thumbnail input');
-                    if (page.editSnapshot !== editSnapshot) throw new Error('Visual thumbnail edit snapshot mismatch');
-                    this.visualDependencies.set(id, page.dependencyUris.map(uri => new URI(uri)));
-                    const dependencies = await Promise.all(page.dependencyUris.map(async uri => {
-                        const stat = await this.fileService.resolve(new URI(uri), { resolveMetadata: true });
-                        return { uri, mtime: stat.mtime, size: stat.size };
-                    })).catch(() => undefined);
-                    while (this.visualThumbnails.isPaused && !this.isDisposed) await new Promise(resolve => setTimeout(resolve, 100));
-                    if (!valid()) throw new Error('Stale visual thumbnail input');
-                    const result = await window.electronAkariPreview.captureVisualThumbnail(page);
-                    if (!valid()) throw new Error('Stale visual thumbnail input');
-                    this.failedVisualThumbnails.delete(id);
-                    const capture = typeof result === 'string' ? { image: result } : result;
-                    console.info(`[visual-thumbnail] capture ok ${id}`);
-                    if (dependencies) void this.writeVisualThumbnailDisk(root,
-                        { ...capture, key, sourceKey, dependencyRevision, dependencies, capturedAt: Date.now() }, id, valid);
-                    return capture;
-                } catch (error) {
-                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
-                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
-                    throw new Error('Visual thumbnail unavailable');
-                } finally {
-                    await Promise.all(page.streamIds.map(streamId => this.visualPreviewService.disposeAssetStream(streamId).catch(() => undefined)));
-                }
-            }
-        });
-        element.dataset.akariVisualThumbnail = value === undefined ? 'pending' : value === null ? 'unavailable' : 'ready';
-        element.classList.add('akari-visual-thumbnail-clip');
-        element.title = label;
-        let picture = element.querySelector<HTMLImageElement>(':scope > .akari-visual-thumbnail-image');
-        if (value) {
-            if (!picture) {
-                picture = document.createElement('img'); picture.className = 'akari-visual-thumbnail-image';
-                picture.alt = ''; picture.draggable = false;
-                Object.assign(picture.style, { position: 'absolute', inset: '0', width: '100%', height: '100%',
-                    objectFit: 'contain', pointerEvents: 'none', background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
-                element.prepend(picture);
-            }
-            const source = value.croppedImage ?? value.image;
-            if (picture.getAttribute('src') !== source) picture.src = source;
-            // The cropped copy fills the band; uncropped captures keep their original framing.
-            Object.assign(picture.style, {
-                objectFit: value.croppedImage ? 'cover' : 'contain',
-                objectPosition: value.croppedImage ? '50% 50%' : ''
-            });
-            // Hover shows the full frame, so keep the uncropped source reachable from the band image.
-            if (value.croppedImage) picture.dataset.akariUncroppedImage = value.image;
-            else delete picture.dataset.akariUncroppedImage;
-            // Paint the cached bitmap across long clips, including their partially visible ends.
-            // Keep the img as the decoded source for short clips, hover, and image observers.
-            Object.assign(element.style, {
-                backgroundImage: `url("${source}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
-                backgroundSize: 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
-                backgroundPosition: 'left center, 0 0'
-            });
-            const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
-            const aspect = typeof output?.width === 'number' && output.width > 0
-                && typeof output.height === 'number' && output.height > 0 ? output.width / output.height : 16 / 9;
-            const sizedPicture = picture;
-            const updateSize = (): void => {
-                if (!element.isConnected || !valid() || this.visualKeys.get(element) !== key
-                    || element.querySelector('.akari-visual-thumbnail-image') !== sizedPicture) return;
-                const bounds = element.getBoundingClientRect();
-                sizedPicture.style.visibility = bounds.width > bounds.height * aspect ? 'hidden' : 'visible';
-            };
-            if (element.isConnected) updateSize();
-            else {
-                // A cache hit can precede finishKeyedRender's attachment. Do not let a
-                // zero-sized detached img cover the repeated bitmap with its checker.
-                sizedPicture.style.visibility = 'hidden';
-                window.requestAnimationFrame(updateSize);
-            }
+            element.title = label;
         } else {
-            picture?.remove();
-            element.style.backgroundImage = '';
+            const editUri = this.location?.editUri?.toString();
+            if (!editUri || !window.electronAkariPreview?.captureVisualThumbnail) return;
+            if (!this.initializeVisualThumbnailDisk()) { element.dataset.akariVisualThumbnail = 'pending'; return; }
+            const root = this.location?.root;
+            const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);
+            const sourceKey = visualThumbnailKey(editUri, id, [input, editSnapshot, 0]);
+            const restored = this.visualThumbnailDisk?.revisions.get(sourceKey);
+            if (!this.visualDependencyRevisions.has(id) && restored
+                && restored.key === visualThumbnailKey(editUri, id, [input, editSnapshot, restored.revision])) {
+                this.visualDependencyRevisions.set(id, restored.revision);
+            }
+            const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
+            const epoch = this.visualInputEpoch;
+            const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
+            const valid = (): boolean => !this.isDisposed && this.location?.editUri?.toString() === editUri
+                && this.visualInputEpoch === epoch && (this.visualDependencyRevisions.get(id) ?? 0) === dependencyRevision
+                && visualThumbnailSnapshot(this.editDocument, id) === editSnapshot;
+            this.visualKeys.set(element, key);
+            const rect = element.getBoundingClientRect();
+            const viewport = this.stripScroll.getBoundingClientRect();
+            const visible = (): boolean => {
+                if (!element.isConnected || this.visualKeys.get(element) !== key) return false;
+                const bounds = element.getBoundingClientRect();
+                const view = this.stripScroll.getBoundingClientRect();
+                return bounds.right > view.left && bounds.left < view.right && bounds.bottom > view.top && bounds.top < view.bottom;
+            };
+            const value = this.visualThumbnails.request({ key, priority: Math.abs(rect.left - viewport.left), wanted: visible, valid,
+                readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
+                capture: async () => {
+                    const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
+                        this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                        // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                        throw new Error('Visual thumbnail unavailable');
+                    });
+                    try {
+                        if (!valid()) throw new Error('Stale visual thumbnail input');
+                        if (page.editSnapshot !== editSnapshot) throw new Error('Visual thumbnail edit snapshot mismatch');
+                        this.visualDependencies.set(id, page.dependencyUris.map(uri => new URI(uri)));
+                        const dependencies = await Promise.all(page.dependencyUris.map(async uri => {
+                            const stat = await this.fileService.resolve(new URI(uri), { resolveMetadata: true });
+                            return { uri, mtime: stat.mtime, size: stat.size };
+                        })).catch(() => undefined);
+                        while (this.visualThumbnails.isPaused && !this.isDisposed) await new Promise(resolve => setTimeout(resolve, 100));
+                        if (!valid()) throw new Error('Stale visual thumbnail input');
+                        const result = await window.electronAkariPreview.captureVisualThumbnail(page);
+                        if (!valid()) throw new Error('Stale visual thumbnail input');
+                        this.failedVisualThumbnails.delete(id);
+                        const capture = typeof result === 'string' ? { image: result } : result;
+                        console.info(`[visual-thumbnail] capture ok ${id}`);
+                        if (dependencies) void this.writeVisualThumbnailDisk(root,
+                            { ...capture, key, sourceKey, dependencyRevision, dependencies, capturedAt: Date.now() }, id, valid);
+                        return capture;
+                    } catch (error) {
+                        this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                        // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                        throw new Error('Visual thumbnail unavailable');
+                    } finally {
+                        await Promise.all(page.streamIds.map(streamId => this.visualPreviewService.disposeAssetStream(streamId).catch(() => undefined)));
+                    }
+                }
+            });
+            element.dataset.akariVisualThumbnail = value === undefined ? 'pending' : value === null ? 'unavailable' : 'ready';
+            element.classList.add('akari-visual-thumbnail-clip');
+            element.title = label;
+            let picture = element.querySelector<HTMLImageElement>(':scope > .akari-visual-thumbnail-image');
+            if (value) {
+                if (!picture) {
+                    picture = document.createElement('img'); picture.className = 'akari-visual-thumbnail-image';
+                    picture.alt = ''; picture.draggable = false;
+                    Object.assign(picture.style, { position: 'absolute', inset: '0', width: '100%', height: '100%',
+                        objectFit: 'contain', pointerEvents: 'none', background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
+                    element.prepend(picture);
+                }
+                const source = value.croppedImage ?? value.image;
+                if (picture.getAttribute('src') !== source) picture.src = source;
+                // The cropped copy fills the band; uncropped captures keep their original framing.
+                Object.assign(picture.style, {
+                    objectFit: value.croppedImage ? 'cover' : 'contain',
+                    objectPosition: value.croppedImage ? '50% 50%' : ''
+                });
+                // Hover shows the full frame, so keep the uncropped source reachable from the band image.
+                if (value.croppedImage) picture.dataset.akariUncroppedImage = value.image;
+                else delete picture.dataset.akariUncroppedImage;
+                // Paint the cached bitmap across long clips, including their partially visible ends.
+                // Keep the img as the decoded source for short clips, hover, and image observers.
+                Object.assign(element.style, {
+                    backgroundImage: `url("${source}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
+                    backgroundSize: 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
+                    backgroundPosition: 'left center, 0 0'
+                });
+                const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
+                const aspect = typeof output?.width === 'number' && output.width > 0
+                    && typeof output.height === 'number' && output.height > 0 ? output.width / output.height : 16 / 9;
+                const sizedPicture = picture;
+                const updateSize = (): void => {
+                    if (!element.isConnected || !valid() || this.visualKeys.get(element) !== key
+                        || element.querySelector('.akari-visual-thumbnail-image') !== sizedPicture) return;
+                    const bounds = element.getBoundingClientRect();
+                    sizedPicture.style.visibility = bounds.width > bounds.height * aspect ? 'hidden' : 'visible';
+                };
+                if (element.isConnected) updateSize();
+                else {
+                    // A cache hit can precede finishKeyedRender's attachment. Do not let a
+                    // zero-sized detached img cover the repeated bitmap with its checker.
+                    sizedPicture.style.visibility = 'hidden';
+                    window.requestAnimationFrame(updateSize);
+                }
+            } else {
+                picture?.remove();
+                element.style.backgroundImage = '';
+            }
+            const text = element.querySelector<HTMLElement>(':scope > .akari-annotations-segment-label');
+            if (text) {
+                text.textContent = label;
+                Object.assign(text.style, { position: 'absolute', left: '0', bottom: '0', top: 'auto', zIndex: '2',
+                    maxWidth: '100%', background: '#111c', color: '#fff', fontSize: '11px', lineHeight: '16px' });
+            }
         }
-        const text = element.querySelector<HTMLElement>(':scope > .akari-annotations-segment-label');
-        if (text) {
-            text.textContent = label;
-            Object.assign(text.style, { position: 'absolute', left: '0', bottom: '0', top: 'auto', zIndex: '2',
-                maxWidth: '100%', background: '#111c', color: '#fff', fontSize: '11px', lineHeight: '16px' });
-        }
+        // Keyed elements keep their listeners across edits and preference changes.
+        const hoverElement = element as HTMLDivElement & { akariVisualHoverInput?: unknown; akariVisualHoverId?: string };
+        hoverElement.akariVisualHoverInput = input;
+        hoverElement.akariVisualHoverId = id;
         this.installVisualHover(element);
     }
 
@@ -6187,12 +6194,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const caption = element.dataset.akariItemKind === 'caption'
                     ? this.captions.find(item => item.id === element.dataset.akariItemId) : undefined;
                 const image = element.querySelector<HTMLImageElement>('.akari-visual-thumbnail-image');
+                const hoverOnly = visualHoverMode(this.preferences
+                    ? this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false) : true) === 'hover-only';
+                const hoverElement = element as HTMLDivElement & { akariVisualHoverInput?: unknown; akariVisualHoverId?: string };
+                const captureOnHover = hoverOnly && !!hoverElement.akariVisualHoverId;
                 let enlarged: HTMLImageElement | undefined;
                 let captionPreview: HTMLDivElement | undefined;
-                if (image && !caption) {
+                if ((image || captureOnHover) && !caption) {
                     enlarged = document.createElement('img');
                     enlarged.alt = ''; enlarged.draggable = false;
-                    Object.assign(enlarged.style, { position: 'relative', display: 'block',
+                    Object.assign(enlarged.style, { position: 'relative', display: image ? 'block' : 'none',
                         visibility: 'visible', objectFit: 'contain', pointerEvents: 'none',
                         background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
                     popup.append(enlarged);
@@ -6228,6 +6239,87 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (enlarged && image) {
                     enlarged.onload = updateGeometry;
                     enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
+                }
+                if (!image && captureOnHover && !caption) {
+                    const loading = document.createElement('div'); loading.textContent = '撮影中…'; popup.append(loading);
+                    const active = (): boolean => this.visualHover === popup && element.isConnected && !this.isDisposed
+                        && !this.preferences.get<boolean>(AKARI_TIMELINE_VISUAL_THUMBNAILS, false);
+                    const startCapture = (): void => {
+                        if (!active()) { if (this.visualHover === popup) hide(); return; }
+                        const editUri = this.location?.editUri?.toString();
+                        const id = hoverElement.akariVisualHoverId;
+                        const input = hoverElement.akariVisualHoverInput;
+                        if (!editUri || !id || !window.electronAkariPreview?.captureVisualThumbnail) {
+                            loading.textContent = '撮影できません'; return;
+                        }
+                        // Restore disk revisions before constructing the same key as the band path.
+                        if (!this.initializeVisualThumbnailDisk()) { timer = setTimeout(startCapture, 100); return; }
+                        const root = this.location?.root;
+                        const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);
+                        const sourceKey = visualThumbnailKey(editUri, id, [input, editSnapshot, 0]);
+                        const restored = this.visualThumbnailDisk?.revisions.get(sourceKey);
+                        if (!this.visualDependencyRevisions.has(id) && restored
+                            && restored.key === visualThumbnailKey(editUri, id, [input, editSnapshot, restored.revision])) {
+                            this.visualDependencyRevisions.set(id, restored.revision);
+                        }
+                        const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
+                        const epoch = this.visualInputEpoch;
+                        const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
+                        let cancelled = false;
+                        const valid = (): boolean => !cancelled && !this.isDisposed && this.location?.editUri?.toString() === editUri
+                            && this.visualInputEpoch === epoch && (this.visualDependencyRevisions.get(id) ?? 0) === dependencyRevision
+                            && visualThumbnailSnapshot(this.editDocument, id) === editSnapshot;
+                        const wanted = (): boolean => active() && valid();
+                        const job = { key, priority: 0, wanted, valid,
+                            readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
+                            capture: async () => {
+                                const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
+                                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                                    throw new Error('Visual thumbnail unavailable');
+                                });
+                                try {
+                                    if (!wanted()) { cancelled = true; throw new Error('Visual thumbnail hover ended'); }
+                                    if (page.editSnapshot !== editSnapshot) throw new Error('Visual thumbnail edit snapshot mismatch');
+                                    this.visualDependencies.set(id, page.dependencyUris.map(uri => new URI(uri)));
+                                    const dependencies = await Promise.all(page.dependencyUris.map(async uri => {
+                                        const stat = await this.fileService.resolve(new URI(uri), { resolveMetadata: true });
+                                        return { uri, mtime: stat.mtime, size: stat.size };
+                                    })).catch(() => undefined);
+                                    while (this.visualThumbnails.isPaused && wanted()) await new Promise(resolve => setTimeout(resolve, 100));
+                                    if (!wanted()) { cancelled = true; throw new Error('Visual thumbnail hover ended'); }
+                                    const result = await window.electronAkariPreview.captureVisualThumbnail(page);
+                                    if (!wanted()) { cancelled = true; throw new Error('Visual thumbnail hover ended'); }
+                                    this.failedVisualThumbnails.delete(id);
+                                    const capture = typeof result === 'string' ? { image: result } : result;
+                                    console.info(`[visual-thumbnail] capture ok ${id}`);
+                                    if (dependencies) void this.writeVisualThumbnailDisk(root,
+                                        { ...capture, key, sourceKey, dependencyRevision, dependencies, capturedAt: Date.now() }, id, valid);
+                                    return capture;
+                                } catch (error) {
+                                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                                    throw new Error('Visual thumbnail unavailable');
+                                } finally {
+                                    await Promise.all(page.streamIds.map(streamId => this.visualPreviewService.disposeAssetStream(streamId).catch(() => undefined)));
+                                }
+                            }
+                        };
+                        // Reuse the hover timer so leaving also cancels polling and queued work.
+                        const refresh = (): void => {
+                            if (!wanted()) { if (this.visualHover === popup) hide(); return; }
+                            const capture = this.visualThumbnails.request(job);
+                            if (capture === undefined) { timer = setTimeout(refresh, 100); return; }
+                            if (!capture) { loading.textContent = '撮影できません'; return; }
+                            loading.remove();
+                            enlarged!.style.display = 'block';
+                            enlarged!.onload = updateGeometry;
+                            enlarged!.src = capture.image;
+                            updateGeometry();
+                        };
+                        refresh();
+                    };
+                    startCapture();
                 }
             }, HOVER_POPUP_DELAY_MS);
         });
