@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 const WINDOW_REFILL_MS_FOR_TEST = 1000;
 
-import { createPreviewAudioSupply } from '../dist/index.js';
+import { createPreviewAudioSupply, projectLayerSpeechDeclarations, projectSpeechDeclarations, updatePreviewLayerMutedTracks } from '../dist/index.js';
 import { buildWebAudioSchedule, readInternalEdit, projectLegacyEdit, projectLegacyAudioView } from '../../edit-store/lib/index.js';
 import { splitFixture, unsplitFixture, previewAdapter, baseline, plain } from '../../edit-store/test/helpers/cut-audio-supply.mjs';
 import { deferred, expectedSamples, fakeClock, flush, metadata, rangeServer, sampleRate } from './pcm-window-fixture.mjs';
@@ -2562,4 +2562,56 @@ test('(j) hold 途中の seek は新しい再生意図として起点を更新�
   assert.equal(clock.now(), 4001, '最初の playFrom ではなく seek から 3 秒で解ける');
   assert.deepEqual(supply.debug().supply.gate, { holding: false, startSec: 0, heldMs: 0, reason: null });
   assert.equal(supply.playbackTime(26), 26);
+});
+
+
+test('layer speech shares the speech supply while layer and cut track mutes remain independent', async t => {
+  const speech = [
+    ...projectSpeechDeclarations([{ id: 'base', src: 'main', in: 0, out: 3, track: 0 }], { fps: 30 }),
+    ...projectLayerSpeechDeclarations([{ id: 'pip', kind: 'video', src: 'main', t: 0, duration: 3,
+      track: 0, gain_db: -6 }], { fps: 30 }),
+  ].map(item => ({ ...item, url: '/main.wav' }));
+  const context = new FakeContext(new Map([[1, buffer(12)]]));
+  const schedules = [];
+  const supply = createPreviewAudioSupply({ timelineDurationSec: 3, speech,
+    contextFactory: () => context, fetchImpl: async () => response(1),
+    scheduleBuilder: input => { const schedule = buildWebAudioSchedule(input); schedules.push(schedule); return schedule; },
+  });
+  t.after(() => supply.dispose());
+  supply.playFrom(0);
+  await flush();
+  assert.deepEqual(schedules.at(-1).items.map(i => [i.kind, i.gainDb]), [['speech', 0], ['speech', -6]]);
+  assert.equal(context.sources.length, 2);
+  const base = context.gains[1], upper = context.gains[2];
+  assert.ok(base.gain.value > 0.99);
+  assert.ok(upper.gain.value > 0.49 && upper.gain.value < 0.51);
+  supply.setMutedTracks({ layers: [0] });
+  assert.equal(upper.gain.value, 0);
+  assert.ok(base.gain.value > 0.99);
+  supply.setMutedTracks({ layers: [], cuts: [0] });
+  assert.equal(base.gain.value, 0);
+  assert.ok(upper.gain.value > 0.49);
+  supply.setMutedTracks({ allLayers: true });
+  assert.equal(upper.gain.value, 0);
+  supply.setMutedTracks({ cuts: [], allLayers: false });
+  assert.ok(base.gain.value > 0.99);
+  assert.ok(upper.gain.value > 0.49);
+});
+
+
+test('existing layer mute messages update only the layer scope, including bulk and model refresh', () => {
+  let state = { layers: [], allLayers: false };
+  const apply = message => state = updatePreviewLayerMutedTracks(state, message);
+  apply({ type: 'akari-preview-set-track-visibility-v2', scope: 'layers', track: 2, muted: true });
+  assert.deepEqual(state, { layers: [2], allLayers: false });
+  apply({ type: 'akari-preview-set-track-visibility-v2', scope: 'cuts', track: 0, muted: true });
+  assert.deepEqual(state.layers, [2]);
+  apply({ type: 'akari-preview-set-track-visibility-v2', scope: 'layers', track: null, muted: true });
+  assert.equal(state.allLayers, true);
+  apply({ type: 'akari-preview-set-track-visibility-v2-bulk', mutedLayers: [1] });
+  assert.deepEqual(state, { layers: [1], allLayers: true });
+  apply({ type: 'akari-preview-model-update', summary: { tracks: { layers: [{ ref: 3, muted: true }, { ref: 4 }] } } });
+  assert.deepEqual(state.layers, [3]);
+  apply({ type: 'akari-preview-set-track-visibility-v2', scope: 'layers', track: 3, muted: false });
+  assert.deepEqual(state.layers, []);
 });

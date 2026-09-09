@@ -13,3 +13,14 @@ export function isCutAudioAudible(
 ): boolean {
     return cut.audio !== false && isAudioItemAudible(track, cut);
 }
+
+/** Video layers own embedded speech even when their pixels are hidden or transformed. */
+export function isLayerAudioAudible(
+    layer: { kind?: unknown; src?: unknown; isImage?: unknown; audio?: unknown; mute?: unknown },
+    track?: { muted?: unknown }
+): boolean {
+    return layer.kind === 'video' && layer.isImage !== true
+        && typeof layer.src === 'string' && layer.src.length > 0
+        && !/\.(?:png|jpe?g|webp|bmp|gif|svg)(?:[?#].*)?$/iu.test(layer.src)
+        && isCutAudioAudible(layer, track);
+}

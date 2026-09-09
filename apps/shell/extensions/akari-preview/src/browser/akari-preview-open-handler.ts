@@ -4032,9 +4032,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const previewAudioService = this.previewService as AkariPreviewService & PreviewAudioService;
             const embeddedSpeech = await Promise.all(projectSpeechDeclarations(cuts, {
-                fps: this.positiveNumber(internal.output.fps, 30)
+                fps: this.positiveNumber(internal.output.fps, 30),
+                layers: options.frameEngineEnabled === true
+                    ? collectItems(internal, 'layers', itemWarningState).map(item => ({
+                        ...item.declaration, id: item.id, t: item.at, duration: item.duration
+                    })) : []
             }).map(async declaration => {
-                const source = sourcesById.get(declaration.src);
+                const isLayer = 'scope' in declaration && declaration.scope === 'layers';
+                const source = isLayer
+                    ? { uri: this.resolveEditAssetUri(declaration.src, editUri) }
+                    : sourcesById.get(declaration.src);
                 if (!source) return declaration;
                 const request: PreviewAudioSidecarRequest = {
                     sourceUri: source.uri.toString(),
@@ -4052,7 +4059,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     kind: 'speech', id: declaration.id, label: 'speech sidecar ' + declaration.id, request
                 };
                 sidecarRequests.push({ at: declaration.atSec, kind: item.kind, item });
-                return declaration;
+                return isLayer ? { ...declaration, url: (await ensureAssetStream(source.uri.toString(), source.uri)).url }
+                    : declaration;
             }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
@@ -7991,13 +7999,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     const embedded = audio?.embeddedSpeech ?? (Array.isArray(audio?.speech)
                         && !audio.speech.some(item => item.role === 'speech') ? audio.speech : undefined);
+                    const cutSpeech = cuts.length > 0 || !Array.isArray(embedded)
+                        ? engine.projectSpeechDeclarations(cuts, { fps }) : [];
                     const projectedSpeech = Array.isArray(embedded)
-                        ? embedded : engine.projectSpeechDeclarations(cuts, { fps });
+                        ? embedded : cutSpeech;
+                    // Layer fields are carried by embeddedSpeech, independently of the visual summary.
                     const audibleIds = cuts.length > 0
-                        ? new Set(engine.projectSpeechDeclarations(cuts, { fps }).map(item => item.id)) : undefined;
+                        ? new Set([...cutSpeech.map(item => item.id),
+                            ...projectedSpeech.filter(item => item.scope === 'layers').map(item => item.id)]) : undefined;
                     const speech = projectedSpeech.flatMap(declaration => {
                         if (audibleIds && !audibleIds.has(declaration.id)) return [];
-                        const url = sourceUrls.get(declaration.src);
+                        const url = declaration.scope === 'layers' ? declaration.url || sourceUrls.get(declaration.src)
+                            : sourceUrls.get(declaration.src);
                         const canUseSidecar = declaration.sidecarState === 'ready' || declaration.sidecarState === undefined;
                         return url ? [{
                             ...declaration, url, sidecarState: declaration.sidecarState,
@@ -8011,9 +8024,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     cuts: Array.isArray(muted && muted.cuts) ? muted.cuts : [],
                     audio: Array.isArray(muted && muted.audio) ? muted.audio : [],
                     allCuts: typeof (muted && muted.allCuts) === 'boolean' ? muted.allCuts : false,
-                    allAudio: typeof (muted && muted.allAudio) === 'boolean' ? muted.allAudio : false
+                    allAudio: typeof (muted && muted.allAudio) === 'boolean' ? muted.allAudio : false,
+                    ...(window.akari.frameEngineLayerMutedTracks || {})
                 });
                 const createAudioSupplyForSummary = (value, cuts, duration) => {
+                    if (value?.layers?.length && !window.akari.frameEngineLayerMutedTracks) {
+                        window.akari.frameEngineLayerMutedTracks = {
+                            layers: initial.mutedTracksByScope?.layers || [],
+                            allLayers: (initial.allTracksMutedScopes || []).includes('layers')
+                        };
+                    }
                     const supply = engine.createPreviewAudioSupply({
                         timelineDurationSec: duration,
                         ...audioDeclarationsForSummary(value, cuts),
@@ -8065,6 +8085,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     delete window.akari.frameEnginePendingAudio;
                     updateAudio(pendingAudio);
                 }
+                // The legacy bridge publishes cuts/audio only. Consume layer messages here.
+                const updateLayerMute = event => {
+                    if (disposed || !event.data) return;
+                    const state = engine.updatePreviewLayerMutedTracks(
+                        window.akari.frameEngineLayerMutedTracks || { layers: [], allLayers: false }, event.data);
+                    window.akari.frameEngineLayerMutedTracks = state;
+                    audioSupply.setMutedTracks(state);
+                };
+                window.addEventListener('message', updateLayerMute);
+                window.addEventListener('beforeunload', () => window.removeEventListener('message', updateLayerMute), { once: true });
                 const audioStatusTimer = setInterval(updateAudioStatus, 250);
                 const AUDIO_PRIORITY_DEBOUNCE_MS = 300;
                 const AUDIO_PRIORITY_INTERVAL_MS = 10_000;

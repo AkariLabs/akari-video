@@ -5498,11 +5498,15 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.isAudioItemAudible = isAudioItemAudible2;
       exports.isCutAudioAudible = isCutAudioAudible;
+      exports.isLayerAudioAudible = isLayerAudioAudible;
       function isAudioItemAudible2(track, item) {
         return track?.muted !== true && item?.mute !== true;
       }
       function isCutAudioAudible(cut, track) {
         return cut.audio !== false && isAudioItemAudible2(track, cut);
+      }
+      function isLayerAudioAudible(layer, track) {
+        return layer.kind === "video" && layer.isImage !== true && typeof layer.src === "string" && layer.src.length > 0 && !/\.(?:png|jpe?g|webp|bmp|gif|svg)(?:[?#].*)?$/iu.test(layer.src) && isCutAudioAudible(layer, track);
       }
     }
   });
@@ -6593,7 +6597,7 @@ ${indent}`);
                     audioBgm = value;
                     break;
                   case "layers":
-                    layers.push({ index: item.legacy.index, value });
+                    layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
                     break;
                   default:
                     cuts.push({
@@ -7448,6 +7452,7 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.buildWebAudioSchedule = buildWebAudioSchedule2;
       exports.projectSpeechDeclarations = projectSpeechDeclarations3;
+      exports.projectLayerSpeechDeclarations = projectLayerSpeechDeclarations2;
       var audio_ownership_1 = require_audio_ownership();
       var ducking_1 = require_ducking();
       var envelope_1 = require_envelope();
@@ -7818,7 +7823,25 @@ ${indent}`);
             incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window2.duration);
           }
         }
+        if (options.layers?.length)
+          declarations.push(...projectLayerSpeechDeclarations2(options.layers, { fps }));
         return declarations;
+      }
+      function projectLayerSpeechDeclarations2(layers, options) {
+        const cuts = layers.map((layer, index) => {
+          const speed = finitePositive4(layer.speed) ? layer.speed : 1;
+          const sourceIn = finiteNonNegative2(layer.in) ? layer.in : 0;
+          return {
+            ...layer,
+            id: `layer-${layer.id || index}`,
+            in: sourceIn,
+            out: sourceIn + Math.max(0, layer.duration - freezeDuration(layer.freeze)) * speed,
+            at: layer.t,
+            speed,
+            audio: (0, audio_ownership_1.isLayerAudioAudible)(layer) ? void 0 : false
+          };
+        });
+        return projectSpeechDeclarations3(cuts, options).map((item) => ({ ...item, scope: "layers" }));
       }
       function speechBaseId(cut, index) {
         return cut && typeof cut.id === "string" && cut.id ? cut.id : `cut-${index}`;
@@ -17463,6 +17486,7 @@ ${indent}`);
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
     probeSourceCodec: () => probeSourceCodec,
+    projectLayerSpeechDeclarations: () => import_edit_store5.projectLayerSpeechDeclarations,
     projectSpeechDeclarations: () => projectSpeechDeclarations2,
     readBoxAt: () => readBoxAt,
     readDeclaredAcceleration: () => readDeclaredAcceleration,
@@ -17483,6 +17507,7 @@ ${indent}`);
     spriteTileSourceRect: () => spriteTileSourceRect,
     spriteTransformMatrix: () => spriteTransformMatrix,
     summarizeSampleTiming: () => summarizeSampleTiming,
+    updatePreviewLayerMutedTracks: () => updatePreviewLayerMutedTracks,
     watchDecoderErrors: () => watchDecoderErrors,
     withProgressBudget: () => withProgressBudget,
     withTimeout: () => withTimeout
@@ -27225,7 +27250,26 @@ void main() {
   };
 
   // packages/frame-engine/src/audio/preview-audio-supply.ts
+  var import_edit_store5 = __toESM(require_lib(), 1);
   var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
+  function updatePreviewLayerMutedTracks(current, message) {
+    if (message.type === "akari-preview-set-track-visibility-v2" && message.scope === "layers" && typeof message.muted === "boolean") {
+      if (message.track === null) return { ...current, allLayers: message.muted };
+      if (Number.isInteger(message.track) && message.track >= 0) {
+        const layers = new Set(current.layers);
+        if (message.muted) layers.add(message.track);
+        else layers.delete(message.track);
+        return { ...current, layers: [...layers] };
+      }
+    }
+    if (message.type === "akari-preview-set-track-visibility-v2-bulk") {
+      return { ...current, layers: Array.isArray(message.mutedLayers) ? message.mutedLayers : [] };
+    }
+    if (message.type === "akari-preview-model-update" && Array.isArray(message.summary?.tracks?.layers)) {
+      return { ...current, layers: message.summary.tracks.layers.flatMap((track, index) => track?.muted === true ? [track.ref ?? index] : []) };
+    }
+    return current;
+  }
   var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
   var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
   var DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
@@ -27284,10 +27328,12 @@ void main() {
     const activeItemGains = /* @__PURE__ */ new Set();
     let mutedCutTracks = /* @__PURE__ */ new Set();
     let mutedAudioTracks = /* @__PURE__ */ new Set();
+    let mutedLayerTracks = /* @__PURE__ */ new Set();
+    let allLayersMuted = false;
     let allCutsMuted = false;
     let allAudioMuted = false;
-    const trackMuted = (kind, track) => kind === "speech" ? allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
-    const itemMuted = (item) => trackMuted(item.kind, item.track);
+    const trackMuted = (kind, track, id) => kind === "speech" ? speech.find((item) => item.id === id)?.scope === "layers" ? allLayersMuted || mutedLayerTracks.has(normalizedTrack(track)) : allCutsMuted || mutedCutTracks.has(normalizedTrack(track)) : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
+    const itemMuted = (item) => trackMuted(item.kind, item.track, item.id);
     const windowSources = /* @__PURE__ */ new Map();
     const windowStops = /* @__PURE__ */ new Map();
     const windowItems = /* @__PURE__ */ new Map();
@@ -27558,7 +27604,7 @@ void main() {
       const bakedPath = sidecar?.path ?? legacy?.path;
       let buffer = bakedPath ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`) : null;
       let usedSidecar = Boolean(bakedPath && buffer);
-      if (!buffer && !trackMuted("speech", declaration.track)) {
+      if (!buffer && !trackMuted("speech", declaration.track, declaration.id)) {
         buffer = await decodeUrl(
           declaration.url,
           `speech ${declaration.src}`,
@@ -27611,7 +27657,7 @@ void main() {
       at: firstUseSpeech(item),
       failedAtMs: null,
       state: taskState(item.sidecarState),
-      muted: () => trackMuted("speech", item.track),
+      muted: () => trackMuted("speech", item.track, item.id),
       run: () => resolveSpeech(item),
       resolved: () => speechDecoded.has(item.id)
     }, item.sidecar?.format === "pcm-s16le");
@@ -27803,6 +27849,7 @@ void main() {
     };
     const registerItemGain = (item, baseGain, startTime, transportRate) => {
       const entry = {
+        id: item.id,
         kind: item.kind,
         track: normalizedTrack(item.track),
         baseGain,
@@ -28253,7 +28300,7 @@ void main() {
         }
         const speechForSchedule = speech.flatMap((item) => {
           const resolved = speechDecoded.get(item.id);
-          if (!resolved) return item.sidecarState !== "no-audio" && trackMuted("speech", item.track) ? [item] : [];
+          if (!resolved) return item.sidecarState !== "no-audio" && trackMuted("speech", item.track, item.id) ? [item] : [];
           return [{
             ...item,
             ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
@@ -28528,19 +28575,23 @@ void main() {
         if (disposed) return;
         const cuts = muted.cuts === void 0 ? mutedCutTracks : new Set([...muted.cuts].map(normalizedTrack));
         const audio = muted.audio === void 0 ? mutedAudioTracks : new Set([...muted.audio].map(normalizedTrack));
+        const layers = muted.layers === void 0 ? mutedLayerTracks : new Set([...muted.layers].map(normalizedTrack));
+        const allLayers = muted.allLayers ?? allLayersMuted;
         const allCuts = muted.allCuts ?? allCutsMuted;
         const allAudio = muted.allAudio ?? allAudioMuted;
         const equal = (left, right) => left.size === right.size && [...left].every((track) => right.has(track));
-        if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks) && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
+        if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks) && equal(layers, mutedLayerTracks) && allLayers === allLayersMuted && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
         const released = (before, after, allBefore, allAfter) => !allAfter && (allBefore || [...before].some((track) => !after.has(track)));
-        const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts) || released(mutedAudioTracks, audio, allAudioMuted, allAudio);
-        const previous = new Map([...activeItemGains].map((entry) => [entry, trackMuted(entry.kind, entry.track)]));
+        const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts) || released(mutedAudioTracks, audio, allAudioMuted, allAudio) || released(mutedLayerTracks, layers, allLayersMuted, allLayers);
+        const previous = new Map([...activeItemGains].map((entry) => [entry, trackMuted(entry.kind, entry.track, entry.id)]));
+        mutedLayerTracks = layers;
+        allLayersMuted = allLayers;
         mutedCutTracks = cuts;
         mutedAudioTracks = audio;
         allCutsMuted = allCuts;
         allAudioMuted = allAudio;
         if (context) for (const entry of activeItemGains) {
-          const silent = trackMuted(entry.kind, entry.track);
+          const silent = trackMuted(entry.kind, entry.track, entry.id);
           if (silent === previous.get(entry)) continue;
           entry.baseGain.gain.cancelScheduledValues(context.currentTime);
           if (silent) entry.baseGain.gain.setValueAtTime(0, context.currentTime);

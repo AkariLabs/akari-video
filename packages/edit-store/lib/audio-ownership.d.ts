@@ -11,3 +11,13 @@ export declare function isCutAudioAudible(cut: {
 }, track?: {
     muted?: unknown;
 }): boolean;
+/** Video layers own embedded speech even when their pixels are hidden or transformed. */
+export declare function isLayerAudioAudible(layer: {
+    kind?: unknown;
+    src?: unknown;
+    isImage?: unknown;
+    audio?: unknown;
+    mute?: unknown;
+}, track?: {
+    muted?: unknown;
+}): boolean;

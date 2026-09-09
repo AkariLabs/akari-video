@@ -1130,7 +1130,8 @@ function projectLegacyEdit(internal) {
                             audioBgm = value;
                             break;
                         case 'layers':
-                            layers.push({ index: item.legacy.index, value: value });
+                            layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
+                                    ? { ...value, mute: true } : value) });
                             break;
                         default:
                             cuts.push({

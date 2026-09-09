@@ -1,0 +1,409 @@
+{
+  "routing": {
+    "cutIds": [
+      "main"
+    ],
+    "layerIds": [
+      "upper"
+    ]
+  },
+  "steps": [
+    {
+      "step": "app-ready",
+      "detail": true
+    },
+    {
+      "step": "ensureVisible",
+      "detail": "opened"
+    },
+    {
+      "step": "seekOutput",
+      "detail": "seeked"
+    },
+    {
+      "step": "togglePlayback",
+      "detail": "toggled"
+    },
+    {
+      "step": "preview-scheduled-speech",
+      "detail": {
+        "speech": 2,
+        "required": [
+          "speech:lower-speech",
+          "speech:layer-upper-speech"
+        ]
+      }
+    },
+    {
+      "step": "export-1",
+      "detail": {
+        "succeeded": true,
+        "phases": [
+          "planned",
+          "verified"
+        ]
+      }
+    },
+    {
+      "step": "layer-clip-element",
+      "detail": {
+        "found": true,
+        "x": 505.48046875,
+        "y": 499.015625,
+        "width": 140.5703125,
+        "height": 48
+      }
+    },
+    {
+      "step": "inspector-audio-row",
+      "detail": {
+        "found": true,
+        "value": "鳴らす",
+        "options": [
+          "鳴らす",
+          "ミュート"
+        ]
+      }
+    },
+    {
+      "step": "inspector-set-mute",
+      "detail": "ミュート"
+    },
+    {
+      "step": "edit-json-after-mute",
+      "detail": {
+        "id": "upper",
+        "at": 60,
+        "duration": 120,
+        "transform": {
+          "scale": 0.5
+        },
+        "source": {
+          "kind": "media",
+          "src": "main",
+          "in": 6,
+          "out": 10,
+          "mute": true
+        }
+      }
+    },
+    {
+      "step": "preview-after-mute",
+      "detail": {
+        "speech": 1,
+        "required": [
+          "speech:lower-speech"
+        ]
+      }
+    },
+    {
+      "step": "export-2",
+      "detail": {
+        "succeeded": true,
+        "phases": [
+          "planned",
+          "verified"
+        ]
+      }
+    }
+  ],
+  "pid": 59734,
+  "previewAudio": {
+    "phase": "ready",
+    "required": [
+      "speech:lower-speech",
+      "speech:layer-upper-speech"
+    ],
+    "ready": [
+      "speech:lower-speech",
+      "speech:layer-upper-speech"
+    ],
+    "failed": [],
+    "noAudio": [],
+    "playing": true,
+    "scheduled": {
+      "startAtSec": 3,
+      "itemCount": 2,
+      "bgm": 0,
+      "sfx": 0,
+      "narration": 0,
+      "speech": 2,
+      "skipped": []
+    }
+  },
+  "previewBothAudiosScheduled": true,
+  "exportWithLayerAudio": {
+    "label": "layer-audio-on",
+    "menu": "書き出し…",
+    "start": "書き出す — 標準 · 約 10 秒",
+    "phases": [
+      "planned",
+      "verified"
+    ],
+    "dialog": "書き出し書き出し完了exports/final.mp4×できた動画確認済み16:916:9 横320 × 18030 fps0:06カット 2動画を開くか、Finder で保存先を確認できます。できましたGPU · 0:04exports/final.mp4✓ 確認済み容量0.1 MB長さ0:06.00画角16:9 · 320×180fps30映像 / 音声H.264 / AACエンジンGPU成果",
+    "file": "final.mp4",
+    "freshFiles": [
+      "final.mp4"
+    ],
+    "succeeded": true,
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "duration": "6.000000"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "duration": "6.000000"
+        }
+      ],
+      "format": {
+        "duration": "6.000000"
+      }
+    },
+    "tones": [
+      {
+        "at": 0.5,
+        "lower": {
+          "hz": 300,
+          "amplitude": 0.49982
+        },
+        "upper": {
+          "hz": 700,
+          "amplitude": 0
+        },
+        "inOverlap": false
+      },
+      {
+        "at": 1.5,
+        "lower": {
+          "hz": 400,
+          "amplitude": 0.49988
+        },
+        "upper": {
+          "hz": 800,
+          "amplitude": 0
+        },
+        "inOverlap": false
+      },
+      {
+        "at": 2.5,
+        "lower": {
+          "hz": 500,
+          "amplitude": 0.49994
+        },
+        "upper": {
+          "hz": 900,
+          "amplitude": 0.49992
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 3.5,
+        "lower": {
+          "hz": 600,
+          "amplitude": 0.49984
+        },
+        "upper": {
+          "hz": 1000,
+          "amplitude": 0.49994
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 4.5,
+        "lower": {
+          "hz": 700,
+          "amplitude": 0.49985
+        },
+        "upper": {
+          "hz": 1100,
+          "amplitude": 0.49979
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 5.5,
+        "lower": {
+          "hz": 800,
+          "amplitude": 0.49987
+        },
+        "upper": {
+          "hz": 1200,
+          "amplitude": 0.49983
+        },
+        "inOverlap": true
+      }
+    ],
+    "sha256": "e203dfd1b61ef0b12c090e32e5d792e0767b950e5b1a9549b373277c72783d03"
+  },
+  "inspectorAudioFieldDefault": "鳴らす",
+  "editJsonAfterMute": {
+    "id": "upper",
+    "at": 60,
+    "duration": 120,
+    "transform": {
+      "scale": 0.5
+    },
+    "source": {
+      "kind": "media",
+      "src": "main",
+      "in": 6,
+      "out": 10,
+      "mute": true
+    }
+  },
+  "muteWrittenToEdit": true,
+  "previewAudioAfterMute": {
+    "required": [
+      "speech:lower-speech"
+    ],
+    "ready": [
+      "speech:lower-speech"
+    ],
+    "playing": true,
+    "scheduled": {
+      "startAtSec": 3,
+      "itemCount": 1,
+      "bgm": 0,
+      "sfx": 0,
+      "narration": 0,
+      "speech": 1,
+      "skipped": []
+    }
+  },
+  "previewLayerAudioGoneAfterMute": true,
+  "exportAfterMute": {
+    "label": "layer-audio-muted",
+    "menu": "書き出し…",
+    "start": "もう一度書き出す → 書き出す — 標準 · 約 10 秒",
+    "phases": [
+      "planned",
+      "verified"
+    ],
+    "dialog": "書き出し書き出し完了exports/final-2.mp4×できた動画確認済み16:916:9 横320 × 18030 fps0:06カット 2動画を開くか、Finder で保存先を確認できます。できましたGPU · 0:04exports/final-2.mp4✓ 確認済み容量0.1 MB長さ0:06.00画角16:9 · 320×180fps30映像 / 音声H.264 / AACエンジンG",
+    "file": "final-2.mp4",
+    "freshFiles": [
+      "final-2.mp4"
+    ],
+    "succeeded": true,
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "duration": "6.000000"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "duration": "6.000000"
+        }
+      ],
+      "format": {
+        "duration": "6.000000"
+      }
+    },
+    "tones": [
+      {
+        "at": 0.5,
+        "lower": {
+          "hz": 300,
+          "amplitude": 0.49982
+        },
+        "upper": {
+          "hz": 700,
+          "amplitude": 0
+        },
+        "inOverlap": false
+      },
+      {
+        "at": 1.5,
+        "lower": {
+          "hz": 400,
+          "amplitude": 0.49988
+        },
+        "upper": {
+          "hz": 800,
+          "amplitude": 0
+        },
+        "inOverlap": false
+      },
+      {
+        "at": 2.5,
+        "lower": {
+          "hz": 500,
+          "amplitude": 0.49994
+        },
+        "upper": {
+          "hz": 900,
+          "amplitude": 0
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 3.5,
+        "lower": {
+          "hz": 600,
+          "amplitude": 0.49982
+        },
+        "upper": {
+          "hz": 1000,
+          "amplitude": 0
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 4.5,
+        "lower": {
+          "hz": 700,
+          "amplitude": 0.49985
+        },
+        "upper": {
+          "hz": 1100,
+          "amplitude": 0
+        },
+        "inOverlap": true
+      },
+      {
+        "at": 5.5,
+        "lower": {
+          "hz": 800,
+          "amplitude": 0.49988
+        },
+        "upper": {
+          "hz": 1200,
+          "amplitude": 0
+        },
+        "inOverlap": true
+      }
+    ],
+    "sha256": "6876dd54b755bf416ba45130251d68cb90cd6e91f50d62bfb4185ed17a775d90"
+  },
+  "consoleErrors": [],
+  "toasts": [],
+  "orphanSweep": {
+    "ok": true
+  },
+  "survivingUserDataDirProcesses": 0,
+  "survivingBackendMainJs": 0,
+  "verdict": {
+    "layerRoutedToLayers": true,
+    "previewBothAudiosScheduled": true,
+    "exportBothTonesAudible": true,
+    "exportUpperSilentBeforeOverlap": true,
+    "inspectorMuteWritten": true,
+    "previewLayerAudioGoneAfterMute": true,
+    "exportAfterMuteSucceeded": true,
+    "exportAfterMuteUpperSilent": true,
+    "audioDurationMatchesOutput": true,
+    "noError": true,
+    "noSurvivingProcesses": true
+  }
+}

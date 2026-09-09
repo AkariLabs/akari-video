@@ -98,13 +98,13 @@ test('omitted and false track mute preserve audio roles and per-cut source mute'
   }
 });
 
-test('muted visual tracks leave overlapping video layers unchanged', () => {
+test('muted visual tracks preserve overlapping video layers and mute their embedded audio', () => {
   const edit = fixture();
   edit.tracks[0].items.push({ ...structuredClone(edit.tracks[0].items[0]), id: 'overlap' });
   const original = projectLegacyEdit(readInternalEdit(edit));
   assert.equal(original.layers.length, 2);
   edit.tracks[0].muted = true;
-  assert.deepEqual(projectLegacyEdit(readInternalEdit(edit)).layers, original.layers);
+  assert.deepEqual(projectLegacyEdit(readInternalEdit(edit)).layers, original.layers.map(layer => ({ ...layer, mute: true })));
 });
 
 test('projectLegacyAudioView excludes muted audio tracks including nested roles and keeps unmuted siblings', () => {

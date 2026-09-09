@@ -1087,6 +1087,9 @@ function isAudioItemAudible(track, item) {
 function isCutAudioAudible(cut, track) {
   return cut.audio !== false && isAudioItemAudible(track, cut);
 }
+function isLayerAudioAudible(layer, track) {
+  return layer.kind === "video" && layer.isImage !== true && typeof layer.src === "string" && layer.src.length > 0 && !/\.(?:png|jpe?g|webp|bmp|gif|svg)(?:[?#].*)?$/iu.test(layer.src) && isCutAudioAudible(layer, track);
+}
 
 // ../edit-store/src/audio-schedule.ts
 function buildWebAudioSchedule(input) {
@@ -1473,7 +1476,24 @@ function projectSpeechDeclarations(cuts, options) {
       incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
     }
   }
+  if (options.layers?.length) declarations.push(...projectLayerSpeechDeclarations(options.layers, { fps }));
   return declarations;
+}
+function projectLayerSpeechDeclarations(layers, options) {
+  const cuts = layers.map((layer, index) => {
+    const speed = finitePositive(layer.speed) ? layer.speed : 1;
+    const sourceIn = finiteNonNegative(layer.in) ? layer.in : 0;
+    return {
+      ...layer,
+      id: `layer-${layer.id || index}`,
+      in: sourceIn,
+      out: sourceIn + Math.max(0, layer.duration - freezeDuration(layer.freeze)) * speed,
+      at: layer.t,
+      speed,
+      audio: isLayerAudioAudible(layer) ? void 0 : false
+    };
+  });
+  return projectSpeechDeclarations(cuts, options).map((item) => ({ ...item, scope: "layers" }));
 }
 function speechBaseId(cut, index) {
   return cut && typeof cut.id === "string" && cut.id ? cut.id : `cut-${index}`;
@@ -3438,7 +3458,7 @@ function projectLegacyEdit(internal) {
               audioBgm = value;
               break;
             case "layers":
-              layers.push({ index: item.legacy.index, value });
+              layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
               break;
             default:
               cuts.push({
@@ -3799,11 +3819,13 @@ export {
   findActiveResolvedCaption,
   isAudioItemAudible,
   isCutAudioAudible,
+  isLayerAudioAudible,
   isTransitionType,
   isWithinDuckInterval,
   mergePresetTextStyle,
   normalizeCaptionClock,
   outputToSource,
+  projectLayerSpeechDeclarations,
   projectSpeechDeclarations,
   projectSpeechKeyIntervals,
   resolveCaptionStylePreset,
