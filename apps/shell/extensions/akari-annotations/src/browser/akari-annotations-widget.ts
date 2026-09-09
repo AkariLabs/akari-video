@@ -2406,16 +2406,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         let layerId: string | null = null;
         if (selection?.kind === 'cut') {
             const id = this.cutItemIds[selection.index];
-            if (id) target = { kind: 'cut', id };
+            if (id && this.layers.some(layer => layer.id === id)) layerId = id;
+            else if (id) target = { kind: 'cut', id };
         } else if (selection?.kind === 'caption') target = { kind: 'caption', id: selection.id };
         else if (selection?.kind === 'layer') layerId = selection.id;
         else if (selection?.kind === 'overlay') overlayId = selection.id;
+        // Evacuated v2 items use layer geometry and layerWrite, even if a stale cut id remains.
+        else if (selection?.kind === 'item' && this.layers.some(layer => layer.id === selection.id)) layerId = selection.id;
         else if (selection?.kind === 'item') {
             const raw = this.rawKeyframeItem(selection.id);
             const captionId = captionIdForTreeSelection(selection, raw?.source?.kind === 'caption' ? raw.source.id : undefined);
             if (captionId) target = { kind: 'caption', id: captionId };
             else if (this.cutItemIds.includes(selection.id)) target = { kind: 'cut', id: selection.id };
-            else if (this.layers.some(layer => layer.id === selection.id)) layerId = selection.id;
             else overlayId = selection.id;
         }
         const editUri = this.location?.editUri?.toString() ?? '';

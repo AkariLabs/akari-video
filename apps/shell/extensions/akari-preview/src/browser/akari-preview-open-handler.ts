@@ -103,6 +103,7 @@ import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { cropRectAfterEdgeDrag } from '../common/crop-edge-drag';
 import { cutLayerStyleBoxPx, cutLayerStyleEntryTransform } from '../common/cut-layer-style-entry';
 import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
+import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
@@ -9944,7 +9945,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!(vx >= 0) || !(vy >= 0) || vx >= entry.video.videoWidth || vy >= entry.video.videoHeight) return null;
                 return { x: Math.floor(vx), y: Math.floor(vy) };
             };
-            const layerGeometryHitAt = (entry, clientX, clientY) => {
+            const layerGeometryHitAt = (entry, clientX, clientY, dimensions) => {
+                if (dimensions || frameEngineMediaIdle || window.akari.frameEngineClock) {
+                    const resolveDeclaredSize = (${resolveLayerDeclaredSize.toString()});
+                    const declaredHitAt = (${layerDeclaredGeometryHitAt.toString()});
+                    const size = resolveDeclaredSize(entry.video.videoWidth || entry.video.naturalWidth,
+                        entry.video.videoHeight || entry.video.naturalHeight, dimensions || summary.output);
+                    const point = window.akari.interaction?.stageLocalPoint?.(clientX, clientY) || null;
+                    return declaredHitAt(size, summary.output, layerTransformNow(entry), layerCropNow(entry), point);
+                }
                 const width = Number(entry.video.videoWidth) || 0;
                 const height = Number(entry.video.videoHeight) || 0;
                 if (!(width > 0) || !(height > 0)) return false;
@@ -10075,7 +10084,20 @@ body { display: grid; place-items: center; padding: 32px; }
             }
             const updateLayerSelectBox = () => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
-                if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
+                const engineGeometry = Boolean(frameEngineMediaIdle || window.akari.frameEngineClock);
+                const resolveDeclaredSize = (${resolveLayerDeclaredSize.toString()});
+                const size = entry && (engineGeometry
+                    ? resolveDeclaredSize(entry.video.videoWidth, entry.video.videoHeight, summary.output)
+                    : { width: entry.video.videoWidth, height: entry.video.videoHeight });
+                if (entry && engineGeometry && !entry.selectBoxMetadataBound) {
+                    entry.selectBoxMetadataBound = true;
+                    entry.video.addEventListener('loadedmetadata', () => {
+                        entry.opaqueBox = undefined;
+                        updateLayerSelectBox();
+                    });
+                }
+                if (!entry || entry.video.style.display === 'none' || !(size.width > 0)
+                    || (engineGeometry && !(size.height > 0))) {
                     layerSelectBox.classList.remove('is-active');
                     positionLayerCropToggle(null);
                     positionLayerPerspectiveToggle(null);
@@ -10083,35 +10105,31 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const transform = layerTransformNow(entry);
                 const crop = layerCropNow(entry);
+                if (engineGeometry && entry.video.readyState < 2) entry.opaqueBox = undefined;
                 if (frameEngineMediaIdle) {
-                    if (!(entry.video.videoHeight > 0)) {
-                        layerSelectBox.classList.remove('is-active');
-                        positionLayerCropToggle(null);
-                        positionLayerPerspectiveToggle(null);
-                        return;
-                    }
                     // legacy 媒体の画素は読まず、クロップ窓そのものを選択枠にする。
                     entry.opaqueBox = null;
                 }
                 // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）。
-                // フレーム未着で測れないうちは全面フォールバック枠を一瞬見せず、届いてから出す
+                // Engine media can remain undecoded: use the crop window until pixels arrive.
+                // Legacy media still waits for loadeddata before displaying its alpha bounds.
                 if (entry.opaqueBox === undefined) {
                     if (entry.video.readyState >= 2) {
                         syncLayerHitRegion(entry);
-                    } else {
+                    } else if (!engineGeometry) {
                         layerSelectBox.classList.remove('is-active');
                         entry.video.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
                         return;
                     }
                 }
-                const naturalBox = entry.opaqueBox || { x: 0, y: 0, w: entry.video.videoWidth, h: entry.video.videoHeight };
+                const naturalBox = entry.opaqueBox || { x: 0, y: 0, w: size.width, h: size.height };
                 // ㉔ クロップ窓（ソース px 空間）と不透明領域の交差 = 実際に見えている範囲。交差が無い
                 // （クロップが不透明領域を完全に外した）場合はクロップ窓そのものへフォールバックする。
                 const cropBoxPx = {
-                    x: crop.x * entry.video.videoWidth,
-                    y: crop.y * entry.video.videoHeight,
-                    w: crop.w * entry.video.videoWidth,
-                    h: crop.h * entry.video.videoHeight
+                    x: crop.x * size.width,
+                    y: crop.y * size.height,
+                    w: crop.w * size.width,
+                    h: crop.h * size.height
                 };
                 const ix0 = Math.max(naturalBox.x, cropBoxPx.x);
                 const iy0 = Math.max(naturalBox.y, cropBoxPx.y);
@@ -10122,8 +10140,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 // （render-cut は crop→scale→rotate→overlay の順で合成し、overlay の中心合わせは
                 // crop 後の frame 基準になるため — layers.mjs 参照）。
                 const pivotPx = {
-                    x: (crop.x + crop.w / 2) * entry.video.videoWidth,
-                    y: (crop.y + crop.h / 2) * entry.video.videoHeight
+                    x: (crop.x + crop.w / 2) * size.width,
+                    y: (crop.y + crop.h / 2) * size.height
                 };
                 const box = layerScreenRectForVideoRect(transform, cb, pivotPx);
                 layerSelectBox.style.left = box.left + 'px';
@@ -10521,11 +10539,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (frameEngineMediaIdle || window.akari.frameEngineClock) {
                     // Media and DOM overlays share the same track z order, including hit testing.
                     const hits = [];
+                    const declaredSize = typeof summary === 'undefined' ? null : summary.output;
                     for (const entry of layerEntries) {
                         if (entry.video.style.display === 'none') continue;
-                        if (!((entry.video.videoWidth || entry.video.naturalWidth) > 0)
-                            || !((entry.video.videoHeight || entry.video.naturalHeight) > 0)) continue;
-                        if (layerGeometryHitAt(entry, event.clientX, event.clientY)) hits.push(entry.video);
+                        const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
+                            && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
+                        if (hasSourceSize) {
+                            if (layerGeometryHitAt(entry, event.clientX, event.clientY)) hits.push(entry.video);
+                        } else if (declaredSize?.width > 0 && declaredSize?.height > 0
+                            && layerGeometryHitAt(entry, event.clientX, event.clientY, declaredSize)) {
+                            hits.push(entry.video);
+                        }
                     }
                     const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
                     const segment = segments[activeSegmentIndex];
