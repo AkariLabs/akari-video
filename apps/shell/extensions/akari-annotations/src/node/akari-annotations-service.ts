@@ -31,6 +31,8 @@ import {
     EditMigrationRequest,
     GetAudioDurationRequest,
     GetAudioDurationResult,
+    ProbeSourceDimensionsRequest,
+    ProbeSourceDimensionsResult,
     ProbeSourceHasAudioRequest,
     ProbeSourceHasAudioResult,
     GetClipFilmstripChunkRequest,
@@ -223,6 +225,39 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return { status: 'unavailable', reason: 'source-missing' };
         }
         return mediaCache.getAudioDuration(this.fsPath(request.projectRootUri), this.fsPath(request.audioUri));
+    }
+
+    async probeSourceDimensions(request: ProbeSourceDimensionsRequest): Promise<ProbeSourceDimensionsResult> {
+        try {
+            if (typeof request?.path !== 'string' || !request.path.trim()) return {};
+            const path = /^file:/iu.test(request.path) ? this.fsPath(request.path) : request.path;
+            if (!isAbsolute(path)) return {};
+            const source = await fs.realpath(path);
+            // Match media-cache's override / PATH / packaged binary resolution without changing its API.
+            let ffprobe = process.env.AKARI_FFPROBE_BIN;
+            if (!ffprobe) {
+                const onPath = await execFileAsync('ffprobe', ['-version'], { timeout: 5000 }).then(() => true).catch(() => false);
+                const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+                ffprobe = onPath ? 'ffprobe' : resourcesPath
+                    ? join(resourcesPath, 'media-bin', process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe') : undefined;
+            }
+            if (!ffprobe) return {};
+            const { stdout } = await execFileAsync(ffprobe, [
+                '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height:stream_side_data=rotation:stream_tags=rotate',
+                '-of', 'json', source
+            ], { encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 });
+            const stream = JSON.parse(stdout)?.streams?.[0];
+            let width = stream?.width;
+            let height = stream?.height;
+            if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) return {};
+            const rotation = Number(stream.side_data_list?.find((data: { rotation?: number }) => data.rotation !== undefined)?.rotation
+                ?? stream.tags?.rotate ?? 0);
+            if (Math.abs(rotation % 180) === 90) [width, height] = [height, width];
+            return { width, height };
+        } catch {
+            return {};
+        }
     }
 
     async probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult> {

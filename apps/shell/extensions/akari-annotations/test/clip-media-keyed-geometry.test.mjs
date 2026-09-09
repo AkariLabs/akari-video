@@ -55,7 +55,7 @@ test('波形は生成済み canvas を受け取る更新 helper で幅と内容�
   const updateWaveform = method('protected updateWaveformCanvas(', 'protected segmentLabel(');
   for (const identifier of [
     'canvas.width', 'canvas.style', 'geometry.clipLocalOffsetPx',
-    'waveformBucketForLocalPx', 'geometry.fullClipWidthPx', 'bucketCount',
+    'waveformPeakForPxRange', 'geometry.fullClipWidthPx', 'bucketCount',
   ]) {
     assert.ok(updateWaveform.includes(identifier), identifier);
   }

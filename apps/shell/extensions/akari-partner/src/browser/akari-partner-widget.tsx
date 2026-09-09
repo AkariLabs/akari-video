@@ -1,4 +1,5 @@
 import * as React from '@theia/core/shared/react';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ApplicationShell } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
@@ -181,6 +182,44 @@ export class AkariPartnerWidget extends ReactWidget {
         });
 
         this.update();
+    }
+
+    // ApplicationShell#activateWidget は waitForActivation で focus を待つため、
+    // activationTimeout=2000ms 後の警告を防ぐ。配下にある既存の focus は維持する。
+    protected override onActivateRequest(msg: Message): void {
+        super.onActivateRequest(msg);
+        if (!this.node.contains(document.activeElement)) {
+            this.node.tabIndex = -1;
+            this.node.focus({ preventScroll: true });
+        }
+        if (this.node.contains(document.activeElement)) {
+            return;
+        }
+
+        // onStart 起点の activateWidget は attachShell より前なので、detached な node の focus() は効かない。
+        // attach 後まで 16ms × 最大 60 回だけ再試行し、activationTimeout=2000ms より短く待つ。
+        let attempts = 0;
+        const retryFocus = (): void => {
+            if (this.isDisposed || this.node.contains(document.activeElement)) {
+                return;
+            }
+            // ダイアログや別 widget に移った focus は奪わず、起動後のユーザー操作を優先する。
+            if (document.activeElement && document.activeElement !== this.node.ownerDocument.body) {
+                return;
+            }
+            attempts++;
+            if (this.node.isConnected) {
+                this.node.tabIndex = -1;
+                this.node.focus({ preventScroll: true });
+                if (this.node.contains(document.activeElement)) {
+                    return;
+                }
+            }
+            if (attempts < 60) {
+                setTimeout(retryFocus, 16);
+            }
+        };
+        setTimeout(retryFocus, 16);
     }
 
     /**

@@ -14,8 +14,43 @@ import {
   planFilmstripChunk,
   waveformBucketForLocalPx,
   waveformHeightForPeak,
+  waveformPeakForPxRange,
 } from "../lib/common/filmstrip-geometry.js";
 import { FILMSTRIP_CHUNK_SECONDS } from "../lib/common/akari-annotations-protocol.js";
+
+test("waveformPeakForPxRange は表示px内の途中のピークも拾う", () => {
+  assert.equal(waveformPeakForPxRange([0.1, 0.9, 0.2, 1], 0, 1, 4 / 3), 0.9);
+  assert.equal(waveformPeakForPxRange([0.1, 0.9, 0.2, 1], 0.1, 0.9, 1), 1);
+});
+
+test("waveformPeakForPxRange は同じバケット内では補間せず値を返す", () => {
+  const peaks = [0.1, 0.9, 0.3, 1];
+  assert.equal(waveformPeakForPxRange(peaks, 12, 13, 100), 0.1);
+  assert.equal(waveformPeakForPxRange(peaks, 25, 26, 100), 0.9);
+  assert.equal(waveformPeakForPxRange(peaks, 49.5, 50.5, 100), 0.9);
+});
+
+test("waveformPeakForPxRange は半開区間の右端を含めず既存写像と一致する", () => {
+  const peaks = [0.1, 0.2, 0.3, 1];
+  assert.equal(waveformPeakForPxRange(peaks, 0, 75, 100), 0.3);
+  assert.equal(waveformPeakForPxRange(peaks, 75, 100, 100), 1);
+  for (let bucket = 0; bucket < peaks.length; bucket++) {
+    const start = bucket * 25;
+    assert.equal(waveformPeakForPxRange(peaks, start, start + 25, 100),
+      peaks[waveformBucketForLocalPx(start, 100, peaks.length)]);
+  }
+});
+
+test("waveformPeakForPxRange は範囲をクリップへクランプし空・無効な範囲は0", () => {
+  assert.equal(waveformPeakForPxRange([0.3, 0.8], -10, 200, 100), 0.8);
+  assert.equal(waveformPeakForPxRange([], 0, 1, 100), 0);
+  for (const width of [0, -1, NaN, Infinity]) {
+    assert.equal(waveformPeakForPxRange([1], 0, 1, width), 0);
+  }
+  for (const [start, end] of [[0, 0], [2, 1], [-2, -1], [100, 101], [NaN, 1], [0, Infinity]]) {
+    assert.equal(waveformPeakForPxRange([1], start, end, 100), 0);
+  }
+});
 
 test("filmstripChunkIndexFor はソース秒を FILMSTRIP_CHUNK_SECONDS 単位の等間隔グリッドへ丸める", () => {
   assert.equal(filmstripChunkIndexFor(0), 0);
@@ -226,20 +261,27 @@ test('波形配置はクリップとcoverageが交差しなければ描画しな
   }), undefined);
 });
 
-test('audioWaveformBandLayout はラベル後の残り領域中央へ90%高で置く', () => {
-  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 19.5, heightPx: 31 });
+test('audioWaveformBandLayout はアイテム中央へトラック高さいっぱいに置きヘッダーを引かない', () => {
+  assert.deepEqual(audioWaveformBandLayout(28, 14), { topPx: 1, heightPx: 26 });
+  assert.deepEqual(audioWaveformBandLayout(56, 14), { topPx: 1, heightPx: 54 });
+  assert.deepEqual(audioWaveformBandLayout(52, 14), { topPx: 1, heightPx: 50 });
+  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 1, heightPx: 50 });
+  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 1, heightPx: 26 });
 });
 
 test('audioWaveformBandLayout は高さを12pxで下限クランプする', () => {
-  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 15, heightPx: 12 });
+  assert.deepEqual(audioWaveformBandLayout(12, 14), { topPx: 0, heightPx: 12 });
 });
 
 test('audioWaveformBandLayout は28pxの旧上限を越えて拡大する', () => {
-  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 22, heightPx: 74 });
+  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 1, heightPx: 98 });
 });
 
-test('audioWaveformBandLayout は帯が収まらない高さでも要素外へ出さない', () => {
+test('audioWaveformBandLayout は狭い高さや不正な高さでもtopを負にしない', () => {
   assert.deepEqual(audioWaveformBandLayout(10, 18), { topPx: 0, heightPx: 12 });
+  for (const height of [NaN, Infinity, -Infinity, -1, 0]) {
+    assert.deepEqual(audioWaveformBandLayout(height, 14), { topPx: 0, heightPx: 12 });
+  }
 });
 
 test('audioKeyframeMarkerPositions は範囲外をクランプし非有限を除いて時刻順にする', () => {

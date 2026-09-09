@@ -1,6 +1,8 @@
 import { MaterialContextMenuItem } from '../common/material-context-menu-items';
 import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
+export const OPEN_PREVIEW_IMAGE_ITEM: MaterialContextMenuItem = { id: 'open-preview-image', label: '見本画像を開く' };
+
 /**
  * 素材パネルの右クリックメニュー実装（task 2026-08-09-material-context-menu-mvp 指示1）。
  * `akari-annotations-widget.ts` の `openTrackContextMenu` と同型の DOM ポップアップ

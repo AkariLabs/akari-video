@@ -1758,6 +1758,68 @@ window.akari.threeRuntime = (() => {
     }
   }
 
+  const canvasContentBoxes = new WeakMap();
+
+  // 可視メッシュだけの world bounds を現在のカメラへ投影する。正規化座標で保持し、
+  // クライアント座標は参照時に換算するため、ペインの移動/ズームでも古くならない。
+  function projectContentBounds(scene, camera) {
+    const { THREE } = window.AkariThree;
+    scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    let left = 1, top = 1, right = -1, bottom = -1;
+    let uncertain = false;
+    scene.traverseVisible((node) => {
+      if (!node.geometry || !camera.layers.test(node.layers)) return;
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      if (!materials.some((material) => material && material.visible !== false
+        && !(material.transparent && material.opacity <= 0))) return;
+      // SkinnedMesh/InstancedMesh の object bounds、通常 mesh の geometry bounds を使う。
+      if (typeof node.computeBoundingBox === "function") node.computeBoundingBox();
+      else if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+      const box = node.boundingBox ?? node.geometry.boundingBox;
+      if (!box || box.isEmpty()) return;
+      const points = [];
+      for (const x of [box.min.x, box.max.x]) {
+        for (const y of [box.min.y, box.max.y]) {
+          for (const z of [box.min.z, box.max.z]) {
+            points.push(new THREE.Vector3(x, y, z).applyMatrix4(node.matrixWorld)
+              .applyMatrix4(camera.matrixWorldInverse));
+          }
+        }
+      }
+      if (points.every((point) => point.z > -camera.near)
+        || points.every((point) => point.z < -camera.far)) return;
+      // near plane をまたぐ箱の射影は発散しうる。狭すぎる枠を宣言せず全画面へ退避。
+      if (points.some((point) => point.z > -camera.near)) { uncertain = true; return; }
+      for (const point of points) {
+        point.applyMatrix4(camera.projectionMatrix);
+        if (![point.x, point.y].every(Number.isFinite)) { uncertain = true; return; }
+        left = Math.min(left, point.x); right = Math.max(right, point.x);
+        top = Math.min(top, -point.y); bottom = Math.max(bottom, -point.y);
+      }
+    });
+    if (uncertain) return { left: 0, top: 0, right: 1, bottom: 1 };
+    left = Math.max(-1, left); top = Math.max(-1, top);
+    right = Math.min(1, right); bottom = Math.min(1, bottom);
+    if (right <= left || bottom <= top) return null;
+    return { left: (left + 1) / 2, top: (top + 1) / 2,
+      right: (right + 1) / 2, bottom: (bottom + 1) / 2 };
+  }
+
+  function contentBounds(canvas) {
+    const box = canvasContentBoxes.get(canvas);
+    if (!box) return null;
+    if (window.akari.interaction?.canvasClientBounds) {
+      return window.akari.interaction.canvasClientBounds(canvas, box);
+    }
+    const rect = canvas.getBoundingClientRect();
+    const left = rect.left + box.left * rect.width;
+    const top = rect.top + box.top * rect.height;
+    const right = rect.left + box.right * rect.width;
+    const bottom = rect.top + box.bottom * rect.height;
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
   function draw(instance, localSeconds) {
     // texts[] のみ（model 無し）のシーンでも描く必要があるため、readiness は instance.model の
     // 有無ではなく contentReady（model 読み込み + 全 texts sync() 完了）で判定する
@@ -1772,6 +1834,9 @@ window.akari.threeRuntime = (() => {
     // どの時刻を出すかは外側が currentTime で決め、ここは上げ直しだけを担う
     for (const texture of instance.videoTextures) texture.needsUpdate = true;
     instance.renderer.render(instance.scene, instance.camera);
+    canvasContentBoxes.set(instance.canvas, projectContentBounds(instance.scene, instance.camera));
+    // 内容枠申告に伴う描画直後通知。interaction 不在の書き出しではコピーしない。
+    window.akari.interaction?.captureCanvasContent?.(instance.canvas);
   }
 
   function disposeObject(root) {
@@ -1818,6 +1883,7 @@ window.akari.threeRuntime = (() => {
   }
 
   function disposeInstance(instance) {
+    canvasContentBoxes.delete(instance.canvas);
     instance.active = false;
     instance.mixer?.stopAllAction();
     disposeObject(instance.model);
@@ -2427,6 +2493,8 @@ window.akari.threeRuntime = (() => {
 
   return {
     configure,
+    contentBounds,
+    projectContentBounds,
     dispose,
     inspect,
     render,

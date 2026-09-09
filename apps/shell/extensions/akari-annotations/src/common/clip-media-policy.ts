@@ -10,14 +10,6 @@ export function filmstripCellCount(fullClipWidthPx: number, cellWidthPx: number)
     return Math.max(1, Math.ceil(width / cellWidth));
 }
 
-/** 固定高の波形 canvas を極小トラック内へ縮めるための CSS 幾何。 */
-export function clipWaveformBand(trackHeightPx: number, bandHeightPx: number): { top: number; height: number } {
-    const trackHeight = Number.isFinite(trackHeightPx) ? Math.max(1, trackHeightPx) : 1;
-    const bandHeight = Number.isFinite(bandHeightPx) ? Math.max(1, bandHeightPx) : 1;
-    const height = Math.min(trackHeight, bandHeight);
-    return { top: Math.max(0, trackHeight - height), height };
-}
-
 export interface MediaCacheFailure {
     readonly status: 'unavailable';
     readonly failedAt: number;

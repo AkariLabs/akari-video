@@ -1452,18 +1452,34 @@ var AkariEditKernel = (() => {
       return { ...cut, out: cut.out + holdSec * speed };
     });
     const map = buildTimelineMap(virtualCuts, { fps });
+    const usable = virtualCuts.map((cut, index) => ({ cut, index })).filter(({ cut }) => Number.isFinite(cut.in) && Number.isFinite(cut.out) && cut.in < cut.out);
+    const clipWindows = new Map(computeCutTrackSegments(usable.map((entry) => entry.cut)).map((segment) => [
+      usable[segment.index].index,
+      { start: segment.at, end: segment.end, cutTimelineStart: segment.at }
+    ]));
+    for (const window of map.transitionWindows) {
+      for (const participant of [window.outgoing, window.incoming]) {
+        const clip = clipWindows.get(participant.cutIndex);
+        const cut = normalizedCuts[participant.cutIndex];
+        if (!clip || !cut || typeof participant.in !== "number") continue;
+        const speed = finitePositive(cut.speed) ? cut.speed : 1;
+        clip.cutTimelineStart = participant.outStart - (participant.in - cut.in) / speed;
+      }
+      const outgoing = clipWindows.get(window.outgoing.cutIndex);
+      const incoming = clipWindows.get(window.incoming.cutIndex);
+      if (outgoing) outgoing.end = Math.max(outgoing.end, window.end);
+      if (incoming) incoming.start = Math.max(incoming.start, window.end);
+    }
     const declarations = [];
-    for (const segment of map.segments) {
-      if (segment.kind !== "src" || segment.cutIndex === null) continue;
-      const cut = normalizedCuts[segment.cutIndex];
+    for (const [cutIndex, clip] of clipWindows) {
+      const cut = normalizedCuts[cutIndex];
       if (!cut || typeof cut.src !== "string" || !cut.src) continue;
       if (!isCutAudioAudible(cut)) continue;
       const speed = finitePositive(cut.speed) ? cut.speed : 1;
-      const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
-      const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
+      const cutTimelineStart = clip.cutTimelineStart;
       const baseDurationSec = Math.max(0, cut.out - cut.in) / speed;
       const gainDb = speechGainDb(cut);
-      const baseId = typeof cut.id === "string" && cut.id ? cut.id : `cut-${segment.cutIndex}`;
+      const baseId = speechBaseId(cut, cutIndex);
       const holdSec = freezeDuration(cut.freeze);
       if (!(holdSec > 0)) {
         appendSpeechIntersection(declarations, {
@@ -1474,8 +1490,8 @@ var AkariEditKernel = (() => {
           sourceIn: cut.in,
           outputStart: cutTimelineStart,
           outputEnd: cutTimelineStart + baseDurationSec,
-          segmentStart: segment.outStart,
-          segmentEnd: segment.outEnd,
+          clipStart: clip.start,
+          clipEnd: clip.end,
           track: cut.track
         });
         continue;
@@ -1490,8 +1506,8 @@ var AkariEditKernel = (() => {
         sourceIn: cut.in,
         outputStart: cutTimelineStart,
         outputEnd: cutTimelineStart + freezeAtSec,
-        segmentStart: segment.outStart,
-        segmentEnd: segment.outEnd,
+        clipStart: clip.start,
+        clipEnd: clip.end,
         track: cut.track
       });
       appendSpeechIntersection(declarations, {
@@ -1502,8 +1518,8 @@ var AkariEditKernel = (() => {
         sourceIn: freezeSourceIn,
         outputStart: cutTimelineStart + freezeAtSec + holdSec,
         outputEnd: cutTimelineStart + baseDurationSec + holdSec,
-        segmentStart: segment.outStart,
-        segmentEnd: segment.outEnd,
+        clipStart: clip.start,
+        clipEnd: clip.end,
         track: cut.track
       });
     }
@@ -1530,8 +1546,8 @@ var AkariEditKernel = (() => {
     return cut && typeof cut.id === "string" && cut.id ? cut.id : `cut-${index}`;
   }
   function appendSpeechIntersection(declarations, input) {
-    const atSec = Math.max(input.outputStart, input.segmentStart);
-    const endSec = Math.min(input.outputEnd, input.segmentEnd);
+    const atSec = Math.max(input.outputStart, input.clipStart);
+    const endSec = Math.min(input.outputEnd, input.clipEnd);
     if (!(endSec > atSec)) return;
     const inSec = input.sourceIn + (atSec - input.outputStart) * input.speed;
     const outSec = inSec + (endSec - atSec) * input.speed;

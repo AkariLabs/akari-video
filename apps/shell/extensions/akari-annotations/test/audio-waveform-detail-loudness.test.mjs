@@ -48,9 +48,9 @@ test('裁定1: segmentLabel は上1pxを残し行高22pxから12pxへ詰める',
   assert.doesNotMatch(css, /line-height: \$\{SUBROW_HEIGHT\}px;/u);
 });
 
-test('裁定2: ラベル高さ14pxへの変更に波形の中央配置が追随する', () => {
-  assert.deepEqual(audioWaveformBandLayout(52, 14), { topPx: 16, heightPx: 34 });
-  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 19.5, heightPx: 31 });
+test('r1: ラベル高さを変えても波形はヘッダーを引かずアイテム中央に配置する', () => {
+  assert.deepEqual(audioWaveformBandLayout(52, 14), { topPx: 1, heightPx: 50 });
+  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 1, heightPx: 50 });
 });
 
 test('裁定3: -3 dBちょうどは赤になる', () => {

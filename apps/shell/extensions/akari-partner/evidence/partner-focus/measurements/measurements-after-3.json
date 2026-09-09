@@ -1,0 +1,35 @@
+{
+  "label": "after-3",
+  "startedAt": "2026-09-08T19:52:09.397Z",
+  "pid": 75042,
+  "timeline": [
+    {
+      "atMs": 5692,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "partnerAttached": true,
+      "homeAttached": true
+    },
+    {
+      "atMs": 6696,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "partnerAttached": true,
+      "homeAttached": true
+    }
+  ],
+  "shellAttached": true,
+  "preloadVisible": false,
+  "partnerAttached": true,
+  "homeAttached": true,
+  "readyMs": 6195,
+  "reachedReady": true,
+  "failedToStart": false,
+  "focusWarnIds": [],
+  "focusWarnCount": 0,
+  "focusWarnLines": [],
+  "partnerFocusWarn": false,
+  "guardTimeouts": [],
+  "consoleErrors": [],
+  "leftoverProcesses": 0
+}

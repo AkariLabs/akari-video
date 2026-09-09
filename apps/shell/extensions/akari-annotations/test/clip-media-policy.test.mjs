@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   canRenderClipMedia,
-  clipWaveformBand,
   filmstripCellCount,
   isMediaCacheFailure,
   mediaCacheRequestAttempt,
@@ -40,15 +39,6 @@ test('不正なセル幅でも0除算・NaN・負セル数を作らない', () =
       const count = filmstripCellCount(width, cellWidth);
       assert.ok(Number.isFinite(count) && Number.isInteger(count) && count >= 1);
     }
-  }
-});
-
-test('極小トラックの波形は正の高さと非負の上端へ縮退し、通常高では不変', () => {
-  assert.deepEqual(clipWaveformBand(48, 14), { top: 34, height: 14 });
-  assert.deepEqual(clipWaveformBand(47, 14), { top: 33, height: 14 });
-  assert.deepEqual(clipWaveformBand(10, 14), { top: 0, height: 10 });
-  for (const size of [Number.MIN_VALUE, 0.001, 0, -1, Number.NaN, Infinity]) {
-    assert.deepEqual(clipWaveformBand(size, 14), { top: 0, height: 1 });
   }
 });
 

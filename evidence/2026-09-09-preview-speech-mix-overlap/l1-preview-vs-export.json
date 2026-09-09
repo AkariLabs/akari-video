@@ -1,0 +1,228 @@
+{
+  "note": "L1 — overlapped clips must mix every clip audio in preview, matching the export (amix).",
+  "fixture": {
+    "sourceToneHz": "300 + 100*floor(t) per source second",
+    "upperClip": "output 2.0-6.0s from source 6.0-10.0s (declared first = cuts winner)",
+    "lowerClip": "output 0.0-6.0s from source 0.0-6.0s",
+    "overlapSec": [
+      2,
+      6
+    ]
+  },
+  "legacyProjection": {
+    "cutCount": 2,
+    "cutIds": [
+      null,
+      null
+    ],
+    "cutTracks": [
+      0,
+      1
+    ],
+    "note": "both clips stay in cuts[] (no transform/crop/opacity → no cross-track layers evacuation)"
+  },
+  "declarations": {
+    "after": [
+      {
+        "id": "cut-0-speech",
+        "atSec": 2,
+        "durationSec": 4,
+        "inSec": 6,
+        "outSec": 10,
+        "track": 0
+      },
+      {
+        "id": "cut-1-speech",
+        "atSec": 0,
+        "durationSec": 6,
+        "inSec": 0,
+        "outSec": 6,
+        "track": 1
+      }
+    ],
+    "before": [
+      {
+        "id": "cut-1-speech",
+        "atSec": 0,
+        "durationSec": 2,
+        "inSec": 0,
+        "outSec": 2,
+        "track": 1
+      },
+      {
+        "id": "cut-0-speech",
+        "atSec": 2,
+        "durationSec": 4,
+        "inSec": 6,
+        "outSec": 10,
+        "track": 0
+      }
+    ]
+  },
+  "previewSchedule": [
+    {
+      "id": "cut-0-speech",
+      "kind": "speech",
+      "track": 0,
+      "timelineStartSec": 2,
+      "timelineEndSec": 6,
+      "sourceOffsetSec": 6,
+      "durationSec": 4
+    },
+    {
+      "id": "cut-1-speech",
+      "kind": "speech",
+      "track": 1,
+      "timelineStartSec": 0,
+      "timelineEndSec": 6,
+      "sourceOffsetSec": 0,
+      "durationSec": 6
+    }
+  ],
+  "previewScheduleWarnings": [],
+  "exportNotes": {
+    "renderCutExitCode": 2,
+    "renderCutVerdict": "fail",
+    "renderCutFindings": [
+      "final ffprobe verification failed: {\"frames\":true,\"duration\":true,\"dimensions\":true,\"codec\":true,\"audioPresence\":false,\"audioDuration\":false,\"avTermination\":true}"
+    ],
+    "plannedAmixInputs": "2",
+    "plannedCutAudioAacDurationSec": 0.011208,
+    "plannedCutAudioPcmDurationSec": 6,
+    "measuredFrom": "planned cut_audio command (PCM output)"
+  },
+  "measurements": [
+    {
+      "where": "preview-before-fix",
+      "atSec": 2.5,
+      "lowerHz": 500,
+      "lowerPower": 0,
+      "upperHz": 900,
+      "upperPower": 0.124992,
+      "noiseFloor": 0,
+      "lowerAudible": false,
+      "upperAudible": true
+    },
+    {
+      "where": "preview-before-fix",
+      "atSec": 3.5,
+      "lowerHz": 600,
+      "lowerPower": 0,
+      "upperHz": 1000,
+      "upperPower": 0.124993,
+      "noiseFloor": 0,
+      "lowerAudible": false,
+      "upperAudible": true
+    },
+    {
+      "where": "preview-before-fix",
+      "atSec": 4.5,
+      "lowerHz": 700,
+      "lowerPower": 0,
+      "upperHz": 1100,
+      "upperPower": 0.124993,
+      "noiseFloor": 0,
+      "lowerAudible": false,
+      "upperAudible": true
+    },
+    {
+      "where": "preview-before-fix",
+      "atSec": 5.5,
+      "lowerHz": 800,
+      "lowerPower": 0,
+      "upperHz": 1200,
+      "upperPower": 0.124992,
+      "noiseFloor": 0,
+      "lowerAudible": false,
+      "upperAudible": true
+    },
+    {
+      "where": "preview",
+      "atSec": 2.5,
+      "lowerHz": 500,
+      "lowerPower": 0.124993,
+      "upperHz": 900,
+      "upperPower": 0.124992,
+      "noiseFloor": 0,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "preview",
+      "atSec": 3.5,
+      "lowerHz": 600,
+      "lowerPower": 0.124992,
+      "upperHz": 1000,
+      "upperPower": 0.124993,
+      "noiseFloor": 0,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "preview",
+      "atSec": 4.5,
+      "lowerHz": 700,
+      "lowerPower": 0.124993,
+      "upperHz": 1100,
+      "upperPower": 0.124993,
+      "noiseFloor": 0,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "preview",
+      "atSec": 5.5,
+      "lowerHz": 800,
+      "lowerPower": 0.124993,
+      "upperHz": 1200,
+      "upperPower": 0.124992,
+      "noiseFloor": 0,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "export",
+      "atSec": 2.5,
+      "lowerHz": 500,
+      "lowerPower": 0.124987,
+      "upperHz": 900,
+      "upperPower": 0.12497,
+      "noiseFloor": 0.000001,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "export",
+      "atSec": 3.5,
+      "lowerHz": 600,
+      "lowerPower": 0.124979,
+      "upperHz": 1000,
+      "upperPower": 0.124983,
+      "noiseFloor": 0.000002,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "export",
+      "atSec": 4.5,
+      "lowerHz": 700,
+      "lowerPower": 0.12497,
+      "upperHz": 1100,
+      "upperPower": 0.124968,
+      "noiseFloor": 0.000007,
+      "lowerAudible": true,
+      "upperAudible": true
+    },
+    {
+      "where": "export",
+      "atSec": 5.5,
+      "lowerHz": 800,
+      "lowerPower": 0.124982,
+      "upperHz": 1200,
+      "upperPower": 0.124994,
+      "noiseFloor": 0.000006,
+      "lowerAudible": true,
+      "upperAudible": true
+    }
+  ]
+}

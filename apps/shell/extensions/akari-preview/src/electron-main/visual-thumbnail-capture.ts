@@ -1,10 +1,14 @@
-import { BrowserWindow } from '@theia/core/electron-shared/electron';
-import type { VisualThumbnailPage } from '../common/visual-thumbnail';
+import { app, BrowserWindow } from '@theia/core/electron-shared/electron';
+import type { VisualThumbnailCapture, VisualThumbnailPage } from '../common/visual-thumbnail';
+import { alphaContentRect, thumbnailCropRect } from '../common/thumbnail-content-rect';
 
 let active = false;
+let captureCalls = 0;
 
 /** No navigation, selection or seek is ever sent to an existing preview window. */
-export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise<string> {
+export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise<VisualThumbnailCapture> {
+    const failFirst = app.isPackaged ? 0 : Number(process.env.AKARI_VISUAL_THUMBNAIL_FAIL_FIRST ?? 0);
+    if (++captureCalls <= failFirst && Number.isSafeInteger(failFirst)) throw new Error('Visual thumbnail capture timed out');
     if (active) throw new Error('Visual thumbnail capture is busy');
     if (!page || typeof page.html !== 'string' || page.html.length > 8 * 1024 * 1024
         || !Number.isInteger(page.width) || page.width < 1 || page.width > 480
@@ -26,14 +30,51 @@ export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise
         target.webContents.on('will-navigate', event => event.preventDefault());
         return await Promise.race([
             (async () => {
-                await target.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page.html)}`);
-                await target.webContents.executeJavaScript('window.__akariThumbnailReady');
+                try {
+                    await target.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page.html)}`);
+                    // Carry the page's failure text across Electron instead of its generic script-rejected error.
+                    const ready = await target.webContents.executeJavaScript(
+                        'Promise.resolve(window.__akariThumbnailReady).then(value => ({ok:value === true}), error => ({ok:false,error:String(error)}))');
+                    if (!ready?.ok) throw new Error(ready?.error ?? 'Missing visual renderer readiness');
+                } catch (error) {
+                    throw new Error(`Visual renderer failed: ${String(error)}`);
+                }
                 const bitmap = await target.webContents.capturePage({ x: 0, y: 0, width: page.width, height: page.height });
                 const pixels = bitmap.toBitmap();
-                let visiblePixels = 0;
-                for (let index = 3; index < pixels.length; index += 4) if (pixels[index] > 8) visiblePixels++;
-                if (visiblePixels === 0) throw new Error('Visual thumbnail has no visible pixels');
-                return bitmap.resize({ width: page.width, height: page.height }).toDataURL();
+                const size = bitmap.getSize();
+                const pixelScale = Math.round(Math.sqrt(pixels.length / 4 / (size.width * size.height)));
+                const bitmapWidth = size.width * pixelScale, bitmapHeight = size.height * pixelScale;
+                const image = bitmap.resize({ width: page.width, height: page.height }).toDataURL();
+                if ((pixelScale !== 1 && pixelScale !== 2) || pixels.length !== bitmapWidth * bitmapHeight * 4) return { image };
+                const rect = alphaContentRect(pixels, bitmapWidth, bitmapHeight);
+                if (!rect) throw new Error('Visual thumbnail has no visible pixels');
+                const x = Math.max(0, Math.floor(rect.x * page.width / bitmapWidth));
+                const y = Math.max(0, Math.floor(rect.y * page.height / bitmapHeight));
+                const right = Math.min(page.width, Math.ceil((rect.x + rect.width) * page.width / bitmapWidth));
+                const bottom = Math.min(page.height, Math.ceil((rect.y + rect.height) * page.height / bitmapHeight));
+                const contentRect = { x, y, width: right - x, height: bottom - y };
+                const crop = thumbnailCropRect(contentRect, { width: page.width, height: page.height });
+                let croppedImage: string | undefined;
+                if (crop) {
+                    try {
+                        // nativeImage.crop() works in getSize() coordinates, which are twice the page on HiDPI captures.
+                        const scaleX = size.width / page.width, scaleY = size.height / page.height;
+                        const region = {
+                            x: Math.min(size.width - 1, Math.max(0, Math.round(crop.x * scaleX))),
+                            y: Math.min(size.height - 1, Math.max(0, Math.round(crop.y * scaleY))),
+                            width: Math.max(1, Math.round(crop.width * scaleX)),
+                            height: Math.max(1, Math.round(crop.height * scaleY))
+                        };
+                        region.width = Math.min(region.width, size.width - region.x);
+                        region.height = Math.min(region.height, size.height - region.y);
+                        const cropped = bitmap.crop(region).resize({ width: crop.width, height: crop.height });
+                        const croppedSize = cropped.getSize();
+                        if (croppedSize.width === crop.width && croppedSize.height === crop.height) croppedImage = cropped.toDataURL();
+                    } catch {
+                        // A failed crop keeps the original framing without losing the capture.
+                    }
+                }
+                return croppedImage ? { image, contentRect, croppedImage } : { image, contentRect };
             })(),
             new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Visual thumbnail capture timed out')), 20000); })
         ]);

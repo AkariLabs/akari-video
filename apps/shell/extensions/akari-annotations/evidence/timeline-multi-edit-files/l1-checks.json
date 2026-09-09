@@ -1,0 +1,283 @@
+{
+  "results": [
+    {
+      "check": "a:single-tab",
+      "tabs": [
+        {
+          "id": "akari-annotations-widget",
+          "label": "タイムライン",
+          "editUri": "file:///private<TMP>/existing/edit.json"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "b:add-button-menu-from-real-click",
+      "openTabsBefore": [
+        {
+          "id": "akari-annotations-widget",
+          "label": "タイムライン",
+          "editUri": "file:///private<TMP>/existing/edit.json"
+        }
+      ],
+      "button": {
+        "x": 612,
+        "y": 424,
+        "tag": "DIV",
+        "className": "lm-TabBar-addButton",
+        "text": "+",
+        "inBottomPanel": true
+      },
+      "menu": [
+        "タイムライン",
+        "ターミナル"
+      ],
+      "pass": true
+    },
+    {
+      "check": "b:create-dialog-from-add-button-real-click",
+      "openTabsBefore": 1,
+      "dialogAppeared": true,
+      "note": "1 本目が自動アタッチ済みでも「+」→「タイムライン」の実クリックで作成ポップアップに到達する",
+      "pass": true
+    },
+    {
+      "check": "b:dialog-defaults-follow-current",
+      "defaults": {
+        "values": [
+          {
+            "type": "text",
+            "value": "タイムライン"
+          },
+          {
+            "type": "text",
+            "value": "timeline"
+          },
+          {
+            "type": "number",
+            "value": "1280"
+          },
+          {
+            "type": "number",
+            "value": "720"
+          }
+        ],
+        "aspect": "custom",
+        "title": "タイムラインを作成"
+      },
+      "currentOutput": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30
+      },
+      "expectedAspect": "custom",
+      "dims": [
+        1280,
+        720
+      ],
+      "pass": true
+    },
+    {
+      "check": "b:dialog-accepted-by-enter",
+      "pass": true
+    },
+    {
+      "check": "b:created-file",
+      "file": "edit.tategata-ban.json",
+      "content": {
+        "version": 2,
+        "output": {
+          "width": 1080,
+          "height": 1920,
+          "fps": 30
+        },
+        "sources": [],
+        "tracks": []
+      },
+      "pass": true
+    },
+    {
+      "check": "b:two-tabs",
+      "tabs": [
+        {
+          "id": "akari-annotations-widget",
+          "label": "タイムライン",
+          "editUri": "file:///private<TMP>/existing/edit.json"
+        },
+        {
+          "id": "akari-annotations-widget:tategata-ban",
+          "label": "tategata-ban",
+          "editUri": "file:///private<TMP>/existing/edit.tategata-ban.json"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "b2:closed-tab-restored-by-add-button",
+      "afterClose": [
+        {
+          "id": "akari-annotations-widget",
+          "label": "タイムライン",
+          "editUri": "file:///private<TMP>/existing/edit.json"
+        }
+      ],
+      "restored": [
+        {
+          "id": "akari-annotations-widget",
+          "label": "タイムライン",
+          "editUri": "file:///private<TMP>/existing/edit.json"
+        },
+        {
+          "id": "akari-annotations-widget:tategata-ban",
+          "label": "tategata-ban",
+          "editUri": "file:///private<TMP>/existing/edit.tategata-ban.json"
+        }
+      ],
+      "dialogShown": false,
+      "pass": true
+    },
+    {
+      "check": "c:preview-opens-for-first-timeline",
+      "noPreviewYet": [],
+      "clickedFirst": true,
+      "afterFirst": [
+        {
+          "id": "plugin-webview:akari-output-preview-i642fy",
+          "editUri": "file:///private<TMP>/existing/edit.json",
+          "attached": true
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "c:second-tab-clickable",
+      "tabRect": {
+        "x": 441,
+        "y": 424,
+        "id": "shell-tab-akari-annotations-widget:tategata-ban"
+      },
+      "pass": true
+    },
+    {
+      "check": "c:preview-follows-real-tab-click",
+      "afterFocus": [
+        {
+          "id": "plugin-webview:akari-output-preview-i642fy",
+          "editUri": "file:///private<TMP>/existing/edit.json",
+          "attached": true
+        }
+      ],
+      "focusDiagnostics": {
+        "focusLog": [],
+        "activeElement": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+        "current": null,
+        "active": null,
+        "previews": [
+          {
+            "id": "plugin-webview:akari-output-preview-i642fy",
+            "editUri": "file:///private<TMP>/existing/edit.json",
+            "visible": true,
+            "hidden": false
+          }
+        ]
+      },
+      "note": "focusLog が空 = Theia の FocusTracker が CDP 駆動では動かない（OS フォーカス不在）",
+      "pass": false
+    },
+    {
+      "check": "c:preview-follows-current-widget-event",
+      "fired": true,
+      "afterFire": [
+        {
+          "id": "plugin-webview:akari-output-preview-i642fy",
+          "editUri": "file:///private<TMP>/existing/edit.json",
+          "attached": true
+        },
+        {
+          "id": "plugin-webview:akari-output-preview-1aggca9",
+          "editUri": "file:///private<TMP>/existing/edit.tategata-ban.json",
+          "attached": true
+        }
+      ],
+      "pass": true
+    },
+    {
+      "check": "e:existing-edit-unchanged",
+      "pass": true
+    },
+    {
+      "check": "orphans:existing",
+      "survivors": 0,
+      "pass": true
+    },
+    {
+      "check": "d:first-timeline-dialog-default-9-16",
+      "defaults": {
+        "values": [
+          {
+            "type": "text",
+            "value": "タイムライン"
+          },
+          {
+            "type": "number",
+            "value": "1080"
+          },
+          {
+            "type": "number",
+            "value": "1920"
+          }
+        ],
+        "aspect": "9:16",
+        "title": "タイムラインを作成"
+      },
+      "pass": true
+    },
+    {
+      "check": "d:dialog-accepted-by-enter",
+      "pass": true
+    },
+    {
+      "check": "d:created-portrait-edit",
+      "content": {
+        "version": 2,
+        "output": {
+          "width": 1080,
+          "height": 1920,
+          "fps": 30
+        },
+        "sources": [
+          {
+            "id": "src-1",
+            "path": "../assets/portrait.mp4"
+          }
+        ],
+        "tracks": [
+          {
+            "id": "v1",
+            "lane": "visual",
+            "items": [
+              {
+                "id": "clip-1",
+                "at": 25,
+                "duration": 90,
+                "source": {
+                  "kind": "media",
+                  "src": "src-1",
+                  "in": 0,
+                  "out": 3
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "orphans:empty-drop",
+      "survivors": 0,
+      "pass": true
+    }
+  ],
+  "failed": 1
+}
