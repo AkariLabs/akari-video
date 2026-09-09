@@ -85,9 +85,10 @@ import {
     audioWaveformWindowContains,
     filmstripChunkIndexFor,
     nextAudioWaveformTier,
-    waveformBucketForLocalPx,
+    waveformPeakForPxRange,
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
+import { waveformBandLayout } from '../common/waveform-band';
 import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
 import { createRafThrottle } from './raf-throttle';
 import { createRevisionMemo } from './revision-memo';
@@ -396,8 +397,6 @@ const AUDIO_WAVEFORM_MASTER_CACHE_LIMIT = 64;
 const FILMSTRIP_TARGET_CELL_WIDTH_PX = 36;
 /** クリップ 1 個あたりの最大セル数（暴走防止。実測上はズームしても strip 幅に収まるため頭打ちにはまず届かない）。 */
 const FILMSTRIP_MAX_CELLS_PER_CLIP = 160;
-/** 動画クリップ波形の描画帯の高さ。音声レーンは残り高さから別計算する。 */
-const WAVEFORM_BAND_HEIGHT_PX = 12;
 /**
  * ソーストリマー（R6c2r2・外側延長方式）: クリップ左右の「ウィング」（in より前 /
  * out より後の素材）に許す最大表示幅（px）。同一 px/秒スケールで描くため、素材が
@@ -10132,6 +10131,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!geometry) {
             return;
         }
+        // DPR や peaks の変更は幾何が同じでも波形自身のキーで判定する。
+        const waveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
+        if (Array.isArray(waveform) && canvas) {
+            this.updateWaveformCanvas(canvas, waveform, clipWidth, geometry, trackHeightPx);
+        }
         const next = { clipWidth, ...geometry, trackHeightPx };
         const previous = this.clipMediaGeometries.get(element);
         // チャンク / サムネイル到着（filmstripContentRevision）は署名に入れないので、再利用ノードは
@@ -10148,11 +10152,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         if (filmstripStatus === 'all-unavailable') {
             this.renderSingleFrameFallback(element, cut, videoUri);
-        }
-
-        const waveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
-        if (Array.isArray(waveform) && canvas) {
-            this.updateWaveformCanvas(canvas, waveform, clipWidth, geometry, trackHeightPx);
         }
     }
 
@@ -11415,10 +11414,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         envelope: AudioLoudnessEnvelope = { durationSeconds: 0 }
     ): void {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const deviceHeightPx = Math.round(band.heightPx * dpr);
         const masterKey = audioWaveformMasterKey(
-            this.audioWaveformPeakIdentity(fullPeaks), sliceKey, band.heightPx, envelope
+            this.audioWaveformPeakIdentity(fullPeaks), sliceKey, deviceHeightPx, envelope
         );
-        const master = this.audioWaveformMaster(masterKey, peaksFactory, band.heightPx, envelope);
+        const master = this.audioWaveformMaster(masterKey, peaksFactory, deviceHeightPx, envelope);
         if (!master) {
             this.removeAudioWaveformCanvas(element);
             return;
@@ -11434,7 +11435,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const visibleWidthPx = Math.max(1, Math.round(placement.canvasWidthPx));
         const canvasLeftPx = Math.round(placement.canvasLeftPx * 1000) / 1000;
         const next: AudioWaveformPaintState = {
-            sliceKey: masterKey,
+            sliceKey: `${masterKey}:${dpr}`,
             visibleWidth: visibleWidthPx,
             offset: Math.round(placement.waveformOffsetPx * 1000) / 1000,
             left: canvasLeftPx,
@@ -11443,8 +11444,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         const previous = this.audioWaveformPaintState(canvas);
         if (!audioWaveformRepaintNeeded(previous, next)) return;
-        canvas.width = visibleWidthPx;
-        canvas.height = band.heightPx;
+        canvas.width = Math.round(visibleWidthPx * dpr);
+        canvas.height = Math.round(band.heightPx * dpr);
         Object.assign(canvas.style, {
             position: 'absolute',
             left: `${canvasLeftPx}px`,
@@ -11462,9 +11463,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             visibleWidthPx: placement.canvasWidthPx
         });
         if (context && sourceRect) {
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            context.scale(dpr, dpr);
             context.drawImage(
                 master,
-                sourceRect.sourceXPx, 0, sourceRect.sourceWidthPx, band.heightPx,
+                sourceRect.sourceXPx, 0, sourceRect.sourceWidthPx, master.height,
                 0, 0, visibleWidthPx, band.heightPx
             );
         }
@@ -11629,17 +11632,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * peaks（WAVEFORM_BUCKET_COUNT バケツ、常にクリップ全区間 [in,out) を表す）から、
-     * この clip の可視サブ区間に対応する部分だけを描く。フィルムストリップと同じ
-     * clipLocalOffsetPx / fullClipWidthPx 写像を使うため、ズーム 100%（クリップ全体が
-     * 可視 = offset 0・可視幅 = fullClipWidthPx）では旧実装（peaks を等間隔にそのまま
-     * 敷き詰める）と同じ見た目になる。ズームでクリップがビュー窓からはみ出すと、
-     * この部分範囲だけが可視幅いっぱいに描かれるため、フィルムストリップのコマと
-     * 同じ写像でスライドし、全区間の圧縮波形が出ない。
-     *
-     * 帯はクリップ帯の下寄せ（WAVEFORM_BAND_HEIGHT_PX・下 1/3 目安）に固定し、
-     * clipHeader（上 CLIP_HEADER_HEIGHT px）と非重複にする（③）。clipHeightPx は
-     * この track の高さティア（standard/large、compact はここまで到達しない）。
+     * クリップ全区間 [in,out) の peaks を可視サブ区間へ写す。
+     * clipLocalOffsetPx / fullClipWidthPx はフィルムストリップと同じ写像。
+     * 波形帯はヘッダー後の残り高さを使い、トラックの高さに追従する。
      */
     protected waveformCanvas(
         peaks: readonly number[], clipWidthPx: number,
@@ -11655,28 +11650,63 @@ export class AkariAnnotationsWidget extends BaseWidget {
         geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }, clipHeightPx: number
     ): void {
         const visibleWidthPx = Math.max(1, Math.round(clipWidthPx));
-        canvas.width = visibleWidthPx;
-        canvas.height = WAVEFORM_BAND_HEIGHT_PX;
+        const band = waveformBandLayout(clipHeightPx, CLIP_HEADER_HEIGHT);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const bucketCount = peaks.length;
+        const paintKey = JSON.stringify([
+            this.audioWaveformPeakIdentity(peaks), bucketCount, visibleWidthPx,
+            geometry.clipLocalOffsetPx, geometry.fullClipWidthPx, band.heightPx, band.topPx, dpr
+        ]);
+        if (canvas.dataset.akariClipWaveformPaintKey === paintKey) return;
+        canvas.width = Math.round(visibleWidthPx * dpr);
+        canvas.height = Math.round(band.heightPx * dpr);
         Object.assign(canvas.style, {
             position: 'absolute',
             left: '0',
-            top: `${clipHeightPx - WAVEFORM_BAND_HEIGHT_PX}px`,
+            top: `${band.topPx}px`,
             width: `${visibleWidthPx}px`,
-            height: `${WAVEFORM_BAND_HEIGHT_PX}px`,
-            opacity: '.55',
+            height: `${band.heightPx}px`,
+            opacity: '1',
             pointerEvents: 'none'
         });
         const context = canvas.getContext('2d');
-        const bucketCount = peaks.length;
-        if (context && bucketCount > 0 && geometry.fullClipWidthPx > 0) {
-            context.fillStyle = '#fff';
-            for (let x = 0; x < visibleWidthPx; x++) {
-                const localPx = geometry.clipLocalOffsetPx + x;
-                const bucket = waveformBucketForLocalPx(localPx, geometry.fullClipWidthPx, bucketCount);
-                const barHeight = waveformHeightForPeak(peaks[bucket]) * WAVEFORM_BAND_HEIGHT_PX;
-                context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
+        if (!context) return;
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.scale(dpr, dpr);
+        if (bucketCount > 0 && geometry.fullClipWidthPx > 0) {
+            const envelope = new Path2D();
+            const upperEdge = new Path2D();
+            const topEdges = new Float32Array(visibleWidthPx + 1);
+            for (let x = 0; x <= visibleWidthPx; x++) {
+                // 右端の閉じ点には最後の表示 px の振幅を使う。
+                const localPx = geometry.clipLocalOffsetPx + Math.min(x, visibleWidthPx - 1);
+                const peak = waveformPeakForPxRange(peaks, localPx, localPx + 1, geometry.fullClipWidthPx);
+                const barHeight = waveformHeightForPeak(peak) * band.heightPx;
+                const top = (band.heightPx - barHeight) / 2;
+                topEdges[x] = top;
+                // 縁はデバイス座標で描き、Retina でも幅 1px・中心 .5px に揃える。
+                const edgeX = x * dpr;
+                const edgeY = Math.floor(top * dpr) + 0.5;
+                if (x === 0) {
+                    envelope.moveTo(x, top);
+                    upperEdge.moveTo(edgeX, edgeY);
+                } else {
+                    envelope.lineTo(x, top);
+                    upperEdge.lineTo(edgeX, edgeY);
+                }
             }
+            for (let x = visibleWidthPx; x >= 0; x--) {
+                envelope.lineTo(x, band.heightPx - topEdges[x]);
+            }
+            envelope.closePath();
+            context.fillStyle = 'rgba(255,255,255,.7)';
+            context.fill(envelope);
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            context.strokeStyle = 'rgba(255,255,255,.95)';
+            context.lineWidth = 1;
+            context.stroke(upperEdge);
         }
+        canvas.dataset.akariClipWaveformPaintKey = paintKey;
     }
 
     protected segmentLabel(text: string): HTMLSpanElement {
