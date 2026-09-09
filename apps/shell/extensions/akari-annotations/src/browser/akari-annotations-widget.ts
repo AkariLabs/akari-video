@@ -12,6 +12,10 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import 'akari-preview/lib/electron-common/electron-api';
 import { VisualThumbnailCache } from './visual-thumbnail-cache';
+import type { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
+import { visualThumbnailRetryPlan } from '../common/visual-thumbnail-retry';
+import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName,
+    VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 import {
@@ -716,7 +720,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly visualDependencyRevisions = new Map<string, number>();
     protected readonly visualDependencies = new Map<string, URI[]>();
-    protected readonly failedVisualThumbnails = new Set<string>();
+    protected readonly failedVisualThumbnails = new Map<string, {
+        attempt: number; nextAttemptAt?: number; sourceKey: string; valid: () => boolean;
+    }>();
+    protected visualThumbnailRetryTimer: ReturnType<typeof setTimeout> | undefined;
+    protected visualThumbnailDisk: { root: string; ready: boolean;
+        revisions: Map<string, { key: string; revision: number; capturedAt: number }> } | undefined;
     protected visualInputEpoch = 0;
     protected visualPlaying = false;
     protected visualPointerDown = false;
@@ -1070,6 +1079,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             document.removeEventListener('dragstart', pause, true);
             document.removeEventListener('dragend', resume, true);
             window.removeEventListener('blur', resume);
+            if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
+            this.failedVisualThumbnails.clear();
             this.visualThumbnails.dispose(); this.visualHover?.remove();
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
@@ -5287,11 +5298,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // Also reject in-flight work whose dependencies have not been returned yet.
                 this.visualInputEpoch++;
                 visualChanged = true;
-                for (const id of this.failedVisualThumbnails) {
+                for (const id of this.failedVisualThumbnails.keys()) {
                     this.visualDependencyRevisions.set(id, (this.visualDependencyRevisions.get(id) ?? 0) + 1);
                     visualChanged = true;
                 }
                 this.failedVisualThumbnails.clear();
+                if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
+                this.visualThumbnailRetryTimer = undefined;
             }
             if (visualChanged) this.renderStrip();
             if (event.contains(this.location.reviewUri)) {
@@ -5849,10 +5862,127 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return track && this.visualTrack(track) ? this.trackHeightFor(track) + SUBROW_GAP : SUBROW_STRIDE;
     }
 
+    protected recordVisualThumbnailFailure(id: string, sourceKey: string, failure: unknown, valid: () => boolean): void {
+        if (!valid()) return;
+        const previous = this.failedVisualThumbnails.get(id);
+        const attempt = (previous?.sourceKey === sourceKey ? previous.attempt : 0) + 1;
+        const plan = visualThumbnailRetryPlan(failure, attempt, Date.now());
+        if (plan.kind === 'stale') return;
+        console.info(`[visual-thumbnail] capture failed ${id} attempt=${attempt} kind=${plan.kind}`);
+        this.failedVisualThumbnails.set(id, { attempt, nextAttemptAt: plan.nextAttemptAt, sourceKey, valid });
+        this.scheduleVisualThumbnailRetry();
+    }
+
+    protected scheduleVisualThumbnailRetry(): void {
+        if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
+        this.visualThumbnailRetryTimer = undefined;
+        if (this.isDisposed) return;
+        const next = Math.min(...[...this.failedVisualThumbnails.values()].map(failure => failure.nextAttemptAt ?? Infinity));
+        if (!Number.isFinite(next)) return;
+        this.visualThumbnailRetryTimer = setTimeout(() => {
+            this.visualThumbnailRetryTimer = undefined;
+            if (this.isDisposed) return;
+            if (this.visualThumbnails.queued !== 0 || this.visualThumbnails.isPaused) {
+                this.visualThumbnailRetryTimer = setTimeout(() => this.scheduleVisualThumbnailRetry(), 250);
+                return;
+            }
+            let changed = false;
+            for (const [id, failure] of this.failedVisualThumbnails) {
+                if (failure.nextAttemptAt === undefined || failure.nextAttemptAt > Date.now()) continue;
+                if (!failure.valid()) { this.failedVisualThumbnails.delete(id); continue; }
+                failure.nextAttemptAt = undefined;
+                this.visualDependencyRevisions.set(id, (this.visualDependencyRevisions.get(id) ?? 0) + 1);
+                console.info(`[visual-thumbnail] retry ${id} attempt=${failure.attempt}`);
+                changed = true;
+            }
+            if (changed) this.renderStrip();
+            this.scheduleVisualThumbnailRetry();
+        }, Math.max(0, next - Date.now()));
+    }
+
+    /** Initialize once per project; keep only revision metadata, not a second image cache. */
+    protected initializeVisualThumbnailDisk(): boolean {
+        const root = this.location?.root;
+        if (!root) return true;
+        if (this.visualThumbnailDisk?.root === root.toString()) return this.visualThumbnailDisk.ready;
+        const state: NonNullable<AkariAnnotationsWidget['visualThumbnailDisk']> = {
+            root: root.toString(), ready: false, revisions: new Map()
+        };
+        this.visualThumbnailDisk = state;
+        const directory = root.resolve('.akari/cache/thumbnails/visual');
+        void (async () => {
+            const entries: { fileName: string; capturedAt: number; size: number }[] = [];
+            const children = (await this.fileService.resolve(directory, { resolveMetadata: true })).children ?? [];
+            for (const child of children) {
+                if (this.isDisposed || this.visualThumbnailDisk !== state) return;
+                if (!child.isFile || !/^[a-f0-9]{40}\.json$/.test(child.resource.path.base)) continue;
+                let capturedAt = 0;
+                try {
+                    const data: unknown = JSON.parse((await this.fileService.readFile(child.resource)).value.toString());
+                    if (isVisualThumbnailDiskEntry(data) && visualThumbnailCacheFileName(data.key) === child.resource.path.base) {
+                        capturedAt = data.capturedAt;
+                        const previous = state.revisions.get(data.sourceKey);
+                        if (!previous || previous.capturedAt < capturedAt) state.revisions.set(data.sourceKey,
+                            { key: data.key, revision: data.dependencyRevision, capturedAt });
+                    }
+                } catch { /* Corrupt records are oldest for pruning and never become hits. */ }
+                entries.push({ fileName: child.resource.path.base, capturedAt, size: child.size ?? 0 });
+            }
+            for (const fileName of pruneThumbnailIndex(entries)) {
+                if (this.isDisposed || this.visualThumbnailDisk !== state) return;
+                await this.fileService.delete(directory.resolve(fileName)).catch(() => undefined);
+            }
+        })().catch(() => undefined).finally(() => {
+            state.ready = true;
+            if (!this.isDisposed && this.visualThumbnailDisk === state) this.renderStrip();
+        });
+        return false;
+    }
+
+    protected async readVisualThumbnailDisk(root: URI | undefined, key: string, id: string,
+        valid: () => boolean): Promise<VisualThumbnailCapture | undefined> {
+        if (!root) return undefined;
+        try {
+            const uri = root.resolve('.akari/cache/thumbnails/visual').resolve(visualThumbnailCacheFileName(key));
+            const data: unknown = JSON.parse((await this.fileService.readFile(uri)).value.toString());
+            if (!isVisualThumbnailDiskEntry(data) || data.key !== key) return undefined;
+            const dependencies = data.dependencies.map(dep => new URI(dep.uri));
+            if (dependencies.some(uri => !root.isEqualOrParent(uri))) return undefined;
+            const current = await Promise.all(dependencies.map(uri => this.fileService.resolve(uri, { resolveMetadata: true })));
+            if (!valid() || current.some((stat, index) => !stat.isFile
+                || stat.mtime !== data.dependencies[index].mtime || stat.size !== data.dependencies[index].size)) return undefined;
+            this.visualDependencies.set(id, dependencies);
+            this.failedVisualThumbnails.delete(id);
+            console.info(`[visual-thumbnail] disk hit ${id}`);
+            return { image: data.image, croppedImage: data.croppedImage, contentRect: data.contentRect };
+        } catch { return undefined; }
+    }
+
+    protected async writeVisualThumbnailDisk(root: URI | undefined, entry: VisualThumbnailDiskEntry,
+        id: string, valid: () => boolean): Promise<void> {
+        if (!root || !valid()) return;
+        try {
+            const directory = root.resolve('.akari/cache/thumbnails/visual');
+            await this.fileService.createFolder(directory);
+            if (!valid()) return;
+            await this.fileService.writeFile(directory.resolve(visualThumbnailCacheFileName(entry.key)),
+                BinaryBuffer.fromString(JSON.stringify(entry)));
+            console.info(`[visual-thumbnail] disk write ${id}`);
+        } catch { /* Disk cache is optional, including read-only projects and full disks. */ }
+    }
+
     protected renderVisualThumbnail(element: HTMLDivElement, id: string, label: string, input: unknown): void {
         const editUri = this.location?.editUri?.toString();
         if (!editUri || !window.electronAkariPreview?.captureVisualThumbnail) return;
+        if (!this.initializeVisualThumbnailDisk()) { element.dataset.akariVisualThumbnail = 'pending'; return; }
+        const root = this.location?.root;
         const editSnapshot = visualThumbnailSnapshot(this.editDocument, id);
+        const sourceKey = visualThumbnailKey(editUri, id, [input, editSnapshot, 0]);
+        const restored = this.visualThumbnailDisk?.revisions.get(sourceKey);
+        if (!this.visualDependencyRevisions.has(id) && restored
+            && restored.key === visualThumbnailKey(editUri, id, [input, editSnapshot, restored.revision])) {
+            this.visualDependencyRevisions.set(id, restored.revision);
+        }
         const dependencyRevision = this.visualDependencyRevisions.get(id) ?? 0;
         const epoch = this.visualInputEpoch;
         const key = visualThumbnailKey(editUri, id, [input, editSnapshot, dependencyRevision]);
@@ -5869,24 +5999,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return bounds.right > view.left && bounds.left < view.right && bounds.bottom > view.top && bounds.top < view.bottom;
         };
         const value = this.visualThumbnails.request({ key, priority: Math.abs(rect.left - viewport.left), wanted: visible, valid,
+            readDisk: () => this.readVisualThumbnailDisk(root, key, id, valid),
             capture: async () => {
                 const page = await this.visualPreviewService.prepareVisualThumbnail({ editUri, itemId: id, editSnapshot }).catch(error => {
-                    if (valid()) this.failedVisualThumbnails.add(id); throw error;
+                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                    throw new Error('Visual thumbnail unavailable');
                 });
                 try {
                     if (!valid()) throw new Error('Stale visual thumbnail input');
                     if (page.editSnapshot !== editSnapshot) throw new Error('Visual thumbnail edit snapshot mismatch');
                     this.visualDependencies.set(id, page.dependencyUris.map(uri => new URI(uri)));
+                    const dependencies = await Promise.all(page.dependencyUris.map(async uri => {
+                        const stat = await this.fileService.resolve(new URI(uri), { resolveMetadata: true });
+                        return { uri, mtime: stat.mtime, size: stat.size };
+                    })).catch(() => undefined);
                     while (this.visualThumbnails.isPaused && !this.isDisposed) await new Promise(resolve => setTimeout(resolve, 100));
                     if (!valid()) throw new Error('Stale visual thumbnail input');
                     const result = await window.electronAkariPreview.captureVisualThumbnail(page);
                     if (!valid()) throw new Error('Stale visual thumbnail input');
                     this.failedVisualThumbnails.delete(id);
-                    return typeof result === 'string' ? { image: result } : result;
+                    const capture = typeof result === 'string' ? { image: result } : result;
+                    console.info(`[visual-thumbnail] capture ok ${id}`);
+                    if (dependencies) void this.writeVisualThumbnailDisk(root,
+                        { ...capture, key, sourceKey, dependencyRevision, dependencies, capturedAt: Date.now() }, id, valid);
+                    return capture;
                 } catch (error) {
-                    if (valid()) this.failedVisualThumbnails.add(id); throw error;
+                    this.recordVisualThumbnailFailure(id, sourceKey, error, valid);
+                    // Widget owns the retry budget; do not also trigger the cache's legacy retries.
+                    throw new Error('Visual thumbnail unavailable');
                 } finally {
-                    await Promise.all(page.streamIds.map(streamId => this.visualPreviewService.disposeAssetStream(streamId)));
+                    await Promise.all(page.streamIds.map(streamId => this.visualPreviewService.disposeAssetStream(streamId).catch(() => undefined)));
                 }
             }
         });

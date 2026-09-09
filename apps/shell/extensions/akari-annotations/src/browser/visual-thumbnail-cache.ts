@@ -5,6 +5,7 @@ export interface VisualThumbnailJob {
     priority: number;
     wanted(): boolean;
     valid?(): boolean;
+    readDisk?(): Promise<VisualThumbnailCapture | undefined>;
     capture(): Promise<VisualThumbnailCapture>;
 }
 
@@ -91,7 +92,13 @@ export class VisualThumbnailCache {
         const start = performance.now();
         let value: VisualThumbnailCapture | null = null;
         let transient = false;
-        try { value = await job.capture(); this.stats.captures++; }
+        try {
+            // Disk I/O shares the single-flight queue, but a hit is not a capture.
+            value = await job.readDisk?.().catch(() => undefined) ?? null;
+            if (!value && !this.disposed && job.valid?.() !== false) {
+                value = await job.capture(); this.stats.captures++;
+            }
+        }
         catch (error) {
             this.stats.failures++;
             transient = /busy|timed?\s*out|timeout|temporar|ECONNRESET|ERR_(CONNECTION|NETWORK)/i.test(String(error));

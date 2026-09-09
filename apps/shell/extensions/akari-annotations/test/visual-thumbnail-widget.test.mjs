@@ -3,12 +3,17 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import URI from '@theia/core/lib/common/uri.js';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer.js';
+import { visualThumbnailRetryPlan } from '../lib/common/visual-thumbnail-retry.js';
+import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName } from '../lib/common/visual-thumbnail-disk-cache.js';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
 import { visualThumbnailKey, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const klass = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const method = klass.members.find(node => node.name?.getText(source) === 'renderVisualThumbnail').getText(source);
+const method = klass.members.filter(node => ['renderVisualThumbnail', 'recordVisualThumbnailFailure', 'scheduleVisualThumbnailRetry',
+  'initializeVisualThumbnailDisk', 'readVisualThumbnailDisk', 'writeVisualThumbnailDisk'].includes(node.name?.getText(source)))
+  .map(node => node.getText(source)).join('\n');
 const code = ts.transpileModule(`class Widget { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 class Element {
   isConnected = true; dataset = {}; style = {}; classList = { add() {} }; children = [];
@@ -24,14 +29,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async predicate => { const end = Date.now() + 4000; while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); } };
 function fixture(t, prepare) {
   const captures = [], frames = [];
-  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', `${code};return Widget;`)(
+  const Widget = new Function('window', 'document', 'URI', 'visualThumbnailKey', 'visualThumbnailSnapshot', 'visualThumbnailRetryPlan', 'isVisualThumbnailDiskEntry', 'pruneThumbnailIndex', 'visualThumbnailCacheFileName', 'BinaryBuffer', `${code};return Widget;`)(
     { requestAnimationFrame: callback => frames.push(callback),
       electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } } },
-    { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot);
+    { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot, visualThumbnailRetryPlan, isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName, BinaryBuffer);
   const w = new Widget();
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
   Object.assign(w, { location: { editUri: root }, visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
-    failedVisualThumbnails: new Set(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
+    failedVisualThumbnails: new Map(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
     editDocument: { version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [{ id: 'v', lane: 'visual', items: [
       { id: 'parent', at: 0, duration: 120, opacity: 1, source: { kind: 'group' }, items: [
         { id: 'title', at: 0, duration: 120, source: { kind: 'html', path: 'title.html', params: { text: 'A' } } },
@@ -44,8 +49,9 @@ function fixture(t, prepare) {
   });
   const element = new Element();
   const render = () => w.renderVisualThumbnail(element, 'title', 'TITLE', {});
-  w.visualThumbnails = new VisualThumbnailCache(render);
-  t.after(() => w.visualThumbnails.dispose());
+  w.renderStrip = render;
+  w.visualThumbnails = new VisualThumbnailCache(() => w.renderStrip());
+  t.after(() => { w.isDisposed = true; clearTimeout(w.visualThumbnailRetryTimer); w.visualThumbnails.dispose(); });
   return { w, root, element, render, captures, frames };
 }
 
@@ -156,7 +162,7 @@ test('the real file watcher invalidates motion/edit.json and motion/credit.json 
   let renders = 0, editReloads = 0;
   const w = { location: { root: new U('file:///project'), editUri: uri('edit.json'), reviewUri: uri('review.json'), captionsUri: uri('captions.json') },
     visualInputEpoch: 0, visualDependencies: new Map([['child', [uri('motion/edit.json'), uri('motion/credit.json')]], ['other', [uri('other.html')]]]),
-    htmlPartsCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Set(), renderStrip: () => renders++,
+    htmlPartsCache: new Map(), visualDependencyRevisions: new Map(), failedVisualThumbnails: new Map(), renderStrip: () => renders++,
     reloadEdit: async () => editReloads++, reloadReview: async () => {}, reloadCaptions: async () => {}, isRecentWrite: () => false };
   const change = path => install.call(w)({ changes: [{ resource: uri(path) }], contains: target => target?.toString() === uri(path).toString() });
   change('motion/edit.json'); change('motion/credit.json');
@@ -165,4 +171,123 @@ test('the real file watcher invalidates motion/edit.json and motion/credit.json 
   assert.equal(renders, 2); assert.equal(editReloads, 0);
   change('.akari/lint.json');
   assert.equal(w.visualInputEpoch, 2); assert.equal(renders, 2);
+});
+
+test('widget alone retries at 5s, 15s and 45s, then stops; queued work defers retries', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
+  let attempts = 0;
+  const f = fixture(t, async () => { attempts++; throw Error('Visual thumbnail capture timed out'); });
+  const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
+  f.render(); t.mock.timers.tick(100); await flush();
+  assert.equal(attempts, 1);
+  t.mock.timers.tick(4999); await flush(); assert.equal(attempts, 1, 'cache must not independently retry');
+  f.w.visualThumbnails.setPaused(true);
+  f.w.visualThumbnails.request({ key: 'other', priority: 0, wanted: () => true, capture: async () => ({ image: 'other' }) });
+  t.mock.timers.tick(1); await flush(); assert.equal(f.w.visualDependencyRevisions.get('title'), undefined);
+  f.w.visualThumbnails.setPaused(false);
+  t.mock.timers.tick(100); await flush();
+  t.mock.timers.tick(150); await flush(); t.mock.timers.tick(0); await flush();
+  t.mock.timers.tick(100); await flush(); assert.equal(attempts, 2);
+  for (const delay of [15000, 45000]) {
+    t.mock.timers.tick(delay - 1); await flush();
+    const before = attempts;
+    t.mock.timers.tick(1); await flush(); t.mock.timers.tick(100); await flush();
+    assert.equal(attempts, before + 1);
+  }
+  assert.equal(attempts, 4);
+  t.mock.timers.tick(120000); await flush(); assert.equal(attempts, 4);
+  assert.equal(f.w.failedVisualThumbnails.get('title').nextAttemptAt, undefined);
+});
+
+test('two transient failures recover without file events, while stale and permanent errors do not retry', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
+  let attempts = 0;
+  const f = fixture(t, async request => {
+    if (++attempts <= 2) throw Error('Visual thumbnail capture is busy');
+    return { editSnapshot: request.editSnapshot, marker: 'recovered', streamIds: [], dependencyUris: [] };
+  });
+  const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
+  f.render(); t.mock.timers.tick(100); await flush();
+  for (const delay of [5000, 15000]) { t.mock.timers.tick(delay); await flush(); t.mock.timers.tick(100); await flush(); }
+  assert.equal(f.element.dataset.akariVisualThumbnail, 'ready');
+  assert.equal(attempts, 3); assert.equal(f.w.failedVisualThumbnails.size, 0);
+  for (const error of ['Stale visual thumbnail input', 'Visual renderer readiness timed out']) {
+    f.w.recordVisualThumbnailFailure('bad', 'source', error, () => true);
+    assert.equal(f.w.failedVisualThumbnails.get('bad')?.nextAttemptAt, undefined);
+  }
+  f.w.recordVisualThumbnailFailure('disposed', 'source', 'busy', () => true);
+  f.w.isDisposed = true;
+  t.mock.timers.tick(5000); await flush();
+  assert.equal(f.w.visualDependencyRevisions.has('disposed'), false);
+});
+
+function diskFixture() {
+  const U = URI.default ?? URI;
+  const root = new U('file:///project');
+  const files = new Map();
+  let clock = 1;
+  const put = (uri, value) => files.set(uri.toString(), { value, mtime: ++clock, size: Buffer.byteLength(value) });
+  const service = {
+    async resolve(uri, options) {
+      assert.equal(options?.resolveMetadata, true, 'persisted invalidation and byte limits require resolved metadata');
+      const entry = files.get(uri.toString());
+      if (entry) return { ...entry, isFile: true, resource: uri };
+      if (uri.path.toString().endsWith('/visual')) return { children: [...files].filter(([path]) => path.startsWith(uri.toString() + '/'))
+        .map(([path, value]) => ({ resource: new U(path), isFile: true, ...value })) };
+      throw Error('missing');
+    },
+    async readFile(uri) { const entry = files.get(uri.toString()); if (!entry) throw Error('missing'); return { value: BinaryBuffer.fromString(entry.value) }; },
+    async createFolder() {},
+    async writeFile(uri, value) { put(uri, value.toString()); },
+    async delete(uri) { files.delete(uri.toString()); }
+  };
+  return { root, files, put, service };
+}
+
+test('disk survives reopening after retries, and offline dependency changes recapture only the affected clip', async t => {
+  const disk = diskFixture();
+  const png = 'data:image/png;base64,YQ==';
+  disk.put(disk.root.resolve('title.html'), 'title'); disk.put(disk.root.resolve('sibling.html'), 'sibling');
+  const prepare = async request => ({ editSnapshot: request.editSnapshot, marker: png, streamIds: [],
+    dependencyUris: [disk.root.resolve(`${request.itemId}.html`).toString()] });
+  const open = () => {
+    const f = fixture(t, prepare);
+    f.w.location = { root: disk.root, editUri: disk.root.resolve('edit.json') };
+    f.w.fileService = disk.service;
+    const sibling = new Element();
+    f.w.renderStrip = () => { f.render(); f.w.renderVisualThumbnail(sibling, 'sibling', 'SIBLING', {}); };
+    return { ...f, sibling };
+  };
+  const first = open();
+  first.w.visualDependencyRevisions.set('title', 2);
+  first.w.renderStrip();
+  await until(() => first.captures.length === 2 && [...disk.files.keys()].filter(path => path.endsWith('.json')).length === 2);
+  first.w.isDisposed = true; first.w.visualThumbnails.dispose();
+  const second = open(); second.w.renderStrip();
+  await until(() => second.element.dataset.akariVisualThumbnail === 'ready' && second.sibling.dataset.akariVisualThumbnail === 'ready');
+  assert.equal(second.w.visualThumbnails.stats.captures, 0);
+  assert.equal(second.w.visualDependencyRevisions.get('title'), 2);
+  assert.equal(second.w.visualDependencies.get('title')[0].toString(), disk.root.resolve('title.html').toString());
+  second.w.isDisposed = true; second.w.visualThumbnails.dispose();
+  disk.put(disk.root.resolve('title.html'), 'changed title');
+  const third = open(); third.w.renderStrip();
+  await until(() => third.element.dataset.akariVisualThumbnail === 'ready' && third.sibling.dataset.akariVisualThumbnail === 'ready');
+  assert.equal(third.w.visualThumbnails.stats.captures, 1);
+  assert.equal(third.captures.length, 1);
+});
+
+test('disk corruption, key collisions and failed writes fall back without losing pixels', async t => {
+  const disk = diskFixture();
+  const f = fixture(t);
+  f.w.location.root = disk.root; f.w.fileService = disk.service;
+  const key = 'key';
+  const uri = disk.root.resolve('.akari/cache/thumbnails/visual').resolve(visualThumbnailCacheFileName(key));
+  for (const value of ['{broken', JSON.stringify({ key: 'wrong', sourceKey: 'source', dependencyRevision: 0, capturedAt: 1,
+    image: 'data:image/png;base64,YQ==', dependencies: [] })]) {
+    disk.put(uri, value);
+    assert.equal(await f.w.readVisualThumbnailDisk(disk.root, key, 'title', () => true), undefined);
+  }
+  f.w.fileService.writeFile = async () => { throw Error('read only'); };
+  f.render(); await until(() => f.element.dataset.akariVisualThumbnail === 'ready');
+  assert.equal(f.captures.length, 1);
 });

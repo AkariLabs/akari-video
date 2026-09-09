@@ -27,6 +27,36 @@ const until = async (predicate, timeout = 7000) => {
   while (!predicate()) { assert.ok(Date.now() < end, 'deadline'); await wait(20); }
 };
 
+test('disk hits share the queue and preserve crops without incrementing captures', async t => {
+  const cache = new VisualThumbnailCache(() => {});
+  t.after(() => cache.dispose());
+  const pixels = { image: 'full', croppedImage: 'crop', contentRect: { x: 0, y: 2, width: 3, height: 4 } };
+  const capture = { ...job('disk', async () => assert.fail('disk hit must not capture')), readDisk: async () => pixels };
+  cache.request(capture);
+  await until(() => cache.size === 1);
+  assert.deepEqual(cache.request(capture), pixels);
+  assert.equal(cache.stats.captures, 0);
+  assert.equal(cache.stats.failures, 0);
+});
+
+test('missing/unreadable disk falls back to capture, obsolete disk work never captures', async t => {
+  const cache = new VisualThumbnailCache(() => {});
+  t.after(() => cache.dispose());
+  for (const readDisk of [async () => undefined, async () => { throw Error('read failed'); }]) {
+    const capture = { ...job(String(cache.size), async () => ({ image: 'fresh' })), readDisk };
+    cache.request(capture);
+    await until(() => cache.request(capture)?.image === 'fresh');
+  }
+  assert.equal(cache.stats.captures, 2);
+  let valid = true, release;
+  cache.request({ ...job('obsolete', async () => assert.fail('obsolete disk miss must not capture')),
+    valid: () => valid, readDisk: () => new Promise(resolve => { release = resolve; }) });
+  await until(() => release);
+  valid = false; release(undefined);
+  await until(() => cache.stats.discarded === 1);
+  assert.equal(cache.stats.captures, 2);
+});
+
 test('capture metadata survives cache hits and memory accounts for image strings', async t => {
   const value = { image: 'pixels', contentRect: { x: 10, y: 20, width: 30, height: 40 } };
   const cache = new VisualThumbnailCache(() => {});
