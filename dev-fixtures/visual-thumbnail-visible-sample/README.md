@@ -2,6 +2,8 @@
 
 The Electron capture host compares the original midpoint capture with the visible-sample fallback: exits at 2s, 3.3s and 5s on 10s/12s items, unchanged lower-third pixels, and a fully transparent item. It records capture counts (at most four per request) and checks that each request uses one window.
 
+Both sides run the same capture host, so candidate sweeping is the only variable: the before capture is the page with its candidate list narrowed to the midpoint alone, which is exactly what the host did before this change.
+
 From the repository root, after `npm run build:ext` in `apps/shell`:
 
 ```sh

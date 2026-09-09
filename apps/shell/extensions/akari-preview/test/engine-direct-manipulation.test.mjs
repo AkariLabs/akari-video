@@ -4,8 +4,9 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../src/browser/akari-preview-open-handler.ts',import.meta.url),'utf8');
 function fragment(start,end){return source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start)))}
 const gesture=fragment('            const beginMediaTransformDrag =','            const beginLayerMoveDrag =');
-function fixture(){const window=new EventTarget();window.akari={interaction:{hideSnapGuides(){}}};let value={x:0,y:0},writes=[];const target={transformNow:()=>({...value}),applyTransform:v=>value=v,flushTransform(){},canWrite:()=>true,write:async v=>writes.push(v)};
- const begin=new Function('window',`let selectionDragActive=false,isPlaying=false;const togglePlayback=()=>{};const CLICK_THRESHOLD_PX=3;${gesture};return beginMediaTransformDrag;`)(window);
+const guard=fragment('            let selectionDragActive =','            let suppressClick =');
+function fixture(){const window=new EventTarget();window.akari={reportGesture(){},interaction:{hideSnapGuides(){}}};let value={x:0,y:0},writes=[];const target={transformNow:()=>({...value}),applyTransform:v=>value=v,flushTransform(){},canWrite:()=>true,write:async v=>writes.push(v)};
+ const begin=new Function('window',`${guard};let isPlaying=false;const togglePlayback=()=>{};const CLICK_THRESHOLD_PX=3;${gesture};return beginMediaTransformDrag;`)(window);
  const capture={setPointerCapture(){},hasPointerCapture:()=>false};begin(target,{pointerId:1,currentTarget:capture,clientX:0,clientY:0,preventDefault(){},stopPropagation(){}},e=>({x:e.clientX,y:e.clientY}));
  const emit=(type,x,y)=>{const e=new Event(type);Object.assign(e,{pointerId:1,clientX:x,clientY:y});window.dispatchEvent(e)};return {emit,writes,value:()=>value};}
 test('release-only displacement is committed exactly once',async()=>{const f=fixture();f.emit('pointerup',40,20);f.emit('pointerup',40,20);await Promise.resolve();assert.deepEqual(f.writes,[{transform:{x:40,y:20}}])});

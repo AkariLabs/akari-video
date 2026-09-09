@@ -36,6 +36,7 @@ import {
     StoreDeviceStartOutcome
 } from '../common/akari-project-protocol';
 import { deriveThumbnailCacheKey, thumbnailCacheFileName } from './thumbnail-cache';
+import { waveformCardFilter } from '../common/waveform-card-filter';
 import {
     deriveEditTimelineSamples,
     deriveProjectCardTimestamps,
@@ -1198,7 +1199,7 @@ try {
         } catch {
             return { available: false };
         }
-        const key = deriveThumbnailCacheKey(relativePath, stat.size, stat.mtimeMs);
+        const key = deriveThumbnailCacheKey(kind === 'audio' ? `${relativePath}:wave-v2` : relativePath, stat.size, stat.mtimeMs);
         const extension = kind === 'audio' ? '.png' : kind === 'video' ? '.jpg' : (extname(sourcePath).toLowerCase() || '.jpg');
         const cacheFileName = thumbnailCacheFileName(key, extension);
         const cacheDirectory = join(root, '.akari', 'cache', 'thumbnails');
@@ -1232,10 +1233,24 @@ try {
         await fs.mkdir(cacheDirectory, { recursive: true });
         const temporaryPath = join(cacheDirectory, `.tmp-${process.pid}-${cacheFileName}`);
         const scaleFilter = "scale='min(320,iw)':-2";
-        // 波形引数の正本は packages/audio-library-setup/shared/waveform-preview.mjs（そちらを変えたらここも合わせる）。
-        // 同梱 ffmpeg フォールバックを保つため、同モジュールを import せず resolveFfmpegPath を使う。
+        // packages/audio-library-setup/shared/waveform-preview.mjs は工房 / カタログ用の正本のまま。
+        // カード用は正方形 + 行折り返し版で意図的に別。同梱フォールバックは resolveFfmpegPath で保つ。
+        let duration: number | undefined;
+        if (kind === 'audio') {
+            duration = await this.probeDurationSeconds(sourcePath);
+            if (duration === undefined) {
+                // 出力を指定しない ffmpeg -i は通常非ゼロ終了するが、stderr に尺を出す。
+                const stderr = await execFileAsync(ffmpeg, ['-i', sourcePath])
+                    .then(result => result.stderr, error => String(error.stderr ?? ''));
+                const match = /Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(stderr);
+                if (match) {
+                    const parsed = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+                    duration = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+                }
+            }
+        }
         const args = kind === 'audio'
-            ? ['-y', '-i', sourcePath, '-filter_complex', 'showwavespic=s=640x120:colors=0d6efd', '-frames:v', '1', temporaryPath]
+            ? ['-y', '-i', sourcePath, '-filter_complex', waveformCardFilter(duration), '-frames:v', '1', temporaryPath]
             : kind === 'video'
             ? ['-y', '-ss', '00:00:00.5', '-i', sourcePath, '-frames:v', '1', '-vf', scaleFilter, temporaryPath]
             : ['-y', '-i', sourcePath, '-vf', scaleFilter, temporaryPath];

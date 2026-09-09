@@ -1,0 +1,8 @@
+# L0 lint (wrapper run) — cd apps/shell && npm run lint
+
+
+> @akari-video/shell@0.1.60 lint
+> eslint "extensions/*/src/**/*.{ts,tsx}"
+
+
+exit_code=0

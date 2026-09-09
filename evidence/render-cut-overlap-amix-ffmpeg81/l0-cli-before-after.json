@@ -1,0 +1,29 @@
+{
+  "base": "3f74b798",
+  "ffmpeg": "ffmpeg version 8.1.2-https://www.martin-riedl.de Copyright (c) 2000-2026 the FFmpeg developers",
+  "cases": {
+    "overlappedTracks": {
+      "before": {
+        "exitCode": 2,
+        "lastLine": "render-cut execution error: final ffprobe verification failed: {\"frames\":true,\"duration\":true,\"dimensions\":true,\"codec\":true,\"audioPresence\":false,\"audioDuration\":false,\"avTermination\":true}",
+        "outputExists": false
+      },
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:upper, cut:lower; background_ymax 56; spread 許容 16",
+        "outputExists": true,
+        "duration": 6
+      }
+    },
+    "singleTrackSequential": {
+      "beforeSha256": "40867980fd501ad116281fda1c0dce1b85ee0e3c5f286aaa221d2ca59f374c50",
+      "afterSha256": "40867980fd501ad116281fda1c0dce1b85ee0e3c5f286aaa221d2ca59f374c50",
+      "byteIdentical": true
+    },
+    "singleTrackWithGapAmix": {
+      "beforeSha256": "a492f96325a77bb6dbb79801a2ae851a4457cbe5e12cc5662b01e69b49e039de",
+      "afterSha256": "a492f96325a77bb6dbb79801a2ae851a4457cbe5e12cc5662b01e69b49e039de",
+      "byteIdentical": true
+    }
+  }
+}

@@ -1,0 +1,850 @@
+{
+  "workspace": "<TMP>/project",
+  "akariHome": "<TMP>/akari-home",
+  "userDataDir": "<TMP>/userdata",
+  "steps": [
+    {
+      "step": "app-ready",
+      "detail": true
+    },
+    {
+      "step": "menu-export-button",
+      "detail": {
+        "label": "書き出し…",
+        "hit": {
+          "tag": null,
+          "text": null
+        }
+      }
+    },
+    {
+      "step": "dialog-opened",
+      "detail": "書き出し書き出しproject · edit.json の出力設定×この動画edit.json の出力設定16:916:9 横320 × 18030 fps0:06カット 2画角・長さ・fps は編集が決めたもの。ここでは変えられません。この設定で出るもの形式MP4 · H.264 / AAC 48 kHz画素数そのまま（320 × 180 · 30 fps）音AAC 48 kHz · ラウドネス"
+    },
+    {
+      "step": "start-button",
+      "detail": {
+        "label": "書き出す — 標準 · 約 10 秒",
+        "hit": {
+          "tag": "SMALL",
+          "text": "— 標準 · 約 10 秒"
+        }
+      }
+    },
+    {
+      "step": "quick-input-probes",
+      "detail": [
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        }
+      ]
+    },
+    {
+      "step": "render-json-phases",
+      "detail": [
+        "planned",
+        "verified"
+      ]
+    },
+    {
+      "step": "dialog-text",
+      "detail": "書き出し書き出し完了exports/final.mp4×できた動画確認済み16:916:9 横320 × 18030 fps0:06カット 2動画を開くか、Finder で保存先を確認できます。できましたGPU · 0:14exports/final.mp4✓ 確認済み容量0.1 MB長さ0:06.00画角16:9 · 320×180fps30映像 / 音声H.264 / AACエンジンGPU成果物の存在と容量を確認編集の画角・fps と一致H.264 / AAC · Rec.709動画を開くFinder で表示レポートを開くコピーSNS に投稿XYouTubeInstagramTikTok先にコピーしてから貼り付けできますパートナーに渡すAI チャットに入りますもう一度書き出す閉じる"
+    }
+  ],
+  "pid": 1624,
+  "renderPhases": [
+    "planned",
+    "verified"
+  ],
+  "exportSucceeded": true,
+  "consoleErrors": [],
+  "toasts": [],
+  "renderJson": {
+    "version": 1,
+    "phase": "verified",
+    "inputs": {
+      "edit.json": {
+        "sha256": "1d3f572028be9a8fb24211ccd69fc79394d3a27c10672af09bf21d55534307cf",
+        "bytes": 821
+      },
+      "assets/source.mp4": {
+        "sha256": "3126d7d8d031725eb11fa8a60c80d82e5632313f901d33b63ed4c53ed6ba1bb5",
+        "bytes": 189758
+      }
+    },
+    "warnings": [],
+    "validation": {
+      "lint": {
+        "verdict": "pass",
+        "sha256": "711dc4d8f1cb3a35d05dd8acac5ec0ae3662e9545d39716832eec1afd8370291",
+        "override": null
+      },
+      "environment": {
+        "node": "v22.22.1",
+        "ffmpeg": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "ffprobe": "ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers"
+      }
+    },
+    "plan": {
+      "predicted_duration_seconds": 6,
+      "duration_tolerance_seconds": 0.1,
+      "output": "exports/final.mp4",
+      "preset": {
+        "video_codec": "h264",
+        "profile": "high",
+        "pixel_format": "yuv420p",
+        "color_range": "tv",
+        "audio_codec": "aac",
+        "width": 320,
+        "height": 180,
+        "fps": 30
+      },
+      "encoding": {
+        "codec": "h264",
+        "requested": {
+          "quality": {
+            "value": "standard",
+            "origin": "compatibility-default"
+          },
+          "encoder": {
+            "value": "auto",
+            "origin": "cli"
+          }
+        },
+        "effective": {
+          "quality": {
+            "value": "standard",
+            "origin": "compatibility-default"
+          },
+          "encoder": {
+            "value": "videotoolbox",
+            "origin": "capability-resolution"
+          }
+        },
+        "video_encode_args": [
+          "-c:v",
+          "h264_videotoolbox",
+          "-allow_sw",
+          "1",
+          "-q:v",
+          "55",
+          "-profile:v",
+          "high",
+          "-colorspace",
+          "bt709",
+          "-color_primaries",
+          "bt709",
+          "-color_trc",
+          "bt709",
+          "-color_range",
+          "tv",
+          "-bsf:v",
+          "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"
+        ],
+        "rate_control": {
+          "engine": "videotoolbox",
+          "mode": "quality",
+          "quality_value": 55,
+          "bitrate": null,
+          "fallback_reason": null
+        },
+        "non_encoding_stages": [
+          {
+            "stage": "overlay_alpha_intermediate",
+            "reason": "qtrle/ProRes 4444 carries transparency into composite and is not a H.264 delivery-video reencode"
+          },
+          {
+            "stage": "audio_mix",
+            "reason": "audio-only mix/mux preserves the already encoded video with -c:v copy"
+          }
+        ]
+      },
+      "rasterizer": {
+        "selected": "gpu",
+        "order": [
+          "gpu"
+        ]
+      },
+      "intermediates": [
+        ".akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/cut-audio.mp4",
+        ".akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/composite.mp4",
+        ".akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/final.mp4"
+      ],
+      "commands": {
+        "cut_audio": {
+          "command": "ffmpeg",
+          "warnings": [],
+          "args": [
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-y",
+            "-ss",
+            "5.5",
+            "-t",
+            "4.5",
+            "-i",
+            "<TMP>/project/assets/source.mp4",
+            "-ss",
+            "0",
+            "-t",
+            "6",
+            "-i",
+            "<TMP>/project/assets/source.mp4",
+            "-filter_complex",
+            "[0:a]atrim=start=0.5:end=4.5,asetpts=PTS-STARTPTS,apad=whole_dur=4[araw1_0];[araw1_0]adelay=2000:all=1[adelay1_0];[1:a]atrim=start=0:end=6,asetpts=PTS-STARTPTS,apad=whole_dur=6[araw1_1];[araw1_1]adelay=0:all=1[adelay1_1];[adelay1_0][adelay1_1]amix=inputs=2:duration=longest:normalize=0,asetpts=N/SR/TB,apad=whole_dur=6[joineda]",
+            "-map",
+            "[joineda]",
+            "-vn",
+            "-c:a",
+            "aac",
+            "-ar",
+            "48000",
+            "<TMP>/project/.akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/cut-audio.mp4"
+          ]
+        },
+        "tail_pad_audio": null,
+        "audio_mix": {
+          "operation": "copy",
+          "input": "<TMP>/project/.akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/composite.mp4",
+          "output": "<TMP>/project/.akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N/final.mp4",
+          "warnings": [],
+          "hasNarration": false,
+          "hasAudibleAudio": false,
+          "envelopes": [],
+          "envelope": {
+            "duck_keys": [
+              "narration",
+              "speech"
+            ],
+            "speech_intervals": 0,
+            "ducked_items": [],
+            "keyframed_items": []
+          },
+          "clip_fx": {
+            "processed_items": [],
+            "filters": {
+              "highpass": 0,
+              "afftdn": 0,
+              "anlmdn": 0,
+              "rubberband": 0
+            }
+          }
+        },
+        "verify": {
+          "command": "ffprobe",
+          "args": [
+            "-v",
+            "error",
+            "-show_streams",
+            "-show_format",
+            "-of",
+            "json",
+            "exports/final.mp4"
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "audio": {
+        "envelope": {
+          "duck_keys": [
+            "narration",
+            "speech"
+          ],
+          "speech_intervals": 0,
+          "ducked_items": [],
+          "keyframed_items": []
+        },
+        "clip_fx": {
+          "processed_items": [],
+          "filters": {
+            "highpass": 0,
+            "afftdn": 0,
+            "anlmdn": 0,
+            "rubberband": 0
+          }
+        }
+      },
+      "sources": [
+        {
+          "id": "main",
+          "path": "assets/source.mp4",
+          "duration_seconds": 10,
+          "has_audio": true,
+          "width": 320,
+          "height": 180,
+          "fps": 30,
+          "pix_fmt": "yuv420p",
+          "color_range": null
+        }
+      ],
+      "proxy_used": false,
+      "render_tmp_dir": ".akari/render-tmp/2026-09-09T05-34-31-881Z-2031-FOLT8N",
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "environment": {
+        "node": "v22.22.1",
+        "ffmpeg": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "ffprobe": "ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers"
+      },
+      "engine_requested": "auto",
+      "engine": "gpu",
+      "codec": "h264",
+      "gpu": {
+        "provenance": {
+          "engine": "gpu",
+          "launcher_tier": 2,
+          "mux": "incremental-mp4",
+          "video_reencode": false,
+          "codec": "h264",
+          "gpu_preference": {
+            "policy": "auto",
+            "exit": "gpu",
+            "applied": false,
+            "previous": null,
+            "restored": null,
+            "reason": "platform",
+            "recovered_stale": false
+          }
+        },
+        "gpu": {
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": {
+            "prefer-hardware": true,
+            "prefer-software": true
+          },
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "uploadPath": "direct",
+          "quality": "standard",
+          "bitrate": 8000000,
+          "queueDepth": 4,
+          "queueWaits": 39,
+          "rss_peak": 298467328,
+          "readback": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0.19999998807907104,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "preview": {
+            "mode": "auto",
+            "frames": 6
+          },
+          "domLayer": {
+            "runs": 0,
+            "overlays": 0,
+            "policy": null,
+            "flags": [
+              "--enable-features=CanvasDrawElement",
+              "--disable-gpu-vsync",
+              "--disable-frame-rate-limit"
+            ],
+            "api": {
+              "drawElementImage": null,
+              "devicePixelRatio": 1,
+              "available": null,
+              "settlePolicy": null
+            },
+            "cost": {
+              "p50": null,
+              "p95": null,
+              "breakdown": {
+                "timeFixMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                },
+                "waitMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                },
+                "drawElementMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                },
+                "uploadMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                },
+                "domLayerCostMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                },
+                "frameCostMs": {
+                  "count": 0,
+                  "p50": null,
+                  "p95": null
+                }
+              }
+            },
+            "sentinel": {
+              "checked": false,
+              "mode": "disabled",
+              "tolerance": 8,
+              "requested": 0,
+              "matched": 0,
+              "mismatchCount": 0,
+              "mismatches": []
+            },
+            "preserve3dOrderConflicts": []
+          },
+          "three": {
+            "overlays": [],
+            "sampling": {
+              "count": 0,
+              "p50": null,
+              "p95": null
+            }
+          },
+          "viewport": {
+            "requested": {
+              "width": 320,
+              "height": 180
+            },
+            "measured": {
+              "width": 320,
+              "height": 180
+            },
+            "emulated": false,
+            "display": {
+              "width": 1680,
+              "height": 1050
+            }
+          },
+          "eligibility": [],
+          "forced": null
+        },
+        "memory": {
+          "profile": "gpu",
+          "warning_bytes": 3221225472,
+          "hard_stop_bytes": 4294967296,
+          "worker_budget_bytes": 4294967296,
+          "budget_scale": 1,
+          "machine_capped": false,
+          "machine_floor": true,
+          "total_memory_bytes": 17179869184,
+          "peak_bytes": 298467328,
+          "warning_exceeded": false,
+          "hard_stop_exceeded": false
+        },
+        "output_scale": {
+          "from": [
+            320,
+            180
+          ],
+          "to": [
+            320,
+            180
+          ],
+          "mode": "none"
+        },
+        "run": ".akari/gpu-run.json",
+        "finalVerify": {
+          "matched": true,
+          "checks": {
+            "frames": true,
+            "duration": true,
+            "dimensions": true,
+            "codec": true,
+            "audioPresence": true,
+            "audioDuration": true,
+            "avTermination": true
+          },
+          "expected": {
+            "frames": 180,
+            "fps": 30,
+            "width": 320,
+            "height": 180,
+            "duration": 6,
+            "requireAudio": true,
+            "audioPacketSeconds": 0.021333333333333333,
+            "audioMaxDuration": 6.035333333333333
+          },
+          "measured": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "profile": "High",
+                "codec_type": "video",
+                "width": 320,
+                "height": 180,
+                "pix_fmt": "yuv420p",
+                "r_frame_rate": "30/1",
+                "duration": "6.000000",
+                "nb_read_frames": "180"
+              },
+              {
+                "codec_name": "aac",
+                "profile": "LC",
+                "codec_type": "audio",
+                "sample_rate": "48000",
+                "r_frame_rate": "0/0",
+                "duration": "6.000000",
+                "nb_read_frames": "282"
+              }
+            ],
+            "format": {
+              "duration": "6.000000"
+            }
+          },
+          "avTermination": {
+            "matched": true,
+            "deltaSeconds": 0,
+            "toleranceSeconds": 0.03333333333333333,
+            "videoDuration": 6,
+            "audioDuration": 6
+          }
+        },
+        "audio": {
+          "mode": "copy",
+          "source": "cut-audio.mp4",
+          "source_has_audio": true
+        }
+      }
+    },
+    "artifacts": [
+      {
+        "path": "exports/final.mp4",
+        "sha256": "e52ca8a39bfacf5a40c0e47852939a5080db4a7c7699d469449c1a6a915758db",
+        "ffprobe": {
+          "duration_seconds": 6,
+          "width": 320,
+          "height": 180,
+          "fps": 30,
+          "video_codec": "h264",
+          "video_profile": "High",
+          "pixel_format": "yuv420p",
+          "color_range": "tv",
+          "audio_codec": "aac",
+          "frame_count": 180
+        }
+      }
+    ],
+    "verify": {
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "info",
+          "check": "verify.duration",
+          "message": "duration 6s; expected 6s ±0.1s"
+        },
+        {
+          "severity": "info",
+          "check": "verify.frame-count",
+          "message": "frame count 180; expected 180 ±3"
+        },
+        {
+          "severity": "info",
+          "check": "verify.resolution",
+          "message": "resolution 320x180; expected 320x180"
+        },
+        {
+          "severity": "info",
+          "check": "verify.fps",
+          "message": "fps 30; expected 30 ±0.16666666666666666 (1 frame of 180)"
+        },
+        {
+          "severity": "info",
+          "check": "verify.video-codec",
+          "message": "video codec h264; expected h264"
+        },
+        {
+          "severity": "info",
+          "check": "verify.video-profile",
+          "message": "video profile High; expected high"
+        },
+        {
+          "severity": "info",
+          "check": "verify.pixel-format",
+          "message": "pixel format yuv420p; expected yuv420p"
+        },
+        {
+          "severity": "info",
+          "check": "verify.color-range",
+          "message": "color range tv; expected tv"
+        },
+        {
+          "severity": "info",
+          "check": "verify.audio",
+          "message": "audio codec aac; expected aac"
+        },
+        {
+          "severity": "info",
+          "check": "verify.decode",
+          "message": "all frames decoded without error"
+        },
+        {
+          "severity": "info",
+          "check": "verify.audio-level",
+          "message": "最大音量 -0.2 dB（1 区間）"
+        },
+        {
+          "severity": "warning",
+          "check": "verify.blank-frames",
+          "message": "空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:upper, cut:lower; background_ymax 56; spread 許容 16"
+        }
+      ],
+      "measured": {
+        "duration_seconds": 6,
+        "width": 320,
+        "height": 180,
+        "fps": 30,
+        "video_codec": "h264",
+        "video_profile": "High",
+        "pixel_format": "yuv420p",
+        "color_range": "tv",
+        "audio_codec": "aac",
+        "frame_count": 180
+      },
+      "declared": {
+        "audio_level": {
+          "declared": true,
+          "reasons": [
+            "素材音声"
+          ],
+          "threshold_db": -80,
+          "intervals": [
+            {
+              "start": 0,
+              "duration": 6,
+              "mean_db": -7,
+              "max_db": -0.2
+            }
+          ],
+          "max_db": -0.2,
+          "verdict": "pass"
+        },
+        "motion": [],
+        "blank_frames": [
+          {
+            "start": 0,
+            "duration": 6,
+            "ymax_max": 57,
+            "active_overlays": [],
+            "active_cuts": [
+              "upper",
+              "lower"
+            ],
+            "severity": "warning"
+          }
+        ]
+      }
+    },
+    "contact_sheet": {
+      "path": ".akari/reports/contact-sheet.png",
+      "timestamps_seconds": [
+        0,
+        5.966666666666667
+      ]
+    },
+    "render_receipt": {
+      "path": ".akari/reports/render-receipts/40f7d301f9de51699bf4bd7c89cb0f04e64c4950f124ee13dd8d9e1e03bd51d9.json",
+      "sha256": "40f7d301f9de51699bf4bd7c89cb0f04e64c4950f124ee13dd8d9e1e03bd51d9"
+    }
+  },
+  "orphanSweep": {
+    "ok": true
+  },
+  "survivingUserDataDirProcesses": 0,
+  "survivingBackendMainJs": 0,
+  "exportsListing": [
+    "final.mp4"
+  ],
+  "producedMp4": [
+    "final.mp4"
+  ],
+  "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "duration": "6.000000"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "duration": "6.000000"
+      }
+    ],
+    "format": {
+      "duration": "6.000000"
+    }
+  },
+  "audioDuration": 6,
+  "videoDuration": 6,
+  "formatDuration": 6,
+  "audioDurationMatchesOutput": true,
+  "audioMatchesVideoDuration": true,
+  "tones": [
+    {
+      "at": 0.5,
+      "lower": {
+        "hz": 300,
+        "amplitude": 0.49998
+      },
+      "upper": {
+        "hz": 700,
+        "amplitude": 0
+      },
+      "inOverlap": false
+    },
+    {
+      "at": 1.5,
+      "lower": {
+        "hz": 400,
+        "amplitude": 0.49998
+      },
+      "upper": {
+        "hz": 800,
+        "amplitude": 0
+      },
+      "inOverlap": false
+    },
+    {
+      "at": 2.5,
+      "lower": {
+        "hz": 500,
+        "amplitude": 0.47461
+      },
+      "upper": {
+        "hz": 900,
+        "amplitude": 0.4746
+      },
+      "inOverlap": true
+    },
+    {
+      "at": 3.5,
+      "lower": {
+        "hz": 600,
+        "amplitude": 0.49992
+      },
+      "upper": {
+        "hz": 1000,
+        "amplitude": 0.49996
+      },
+      "inOverlap": true
+    },
+    {
+      "at": 4.5,
+      "lower": {
+        "hz": 700,
+        "amplitude": 0.47452
+      },
+      "upper": {
+        "hz": 1100,
+        "amplitude": 0.47446
+      },
+      "inOverlap": true
+    },
+    {
+      "at": 5.5,
+      "lower": {
+        "hz": 800,
+        "amplitude": 0.4971
+      },
+      "upper": {
+        "hz": 1200,
+        "amplitude": 0.49597
+      },
+      "inOverlap": true
+    }
+  ],
+  "bothTonesAudibleInOverlap": true,
+  "upperSilentBeforeOverlap": true
+}

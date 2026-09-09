@@ -1,0 +1,308 @@
+[
+  {
+    "scenario": "段の並び（貼り先トグルの実測）",
+    "tracks": [
+      {
+        "trackId": "v-caps",
+        "pressed": "false",
+        "y": 401
+      },
+      {
+        "trackId": "v-ovl3",
+        "pressed": "false",
+        "y": 440
+      },
+      {
+        "trackId": "v-ovl2",
+        "pressed": "false",
+        "y": 492
+      },
+      {
+        "trackId": "v-ovl1",
+        "pressed": "false",
+        "y": 544
+      },
+      {
+        "trackId": "v-main",
+        "pressed": "false",
+        "y": 595
+      },
+      {
+        "trackId": "a1",
+        "pressed": "false",
+        "y": 635
+      }
+    ],
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。",
+    "screenshot": "00-initial.png",
+    "pass": true
+  },
+  {
+    "scenario": "(a) 1 個を再生ヘッドへ（同じ段）",
+    "playhead": 8.006,
+    "copyFooter": "1 件をコピーしました。",
+    "footer": "1 件を貼り付けしました。",
+    "before": [
+      {
+        "id": "ovl-1",
+        "at": 15,
+        "duration": 45
+      }
+    ],
+    "after": [
+      {
+        "id": "ovl-1",
+        "at": 15,
+        "duration": 45
+      },
+      {
+        "id": "ovl-1-copy",
+        "at": 240,
+        "duration": 45
+      }
+    ],
+    "screenshot": "01-single-paste.png",
+    "pass": true
+  },
+  {
+    "scenario": "(b) 3 トラックまとめて相対保持",
+    "playhead": 6.005,
+    "copyFooter": "3 件をコピーしました。",
+    "footer": "3 件を貼り付けしました。",
+    "placed": {
+      "v-ovl1": [
+        {
+          "id": "ovl-1-copy-2",
+          "at": 180,
+          "duration": 45
+        }
+      ],
+      "v-ovl2": [
+        {
+          "id": "ovl-2-copy",
+          "at": 225,
+          "duration": 45
+        }
+      ],
+      "v-ovl3": [
+        {
+          "id": "ovl-3-copy",
+          "at": 270,
+          "duration": 45
+        }
+      ]
+    },
+    "screenshot": "02-multi-paste.png",
+    "pass": true
+  },
+  {
+    "scenario": "(g) ⌘Z 一回で 3 件まとめて戻る",
+    "footer": "クリップの貼り付けを元に戻しました。",
+    "tracksAfterUndo": {
+      "v-ovl1": [
+        {
+          "id": "ovl-1",
+          "at": 15,
+          "duration": 45
+        },
+        {
+          "id": "ovl-1-copy",
+          "at": 240,
+          "duration": 45
+        }
+      ],
+      "v-ovl2": [
+        {
+          "id": "ovl-2",
+          "at": 60,
+          "duration": 45
+        }
+      ],
+      "v-ovl3": [
+        {
+          "id": "ovl-3",
+          "at": 105,
+          "duration": 45
+        }
+      ]
+    },
+    "screenshot": "03-undo.png",
+    "pass": true
+  },
+  {
+    "scenario": "(c) 貼り先指定で別トラックへ / 種別違いは拒否",
+    "playhead": 6.005,
+    "placed": {
+      "v-ovl2": [
+        {
+          "id": "ovl-1-copy-2",
+          "at": 180,
+          "duration": 45
+        }
+      ],
+      "v-ovl3": [
+        {
+          "id": "ovl-2-copy",
+          "at": 225,
+          "duration": 45
+        }
+      ]
+    },
+    "soloState": [
+      {
+        "trackId": "v-caps",
+        "pressed": "false",
+        "y": 328
+      },
+      {
+        "trackId": "v-ovl3",
+        "pressed": "false",
+        "y": 367
+      },
+      {
+        "trackId": "v-ovl2",
+        "pressed": "false",
+        "y": 419
+      },
+      {
+        "trackId": "v-ovl1",
+        "pressed": "false",
+        "y": 471
+      },
+      {
+        "trackId": "v-main",
+        "pressed": "false",
+        "y": 522
+      },
+      {
+        "trackId": "a1",
+        "pressed": "true",
+        "y": 562
+      }
+    ],
+    "rejectFooter": "種別が違うトラックには貼り付けできません。",
+    "screenshot": "04-paste-target.png",
+    "rejectScreenshot": "05-reject-kind.png",
+    "pass": true
+  },
+  {
+    "scenario": "(d) cuts は分割挿入・右側を押し出し / 時刻トラックは不動",
+    "playhead": 2.98,
+    "beforeCuts": [
+      {
+        "id": "cut-a",
+        "at": 0,
+        "duration": 180
+      },
+      {
+        "id": "cut-b",
+        "at": 180,
+        "duration": 150
+      }
+    ],
+    "afterCuts": [
+      {
+        "id": "cut-a",
+        "at": 0,
+        "duration": 89
+      },
+      {
+        "id": "cut-a-copy",
+        "at": 89,
+        "duration": 180
+      },
+      {
+        "id": "cut-a-split",
+        "at": 269,
+        "duration": 91
+      },
+      {
+        "id": "cut-b",
+        "at": 360,
+        "duration": 150
+      }
+    ],
+    "overlaysUnchanged": [
+      {
+        "id": "ovl-1",
+        "at": 15,
+        "duration": 45
+      },
+      {
+        "id": "ovl-1-copy",
+        "at": 240,
+        "duration": 45
+      }
+    ],
+    "screenshot": "06-cuts-ripple.png",
+    "pass": true
+  },
+  {
+    "scenario": "(e) 衝突 → 上に新トラックを作って置く",
+    "playhead": 4.003,
+    "beforeTracks": [
+      "a1",
+      "v-main",
+      "v-ovl1",
+      "v-ovl2",
+      "v-ovl3",
+      "v-caps"
+    ],
+    "afterTracks": [
+      "a1",
+      "v-main",
+      "v-ovl1",
+      "v-ovl2",
+      "v-ovl3",
+      "v1",
+      "v-caps"
+    ],
+    "createdTrack": "v1",
+    "placed": [
+      {
+        "id": "ovl-3-copy",
+        "at": 120,
+        "duration": 45
+      }
+    ],
+    "screenshot": "07-new-track.png",
+    "pass": true
+  },
+  {
+    "scenario": "(f) Option ドラッグで複製（元は動かない）",
+    "original": {
+      "id": "ovl-2",
+      "at": 60,
+      "duration": 45,
+      "trackId": "v-ovl2"
+    },
+    "duplicated": {
+      "id": "ovl-2-copy-2",
+      "at": 150,
+      "duration": 45,
+      "trackId": "v2"
+    },
+    "newTrack": "v2",
+    "screenshot": "08-alt-drag-duplicate.png",
+    "pass": true
+  },
+  {
+    "scenario": "⌘X で切り取り → ⌘Z で戻る",
+    "cutFooter": "1 件をコピーしました。",
+    "restored": [
+      {
+        "id": "ovl-2-copy-2",
+        "at": 150,
+        "duration": 45,
+        "trackId": "v2"
+      }
+    ],
+    "screenshot": "09-cut-undo.png",
+    "pass": true
+  },
+  {
+    "scenario": "L1 後始末（孤児プロセス）",
+    "orphanCheck": "ok: 0 processes",
+    "pass": true
+  }
+]

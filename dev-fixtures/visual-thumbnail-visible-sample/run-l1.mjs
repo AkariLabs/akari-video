@@ -9,7 +9,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import vm from 'node:vm';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const fixtureDirectory = fileURLToPath(new URL('./', import.meta.url));
@@ -24,16 +23,6 @@ async function loadInputs() {
   const { captureVisualThumbnail } = require('./lib/electron-main/visual-thumbnail-capture.js');
   assert.equal(typeof prepareVisualThumbnailPage, 'function');
   assert.equal(typeof captureVisualThumbnail, 'function');
-  const { transpileModule } = require('typescript');
-  const baseline = path => {
-    const source = execFileSync('git', ['show', `3f74b798:${path}`], { cwd: root, encoding: 'utf8' });
-    const exports = {};
-    vm.runInNewContext(transpileModule(source, { compilerOptions: { module: 1, target: 8 } }).outputText,
-      { exports, require, setTimeout, clearTimeout });
-    return exports;
-  };
-  const oldPage = baseline('apps/shell/extensions/akari-preview/src/common/visual-thumbnail.ts').visualThumbnailPage;
-  const oldCapture = baseline('apps/shell/extensions/akari-preview/src/electron-main/visual-thumbnail-capture.ts').captureVisualThumbnail;
   const files = new Map();
   const runtimePath = join(root, 'packages/overlay-runtime/src');
   for (const [route, path] of [['three', 'vendor/three-bundle.js'], ['text', 'vendor/vendor-3d-text-bundle.js'], ['three-runtime', 'three-runtime.js']]) {
@@ -45,7 +34,7 @@ async function loadInputs() {
   files.set('/font', ['font/ttf', await readFile(join(root, 'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf'))]);
   const fixture = await readFile(join(fixtureDirectory, 'fragment.html'), 'utf8');
   const lower = await readFile(join(root, 'assets/overlay/lower-third-clean/fragment.html'), 'utf8');
-  return { prepareVisualThumbnailPage, captureVisualThumbnail, oldPage, oldCapture, files, fixture, lower };
+  return { prepareVisualThumbnailPage, captureVisualThumbnail, files, fixture, lower };
 }
 
 function assetUrls(origin) {
@@ -74,15 +63,16 @@ async function checkInputs() {
   const inputs = await loadInputs();
   for (const [route, [mime, contents]] of inputs.files) {
     assert.ok(contents.length > 0, route);
-    if (mime === 'text/javascript') new vm.Script(String(contents), { filename: route });
+    if (mime === 'text/javascript') execFileSync(process.execPath, ['--check', '--input-type=commonjs'], { input: contents, stdio: ['pipe', 'pipe', 'pipe'] });
   }
   for (const { name, page } of await prepareCases(inputs, assetUrls('http://127.0.0.1:1'))) {
     assert.ok(page.sampleTimes.length >= 1 && page.sampleTimes.length <= 4);
     assert.ok(page.sampleTimes.every(Number.isFinite));
-    new vm.Script(page.html.match(/<script>\n([\s\S]*)<\/script>/)[1], { filename: name });
+    execFileSync(process.execPath, ['--check', '--input-type=commonjs'],
+      { input: page.html.match(/<script>\n([\s\S]*)<\/script>/)[1], stdio: ['pipe', 'pipe', 'pipe'] });
     console.log(JSON.stringify({ check: 'prepared-page', name, sampleTimes: page.sampleTimes }));
   }
-  console.log('PASS: module loading, baseline loading, runtime scripts, font, fragment.html and five prepared pages');
+  console.log('PASS: module loading, runtime scripts, font, fragment.html and five prepared pages');
 }
 
 export function runElectron(electron, initialize = loadInputs) {
@@ -132,16 +122,16 @@ async function captureCases(electron, initialize) {
     const assets = assetUrls(`http://127.0.0.1:${server.address().port}`);
     const rows = []; const measurements = [];
     for (const { name, exitTime, page } of await prepareCases(inputs, assets)) {
-      const mounted = JSON.parse(page.html.match(/await runtime\.mount\((.*)\);/)[1]);
-      const before = { ...inputs.oldPage(mounted.overlays, mounted.output, page.sampleTimes[0], assets), streamIds: [], dependencyUris: [] };
+      // The same renderer and capture path isolate candidate sweeping as the only variable.
+      const before = { ...page, sampleTimes: [page.sampleTimes[0]] };
       const record = { name, sampleTimes: page.sampleTimes, before: { windows: 0, visiblePixels: [] }, after: { windows: 0, visiblePixels: [] } };
       let oldImage; let image;
       current = record.before;
       console.log(`Capturing ${name}: before`);
-      try { oldImage = await inputs.oldCapture(before); } catch (error) { assert.match(String(error), /no visible pixels/); }
+      try { oldImage = (await inputs.captureVisualThumbnail(before)).image; } catch (error) { assert.match(String(error), /no visible pixels/); }
       current = record.after;
       console.log(`Capturing ${name}: after`);
-      try { image = await inputs.captureVisualThumbnail(page); } catch (error) {
+      try { image = (await inputs.captureVisualThumbnail(page)).image; } catch (error) {
         assert.equal(name, 'all-transparent'); assert.match(String(error), /no visible pixels/);
       }
       current = undefined;
@@ -154,8 +144,11 @@ async function captureCases(electron, initialize) {
         record.identicalPixels = true;
       } else if (name === 'all-transparent') {
         assert.equal(image, undefined); assert.equal(record.after.visiblePixels.length, 4);
+        assert.deepEqual(record.after.visiblePixels, [0, 0, 0, 0]);
       } else {
         assert.equal(oldImage, undefined); assert.ok(image);
+        assert.deepEqual(record.before.visiblePixels, [0]);
+        assert.ok(record.after.visiblePixels.at(-1) > 0);
         assert.equal(record.after.visiblePixels.length, exitTime === '2s' ? 3 : 2);
       }
       if (image) await writeFile(join(evidence, `${name}.png`), nativeImage.createFromDataURL(image).toPNG());

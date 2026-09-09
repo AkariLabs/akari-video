@@ -1,0 +1,26 @@
+<!-- シェルは data: を受け付けず edit.json 相対のアセットパスのみ（three-scene-assets.ts）。
+     Full-frame transparent canvas with centered extruded text.
+     The L1 driver provides assets/three-text.ttf relative to edit.json. -->
+<div class="content-box-canvas-fixture">
+  <style>
+    .content-box-canvas-fixture { position: absolute; inset: 0; }
+    .content-box-canvas-fixture canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  </style>
+  <canvas></canvas>
+  <script type="application/json" data-akari-3d-scene>
+  {
+    "camera": { "position": [0, 0, 5], "lookAt": [0, 0, 0], "fov": 40 },
+    "texts": [{
+      "id": "title",
+      "text": "TITLE",
+      "font": "assets/three-text.ttf",
+      "mode": "extrude",
+      "size": 0.8,
+      "color": "#ffd166",
+      "material": { "metalness": 0.8, "roughness": 0.25 },
+      "extrude": { "depth": 0.2, "bevelSize": 0.02, "bevelThickness": 0.025 },
+      "layout": { "type": "line", "spacing": 0.72, "position": [0, 0, 0], "rotation": [0, 0.2, 0] }
+    }]
+  }
+  </script>
+</div>

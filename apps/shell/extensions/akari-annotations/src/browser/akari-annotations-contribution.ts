@@ -1,5 +1,8 @@
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import URI from '@theia/core/lib/common/uri';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { AkariTimelineCreateDialog } from './akari-timeline-create-dialog';
+import { createTimelineEditContent, isTimelineEditFileName, sortTimelineEditFileNames, timelineCaptionsFileName, timelineDisplayName, timelineEditFileName, timelineReviewFileName, timelineSlugFromEditFileName, timelineWidgetId, uniqueTimelineSlug } from '../common/timeline-files';
 import {
     CommandContribution,
     CommandRegistry,
@@ -113,6 +116,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
 
+    @inject(CommandRegistry)
+    protected readonly commands!: CommandRegistry;
+
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
@@ -136,7 +142,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** 自動アタッチの重複判定・dispose 監視の対象として追跡中のタイムライン widget インスタンス。 */
     protected timelineWidget?: AkariAnnotationsWidget;
     /** ワークスペースと edit.json の配置はセッション中不変として、再帰探索結果を共有する。 */
-    protected projectLocationPromise?: Promise<ProjectLocation | undefined>;
+    protected projectLocationsPromise?: Promise<ProjectLocation[]>;
+    protected readonly timelineWidgets = new Set<AkariAnnotationsWidget>();
+    protected openTimelinePromise?: Promise<AkariAnnotationsWidget | undefined>;
     /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
     protected timelineDismissedThisSession = false;
 
@@ -153,7 +161,38 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     async onStart(): Promise<void> {
         installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);
+        this.toDispose.push(this.shell.onDidChangeCurrentWidget(({ newValue }) => {
+            if (newValue instanceof AkariAnnotationsWidget) {
+                this.trackTimelineWidget(newValue);
+                this.timelineWidget = newValue;
+                this.review.location = newValue.timelineLocation;
+                const editUri = newValue.timelineLocation?.editUri?.toString();
+                // akari-preview 側の出力プレビュー識別プロパティ akariPreviewEditUri のミラー（実体は URI オブジェクトで、文字列ではない）。
+                const hasOutputPreview = this.shell.widgets.some(widget =>
+                    !!(widget as { akariPreviewEditUri?: unknown }).akariPreviewEditUri);
+                if (editUri && hasOutputPreview) {
+                    void this.commands.executeCommand('akari.preview.ensureVisible', { editUri }).catch(() => undefined);
+                }
+            }
+        }));
+        this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            if (event.changes.some(change => change.type !== FileChangeType.UPDATED
+                && isTimelineEditFileName(change.resource.path.base))) {
+                this.projectLocationsPromise = undefined;
+            }
+        }));
+        // Restored widgets already have their URI identity, but still need project context.
+        this.toDispose.push(this.shell.onDidAddWidget(widget => {
+            if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
+                void this.configureRestoredTimeline(widget);
+            }
+        }));
         await this.workspaceService.ready;
+        for (const widget of this.widgetManager.getWidgets(AkariAnnotationsWidget.FACTORY_ID)) {
+            if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
+                await this.configureRestoredTimeline(widget);
+            }
+        }
         for (const root of await this.workspaceService.roots) {
             await this.watchForReview(root.resource);
         }
@@ -519,13 +558,61 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     async open(): Promise<AkariAnnotationsWidget | undefined> {
-        const widget = await this.attach();
-        if (!widget) {
-            return undefined;
+        this.openTimelinePromise ??= this.openOrCreateTimeline();
+        try {
+            return await this.openTimelinePromise;
+        } finally {
+            this.openTimelinePromise = undefined;
         }
-        // 明示的なオープン操作なので、以前の自動アタッチ抑止状態（セッション内クローズ）は解除する。
+    }
+
+    protected async openOrCreateTimeline(): Promise<AkariAnnotationsWidget | undefined> {
+        const locations = await this.locateAll();
+        if (!locations.length) return undefined;
+        const closed = locations.find(location => !this.findTimelineWidget(location)?.isAttached);
+        const location = closed ?? await this.createTimeline(locations);
+        if (!location) return undefined;
+        const widget = await this.attachAt(location);
         this.timelineDismissedThisSession = false;
+        this.timelineWidget = widget;
+        this.review.location = widget.timelineLocation;
         await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    protected async createTimeline(locations: ProjectLocation[]): Promise<ProjectLocation | undefined> {
+        const first = locations[0];
+        const current = this.timelineWidget?.timelineLocation ?? first;
+        const { aspect } = await this.resolveCanvasAspect(current);
+        const taken = locations.flatMap(location => location.slug ? [location.slug] : []);
+        const result = await new AkariTimelineCreateDialog({
+            title: 'タイムラインを作成', defaultTitle: 'タイムライン',
+            defaultAspect: { width: aspect.w, height: aspect.h },
+            takenSlugs: taken, firstTimeline: !first.editUri
+        }).open();
+        if (!result) return undefined;
+        const base = first.editUri?.parent ?? first.root.resolve('project');
+        // Include files created while the dialog was open; never overwrite any existing file.
+        this.projectLocationsPromise = undefined;
+        const latest = await this.locateAll();
+        const latestTaken = latest.flatMap(location => location.slug ? [location.slug] : []);
+        const slug = !first.editUri && !latest[0]?.editUri ? undefined : uniqueTimelineSlug(result.slug, latestTaken);
+        const uri = base.resolve(timelineEditFileName(slug));
+        await this.fileService.createFolder(base);
+        await this.fileService.createFile(uri,
+            BinaryBuffer.fromString(JSON.stringify(createTimelineEditContent({ width: result.width, height: result.height }), null, 2) + '\n'),
+            { overwrite: false });
+        const location = await this.refreshLocationEditUri(uri);
+        return location;
+    }
+
+    /** Internal callers reopen the current timeline without starting the creation flow. */
+    protected async openCurrentTimeline(): Promise<AkariAnnotationsWidget | undefined> {
+        const widget = await this.attach();
+        if (widget) {
+            this.timelineDismissedThisSession = false;
+            await this.shell.activateWidget(widget.id);
+        }
         return widget;
     }
 
@@ -541,7 +628,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const payload = request as { relativePath?: unknown; kind?: unknown } | undefined;
         const relativePath = typeof payload?.relativePath === 'string' ? payload.relativePath : '';
         const kind = typeof payload?.kind === 'string' ? payload.kind : '';
-        const widget = await this.open();
+        const widget = await this.openCurrentTimeline();
         if (!widget) {
             this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
             return;
@@ -568,7 +655,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return;
         }
-        const widget = await this.open();
+        const widget = await this.openCurrentTimeline();
         if (!widget) {
             this.messages.warn('プロジェクトを特定できません。タイムラインを開いてから追加してください。');
             return;
@@ -583,46 +670,64 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * `open()`（コマンドパレット等からの明示オープン）と異なり、edit.json が実在するプロジェクトに限る。
      */
     async attachPassively(): Promise<void> {
-        if (this.timelineDismissedThisSession || this.timelineWidget?.isAttached) {
-            return;
+        if (this.timelineDismissedThisSession) return;
+        const locations = (await this.locateAll()).filter(location => location.editUri);
+        const current = this.timelineWidget;
+        let first: AkariAnnotationsWidget | undefined;
+        for (const location of locations) {
+            const widget = await this.attachAt(location);
+            first ??= widget;
         }
-        const location = await this.locate();
-        if (!location?.editUri) {
-            return;
+        if (current && !current.isDisposed) {
+            this.timelineWidget = current;
+            this.review.location = current.timelineLocation;
         }
-        const widget = await this.attachAt(location);
-        // bottom パネルが閉じていると addWidget だけでは画面に現れない。
-        // reveal はパネル展開のみでフォーカスは移さない（activate との違い）。
-        await this.shell.revealWidget(widget.id);
+        if (first && !current?.isAttached) await this.shell.revealWidget(first.id);
     }
 
     protected async attach(): Promise<AkariAnnotationsWidget | undefined> {
-        const location = await this.locate();
-        if (!location) {
-            return undefined;
+        if (this.timelineWidget?.isAttached && !this.timelineWidget.isDisposed) return this.timelineWidget;
+        const location = this.timelineWidget?.timelineLocation ?? await this.locate();
+        return location ? this.attachAt(location) : undefined;
+    }
+
+    protected findTimelineWidget(location: ProjectLocation): AkariAnnotationsWidget | undefined {
+        return this.widgetManager.getWidgets(AkariAnnotationsWidget.FACTORY_ID)
+            .find((widget): widget is AkariAnnotationsWidget => widget instanceof AkariAnnotationsWidget
+                && !widget.isDisposed && widget.id === timelineWidgetId(location.slug));
+    }
+
+    protected async configureRestoredTimeline(widget: AkariAnnotationsWidget): Promise<void> {
+        const location = (await this.locateAll()).find(candidate => timelineWidgetId(candidate.slug) === widget.id);
+        if (location && !widget.isDisposed) {
+            this.trackTimelineWidget(widget);
+            await widget.configure(location, uri => this.refreshLocationEditUri(uri));
         }
-        return this.attachAt(location);
     }
 
     protected async attachAt(location: ProjectLocation): Promise<AkariAnnotationsWidget> {
-        this.review.location = location;
-        const widget = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID);
+        const widget = this.findTimelineWidget(location)
+            ?? await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID,
+                { editUri: location.editUri?.toString() });
         this.trackTimelineWidget(widget);
         await widget.configure(location, uri => this.refreshLocationEditUri(uri));
-        if (!widget.isAttached) {
-            this.shell.addWidget(widget, { area: 'bottom' });
-        }
+        if (!this.timelineWidget || this.timelineWidget.isDisposed) this.timelineWidget = widget;
+        this.review.location = this.timelineWidget.timelineLocation;
+        if (!widget.isAttached) this.shell.addWidget(widget, { area: 'bottom' });
         return widget;
     }
 
-    /** widget インスタンスにつき一度だけ onDidDispose を購読し、セッション内クローズを検知する。 */
+    /** Subscribe once per instance; closing any timeline suppresses passive reopening for this session. */
     protected trackTimelineWidget(widget: AkariAnnotationsWidget): void {
-        if (this.timelineWidget === widget) {
-            return;
-        }
-        this.timelineWidget = widget;
+        if (this.timelineWidgets.has(widget)) return;
+        this.timelineWidgets.add(widget);
         widget.disposed.connect(() => {
+            this.timelineWidgets.delete(widget);
             this.timelineDismissedThisSession = true;
+            if (this.timelineWidget === widget) {
+                this.timelineWidget = [...this.timelineWidgets].find(candidate => candidate.isAttached && !candidate.isDisposed);
+                this.review.location = this.timelineWidget?.timelineLocation;
+            }
         });
     }
 
@@ -631,7 +736,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * 先にタイムラインを構成して ReviewModel を満たしてからパネルを出す。
      */
     async openReviewPanel(): Promise<AkariReviewPanelWidget | undefined> {
-        const timeline = await this.open();
+        const timeline = await this.openCurrentTimeline();
         if (!timeline) {
             return undefined;
         }
@@ -734,25 +839,23 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     protected async locate(): Promise<ProjectLocation | undefined> {
-        this.projectLocationPromise ??= this.resolveProjectLocation();
-        return this.projectLocationPromise;
+        return (await this.locateAll())[0];
     }
 
-    /** 初回の素材追加・外部作成で見つかった edit.json をセッションの参照へ反映する。 */
+    protected async locateAll(): Promise<ProjectLocation[]> {
+        this.projectLocationsPromise ??= this.resolveProjectLocations();
+        return this.projectLocationsPromise;
+    }
+
+    /** Resolve the newly created file with its own infix sidecars, including the first empty tab. */
     async refreshLocationEditUri(uri: URI): Promise<ProjectLocation | undefined> {
-        const location = await this.locate();
-        if (!location) return undefined;
-        const updated = {
-            ...location, editUri: uri,
-            captionsUri: uri.parent.resolve('captions.json'),
-            reviewUri: uri.parent.resolve('review.json')
-        };
-        this.projectLocationPromise = Promise.resolve(updated);
-        this.review.location = updated;
-        return updated;
+        this.projectLocationsPromise = undefined;
+        const location = (await this.locateAll()).find(candidate => candidate.editUri?.isEqual(uri));
+        if (location) this.review.location = location;
+        return location;
     }
 
-    protected async resolveProjectLocation(): Promise<ProjectLocation | undefined> {
+    protected async resolveProjectLocations(): Promise<ProjectLocation[]> {
         const roots = await this.workspaceService.roots;
         for (const root of roots) {
             const analysisUri = await this.findFirstCanonicalAnalysis(root.resource);
@@ -762,23 +865,26 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 try {
                     const analysis = JSON.parse(await this.readText(analysisUri));
                     videoUri = typeof analysis?.source === 'string'
-                        ? analysisUri.parent.resolve(analysis.source).normalizePath().toString()
-                        : '';
-                } catch {
-                    videoUri = '';
-                }
+                        ? analysisUri.parent.resolve(analysis.source).normalizePath().toString() : '';
+                } catch { /* An unreadable analysis must not hide timelines. */ }
             }
             const base = editUri ? editUri.parent : root.resource.resolve('project');
-            return {
-                root: root.resource,
-                analysisUri,
-                videoUri,
-                editUri,
-                captionsUri: base.resolve('captions.json'),
-                reviewUri: base.resolve('review.json')
-            };
+            const shared = { root: root.resource, analysisUri, videoUri };
+            if (!editUri) return [{ ...shared, editUri: undefined,
+                captionsUri: base.resolve('captions.json'), reviewUri: base.resolve('review.json') }];
+            const directory = await this.fileService.resolve(base);
+            const names = sortTimelineEditFileNames((directory.children ?? [])
+                .filter(child => child.isFile && isTimelineEditFileName(child.resource.path.base))
+                .map(child => child.resource.path.base));
+            return names.map(name => {
+                const slug = timelineSlugFromEditFileName(name);
+                const uri = base.resolve(name);
+                return { ...shared, slug, displayName: timelineDisplayName(slug), editUri: uri,
+                    captionsUri: base.resolve(timelineCaptionsFileName(slug)),
+                    reviewUri: base.resolve(timelineReviewFileName(slug)) };
+            });
         }
-        return undefined;
+        return [];
     }
 
     protected async findFirstCanonicalAnalysis(root: URI): Promise<URI | undefined> {

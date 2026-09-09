@@ -162,7 +162,8 @@ window.akari.interaction = (() => {
       ) &&
       rootRect.width > 0 &&
       rootRect.height > 0 &&
-      !looksLikeFullContainerWrapper(rootRect, containerRect)
+      !looksLikeFullContainerWrapper(rootRect, containerRect) &&
+      root.tagName !== "CANVAS"
     ) {
       return {
         left: rootRect.left,
@@ -178,25 +179,27 @@ window.akari.interaction = (() => {
     let top = Infinity;
     let right = -Infinity;
     let bottom = -Infinity;
-    const elements = root.querySelectorAll("*");
-
-    for (const element of elements) {
-      if (
-        ["NOSCRIPT", "SCRIPT", "STYLE", "TEMPLATE"].includes(element.tagName) ||
-        element.closest("[data-akari-interaction]")
-      ) {
-        continue;
-      }
-
-      const rect = element.getBoundingClientRect();
-      if (
-        ![rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite) ||
-        rect.width <= 0 ||
-        rect.height <= 0
-      ) {
-        continue;
-      }
-
+    const candidates = [];
+    for (const element of [root, ...root.querySelectorAll("*")]) {
+      if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName)
+        || element.closest("[data-akari-interaction]")
+        || !isPaintedElement(element, container)) continue;
+      const rect = element.tagName === "CANVAS"
+        ? (canvasHasDecoration(element) ? element.getBoundingClientRect()
+          : window.akari.threeRuntime?.contentBounds?.(element)
+            ?? measureCanvasBounds(element) ?? element.getBoundingClientRect())
+        : element.getBoundingClientRect();
+      if (![rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite)
+        || rect.width <= 0 || rect.height <= 0) continue;
+      candidates.push({ element, rect });
+    }
+    for (const { element, rect } of candidates) {
+      // 透明な全画面位置決め要素だけを縮み包む。背景/画像等の実体は残す。
+      if (looksLikeFullContainerWrapper(rect, containerRect)
+        && !drawsOwnContent(element, getComputedStyle(element))
+        && candidates.some((candidate) => candidate.element !== element
+          && element.contains(candidate.element)
+          && !looksLikeFullContainerWrapper(candidate.rect, containerRect))) continue;
       left = Math.min(left, rect.left);
       top = Math.min(top, rect.top);
       right = Math.max(right, rect.right);
@@ -226,6 +229,176 @@ window.akari.interaction = (() => {
       return null;
     }
     return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  function isPaintedElement(element, container) {
+    const style = getComputedStyle(element);
+    if (["hidden", "collapse"].includes(style.visibility)) return false;
+    for (let node = element; node && node !== container; node = node.parentElement) {
+      const ancestorStyle = getComputedStyle(node);
+      if (ancestorStyle.display === "none" || Number(ancestorStyle.opacity) === 0) return false;
+    }
+    return true;
+  }
+
+  const canvasSnapshots = new WeakMap();
+  const alphaHitCanvases = new WeakSet();
+  const forwardedCanvasEvents = new WeakSet();
+  const CANVAS_ALPHA_THRESHOLD = 16;
+
+  // Three の内容枠申告と同じ描画直後にコピーする。preserveDrawingBuffer=false の
+  // バッファが提示後に消えても読める。GPU→CPU の 1px 読み出しはクリック時だけ。
+  function captureCanvasContent(canvas) {
+    try {
+      let copy = canvasSnapshots.get(canvas);
+      if (!copy) copy = document.createElement("canvas");
+      if (copy.width !== canvas.width) copy.width = canvas.width;
+      if (copy.height !== canvas.height) copy.height = canvas.height;
+      const context = copy.getContext("2d", { willReadFrequently: true });
+      context.clearRect(0, 0, copy.width, copy.height);
+      context.drawImage(canvas, 0, 0);
+      canvasSnapshots.set(canvas, copy);
+    } catch {
+      canvasSnapshots.delete(canvas);
+    }
+  }
+
+  function readableCanvas(canvas) {
+    const copy = canvasSnapshots.get(canvas);
+    if (copy && copy.width === canvas.width && copy.height === canvas.height) return copy;
+    if (canvas.getContext("2d")) return canvas;
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+    // 未保存の WebGL バッファは「透明」ではなく「読めない」。従来の当たりへ退避する。
+    if (!gl || gl.isContextLost() || !gl.getContextAttributes()?.preserveDrawingBuffer) return null;
+    return canvas;
+  }
+
+  function canvasClientGeometry(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const width = canvas.offsetWidth, height = canvas.offsetHeight;
+    if (!window.DOMMatrix || !(width > 0 && height > 0)) return null;
+    let matrix = new window.DOMMatrix();
+    for (let node = canvas; node instanceof Element; node = node.parentElement) {
+      const transform = getComputedStyle(node).transform;
+      if (transform && transform !== "none") {
+        const parentMatrix = new window.DOMMatrix(transform);
+        if (!parentMatrix.is2D) return null;
+        matrix = parentMatrix.multiply(matrix);
+      }
+    }
+    // rect 中心が transform-origin/translate を含む平行移動をすべて吸収する。
+    return { rect, width, height, matrix };
+  }
+
+  function canvasClientBounds(canvas, box) {
+    const rect = canvas.getBoundingClientRect();
+    const geometry = canvasClientGeometry(canvas);
+    const points = [];
+    for (const x of [box.left, box.right]) {
+      for (const y of [box.top, box.bottom]) {
+        if (geometry) {
+          const point = geometry.matrix.transformPoint({
+            x: (x - 0.5) * geometry.width, y: (y - 0.5) * geometry.height,
+          });
+          points.push({ x: rect.left + rect.width / 2 + point.x - geometry.matrix.e,
+            y: rect.top + rect.height / 2 + point.y - geometry.matrix.f });
+        } else points.push({ x: rect.left + x * rect.width, y: rect.top + y * rect.height });
+      }
+    }
+    const left = Math.min(...points.map(point => point.x));
+    const top = Math.min(...points.map(point => point.y));
+    const right = Math.max(...points.map(point => point.x));
+    const bottom = Math.max(...points.map(point => point.y));
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  function canvasAlphaAtPoint(canvas, clientX, clientY) {
+    try {
+      const rect = canvas.getBoundingClientRect();
+      if (!(rect.width > 0 && rect.height > 0 && canvas.width > 0 && canvas.height > 0)) return 255;
+      let x = (clientX - rect.left) / rect.width;
+      let y = (clientY - rect.top) / rect.height;
+      const geometry = canvasClientGeometry(canvas);
+      if (geometry) {
+        const point = geometry.matrix.inverse().transformPoint({
+          x: clientX - rect.left - rect.width / 2 + geometry.matrix.e,
+          y: clientY - rect.top - rect.height / 2 + geometry.matrix.f,
+        });
+        x = point.x / geometry.width + 0.5;
+        y = point.y / geometry.height + 0.5;
+      }
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 255;
+      if (x < 0 || y < 0 || x >= 1 || y >= 1) return 0;
+      // CSS の背景/枠も canvas 自身の描画。ビットマップが透明でも素通ししない。
+      if (canvasHasDecoration(canvas)) return 255;
+      const source = readableCanvas(canvas);
+      if (!source) return 255;
+      const sample = document.createElement("canvas");
+      sample.width = sample.height = 1;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      context.drawImage(source, Math.floor(x * source.width), Math.floor(y * source.height), 1, 1, 0, 0, 1, 1);
+      return context.getImageData(0, 0, 1, 1).data[3];
+    } catch {
+      return 255;
+    }
+  }
+
+  function canvasHasDecoration(canvas) {
+    // CANVAS の置換要素扱いだけを除外し、同じ背景/枠/影ルールを使う。
+    return drawsOwnContent({ tagName: "DIV", childNodes: [] }, getComputedStyle(canvas));
+  }
+
+  function measureCanvasBounds(canvas) {
+    try {
+      if (canvasHasDecoration(canvas)) return null;
+      const source = readableCanvas(canvas);
+      if (!source || !(source.width > 0 && source.height > 0)) return null;
+      const sample = document.createElement("canvas");
+      const scale = Math.min(1, 320 / Math.max(source.width, source.height));
+      sample.width = Math.max(1, Math.round(source.width * scale));
+      sample.height = Math.max(1, Math.round(source.height * scale));
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      context.drawImage(source, 0, 0, sample.width, sample.height);
+      const data = context.getImageData(0, 0, sample.width, sample.height).data;
+      let x0 = sample.width, y0 = sample.height, x1 = -1, y1 = -1;
+      for (let y = 0; y < sample.height; y++) {
+        for (let x = 0; x < sample.width; x++) {
+          if (data[(y * sample.width + x) * 4 + 3] <= CANVAS_ALPHA_THRESHOLD) continue;
+          x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+          x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+        }
+      }
+      if (x1 < 0) return null;
+      return canvasClientBounds(canvas, { left: x0 / sample.width, top: y0 / sample.height,
+        right: (x1 + 1) / sample.width, bottom: (y1 + 1) / sample.height });
+    } catch {
+      return null;
+    }
+  }
+
+  function passTransparentCanvasEvent(event) {
+    if (forwardedCanvasEvents.has(event) || !alphaHitCanvases.has(event.target)
+      || canvasAlphaAtPoint(event.target, event.clientX, event.clientY) > CANVAS_ALPHA_THRESHOLD) return;
+    const hidden = [];
+    let target = event.target;
+    try {
+      // 重なった透明 canvas も順に外し、実際の DOM z 順で下の素材を選ぶ。
+      while (target && alphaHitCanvases.has(target)
+        && canvasAlphaAtPoint(target, event.clientX, event.clientY) <= CANVAS_ALPHA_THRESHOLD) {
+        hidden.push(target);
+        target.style.setProperty("pointer-events", "none", "important");
+        target = document.elementFromPoint(event.clientX, event.clientY);
+      }
+      if (!target || target === event.target) return;
+      const EventType = event.type.startsWith("pointer") ? PointerEvent : MouseEvent;
+      const forwarded = new EventType(event.type, event);
+      forwardedCanvasEvents.add(forwarded);
+      event.stopImmediatePropagation();
+      if (event.cancelable) event.preventDefault();
+      target.dispatchEvent(forwarded);
+    } finally {
+      for (const canvas of hidden) canvas.style.setProperty("pointer-events", "auto", "important");
+    }
   }
 
   function transparentColor(value) {
@@ -328,6 +501,11 @@ window.akari.interaction = (() => {
         drawsOwnContent(element, style)
       ) {
         pointerEvents = "auto";
+      }
+      // 明示 catch/pass は優先。自動判定の canvas は window 捕捉でアルファを検査する。
+      alphaHitCanvases.delete(element);
+      if (element.tagName === "CANVAS" && pointerEvents === "auto" && !directive) {
+        alphaHitCanvases.add(element);
       }
       setHitPointerEvents(element, pointerEvents);
 
@@ -2006,6 +2184,10 @@ window.akari.interaction = (() => {
   // body 直下のハンドルが capture フェーズの対象外になり拾えなくなる）。
   const listenerRoot = document;
 
+  // host の document/祖先捕捉より先に retarget する。click も通して再選択を防ぐ。
+  for (const type of ["pointerdown", "pointerup", "click", "dblclick"]) {
+    window.addEventListener(type, passTransparentCanvasEvent, true);
+  }
   listenerRoot.addEventListener("click", onClick, true);
   listenerRoot.addEventListener("pointerdown", onPointerDown, true);
   listenerRoot.addEventListener("dblclick", onDoubleClick, true);
@@ -2043,6 +2225,10 @@ window.akari.interaction = (() => {
 
   return {
     selftest,
+    fragmentBounds,
+    canvasAlphaAtPoint,
+    canvasClientBounds,
+    captureCanvasContent,
     // ㉒ スナップ統一: layers[] / cut / caption のドラッグ実装（akari-preview-open-handler.ts、
     // 別パッケージ）が同じしきい値・座標系・ガイド線を再利用するための共有 API。
     // overlays[] 自身のドラッグ/拡縮（上の内部関数群）も同じ実装を通る（単一正本）。

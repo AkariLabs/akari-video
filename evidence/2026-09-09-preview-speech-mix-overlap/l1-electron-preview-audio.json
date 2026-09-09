@@ -1,0 +1,37 @@
+{
+  "pid": 55792,
+  "steps": [
+    "frontend ready",
+    "ensureVisible: opened",
+    "preview webview attached",
+    "seekOutput: seeked",
+    "togglePlayback: toggled",
+    "scheduled.speech=2"
+  ],
+  "audioDebug": {
+    "phase": "ready",
+    "required": [
+      "speech:lower-speech",
+      "speech:upper-speech"
+    ],
+    "ready": [
+      "speech:lower-speech",
+      "speech:upper-speech"
+    ],
+    "failed": [],
+    "noAudio": [],
+    "playing": true,
+    "scheduled": {
+      "startAtSec": 3,
+      "itemCount": 2,
+      "bgm": 0,
+      "sfx": 0,
+      "narration": 0,
+      "speech": 2,
+      "skipped": []
+    },
+    "speechDecodeSources": 1
+  },
+  "survivingProcesses": 0,
+  "survivingBackendMainJs": 0
+}

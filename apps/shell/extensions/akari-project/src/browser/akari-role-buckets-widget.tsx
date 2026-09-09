@@ -1,3 +1,5 @@
+import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
+import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
@@ -81,7 +83,8 @@ import {
 } from '../common/library-home-view';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
-import { openAkariContextMenu } from './akari-context-menu';
+import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
+import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 
@@ -619,7 +622,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const children = dirStat.children ?? [];
         const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
         const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
-        const openUri = previewChild?.resource ?? metaChild?.resource ?? dirStat.resource;
+        const openUri = dirStat.resource.resolve(assetGroupOpenTarget(this.toAssetBinChildren(dirStat), meta?.category)
+            ?? metaChild?.resource.path.base ?? 'meta.json');
         return {
             uri: openUri,
             relativePath,
@@ -836,16 +840,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
+        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind });
+        if (entry.assetGroup && entry.thumbnailUri) {
+            items.push(OPEN_PREVIEW_IMAGE_ITEM);
+        }
         openAkariContextMenu({
             x: event.clientX,
             y: event.clientY,
-            items: buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind }),
+            items,
             onSelect: id => this.handleMaterialContextMenuAction(id, entry)
         });
     }
 
     protected handleMaterialContextMenuAction(id: string, entry: MaterialCardEntry): void {
         switch (id) {
+            case 'open-preview-image':
+                if (entry.assetGroup && entry.thumbnailUri) {
+                    void this.openFile(entry.thumbnailUri);
+                }
+                break;
             case 'open':
                 void this.openFile(entry.uri);
                 break;
@@ -2098,6 +2111,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    @inject(AkariPreviewService)
+    protected readonly materialPreviewService!: AkariPreviewService;
+
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
         const layout = materialCardLayout({ kind: entry.kind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
@@ -2153,7 +2169,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             alt=''
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: layout.objectFit }}
                         />
-                        : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                        : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
+                            ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
+                                files={this.files} icon={this.placeholderIcon(entry.kind)} />
+                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {(entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}

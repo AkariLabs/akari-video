@@ -1,8 +1,10 @@
+# L1 input check (wrapper run) — node dev-fixtures/visual-thumbnail-visible-sample/run-l1.mjs --check
+
 {"check":"prepared-page","name":"exit-2s-band-10s","sampleTimes":[7,4.5,2.8,2.2]}
 {"check":"prepared-page","name":"stream-3.3s-band-12s","sampleTimes":[8,5,2.8,2.2]}
 {"check":"prepared-page","name":"highlight-5s-band-12s","sampleTimes":[8,5,2.8,2.2]}
 {"check":"prepared-page","name":"lower-third-clean","sampleTimes":[8,5,2.8,2.2]}
 {"check":"prepared-page","name":"all-transparent","sampleTimes":[8,5,2.8,2.2]}
-PASS: module loading, baseline loading, runtime scripts, font, fragment.html and five prepared pages
+PASS: module loading, runtime scripts, font, fragment.html and five prepared pages
 
 exit_code=0

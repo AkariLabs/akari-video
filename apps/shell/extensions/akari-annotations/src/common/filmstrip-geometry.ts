@@ -43,6 +43,26 @@ export function waveformBucketForLocalPx(localPx: number, fullClipWidthPx: numbe
     return Math.min(bucketCount - 1, Math.max(0, Math.floor(localPx / fullClipWidthPx * bucketCount)));
 }
 
+/** 表示 px の半開区間が覆う全バケットの最大値。拡大時は補間しない。 */
+export function waveformPeakForPxRange(
+    peaks: readonly number[], startLocalPx: number, endLocalPx: number, fullClipWidthPx: number
+): number {
+    if (peaks.length === 0 || !(fullClipWidthPx > 0) || !Number.isFinite(fullClipWidthPx)
+        || !Number.isFinite(startLocalPx) || !Number.isFinite(endLocalPx)) return 0;
+    const startPx = Math.max(0, startLocalPx);
+    const endPx = Math.min(fullClipWidthPx, endLocalPx);
+    if (!(endPx > startPx)) return 0;
+    const first = waveformBucketForLocalPx(startPx, fullClipWidthPx, peaks.length);
+    let last = waveformBucketForLocalPx(endPx, fullClipWidthPx, peaks.length);
+    // 終端がバケット境界そのものなら、その右側のバケットは含めない。
+    if (last > first && endPx / fullClipWidthPx * peaks.length === last) last--;
+    let peak = peaks[first];
+    for (let bucket = first + 1; bucket <= last; bucket++) {
+        peak = Math.max(peak, peaks[bucket]);
+    }
+    return peak;
+}
+
 /** -48 dB を床にした固定対数スケールへ peak (0..1) を写す。 */
 export function waveformHeightForPeak(peak: number): number {
     if (!Number.isFinite(peak) || peak <= 0) return 0;
@@ -534,21 +554,17 @@ export interface AudioWaveformBandLayout {
     heightPx: number;
 }
 
-/** ラベルを避けた残り領域の 90% を使い、上下 1px 以上を残して中央へ波形帯を置く。 */
-export function audioWaveformBandLayout(itemHeightPx: number, labelHeightPx: number): AudioWaveformBandLayout {
+const AUDIO_WAVEFORM_BAND_MIN_HEIGHT_PX = 12;
+
+/**
+ * 上下 1px の余白でアイテム中央に上下対称の帯を置き、最低高 12px を優先する。
+ * 第 2 引数は後方互換のために残す。ラベルは帯に重ねるため、レイアウトには使わない。
+ */
+export function audioWaveformBandLayout(itemHeightPx: number, _labelHeightPx: number): AudioWaveformBandLayout {
     const itemHeight = Number.isFinite(itemHeightPx) ? Math.max(0, itemHeightPx) : 0;
-    const labelHeight = Number.isFinite(labelHeightPx) ? Math.max(0, labelHeightPx) : 0;
-    const remaining = Math.max(0, itemHeight - labelHeight);
-    const scaledHeight = Math.round(remaining * 0.9);
-    // 固定の上限は設けない。十分な領域がある場合だけ、上下 1px の余白を優先する。
-    const heightPx = Math.max(12, remaining >= 14 ? Math.min(scaledHeight, remaining - 2) : scaledHeight);
-    const unclampedTop = labelHeight + (remaining - heightPx) / 2;
-    const maximumTop = Math.max(0, itemHeight - heightPx - 1);
-    const minimumTop = Math.min(maximumTop, labelHeight + 1);
-    return {
-        topPx: Math.max(0, Math.min(maximumTop, Math.max(minimumTop, unclampedTop))),
-        heightPx
-    };
+    const heightPx = Math.max(AUDIO_WAVEFORM_BAND_MIN_HEIGHT_PX, itemHeight - 2);
+    const topPx = Math.max(0, (itemHeight - heightPx) / 2);
+    return { topPx, heightPx };
 }
 
 export interface AudioSourceSliceWindowInput {

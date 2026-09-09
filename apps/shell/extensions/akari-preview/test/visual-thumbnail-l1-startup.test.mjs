@@ -7,8 +7,10 @@ import { runElectron, sanitize, forwardSanitizedLines } from '../../../../../dev
 
 const absoluteTestPath = (...segments) => ['', ...segments].join('/');
 
-test('L1 initialization failure logs a sanitized error and exits Electron immediately', async t => {
+test('L1 initialization waits for ready, destroys windows on failure, and exits with a sanitized error', async t => {
   const exits = []; const logs = [];
+  let ready; let initialized = false; let destroyed = 0;
+  const readiness = new Promise(resolve => { ready = resolve; });
   const previousHome = process.env.AKARI_HOME;
   process.env.AKARI_HOME = '/tmp/akari-l1-startup';
   t.after(() => {
@@ -17,9 +19,15 @@ test('L1 initialization failure logs a sanitized error and exits Electron immedi
   });
   t.mock.method(console, 'error', value => logs.push(value));
   const missingPath = absoluteTestPath('Users', 'example', 'worktree', 'missing.js');
-  await runElectron({ app: { setPath() {}, on() {}, whenReady: () => Promise.resolve(), exit: code => exits.push(code) },
-    BrowserWindow: { getAllWindows: () => [] } },
-    async () => { throw Error(`Cannot load ${missingPath}`); });
+  const running = runElectron({ app: { setPath() {}, on() {}, whenReady: () => readiness, exit: code => exits.push(code) },
+    BrowserWindow: { getAllWindows: () => [{ destroy() { destroyed++; } }] } },
+    async () => { initialized = true; throw Error(`Cannot load ${missingPath}`); });
+  await Promise.resolve();
+  assert.equal(initialized, false);
+  ready();
+  await running;
+  assert.equal(initialized, true);
+  assert.equal(destroyed, 1);
   assert.deepEqual(exits, [1]);
   assert.equal(logs.length, 1);
   assert.match(logs[0], /Cannot load <local-path>/);

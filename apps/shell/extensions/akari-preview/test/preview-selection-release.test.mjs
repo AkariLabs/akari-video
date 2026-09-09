@@ -243,7 +243,8 @@ test('Escape leaves existing crop, perspective, drag, and inline edit cancellati
     }
     for (const name of ['beginMediaTransformDrag', 'beginMediaCropDrag']) {
         const body = declaration(name);
-        assert.match(body, /selectionDragActive = true/);
+        assert.match(body, /beginSelectionGesture\(target\)/);
+        assert.match(body, /finally \{[\s\S]*endSelectionGesture\(gesture\)/);
         assert.match(body, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
     }
     const captionDrag = between("captionPlate.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');

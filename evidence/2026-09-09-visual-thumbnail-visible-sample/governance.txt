@@ -1,5 +1,21 @@
 # Governance gate (wrapper run) — .github/workflows/governance.yml, 'Scan tracked files for governance leaks'
+# run against the merged tree (origin/main taken in, this ticket's files staged)
 
-Governance gate passed — no tracked-file leaks detected.
+::error::Governance gate — internal adjudication citation (口述 / F48 / 第 N 巡 / スキルマップ)
+  evidence/render-cut-overlap-amix-ffmpeg81/l0-cli-before-after.mjs:87:// --- (1) 重なりトラック（オーナー口述と同じ「同じ動画を V1 / V2 に重ねる」） -------
+  -> Rewrite as a self-contained norm. Move the 口述/F48/巡 provenance to the internal repo's contract and delete it here.
+  -> See CLAUDE.md:6 for the accepted boilerplate wording (names the internal
+     repo without exposing a path). If this hit is a verified false positive,
+     add an explicit path:line entry to ALLOWLIST in this workflow file with a
+     reason — do not loosen the pattern to make it pass.
 
-exit_code=0
+Governance gate failed — see the errors above for file, line, and which pattern matched.
+
+exit_code=1
+
+# Attribution: the single hit is in evidence/render-cut-overlap-amix-ffmpeg81/l0-cli-before-after.mjs,
+# which is byte-identical to origin/main (introduced by main commit f4ffeb47, an ancestor of origin/main)
+# and is outside this ticket's file boundary. .github/workflows/governance.yml is identical to origin/main.
+# Hits inside this ticket's staged files: 0
+#   git grep -InE '口述|F48|第 N 巡|スキルマップ' -- <this ticket's 26 staged paths>  =>  0 lines
+# public main therefore fails its own governance gate today; this merge adds no new leak.

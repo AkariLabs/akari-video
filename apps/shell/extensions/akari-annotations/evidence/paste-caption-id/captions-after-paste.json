@@ -1,0 +1,63 @@
+[
+  {
+    "id": "c-0001",
+    "start": 0.4,
+    "end": 1,
+    "text": "字幕 1",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  {
+    "id": "c-0002",
+    "start": 1.2,
+    "end": 1.8,
+    "text": "字幕 2",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  {
+    "id": "c-0003",
+    "start": 2,
+    "end": 2.6,
+    "text": "字幕 3",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  {
+    "id": "c-0004",
+    "start": 2.8,
+    "end": 3.4,
+    "text": "字幕 4",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  {
+    "id": "c-0005",
+    "start": 3.6,
+    "end": 4.2,
+    "text": "字幕 5",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  {
+    "id": "c-0006",
+    "start": 4.4,
+    "end": 5,
+    "text": "字幕 6",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "a"
+  },
+  { "id": "c-0007", "start": 8, "end": 8.6, "text": "字幕 1", "speaker": null, "sourceRef": null, "edited": true, "time_domain": "output" }
+]
