@@ -43,6 +43,26 @@ export function waveformBucketForLocalPx(localPx: number, fullClipWidthPx: numbe
     return Math.min(bucketCount - 1, Math.max(0, Math.floor(localPx / fullClipWidthPx * bucketCount)));
 }
 
+/** 表示 px の半開区間が覆う全バケットの最大値。拡大時は補間しない。 */
+export function waveformPeakForPxRange(
+    peaks: readonly number[], startLocalPx: number, endLocalPx: number, fullClipWidthPx: number
+): number {
+    if (peaks.length === 0 || !(fullClipWidthPx > 0) || !Number.isFinite(fullClipWidthPx)
+        || !Number.isFinite(startLocalPx) || !Number.isFinite(endLocalPx)) return 0;
+    const startPx = Math.max(0, startLocalPx);
+    const endPx = Math.min(fullClipWidthPx, endLocalPx);
+    if (!(endPx > startPx)) return 0;
+    const first = waveformBucketForLocalPx(startPx, fullClipWidthPx, peaks.length);
+    let last = waveformBucketForLocalPx(endPx, fullClipWidthPx, peaks.length);
+    // 終端がバケット境界そのものなら、その右側のバケットは含めない。
+    if (last > first && endPx / fullClipWidthPx * peaks.length === last) last--;
+    let peak = peaks[first];
+    for (let bucket = first + 1; bucket <= last; bucket++) {
+        peak = Math.max(peak, peaks[bucket]);
+    }
+    return peak;
+}
+
 /** -48 dB を床にした固定対数スケールへ peak (0..1) を写す。 */
 export function waveformHeightForPeak(peak: number): number {
     if (!Number.isFinite(peak) || peak <= 0) return 0;

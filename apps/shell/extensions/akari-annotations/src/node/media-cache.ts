@@ -20,6 +20,7 @@ import {
     WAVEFORM_BUCKET_COUNT
 } from '../common/akari-annotations-protocol';
 import { clampWaveformBucketCount, planFilmstripChunk } from '../common/filmstrip-geometry';
+import { waveformBucketsForDuration } from '../common/waveform-band';
 import { createAsyncSemaphore } from './async-semaphore';
 
 const execFileAsync = promisify(execFile);
@@ -458,8 +459,10 @@ export async function getClipWaveform(
     }
 
     const directory = join(projectRoot, 'cache', 'timeline', 'waveform');
-    const effectiveBucketCount = clampWaveformBucketCount(bucketCount, endSeconds - startSeconds);
-    const legacyCacheKey = bucketCount === undefined || bucketCount === WAVEFORM_BUCKET_COUNT;
+    const effectiveBucketCount = bucketCount === undefined
+        ? waveformBucketsForDuration(endSeconds - startSeconds)
+        : clampWaveformBucketCount(bucketCount, endSeconds - startSeconds);
+    const legacyCacheKey = bucketCount === WAVEFORM_BUCKET_COUNT;
     const hash = cacheHash(legacyCacheKey
         ? [videoPath, stat.size, stat.mtimeMs, startSeconds, endSeconds, 'waveform']
         : [videoPath, stat.size, stat.mtimeMs, startSeconds, endSeconds, 'waveform', effectiveBucketCount]);

@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/photo-a.png" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "背景",
+      "items": [
+        { "id": "cut-1", "at": 0, "duration": 240, "source": { "kind": "media", "src": "main", "in": 0, "out": 8 } }
+      ]
+    },
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "name": "HTML 素材",
+      "items": [
+        { "id": "slot-a", "at": 0, "duration": 240,
+          "source": { "kind": "html", "path": "overlays/chapter-tag.html", "params": { "title": "第1章 問題の本質" } } }
+      ]
+    }
+  ]
+}

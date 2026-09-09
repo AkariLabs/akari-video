@@ -1,11 +1,14 @@
-import { BrowserWindow } from '@theia/core/electron-shared/electron';
+import { app, BrowserWindow } from '@theia/core/electron-shared/electron';
 import type { VisualThumbnailCapture, VisualThumbnailPage } from '../common/visual-thumbnail';
 import { alphaContentRect, thumbnailCropRect } from '../common/thumbnail-content-rect';
 
 let active = false;
+let captureCalls = 0;
 
 /** No navigation, selection or seek is ever sent to an existing preview window. */
 export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise<VisualThumbnailCapture> {
+    const failFirst = app.isPackaged ? 0 : Number(process.env.AKARI_VISUAL_THUMBNAIL_FAIL_FIRST ?? 0);
+    if (++captureCalls <= failFirst && Number.isSafeInteger(failFirst)) throw new Error('Visual thumbnail capture timed out');
     if (active) throw new Error('Visual thumbnail capture is busy');
     if (!page || typeof page.html !== 'string' || page.html.length > 8 * 1024 * 1024
         || !Number.isInteger(page.width) || page.width < 1 || page.width > 480
@@ -27,8 +30,15 @@ export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise
         target.webContents.on('will-navigate', event => event.preventDefault());
         return await Promise.race([
             (async () => {
-                await target.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page.html)}`);
-                await target.webContents.executeJavaScript('window.__akariThumbnailReady');
+                try {
+                    await target.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page.html)}`);
+                    // Carry the page's failure text across Electron instead of its generic script-rejected error.
+                    const ready = await target.webContents.executeJavaScript(
+                        'Promise.resolve(window.__akariThumbnailReady).then(value => ({ok:value === true}), error => ({ok:false,error:String(error)}))');
+                    if (!ready?.ok) throw new Error(ready?.error ?? 'Missing visual renderer readiness');
+                } catch (error) {
+                    throw new Error(`Visual renderer failed: ${String(error)}`);
+                }
                 const bitmap = await target.webContents.capturePage({ x: 0, y: 0, width: page.width, height: page.height });
                 const pixels = bitmap.toBitmap();
                 const size = bitmap.getSize();

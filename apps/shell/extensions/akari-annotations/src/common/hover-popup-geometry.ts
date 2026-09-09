@@ -1,3 +1,8 @@
+export const HOVER_POPUP_DELAY_MS = 2000;
+export const HOVER_POPUP_MAX_IMAGE_PX = 320;
+export const HOVER_POPUP_MAX_WIDTH_RATIO = 0.27;
+export const HOVER_POPUP_MAX_HEIGHT_RATIO = 0.4;
+
 export interface HoverPopupGeometryInput {
     naturalWidth?: number;
     naturalHeight?: number;
@@ -30,7 +35,8 @@ export function hoverPopupGeometry(input: HoverPopupGeometryInput): HoverPopupGe
     const width = hasNaturalSize ? input.naturalWidth : hasOutputSize ? input.width : 1920;
     const height = hasNaturalSize ? input.naturalHeight : hasOutputSize ? input.height : 1080;
     const frame = 2 * (padding + borderWidth);
-    const limit = input.maxImageSize ?? Math.min(480, innerWidth * 0.4, innerHeight * 0.6);
+    const limit = input.maxImageSize ?? Math.min(HOVER_POPUP_MAX_IMAGE_PX,
+        innerWidth * HOVER_POPUP_MAX_WIDTH_RATIO, innerHeight * HOVER_POPUP_MAX_HEIGHT_RATIO);
     const scale = Math.max(0, Math.min(limit / Math.max(width, height),
         (innerWidth - frame) / width, (innerHeight - frame - nameHeight) / height));
     const imageWidth = width * scale;
