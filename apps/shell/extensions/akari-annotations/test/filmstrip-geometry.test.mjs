@@ -14,8 +14,43 @@ import {
   planFilmstripChunk,
   waveformBucketForLocalPx,
   waveformHeightForPeak,
+  waveformPeakForPxRange,
 } from "../lib/common/filmstrip-geometry.js";
 import { FILMSTRIP_CHUNK_SECONDS } from "../lib/common/akari-annotations-protocol.js";
+
+test("waveformPeakForPxRange は表示px内の途中のピークも拾う", () => {
+  assert.equal(waveformPeakForPxRange([0.1, 0.9, 0.2, 1], 0, 1, 4 / 3), 0.9);
+  assert.equal(waveformPeakForPxRange([0.1, 0.9, 0.2, 1], 0.1, 0.9, 1), 1);
+});
+
+test("waveformPeakForPxRange は同じバケット内では補間せず値を返す", () => {
+  const peaks = [0.1, 0.9, 0.3, 1];
+  assert.equal(waveformPeakForPxRange(peaks, 12, 13, 100), 0.1);
+  assert.equal(waveformPeakForPxRange(peaks, 25, 26, 100), 0.9);
+  assert.equal(waveformPeakForPxRange(peaks, 49.5, 50.5, 100), 0.9);
+});
+
+test("waveformPeakForPxRange は半開区間の右端を含めず既存写像と一致する", () => {
+  const peaks = [0.1, 0.2, 0.3, 1];
+  assert.equal(waveformPeakForPxRange(peaks, 0, 75, 100), 0.3);
+  assert.equal(waveformPeakForPxRange(peaks, 75, 100, 100), 1);
+  for (let bucket = 0; bucket < peaks.length; bucket++) {
+    const start = bucket * 25;
+    assert.equal(waveformPeakForPxRange(peaks, start, start + 25, 100),
+      peaks[waveformBucketForLocalPx(start, 100, peaks.length)]);
+  }
+});
+
+test("waveformPeakForPxRange は範囲をクリップへクランプし空・無効な範囲は0", () => {
+  assert.equal(waveformPeakForPxRange([0.3, 0.8], -10, 200, 100), 0.8);
+  assert.equal(waveformPeakForPxRange([], 0, 1, 100), 0);
+  for (const width of [0, -1, NaN, Infinity]) {
+    assert.equal(waveformPeakForPxRange([1], 0, 1, width), 0);
+  }
+  for (const [start, end] of [[0, 0], [2, 1], [-2, -1], [100, 101], [NaN, 1], [0, Infinity]]) {
+    assert.equal(waveformPeakForPxRange([1], start, end, 100), 0);
+  }
+});
 
 test("filmstripChunkIndexFor はソース秒を FILMSTRIP_CHUNK_SECONDS 単位の等間隔グリッドへ丸める", () => {
   assert.equal(filmstripChunkIndexFor(0), 0);
