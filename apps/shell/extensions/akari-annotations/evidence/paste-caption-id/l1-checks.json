@@ -1,0 +1,60 @@
+[
+  {
+    "scenario": "初期状態（c-0001..c-0006 の字幕チップ）",
+    "captionIds": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004",
+      "c-0005",
+      "c-0006"
+    ],
+    "footer": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。",
+    "screenshot": "00-initial.png",
+    "pass": true
+  },
+  {
+    "scenario": "字幕 1 件を ⌘C → ⌘V すると c-0007 になり保存後検証が赤くならない",
+    "playhead": 8.006,
+    "copyFooter": "1 件をコピーしました。",
+    "footer": "1 件を貼り付けしました。",
+    "notice": "×",
+    "beforeIds": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004",
+      "c-0005",
+      "c-0006"
+    ],
+    "afterIds": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004",
+      "c-0005",
+      "c-0006",
+      "c-0007"
+    ],
+    "added": [
+      {
+        "id": "c-0007",
+        "start": 8,
+        "end": 8.6,
+        "time_domain": "output"
+      }
+    ],
+    "editLint": {
+      "exitCode": 0,
+      "captionSchemaFindings": [],
+      "errorFindings": []
+    },
+    "screenshot": "01-caption-paste.png",
+    "pass": true
+  },
+  {
+    "scenario": "L1 後始末（孤児プロセス）",
+    "orphanCheck": "ok: 0 processes",
+    "pass": true
+  }
+]
