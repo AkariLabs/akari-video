@@ -1,0 +1,781 @@
+{
+  "status": "PASS",
+  "label": "legacy",
+  "frameEngine": "0",
+  "results": {
+    "layerTyping": {
+      "base": {
+        "redCount": 42137,
+        "redCentroidX": 157.94,
+        "redMinX": 0,
+        "greenCount": 13559,
+        "greenCentroidX": 159.96,
+        "greenWidth": 157,
+        "greenHeight": 88
+      },
+      "steps": [
+        {
+          "typed": "3",
+          "redCount": 42138,
+          "redCentroidX": 157.39,
+          "redMinX": 0,
+          "greenCount": 13630,
+          "greenCentroidX": 161.5,
+          "greenWidth": 158,
+          "greenHeight": 88
+        },
+        {
+          "typed": "30",
+          "redCount": 42138,
+          "redCentroidX": 152.42,
+          "redMinX": 0,
+          "greenCount": 13556,
+          "greenCentroidX": 175,
+          "greenWidth": 157,
+          "greenHeight": 88
+        },
+        {
+          "typed": "300",
+          "redCount": 49266,
+          "redCentroidX": 140.05,
+          "redMinX": 0,
+          "greenCount": 7572,
+          "greenCentroidX": 275.64,
+          "greenWidth": 88,
+          "greenHeight": 88
+        }
+      ],
+      "live": [
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 300
+        }
+      ]
+    },
+    "rotate": {
+      "steps": [
+        {
+          "typed": "4",
+          "redCount": 42117,
+          "redCentroidX": 157.99,
+          "redMinX": 0,
+          "greenCount": 13582,
+          "greenCentroidX": 159.93,
+          "greenWidth": 163,
+          "greenHeight": 98
+        },
+        {
+          "typed": "45",
+          "redCount": 42152,
+          "redCentroidX": 157.85,
+          "redMinX": 0,
+          "greenCount": 13550,
+          "greenCentroidX": 159.76,
+          "greenWidth": 166,
+          "greenHeight": 166
+        }
+      ],
+      "live": [
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "rotate",
+          "value": 4
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "rotate",
+          "value": 45
+        }
+      ]
+    },
+    "baseTyping": {
+      "base": {
+        "redCount": 55831,
+        "redCentroidX": 159.99,
+        "redMinX": 2,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "steps": [
+        {
+          "typed": "3",
+          "redCount": 55831,
+          "redCentroidX": 159.99,
+          "redMinX": 2,
+          "greenCount": 0,
+          "greenCentroidX": null,
+          "greenWidth": 0,
+          "greenHeight": 0
+        },
+        {
+          "typed": "30",
+          "redCount": 53614,
+          "redCentroidX": 166.27,
+          "redMinX": 15,
+          "greenCount": 0,
+          "greenCentroidX": null,
+          "greenWidth": 0,
+          "greenHeight": 0
+        },
+        {
+          "typed": "300",
+          "redCount": 29720,
+          "redCentroidX": 234.03,
+          "redMinX": 150,
+          "greenCount": 0,
+          "greenCentroidX": null,
+          "greenWidth": 0,
+          "greenHeight": 0
+        }
+      ],
+      "live": [
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 300
+        }
+      ]
+    },
+    "escape": {
+      "value": "0",
+      "metrics": {
+        "redCount": 55831,
+        "redCentroidX": 159.99,
+        "redMinX": 2,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "edit": {
+        "x": 0,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      }
+    },
+    "blur": {
+      "beforeBlur": {
+        "redCount": 50958,
+        "redCentroidX": 173.79,
+        "redMinX": 30,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "afterBlur": {
+        "redCount": 50784,
+        "redCentroidX": 175.71,
+        "redMinX": 32,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "edit": {
+        "x": 60,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      },
+      "value": "60"
+    },
+    "itemTarget": {
+      "committed": {
+        "redCount": 50784,
+        "redCentroidX": 175.71,
+        "redMinX": 32,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "itemTargeted": {
+        "redCount": 37063,
+        "redCentroidX": 214.57,
+        "redMinX": 110,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "unknownTargeted": {
+        "redCount": 37063,
+        "redCentroidX": 214.57,
+        "redMinX": 110,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      },
+      "restored": {
+        "redCount": 50784,
+        "redCentroidX": 175.71,
+        "redMinX": 32,
+        "greenCount": 0,
+        "greenCentroidX": null,
+        "greenWidth": 0,
+        "greenHeight": 0
+      }
+    }
+  },
+  "records": [
+    {
+      "step": "launched",
+      "pid": 10696,
+      "frameEngine": "0",
+      "label": "legacy"
+    },
+    {
+      "step": "preview-attached"
+    },
+    {
+      "step": "ok",
+      "message": "timeline widget is open"
+    },
+    {
+      "step": "observe",
+      "name": "boot",
+      "file": "00-boot.png",
+      "redCount": 57600,
+      "redCentroidX": 159.5,
+      "redMinX": 0,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "inspector-opened",
+      "attempt": 0
+    },
+    {
+      "step": "observe",
+      "name": "a0-layer-selected-before-typing",
+      "file": "01-a0-layer-selected-before-typing.png",
+      "redCount": 42137,
+      "redCentroidX": 157.94,
+      "redMinX": 0,
+      "greenCount": 13559,
+      "greenCentroidX": 159.96,
+      "greenWidth": 157,
+      "greenHeight": 88
+    },
+    {
+      "step": "focus-field",
+      "field": "x",
+      "how": "click",
+      "probe": {
+        "x": 983.3359375,
+        "y": 209.5,
+        "width": 258.671875,
+        "height": 22,
+        "hit": true,
+        "blocker": "INPUT.akari-inspector-number-input"
+      },
+      "focused": true
+    },
+    {
+      "step": "observe",
+      "name": "a-layer-x-3",
+      "file": "02-a-layer-x-3.png",
+      "redCount": 42138,
+      "redCentroidX": 157.39,
+      "redMinX": 0,
+      "greenCount": 13630,
+      "greenCentroidX": 161.5,
+      "greenWidth": 158,
+      "greenHeight": 88
+    },
+    {
+      "step": "observe",
+      "name": "a-layer-x-30",
+      "file": "03-a-layer-x-30.png",
+      "redCount": 42138,
+      "redCentroidX": 152.42,
+      "redMinX": 0,
+      "greenCount": 13556,
+      "greenCentroidX": 175,
+      "greenWidth": 157,
+      "greenHeight": 88
+    },
+    {
+      "step": "observe",
+      "name": "a-layer-x-300",
+      "file": "04-a-layer-x-300.png",
+      "redCount": 49266,
+      "redCentroidX": 140.05,
+      "redMinX": 0,
+      "greenCount": 7572,
+      "greenCentroidX": 275.64,
+      "greenWidth": 88,
+      "greenHeight": 88
+    },
+    {
+      "step": "ok",
+      "message": "(a) X 欄に 3 / 30 / 300 が 1 打鍵ずつ入った",
+      "typed": [
+        "3",
+        "30",
+        "300"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(a) live 要求は photo-b-item の x で飛んでいる",
+      "live": [
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 300
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(a) 打鍵ごとに 3 / 30 / 300 の live 値が飛んだ（確定前）",
+      "live": [
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "x",
+          "value": 300
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(a) 打鍵ごとにプレビューの緑素材が右へ動いた",
+      "centroids": [
+        161.5,
+        175,
+        275.64
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(a) 確定前は edit.json の transform.x が 0 のまま"
+    },
+    {
+      "step": "observe",
+      "name": "a-after-escape",
+      "file": "05-a-after-escape.png",
+      "redCount": 42137,
+      "redCentroidX": 157.94,
+      "redMinX": 0,
+      "greenCount": 13559,
+      "greenCentroidX": 159.96,
+      "greenWidth": 157,
+      "greenHeight": 88
+    },
+    {
+      "step": "focus-field",
+      "field": "rotate",
+      "how": "click",
+      "probe": {
+        "x": 987.16796875,
+        "y": 290.5,
+        "width": 266.3359375,
+        "height": 22,
+        "hit": true,
+        "blocker": "INPUT.akari-inspector-number-input"
+      },
+      "focused": true
+    },
+    {
+      "step": "observe",
+      "name": "c-layer-rotate-4",
+      "file": "06-c-layer-rotate-4.png",
+      "redCount": 42117,
+      "redCentroidX": 157.99,
+      "redMinX": 0,
+      "greenCount": 13582,
+      "greenCentroidX": 159.93,
+      "greenWidth": 163,
+      "greenHeight": 98
+    },
+    {
+      "step": "observe",
+      "name": "c-layer-rotate-45",
+      "file": "07-c-layer-rotate-45.png",
+      "redCount": 42152,
+      "redCentroidX": 157.85,
+      "redMinX": 0,
+      "greenCount": 13550,
+      "greenCentroidX": 159.76,
+      "greenWidth": 166,
+      "greenHeight": 166
+    },
+    {
+      "step": "ok",
+      "message": "(c) 回転 4 → 45 が打鍵ごとに live で飛んだ",
+      "live": [
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "rotate",
+          "value": 4
+        },
+        {
+          "kind": "layer",
+          "id": "photo-b-item",
+          "field": "rotate",
+          "value": 45
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(c) 45° で緑素材の外接矩形が正方形へ広がった（回転がプレビューに乗った）",
+      "steps": [
+        {
+          "w": 163,
+          "h": 98
+        },
+        {
+          "w": 166,
+          "h": 166
+        }
+      ]
+    },
+    {
+      "step": "observe",
+      "name": "b0-base-item-selected-before-typing",
+      "file": "08-b0-base-item-selected-before-typing.png",
+      "redCount": 55831,
+      "redCentroidX": 159.99,
+      "redMinX": 2,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "focus-field",
+      "field": "x",
+      "how": "click",
+      "probe": {
+        "x": 983.3359375,
+        "y": 277.5,
+        "width": 258.671875,
+        "height": 22,
+        "hit": true,
+        "blocker": "INPUT.akari-inspector-number-input"
+      },
+      "focused": true
+    },
+    {
+      "step": "observe",
+      "name": "b-base-x-3",
+      "file": "09-b-base-x-3.png",
+      "redCount": 55831,
+      "redCentroidX": 159.99,
+      "redMinX": 2,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "b-base-x-30",
+      "file": "10-b-base-x-30.png",
+      "redCount": 53614,
+      "redCentroidX": 166.27,
+      "redMinX": 15,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "b-base-x-300",
+      "file": "11-b-base-x-300.png",
+      "redCount": 29720,
+      "redCentroidX": 234.03,
+      "redMinX": 150,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "ok",
+      "message": "(b) base トラックの clip でも打鍵ごとに live 要求が飛ぶ",
+      "live": [
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 300
+        }
+      ],
+      "target": {
+        "kind": "cut",
+        "index": 0,
+        "field": "x",
+        "value": 3
+      }
+    },
+    {
+      "step": "ok",
+      "message": "(b) 打鍵ごとに 3 / 30 / 300 の live 値が飛んだ",
+      "live": [
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 3
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 30
+        },
+        {
+          "kind": "cut",
+          "index": 0,
+          "field": "x",
+          "value": 300
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "(b) base トラックの v2 item でも打鍵ごとにプレビューが動いた",
+      "centroids": [
+        159.99,
+        166.27,
+        234.03
+      ]
+    },
+    {
+      "step": "observe",
+      "name": "d1-base-after-escape",
+      "file": "12-d1-base-after-escape.png",
+      "redCount": 55831,
+      "redCentroidX": 159.99,
+      "redMinX": 2,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "ok",
+      "message": "(d) Escape で X 欄が元値 0 に戻った",
+      "value": "0"
+    },
+    {
+      "step": "ok",
+      "message": "(d) Escape 後の edit.json は 0 のまま",
+      "edit": {
+        "x": 0,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      }
+    },
+    {
+      "step": "ok",
+      "message": "(d) Escape でプレビューが元の位置へ戻った",
+      "before": 159.99,
+      "after": 159.99
+    },
+    {
+      "step": "focus-field",
+      "field": "x",
+      "how": "click",
+      "probe": {
+        "x": 983.3359375,
+        "y": 277.5,
+        "width": 258.671875,
+        "height": 22,
+        "hit": true,
+        "blocker": "INPUT.akari-inspector-number-input"
+      },
+      "focused": true
+    },
+    {
+      "step": "observe",
+      "name": "d2-base-x-60-before-blur",
+      "file": "13-d2-base-x-60-before-blur.png",
+      "redCount": 50958,
+      "redCentroidX": 173.79,
+      "redMinX": 30,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "d2-base-x-60-after-blur",
+      "file": "14-d2-base-x-60-after-blur.png",
+      "redCount": 50784,
+      "redCentroidX": 175.71,
+      "redMinX": 32,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "ok",
+      "message": "(d) blur で edit.json の transform.x が 60 に確定した",
+      "edit": {
+        "x": 60,
+        "y": 0,
+        "scale": 1,
+        "rotate": 0
+      }
+    },
+    {
+      "step": "ok",
+      "message": "(d) 確定後のプレビューが確定前の live プレビューと一致する",
+      "beforeBlur": 173.79,
+      "afterBlur": 175.71
+    },
+    {
+      "step": "observe",
+      "name": "e0-item-target-baseline",
+      "file": "15-e0-item-target-baseline.png",
+      "redCount": 50784,
+      "redCentroidX": 175.71,
+      "redMinX": 32,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "e1-item-target-x-220",
+      "file": "16-e1-item-target-x-220.png",
+      "redCount": 37063,
+      "redCentroidX": 214.57,
+      "redMinX": 110,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "e2-item-target-unknown",
+      "file": "17-e2-item-target-unknown.png",
+      "redCount": 37063,
+      "redCentroidX": 214.57,
+      "redMinX": 110,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "observe",
+      "name": "e3-item-target-restored",
+      "file": "18-e3-item-target-restored.png",
+      "redCount": 50784,
+      "redCentroidX": 175.71,
+      "redMinX": 32,
+      "greenCount": 0,
+      "greenCentroidX": null,
+      "greenWidth": 0,
+      "greenHeight": 0
+    },
+    {
+      "step": "ok",
+      "message": "(b2) item ターゲット（base トラックの v2 item = summary.cuts 側）がプレビューへ届いた",
+      "committed": 175.71,
+      "itemTargeted": 214.57
+    },
+    {
+      "step": "ok",
+      "message": "(b2) 存在しない item id は無視される",
+      "unknownTargeted": 214.57
+    },
+    {
+      "step": "ok",
+      "message": "(b2) 元値の item ターゲットで確定値の見た目へ戻る",
+      "committed": 175.71,
+      "restored": 175.71
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "label": "legacy"
+    }
+  ]
+}

@@ -127,7 +127,15 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     unit.className = 'akari-inspector-number-unit';
     unit.textContent = options.unit ?? '';
 
+    let composing = false;
+    let lastInputPreviewAt = -Infinity;
+    let inputPreviewTimer: ReturnType<typeof setTimeout> | undefined;
+    const cancelInputPreview = (): void => {
+        if (inputPreviewTimer !== undefined) clearTimeout(inputPreviewTimer);
+        inputPreviewTimer = undefined;
+    };
     const restore = (): void => {
+        cancelInputPreview();
         input.value = formatNumberStep(displayValue, displayStep, options.displayPrecision);
         options.onPreview?.(options.value);
     };
@@ -140,6 +148,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         button.textContent = direction > 0 ? '▲' : '▼';
         button.setAttribute('aria-label', `${options.label}を${label}`);
         button.addEventListener('click', event => {
+            cancelInputPreview();
             const current = Number(input.value);
             if (!Number.isFinite(current)) return;
             const displayNext = numericStep(
@@ -156,6 +165,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     buttons.append(up, down);
 
     const commitInput = async (): Promise<void> => {
+        cancelInputPreview();
         const parsed = Number(input.value);
         if (!Number.isFinite(parsed)) {
             restore();
@@ -167,6 +177,38 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         options.onPreview?.(next);
         if (!await options.onCommit(next)) restore();
     };
+    const previewInput = (): void => {
+        cancelInputPreview();
+        if (composing) return;
+        // Number('') / Number('1.') are finite, but these are unfinished edits.
+        const text = input.value.trim();
+        const parsed = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i.test(text) ? Number(text) : NaN;
+        if (!Number.isFinite(parsed)) return;
+        const next = fromDisplay(clampNumber(parsed, displayMin, displayMax));
+        if (!Number.isFinite(next)) return;
+        const remaining = INSPECTOR_LIVE_PREVIEW_THROTTLE_MS - (Date.now() - lastInputPreviewAt);
+        if (remaining > 0) {
+            inputPreviewTimer = setTimeout(previewInput, remaining);
+            return;
+        }
+        lastInputPreviewAt = Date.now();
+        options.onPreview?.(next);
+    };
+    input.addEventListener('compositionstart', () => {
+        composing = true;
+        cancelInputPreview();
+    });
+    input.addEventListener('compositionend', () => {
+        composing = false;
+        previewInput();
+    });
+    input.addEventListener('input', event => {
+        if ((event as InputEvent).isComposing) {
+            cancelInputPreview();
+            return;
+        }
+        previewInput();
+    });
     input.addEventListener('blur', () => void commitInput());
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
@@ -177,6 +219,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             restore();
             input.blur();
         } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            cancelInputPreview();
             event.preventDefault();
             const current = Number(input.value);
             if (!Number.isFinite(current)) return;
@@ -195,6 +238,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
 
     handle.addEventListener('pointerdown', downEvent => {
         if (downEvent.button !== 0) return;
+        cancelInputPreview();
         downEvent.preventDefault();
         const pointerId = downEvent.pointerId;
         const startX = downEvent.clientX;
