@@ -57,8 +57,8 @@ test('辺バーは白地 + 青枠の 28×5 / 5×28 で、frame-engine 面でも�
     );
     // ⛶ クロップモード中は select box 側の操作系（辺バー含む）を隠す。
     assert.match(source, /#layer-select-box\.akari-crop-mode-hide-handles \.akari-crop-edge,/u);
-    // 枠の当該軸が 44px 未満なら角点と衝突するので隠す。
-    assert.match(source, /const CROP_EDGE_MIN_BOX_PX = 44;/u);
+    // 当たり幅は維持し、24px 以上の小さい選択にも辺バーを出す。
+    assert.match(source, /const CROP_EDGE_MIN_BOX_PX = 24;/u);
     assert.match(source, /\.akari-crop-edges-hide-x \.akari-crop-edge-n, \.akari-crop-edges-hide-x \.akari-crop-edge-s \{ display: none; \}/u);
     assert.match(source, /\.akari-crop-edges-hide-y \.akari-crop-edge-e, \.akari-crop-edges-hide-y \.akari-crop-edge-w \{ display: none; \}/u);
     assert.match(source, /\.akari-crop-edges-off \.akari-crop-edge \{ display: none; \}/u);
@@ -117,7 +117,7 @@ test('layer-style へ入っていない cut に初めて crop を書くときだ
 test('framing 持ち / v2 の item id が無い cut では辺バーが出ない', () => {
     assert.match(
         source,
-        /const cutCropEditable = \(\) => Boolean\(cutSelectionVideo\(\)\.dataset\.akariCutId\)\s*&& Number\(summary\.editVersion\) === 2\s*&& \(outputGeometryIsSource \|\| cutSelectionVideo\(\)\.dataset\.akariCutFraming !== 'true'\);/u
+        /const isV2 = Number\(summary\.editVersion\) === 2;\s*const editable = Boolean\(media\.dataset\.akariCutId\) && isV2\s*&& \(outputGeometryIsSource \|\| media\.dataset\.akariCutFraming !== 'true'\);/u
     );
     assert.match(source, /applyCropEdgeVisibility\(cutSelectBox, screenW, screenH, cutCropEditable\(\)\)/u);
     assert.match(source, /applyCropEdgeVisibility\(layerSelectBox, box\.width, box\.height, true\)/u);
