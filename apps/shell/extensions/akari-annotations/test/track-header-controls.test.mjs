@@ -67,16 +67,40 @@ test('derived audio retains its disabled mute button and resize handle', () => {
   const handler = new Handler();
   handler.trackKindSvg = () => '';
   handler.timelineTracks = [];
+  handler.pasteTargetTracks = new Set();
   handler.isTrackLocked = () => false;
   handler.timelineTrackItemCount = () => 0;
   handler.trackHeightResizeHandle = () => ({ tag: 'handle' });
   const track = { id: 'derived-audio', kind: 'audio' };
   const row = handler.trackHeaderRow('Audio', 'audio', track.id, 0, 48, true, () => {}, true, () => {}, 0, track);
-  const buttons = row.children.filter(child => child.tag === 'button');
+  const buttons = row.children.filter(child => child.tag === 'button' && !child.dataset.akariPasteTarget);
   assert.equal(buttons.length, 2);
   assert.equal(buttons[0].dataset.akariToggle, 'mute');
   assert.equal(buttons[0].disabled, true);
   assert.equal(buttons[1].dataset.akariToggle, 'lock');
   assert.notEqual(buttons[1].disabled, true);
   assert.equal(row.children.at(-1).tag, 'handle');
+});
+
+
+test('貼り先はクリックで指定・解除し、Option クリックで solo にする（保存しない）', () => {
+  const handler = new Handler();
+  handler.pasteTargetTracks = new Set(['v2']);
+  handler.trackKindSvg = () => '';
+  handler.isTrackLocked = () => false;
+  handler.timelineTrackItemCount = () => 1;
+  handler.trackHeightResizeHandle = () => ({ tag: 'handle' });
+  handler.renderStrip = () => {};
+  const track = { id: 'v1', kind: 'cuts' };
+  const row = () => handler.trackHeaderRow('映像', 'video', track.id, 0, 48, true, () => {}, true, () => {}, 0, track);
+  const button = () => row().children.find(child => child.dataset?.akariPasteTarget === 'v1');
+  const click = altKey => button().listeners.click({ altKey, preventDefault() {}, stopPropagation() {} });
+  assert.equal(button().attributes['aria-pressed'], 'false');
+  click(false);
+  assert.deepEqual([...handler.pasteTargetTracks], ['v2', 'v1']);
+  assert.equal(button().attributes['aria-pressed'], 'true');
+  click(false);
+  assert.deepEqual([...handler.pasteTargetTracks], ['v2']);
+  click(true);
+  assert.deepEqual([...handler.pasteTargetTracks], ['v1']);
 });
