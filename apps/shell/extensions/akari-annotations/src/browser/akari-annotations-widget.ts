@@ -1,6 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
+import { clipKindBadge, ClipKindBadgeContext, ClipKindBadgeItem } from '../common/clip-kind-badge';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
 import { hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
@@ -1691,6 +1692,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
         line-height: 12px;
         pointer-events: none;
         text-shadow: 0 1px 2px #000;
+    }
+    /* Size containment lets the badge follow clip width and height as the timeline zooms. */
+    .akari-annotations-widget :has(> .akari-clip-kind-badge) {
+        container-type: size;
+    }
+    .akari-annotations-widget .akari-clip-kind-badge {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        padding: 0 6px;
+        border-radius: 6px; /* AKARI_RADIUS.chip */
+        font-size: 9px;
+        line-height: 16px;
+        background: var(--theia-badge-background);
+        color: var(--theia-badge-foreground);
+        pointer-events: none;
+        white-space: nowrap;
+        box-sizing: border-box;
+        overflow: hidden;
+        z-index: 3;
+    }
+    .akari-annotations-widget :has(> .akari-clip-kind-badge) > .akari-annotations-segment-label {
+        position: absolute;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        z-index: 2;
+    }
+    @container (width < 40px) {
+        .akari-annotations-widget .akari-clip-kind-badge { display: none; }
+    }
+    @container (width >= 40px) and (height < 36px) {
+        .akari-annotations-widget :has(> .akari-clip-kind-badge) > .akari-annotations-segment-label {
+            left: 44px;
+            max-width: calc(100% - 44px);
+        }
+    }
+    .akari-annotations-widget :has(> .akari-clip-kind-badge) > .akari-annotations-strip-clip-header {
+        padding-left: 44px;
     }
     .akari-annotations-widget .akari-annotations-selected {
         outline: 2px solid var(--theia-focusBorder, #fff);
@@ -6982,6 +7024,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (beatsBandHeight > 0) this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
 
+        const badgeSources = (this.editDocument?.sources ?? []) as Array<{ id: string; path: string }>;
         const renderedItemIds = new Set([
             ...this.cutItemIds,
             ...this.overlays.map(item => item.id),
@@ -7071,6 +7114,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeTrackId = row.trackId;
             element.style.pointerEvents = 'auto';
             if (created) {
+                const path = badgeSources.find(source => source.id === raw?.source?.src)?.path;
+                this.appendClipKindBadge(element, raw, { path });
                 element.appendChild(this.segmentLabel(label));
                 this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
                 this.appendAggregateDiamonds(element, row);
@@ -7168,6 +7213,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
             if (created) {
+                const raw = this.rawKeyframeItem(overlay.id);
+                const path = badgeSources.find(source => source.id === raw?.source?.src)?.path;
+                this.appendClipKindBadge(element, raw, { path });
                 element.appendChild(this.segmentLabel(label));
                 this.appendMotionMarks(element, this.rawKeyframeItem(overlay.id)?.motion);
                 const overlayTreeRow = this.timelineTreeRows.find(row => row.id === overlay.id);
@@ -7210,6 +7258,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             if (created) {
+                const raw = this.rawKeyframeItem(layer.id);
+                const path = badgeSources.find(source => source.id === raw?.source?.src)?.path;
+                this.appendClipKindBadge(element, raw, { path });
                 element.appendChild(media ? this.clipHeader(media.label, layer.duration) : this.segmentLabel(layer.id));
                 this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
                 const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
@@ -7284,6 +7335,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = bgmLayout.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
+            if (created) this.appendClipKindBadge(element, this.rawV2Item(bgm.id) ?? { source: { kind: 'media' } }, { lane: 'audio', path: bgm.path });
             if (created) {
                 element.appendChild(this.segmentLabel(label));
                 this.appendAudioKeyframeMarkers(
@@ -7342,6 +7394,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             else delete element.dataset.akariLinked;
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
+            if (created) this.appendClipKindBadge(element, this.rawV2Item(narration.id) ?? { source: { kind: 'media' } }, { lane: 'audio', path: narration.path });
             if (created) {
                 element.appendChild(this.segmentLabel(label));
                 this.appendAudioKeyframeMarkers(
@@ -7448,6 +7501,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             const dimForAudioTrimmer = trimmerActiveAudioId !== undefined && trimmerActiveAudioId !== sfx.id;
             element.style.opacity = !this.audioVisible ? '.28' : dimForAudioTrimmer ? '.6' : '';
+            if (created) this.appendClipKindBadge(element, this.rawV2Item(sfx.id) ?? { source: { kind: 'media' } }, { lane: 'audio', path: sfx.path });
             if (created) element.appendChild(this.segmentLabel(label));
             // ソーストリマー（R6 契約 §3・動画クリップと同型・R6c2r2 外側延長方式）: dblclick で
             // この音声クリップが選ばれている間だけ、本体（通常表示と同一スケール）の左右に
@@ -7601,6 +7655,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration
                     );
                     element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
+                    this.appendClipKindBadge(element, this.rawKeyframeItem(cutItemId) ?? { source: { kind: 'media' } }, { path: cut.src, lane: 'visual' });
                 }
                 this.installTrimmerDrag(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -7622,6 +7677,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (created) {
                     this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
                     element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
+                    this.appendClipKindBadge(element, this.rawKeyframeItem(cutItemId) ?? { source: { kind: 'media' } }, { path: cut.src, lane: 'visual' });
                 } else {
                     this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutLayout.height);
                 }
@@ -11642,6 +11698,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         durationSpan.textContent = this.formatFrameTimestamp(durationSeconds, this.fps);
         header.append(labelSpan, durationSpan);
         return header;
+    }
+
+    protected appendClipKindBadge(
+        element: HTMLElement, item: ClipKindBadgeItem | undefined, context: ClipKindBadgeContext = {}
+    ): void {
+        // The legacy cut projection can retain a source ID; accept resolved paths as well.
+        const path = context.path === undefined ? undefined : this.sourceMap.get(context.path)?.path ?? context.path;
+        const badge = clipKindBadge(item, { ...context, path });
+        if (!badge) return;
+        const tag = document.createElement('span');
+        tag.className = 'akari-clip-kind-badge';
+        tag.textContent = badge.text;
+        tag.title = badge.title;
+        tag.dataset.akariClipKindBadge = badge.text;
+        element.appendChild(tag);
     }
 
     /** Use the drag hit test for the highlight so the visible handle matches the active edge. */
