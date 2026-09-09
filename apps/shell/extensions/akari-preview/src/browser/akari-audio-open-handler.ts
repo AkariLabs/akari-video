@@ -1,3 +1,4 @@
+import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry } from '@theia/core/lib/common';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
@@ -61,6 +62,9 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
     @inject(ApplicationShell)
     protected readonly shell: ApplicationShell;
 
+    @inject(MaterialPreviewSlot)
+    protected readonly materialSlot: MaterialPreviewSlot;
+
     @inject(FileService)
     protected readonly fileService: FileService;
 
@@ -87,15 +91,13 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         return AUDIO_MIME_TYPES.has(uri.path.ext.toLowerCase()) ? 1100 : 0;
     }
 
-    async open(uri: URI, options?: any): Promise<WebviewWidget> {
+    async open(uri: URI, _options?: any): Promise<WebviewWidget> {
         const identifier = { id: `akari-audio-${this.hash(uri.toString())}`, viewId: uri.toString() };
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, identifier);
         this.configureWidget(widget, uri);
         await this.render(widget, uri);
         this.attachTimelinePassively();
-        if (!widget.isAttached) {
-            this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
-        }
+        await this.materialSlot.claim(widget, uri);
         await this.shell.activateWidget(widget.id);
         return widget;
     }
@@ -190,9 +192,9 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.audio';
-        widget.title.label = uri.path.base;
+        widget.title.label = '素材プレビュー';
         widget.title.caption = uri.toString();
-        widget.title.iconClass = 'codicon codicon-file-media';
+        widget.title.iconClass = 'codicon codicon-unmute';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
 
         const mimeType = AUDIO_MIME_TYPES.get(uri.path.ext.toLowerCase()) ?? 'application/octet-stream';
@@ -309,7 +311,8 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; background: #111; color: #eee; }
-body { display: grid; place-items: center; padding: 32px; }
+body { position: relative; display: grid; place-items: center; padding: 32px; }
+.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }
 .card { width: min(560px, 100%); padding: 28px; border: 1px solid #383838; border-radius: 12px; background: #1b1b1b; box-shadow: 0 12px 32px rgb(0 0 0 / 24%); }
 .name { margin: 0 0 8px; overflow-wrap: anywhere; font-size: 16px; font-weight: 600; }
 .metadata { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 22px; color: #aaa; font-size: 13px; }
@@ -320,6 +323,7 @@ audio { display: block; width: 100%; }
 </style>
 </head>
 <body>
+<div class="akari-material-chip">${this.escapeHtml(uri.path.base)}</div>
 <main class="card">
 <section id="player-card" data-playback-path="${transcoded ? 'ffmpeg' : 'direct'}">
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
@@ -405,7 +409,8 @@ ${transcoded ? '<p class="note">ffmpeg 変換で再生中</p>' : ''}
 :root { color-scheme: dark; font-family: system-ui, sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; background: #111; color: #eee; }
-body { display: grid; place-items: center; padding: 32px; }
+body { position: relative; display: grid; place-items: center; padding: 32px; }
+.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }
 .card { width: min(560px, 100%); padding: 28px; border: 1px solid #383838; border-radius: 12px; background: #1b1b1b; }
 .message { margin: 0 0 16px; line-height: 1.7; font-size: 15px; }
 .name { margin: 0 0 8px; overflow-wrap: anywhere; font-size: 16px; font-weight: 600; }
@@ -413,6 +418,7 @@ body { display: grid; place-items: center; padding: 32px; }
 </style>
 </head>
 <body>
+<div class="akari-material-chip">${this.escapeHtml(uri.path.base)}</div>
 <main class="card">
 <p class="message">${this.escapeHtml(message)}</p>
 <p class="name">${this.escapeHtml(uri.path.base)}</p>
