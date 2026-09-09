@@ -1,3 +1,5 @@
+import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
+import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
 import * as React from '@theia/core/shared/react';
 import URI from '@theia/core/lib/common/uri';
@@ -2109,6 +2111,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    @inject(AkariPreviewService)
+    protected readonly materialPreviewService!: AkariPreviewService;
+
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
         const layout = materialCardLayout({ kind: entry.kind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
@@ -2164,7 +2169,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             alt=''
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: layout.objectFit }}
                         />
-                        : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                        : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
+                            ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
+                                files={this.files} icon={this.placeholderIcon(entry.kind)} />
+                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {(entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}
