@@ -33,7 +33,11 @@ export default new ContainerModule(bind => {
     bind(AkariAnnotationsWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariAnnotationsWidget.FACTORY_ID,
-        createWidget: async () => context.container.get(AkariAnnotationsWidget)
+        createWidget: async (options?: { editUri?: string }) => {
+            const widget = context.container.get(AkariAnnotationsWidget);
+            widget.adoptTimelineIdentity(options?.editUri);
+            return widget;
+        }
     })).inSingletonScope();
 
     bind(AkariReviewPanelWidget).toSelf();

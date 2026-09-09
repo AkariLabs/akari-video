@@ -1,0 +1,140 @@
+Electron main: loading modules... [0.431 s since electron main start]
+Electron main: container created [0.569 s since electron main start]
+Electron main: modules loaded [0.589 s since electron main start]
+Electron main: resolving application [0.589 s since electron main start]
+Electron main: application resolved [0.592 s since electron main start]
+
+DevTools listening on ws://127.0.0.1:49391/devtools/browser/632f1825-4ed0-48c4-a73a-b8f4eff53a01
+Showing main window early
+Backend main: entry point loaded [0.365 s since backend process start]
+Backend server: loading modules... [0.368 s since backend process start]
+Backend server: container created [0.533 s since backend process start]
+Backend server: modules loaded [0.667 s since backend process start]
+Configuration directory URI: 'file://<TMP>/existing-config'
+Backend server: resolving application [0.681 s since backend process start]
+Configuring to accept webviews on '^.+\.webview\..+$' hostname.
+2026-09-08T22:49:25.347Z root WARN Backend dk.initialize took longer than the expected maximum 50 milliseconds: 89.7 ms [0.783 s since backend process start]
+2026-09-08T22:49:25.348Z root WARN Backend Object.initialize took longer than the expected maximum 50 milliseconds: 88.2 ms [0.783 s since backend process start]
+2026-09-08T22:49:25.348Z root WARN Backend wfe.initialize took longer than the expected maximum 50 milliseconds: 95.2 ms [0.790 s since backend process start]
+2026-09-08T22:49:25.356Z core:BackendApplication INFO configured all backend app contributions
+2026-09-08T22:49:25.356Z root INFO Settings file not found at '<TMP>/existing-config/backend-settings.json'. Falling back to defaults.
+2026-09-08T22:49:25.361Z core:BackendApplication INFO Theia app listening on http://127.0.0.1:50164.
+2026-09-08T22:49:25.362Z root INFO Backend application startup sequence completed (async work may still be pending): 11.0 ms [0.807 s since backend process start]
+2026-09-08T22:49:25.362Z root INFO All backend contributions settled: 125.4 ms [0.807 s since backend process start]
+Starting backend: 859.8 ms [1.460 s since electron main start]
+2026-09-08T22:49:25.363Z root WARN The local plugin referenced by local-dir:<TMP>/existing-config/plugins does not exist.
+2026-09-08T22:49:25.363Z root WARN The local plugin referenced by local-dir:<TMP>/existing-config/deployedPlugins does not exist.
+2026-09-08T22:49:25.363Z root INFO Resolve plugins list: 5.7 ms [0.808 s since backend process start]
+2026-09-08T22:49:25.365Z root INFO Deploy plugins list: 7.4 ms [0.810 s since backend process start]
+2026-09-08T22:49:25.367Z akari-partner INFO [akari CLI] v0.1.58 は配備済みです（<HOME>/.akari/cli/0.1.58）
+2026-09-08T22:49:25.367Z akari-partner INFO [akari CLI] シム生成: <HOME>/.akari/cli/bin/akari
+Attaching security token: 4.1 ms [1.465 s since electron main start]
+Skip checkForUpdates because application is not packed and dev update config is not forced
+Vh.onStart: 6.7 ms [1.472 s since electron main start]
+oS.onStart: 5.8 ms [1.472 s since electron main start]
+ZO.onStart: 1.8 ms [1.472 s since electron main start]
+nF.onStart: 1.8 ms [1.472 s since electron main start]
+zh.onStart: 1.8 ms [1.472 s since electron main start]
+sF.onStart: 1.7 ms [1.472 s since electron main start]
+cF.onStart: 1.4 ms [1.472 s since electron main start]
+nL.onStart: 1.4 ms [1.472 s since electron main start]
+Starting contributions: 7.8 ms [1.472 s since electron main start]
+Startup sequence completed: 872.2 ms [1.473 s since electron main start]
+2026-09-08T22:49:26.042Z root INFO creating connection for 1
+2026-09-08T22:49:26.988Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 107.9 ms [1.603 s since frontend page start]
+Opening channel for service path '/services/electron-window'.
+2026-09-08T22:49:27.171Z root WARN Linked preference "workbench.colorCustomizations" not found.
+2026-09-08T22:49:27.171Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.
+2026-09-08T22:49:27.297Z SkillService INFO Loaded 8 skills
+2026-09-08T22:49:27.298Z root WARN Frontend gst.onStart took longer than the expected maximum 100 milliseconds: 272.8 ms [1.920 s since frontend page start]
+2026-09-08T22:49:27.309Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]
+2026-09-08T22:49:27.309Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]
+2026-09-08T22:49:27.309Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]
+2026-09-08T22:49:27.330Z root INFO [0cd3a0cd-b0ab-4594-813d-1f0be6846a5a] Waiting for backend deployment: 29.0 ms [1.952 s since frontend page start]
+2026-09-08T22:49:27.373Z root INFO Start frontend contributions: 618.2 ms [1.980 s since frontend page start]
+2026-09-08T22:49:27.373Z root INFO Changed application state from 'init' to 'started_contributions'.
+2026-09-08T22:49:27.377Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.
+2026-09-08T22:49:27.377Z root INFO >>> Restoring the layout state...
+2026-09-08T22:49:27.381Z root INFO [0cd3a0cd-b0ab-4594-813d-1f0be6846a5a] Loading plugin contributions
+2026-09-08T22:49:27.381Z root INFO <<< Nothing to restore.
+2026-09-08T22:49:27.525Z root INFO Initialize the workbench layout: 144.0 ms [2.143 s since frontend page start]
+2026-09-08T22:49:27.526Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}
+2026-09-08T22:49:27.551Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug
+2026-09-08T22:49:27.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}
+2026-09-08T22:49:27.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}
+2026-09-08T22:49:27.552Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container
+2026-09-08T22:49:27.560Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}
+2026-09-08T22:49:27.560Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}
+2026-09-08T22:49:27.560Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}
+2026-09-08T22:49:27.560Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view
+2026-09-08T22:49:27.562Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}
+2026-09-08T22:49:29.351Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding
+2026-09-08T22:49:29.651Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined
+2026-09-08T22:49:29.651Z root WARN Frontend Hsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2001.9 ms [4.274 s since frontend page start]
+2026-09-08T22:49:29.654Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}
+2026-09-08T22:49:29.655Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}
+2026-09-08T22:49:29.673Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget
+2026-09-08T22:49:29.755Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget
+2026-09-08T22:49:30.466Z root INFO Replace loading indicator with ready workbench UI (animation): 802.4 ms [5.081 s since frontend page start]
+2026-09-08T22:49:30.466Z root INFO Changed application state from 'initialized_layout' to 'ready'.
+2026-09-08T22:49:30.466Z root INFO All frontend contributions settled: 3718.6 ms [5.081 s since frontend page start]
+2026-09-08T22:49:30.467Z root INFO Frontend application startup sequence completed (async work may still be pending): 3620.4 ms [5.911 s since backend process start]
+2026-09-08T22:49:40.032Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget:tategata-ban
+2026-09-08T22:49:43.747Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget:tategata-ban
+2026-09-08T22:49:47.782Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget
+2026-09-08T22:49:49.558Z root INFO [webview: akari-output-preview-i642fy] @webav version: 1.2.8, date: 2026/9/9
+2026-09-08T22:49:49.559Z root INFO [webview: akari-output-preview-i642fy] Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.58 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36
+[95417:0909/074949.750499:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 "paramErr: error in user parameter list" (-50)
+2026-09-08T22:49:53.195Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget:tategata-ban
+2026-09-08T22:50:26.747Z root INFO socket closed
+2026-09-08T22:50:26.747Z root INFO closing connection for 1
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/localization-server'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/os'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/logger'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/commands'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/messageService'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/ChannelCloseService'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/remote-filesystem'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/envs'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/workspace'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/keyboard'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/stopwatch'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/application'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/i18n'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickInput'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/debug'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/task'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickPick'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/shell-terminal'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/search'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/hostedPlugin'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-ext'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-paths'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-registry'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/cli-preferences'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanagerserver'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanager'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpOAuthFrontendDelegate'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/request-service'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-annotations'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-quick-export'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-export-thumbnail'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-partner'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-connections'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-new-project'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/search-in-workspace'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview-server'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project-clean'.
+2026-09-08T22:50:26.747Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-environment'.
+Closing channel on service path '/services/electron-window'.
+2026-09-08T22:50:26.754Z root INFO >>> Stopping backend contributions...
+2026-09-08T22:50:26.755Z root INFO <<< All backend contributions have been stopped.

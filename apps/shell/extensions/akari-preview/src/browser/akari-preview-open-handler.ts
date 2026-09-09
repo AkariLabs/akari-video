@@ -1,3 +1,5 @@
+import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
+import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
@@ -1117,6 +1119,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(ApplicationShell)
     protected readonly shell: ApplicationShell;
 
+    @inject(MaterialPreviewSlot)
+    protected readonly materialSlot: MaterialPreviewSlot;
+
     @inject(FileService)
     protected readonly fileService: FileService;
 
@@ -1155,6 +1160,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             const { id, viewId } = event.widget.identifier;
+            if (isMaterialPreviewWidgetId(id)) {
+                this.materialSlot.register(event.widget);
+            }
             const kind = id.startsWith('akari-output-preview-') ? 'output'
                 : id.startsWith('akari-preview-') ? 'raw' : undefined;
             if (kind && viewId) {
@@ -2176,7 +2184,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const previews = kind === 'output' ? this.openOutputPreviews : this.openPreviews;
         const existing = previews.get(seekKey);
         if (existing?.akariPreviewConfigured && !existing.isDisposed) {
-            if (!existing.isAttached) {
+            // DI 無しでライフサイクルだけを実行する既存テスト fixture との互換を保つ。
+            const slot = this.materialSlot;
+            if (kind === 'raw' && slot) {
+                await slot.claim(existing, uri);
+            } else if (!existing.isAttached) {
                 this.shell.addWidget(existing, widgetOptions);
             }
             if (kind === 'output' && Number.isFinite(initialSeekTime)) {
@@ -2211,7 +2223,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.discardPreviewWidget(widget, uri, kind);
                     throw new Error('Preview widget was disposed while opening.');
                 }
-                if (!widget.isAttached) {
+                // DI 無しの既存テスト fixture では従来の shell 追加経路を使う。
+                const slot = this.materialSlot;
+                if (kind === 'raw' && slot) {
+                    await slot.claim(widget, uri);
+                } else if (!widget.isAttached) {
                     this.shell.addWidget(widget, widgetOptions);
                 }
                 // cut の ID 解決に summary、webview への送信に attach が必要なので configure/addWidget 後に問い合わせる。
@@ -3313,9 +3329,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             (model.motionBagUris ?? []).map(uri => this.resourceSuffix(uri))
         );
         widget.viewType = 'akari.preview';
-        widget.title.label = kind === 'output' ? '出力プレビュー' : videoUri.path.base;
+        widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
-        widget.title.iconClass = 'codicon codicon-preview';
+        widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({
             allowScripts: true,
             allowForms: true
@@ -3658,9 +3674,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewTrackedResources = new Set(kind === 'output' ? [identityUri.toString()] : []);
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
         widget.viewType = 'akari.preview';
-        widget.title.label = kind === 'output' ? '出力プレビュー' : videoUri.path.base;
+        widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
-        widget.title.iconClass = 'codicon codicon-preview';
+        widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
         widget.setHTML(this.prepareMessageHtml(message));
     }
@@ -5871,6 +5887,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .preview-pane { position: relative; min-width: 0; min-height: 0; padding: 0; overflow: hidden; background: var(--akari-preview-pasteboard); }
 /* ペインがズーム/パンの唯一のビューポート。wrapper は UI の固定基準、zoom-layer は
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
+${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }' : ''}
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
@@ -6089,7 +6106,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <body>
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
-    <div id="preview-wrapper">
+    <div id="preview-wrapper">${kind === 'raw' ? `<div class="akari-material-chip" id="material-chip"><span id="material-chip-name">${this.escapeHtml(videoUri.path.base)}</span><span id="material-chip-duration" hidden></span></div>` : ''}
       <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
       <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
       <div id="zoom-layer">
@@ -6214,7 +6231,39 @@ ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 <script>${this.previewBootstrapScript()}</script>
-${frameEngineScripts}</body>
+${kind === 'raw' ? `<script>
+(() => {
+    try {
+        let attempts = 0;
+        const timer = setInterval(() => {
+            try {
+                attempts += 1;
+                const clockDuration = window.akari?.frameEngineClock?.totalDuration;
+                const videoDuration = document.getElementById('preview-video')?.duration;
+                const duration = Number.isFinite(clockDuration) && clockDuration > 0 ? clockDuration : videoDuration;
+                if (Number.isFinite(duration) && duration > 0) {
+                    const totalSeconds = Math.floor(duration);
+                    const hours = Math.floor(totalSeconds / 3600);
+                    const minutes = Math.floor(totalSeconds / 60) % 60;
+                    const seconds = String(totalSeconds % 60).padStart(2, '0');
+                    const text = hours > 0 ? hours + ':' + String(minutes).padStart(2, '0') + ':' + seconds
+                        : minutes + ':' + seconds;
+                    const label = document.getElementById('material-chip-duration');
+                    if (label) {
+                        label.textContent = ' · ' + text;
+                        label.hidden = false;
+                    }
+                    clearInterval(timer);
+                } else if (attempts >= 40) {
+                    clearInterval(timer);
+                }
+            } catch {
+                clearInterval(timer);
+            }
+        }, 250);
+    } catch { /* The filename chip remains usable without duration metadata. */ }
+})();
+</script>` : ''}${frameEngineScripts}</body>
 </html>`;
     }
 

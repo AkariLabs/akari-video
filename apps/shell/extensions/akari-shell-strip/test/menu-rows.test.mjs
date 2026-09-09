@@ -10,7 +10,7 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('ひらく contains exactly the nine ordered rows', () => {
     assert.deepEqual(akariMenuRows(), [
-        { id: 'akari.partner.beginOnboarding', label: 'パートナー', icon: 'codicon codicon-add' },
+        { id: 'akari.partner.open', label: 'パートナー', icon: 'codicon codicon-add' },
         { id: 'akari.daihon.open', label: '台本', icon: 'codicon codicon-list-selection' },
         { id: 'akari.cuts.open', label: 'カット候補', icon: 'codicon codicon-checklist' },
         { id: 'akari.review.open', label: '注釈', icon: 'codicon codicon-comment-discussion' },
@@ -26,7 +26,7 @@ const dockTabs = [
     {
         widget: '../../akari-partner/src/browser/akari-partner-widget.tsx',
         commands: '../../akari-partner/src/browser/akari-partner-command-contribution.ts',
-        command: /BEGIN_ONBOARDING\s*:\s*\{\s*id:\s*'([^']+)'/,
+        command: /OPEN\s*:\s*\{\s*id:\s*'([^']+)'/,
         prefix: true
     },
     {

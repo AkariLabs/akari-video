@@ -112,7 +112,8 @@ export class VisualThumbnailCache {
             if (at <= deadline) this.queue.set(job.key, job);
         } else this.retries.delete(job.key);
         // Account UTF-16 strings plus the decoded RGBA bitmap at the maximum capture size.
-        const cost = (key: string, data: VisualThumbnailCapture | null): number => key.length * 2 + (data ? data.image.length * 2 + 480 * 320 * 4 : 0);
+        const cost = (key: string, data: VisualThumbnailCapture | null): number => key.length * 2
+            + (data ? (data.image.length + (data.croppedImage?.length ?? 0)) * 2 + 480 * 320 * 4 : 0);
         if (cost(job.key, value) > this.maxBytes) value = null;
         if (this.cache.has(job.key)) this.bytes -= cost(job.key, this.cache.get(job.key)!);
         this.cache.set(job.key, value); this.bytes += cost(job.key, value);

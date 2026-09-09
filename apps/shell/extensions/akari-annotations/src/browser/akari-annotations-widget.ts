@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
+import { hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
@@ -40,7 +41,9 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
-import { createTimelineEdit, relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
+import { AkariTimelineCreateDialog } from './akari-timeline-create-dialog';
+import { createTimelineEditContent, estimateAspectFromOrientation, timelineDisplayName, timelineSlugFromEditFileName, timelineWidgetId } from '../common/timeline-files';
+import { relativeTimelineMaterialPath, timelineEmptyStateMessage } from '../common/timeline-empty-state';
 import { planTimelineHeaderWheel } from '../common/timeline-header-wheel';
 import { trackHeaderControls } from '../common/track-header-controls';
 import { isTrackLocked, lockedTrackMessage } from '../common/track-lock-guard';
@@ -4419,7 +4422,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const initialMaterialUri = !this.location.editUri
             ? this.resolveEditMediaUri(relativePath, this.location.root.resolve('edit.json')) : undefined;
         try {
-            if (!this.location.editUri) await this.ensureTimelineEdit();
+            if (!this.location.editUri && !await this.ensureTimelineEdit(initialMaterialUri)) return;
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`素材を追加できません: ${detail}`);
@@ -5160,6 +5163,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return undefined;
     }
 
+    get timelineLocation(): ProjectLocation | undefined { return this.location; }
+
+    adoptTimelineIdentity(editUri?: string): void {
+        const slug = editUri ? timelineSlugFromEditFileName(new URI(editUri).path.base) : undefined;
+        this.id = timelineWidgetId(slug);
+        this.title.label = timelineDisplayName(slug);
+    }
+
     protected timelineTabCaptionRevision = 0;
 
     protected async updateTimelineTabCaption(): Promise<void> {
@@ -5168,6 +5179,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const editUri = location?.editUri;
         const exists = editUri !== undefined && await this.fileService.exists(editUri);
         if (revision !== this.timelineTabCaptionRevision) return;
+        this.title.label = timelineDisplayName(location?.slug);
         this.title.caption = timelineTabCaption(location?.root ?? new URI(), exists ? editUri : undefined);
     }
 
@@ -5182,16 +5194,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.reloadEdit();
     }
 
-    protected async ensureTimelineEdit(): Promise<void> {
-        if (this.location?.editUri) return;
+    protected async ensureTimelineEdit(materialUri?: URI): Promise<boolean> {
+        if (this.location?.editUri) return true;
         // 同時の初回追加でも雛形を一度だけ作り、外部で先に作られた編集を上書きしない。
         this.createEditPromise ??= (async () => {
             const uri = this.location!.root.resolve('project').resolve('edit.json');
             if (!await this.fileService.exists(uri)) {
+                const dimensions = materialUri
+                    ? await this.annotationsService.probeSourceDimensions({ path: materialUri.toString() }).catch(() => ({})) : {};
+                const result = await new AkariTimelineCreateDialog({
+                    title: 'タイムラインを作成', firstTimeline: true, defaultTitle: 'タイムライン',
+                    defaultAspect: estimateAspectFromOrientation(
+                        (dimensions as { width?: number }).width, (dimensions as { height?: number }).height)
+                }).open();
+                if (!result) return;
                 await this.fileService.createFolder(uri.parent);
                 try {
                     await this.fileService.createFile(uri,
-                        BinaryBuffer.fromString(JSON.stringify(createTimelineEdit(), null, 2) + '\n'),
+                        BinaryBuffer.fromString(JSON.stringify(createTimelineEditContent({ width: result.width, height: result.height }), null, 2) + '\n'),
                         { overwrite: false });
                 } catch (error) {
                     if (!await this.fileService.exists(uri)) throw error;
@@ -5201,6 +5221,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         })();
         try {
             await this.createEditPromise;
+            return !!this.location?.editUri;
         } finally {
             this.createEditPromise = undefined;
         }
@@ -5211,9 +5232,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>
     ): Promise<void> {
         if (this.configured) {
+            if (!this.location?.editUri && location.editUri) await this.adoptTimelineEdit(location.editUri);
             return;
         }
         this.configured = true;
+        this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
         this.refreshLocationEditUri = refreshLocationEditUri;
         await this.updateTimelineTabCaption();
@@ -5879,31 +5902,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     objectFit: 'contain', pointerEvents: 'none', background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
                 element.prepend(picture);
             }
-            if (picture.getAttribute('src') !== value.image) picture.src = value.image;
-            const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
-            let crop: import('../common/visual-thumbnail-crop').VisualThumbnailCropStyle | undefined;
-            if (value.contentRect && typeof output?.width === 'number' && output.width > 0
-                && typeof output.height === 'number' && output.height > 0) {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires -- Keep this synchronous display dependency within the method's edit boundary.
-                const { visualThumbnailCrop } = require('../common/visual-thumbnail-crop') as typeof import('../common/visual-thumbnail-crop');
-                // Capture bounds use the resized page, not the full edit output coordinates.
-                const pageScale = Math.min(480 / output.width, 320 / output.height, 1);
-                crop = visualThumbnailCrop(value.contentRect, {
-                    width: Math.max(1, Math.round(output.width * pageScale)),
-                    height: Math.max(1, Math.round(output.height * pageScale))
-                });
-            }
+            const source = value.croppedImage ?? value.image;
+            if (picture.getAttribute('src') !== source) picture.src = source;
+            // The cropped copy fills the band; uncropped captures keep their original framing.
             Object.assign(picture.style, {
-                objectFit: crop ? 'cover' : 'contain', objectPosition: crop?.objectPosition ?? '',
-                transform: crop ? `scale(${crop.scale})` : '', transformOrigin: crop?.objectPosition ?? ''
+                objectFit: value.croppedImage ? 'cover' : 'contain',
+                objectPosition: value.croppedImage ? '50% 50%' : ''
             });
-            // Long clips hide the img and repeat its bitmap as a background, so crop that too.
-            // Background tiles need the vertical crop ratio rather than the cover scale.
+            // Hover shows the full frame, so keep the uncropped source reachable from the band image.
+            if (value.croppedImage) picture.dataset.akariUncroppedImage = value.image;
+            else delete picture.dataset.akariUncroppedImage;
+            // Paint the cached bitmap across long clips, including their partially visible ends.
+            // Keep the img as the decoded source for short clips, hover, and image observers.
             Object.assign(element.style, {
-                backgroundImage: `url("${value.image}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
-                backgroundSize: crop ? `${crop.backgroundSize}, 12px 12px` : 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
-                backgroundPosition: crop ? `${crop.backgroundPosition}, 0 0` : 'left center, 0 0'
+                backgroundImage: `url("${source}"), repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%)`,
+                backgroundSize: 'auto 100%, 12px 12px', backgroundRepeat: 'repeat-x, repeat',
+                backgroundPosition: 'left center, 0 0'
             });
+            const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
             const aspect = typeof output?.width === 'number' && output.width > 0
                 && typeof output.height === 'number' && output.height > 0 ? output.width / output.height : 16 / 9;
             const sizedPicture = picture;
@@ -5941,15 +5957,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 hide();
                 const popup = document.createElement('div');
                 const image = element.querySelector<HTMLImageElement>('.akari-visual-thumbnail-image');
-                if (image) { const enlarged = image.cloneNode() as HTMLImageElement;
-                    Object.assign(enlarged.style, { position: 'relative', width: '320px', height: '180px', display: 'block', visibility: 'visible' }); popup.append(enlarged); }
+                let enlarged: HTMLImageElement | undefined;
+                if (image) {
+                    enlarged = document.createElement('img');
+                    enlarged.alt = ''; enlarged.draggable = false;
+                    Object.assign(enlarged.style, { position: 'relative', display: 'block',
+                        visibility: 'visible', objectFit: 'contain', pointerEvents: 'none',
+                        background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
+                    popup.append(enlarged);
+                }
                 const name = document.createElement('div'); name.textContent = element.title; popup.append(name);
-                const bounds = element.getBoundingClientRect();
-                Object.assign(popup.style, { position: 'fixed', left: `${Math.max(0, Math.min(bounds.left, window.innerWidth - 340))}px`,
-                    top: `${Math.max(0, bounds.top - 220)}px`, maxWidth: '320px', zIndex: '10000', padding: '6px',
-                    background: '#171d25', color: '#fff', border: '1px solid #657080', borderRadius: '5px', pointerEvents: 'none', overflowWrap: 'anywhere' });
+                Object.assign(name.style, { height: '16px', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+                Object.assign(popup.style, { position: 'fixed', boxSizing: 'content-box', zIndex: '10000', padding: '6px',
+                    background: '#171d25', color: '#fff', border: '1px solid #657080', borderRadius: '5px', pointerEvents: 'none' });
                 popup.dataset.akariVisualThumbnailHover = 'true';
                 document.body.append(popup); this.visualHover = popup;
+                const updateGeometry = (): void => {
+                    if (this.visualHover !== popup || !element.isConnected || this.isDisposed) return;
+                    const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
+                    const geometry = hoverPopupGeometry({
+                        naturalWidth: enlarged?.naturalWidth, naturalHeight: enlarged?.naturalHeight,
+                        width: typeof output?.width === 'number' ? output.width : undefined,
+                        height: typeof output?.height === 'number' ? output.height : undefined,
+                        bounds: element.getBoundingClientRect(), innerWidth: window.innerWidth, innerHeight: window.innerHeight,
+                        nameHeight: 16, borderWidth: 1
+                    });
+                    if (enlarged) Object.assign(enlarged.style, { width: `${geometry.imageWidth}px`, height: `${geometry.imageHeight}px` });
+                    Object.assign(popup.style, { left: `${geometry.left}px`, top: `${geometry.top}px`,
+                        width: `${geometry.imageWidth}px`, maxWidth: `${geometry.imageWidth}px` });
+                };
+                updateGeometry();
+                if (enlarged && image) {
+                    enlarged.onload = updateGeometry;
+                    enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
+                }
             }, 450);
         });
     }

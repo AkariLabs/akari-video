@@ -2,6 +2,20 @@ import type { EngineTranscript, MaterialTranscriptEvent, TranscribeArtifacts, Tr
 
 export interface TranscribeDialogResult extends TranscribeOptions { transcribeFirst: boolean }
 export type TranscribeExit = 'reuse' | 'redo' | 'compare';
+export type TranscribeMode = 'simple' | 'advanced';
+
+/** Selection affects actions, but never exposes comparison controls in simple mode. */
+export function transcribeModeView(mode: unknown, alreadyTranscribed: boolean, _selection: TranscribeOptions): {
+    steps: boolean; compareToggle: boolean; radar: boolean; buttons: string[]; switchLink: string;
+} {
+    const advanced = mode === 'advanced';
+    return {
+        steps: advanced, compareToggle: advanced, radar: advanced,
+        buttons: advanced ? (alreadyTranscribed ? ['このまま字幕へ', '起こし直す', '比べる'] : ['起こす ▸'])
+            : (alreadyTranscribed ? ['台本へ', '起こし直す'] : ['起こす']),
+        switchLink: advanced ? '簡単モードに戻す' : 'アドバンス（比較・差分）に切り替える'
+    };
+}
 
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
 export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>, alreadyTranscribed = false): string[] {

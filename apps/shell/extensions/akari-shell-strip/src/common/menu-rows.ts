@@ -6,7 +6,7 @@ export interface AkariMenuRow {
 
 export function akariMenuRows(): AkariMenuRow[] {
     return [
-        { id: 'akari.partner.beginOnboarding', label: 'パートナー', icon: 'codicon codicon-add' },
+        { id: 'akari.partner.open', label: 'パートナー', icon: 'codicon codicon-add' },
         { id: 'akari.daihon.open', label: '台本', icon: 'codicon codicon-list-selection' },
         { id: 'akari.cuts.open', label: 'カット候補', icon: 'codicon codicon-checklist' },
         { id: 'akari.review.open', label: '注釈', icon: 'codicon codicon-comment-discussion' },

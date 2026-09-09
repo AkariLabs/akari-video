@@ -6,6 +6,8 @@ export interface VisualThumbnailContentRect { x: number; y: number; width: numbe
 export interface VisualThumbnailCapture {
     image: string;
     contentRect?: VisualThumbnailContentRect;
+    /** Content-cropped copy of the same capture. The band paints this; hover never does. */
+    croppedImage?: string;
 }
 
 export interface VisualThumbnailRequest {

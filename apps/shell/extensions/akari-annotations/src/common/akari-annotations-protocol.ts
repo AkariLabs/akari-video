@@ -89,6 +89,9 @@ export interface GetAudioDurationRequest {
     audioUri: string;
 }
 
+export interface ProbeSourceDimensionsRequest { path: string }
+export interface ProbeSourceDimensionsResult { width?: number; height?: number }
+
 export interface ProbeSourceHasAudioRequest {
     /** Absolute media path or file URI, as with the existing media read RPCs. */
     path: string;
@@ -628,6 +631,7 @@ export interface AkariAnnotationsService {
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
+    probeSourceDimensions(request: ProbeSourceDimensionsRequest): Promise<ProbeSourceDimensionsResult>;
     probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;

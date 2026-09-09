@@ -1,3 +1,4 @@
+import { MaterialPreviewSlot } from './material-preview-slot';
 import { CommandContribution } from '@theia/core/lib/common';
 import { WidgetFactory } from '@theia/core/lib/browser';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
@@ -9,6 +10,8 @@ import { FileResourceResolver } from '@theia/filesystem/lib/browser/file-resourc
 import { AkariPreviewService, AKARI_PREVIEW_SERVICE_PATH } from '../common/akari-preview-protocol';
 import { AkariAudioOpenHandler } from './akari-audio-open-handler';
 import { AkariFileResourceResolver } from './akari-file-resource-resolver';
+import { AkariFragmentPreviewOpenHandler } from './akari-fragment-preview-open-handler';
+import { AkariFontSpecimenOpenHandler } from './akari-font-specimen-open-handler';
 import { AkariImageOpenHandler } from './akari-image-open-handler';
 import { AkariGpuPreferenceContribution } from './akari-gpu-preference-contribution';
 import { AkariOutputPreviewOpenHandler, AkariPreviewOpenHandler } from './akari-preview-open-handler';
@@ -28,6 +31,7 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
         WebSocketConnectionProvider.createProxy(context.container, AKARI_PREVIEW_SERVICE_PATH)
     ).inSingletonScope();
 
+    bind(MaterialPreviewSlot).toSelf().inSingletonScope();
     bind(AkariPreviewOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariPreviewOpenHandler);
     bind(AkariOutputPreviewOpenHandler).toSelf().inSingletonScope();
@@ -36,6 +40,10 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(OpenHandler).toService(AkariAudioOpenHandler);
     bind(AkariImageOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariImageOpenHandler);
+    bind(AkariFragmentPreviewOpenHandler).toSelf().inSingletonScope();
+    bind(OpenHandler).toService(AkariFragmentPreviewOpenHandler);
+    bind(AkariFontSpecimenOpenHandler).toSelf().inSingletonScope();
+    bind(OpenHandler).toService(AkariFontSpecimenOpenHandler);
     bind(FrontendApplicationContribution).toService(AkariPreviewOpenHandler);
     bind(FrontendApplicationContribution).toService(AkariAudioOpenHandler);
     bind(AkariGpuPreferenceContribution).toSelf().inSingletonScope();

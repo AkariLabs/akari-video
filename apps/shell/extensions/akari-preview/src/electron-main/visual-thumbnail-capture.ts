@@ -1,6 +1,6 @@
 import { BrowserWindow } from '@theia/core/electron-shared/electron';
 import type { VisualThumbnailCapture, VisualThumbnailPage } from '../common/visual-thumbnail';
-import { alphaContentRect } from '../common/thumbnail-content-rect';
+import { alphaContentRect, thumbnailCropRect } from '../common/thumbnail-content-rect';
 
 let active = false;
 
@@ -42,7 +42,29 @@ export async function captureVisualThumbnail(page: VisualThumbnailPage): Promise
                 const y = Math.max(0, Math.floor(rect.y * page.height / bitmapHeight));
                 const right = Math.min(page.width, Math.ceil((rect.x + rect.width) * page.width / bitmapWidth));
                 const bottom = Math.min(page.height, Math.ceil((rect.y + rect.height) * page.height / bitmapHeight));
-                return { image, contentRect: { x, y, width: right - x, height: bottom - y } };
+                const contentRect = { x, y, width: right - x, height: bottom - y };
+                const crop = thumbnailCropRect(contentRect, { width: page.width, height: page.height });
+                let croppedImage: string | undefined;
+                if (crop) {
+                    try {
+                        // nativeImage.crop() works in getSize() coordinates, which are twice the page on HiDPI captures.
+                        const scaleX = size.width / page.width, scaleY = size.height / page.height;
+                        const region = {
+                            x: Math.min(size.width - 1, Math.max(0, Math.round(crop.x * scaleX))),
+                            y: Math.min(size.height - 1, Math.max(0, Math.round(crop.y * scaleY))),
+                            width: Math.max(1, Math.round(crop.width * scaleX)),
+                            height: Math.max(1, Math.round(crop.height * scaleY))
+                        };
+                        region.width = Math.min(region.width, size.width - region.x);
+                        region.height = Math.min(region.height, size.height - region.y);
+                        const cropped = bitmap.crop(region).resize({ width: crop.width, height: crop.height });
+                        const croppedSize = cropped.getSize();
+                        if (croppedSize.width === crop.width && croppedSize.height === crop.height) croppedImage = cropped.toDataURL();
+                    } catch {
+                        // A failed crop keeps the original framing without losing the capture.
+                    }
+                }
+                return croppedImage ? { image, contentRect, croppedImage } : { image, contentRect };
             })(),
             new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Visual thumbnail capture timed out')), 20000); })
         ]);

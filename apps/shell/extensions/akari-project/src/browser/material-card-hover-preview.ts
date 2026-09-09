@@ -4,8 +4,8 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import { VisualThumbnailCache } from 'akari-preview/lib/common/visual-thumbnail-cache';
 import { visualThumbnailKey } from 'akari-preview/lib/common/visual-thumbnail-key';
-import { VisualThumbnailCapture, VisualThumbnailContentRect } from 'akari-preview/lib/common/visual-thumbnail';
-import { visualThumbnailCrop } from 'akari-annotations/lib/common/visual-thumbnail-crop';
+import { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
+import { thumbnailCropRect, ThumbnailContentRect } from 'akari-preview/lib/common/thumbnail-content-rect';
 import { hoverFrameTimes, hoverPopupPosition } from '../common/material-card-hover';
 
 type AssetPage = Awaited<ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']>>;
@@ -168,38 +168,33 @@ class MaterialHoverController {
         const frame = time === undefined ? undefined : this.frames.get(time);
         this.element.dataset.akariVisualThumbnail = frame ? 'ready' : 'pending';
         this.element.dataset.time = String(time ?? '');
-        // A common union keeps the crop stable as animation content moves between frames.
-        const rects = [...this.frames.values()].map(value => value.contentRect).filter((r): r is VisualThumbnailContentRect => !!r);
-        const union = rects.length ? { x: Math.min(...rects.map(r => r.x)), y: Math.min(...rects.map(r => r.y)),
-            width: 0, height: 0 } : undefined;
-        if (union) {
-            union.width = Math.max(...rects.map(r => r.x + r.width)) - union.x;
-            union.height = Math.max(...rects.map(r => r.y + r.height)) - union.y;
-        }
-        const draw = (host: HTMLElement, size: number): void => {
+        const draw = (host: HTMLElement, size: number, source: string | undefined, crop?: ThumbnailContentRect): void => {
             host.replaceChildren();
             if (!frame || !page) {
                 const icon = document.createElement('span'); icon.className = this.props.icon;
                 Object.assign(icon.style, { fontSize: '1.8em', opacity: '0.5', position: 'absolute', top: '40%', left: '40%' });
                 host.append(icon); return;
             }
-            const crop = visualThumbnailCrop(union, page);
-            const x = crop && union ? Math.max(0, union.x - union.width * 0.04) : 0;
-            const y = crop && union ? Math.max(0, union.y - union.height * 0.04) : 0;
-            const width = crop && union ? Math.min(page.width, union.x + union.width * 1.04) - x : page.width;
-            const height = crop && union ? Math.min(page.height, union.y + union.height * 1.04) - y : page.height;
+            const image = document.createElement('img'); image.src = source ?? frame.image; image.alt = ''; image.draggable = false;
+            if (!crop) {
+                Object.assign(image.style, { position: 'absolute', left: '0', top: '0', width: `${size}px`, height: `${size}px`,
+                    objectFit: 'contain', objectPosition: 'center' });
+                host.append(image); return;
+            }
+            const { x, y, width, height } = crop;
             const scale = Math.min(size / width, size / height);
             const viewport = document.createElement('div');
             Object.assign(viewport.style, { position: 'absolute', overflow: 'hidden', width: `${width * scale}px`, height: `${height * scale}px`,
                 left: `${(size - width * scale) / 2}px`, top: `${(size - height * scale) / 2}px` });
-            const image = document.createElement('img'); image.src = frame.image; image.alt = ''; image.draggable = false;
             Object.assign(image.style, { position: 'absolute', maxWidth: 'none', width: `${page.width * scale}px`, height: `${page.height * scale}px`,
-                left: `${-x * scale}px`, top: `${-y * scale}px`, objectFit: 'contain', objectPosition: crop?.objectPosition ?? 'center' });
+                left: `${-x * scale}px`, top: `${-y * scale}px`, objectFit: 'contain', objectPosition: 'center' });
             viewport.append(image); host.append(viewport);
         };
-        draw(this.element, this.element.clientWidth);
+        const crop = frame && page && !frame.croppedImage
+            ? thumbnailCropRect(frame.contentRect, { width: page.width, height: page.height }) : undefined;
+        draw(this.element, this.element.clientWidth, frame?.croppedImage ?? frame?.image, crop);
         if (this.popup) {
-            draw(this.popup, 300);
+            draw(this.popup, 300, frame?.image);
             this.popup.dataset.time = String(time ?? '');
             const footer = document.createElement('div');
             Object.assign(footer.style, { position: 'absolute', bottom: '5px', left: '12px', right: '12px', display: 'flex', gap: '5px', alignItems: 'center' });

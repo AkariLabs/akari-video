@@ -1,0 +1,71 @@
+{
+  "label": "ab10-before",
+  "workspace": null,
+  "startedAt": "2026-09-08T18:50:05.435Z",
+  "pid": 42618,
+  "timeline": [
+    {
+      "atMs": 8194,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 9197,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 10202,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 11206,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    }
+  ],
+  "homeSurfaceMs": 8517,
+  "shellAttached": true,
+  "preloadVisible": false,
+  "homeAttached": true,
+  "homeReadyAttr": null,
+  "homeStage": null,
+  "measures": [],
+  "readyMs": 10835,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardTimeouts": [
+    "warning: 2026-09-08T18:50:15.452Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined",
+    "[42618:0909/035015.452980:INFO:CONSOLE:433] \"2026-09-08T18:50:15.452Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:50:15.455Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined"
+  ],
+  "focusWarns": [
+    "warning: 2026-09-08T18:50:15.065Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "warning: 2026-09-08T18:50:15.473Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget",
+    "[42618:0909/035015.065619:INFO:CONSOLE:433] \"2026-09-08T18:50:15.065Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:50:15.066Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "[42618:0909/035015.473720:INFO:CONSOLE:433] \"2026-09-08T18:50:15.473Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:50:15.475Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+  ],
+  "homeFocusWarns": [
+    "warning: 2026-09-08T18:50:15.473Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget",
+    "[42618:0909/035015.473720:INFO:CONSOLE:433] \"2026-09-08T18:50:15.473Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:50:15.475Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+  ],
+  "consoleErrors": [],
+  "homeReadyMs": null,
+  "leftoverProcesses": 0
+}

@@ -38,6 +38,19 @@ test('capture metadata survives cache hits and memory accounts for image strings
   assert.equal(cache.memoryBytes, 'metadata'.length * 2 + value.image.length * 2 + 480 * 320 * 4);
 });
 
+test('cropped captures retain both images and account for both strings in memory', async t => {
+  const value = { image: 'full-frame pixels', croppedImage: 'cropped pixels', contentRect: { x: 12, y: 212, width: 218, height: 29 } };
+  const cache = new VisualThumbnailCache(() => {});
+  t.after(() => cache.dispose());
+  const capture = job('cropped', async () => value);
+  cache.request(capture);
+  await until(() => cache.stats.captures === 1);
+  assert.equal(cache.request(capture), value);
+  assert.equal(cache.memoryBytes, 'cropped'.length * 2 + (value.image.length + value.croppedImage.length) * 2 + 480 * 320 * 4);
+  cache.dispose();
+  assert.equal(cache.memoryBytes, 0);
+});
+
 test('transient failures retry without file changes, honor pause, and stop after three attempts', async () => {
   const cache = new VisualThumbnailCache(() => {});
   let attempts = 0;

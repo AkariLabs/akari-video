@@ -1,0 +1,758 @@
+{
+  "label": "ab1-before",
+  "workspace": null,
+  "startedAt": "2026-09-08T18:06:05.824Z",
+  "pid": 35653,
+  "homeReadyMs": null,
+  "timeline": [
+    {
+      "atMs": 6045,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 8110,
+      "shellAttached": true,
+      "preloadVisible": true,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 10169,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 12323,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 14392,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 16437,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 18482,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 20527,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 22570,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 24618,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 26661,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 28707,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 30755,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 32808,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 34859,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 36906,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 38950,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 40997,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 43092,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 45156,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 47209,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 49255,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 51299,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 53344,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 55387,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 57437,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 59485,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 61532,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 63580,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 65623,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 67665,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 69709,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 71804,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 73877,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 75955,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 78004,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 80063,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 82101,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 84144,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 86187,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 88249,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 90310,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 92383,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 94479,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 96562,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 98644,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 100728,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 102770,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 105217,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 107347,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 109428,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 111517,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 113566,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 115641,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 117749,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 119819,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 121904,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 123967,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 126039,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 128110,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 130171,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 132260,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 134359,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 136452,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 138549,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 140635,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 142715,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 144782,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 146842,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 148893,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 150982,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 153049,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 155097,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 157149,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 159191,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 161250,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 163297,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 165343,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 167393,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 169438,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 171488,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 173536,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 175590,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 177636,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 179682,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 181734,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 183798,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 185842,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 187901,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    },
+    {
+      "atMs": 189991,
+      "shellAttached": true,
+      "preloadVisible": false,
+      "homeAttached": true,
+      "homeReadyAttr": null,
+      "homeStage": null
+    }
+  ],
+  "shellAttached": true,
+  "preloadVisible": false,
+  "homeAttached": true,
+  "homeReadyAttr": null,
+  "homeStage": null,
+  "measures": [],
+  "readyMs": 8656,
+  "reachedReady": true,
+  "failedToStart": false,
+  "guardTimeouts": [
+    "warning: 2026-09-08T18:06:13.659Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined",
+    "[35653:0909/030613.660184:INFO:CONSOLE:433] \"2026-09-08T18:06:13.659Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:06:13.660Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background undefined"
+  ],
+  "focusWarns": [
+    "warning: 2026-09-08T18:06:13.397Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "warning: 2026-09-08T18:06:13.676Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget",
+    "[35653:0909/030613.398028:INFO:CONSOLE:433] \"2026-09-08T18:06:13.397Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:06:13.399Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding",
+    "[35653:0909/030613.677070:INFO:CONSOLE:433] \"2026-09-08T18:06:13.676Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:06:13.677Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+  ],
+  "homeFocusWarns": [
+    "warning: 2026-09-08T18:06:13.676Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget",
+    "[35653:0909/030613.677070:INFO:CONSOLE:433] \"2026-09-08T18:06:13.676Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget\", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)",
+    "2026-09-08T18:06:13.677Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+  ],
+  "consoleErrors": [],
+  "leftoverProcesses": 0
+}

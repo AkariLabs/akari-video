@@ -1,6 +1,6 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry, MessageService } from '@theia/core/lib/common';
-import { WidgetManager } from '@theia/core/lib/browser';
+import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
 import { AkariPartnerWidget } from './akari-partner-widget';
 import { PARTNER_CATALOG } from './partner-catalog';
 
@@ -27,6 +27,10 @@ const PARTNER_NOT_CONNECTED_MESSAGE = 'パートナー未接続。右側の「�
  * `PartnerChannel#send`）を再利用することで満たす。
  */
 export const AkariPartnerCommands = {
+    OPEN: {
+        id: 'akari.partner.open',
+        label: 'パートナーを開く'
+    } as Command,
     BEGIN_ONBOARDING: {
         id: 'akari.partner.beginOnboarding',
         label: 'AI パートナーに接続する'
@@ -54,10 +58,22 @@ export class AkariPartnerCommandContribution implements CommandContribution {
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
 
+    @inject(ApplicationShell)
+    protected readonly shell!: ApplicationShell;
+
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand(AkariPartnerCommands.OPEN, {
+            execute: async () => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);
+                if (!widget.isAttached) {
+                    await this.shell.addWidget(widget, { area: 'right', rank: 100 });
+                }
+                await this.shell.activateWidget(widget.id);
+            }
+        });
         registry.registerCommand(AkariPartnerCommands.BEGIN_ONBOARDING, {
             execute: async () => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariPartnerWidget>(AkariPartnerWidget.ID);

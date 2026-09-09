@@ -83,7 +83,8 @@ import {
 } from '../common/library-home-view';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
-import { openAkariContextMenu } from './akari-context-menu';
+import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
+import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 
@@ -621,7 +622,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const children = dirStat.children ?? [];
         const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
         const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
-        const openUri = previewChild?.resource ?? metaChild?.resource ?? dirStat.resource;
+        const openUri = dirStat.resource.resolve(assetGroupOpenTarget(this.toAssetBinChildren(dirStat), meta?.category)
+            ?? metaChild?.resource.path.base ?? 'meta.json');
         return {
             uri: openUri,
             relativePath,
@@ -838,16 +840,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
+        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind });
+        if (entry.assetGroup && entry.thumbnailUri) {
+            items.push(OPEN_PREVIEW_IMAGE_ITEM);
+        }
         openAkariContextMenu({
             x: event.clientX,
             y: event.clientY,
-            items: buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind }),
+            items,
             onSelect: id => this.handleMaterialContextMenuAction(id, entry)
         });
     }
 
     protected handleMaterialContextMenuAction(id: string, entry: MaterialCardEntry): void {
         switch (id) {
+            case 'open-preview-image':
+                if (entry.assetGroup && entry.thumbnailUri) {
+                    void this.openFile(entry.thumbnailUri);
+                }
+                break;
             case 'open':
                 void this.openFile(entry.uri);
                 break;

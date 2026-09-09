@@ -1,5 +1,6 @@
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { AkariNewProjectService, AkariToolCheckResult } from '../common/akari-new-project-protocol';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { inject, injectable } from '@theia/core/shared/inversify';
@@ -21,8 +22,8 @@ import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../com
 import { dialogOutsideClick } from '../common/dialog-outside-click';
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import {
-    AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
-    AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION,
+    AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
+    AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES,
@@ -61,7 +62,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly storeService: AkariProjectService,
         protected readonly windows: WindowService,
         protected readonly commands: CommandService,
-        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer, initialSection?: SettingsSectionId
+        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer,
+        protected readonly fileDialogs: FileDialogService, initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -198,6 +200,30 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         section.replaceChildren(...this.sectionHeading(id));
         if (id === 'tools') {
             section.append(this.toolsView.content);
+            const directory = element('input');
+            directory.type = 'text'; directory.className = 'theia-input';
+            directory.setAttribute('aria-label', 'カタログの素材フォルダ');
+            directory.value = normalizeOutputDirectory(this.preferences.get(AKARI_CATALOG_ROOT));
+            directory.addEventListener('change', () => this.savePreference(AKARI_CATALOG_ROOT, directory.value));
+            const directoryLabel = element('label', 'カタログの素材フォルダ ');
+            directoryLabel.append(directory);
+            const catalogRow = element('div');
+            Object.assign(catalogRow.style, { marginTop: '24px', position: 'relative', zIndex: '3' });
+            catalogRow.append(directoryLabel, action('フォルダを選ぶ', async () => {
+                try {
+                    const destination = await this.fileDialogs.showOpenDialog({
+                        title: 'カタログの素材フォルダを選ぶ', canSelectFiles: false, canSelectFolders: true
+                    });
+                    if (!destination || this.isDisposed) { return; }
+                    directory.value = destination.path.fsPath();
+                    this.savePreference(AKARI_CATALOG_ROOT, directory.value);
+                    await this.preferenceWrites;
+                    if (!this.isDisposed) { this.renderSection('tools'); }
+                } catch {
+                    this.notice.textContent = 'フォルダを選べませんでした。';
+                }
+            }), description('カタログタブが読む素材フォルダ。空欄のときは自動で探します。'));
+            section.append(catalogRow);
         } else if (id === 'start') {
             section.append(action('初回セットアップを開く', () => {
                 this.close();
@@ -273,10 +299,23 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderTranscribe(): void {
+        const mode = this.preferences.get(AKARI_TRANSCRIBE_MODE) === 'advanced' ? 'advanced' : 'simple';
         const backend = this.preferences.get<TranscribeBackend>(AKARI_TRANSCRIBE_BACKEND, 'auto');
         const compareSet = this.preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
         if (compareSet.length > 0) { this.compareDraft = compareSet; this.compareEnabled = true; }
         this.transcribe.replaceChildren(...this.sectionHeading('transcribe'));
+        const modes = element('div');
+        Object.assign(modes.style, { display: 'flex', gap: '16px' });
+        modes.setAttribute('role', 'radiogroup');
+        modes.setAttribute('aria-label', '文字起こしのモード');
+        for (const [value, label] of [['simple', '簡単'], ['advanced', 'アドバンス']]) {
+            const option = choice('radio', label, mode === value);
+            option.input.name = 'akari-transcribe-mode';
+            option.input.value = value;
+            option.input.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_MODE, value));
+            modes.append(option.label);
+        }
+        this.transcribe.append(modes);
         const auto = choice('radio', 'おまかせ（この Mac のエンジンを優先）', backend === 'auto');
         const fixed = choice('radio', '決めたエンジンだけ使う', backend !== 'auto');
         auto.input.name = fixed.input.name = 'akari-transcribe-default';
@@ -290,6 +329,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         fixed.input.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_BACKEND, select.value));
         select.addEventListener('change', () => this.savePreference(AKARI_TRANSCRIBE_BACKEND, select.value));
         this.transcribe.append(auto.label, description('SpeechAnalyzer → Whisper の順。クラウドは自分で選んだときだけ使う'), fixed.label, select);
+        if (mode === 'simple') {
+            this.transcribe.append(description('比較・カット候補の自動作成: アドバンスで使います'));
+            return;
+        }
         const compare = choice('checkbox', '比べるときは、いつもこの組', this.compareEnabled);
         const engines = element('div');
         Object.assign(engines.style, { display: this.compareEnabled ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4px', marginLeft: '20px' });
@@ -526,6 +569,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(CommandService) protected readonly commands!: CommandService;
     @inject(AkariNewProjectService) protected readonly tools!: AkariNewProjectService;
     @inject(FileService) protected readonly files!: FileService;
+    @inject(FileDialogService) protected readonly fileDialogs!: FileDialogService;
     @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
@@ -558,7 +602,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.requestedSection);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.requestedSection);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {

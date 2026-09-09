@@ -1,0 +1,216 @@
+Electron main: loading modules... [0.618 s since electron main start]
+Electron main: container created [0.797 s since electron main start]
+Electron main: modules loaded [0.827 s since electron main start]
+Electron main: resolving application [0.827 s since electron main start]
+Electron main: application resolved [0.832 s since electron main start]
+
+DevTools listening on ws://127.0.0.1:21992/devtools/browser/b5e3ed0b-a3c4-4303-9563-2cf48e5153f7
+Showing main window early
+Backend main: entry point loaded [0.902 s since backend process start]
+Backend server: loading modules... [0.907 s since backend process start]
+Backend server: container created [1.190 s since backend process start]
+Backend server: modules loaded [1.450 s since backend process start]
+Configuration directory URI: 'file://<TMP>/akari-l1-lMvRh5/.theia'
+Backend server: resolving application [1.482 s since backend process start]
+Configuring to accept webviews on '^.+\.webview\..+$' hostname.
+2026-09-08T19:40:51.571Z root WARN Backend C1.initialize took longer than the expected maximum 50 milliseconds: 180.4 ms [1.686 s since backend process start]
+2026-09-08T19:40:51.571Z root WARN Backend Object.initialize took longer than the expected maximum 50 milliseconds: 178.3 ms [1.686 s since backend process start]
+2026-09-08T19:40:51.571Z root WARN Backend ehe.initialize took longer than the expected maximum 50 milliseconds: 192.3 ms [1.700 s since backend process start]
+2026-09-08T19:40:51.586Z core:BackendApplication INFO configured all backend app contributions
+2026-09-08T19:40:51.588Z root INFO Settings file not found at '<TMP>/akari-l1-lMvRh5/.theia/backend-settings.json'. Falling back to defaults.
+2026-09-08T19:40:51.596Z core:BackendApplication INFO Theia app listening on http://127.0.0.1:61760.
+Starting backend: 1820.8 ms [2.664 s since electron main start]
+2026-09-08T19:40:51.598Z root INFO Backend application startup sequence completed (async work may still be pending): 20.6 ms [1.732 s since backend process start]
+2026-09-08T19:40:51.600Z root INFO All backend contributions settled: 247.8 ms [1.732 s since backend process start]
+2026-09-08T19:40:51.601Z root WARN The local plugin referenced by local-dir:<TMP>/akari-l1-lMvRh5/.theia/plugins does not exist.
+2026-09-08T19:40:51.601Z root WARN The local plugin referenced by local-dir:<TMP>/akari-l1-lMvRh5/.theia/deployedPlugins does not exist.
+2026-09-08T19:40:51.601Z root INFO Resolve plugins list: 11.9 ms [1.735 s since backend process start]
+Attaching security token: 5.9 ms [2.670 s since electron main start]
+2026-09-08T19:40:51.605Z root INFO Deploy plugins list: 16.4 ms [1.740 s since backend process start]
+Skip checkForUpdates because application is not packed and dev update config is not forced
+Vh.onStart: 10.8 ms [2.682 s since electron main start]
+oS.onStart: 9.0 ms [2.682 s since electron main start]
+ZO.onStart: 3.0 ms [2.682 s since electron main start]
+nF.onStart: 2.9 ms [2.682 s since electron main start]
+zh.onStart: 2.9 ms [2.682 s since electron main start]
+sF.onStart: 2.7 ms [2.682 s since electron main start]
+cF.onStart: 2.3 ms [2.682 s since electron main start]
+nL.onStart: 2.2 ms [2.683 s since electron main start]
+Starting contributions: 12.6 ms [2.683 s since electron main start]
+Startup sequence completed: 1840.3 ms [2.683 s since electron main start]
+[58426:0909/044051.910377:INFO:CONSOLE:3] "exposing theia core electron api", source: <WORKTREE>/apps/shell/lib/frontend/preload.js (3)
+[58426:0909/044051.911283:INFO:CONSOLE:3] "exposing theia filesystem electron api", source: <WORKTREE>/apps/shell/lib/frontend/preload.js (3)
+[58426:0909/044052.495668:INFO:CONSOLE:13393] "Frontend: loading modules... [0.842 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044052.550044:INFO:CONSOLE:13393] "Frontend: container created [0.929 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044052.563760:INFO:CONSOLE:2] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/renderer_init (2)
+2026-09-08T19:40:53.322Z akari-partner INFO [akari CLI] registry から取得しています: https://registry.npmjs.org/akari-video/0.1.60
+2026-09-08T19:40:53.322Z akari-partner INFO [akari CLI] v0.1.60 を配備しました: <TMP>/akari-l1-lMvRh5/.akari/cli/0.1.60
+2026-09-08T19:40:53.322Z akari-partner INFO [akari CLI] シム生成: <TMP>/akari-l1-lMvRh5/.akari/cli/bin/akari
+[58426:0909/044053.349522:INFO:CONSOLE:433] "sending initial connect on EHEKhkv1HC36z096AAAB", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:53.355Z root INFO creating connection for 1
+[58426:0909/044053.355777:INFO:CONSOLE:433] "initial connect received on EHEKhkv1HC36z096AAAB", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044053.367419:INFO:CONSOLE:13393] "Frontend: preloaded [1.747 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044053.891294:INFO:CONSOLE:13393] "Frontend: core modules loaded [2.271 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044054.329287:INFO:CONSOLE:13393] "Frontend: modules loaded [2.709 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044054.331591:INFO:CONSOLE:13393] "Frontend: resolving application [2.711 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044054.335241:INFO:CONSOLE:13393] "Frontend: application resolved [2.714 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13393)
+[58426:0909/044054.903823:INFO:CONSOLE:433] "2026-09-08T19:40:54.903Z root WARN Linked preference "workbench.colorCustomizations" not found.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044054.903945:INFO:CONSOLE:433] "2026-09-08T19:40:54.903Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:54.905Z root WARN Linked preference "workbench.colorCustomizations" not found.
+2026-09-08T19:40:54.905Z root WARN Linked preference "editor.experimental.preferTreeSitter" not found.
+[58426:0909/044054.950451:INFO:CONSOLE:433] "2026-09-08T19:40:54.950Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 397.0 ms [3.317 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:54.951Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 397.0 ms [3.317 s since frontend page start]
+Opening channel for service path '/services/electron-window'.
+[58426:0909/044055.139837:INFO:CONSOLE:433] "2026-09-08T19:40:55.139Z root WARN Frontend pst.onStart took longer than the expected maximum 100 milliseconds: 130.2 ms [3.518 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.140Z root WARN Frontend pst.onStart took longer than the expected maximum 100 milliseconds: 130.2 ms [3.518 s since frontend page start]
+[58426:0909/044055.157607:INFO:CONSOLE:433] "2026-09-08T19:40:55.157Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.157893:INFO:CONSOLE:433] "2026-09-08T19:40:55.157Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.157951:INFO:CONSOLE:433] "2026-09-08T19:40:55.157Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.159Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"3_selection","label":"Selection"},{"id":"4_view","label":"View"},{"id":"5_go","label":"Go"},{"id":"6_debug","label":"Run"},{"id":"7_terminal","label":"Terminal"},{"id":"9_help","label":"Help"}]
+2026-09-08T19:40:55.159Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles): ["core.undo","core.redo","core.cut","core.copy","core.paste","core.selectAll","file.copyDownloadLink"]
+2026-09-08T19:40:55.159Z root INFO [akari-shell-strip] top-level menubar items AFTER curation: [{"id":"1_file","label":"File"},{"id":"2_edit","label":"Edit"},{"id":"9_help","label":"Help"}]
+[58426:0909/044055.215024:INFO:CONSOLE:433] "2026-09-08T19:40:55.214Z root INFO Start frontend contributions: 857.4 ms [3.572 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.215294:INFO:CONSOLE:433] "2026-09-08T19:40:55.215Z root INFO Changed application state from 'init' to 'started_contributions'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.215Z root INFO Start frontend contributions: 857.4 ms [3.572 s since frontend page start]
+2026-09-08T19:40:55.215Z root INFO Changed application state from 'init' to 'started_contributions'.
+[58426:0909/044055.218587:INFO:CONSOLE:433] "2026-09-08T19:40:55.218Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.218697:INFO:CONSOLE:433] "2026-09-08T19:40:55.218Z root INFO >>> Restoring the layout state...", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.219138:INFO:CONSOLE:433] "2026-09-08T19:40:55.219Z root INFO <<< Nothing to restore.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.219Z root INFO Changed application state from 'started_contributions' to 'attached_shell'.
+2026-09-08T19:40:55.219Z root INFO >>> Restoring the layout state...
+2026-09-08T19:40:55.225Z root INFO <<< Nothing to restore.
+[58426:0909/044055.332242:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332316:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332496:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332526:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332603:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[58426:0909/044055.332631:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332667:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332689:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332740:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332760:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332781:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332801:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332822:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.332842:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.333024:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+2026-09-08T19:40:55.352Z root INFO [8ca22191-abbc-4976-9953-e278aa1dfd34] Waiting for backend deployment: 205.8 ms [3.728 s since frontend page start]
+[58426:0909/044055.354759:INFO:CONSOLE:433] "2026-09-08T19:40:55.349Z root INFO [8ca22191-abbc-4976-9953-e278aa1dfd34] Waiting for backend deployment: 205.8 ms [3.728 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.428597:INFO:CONSOLE:433] "2026-09-08T19:40:55.428Z root INFO [8ca22191-abbc-4976-9953-e278aa1dfd34] Loading plugin contributions", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.439Z root INFO [8ca22191-abbc-4976-9953-e278aa1dfd34] Loading plugin contributions
+[58426:0909/044055.460808:INFO:CONSOLE:433] "2026-09-08T19:40:55.460Z root WARN Frontend Ff.initializeLayout took longer than the expected maximum 100 milliseconds: 232.6 ms [3.838 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.461Z root WARN Frontend Ff.initializeLayout took longer than the expected maximum 100 milliseconds: 232.6 ms [3.838 s since frontend page start]
+[58426:0909/044055.518093:INFO:CONSOLE:433] "2026-09-08T19:40:55.517Z root INFO Initialize the workbench layout: 295.3 ms [3.893 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.519356:INFO:CONSOLE:433] "2026-09-08T19:40:55.519Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.519Z root INFO Initialize the workbench layout: 295.3 ms [3.893 s since frontend page start]
+2026-09-08T19:40:55.520Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'.
+[58426:0909/044055.545398:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545607:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545657:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545718:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545771:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545816:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545861:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545906:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545946:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.545986:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.546024:INFO:CONSOLE:433] "2026-09-08T19:40:55.545Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout): explorer-view-container
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"search-view-container","label":"Search"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"vsx-extensions-view-container","label":"パートナー / 拡張"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"scm-view-container","label":"Source Control"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): scm-view-container
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-settings-opener","label":"設定"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"debug","label":"Debug"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): debug
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"akari-menu-widget","label":"メニュー"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout): {"id":"test-view-container","label":"Testing"}
+2026-09-08T19:40:55.552Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout): test-view-container
+[58426:0909/044055.556361:INFO:CONSOLE:433] "2026-09-08T19:40:55.556Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.556687:INFO:CONSOLE:433] "2026-09-08T19:40:55.556Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.556745:INFO:CONSOLE:433] "2026-09-08T19:40:55.556Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.556799:INFO:CONSOLE:433] "2026-09-08T19:40:55.556Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044055.562139:INFO:CONSOLE:433] "2026-09-08T19:40:55.561Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.563Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"outline-view","label":"Outline"}
+2026-09-08T19:40:55.564Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-partner-onboarding","label":"パートナーを追加"}
+2026-09-08T19:40:55.564Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout): {"id":"akari-review-panel-widget","label":"注釈"}
+2026-09-08T19:40:55.564Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout): outline-view
+2026-09-08T19:40:55.564Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget): {"id":"akari-role-buckets-widget","label":"素材"}
+[58426:0909/044055.651977:INFO:CONSOLE:433] "2026-09-08T19:40:55.651Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.652Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-daihon-widget): {"id":"akari-daihon-widget","label":"台本"}
+[58426:0909/044055.654706:INFO:CONSOLE:433] "2026-09-08T19:40:55.654Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:55.656Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidAddWidget:akari-cuts-widget): {"id":"akari-cuts-widget","label":"カット"}
+[58426:0909/044055.709404:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.709480:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.709714:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.709753:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.709855:WARNING:electron/shell/common/keyboard_util.cc:281] Invalid accelerator token: K Cmd
+[58426:0909/044055.709890:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.709986:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710021:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710080:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710107:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710129:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710149:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710168:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710188:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044055.710359:WARNING:electron/shell/browser/ui/accelerator_util.cc:65]  doesn't contain a valid key
+[58426:0909/044056.277026:INFO:CONSOLE:13022] "[object Object]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (13022)
+[58426:0909/044056.463663:INFO:CONSOLE:433] "2026-09-08T19:40:56.463Z root INFO Replace loading indicator with ready workbench UI (animation): 807.9 ms [4.842 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044056.463833:INFO:CONSOLE:433] "2026-09-08T19:40:56.463Z root INFO Changed application state from 'initialized_layout' to 'ready'.", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+[58426:0909/044056.463938:INFO:CONSOLE:433] "2026-09-08T19:40:56.463Z root INFO All frontend contributions settled: 2128.2 ms [4.843 s since frontend page start]", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:56.464Z root INFO Replace loading indicator with ready workbench UI (animation): 807.9 ms [4.842 s since frontend page start]
+2026-09-08T19:40:56.465Z root INFO Frontend application startup sequence completed (async work may still be pending): 1956.5 ms [6.598 s since backend process start]
+2026-09-08T19:40:56.466Z root INFO Changed application state from 'initialized_layout' to 'ready'.
+2026-09-08T19:40:56.466Z root INFO All frontend contributions settled: 2128.2 ms [4.843 s since frontend page start]
+[58426:0909/044057.347719:INFO:CONSOLE:433] "2026-09-08T19:40:57.347Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding", source: file://<WORKTREE>/apps/shell/lib/frontend/bundle.js (433)
+2026-09-08T19:40:57.349Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding
+2026-09-08T19:41:05.258Z root INFO socket closed
+2026-09-08T19:41:05.258Z root INFO closing connection for 1
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/localization-server'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/os'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/logger'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/commands'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/messageService'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/ChannelCloseService'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/remote-filesystem'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/envs'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/workspace'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/keyboard'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/stopwatch'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/application'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/i18n'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickInput'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/debug'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/task'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/quickPick'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/shell-terminal'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/search'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/hostedPlugin'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-ext'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/plugin-paths'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-registry'.
+2026-09-08T19:41:05.258Z core:DefaultMessagingService INFO Closing channel on service path '/services/cli-preferences'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanagerserver'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpservermanager'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/mcpOAuthFrontendDelegate'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/request-service'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-annotations'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-quick-export'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-export-thumbnail'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-partner'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-connections'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-surfaces-new-project'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/search-in-workspace'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-preview-server'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/akari-project-clean'.
+2026-09-08T19:41:05.264Z core:DefaultMessagingService INFO Closing channel on service path '/services/vsx-environment'.
