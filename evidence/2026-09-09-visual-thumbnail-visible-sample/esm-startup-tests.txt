@@ -1,0 +1,16 @@
+Electron capture host boot
+Electron capture host ready
+✔ L1 initialization failure logs a sanitized error and exits Electron immediately (6.437792ms)
+✔ L1 diagnostics redact workstation and temporary paths (0.140333ms)
+✔ the actual Electron ESM entry evaluates before ready and handles readiness rejection (213.6555ms)
+✔ child output is forwarded before exit, with split paths and UTF-8 redacted per line (4.40475ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 479.641792
+
+exit_code=0

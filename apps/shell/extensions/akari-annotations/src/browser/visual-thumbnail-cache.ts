@@ -6,6 +6,18 @@ export interface VisualThumbnailJob {
     capture(): Promise<string>;
 }
 
+export type VisualThumbnailFailureKind = 'transient' | 'permanent';
+
+export function classifyVisualThumbnailFailure(error: unknown): VisualThumbnailFailureKind {
+    return /no visible pixels|busy|timed?\s*out|timeout|temporar|ECONNRESET|ERR_(CONNECTION|NETWORK)/i.test(String(error))
+        ? 'transient' : 'permanent';
+}
+
+export interface VisualThumbnailFailure {
+    readonly kind: VisualThumbnailFailureKind;
+    readonly reason: string;
+}
+
 /** Bounded LRU and visible-first, single-flight work queue. It never owns DOM/renderers. */
 export class VisualThumbnailCache {
     readonly stats = { captures: 0, hits: 0, failures: 0, discarded: 0, generatedMs: 0 };
@@ -13,6 +25,7 @@ export class VisualThumbnailCache {
     private readonly queue = new Map<string, VisualThumbnailJob>();
     private readonly wantedByKey = new Map<string, () => boolean>();
     private readonly retries = new Map<string, { attempts: number; deadline: number; at: number }>();
+    private readonly failures = new Map<string, VisualThumbnailFailure>();
     private active: string | undefined;
     private bytes = 0;
     private paused = false;
@@ -28,7 +41,17 @@ export class VisualThumbnailCache {
     get memoryBytes(): number { return this.bytes; }
     get isPaused(): boolean { return this.paused || this.disposed; }
 
+    getFailure(key: string): VisualThumbnailFailure | undefined { return this.failures.get(key); }
+
     request(job: VisualThumbnailJob): string | null | undefined {
+        // A redraw cannot bypass backoff, but a later request can start a new bounded retry window.
+        const expired = this.retries.get(job.key);
+        if (this.cache.get(job.key) === null && expired && Date.now() > expired.deadline
+            && this.active !== job.key && !this.disposed) {
+            this.retries.set(job.key, { attempts: 0, deadline: Date.now() + 30000, at: 0 });
+            this.enqueue(job);
+            return undefined;
+        }
         if (this.cache.has(job.key)) {
             const value = this.cache.get(job.key)!;
             this.cache.delete(job.key); this.cache.set(job.key, value);
@@ -59,7 +82,7 @@ export class VisualThumbnailCache {
     dispose(): void {
         this.disposed = true;
         if (this.timer) clearTimeout(this.timer);
-        this.queue.clear(); this.cache.clear(); this.wantedByKey.clear(); this.retries.clear(); this.bytes = 0;
+        this.queue.clear(); this.cache.clear(); this.wantedByKey.clear(); this.retries.clear(); this.failures.clear(); this.bytes = 0;
     }
 
     private schedule(): void {
@@ -88,11 +111,11 @@ export class VisualThumbnailCache {
         this.queue.delete(job.key); this.active = job.key;
         const start = performance.now();
         let value: string | null = null;
-        let transient = false;
+        let failure: VisualThumbnailFailure | undefined;
         try { value = await job.capture(); this.stats.captures++; }
         catch (error) {
             this.stats.failures++;
-            transient = /busy|timed?\s*out|timeout|temporar|ECONNRESET|ERR_(CONNECTION|NETWORK)/i.test(String(error));
+            failure = Object.freeze({ kind: classifyVisualThumbnailFailure(error), reason: String(error).slice(0, 2048) });
         }
         this.stats.generatedMs += performance.now() - start;
         this.active = undefined;
@@ -102,7 +125,9 @@ export class VisualThumbnailCache {
             this.changed(); this.schedule(); return;
         }
         const previous = this.retries.get(job.key);
-        if (transient) {
+        if (failure) this.failures.set(job.key, failure);
+        else this.failures.delete(job.key);
+        if (failure?.kind === 'transient') {
             const attempts = (previous?.attempts ?? 0) + 1;
             const deadline = previous?.deadline ?? Date.now() + 30000;
             const at = attempts < 3 ? Date.now() + 1000 * 2 ** (attempts - 1) : Infinity;
@@ -120,6 +145,7 @@ export class VisualThumbnailCache {
             this.bytes -= cost(key, this.cache.get(key)!); this.cache.delete(key);
             this.wantedByKey.delete(key);
             this.retries.delete(key); this.queue.delete(key);
+            this.failures.delete(key);
         }
         this.changed();
         this.schedule();

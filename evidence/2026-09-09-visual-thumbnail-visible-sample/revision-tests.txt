@@ -1,0 +1,15 @@
+✔ capture deadline grows with candidate count and stays bounded at 26 seconds (478.826541ms)
+✔ L1 initialization failure logs a sanitized error and exits Electron immediately (247.725042ms)
+✔ L1 diagnostics redact workstation and temporary paths (0.472666ms)
+✔ sample times preserve midpoint first, then quarter, 0.8s and 0.2s relative to start (13.5985ms)
+✔ finite starts retain a capture candidate for zero, negative and non-finite durations (3.37ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11510.319791
+
+exit_code=0

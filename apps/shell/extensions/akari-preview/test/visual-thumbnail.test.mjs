@@ -6,11 +6,42 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import vm from 'node:vm';
 const require = createRequire(import.meta.url);
 const { prepareVisualThumbnailPage } = require('../lib/node/visual-thumbnail-page.js');
-const { visualThumbnailPage } = require('../lib/common/visual-thumbnail.js');
+const { visualThumbnailPage, visualThumbnailSampleTimes } = require('../lib/common/visual-thumbnail.js');
 const assets = Object.fromEntries(['threeJavaScriptUrl', 'threeTextJavaScriptUrl', 'threeRuntimeJavaScriptUrl',
   'runtimeJavaScriptUrl', 'captionFontUrl'].map(key => [key, `http://127.0.0.1:1234/${key}`]));
+
+test('sample times preserve midpoint first, then quarter, 0.8s and 0.2s relative to start', () => {
+  assert.deepEqual(visualThumbnailSampleTimes(2, 12), [8, 5, 2.8, 2.2]);
+  assert.deepEqual(visualThumbnailSampleTimes(0, 1.6), [0.8, 0.4, 0.2]);
+  assert.deepEqual(visualThumbnailSampleTimes(0, 0.8), [0.4, 0.2, 0.8 - Number.EPSILON * 0.8]);
+  for (const start of [0, 2, -1, 100000]) for (const duration of [0.01, 0.2, 0.8, 3.3, 12]) {
+    const times = visualThumbnailSampleTimes(start, duration);
+    assert.equal(times[0], start + duration / 2);
+    assert.ok(times.length > 0 && times.length <= 4);
+    assert.equal(new Set(times).size, times.length);
+    assert.ok(times.every(time => time >= start && time < start + duration));
+  }
+  for (const [start, duration] of [[NaN, 1], [Infinity, 2], [-Infinity, 0]]) {
+    assert.deepEqual(visualThumbnailSampleTimes(start, duration), []);
+  }
+});
+
+test('finite starts retain a capture candidate for zero, negative and non-finite durations', () => {
+  for (const start of [0, 2, -1, 1e300]) {
+    for (const duration of [0, -1, NaN, Infinity, -Infinity]) {
+      const times = visualThumbnailSampleTimes(start, duration);
+      assert.deepEqual(times, [start]);
+      const page = visualThumbnailPage([], { width: 640, height: 360, fps: 30 }, times, assets);
+      assert.deepEqual(page.sampleTimes, [start]);
+      assert.ok(page.html.includes(`runtime.tick(${start},false)`));
+    }
+  }
+  assert.deepEqual(visualThumbnailSampleTimes(1e300, 1), [1e300]);
+  assert.deepEqual(visualThumbnailSampleTimes(Number.MAX_VALUE, Number.MAX_VALUE), [Number.MAX_VALUE]);
+});
 
 test('isolates an item, reads updated HTML/params and dependencies, samples midpoint, releases failed streams', async t => {
   const root = await mkdtemp(join(tmpdir(), 'akari-visual-thumbnail-'));
@@ -29,6 +60,7 @@ test('isolates an item, reads updated HTML/params and dependencies, samples midp
   const createStream = async () => ({ id: String(++streams), url: `http://127.0.0.1:1234/asset/${streams}` });
   const page = await prepareVisualThumbnailPage(path, 'card', assets, createStream, async () => {});
   assert.equal(page.width, 480); assert.equal(page.height, 270);
+  assert.deepEqual(page.sampleTimes, [4, 3, 2.8, 2.2], 'first sample is the original midpoint');
   assert.match(page.html, /runtime.tick\(4,false\)/);
   assert.match(page.html, /First/); assert.match(page.html, /before/);
   assert.equal(page.streamIds.length, 1);
@@ -51,7 +83,31 @@ test('capture host preserves portrait aspect, waits for fonts/images/3D, and esc
   assert.match(page.html, /img.decode/);
   assert.match(page.html, /r.inspect/);
   assert.match(page.html, /premount:false/);
+  assert.deepEqual(page.sampleTimes, [1]);
+  assert.match(page.html, /window.__akariThumbnailSeek=async\(t\)=>/);
   assert.doesNotMatch(page.html, /<\/script><img src=x>/);
+});
+
+test('reusable seek ticks before decoding images, waiting for fonts and two animation frames', async () => {
+  const events = [];
+  const img = { tagName: 'IMG', decode: async () => { events.push('image'); } };
+  const container = { querySelectorAll: () => [img] };
+  const window = { akari: { createOverlayRuntime: () => ({ configure() {}, mount: async () => {},
+    tick: (time, playing) => events.push(['tick', time, playing]) }), runtimes: { forContainer: () => [] } } };
+  const page = visualThumbnailPage([], { width: 640, height: 360, fps: 30 }, [6, 3, 0.8, 0.2], assets);
+  vm.runInNewContext(page.html.match(/<script>\n([\s\S]*)<\/script>/)[1], {
+    window, document: { querySelectorAll: () => [container], fonts: { get ready() { events.push('fonts'); return Promise.resolve(); } } },
+    getComputedStyle: () => ({ backgroundImage: '', maskImage: '', borderImageSource: '', content: '', listStyleImage: '' }),
+    performance, requestAnimationFrame: callback => { events.push('raf'); callback(); }
+  });
+  await window.__akariThumbnailReady;
+  assert.deepEqual(events.filter(event => Array.isArray(event)), [['tick', 6, false], ['tick', 6, false]],
+    'initial midpoint uses the original two ticks with no extra seek before its capture');
+  for (const time of [3, 0.8, 0.2]) {
+    events.length = 0;
+    await window.__akariThumbnailSeek(time);
+    assert.deepEqual(events, [['tick', time, false], 'image', 'fonts', 'raf', 'raf']);
+  }
 });
 
 test('3D thumbnails stream each local asset once and use the selected overlay texture', async t => {

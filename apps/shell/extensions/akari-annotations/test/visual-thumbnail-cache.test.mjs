@@ -1,9 +1,29 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
-import { visualDeclarationChain, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
+import { VisualThumbnailCache, classifyVisualThumbnailFailure } from '../lib/browser/visual-thumbnail-cache.js';
+import { visualDeclarationChain, visualThumbnailSnapshot, visualThumbnailKey } from '../lib/browser/visual-thumbnail-key.js';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const job = (key, capture, priority = 0) => ({ key, priority, wanted: () => true, capture });
+
+test('failure classification retries transparent frames and transport failures, preserves structural failures', () => {
+  for (const reason of ['Visual thumbnail has no visible pixels', 'capture is busy', 'capture timed out',
+    'timeout', 'temporarily unavailable', 'ECONNRESET', 'ERR_CONNECTION_CLOSED', 'ERR_NETWORK_CHANGED']) {
+    assert.equal(classifyVisualThumbnailFailure(reason), 'transient', reason);
+    assert.equal(classifyVisualThumbnailFailure(new Error(reason)), 'transient', reason);
+  }
+  for (const reason of ['This item has no renderable overlay', 'Invalid visual thumbnail page',
+    'Thumbnail input is outside the project', 'bad HTML']) {
+    assert.equal(classifyVisualThumbnailFailure(new Error(reason)), 'permanent', reason);
+  }
+});
+
+test('changing duration changes the existing snapshot-based cache identity', () => {
+  const doc = { tracks: [{ items: [{ id: 'title', at: 0, duration: 300 }] }] };
+  const key = () => visualThumbnailKey('project', 'title', [visualThumbnailSnapshot(doc, 'title')]);
+  const before = key();
+  doc.tracks[0].items[0].duration = 360;
+  assert.notEqual(key(), before);
+});
 
 test('leaf identity follows parent changes and implicit part overrides, not unrelated siblings', () => {
   const doc = { tracks: [{ items: [{ id: 'group', transform: { scale: 1 }, items: [
@@ -30,7 +50,7 @@ const until = async (predicate, timeout = 7000) => {
 test('transient failures retry without file changes, honor pause, and stop after three attempts', async () => {
   const cache = new VisualThumbnailCache(() => {});
   let attempts = 0;
-  const recover = job('recover', async () => { if (++attempts === 1) throw Error('transient busy'); return 'image'; });
+  const recover = job('recover', async () => { if (++attempts === 1) throw Error('Visual thumbnail has no visible pixels'); return 'image'; });
   cache.request(recover);
   await until(() => cache.stats.failures === 1);
   cache.setPaused(true); await wait(1200);
@@ -62,19 +82,43 @@ test('generation invalidation discards an asynchronous result instead of poisoni
   cache.dispose();
 });
 
-test('the retry deadline expires even if a visible failed key is requested again', async t => {
+test('transparent failures retain reasons and later requests can recover after the retry window expires', async t => {
   const realNow = Date.now; let offset = 0;
   t.mock.method(Date, 'now', () => realNow() + offset);
   const cache = new VisualThumbnailCache(() => {});
   t.after(() => cache.dispose());
   let attempts = 0;
-  const failed = job('expired', async () => { attempts++; throw Error('temporary busy'); });
+  const failed = job('expired', async () => {
+    if (++attempts === 1) throw Error('Visual thumbnail has no visible pixels');
+    return 'visible';
+  });
   cache.request(failed); await until(() => cache.stats.failures === 1);
+  assert.deepEqual(cache.getFailure('expired'), { kind: 'transient', reason: 'Error: Visual thumbnail has no visible pixels' });
+  cache.setPaused(true);
   offset = 31000;
-  cache.request(failed); await wait(1200);
+  await wait(1200);
   assert.equal(attempts, 1);
-  assert.equal(cache.request(failed), null);
-  assert.equal(cache.queued, 0);
+  assert.equal(cache.request(failed), undefined);
+  cache.setPaused(false);
+  await until(() => cache.request(failed) === 'visible');
+  assert.equal(attempts, 2);
+  assert.equal(cache.getFailure('expired'), undefined);
+});
+
+test('structural failures stay cached with a readable reason and do not recapture', async t => {
+  const realNow = Date.now; let offset = 0;
+  t.mock.method(Date, 'now', () => realNow() + offset);
+  const cache = new VisualThumbnailCache(() => {});
+  t.after(() => cache.dispose());
+  const failed = job('group', async () => { throw Error('This item has no renderable overlay'); });
+  cache.request(failed); await until(() => cache.stats.failures === 1);
+  offset = 60000;
+  for (let i = 0; i < 10; i++) assert.equal(cache.request(failed), null);
+  await wait(140);
+  assert.equal(cache.stats.failures, 1);
+  assert.deepEqual(cache.getFailure('group'), { kind: 'permanent', reason: 'Error: This item has no renderable overlay' });
+  cache.dispose();
+  assert.equal(cache.getFailure('group'), undefined);
 });
 
 test('pauses playback/drag work, resumes visible-first, deduplicates queued and cached inputs', async () => {

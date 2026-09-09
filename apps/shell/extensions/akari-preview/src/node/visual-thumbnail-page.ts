@@ -5,7 +5,7 @@ import { pathToFileURL } from 'url';
 import { expandBagOverlays } from '../common/preview-parts';
 import { resolvePreviewItemKeyframes } from '../common/item-keyframes-summary';
 import { resolveThreeSceneDescriptorAssets } from '../common/three-scene-assets';
-import { visualThumbnailPage, type VisualThumbnailPage } from '../common/visual-thumbnail';
+import { visualThumbnailPage, visualThumbnailSampleTimes, type VisualThumbnailPage } from '../common/visual-thumbnail';
 import type { OverlayRuntimeAssetUrls, VideoStreamReference } from '../common/akari-preview-protocol';
 import { rewritePreviewFragmentAssets } from './fragment-assets';
 
@@ -122,7 +122,7 @@ export async function prepareVisualThumbnailPage(
         const output = internal.output;
         return { ...visualThumbnailPage(overlays, {
             width: output.width, height: output.height, fps: output.fps
-        }, start + duration / 2, assets), streamIds: streams, dependencyUris: [...dependencies], editSnapshot: snapshot };
+        }, visualThumbnailSampleTimes(start, duration), assets), streamIds: streams, dependencyUris: [...dependencies], editSnapshot: snapshot };
     } catch (error) {
         await Promise.all(streams.map(disposeStream));
         throw error;

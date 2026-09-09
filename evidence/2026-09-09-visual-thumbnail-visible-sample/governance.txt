@@ -1,0 +1,5 @@
+# Governance gate (wrapper run) — .github/workflows/governance.yml, 'Scan tracked files for governance leaks'
+
+Governance gate passed — no tracked-file leaks detected.
+
+exit_code=0

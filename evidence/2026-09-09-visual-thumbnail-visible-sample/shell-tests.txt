@@ -1,0 +1,25 @@
+# L0 tests (wrapper run) — npm run test:shell
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+| ✅ | apps/shell/test | 40 | 40 | 0 | 0 | 0.7 |
+| ✅ | apps/shell/extensions/akari-annotations | 1115 | 1115 | 0 | 0 | 26.4 |
+| ✅ | apps/shell/extensions/akari-partner | 130 | 130 | 0 | 0 | 9.0 |
+| ✅ | apps/shell/extensions/akari-project | 289 | 289 | 0 | 0 | 3.9 |
+| ✅ | apps/shell/extensions/akari-shell-strip | 237 | 237 | 0 | 0 | 6.0 |
+| ✅ | apps/shell/extensions/akari-surfaces | 222 | 222 | 0 | 0 | 3.7 |
+| ✅ | apps/shell/extensions/akari-tabs | 10 | 10 | 0 | 0 | 1.2 |
+| ✅ | apps/shell/extensions/akari-theme | 23 | 23 | 0 | 0 | 2.1 |
+| ✅ | apps/shell/extensions/akari-transcript | 228 | 228 | 0 | 0 | 2.8 |
+| ❌ | apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外) | 927 | 926 | 1 | 0 | 34.5 |
+合計: tests 3221 / pass 3220 / fail 1 / skipped 0 — exit≠0: apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外)
+
+exit_code=1
+
+The single failure is 'frame-engine bundle は生成元から再生成しても byte drift がない'.
+It is unrelated to this task: apps/shell/extensions/akari-preview/generated/frame-engine.js is a
+pre-existing working-tree artifact synced by the dispatcher and is NOT part of this commit.
+Measured by the wrapper: rebuilding packages/frame-engine/src reproduces the tracked HEAD file
+byte for byte, and running the same test file against the tracked content passes:
+  ✔ frame-engine bundle は生成元から再生成しても byte drift がない (116.958792ms)
+  ✔ p6 pitch-shift worklet bundle は生成元から再生成しても byte drift がない (5.369792ms)
+With that artifact excluded the shell lane is 3221/3221.
