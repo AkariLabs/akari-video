@@ -1,0 +1,167 @@
+{
+  "label": "after",
+  "fixtures": {
+    "canvas-center-diagnostics": {
+      "three": {
+        "status": "ready",
+        "memory": {
+          "geometries": 4,
+          "textures": 2
+        },
+        "render": {
+          "frame": 34,
+          "calls": 10,
+          "triangles": 1924,
+          "points": 0,
+          "lines": 0
+        },
+        "pixelRatio": 1,
+        "shadows": false,
+        "videoTextures": 0,
+        "animationClips": 0,
+        "materials": [],
+        "materialOverrides": [],
+        "textNodes": 5,
+        "textBlocks": 1,
+        "physics": null,
+        "cameraFov": 40,
+        "cameraAspect": 1.7777777777777777,
+        "cameraSource": "descriptor",
+        "cameraWorldPosition": [
+          0,
+          0,
+          5
+        ],
+        "cameraViewOffset": null
+      },
+      "canvas": {
+        "width": 720,
+        "height": 405,
+        "clientWidth": 1280
+      },
+      "scripts": [
+        {
+          "type": "application/json",
+          "declared": true,
+          "text": "{\"camera\":{\"position\":[0,0,5],\"lookAt\":[0,0,0],\"fov\":40},\"texts\":[{\"id\":\"title\",\"text\":\"TITLE\",\"font\":\"http://127.0.0.1:51600/asset/cd2d5f987909a1d604cf2b448a54"
+        }
+      ],
+      "childElementCount": 1,
+      "readDescriptor": {
+        "ok": true,
+        "keys": [
+          "camera",
+          "texts"
+        ]
+      },
+      "html": "<div class=\"content-box-canvas-fixture\" style=\"pointer-events: none !important;\">\n  <style style=\"pointer-events: none !important;\">\n    .content-box-canvas-fixture { position: absolute; inset: 0; }\n    .content-box-canvas-fixture canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }\n  </style>\n  <canvas data-engine=\"three.js r185\" width=\"720\" height=\"405\" style=\"poin"
+    },
+    "canvas-center": {
+      "seconds": 2,
+      "container": {
+        "left": 36,
+        "top": 172.25,
+        "width": 392,
+        "height": 220.5
+      },
+      "declaredBounds": {
+        "left": 115.18327412548257,
+        "top": 261.6946237599521,
+        "width": 219.03550968579748,
+        "height": 41.61075248009581
+      },
+      "declaredRatio": {
+        "width": 0.5587640553209119,
+        "height": 0.18871089560134155
+      },
+      "contentClick": {
+        "selectionFrame": {
+          "width": 219.036,
+          "height": 41.6108
+        },
+        "cutSelected": false
+      },
+      "shots": {
+        "content": "after-canvas-center-content-click.png",
+        "transparent": "after-canvas-center-transparent-click.png"
+      },
+      "transparentClick": {
+        "selectionFrame": null,
+        "cutSelected": true
+      },
+      "selectionRatio": {
+        "width": 0.558765306122449,
+        "height": 0.1887111111111111
+      },
+      "checks": {
+        "shrinks": true,
+        "contentSelectsOverlay": true,
+        "transparentSelectsMedia": true
+      },
+      "pass": true
+    },
+    "telop-center-diagnostics": {
+      "three": {
+        "status": "disposed"
+      },
+      "canvas": null,
+      "scripts": [],
+      "childElementCount": 1,
+      "readDescriptor": {
+        "ok": true,
+        "keys": []
+      },
+      "html": "<!-- Nested inset:0 wrappers must shrink to the centered text. -->\n<div class=\"content-box-telop-fixture\" style=\"pointer-events: none !important;\">\n  <style style=\"pointer-events: none !important;\">\n    .content-box-telop-fixture, .content-box-telop-fixture__center { position: absolute; inset: 0; }\n    .content-box-telop-fixture__center { display: flex; align-items: center; justify-content: center"
+    },
+    "telop-center": {
+      "seconds": 7,
+      "container": {
+        "left": 36,
+        "top": 172.25,
+        "width": 392,
+        "height": 220.5
+      },
+      "declaredBounds": {
+        "left": 173.1999969482422,
+        "top": 270.0059509277344,
+        "width": 117.59999084472656,
+        "height": 24.98809814453125
+      },
+      "declaredRatio": {
+        "width": 0.2999999766447106,
+        "height": 0.11332470813846372
+      },
+      "contentClick": {
+        "selectionFrame": {
+          "width": 117.6,
+          "height": 24.9881
+        },
+        "cutSelected": false
+      },
+      "shots": {
+        "content": "after-telop-center-content-click.png",
+        "transparent": "after-telop-center-transparent-click.png"
+      },
+      "transparentClick": {
+        "selectionFrame": null,
+        "cutSelected": true
+      },
+      "selectionRatio": {
+        "width": 0.3,
+        "height": 0.11332471655328798
+      },
+      "checks": {
+        "shrinks": true,
+        "contentSelectsOverlay": true,
+        "transparentSelectsMedia": true
+      },
+      "pass": true
+    }
+  },
+  "consoleErrors": [
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy.",
+    "Uncaught (in promise) NotAllowedError: Failed to execute 'observe' on 'PressureObserver': Access to the feature \"compute pressure\" is disallowed by permissions policy."
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,11 @@
+<!-- Nested inset:0 wrappers must shrink to the centered text. -->
+<div class="content-box-telop-fixture">
+  <style>
+    .content-box-telop-fixture, .content-box-telop-fixture__center { position: absolute; inset: 0; }
+    .content-box-telop-fixture__center { display: flex; align-items: center; justify-content: center; }
+    .content-box-telop-fixture__text { color: white; background: #24304b; padding: 12px 24px; font: 700 48px/1.2 sans-serif; white-space: nowrap; }
+  </style>
+  <div class="content-box-telop-fixture__center">
+    <span class="content-box-telop-fixture__text">中央のテロップ</span>
+  </div>
+</div>
