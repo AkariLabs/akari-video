@@ -67,7 +67,7 @@ test('cut / sfx の署名にズーム幾何とチャンク到着リビジョン�
   const render = method('protected renderStrip(): void', 'protected laneBand');
   const cutSignature = method('const cutSignature = JSON.stringify([', ']);');
   assert.ok(cutSignature.includes('cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0'));
-  assert.ok(cutSignature.includes('cutMediaGate'));
+  assert.ok(!cutSignature.includes('cutMediaGate'), 'サイズゲートは署名に入れない（境界越えで media 無しの再構築を起こさない）');
   assert.ok(!cutSignature.includes('\n                this.layoutViewDuration, stripLayoutWidthPx,\n'), '素の行としてのズーム幾何は残さない');
   const audioSignature = method('const audioSignature = JSON.stringify([', ']);');
   assert.ok(audioSignature.includes('sfxTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx] : 0'));
