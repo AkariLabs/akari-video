@@ -84,7 +84,7 @@ const report = {
   cases: {},
 };
 
-// --- (1) 重なりトラック（オーナー口述と同じ「同じ動画を V1 / V2 に重ねる」） -------
+// --- (1) 重なりトラック（同じ動画を V1 / V2 に重ねる） -------
 {
   const root = makeProject('overlap', { ...base, tracks: [
     visual('visual-upper', [{ id: 'upper', at: 60, duration: 120, source: media('main', 6, 10) }]),
