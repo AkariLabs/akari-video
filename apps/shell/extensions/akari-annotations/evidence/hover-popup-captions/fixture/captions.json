@@ -1,0 +1,12 @@
+{
+  "captions": [
+    { "id": "c-0001", "src": "main", "start": 0.5, "end": 3.0, "text": "ホバーで見た目が出る字幕",
+      "speaker": null, "sourceRef": null, "edited": false,
+      "text_style": { "color": "#ffdd33", "size_px": 96,
+        "stroke": { "color": "#102030", "width_px": 5 },
+        "background": { "color": "#000000", "opacity": 0.45, "radius_px": 12 },
+        "zone": "top" } },
+    { "id": "c-0002", "src": "main", "start": 3.5, "end": 7.0, "text": "既定スタイルの字幕",
+      "speaker": null, "sourceRef": null, "edited": false }
+  ]
+}

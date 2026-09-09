@@ -1,0 +1,322 @@
+{
+  "generatedAt": "2026-09-09T06:14:14.279Z",
+  "steps": [
+    {
+      "name": "a-html",
+      "selector": "[data-akari-item-id=\"slot-a\"][data-akari-visual-hover-installed=\"true\"]",
+      "point": {
+        "x": 688,
+        "y": 674,
+        "rect": {
+          "x": 364.9140625,
+          "y": 650.0390625,
+          "width": 645.328125,
+          "height": 48,
+          "top": 650.0390625,
+          "right": 1010.2421875,
+          "bottom": 698.0390625,
+          "left": 364.9140625
+        },
+        "topIsTarget": true
+      },
+      "earlyCheckedAt": 1794,
+      "shotEarlyStart": 1246,
+      "shotEarlyEnd": 1781,
+      "earlyShotBeforeDelay": true,
+      "lateCheckedAt": 2211,
+      "early": {
+        "present": false
+      },
+      "late": {
+        "present": true,
+        "popupRect": {
+          "x": 364.9140625,
+          "y": 432.0390625,
+          "width": 334,
+          "height": 210,
+          "top": 432.0390625,
+          "right": 698.9140625,
+          "bottom": 642.0390625,
+          "left": 364.9140625
+        },
+        "image": {
+          "x": 371.9140625,
+          "y": 439.0390625,
+          "width": 320,
+          "height": 180,
+          "top": 439.0390625,
+          "right": 691.9140625,
+          "bottom": 619.0390625,
+          "left": 371.9140625
+        },
+        "nameLine": "slot-a",
+        "captionPreview": null
+      },
+      "shots": {
+        "early": "a1-html-hover-under-2s-none.png",
+        "late": "a2-html-hover-2200ms-shown.png"
+      }
+    },
+    {
+      "name": "c-caption-styled",
+      "selector": "[data-akari-item-kind=\"caption\"][data-akari-item-id=\"c-0001\"]",
+      "point": {
+        "x": 506,
+        "y": 635,
+        "rect": {
+          "x": 405.2421875,
+          "y": 624.0390625,
+          "width": 201.6640625,
+          "height": 22,
+          "top": 624.0390625,
+          "right": 606.90625,
+          "bottom": 646.0390625,
+          "left": 405.2421875
+        },
+        "topIsTarget": true
+      },
+      "earlyCheckedAt": 1800,
+      "shotEarlyStart": 1166,
+      "shotEarlyEnd": 1784,
+      "earlyShotBeforeDelay": true,
+      "lateCheckedAt": 2215,
+      "early": {
+        "present": false
+      },
+      "late": {
+        "present": true,
+        "popupRect": {
+          "x": 405.2421875,
+          "y": 406.0390625,
+          "width": 334,
+          "height": 210,
+          "top": 406.0390625,
+          "right": 739.2421875,
+          "bottom": 616.0390625,
+          "left": 405.2421875
+        },
+        "image": null,
+        "nameLine": "ホバーで見た目が出る字幕",
+        "captionPreview": {
+          "rect": {
+            "x": 412.2421875,
+            "y": 413.0390625,
+            "width": 320,
+            "height": 180,
+            "top": 413.0390625,
+            "right": 732.2421875,
+            "bottom": 593.0390625,
+            "left": 412.2421875
+          },
+          "background": "rgb(0, 0, 0)",
+          "lines": [
+            "ホバーで見た目が出る字幕"
+          ],
+          "color": "rgb(255, 221, 51)",
+          "fontSize": "96px",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "textShadow": "rgb(16, 32, 48) -5px -5px 0px, rgb(16, 32, 48) 5px -5px 0px, rgb(16, 32, 48) -5px 5px 0px, rgb(16, 32, 48) 5px 5px 0px, rgba(0, 0, 0, 0.6) 0px 0px 8px",
+          "plateRect": {
+            "x": 425.0416564941406,
+            "y": 425.6380310058594,
+            "width": 294.4010925292969,
+            "height": 25.27862548828125,
+            "top": 425.6380310058594,
+            "right": 719.4427490234375,
+            "bottom": 450.9166564941406,
+            "left": 425.0416564941406
+          },
+          "plateComputedTop": "75.5938px",
+          "plateComputedBottom": "852.734px",
+          "lineBackground": "rgba(0, 0, 0, 0.45)",
+          "lineRect": {
+            "x": 470.0833435058594,
+            "y": 425.6380310058594,
+            "width": 204.31771850585938,
+            "height": 25.27862548828125,
+            "top": 425.6380310058594,
+            "right": 674.4010620117188,
+            "bottom": 450.9166564941406,
+            "left": 470.0833435058594
+          }
+        }
+      },
+      "shots": {
+        "early": "c1-caption-hover-under-2s-none.png",
+        "late": "c2-caption-hover-2200ms-shown.png"
+      }
+    },
+    {
+      "name": "c-caption-default",
+      "selector": "[data-akari-item-kind=\"caption\"][data-akari-item-id=\"c-0002\"]",
+      "point": {
+        "x": 788,
+        "y": 635,
+        "rect": {
+          "x": 647.2421875,
+          "y": 624.0390625,
+          "width": 282.328125,
+          "height": 22,
+          "top": 624.0390625,
+          "right": 929.5703125,
+          "bottom": 646.0390625,
+          "left": 647.2421875
+        },
+        "topIsTarget": true
+      },
+      "earlyCheckedAt": 1587,
+      "shotEarlyStart": 1163,
+      "shotEarlyEnd": 1582,
+      "earlyShotBeforeDelay": true,
+      "lateCheckedAt": 2227,
+      "early": {
+        "present": false
+      },
+      "late": {
+        "present": true,
+        "popupRect": {
+          "x": 647.2421875,
+          "y": 406.0390625,
+          "width": 334,
+          "height": 210,
+          "top": 406.0390625,
+          "right": 981.2421875,
+          "bottom": 616.0390625,
+          "left": 647.2421875
+        },
+        "image": null,
+        "nameLine": "既定スタイルの字幕",
+        "captionPreview": {
+          "rect": {
+            "x": 654.2421875,
+            "y": 413.0390625,
+            "width": 320,
+            "height": 180,
+            "top": 413.0390625,
+            "right": 974.2421875,
+            "bottom": 593.0390625,
+            "left": 654.2421875
+          },
+          "background": "rgb(0, 0, 0)",
+          "lines": [
+            "既定スタイルの字幕"
+          ],
+          "color": "rgb(255, 255, 255)",
+          "fontSize": "38px",
+          "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "plateRect": {
+            "x": 654.2421875,
+            "y": 570.4349365234375,
+            "width": 320,
+            "height": 10.00518798828125,
+            "top": 570.4349365234375,
+            "right": 974.2421875,
+            "bottom": 580.4401245117188,
+            "left": 654.2421875
+          },
+          "plateComputedTop": "944.375px",
+          "plateComputedBottom": "75.5938px",
+          "lineBackground": "rgba(0, 0, 0, 0)",
+          "lineRect": {
+            "x": 783.2409057617188,
+            "y": 570.4349365234375,
+            "width": 62.00128173828125,
+            "height": 10.00518798828125,
+            "top": 570.4349365234375,
+            "right": 845.2421875,
+            "bottom": 580.4401245117188,
+            "left": 783.2409057617188
+          }
+        }
+      },
+      "shots": {
+        "early": "c4-caption-default-under-2s-none.png",
+        "late": "c5-caption-default-2200ms-shown.png"
+      }
+    }
+  ],
+  "env": {
+    "innerWidth": 1600,
+    "innerHeight": 1000,
+    "devicePixelRatio": 1,
+    "chips": [
+      {
+        "kind": "caption",
+        "id": "c-0001",
+        "hasImage": false,
+        "rect": {
+          "x": 405.2421875,
+          "y": 624.0390625,
+          "width": 201.6640625,
+          "height": 22,
+          "top": 624.0390625,
+          "right": 606.90625,
+          "bottom": 646.0390625,
+          "left": 405.2421875
+        }
+      },
+      {
+        "kind": "caption",
+        "id": "c-0002",
+        "hasImage": false,
+        "rect": {
+          "x": 647.2421875,
+          "y": 624.0390625,
+          "width": 282.328125,
+          "height": 22,
+          "top": 624.0390625,
+          "right": 929.5703125,
+          "bottom": 646.0390625,
+          "left": 647.2421875
+        }
+      },
+      {
+        "kind": "overlay",
+        "id": "slot-a",
+        "hasImage": true,
+        "rect": {
+          "x": 364.9140625,
+          "y": 650.0390625,
+          "width": 645.328125,
+          "height": 48,
+          "top": 650.0390625,
+          "right": 1010.2421875,
+          "bottom": 698.0390625,
+          "left": 364.9140625
+        }
+      }
+    ]
+  },
+  "afterLeave": {
+    "present": false
+  },
+  "limits": {
+    "innerWidth": 1600,
+    "innerHeight": 1000,
+    "oldLimit": 480,
+    "newLimit": 320,
+    "twoThirdsOfOldLimit": 320,
+    "htmlPopupImageWidth": 320,
+    "htmlPopupImageHeight": 180,
+    "htmlPopupWidth": 334,
+    "captionPreviewWidth": 320,
+    "captionPreviewHeight": 180
+  },
+  "verdicts": {
+    "a HTML: 2.0 秒未満では出ない": true,
+    "a HTML: 1.5 秒時点の撮影が遅延到達前に完了": true,
+    "a HTML: 2.2 秒で出る": true,
+    "b 幅が旧上限の 2/3 以下": true,
+    "b 字幕ポップアップも同じ上限": true,
+    "c 字幕: 2.0 秒未満では出ない": true,
+    "c 字幕: 1.5 秒時点の撮影が遅延到達前に完了": true,
+    "c 字幕: 2.2 秒で見た目のポップアップ": true,
+    "c 本文が入っている": true,
+    "c 色が text_style どおり(#ffdd33)": true,
+    "c 上ゾーンが枠内上部": true,
+    "c 背景は暗い無地": true,
+    "c 既定スタイルの字幕でも出る": true,
+    "d ポインタ離脱で即消える": true
+  }
+}

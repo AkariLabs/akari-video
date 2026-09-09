@@ -29,6 +29,7 @@ function fixture(t, prepare) {
       electronAkariPreview: { captureVisualThumbnail: async page => { captures.push(page.marker); return page.marker; } } },
     { createElement: () => new Element() }, URI.default ?? URI, visualThumbnailKey, visualThumbnailSnapshot);
   const w = new Widget();
+  w.installVisualHover = () => {};
   const root = { value: 'A', toString() { return `file:///${this.value}/edit.json`; } };
   Object.assign(w, { location: { editUri: root }, visualInputEpoch: 0, visualDependencyRevisions: new Map(), visualDependencies: new Map(),
     failedVisualThumbnails: new Set(), visualKeys: new WeakMap(), isDisposed: false, stripScroll: new Element(),
