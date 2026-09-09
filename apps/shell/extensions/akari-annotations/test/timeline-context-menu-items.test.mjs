@@ -6,44 +6,18 @@ function ids(kind, hasClipboard) {
     return buildTimelineClipMenuItems(kind, hasClipboard).map(item => item.id);
 }
 
-test('cut・clipboard 無し: コピー → 分割 → 削除', () => {
-    assert.deepEqual(ids('cut', false), ['copy', 'split', 'delete']);
-});
+for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
+    test(`${kind}: コピー・切り取り・貼り付け・複製を全種別に出す`, () => {
+        const suffix = kind === 'cut' ? ['split', 'delete'] : ['delete'];
+        for (const hasClipboard of [false, true]) {
+            assert.deepEqual(ids(kind, hasClipboard), ['copy', 'cut', 'paste', 'duplicate', ...suffix]);
+            assert.equal(!!buildTimelineClipMenuItems(kind, hasClipboard).find(item => item.id === 'paste').disabled, !hasClipboard);
+        }
+    });
+}
 
-test('cut・clipboard 有り: コピー → ペースト → 分割 → 削除', () => {
-    assert.deepEqual(ids('cut', true), ['copy', 'paste', 'split', 'delete']);
-});
-
-test('overlay・clipboard 無し: コピー → 削除', () => {
-    assert.deepEqual(ids('overlay', false), ['copy', 'delete']);
-});
-
-test('overlay・clipboard 有り: コピー → ペースト → 削除', () => {
-    assert.deepEqual(ids('overlay', true), ['copy', 'paste', 'delete']);
-});
-
-test('caption・clipboard 無し: コピー → 削除', () => {
-    assert.deepEqual(ids('caption', false), ['copy', 'delete']);
-});
-
-test('caption・clipboard 有り: コピー → ペースト → 削除', () => {
-    assert.deepEqual(ids('caption', true), ['copy', 'paste', 'delete']);
-});
-
-test('layer・clipboard 無し: コピー → 削除', () => {
-    assert.deepEqual(ids('layer', false), ['copy', 'delete']);
-});
-
-test('layer・clipboard 有り: コピー → ペースト → 削除', () => {
-    assert.deepEqual(ids('layer', true), ['copy', 'paste', 'delete']);
-});
-
-test('audio・clipboard 無し: 削除のみ', () => {
-    assert.deepEqual(ids('audio', false), ['delete']);
-});
-
-test('audio・clipboard 有り: ペースト → 削除', () => {
-    assert.deepEqual(ids('audio', true), ['paste', 'delete']);
+test('BGM とナレーションはコピー・切り取り・複製を出さない', () => {
+    assert.deepEqual(buildTimelineClipMenuItems('audio', true, {}, { copyable: false }).map(item => item.id), ['paste', 'delete']);
 });
 
 test('削除項目は常に danger: true を持つ', () => {
@@ -61,7 +35,7 @@ test('木アイテムには出す・まとめる・ばらす・折りたたみ�
         canToggleCollapse: true, collapsed: false, hasParent: true
     });
     assert.deepEqual(items.map(item => item.label), [
-        'コピー', '出す', 'まとめる', 'ばらす', '折りたたむ', '親を選択', '削除'
+        'コピー', '切り取り', '貼り付け', '複製', '出す', 'まとめる', 'ばらす', '折りたたむ', '親を選択', '削除'
     ]);
 });
 
@@ -69,11 +43,11 @@ test('字幕の木アイテムだけにテロップ変換を既存項目順を�
     const items = buildTimelineClipMenuItems('overlay', false, {
         canDetach: true, canConvertToTelop: true
     });
-    assert.deepEqual(items.map(item => item.id), ['copy', 'detach', 'convert-to-telop', 'delete']);
+    assert.deepEqual(items.map(item => item.id), ['copy', 'cut', 'paste', 'duplicate', 'detach', 'convert-to-telop', 'delete']);
 });
 
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {
-    const order = { copy: 0, paste: 1, split: 2, delete: 3 };
+    const order = { copy: 0, cut: 1, paste: 2, duplicate: 3, split: 4, delete: 5 };
     for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
         for (const hasClipboard of [true, false]) {
             const indexes = buildTimelineClipMenuItems(kind, hasClipboard).map(item => order[item.id]);

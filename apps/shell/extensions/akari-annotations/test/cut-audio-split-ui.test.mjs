@@ -128,7 +128,7 @@ test('menu additions preserve the relative order of every existing entry and sho
             assert.equal(entry.disabledReason, split.message);
         }
     }
-    assert.deepEqual(buildTimelineClipMenuItems('audio', false, {}, { linked: true }).map(entry => entry.id), ['unlink-audio', 'delete']);
+    assert.deepEqual(buildTimelineClipMenuItems('audio', false, {}, { linked: true }).map(entry => entry.id), ['copy', 'cut', 'paste', 'duplicate', 'unlink-audio', 'delete']);
     const menu = read('browser/akari-timeline-context-menu.ts');
     assert.match(menu, /button\.disabled = true/);
     assert.match(menu, /button\.title = item\.disabledReason/);
