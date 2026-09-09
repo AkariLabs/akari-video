@@ -11799,7 +11799,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /**
      * クリップ全区間 [in,out) の peaks を可視サブ区間へ写す。
      * clipLocalOffsetPx / fullClipWidthPx はフィルムストリップと同じ写像。
-     * 波形帯はヘッダー後の残り高さを使い、トラックの高さに追従する。
+     * 波形帯は上下 1px の余白でアイテム中央に置き、ヘッダーを引かずトラックの高さに追従する。
      */
     protected waveformCanvas(
         peaks: readonly number[], clipWidthPx: number,

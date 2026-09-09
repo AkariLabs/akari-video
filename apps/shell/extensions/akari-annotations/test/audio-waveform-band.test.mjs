@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { audioWaveformBandLayout } from '../lib/common/filmstrip-geometry.js';
 
 const source = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 
@@ -43,7 +44,9 @@ test('SFX signature のズーム寸法はトリマー中の 1 本だけ（main �
   assert.doesNotMatch(renderStrip, /if \(created\) this\.updateSfxWaveform/u);
 });
 
-test('音声 canvas はラベル後の中央配置を使い固定下端貼り付けをしない', () => {
+test('音声 canvas はヘッダーを引かずアイテム中央でトラック高さいっぱいに配置する', () => {
+  assert.deepEqual(audioWaveformBandLayout(28, 14), { topPx: 1, heightPx: 26 });
+  assert.deepEqual(audioWaveformBandLayout(28, 14), audioWaveformBandLayout(28, 0));
   const update = method('protected updateAudioWaveformCanvas(', 'protected audioWaveformMaster(');
   assert.match(update, /audioWaveformBandLayout\(itemHeightPx, CLIP_HEADER_HEIGHT\)/u);
   assert.match(update, /top: `\$\{band\.topPx\}px`/u);
