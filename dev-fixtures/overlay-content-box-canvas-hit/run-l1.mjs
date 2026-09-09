@@ -179,7 +179,7 @@ async function findPreviewView(browser, timeoutMs = 60000) {
           try {
             const hit = await evaluate(browser,
               `Boolean(document.getElementById('preview-layers') && document.getElementById('play-toggle')
-                 && window.akari?.interaction?.fragmentBounds)`,
+                 && window.akari?.interaction)`,
               contextId, sessionId);
             if (hit) return { sessionId, contextId };
           } catch { /* context gone */ }
@@ -349,22 +349,25 @@ try {
           await sleep(500);
           initial = await evaluate(browser, OBSERVE(id), view.contextId, view.sessionId);
         }
-        if (!initial.mounted || !initial.bounds) throw new Error(`${id} not mounted: ${JSON.stringify(initial)}`);
+        if (!initial.mounted) throw new Error(`${id} not mounted: ${JSON.stringify(initial)}`);
         report.fixtures[`${id}-diagnostics`] = initial.diagnostics;
         const outer = await frameOffset(main);
+        // 基点（修正前）の interaction.js は fragmentBounds を公開しないので、内容の位置は
+        // コンテナ中央で代用する。判定はどちらの版でも読める「選択枠の実寸」で行う。
+        const content = initial.bounds ?? initial.container;
         const entry = {
           seconds,
-          containerRatio: {
+          container: initial.container,
+          declaredBounds: initial.bounds,
+          declaredRatio: initial.bounds && {
             width: initial.bounds.width / initial.container.width,
             height: initial.bounds.height / initial.container.height,
           },
-          container: initial.container,
-          bounds: initial.bounds,
         };
 
         // 1) 描かれている内容の中央をクリック → オーバーレイが選択され、枠が内容に縮む
-        await click(main, outer.x + initial.bounds.left + initial.bounds.width / 2,
-          outer.y + initial.bounds.top + initial.bounds.height / 2);
+        await click(main, outer.x + content.left + content.width / 2,
+          outer.y + content.top + content.height / 2);
         const onContent = await evaluate(browser, OBSERVE(id), view.contextId, view.sessionId);
         entry.contentClick = { selectionFrame: onContent.selectionFrame, cutSelected: onContent.cutSelected };
         entry.shots = { content: await capture(main, browser, view, `${label}-${id}-content-click`) };
@@ -376,11 +379,17 @@ try {
           selectionFrame: onTransparent.selectionFrame, cutSelected: onTransparent.cutSelected,
         };
         entry.shots.transparent = await capture(main, browser, view, `${label}-${id}-transparent-click`);
+        const selection = entry.contentClick.selectionFrame;
+        entry.selectionRatio = selection && {
+          width: selection.width / initial.container.width,
+          height: selection.height / initial.container.height,
+        };
         entry.checks = {
           // (1) 枠が内容に縮む  (2) 内容クリックでオーバーレイが選択される
           // (3) 透明部クリックで下の素材（カット）が選ばれる
-          shrinks: entry.containerRatio.width < 0.9 && entry.containerRatio.height < 0.9,
-          contentSelectsOverlay: Boolean(entry.contentClick.selectionFrame) && !entry.contentClick.cutSelected,
+          shrinks: Boolean(entry.selectionRatio)
+            && entry.selectionRatio.width < 0.9 && entry.selectionRatio.height < 0.9,
+          contentSelectsOverlay: Boolean(selection) && !entry.contentClick.cutSelected,
           transparentSelectsMedia: entry.transparentClick.cutSelected === true,
         };
         entry.pass = Object.values(entry.checks).every(Boolean);
