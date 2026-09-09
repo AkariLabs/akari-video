@@ -1,0 +1,467 @@
+{
+  "baseCommit": "146c41fb",
+  "headCommit": "146c41fb",
+  "ffmpeg": "ffmpeg version 8.1.2-https://www.martin-riedl.de Copyright (c) 2000-2026 the FFmpeg developers",
+  "node": "v26.3.0",
+  "cases": {
+    "pipLayerAudio": {
+      "routing": {
+        "cutIds": [
+          "main@0"
+        ],
+        "layerIds": [
+          "upper"
+        ]
+      },
+      "before": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 3.5,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16"
+          }
+        ],
+        "tones": [
+          {
+            "at": 0.5,
+            "lower": {
+              "hz": 300,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 700,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 1.5,
+            "lower": {
+              "hz": 400,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 800,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 2.5,
+            "lower": {
+              "hz": 500,
+              "amplitude": 0.49994
+            },
+            "upper": {
+              "hz": 900,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 3.5,
+            "lower": {
+              "hz": 600,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 1000,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 4.5,
+            "lower": {
+              "hz": 700,
+              "amplitude": 0.49985
+            },
+            "upper": {
+              "hz": 1100,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 5.5,
+            "lower": {
+              "hz": 800,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 1200,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          }
+        ]
+      },
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 3,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16"
+          }
+        ],
+        "probe": {
+          "programs": [],
+          "stream_groups": [],
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "duration": "6.000000"
+            },
+            {
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "duration": "6.000000"
+            }
+          ],
+          "format": {
+            "duration": "6.000000"
+          }
+        },
+        "tones": [
+          {
+            "at": 0.5,
+            "lower": {
+              "hz": 300,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 700,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 1.5,
+            "lower": {
+              "hz": 400,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 800,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 2.5,
+            "lower": {
+              "hz": 500,
+              "amplitude": 0.49994
+            },
+            "upper": {
+              "hz": 900,
+              "amplitude": 0.49992
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 3.5,
+            "lower": {
+              "hz": 600,
+              "amplitude": 0.49984
+            },
+            "upper": {
+              "hz": 1000,
+              "amplitude": 0.49994
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 4.5,
+            "lower": {
+              "hz": 700,
+              "amplitude": 0.49985
+            },
+            "upper": {
+              "hz": 1100,
+              "amplitude": 0.49979
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 5.5,
+            "lower": {
+              "hz": 800,
+              "amplitude": 0.49987
+            },
+            "upper": {
+              "hz": 1200,
+              "amplitude": 0.49983
+            },
+            "inOverlap": true
+          }
+        ]
+      }
+    },
+    "pipLayerMuted": {
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 3,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16"
+          }
+        ],
+        "tones": [
+          {
+            "at": 0.5,
+            "lower": {
+              "hz": 300,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 700,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 1.5,
+            "lower": {
+              "hz": 400,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 800,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 2.5,
+            "lower": {
+              "hz": 500,
+              "amplitude": 0.49994
+            },
+            "upper": {
+              "hz": 900,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 3.5,
+            "lower": {
+              "hz": 600,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 1000,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 4.5,
+            "lower": {
+              "hz": 700,
+              "amplitude": 0.49985
+            },
+            "upper": {
+              "hz": 1100,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 5.5,
+            "lower": {
+              "hz": 800,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 1200,
+              "amplitude": 0
+            },
+            "inOverlap": true
+          }
+        ]
+      }
+    },
+    "pipLayerGain": {
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 3,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:lower; background_ymax 56; spread 許容 16"
+          }
+        ],
+        "tones": [
+          {
+            "at": 0.5,
+            "lower": {
+              "hz": 300,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 700,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 1.5,
+            "lower": {
+              "hz": 400,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 800,
+              "amplitude": 0
+            },
+            "inOverlap": false
+          },
+          {
+            "at": 2.5,
+            "lower": {
+              "hz": 500,
+              "amplitude": 0.49994
+            },
+            "upper": {
+              "hz": 900,
+              "amplitude": 0.25044
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 3.5,
+            "lower": {
+              "hz": 600,
+              "amplitude": 0.49982
+            },
+            "upper": {
+              "hz": 1000,
+              "amplitude": 0.25059
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 4.5,
+            "lower": {
+              "hz": 700,
+              "amplitude": 0.49985
+            },
+            "upper": {
+              "hz": 1100,
+              "amplitude": 0.25048
+            },
+            "inOverlap": true
+          },
+          {
+            "at": 5.5,
+            "lower": {
+              "hz": 800,
+              "amplitude": 0.49988
+            },
+            "upper": {
+              "hz": 1200,
+              "amplitude": 0.25053
+            },
+            "inOverlap": true
+          }
+        ]
+      }
+    },
+    "singleTrackSequential": {
+      "before": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 2.7,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16"
+          }
+        ]
+      },
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 2.7,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–6s（6 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16"
+          }
+        ]
+      },
+      "beforeSha256": "40867980fd501ad116281fda1c0dce1b85ee0e3c5f286aaa221d2ca59f374c50",
+      "afterSha256": "40867980fd501ad116281fda1c0dce1b85ee0e3c5f286aaa221d2ca59f374c50",
+      "byteIdentical": true
+    },
+    "singleTrackWithGapAmix": {
+      "before": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–7s（7 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 2.8,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–7s（7 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16"
+          }
+        ]
+      },
+      "after": {
+        "exitCode": 0,
+        "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–7s（7 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16",
+        "attempts": [
+          {
+            "attempt": 1,
+            "exitCode": 0,
+            "timedOut": false,
+            "elapsedSec": 3.1,
+            "sweptProcesses": 0,
+            "lastLine": "WARN verify.blank-frames: 空フレーム候補 0s–7s（7 秒、YMAX 最大 57）; 活性 cut:c1, cut:c2; background_ymax 56; spread 許容 16"
+          }
+        ]
+      },
+      "beforeSha256": "a492f96325a77bb6dbb79801a2ae851a4457cbe5e12cc5662b01e69b49e039de",
+      "afterSha256": "a492f96325a77bb6dbb79801a2ae851a4457cbe5e12cc5662b01e69b49e039de",
+      "byteIdentical": true
+    }
+  },
+  "verdict": {
+    "beforeUpperSilentInOverlap": true,
+    "afterBothTonesAudibleInOverlap": true,
+    "afterUpperSilentBeforeOverlap": true,
+    "mutedUpperSilentInOverlap": true,
+    "gainMinus6HalvesUpper": true,
+    "singleTrackByteIdentical": true
+  }
+}

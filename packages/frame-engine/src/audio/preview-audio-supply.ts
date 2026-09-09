@@ -29,6 +29,34 @@ export const projectSpeechDeclarations = (EditStoreKernel as unknown as {
   ) => Array<Omit<PreviewSpeechDeclaration, 'url'>>;
 }).projectSpeechDeclarations;
 
+export { projectLayerSpeechDeclarations } from '@akari-video/edit-store';
+
+/** Consume the existing shell track messages without changing the legacy video path. */
+export function updatePreviewLayerMutedTracks(
+  current: { layers: number[]; allLayers: boolean },
+  message: { type?: string; scope?: string; track?: number | null; muted?: boolean;
+    mutedLayers?: number[]; summary?: { tracks?: { layers?: Array<{ ref?: number; muted?: boolean }> } } }
+): { layers: number[]; allLayers: boolean } {
+  if (message.type === 'akari-preview-set-track-visibility-v2' && message.scope === 'layers'
+    && typeof message.muted === 'boolean') {
+    if (message.track === null) return { ...current, allLayers: message.muted };
+    if (Number.isInteger(message.track) && (message.track as number) >= 0) {
+      const layers = new Set(current.layers);
+      if (message.muted) layers.add(message.track as number);
+      else layers.delete(message.track as number);
+      return { ...current, layers: [...layers] };
+    }
+  }
+  if (message.type === 'akari-preview-set-track-visibility-v2-bulk') {
+    return { ...current, layers: Array.isArray(message.mutedLayers) ? message.mutedLayers : [] };
+  }
+  if (message.type === 'akari-preview-model-update' && Array.isArray(message.summary?.tracks?.layers)) {
+    return { ...current, layers: message.summary.tracks.layers.flatMap((track, index) =>
+      track?.muted === true ? [track.ref ?? index] : []) };
+  }
+  return current;
+}
+
 interface PreviewGainEvent {
   offsetSec: number;
   value: number;
@@ -101,6 +129,7 @@ export interface PreviewAudioDeclaration {
 }
 
 export interface PreviewSpeechDeclaration {
+  scope?: 'layers';
   id: string;
   src: string;
   atSec: number;
@@ -231,8 +260,8 @@ export interface PreviewAudioSupply {
   pause(): void;
   setRate(rate: number): void;
   setMutedTracks(muted: {
-    cuts?: Iterable<number>; audio?: Iterable<number>;
-    allCuts?: boolean; allAudio?: boolean;
+    cuts?: Iterable<number>; audio?: Iterable<number>; layers?: Iterable<number>;
+    allCuts?: boolean; allAudio?: boolean; allLayers?: boolean;
   }): void;
   attachAnalyser(): AnalyserNode | null;
   noteRendered(seconds: number): void;
@@ -283,6 +312,7 @@ interface ActiveItem {
 interface ActiveSource extends ActiveItem { source: AudioBufferSourceNode; gains: GainNode[] }
 
 interface ActiveItemGain {
+  id: string;
   kind: PreviewScheduledItem['kind'];
   track: number;
   baseGain: GainNode;
@@ -366,12 +396,16 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const activeItemGains = new Set<ActiveItemGain>();
   let mutedCutTracks = new Set<number>();
   let mutedAudioTracks = new Set<number>();
+  let mutedLayerTracks = new Set<number>();
+  let allLayersMuted = false;
   let allCutsMuted = false;
   let allAudioMuted = false;
-  const trackMuted = (kind: PreviewScheduledItem['kind'], track: unknown): boolean => kind === 'speech'
-    ? allCutsMuted || mutedCutTracks.has(normalizedTrack(track))
+  const trackMuted = (kind: PreviewScheduledItem['kind'], track: unknown, id?: string): boolean => kind === 'speech'
+    ? speech.find(item => item.id === id)?.scope === 'layers'
+      ? allLayersMuted || mutedLayerTracks.has(normalizedTrack(track))
+      : allCutsMuted || mutedCutTracks.has(normalizedTrack(track))
     : allAudioMuted || mutedAudioTracks.has(normalizedTrack(track));
-  const itemMuted = (item: PreviewScheduledItem): boolean => trackMuted(item.kind, item.track);
+  const itemMuted = (item: PreviewScheduledItem): boolean => trackMuted(item.kind, item.track, item.id);
   const windowSources = new Map<string, PcmWindowSource>();
   const windowStops = new Map<string, () => void>();
   // resume = トラックミュート解除で止まっていた窓の補充を再開する（同期便の「再計画で既存ノードを保つ」と両立させる合流時の追加）。
@@ -647,7 +681,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`)
       : null;
     let usedSidecar = Boolean(bakedPath && buffer);
-    if (!buffer && !trackMuted('speech', declaration.track)) {
+    if (!buffer && !trackMuted('speech', declaration.track, declaration.id)) {
       buffer = await decodeUrl(declaration.url,
         `speech ${declaration.src}`, true, Boolean(bakedPath || declaration.sidecarWarningEmitted));
       usedSidecar = false;
@@ -696,7 +730,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const speechTask = (item: PreviewSpeechDeclaration): PrefetchTask => prepareWindowedTask({
       key: `speech:${item.id}`, at: firstUseSpeech(item), failedAtMs: null,
       state: taskState(item.sidecarState),
-      muted: () => trackMuted('speech', item.track),
+      muted: () => trackMuted('speech', item.track, item.id),
       run: () => resolveSpeech(item), resolved: () => speechDecoded.has(item.id),
     }, item.sidecar?.format === 'pcm-s16le');
   const tasks: PrefetchTask[] = [
@@ -937,7 +971,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     item: PreviewScheduledItem, baseGain: GainNode, startTime: number, transportRate: number,
   ): ActiveItemGain => {
     const entry: ActiveItemGain = {
-      kind: item.kind, track: normalizedTrack(item.track), baseGain,
+      id: item.id, kind: item.kind, track: normalizedTrack(item.track), baseGain,
       gainEvents: item.gainEvents, startTime, transportRate,
       remove: () => { activeItemGains.delete(entry); },
     };
@@ -1405,7 +1439,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       const speechForSchedule = speech.flatMap(item => {
         const resolved = speechDecoded.get(item.id);
         // 準備を省いたミュート音源も予定表には残す。実際の開始ループで除外する。
-        if (!resolved) return item.sidecarState !== 'no-audio' && trackMuted('speech', item.track) ? [item] : [];
+        if (!resolved) return item.sidecarState !== 'no-audio' && trackMuted('speech', item.track, item.id) ? [item] : [];
         return [{
           ...item,
           ...(!resolved.sidecar ? { sidecar: undefined, atempo: undefined } : {}),
@@ -1700,23 +1734,29 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (disposed) return;
       const cuts = muted.cuts === undefined ? mutedCutTracks : new Set([...muted.cuts].map(normalizedTrack));
       const audio = muted.audio === undefined ? mutedAudioTracks : new Set([...muted.audio].map(normalizedTrack));
+      const layers = muted.layers === undefined ? mutedLayerTracks : new Set([...muted.layers].map(normalizedTrack));
+      const allLayers = muted.allLayers ?? allLayersMuted;
       const allCuts = muted.allCuts ?? allCutsMuted;
       const allAudio = muted.allAudio ?? allAudioMuted;
       const equal = (left: Set<number>, right: Set<number>): boolean =>
         left.size === right.size && [...left].every(track => right.has(track));
       if (equal(cuts, mutedCutTracks) && equal(audio, mutedAudioTracks)
+        && equal(layers, mutedLayerTracks) && allLayers === allLayersMuted
         && allCuts === allCutsMuted && allAudio === allAudioMuted) return;
       const released = (before: Set<number>, after: Set<number>, allBefore: boolean, allAfter: boolean): boolean =>
         !allAfter && (allBefore || [...before].some(track => !after.has(track)));
       const unmuted = released(mutedCutTracks, cuts, allCutsMuted, allCuts)
-        || released(mutedAudioTracks, audio, allAudioMuted, allAudio);
-      const previous = new Map([...activeItemGains].map(entry => [entry, trackMuted(entry.kind, entry.track)]));
+        || released(mutedAudioTracks, audio, allAudioMuted, allAudio)
+        || released(mutedLayerTracks, layers, allLayersMuted, allLayers);
+      const previous = new Map([...activeItemGains].map(entry => [entry, trackMuted(entry.kind, entry.track, entry.id)]));
+      mutedLayerTracks = layers;
+      allLayersMuted = allLayers;
       mutedCutTracks = cuts;
       mutedAudioTracks = audio;
       allCutsMuted = allCuts;
       allAudioMuted = allAudio;
       if (context) for (const entry of activeItemGains) {
-        const silent = trackMuted(entry.kind, entry.track);
+        const silent = trackMuted(entry.kind, entry.track, entry.id);
         if (silent === previous.get(entry)) continue;
         entry.baseGain.gain.cancelScheduledValues(context.currentTime);
         if (silent) entry.baseGain.gain.setValueAtTime(0, context.currentTime);

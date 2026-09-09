@@ -1440,7 +1440,8 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                             audioBgm = value as EditAudioBgm;
                             break;
                         case 'layers':
-                            layers.push({ index: item.legacy.index, value: value as EditLayer });
+                            layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
+                                ? { ...value, mute: true } : value) as EditLayer });
                             break;
                         default:
                             cuts.push({

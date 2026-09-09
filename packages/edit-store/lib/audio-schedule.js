@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWebAudioSchedule = buildWebAudioSchedule;
 exports.projectSpeechDeclarations = projectSpeechDeclarations;
+exports.projectLayerSpeechDeclarations = projectLayerSpeechDeclarations;
 const audio_ownership_1 = require("./audio-ownership");
 const ducking_1 = require("./ducking");
 const envelope_1 = require("./envelope");
@@ -400,7 +401,25 @@ function projectSpeechDeclarations(cuts, options) {
             incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
         }
     }
+    if (options.layers?.length)
+        declarations.push(...projectLayerSpeechDeclarations(options.layers, { fps }));
     return declarations;
+}
+function projectLayerSpeechDeclarations(layers, options) {
+    const cuts = layers.map((layer, index) => {
+        const speed = finitePositive(layer.speed) ? layer.speed : 1;
+        const sourceIn = finiteNonNegative(layer.in) ? layer.in : 0;
+        return {
+            ...layer,
+            id: `layer-${layer.id || index}`,
+            in: sourceIn,
+            out: sourceIn + Math.max(0, layer.duration - freezeDuration(layer.freeze)) * speed,
+            at: layer.t,
+            speed,
+            audio: (0, audio_ownership_1.isLayerAudioAudible)(layer) ? undefined : false,
+        };
+    });
+    return projectSpeechDeclarations(cuts, options).map(item => ({ ...item, scope: 'layers' }));
 }
 function speechBaseId(cut, index) {
     return cut && typeof cut.id === 'string' && cut.id ? cut.id : `cut-${index}`;

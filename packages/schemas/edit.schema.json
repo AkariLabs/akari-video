@@ -1368,6 +1368,8 @@
         "duration": { "$ref": "#/$defs/positiveNumber" },
         "kind": { "enum": ["baked", "video", "filter"] },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "audio": { "type": "boolean", "default": true, "description": "Play embedded audio for video layers; ignored for other kinds." },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12, "default": 0 },
         "filter": { "$ref": "#/$defs/layerFilter" },
         "preset": { "type": "string" },
         "params": { "type": "object" },

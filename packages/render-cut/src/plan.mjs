@@ -30,6 +30,7 @@ const {
   computeDuckEnvelope,
   DEFAULT_DUCK_KEYS,
   projectSpeechKeyIntervals,
+  projectLayerSpeechDeclarations,
   sampleEnvelopeLinear,
 } = require("../../edit-store/lib/index.js");
 
@@ -77,15 +78,28 @@ export function buildPlan({
   const container = containerForCodec(codec);
   const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
   const finalPath = container.kind === "directory" ? compositePath : join(temporaryDirectory, `final.${container.ext}`);
+  // The compatibility layer view does not carry visual track mute. Resolve ownership
+  // from the internal items, without changing their visual routing or source inputs.
+  const mutedLayerIds = new Set();
+  const collectMutedLayers = item => {
+    mutedLayerIds.add(item.id);
+    for (const child of item.children ?? []) collectMutedLayers(child);
+  };
+  for (const track of normalizedInternalEdit.tracks) {
+    if (track.lane === "visual" && track.muted === true) track.items.forEach(collectMutedLayers);
+  }
+  const layers = (edit.layers ?? []).map(layer => mutedLayerIds.has(layer.id)
+    ? { ...layer, mute: true } : layer);
   const cutAudio = needsGapAwareCutTimeline(edit.cuts)
     ? buildGapAwareMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
         cutPath: cutAudioPath,
         cuts: edit.cuts,
-        duration: cutsEndSeconds,
+        duration: layers.length > 0 ? finalDurationSeconds : cutsEndSeconds,
         ffmpegCommand: capabilities.ffmpegCommand,
         ffprobeCommand: capabilities.ffprobeCommand,
         audioDurationCache: sourceAudioDurationCache,
+        layers, projectRoot, fps,
       })
     : buildMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
@@ -95,6 +109,7 @@ export function buildPlan({
         ffmpegCommand: capabilities.ffmpegCommand,
         ffprobeCommand: capabilities.ffprobeCommand,
         audioDurationCache: sourceAudioDurationCache,
+        layers, projectRoot, fps,
       });
   const tailPadAudio = finalDurationSeconds > cutsEndSeconds + 0.001
     ? buildAudioTailPadCommand({
@@ -900,7 +915,18 @@ export function buildMultiSourceAudioCutCommand({
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
   maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
+  layers = [],
+  projectRoot = dirname(cutPath),
+  fps = 30,
 }) {
+  if (layers.length > 0) {
+    const base = buildMultiSourceAudioCutCommand({
+      sourceInputs, cutPath, cuts, duration, ffmpegCommand, ffprobeCommand,
+      audioDurationCache, maxInputsPerCommand,
+    });
+    return mixLayerSpeech({ base, layers, projectRoot, fps, duration, ffprobeCommand });
+  }
+
   if (cuts.length === 0) {
     return {
       command: ffmpegCommand,
@@ -951,6 +977,59 @@ export function buildMultiSourceAudioCutCommand({
     concat_list: { path: listPath, content: concatListContent },
     intermediates: [...chunkPaths, listPath].map((path) => resolve(path)),
   };
+}
+
+/** Add layer speech to the existing cut graph; an empty supply returns the exact base command. */
+function mixLayerSpeech({ base, layers, projectRoot, fps, duration, ffprobeCommand }) {
+  const probes = new Map();
+  const speech = projectLayerSpeechDeclarations(layers, { fps }).flatMap(declaration => {
+    const path = resolve(projectRoot, declaration.src);
+    if (!probes.has(path)) probes.set(path, probeNarrationAudio(ffprobeCommand, path));
+    return probes.get(path).hasAudio ? [{ ...declaration, path }] : [];
+  });
+  if (speech.length === 0) return base;
+  const args = [...base.args];
+  const graphIndex = args.indexOf("-filter_complex");
+  const mapIndex = args.indexOf("-map");
+  const insertionIndex = graphIndex >= 0 ? graphIndex : mapIndex;
+  let inputIndex = args.filter(value => value === "-i").length;
+  const filters = graphIndex >= 0
+    ? [args[graphIndex + 1].replaceAll("[joineda]", "[cutjoineda]")]
+    : ["[0:a]anull[cutjoineda]"];
+  const inputArgs = [];
+  const labels = ["[cutjoineda]"];
+  for (const [index, item] of speech.entries()) {
+    const fadeIn = item.crossfadeInSec ?? 0;
+    const fadeOut = item.crossfadeOutSec ?? 0;
+    const at = Math.max(0, item.atSec - fadeIn);
+    const sourceIn = Math.max(0, item.inSec - fadeIn * item.speed);
+    const seekStart = Math.max(0, sourceIn - AUDIO_SEEK_PREROLL_SECONDS);
+    const preroll = sourceIn - seekStart;
+    const length = item.durationSec + fadeIn;
+    inputArgs.push("-ss", formatNumber(seekStart), "-t",
+      formatNumber(length * item.speed + preroll), "-i", item.path);
+    const chain = [
+      `atrim=start=${formatNumber(preroll)}:duration=${formatNumber(length * item.speed)}`,
+      "asetpts=PTS-STARTPTS",
+      ...buildAtempoChain(item.speed).map(factor => `atempo=${formatNumber(factor)}`),
+      `volume=${formatNumber(item.gainDb ?? 0)}dB`,
+      `apad=whole_dur=${formatNumber(length)}`,
+      `atrim=duration=${formatNumber(length)}`,
+      ...(fadeIn > 0 ? [`afade=t=in:st=0:d=${formatNumber(fadeIn)}`] : []),
+      ...(fadeOut > 0 ? [`afade=t=out:st=${formatNumber(Math.max(0, length - fadeOut))}:d=${formatNumber(fadeOut)}`] : []),
+      `adelay=${Math.round(at * 1000)}:all=1`,
+    ];
+    filters.push(`[${inputIndex++}:a]${chain.join(",")}[layera${index}]`);
+    labels.push(`[layera${index}]`);
+  }
+  filters.push(`${labels.join("")}amix=inputs=${labels.length}:duration=longest:normalize=0,asetpts=N/SR/TB,apad=whole_dur=${formatNumber(duration)},atrim=duration=${formatNumber(duration)}[joineda]`);
+  if (graphIndex >= 0) args[graphIndex + 1] = filters.join(";");
+  else {
+    args[mapIndex + 1] = "[joineda]";
+    inputArgs.push("-filter_complex", filters.join(";"));
+  }
+  args.splice(insertionIndex, 0, ...inputArgs);
+  return { ...base, args };
 }
 
 function buildSequentialAudioCutCommand({
@@ -1174,7 +1253,18 @@ export function buildGapAwareMultiSourceAudioCutCommand({
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
   maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
+  layers = [],
+  projectRoot = dirname(cutPath),
+  fps = 30,
 }) {
+  if (layers.length > 0) {
+    const base = buildGapAwareMultiSourceAudioCutCommand({
+      sourceInputs, cutPath, cuts, duration, ffmpegCommand, ffprobeCommand,
+      audioDurationCache, maxInputsPerCommand,
+    });
+    return mixLayerSpeech({ base, layers, projectRoot, fps, duration, ffprobeCommand });
+  }
+
   if (hasCutFreeze(cuts)) {
     throw new Error(
       "cuts[].freeze is not supported together with a gap-aware cut timeline (explicit at/track placement) in "

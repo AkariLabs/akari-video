@@ -1,4 +1,4 @@
-import { isAudioItemAudible, isCutAudioAudible } from './audio-ownership';
+import { isAudioItemAudible, isCutAudioAudible, isLayerAudioAudible } from './audio-ownership';
 import { computeDuckIntervals, DuckInterval } from './ducking';
 import {
     composeEnvelopesDb,
@@ -505,7 +505,7 @@ function scheduleSpeech(
  */
 export function projectSpeechDeclarations(
     cuts: readonly WebAudioSpeechCut[],
-    options: { fps: number }
+    options: { fps: number; layers?: readonly WebAudioSpeechLayer[] }
 ): WebAudioSpeechDeclaration[] {
     const fps = finitePositive(options?.fps) ? options.fps : 30;
     const normalizedCuts: WebAudioSpeechCut[] = cuts.map(cut => ({
@@ -609,7 +609,46 @@ export function projectSpeechDeclarations(
             incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
         }
     }
+    if (options.layers?.length) declarations.push(...projectLayerSpeechDeclarations(options.layers, { fps }));
     return declarations;
+}
+
+/** Layer timing is output time; only moving source regions supply speech. */
+export interface WebAudioSpeechLayer {
+    id?: string;
+    kind?: string;
+    src?: string;
+    isImage?: boolean;
+    t: number;
+    duration: number;
+    in?: number;
+    speed?: number;
+    track?: number;
+    audio?: boolean;
+    mute?: unknown;
+    gain_db?: unknown;
+    freeze?: WebAudioSpeechCut['freeze'];
+    transition_out?: WebAudioSpeechCut['transition_out'];
+}
+
+export function projectLayerSpeechDeclarations(
+    layers: readonly WebAudioSpeechLayer[],
+    options: { fps: number }
+): Array<WebAudioSpeechDeclaration & { scope: 'layers' }> {
+    const cuts: WebAudioSpeechCut[] = layers.map((layer, index) => {
+        const speed = finitePositive(layer.speed) ? layer.speed as number : 1;
+        const sourceIn = finiteNonNegative(layer.in) ? layer.in as number : 0;
+        return {
+            ...layer,
+            id: `layer-${layer.id || index}`,
+            in: sourceIn,
+            out: sourceIn + Math.max(0, layer.duration - freezeDuration(layer.freeze)) * speed,
+            at: layer.t,
+            speed,
+            audio: isLayerAudioAudible(layer) ? undefined : false,
+        };
+    });
+    return projectSpeechDeclarations(cuts, options).map(item => ({ ...item, scope: 'layers' }));
 }
 
 function speechBaseId(cut: WebAudioSpeechCut | undefined, index: number): string {

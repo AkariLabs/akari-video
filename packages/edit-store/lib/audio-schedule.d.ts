@@ -138,4 +138,27 @@ export declare function buildWebAudioSchedule(input: WebAudioScheduleInput): Web
  */
 export declare function projectSpeechDeclarations(cuts: readonly WebAudioSpeechCut[], options: {
     fps: number;
+    layers?: readonly WebAudioSpeechLayer[];
 }): WebAudioSpeechDeclaration[];
+/** Layer timing is output time; only moving source regions supply speech. */
+export interface WebAudioSpeechLayer {
+    id?: string;
+    kind?: string;
+    src?: string;
+    isImage?: boolean;
+    t: number;
+    duration: number;
+    in?: number;
+    speed?: number;
+    track?: number;
+    audio?: boolean;
+    mute?: unknown;
+    gain_db?: unknown;
+    freeze?: WebAudioSpeechCut['freeze'];
+    transition_out?: WebAudioSpeechCut['transition_out'];
+}
+export declare function projectLayerSpeechDeclarations(layers: readonly WebAudioSpeechLayer[], options: {
+    fps: number;
+}): Array<WebAudioSpeechDeclaration & {
+    scope: 'layers';
+}>;

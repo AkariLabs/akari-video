@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -811,9 +812,18 @@ function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
     });
 }
 
+interface LayerAudioControls {
+    audio: boolean;
+    gain_db: number;
+    detached: boolean;
+    write: (field: 'audio' | 'gain_db', value: boolean | number) => Promise<InspectorWriteResult>;
+}
+const layerAudioControls = new WeakMap<TimelineLayerSelection, LayerAudioControls | null>();
+
 function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    layerAudio?: LayerAudioControls | null
 ): InspectorSection[] {
     const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
     const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
@@ -941,6 +951,30 @@ function LAYER_SECTIONS(
                 ...MASK_FIELDS(snapshot, requestWrite)
             ]
         },
+        ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
+            {
+                name: 'layer-audio', label: '音声', inputKind: 'select' as const,
+                options: ['鳴らす', 'ミュート'], disabled: !layerAudio || layerAudio.detached, keyframeDisabled: true,
+                getValue: () => layerAudio?.audio === false ? 'ミュート' : '鳴らす',
+                getEditValue: () => layerAudio?.audio === false ? 'ミュート' : '鳴らす',
+                write: async (_snapshot: TimelineLayerSelection, value: string) => layerAudio
+                    ? layerAudio.write('audio', value === '鳴らす') : { ok: false, message: '音声設定を読み込み中です。' }
+            },
+            {
+                name: 'layer-gain-db', label: '音量', unit: 'dB', inputKind: 'scrub-number' as const,
+                scrubStep: 0.5, min: -60, max: 12, disabled: !layerAudio, keyframeDisabled: true,
+                getValue: () => String(layerAudio?.gain_db ?? 0),
+                getEditValue: () => String(layerAudio?.gain_db ?? 0),
+                write: async (_snapshot: TimelineLayerSelection, value: string) => {
+                    const gain = Number(value);
+                    if (!Number.isFinite(gain) || gain < -60 || gain > 12) {
+                        return { ok: false, message: '音量は -60〜12 dB の範囲で入力してください。' };
+                    }
+                    return layerAudio ? layerAudio.write('gain_db', gain)
+                        : { ok: false, message: '音声設定を読み込み中です。' };
+                }
+            }
+        ] }] : []),
         ...(telopFields.length > 0 ? [{ id: 'telop', label: 'テキスト', fields: telopFields }] : []),
         {
             id: 'info', label: '情報', collapsedByDefault: true,
@@ -2283,6 +2317,9 @@ function ADJUST_SECTIONS(
  */
 @injectable()
 export class AkariInspectorWidget extends BaseWidget {
+    @inject(AkariAnnotationsService)
+    protected readonly layerAudioService!: AkariAnnotationsService;
+
     static readonly FACTORY_ID = 'akari-inspector-widget';
 
     @inject(TimelineSelectionModel)
@@ -2852,7 +2889,54 @@ export class AkariInspectorWidget extends BaseWidget {
                     sections = CUT_SECTIONS(snapshot, requestWrite);
                     break;
                 case 'layer':
-                    sections = LAYER_SECTIONS(snapshot, requestWrite);
+                    if (snapshot.layerKind === 'video' && !layerAudioControls.has(snapshot)) {
+                        layerAudioControls.set(snapshot, null);
+                        void (async () => {
+                            await this.workspaceService.ready;
+                            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                            if (!root) return;
+                            const uri = root.resolve('edit.json');
+                            const store = await import('@akari-video/edit-store');
+                            const read = async () => {
+                                const text = (await this.fileService.readFile(uri)).value.toString();
+                                const doc = JSON.parse(text) as import('@akari-video/edit-store').EditableEditV2;
+                                store.readEditV2(doc);
+                                store.attachEditHelpers(doc);
+                                const item = doc.find(snapshot.id);
+                                if (!item || item.source?.kind !== 'media') throw new Error('動画クリップが見つかりません。');
+                                return { doc, item };
+                            };
+                            const { item } = await read();
+                            const source = item.source as { mute?: boolean; gain_db?: number };
+                            const controls: LayerAudioControls = {
+                                audio: !('audio' in item && item.audio === false) && source.mute !== true,
+                                detached: 'audio' in item && item.audio === false,
+                                gain_db: source.gain_db ?? 0,
+                                write: async (field, value) => {
+                                    try {
+                                        // Use the existing edit-store item mutator and atomic/lint service.
+                                        const { doc } = await read();
+                                        store.updateItem(doc, snapshot.id, field === 'audio'
+                                            ? { source: { mute: value !== true } }
+                                            : { source: { gain_db: value } });
+                                        await this.layerAudioService.writeEditSnapshot({
+                                            editUri: uri.toString(), projectRootUri: root.toString(),
+                                            editSource: store.serializeEdit(doc)
+                                        });
+                                        if (field === 'audio') controls.audio = value === true;
+                                        else controls.gain_db = Number(value);
+                                        this.render();
+                                        return { ok: true };
+                                    } catch (error) {
+                                        return { ok: false, message: String(error) };
+                                    }
+                                }
+                            };
+                            layerAudioControls.set(snapshot, controls);
+                            if (this.model.snapshot === snapshot) this.render();
+                        })().catch(error => this.showFieldNotice(String(error)));
+                    }
+                    sections = LAYER_SECTIONS(snapshot, requestWrite, layerAudioControls.get(snapshot));
                     break;
                 case 'caption':
                     sections = CAPTION_SECTIONS(snapshot, requestWrite, {
