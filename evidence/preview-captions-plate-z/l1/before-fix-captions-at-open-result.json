@@ -1,0 +1,163 @@
+{
+  "label": "before-fix-captions-at-open",
+  "steps": {
+    "before": {
+      "now": 2736,
+      "plateExists": true,
+      "plateInlineZ": "2",
+      "plateComputedZ": "2",
+      "plateDisplay": "block",
+      "plateOpacity": "1",
+      "plateText": "あとから作った字幕",
+      "plateChildren": 0,
+      "plateBox": {
+        "x": 216,
+        "y": 501,
+        "w": 149,
+        "h": 24
+      },
+      "engineExists": true,
+      "engineComputedZ": "auto",
+      "engineReady": "true",
+      "summaryCaptionTrackId": "t-captions-implied",
+      "summaryHasCaptions": true,
+      "summaryTimelineTracks": [
+        "v-main",
+        "v1",
+        "t-captions-implied"
+      ],
+      "overlayZ": [],
+      "layerZ": [
+        {
+          "id": "telop-a",
+          "z": "1"
+        }
+      ],
+      "seek": 0
+    },
+    "after": {
+      "now": 2736,
+      "plateExists": true,
+      "plateInlineZ": "2",
+      "plateComputedZ": "2",
+      "plateDisplay": "block",
+      "plateOpacity": "1",
+      "plateText": "あとから作った字幕",
+      "plateChildren": 0,
+      "plateBox": {
+        "x": 216,
+        "y": 501,
+        "w": 149,
+        "h": 24
+      },
+      "engineExists": true,
+      "engineComputedZ": "auto",
+      "engineReady": "true",
+      "summaryCaptionTrackId": "t-captions-implied",
+      "summaryHasCaptions": true,
+      "summaryTimelineTracks": [
+        "v-main",
+        "v1",
+        "t-captions-implied"
+      ],
+      "overlayZ": [],
+      "layerZ": [
+        {
+          "id": "telop-a",
+          "z": "1"
+        }
+      ],
+      "seek": 0
+    },
+    "captionsAtOpen": true
+  },
+  "screenshots": [
+    "before-fix-captions-at-open-01-before-captions.png",
+    "before-fix-captions-at-open-02-after-captions.png"
+  ],
+  "errors": [],
+  "profileDir": "<REDACTED>/profile",
+  "consentDismissed": false,
+  "openCommand": {
+    "ok": true,
+    "value": "opened"
+  },
+  "consoleWarnings": [
+    {
+      "type": "warning",
+      "args": [
+        "%cElectron Security Warning (Insecure Content-Security-Policy)",
+        "font-weight: bold;",
+        "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:43.300Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 212.0 ms [4.154 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:43.563Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:43.563Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:43.805Z root WARN Frontend hst.onStart took longer than the expected maximum 100 milliseconds: 445.3 ms [4.669 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:45.875Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:46.188Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background",
+        ""
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:46.189Z root WARN Frontend Wsi.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2001.2 ms [7.054 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-09-08T23:28:49.000Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <REDACTED>/workspace/.akari/cache/preview-audio/.f8967c2c1c72c6f7f20b4caa03bae22cef4296be.flac.32006.1788910127877.tmp.flac. Error opening output files: Invalid argument"
+      ]
+    }
+  ],
+  "electronStderr": [
+    "[32207:0909/082848.816436:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)",
+    "2026-09-08T23:28:49.001Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <REDACTED>/workspace/.akari/cache/preview-audio/.f8967c2c1c72c6f7f20b4caa03bae22cef4296be.flac.32006.1788910127877.tmp.flac. Error opening output files: Invalid argument"
+  ],
+  "survivingProcesses": [],
+  "psnrBeforeVsAfter": "[Parsed_psnr_0 @ 0x600001cfc000] PSNR r:8.166578 g:8.694220 b:8.028020 average:8.286916 min:8.286916 max:8.286916",
+  "verdict": {
+    "captionRendered": true,
+    "plateInlineZ": "2",
+    "plateComputedZ": "2",
+    "captionTrackId": "t-captions-implied",
+    "reopenRequired": false,
+    "survivingProcessCount": 0,
+    "captionPaintedPsnrDb": 8.286916,
+    "captionPainted": true,
+    "nudgePsnrDb": null
+  },
+  "fatalErrors": [],
+  "pass": true
+}

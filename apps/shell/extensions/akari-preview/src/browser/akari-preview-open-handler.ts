@@ -2972,6 +2972,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // refresh はこのキューを待たないため、依存は字幕差分 → フルモデルの一方向。
             await widget.akariPreviewRefresh;
             if (widget.isDisposed) return;
+            // 出力プレビューの identity は edit URI。raw は字幕レーンを持たない。
+            // 先行 refresh の完了後に判定することで、連続した字幕通知でも
+            // レーン追加の refresh は一度だけになり、以後は差分更新へ戻る。
+            if (loaded.captions.length > 0
+                && !widget.akariPreviewSummary?.captionTrackId
+                && widget.akariPreviewEditUri) {
+                this.queueRefresh(widget, widget.akariPreviewEditUri, 'output');
+                return;
+            }
             const captions = normalizePreviewCaptionClock(
                 loaded.captions,
                 this.previewCaptionTimelineSegments(
@@ -11771,7 +11780,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     container.style.zIndex = String(zForTrack(overlay?.trackId));
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
-                captionPlate.style.zIndex = String(zForTrack(summary.captionTrackId));
+                const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
+                    ? zForTrack(summary.captionTrackId) : -1;
+                captionPlate.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
             };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
