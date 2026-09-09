@@ -1,0 +1,251 @@
+{
+  "label": "after",
+  "startedAt": "2026-09-09T01:50:44.285Z",
+  "scenarios": {
+    "s0Normal": {
+      "viewDuration": 60,
+      "viewStart": 0,
+      "trackHeight": 48,
+      "clipCount": 9,
+      "visibleClips": 9,
+      "clipsWithCells": 9,
+      "minWidth": 141.33,
+      "maxWidth": 141.33,
+      "totalCells": 36,
+      "sample": [
+        {
+          "idx": 0,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 1,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 2,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 3,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 4,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 5,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 6,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 7,
+          "width": 141.33,
+          "height": 48,
+          "cells": 4,
+          "hasFilmstrip": true
+        }
+      ]
+    },
+    "sbZoomOut": {
+      "viewDuration": 424,
+      "viewStart": 0,
+      "trackHeight": 48,
+      "clipCount": 30,
+      "visibleClips": 30,
+      "clipsWithCells": 30,
+      "minWidth": 19.99,
+      "maxWidth": 19.99,
+      "totalCells": 30,
+      "sample": [
+        {
+          "idx": 0,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 1,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 2,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 3,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 4,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 5,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 6,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 7,
+          "width": 19.99,
+          "height": 48,
+          "cells": 1,
+          "hasFilmstrip": true
+        }
+      ]
+    },
+    "saTrack47": {
+      "viewDuration": 60,
+      "viewStart": 0,
+      "trackHeight": 47,
+      "clipCount": 9,
+      "visibleClips": 9,
+      "clipsWithCells": 9,
+      "minWidth": 141.33,
+      "maxWidth": 141.33,
+      "totalCells": 36,
+      "sample": [
+        {
+          "idx": 0,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 1,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 2,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 3,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 4,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 5,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 6,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        },
+        {
+          "idx": 7,
+          "width": 141.33,
+          "height": 47,
+          "cells": 4,
+          "hasFilmstrip": true
+        }
+      ]
+    },
+    "scTrimBefore": {
+      "clip0Width": 55.0625,
+      "clip0Cells": 2,
+      "editDuration": 300,
+      "clipsWithCells": 24,
+      "visibleClips": 24
+    },
+    "scTrimDrag": {
+      "box": {
+        "x": 200,
+        "y": 390,
+        "width": 55.0625,
+        "height": 48
+      },
+      "selection": "{\"kind\":\"cut\",\"index\":0,\"itemId\":\"cut-1\",\"label\":\"C1\",\"trackName\":\"V1\",\"clipName\":\"source.mp4\",\"sourceName\":\"source.mp4\",\"sourceIn\":0,\"sourceOut\":10,\"outputStart\":0,\"outputEnd\":10,\"playheadSeconds\":0,\"src\":\"main\",\"sourcePath\":\"source.mp4\",\"adjust\":{\"basic\":{\"exposure\":0,\"contrast\":0,\"highlights\":0,\"shadows\":0,\"blacks\":0,\"whites\":0,\"temperature\":0,\"tint\":0,\"vibrance\":0,\"saturation\":0},\"fx\":[],\"curves\":{\"master\":[{\"in\":0,\"out\":0},{\"in\":1,\"out\":1}],\"r\":[{\"in\":0,\"out\":0},{\"in\":1,\"out\":1}],\"g\":[{\"in\":0,\"out\":0},{\"in\":1,\"out\":1}],\"b\":[{\"in\":0,\"out\":0},{\"in\":1,\"out\":1}]},\"hue\":{\"hue\":[{\"hue\":0,\"value\":0.5},{\"hue\":0.16666666666666666,\"value\":0.5},{\"hue\":0.3333333333333333,\"value\":0.5},{\"hue\":0.5,\"value\":0.5},{\"hue\":0.6666666666666666,\"value\":0.5},{\"hue\":0.8333333333333334,\"value\":0.5}],\"sat\":[{\"hue\":0,\"value\":0.5},{\"hue\":0.16666666666666666,\"value\":0.5},{\"hue\":0.3333333333333333,\"value\":0.5},{\"hue\":0.5,\"value\":0.5},{\"hue\":0.6666666666666666,\"value\":0.5},{\"hue\":0.8333333333333334,\"value\":0.5}],\"luma\":[{\"hue\":0,\"value\":0.5},{\"hue\":0.16666666666666666,\"value\":0.5},{\"hue\":0.3333333333333333,\"value\":0.5},{\"hue\":0.5,\"value\":0.5},{\"hue\":0.6666666666666666,\"value\":0.5},{\"hue\":0.8333333333333334,\"value\":0.5}]},\"wheels\":{\"lift\":{\"r\":0,\"g\":0,\"b\":0},\"gamma\":{\"r\":0,\"g\":0,\"b\":0},\"gain\":{\"r\":0,\"g\":0,\"b\":0},\"offset\":{\"r\":0,\"g\":0,\"b\":0}},\"sections\":{\"basic\":true,\"lut\":true,\"curves\":true,\"wheels\":true,\"hue\":true,\"fx\":true}},\"track\":0}",
+      "trimEdge": "right",
+      "stateOnDown": {
+        "kind": "cut-trim",
+        "edge": "right",
+        "index": 0,
+        "dragged": false
+      },
+      "stateOnMove": {
+        "kind": "cut-trim",
+        "edge": "right",
+        "index": 0,
+        "dragged": true
+      },
+      "stateAfterUp": null
+    },
+    "scTrimAfter": {
+      "clip0Width": 34.1328125,
+      "clip0Cells": 1,
+      "editDuration": 186,
+      "clipsWithCells": 24,
+      "visibleClips": 24
+    }
+  },
+  "finishedAt": "2026-09-09T01:52:36.838Z"
+}
