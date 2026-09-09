@@ -1,3 +1,4 @@
+import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
@@ -13,6 +14,9 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
     protected readonly widgetManager: WidgetManager;
     @inject(ApplicationShell)
     protected readonly shell: ApplicationShell;
+
+    @inject(MaterialPreviewSlot)
+    protected readonly materialSlot: MaterialPreviewSlot;
     @inject(AkariPreviewService)
     protected readonly previewService: AkariPreviewService;
     @inject(WorkspaceService)
@@ -25,7 +29,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
         return ['.ttf', '.otf', '.woff2'].includes(uri.path.ext.toLowerCase()) ? 1200 : 0;
     }
 
-    async open(uri: URI, options?: any): Promise<WebviewWidget> {
+    async open(uri: URI, _options?: any): Promise<WebviewWidget> {
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, {
             id: `akari-font-specimen-${this.hash(uri.toString())}`, viewId: uri.toString()
         });
@@ -36,9 +40,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
         }
         await render;
         if (!widget.isDisposed) {
-            if (!widget.isAttached) {
-                this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
-            }
+            await this.materialSlot.claim(widget, uri);
             await this.shell.activateWidget(widget.id);
         }
         return widget;
@@ -46,9 +48,9 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.fontSpecimen';
-        widget.title.label = uri.path.base;
+        widget.title.label = '素材プレビュー';
         widget.title.caption = uri.toString();
-        widget.title.iconClass = 'codicon codicon-text-size';
+        widget.title.iconClass = 'codicon codicon-symbol-key';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
         let streamIds: string[] = [];
         const release = async (): Promise<void> => {
@@ -72,7 +74,7 @@ export class AkariFontSpecimenOpenHandler implements OpenHandler {
                 await release();
                 return;
             }
-            widget.setHTML(this.specimenHtml(stream.url));
+            widget.setHTML(this.specimenHtml(stream.url, uri.path.base, uri.path.name));
         } catch (error) {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
@@ -114,7 +116,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    protected specimenHtml(sourceUrl: string): string {
+    protected specimenHtml(sourceUrl: string, filename = '', fontName = ''): string {
         const origin = this.escapeHtml(new URL(sourceUrl).origin);
         const rows = ['あア亜 永久 憂鬱', 'AKARI', '123'];
         return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
@@ -123,11 +125,12 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
 <style>
 @font-face{font-family:AkariSpecimen;src:url("${this.escapeHtml(sourceUrl)}")}
 :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#111;color:#eee}
-*{box-sizing:border-box}body{margin:0;padding:24px}label{display:block;margin-bottom:24px}
+.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }
+*{box-sizing:border-box}body{position:relative;margin:0;padding:24px}label{display:block;margin-bottom:24px}
 input{display:block;width:100%;margin-top:8px;padding:8px;font:inherit}
 section{border-top:1px solid #444;padding:16px 0}h2{font:14px system-ui,sans-serif;color:#aaa}
 p{font-family:AkariSpecimen;margin:12px 0;line-height:1.4;overflow-wrap:anywhere;white-space:pre-wrap}
-</style></head><body><label>試し打ち<input id="sample" type="text" placeholder="文字を入力してください"></label>
+</style></head><body><div class="akari-material-chip">${this.escapeHtml(filename)} · <span style="font-family: AkariSpecimen">${this.escapeHtml(fontName)}</span></div><label>試し打ち<input id="sample" type="text" placeholder="文字を入力してください"></label>
 ${[24, 48, 96].map(size => `<section><h2>${size}px</h2>${rows.map(row =>
             `<p style="font-size:${size}px">${row}</p>`).join('')}<p class="custom" style="font-size:${size}px" hidden></p></section>`).join('')}
 <p id="error" role="alert" hidden></p>

@@ -1,3 +1,4 @@
+import { MaterialPreviewSlot } from './material-preview-slot';
 import { CommandContribution } from '@theia/core/lib/common';
 import { WidgetFactory } from '@theia/core/lib/browser';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
@@ -30,6 +31,7 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
         WebSocketConnectionProvider.createProxy(context.container, AKARI_PREVIEW_SERVICE_PATH)
     ).inSingletonScope();
 
+    bind(MaterialPreviewSlot).toSelf().inSingletonScope();
     bind(AkariPreviewOpenHandler).toSelf().inSingletonScope();
     bind(OpenHandler).toService(AkariPreviewOpenHandler);
     bind(AkariOutputPreviewOpenHandler).toSelf().inSingletonScope();

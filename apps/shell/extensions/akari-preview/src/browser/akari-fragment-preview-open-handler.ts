@@ -1,3 +1,4 @@
+import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -14,6 +15,9 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
     protected readonly widgetManager: WidgetManager;
     @inject(ApplicationShell)
     protected readonly shell: ApplicationShell;
+
+    @inject(MaterialPreviewSlot)
+    protected readonly materialSlot: MaterialPreviewSlot;
     @inject(FileService)
     protected readonly fileService: FileService;
     @inject(AkariPreviewService)
@@ -35,7 +39,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
         }
     }
 
-    async open(uri: URI, options?: any): Promise<WebviewWidget> {
+    async open(uri: URI, _options?: any): Promise<WebviewWidget> {
         const widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, {
             id: `akari-fragment-preview-${this.hash(uri.toString())}`, viewId: uri.toString()
         });
@@ -46,9 +50,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
         }
         await render;
         if (!widget.isDisposed) {
-            if (!widget.isAttached) {
-                this.shell.addWidget(widget, options?.widgetOptions ?? { area: 'main' });
-            }
+            await this.materialSlot.claim(widget, uri);
             await this.shell.activateWidget(widget.id);
         }
         return widget;
@@ -56,9 +58,9 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
 
     protected async render(widget: WebviewWidget, uri: URI): Promise<void> {
         widget.viewType = 'akari.fragmentPreview';
-        widget.title.label = uri.parent.path.base;
+        widget.title.label = '素材プレビュー';
         widget.title.caption = uri.toString();
-        widget.title.iconClass = 'codicon codicon-play';
+        widget.title.iconClass = 'codicon codicon-symbol-misc';
         widget.setContentOptions({ allowScripts: true, allowForms: false });
         let streamIds: string[] = [];
         const release = async (): Promise<void> => {
@@ -85,7 +87,7 @@ export class AkariFragmentPreviewOpenHandler implements OpenHandler {
                 await release();
                 return;
             }
-            widget.setHTML(this.previewHtml(result.html, assets));
+            widget.setHTML(this.previewHtml(result.html, assets, `${uri.parent.path.base}/fragment.html`));
         } catch (error) {
             await release();
             console.warn(`[akari-preview] failed to open ${uri.toString()}`, error);
@@ -127,7 +129,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    protected previewHtml(html: string, assets: OverlayRuntimeAssetUrls): string {
+    protected previewHtml(html: string, assets: OverlayRuntimeAssetUrls, filename = 'fragment.html'): string {
         const output = { width: 1920, height: 1080, fps: 30 };
         const duration = 5;
         const json = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
@@ -140,6 +142,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
 :root{color-scheme:dark;font-family:system-ui,sans-serif;color:#eee;background:#111}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
 body{display:flex;flex-direction:column}[hidden]{display:none!important}
+.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }
 #viewport{flex:1;min-height:0;position:relative;overflow:hidden}
 #canvas{position:absolute;overflow:hidden;background-color:#fff;
 background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparent 0);background-size:24px 24px}
@@ -149,7 +152,7 @@ background-image:conic-gradient(#ccc 25%,transparent 0 50%,#ccc 0 75%,transparen
 #seek{flex:1;min-width:80px}button,select{font:inherit}#time{font-variant-numeric:tabular-nums}
 #error{margin:auto;padding:32px;text-align:center;line-height:1.7}
 </style></head><body>
-<div id="viewport"><div id="canvas" data-background="checker"><div id="overlay-stage"></div></div></div>
+<div id="viewport"><div class="akari-material-chip">${this.escapeHtml(filename)}</div><div id="canvas" data-background="checker"><div id="overlay-stage"></div></div></div>
 <div id="controls"><button id="play" type="button" disabled>再生</button>
 <input id="seek" aria-label="再生位置" type="range" min="0" max="${duration}" step="0.01" value="0" disabled>
 <output id="time">0.00 / 5.00 s</output><label>背景 <select id="background">
