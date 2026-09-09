@@ -51,6 +51,9 @@ const kinds = new Set<unknown>(['cuts', 'layers', 'overlay', 'captions', 'sfx'])
 const record = (value: unknown): value is Record<string, unknown> =>
     !!value && typeof value === 'object' && !Array.isArray(value);
 const time = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+// 字幕段の edit item と captions.json の行を区別する。
+const isCaptionRecord = (kind: ClipboardKind, payload: Record<string, unknown>): boolean =>
+    kind === 'captions' && !('source' in payload);
 
 /** OS の text/plain も扱えるよう、型・有限時刻・基準位置を境界で検証する。 */
 export function parseTimelineFragment(source: string): TimelineFragment | undefined {
@@ -239,7 +242,7 @@ export function cutTimelineFragment(before: TimelineClipboardSnapshot, options: 
     let captions = before.captions;
     for (const id of new Set(fragment.items.map(item => String(item.payload.id)))) {
         const item = fragment.items.find(candidate => candidate.payload.id === id)!;
-        if (item.kind === 'captions' && !('source' in item.payload)) {
+        if (isCaptionRecord(item.kind, item.payload)) {
             captions = removeCaptionLine(captions!, id);
         } else if (item.kind === 'sfx') {
             doc = removeAudioSfxPreferV2(doc, id);
@@ -314,15 +317,16 @@ export function pasteTimelineFragment(before: TimelineClipboardSnapshot, options
     const usedIds = [...indexEditV2Items(doc).keys(), ...existingCaptions.map(caption => caption.id),
         ...audioSfx.map(item => item.id)];
     const copiedIds = new Map<string, string>();
-    const cloneItem = (original: Record<string, any>): Record<string, any> => {
+    const cloneItem = (original: Record<string, any>, kind: ClipboardKind): Record<string, any> => {
         const item = cloneClipboardValue(original);
-        item.id = nextCopyId(`${String(original.id)}-copy`, usedIds);
+        item.id = isCaptionRecord(kind, item) ? nextCaptionId(usedIds) : nextCopyId(`${String(original.id)}-copy`, usedIds);
         usedIds.push(item.id);
         copiedIds.set(String(original.id), item.id);
-        if (Array.isArray(item.items)) item.items = item.items.map(cloneItem);
+        if (Array.isArray(item.items)) item.items = item.items.map(child => cloneItem(child, kind));
         return item;
     };
-    const copies = plan.placements.map(placement => ({ ...placement, payload: cloneItem(placement.item.payload) }));
+    const copies = plan.placements.map(placement => ({ ...placement,
+        payload: cloneItem(placement.item.payload, placement.item.kind) }));
     const relink = (item: Record<string, any>): void => {
         if (typeof item.link === 'string') {
             if (copiedIds.has(item.link)) item.link = copiedIds.get(item.link);
@@ -334,7 +338,7 @@ export function pasteTimelineFragment(before: TimelineClipboardSnapshot, options
         const item = placement.payload;
         relink(item);
         const trackId = trackIds.get(placement.trackId) ?? placement.trackId;
-        if (placement.item.kind === 'captions' && !('source' in item)) {
+        if (isCaptionRecord(placement.item.kind, item)) {
             const caption = item as CaptionRecord;
             caption.start = placement.t;
             caption.end = placement.t + placement.item.duration;
@@ -379,6 +383,16 @@ export function pasteTimelineFragment(before: TimelineClipboardSnapshot, options
         }
     }
     return { edit: stringifyEditV2(doc), captions };
+}
+
+/** 字幕は 1 から最小の欠番を使う。9999 を超えたら切り詰めず 5 桁以上へ延ばす。 */
+export function nextCaptionId(usedIds: readonly string[]): string {
+    const used = new Set(usedIds);
+    let sequence = 1;
+    while (used.has(`c-${String(sequence).padStart(4, '0')}`)) {
+        sequence++;
+    }
+    return `c-${String(sequence).padStart(4, '0')}`;
 }
 
 export function nextCopyId(base: string, ids: readonly string[]): string {

@@ -75,15 +75,36 @@ test('複数種別の貼り付けは 1 つの全文対を返し、cuts 分割挿
     assert.deepEqual(items(result.edit, 'v2').map(item => item.at), [30, 210]);
     assert.deepEqual(items(result.edit, 'a1').map(item => item.at), [30, 210]);
     assert.equal(items(result.edit, 'a1')[1].link, 'cut-copy');
-    const caption = result.captions.find(item => item.id === 'caption-copy');
+    const caption = result.captions.find(item => item.id === 'c-0001');
     assert.equal(result.captions.length, 2);
     assert.deepEqual([caption.start, caption.end], [7, 9]);
     assert.equal(caption.timeDomain, 'output');
     assert.equal(caption.sourceRef, null);
     assert.equal(caption.edited, true);
-    const rawCaption = JSON.parse(after.captions).find(item => item.id === 'caption-copy');
+    const rawCaption = JSON.parse(after.captions).find(item => item.id === 'c-0001');
     assert.deepEqual(rawCaption.words.map(word => [word.start, word.end]), [[7.5, 8.5]]);
     assert.deepEqual(caption.unrecognized, [{ start: 7, end: 7.5 }]);
+});
+
+test('字幕段の edit item はコピー採番を保ち、captions.json の行を増やさない', () => {
+    for (const original of [
+        { id: 'caps', at: 0, duration: 60, source: { kind: 'captions', path: 'captions.json' } },
+        { id: 'cap-c-0001', at: 0, duration: 60, source: { kind: 'caption', id: 'c-0001' } }
+    ]) {
+        const edit = fixture().edit;
+        edit.tracks[3] = { id: 'captions', lane: 'visual', items: [original] };
+        const f = fixture(edit);
+        const fragment = fragmentForSelection({ ...f.fragmentOptions,
+            selections: [{ kind: 'item', id: original.id }], captionIdForSelection: () => undefined });
+        assert.equal(fragment.items.length, 1);
+        assert.equal(fragment.items[0].kind, 'captions');
+        assert.deepEqual(fragment.items[0].payload, original);
+        const after = pasteTimelineFragment(f.before, { ...f.pasteOptions, fragment });
+        assert.deepEqual(items(JSON.parse(after.edit), 'captions'), [
+            original, { ...original, id: `${original.id}-copy`, at: 180 }
+        ]);
+        assert.equal(after.captions, f.before.captions);
+    }
 });
 
 test('断片作成・貼り付け・切り取りは入力を変更せず、before / after の 2 全文を保存できる', () => {
