@@ -18,6 +18,7 @@ export interface VisualThumbnailRequest {
 
 export interface VisualThumbnailPage {
     html: string;
+    sampleTimes: number[];
     width: number;
     height: number;
     streamIds: string[];
@@ -26,11 +27,24 @@ export interface VisualThumbnailPage {
     editSnapshot?: string;
 }
 
-/** A separate, one-shot host for the same renderer used by the active preview. */
+/** Midpoint first preserves static thumbnails; earlier samples catch exit animations. Times are seconds. */
+export function visualThumbnailSampleTimes(start: number, duration: number): number[] {
+    if (!Number.isFinite(start)) return [];
+    const end = start + duration;
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(end) || end <= start) return [start];
+    // Leave the exclusive end representably, including very short clips.
+    const last = Math.max(start, end - Math.max(Number.MIN_VALUE, Math.abs(end) * Number.EPSILON));
+    return [...new Set([start + duration / 2, start + duration / 4, start + 0.8, start + 0.2]
+        .map(time => Math.max(start, Math.min(last, time))))];
+}
+
+/** A separate host for the same renderer used by the active preview, with reusable seeks. */
 export function visualThumbnailPage(
     overlays: readonly Record<string, unknown>[], output: { width: number; height: number; fps: number },
-    time: number, assets: OverlayRuntimeAssetUrls
+    times: number | readonly number[], assets: OverlayRuntimeAssetUrls
 ): Omit<VisualThumbnailPage, 'streamIds' | 'dependencyUris'> {
+    const sampleTimes = typeof times === 'number' ? [times] : [...times];
+    const time = sampleTimes[0];
     const scale = Math.min(480 / output.width, 320 / output.height, 1);
     const width = Math.max(1, Math.round(output.width * scale));
     const height = Math.max(1, Math.round(output.height * scale));
@@ -38,7 +52,7 @@ export function visualThumbnailPage(
     const attr = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     const scripts = [assets.threeJavaScriptUrl, assets.threeTextJavaScriptUrl,
         assets.threeRuntimeJavaScriptUrl, assets.runtimeJavaScriptUrl];
-    return { width, height, html: `<!doctype html><html><head><meta charset="utf-8">
+    return { width, height, sampleTimes, html: `<!doctype html><html><head><meta charset="utf-8">
 <style>@font-face{font-family:AkariCaption;src:url("${attr(assets.captionFontUrl)}")}
 html,body{margin:0;overflow:hidden;background:transparent;font-family:AkariCaption,sans-serif}
 #overlay-stage{position:absolute;width:${output.width}px;height:${output.height}px;transform-origin:0 0;transform:scale(${scale});overflow:hidden}
@@ -75,11 +89,14 @@ window.__akariThumbnailReady=(async()=>{
    if(performance.now()>deadline) throw Error('Visual renderer readiness timed out');
    await new Promise(r=>setTimeout(r,30));
  }
- runtime.tick(${json(time)},false);
- await waitForImages();
- await document.fonts.ready;
- await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
- return true;
+ window.__akariThumbnailSeek=async(t)=>{
+   runtime.tick(t,false);
+   await waitForImages();
+   await document.fonts.ready;
+   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+   return true;
+ };
+ return window.__akariThumbnailSeek(${json(time)});
 })();
 </script></body></html>` };
 }

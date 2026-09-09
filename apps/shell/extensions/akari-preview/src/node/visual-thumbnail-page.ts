@@ -5,7 +5,7 @@ import { pathToFileURL } from 'url';
 import { expandBagOverlays } from '../common/preview-parts';
 import { resolvePreviewItemKeyframes } from '../common/item-keyframes-summary';
 import { resolveThreeSceneDescriptorAssets } from '../common/three-scene-assets';
-import { visualThumbnailPage, type VisualThumbnailPage } from '../common/visual-thumbnail';
+import { visualThumbnailPage, visualThumbnailSampleTimes, type VisualThumbnailPage } from '../common/visual-thumbnail';
 import type { OverlayRuntimeAssetUrls, VideoStreamReference } from '../common/akari-preview-protocol';
 import { rewritePreviewFragmentAssets } from './fragment-assets';
 
@@ -66,13 +66,13 @@ export async function prepareVisualThumbnailPage(
     if (!overlays.length) throw new Error('This item has no renderable overlay');
     const start = target?.at ?? Number(overlays[0].start);
     const duration = target?.duration ?? Number(overlays[0].duration);
-    return { ...await buildVisualThumbnailPage(overlays, { width: internal.output.width, height: internal.output.height, fps: internal.output.fps }, start + duration / 2, assets,
+    return { ...await buildVisualThumbnailPage(overlays, { width: internal.output.width, height: internal.output.height, fps: internal.output.fps }, visualThumbnailSampleTimes(start, duration), assets,
         root, createStream, disposeStream, { dependencies, htmlByPath, htmlPathById }), editSnapshot: snapshot };
 }
 
 /** The shared asset rewriting/stream lifetime and renderer path for clips and material cards. */
 export async function buildVisualThumbnailPage(
-    overlays: Record<string, unknown>[], output: { width: number; height: number; fps: number }, time: number,
+    overlays: Record<string, unknown>[], output: { width: number; height: number; fps: number }, times: number | readonly number[],
     assets: OverlayRuntimeAssetUrls, root: string,
     createStream: (uri: string) => Promise<VideoStreamReference>, disposeStream: (id: string) => Promise<void>,
     inputs: { dependencies?: Set<string>; htmlByPath?: Map<string, string>; htmlPathById?: Map<string, string> } = {}
@@ -140,7 +140,7 @@ export async function buildVisualThumbnailPage(
             }
             overlay.html = html;
         }
-        return { ...visualThumbnailPage(overlays, output, time, assets), streamIds: streams, dependencyUris: [...dependencies] };
+        return { ...visualThumbnailPage(overlays, output, times, assets), streamIds: streams, dependencyUris: [...dependencies] };
     } catch (error) {
         await Promise.all(streams.map(disposeStream));
         throw error;

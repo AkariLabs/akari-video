@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { VisualThumbnailCache } from '../lib/browser/visual-thumbnail-cache.js';
-import { visualDeclarationChain, visualThumbnailSnapshot } from '../lib/browser/visual-thumbnail-key.js';
+import { visualDeclarationChain, visualThumbnailSnapshot, visualThumbnailKey } from '../lib/browser/visual-thumbnail-key.js';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const job = (key, capture, priority = 0) => ({ key, priority, wanted: () => true, capture });
 
@@ -176,4 +176,12 @@ test('a dense visible viewport cannot thrash the bounded cache; leaving the view
   assert.equal(cache.stats.captures, 2);
   assert.deepEqual(cache.request(second), { image: 'second' });
   cache.dispose();
+});
+
+test('changing duration changes the existing snapshot-based cache identity', () => {
+  const doc = { tracks: [{ items: [{ id: 'title', at: 0, duration: 300 }] }] };
+  const key = () => visualThumbnailKey('project', 'title', [visualThumbnailSnapshot(doc, 'title')]);
+  const before = key();
+  doc.tracks[0].items[0].duration = 360;
+  assert.notEqual(key(), before);
 });

@@ -1,0 +1,118 @@
+{
+  "surface": "real Electron capture host",
+  "measurements": [
+    {
+      "name": "exit-2s-band-10s",
+      "sampleTimes": [
+        7,
+        4.5,
+        2.8,
+        2.2
+      ],
+      "before": {
+        "windows": 1,
+        "visiblePixels": [
+          0
+        ]
+      },
+      "after": {
+        "windows": 1,
+        "visiblePixels": [
+          0,
+          0,
+          391500
+        ]
+      }
+    },
+    {
+      "name": "stream-3.3s-band-12s",
+      "sampleTimes": [
+        8,
+        5,
+        2.8,
+        2.2
+      ],
+      "before": {
+        "windows": 1,
+        "visiblePixels": [
+          0
+        ]
+      },
+      "after": {
+        "windows": 1,
+        "visiblePixels": [
+          0,
+          391500
+        ]
+      }
+    },
+    {
+      "name": "highlight-5s-band-12s",
+      "sampleTimes": [
+        8,
+        5,
+        2.8,
+        2.2
+      ],
+      "before": {
+        "windows": 1,
+        "visiblePixels": [
+          0
+        ]
+      },
+      "after": {
+        "windows": 1,
+        "visiblePixels": [
+          0,
+          391500
+        ]
+      }
+    },
+    {
+      "name": "lower-third-clean",
+      "sampleTimes": [
+        8,
+        5,
+        2.8,
+        2.2
+      ],
+      "before": {
+        "windows": 1,
+        "visiblePixels": [
+          137696
+        ]
+      },
+      "after": {
+        "windows": 1,
+        "visiblePixels": [
+          137696
+        ]
+      },
+      "identicalPixels": true
+    },
+    {
+      "name": "all-transparent",
+      "sampleTimes": [
+        8,
+        5,
+        2.8,
+        2.2
+      ],
+      "before": {
+        "windows": 1,
+        "visiblePixels": [
+          0
+        ]
+      },
+      "after": {
+        "windows": 1,
+        "visiblePixels": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ]
+}

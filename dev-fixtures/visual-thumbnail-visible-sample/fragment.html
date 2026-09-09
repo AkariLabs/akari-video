@@ -1,0 +1,17 @@
+<style>
+  .thumbnail-exit {
+    position: absolute;
+    inset: 30px;
+    display: grid;
+    place-content: center;
+    background: #125e8a;
+    color: white;
+    font: bold 48px sans-serif;
+    animation: thumbnail-exit var(--exit-time, 2s) linear forwards paused;
+  }
+  @keyframes thumbnail-exit {
+    0%, 80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+</style>
+<div class="thumbnail-exit">VISIBLE SAMPLE</div>

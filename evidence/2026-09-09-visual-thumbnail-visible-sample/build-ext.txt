@@ -1,0 +1,15 @@
+# L0 build (wrapper run, after merging origin/main) — cd apps/shell && npm run build:ext
+
+
+> @akari-video/shell@0.1.60 build:ext
+> tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript
+
+
+exit_code=0
+
+# --- 差し戻し r3 再走（テストの vm 除去後）— cd apps/shell && npm run build:ext ---
+
+> @akari-video/shell@0.1.60 build:ext
+> tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript
+
+exit_code=0

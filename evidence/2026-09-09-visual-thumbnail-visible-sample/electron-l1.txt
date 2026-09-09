@@ -1,0 +1,24 @@
+# L1 (real Electron, wrapper run) — node dev-fixtures/visual-thumbnail-visible-sample/run-l1.mjs
+# AKARI_HOME = isolated temporary directory (created and removed by the runner)
+# BEFORE = the same merged capture host given only the midpoint candidate; AFTER = all candidates
+
+Electron capture host boot
+Electron capture host ready
+Capturing exit-2s-band-10s: before
+Capturing exit-2s-band-10s: after
+{"name":"exit-2s-band-10s","sampleTimes":[7,4.5,2.8,2.2],"before":{"windows":1,"visiblePixels":[0]},"after":{"windows":1,"visiblePixels":[0,0,391500]}}
+Capturing stream-3.3s-band-12s: before
+Capturing stream-3.3s-band-12s: after
+{"name":"stream-3.3s-band-12s","sampleTimes":[8,5,2.8,2.2],"before":{"windows":1,"visiblePixels":[0]},"after":{"windows":1,"visiblePixels":[0,391500]}}
+Capturing highlight-5s-band-12s: before
+Capturing highlight-5s-band-12s: after
+{"name":"highlight-5s-band-12s","sampleTimes":[8,5,2.8,2.2],"before":{"windows":1,"visiblePixels":[0]},"after":{"windows":1,"visiblePixels":[0,391500]}}
+Capturing lower-third-clean: before
+Capturing lower-third-clean: after
+{"name":"lower-third-clean","sampleTimes":[8,5,2.8,2.2],"before":{"windows":1,"visiblePixels":[137696]},"after":{"windows":1,"visiblePixels":[137696]},"identicalPixels":true}
+Capturing all-transparent: before
+Capturing all-transparent: after
+{"name":"all-transparent","sampleTimes":[8,5,2.8,2.2],"before":{"windows":1,"visiblePixels":[0]},"after":{"windows":1,"visiblePixels":[0,0,0,0]}}
+
+exit_code=0
+# after the run: ps -eo pid,args | grep '<WORKTREE>/apps/shell/lib/backend/main.js' => 0 lines; no Electron process for this worktree

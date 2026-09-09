@@ -1,0 +1,51 @@
+# L0 tests (wrapper run) — npm run test:shell
+
+### unit lane: shell — apps/shell 本体 + 拡張（CI: L0 ジョブ末尾・required）
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+|---|---|---:|---:|---:|---:|---:|
+| ✅ | apps/shell/test | 40 | 40 | 0 | 0 | 0.7 |
+| ✅ | apps/shell/extensions/akari-annotations | 1263 | 1263 | 0 | 0 | 39.8 |
+| ✅ | apps/shell/extensions/akari-partner | 143 | 143 | 0 | 0 | 5.0 |
+| ✅ | apps/shell/extensions/akari-project | 304 | 304 | 0 | 0 | 2.1 |
+| ✅ | apps/shell/extensions/akari-shell-strip | 237 | 237 | 0 | 0 | 6.1 |
+| ✅ | apps/shell/extensions/akari-surfaces | 223 | 223 | 0 | 0 | 4.5 |
+| ✅ | apps/shell/extensions/akari-tabs | 10 | 10 | 0 | 0 | 0.4 |
+| ✅ | apps/shell/extensions/akari-theme | 23 | 23 | 0 | 0 | 0.7 |
+| ✅ | apps/shell/extensions/akari-transcript | 228 | 228 | 0 | 0 | 1.0 |
+| ✅ | apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外) | 1014 | 1014 | 0 | 0 | 8.6 |
+
+合計: tests 3485 / pass 3485 / fail 0 / skipped 0 — 全エントリ exit 0
+
+exit_code=0
+
+# --- 差し戻し r3 再走（テストの vm 除去後）— npm run test:shell ---
+### unit lane: shell — apps/shell 本体 + 拡張（CI: L0 ジョブ末尾・required）
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+|---|---|---:|---:|---:|---:|---:|
+| ✅ | apps/shell/test | 40 | 40 | 0 | 0 | 0.3 |
+| ✅ | apps/shell/extensions/akari-annotations | 1263 | 1263 | 0 | 0 | 35.0 |
+| ✅ | apps/shell/extensions/akari-partner | 143 | 143 | 0 | 0 | 3.4 |
+| ✅ | apps/shell/extensions/akari-project | 304 | 304 | 0 | 0 | 1.9 |
+| ✅ | apps/shell/extensions/akari-shell-strip | 237 | 237 | 0 | 0 | 5.9 |
+| ✅ | apps/shell/extensions/akari-surfaces | 223 | 223 | 0 | 0 | 2.3 |
+| ✅ | apps/shell/extensions/akari-tabs | 10 | 10 | 0 | 0 | 0.3 |
+| ✅ | apps/shell/extensions/akari-theme | 23 | 23 | 0 | 0 | 0.7 |
+| ✅ | apps/shell/extensions/akari-transcript | 228 | 228 | 0 | 0 | 1.0 |
+| ✅ | apps/shell/extensions/akari-preview (ブラウザ 1 ファイル除外) | 1014 | 1014 | 0 | 0 | 6.9 |
+
+合計: tests 3485 / pass 3485 / fail 0 / skipped 0 — 全エントリ exit 0
+exit_code=0
+
+# 単体再走: node --test apps/shell/extensions/akari-preview/test/visual-thumbnail.test.mjs
+✔ external CSS, imported CSS and parent/child motion dependencies retain project paths (3.755834ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.63
+exit_code=0

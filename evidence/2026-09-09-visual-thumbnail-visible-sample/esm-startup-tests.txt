@@ -1,0 +1,11 @@
+# L1 runner ESM entry tests (wrapper run) — akari-preview: node --test test/visual-thumbnail-l1-startup.test.mjs
+
+✔ L1 initialization waits for ready, destroys windows on failure, and exits with a sanitized error (3.541583ms)
+✔ L1 diagnostics redact workstation and temporary paths (0.100291ms)
+✔ the actual Electron ESM entry evaluates before ready and handles readiness rejection (121.743167ms)
+✔ child output is forwarded before exit, with split paths and UTF-8 redacted per line (2.647083ms)
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+
+exit_code=0
