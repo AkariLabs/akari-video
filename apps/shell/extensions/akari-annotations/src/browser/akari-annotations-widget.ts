@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
+import { hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
@@ -5956,22 +5957,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 hide();
                 const popup = document.createElement('div');
                 const image = element.querySelector<HTMLImageElement>('.akari-visual-thumbnail-image');
+                let enlarged: HTMLImageElement | undefined;
                 if (image) {
-                    const enlarged = document.createElement('img');
+                    enlarged = document.createElement('img');
                     enlarged.alt = ''; enlarged.draggable = false;
-                    enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
-                    Object.assign(enlarged.style, { position: 'relative', width: '320px', height: '180px', display: 'block',
+                    Object.assign(enlarged.style, { position: 'relative', display: 'block',
                         visibility: 'visible', objectFit: 'contain', pointerEvents: 'none',
                         background: 'repeating-conic-gradient(#28313b 0% 25%,#39434e 0% 50%) 0/12px 12px' });
                     popup.append(enlarged);
                 }
                 const name = document.createElement('div'); name.textContent = element.title; popup.append(name);
-                const bounds = element.getBoundingClientRect();
-                Object.assign(popup.style, { position: 'fixed', left: `${Math.max(0, Math.min(bounds.left, window.innerWidth - 340))}px`,
-                    top: `${Math.max(0, bounds.top - 220)}px`, maxWidth: '320px', zIndex: '10000', padding: '6px',
-                    background: '#171d25', color: '#fff', border: '1px solid #657080', borderRadius: '5px', pointerEvents: 'none', overflowWrap: 'anywhere' });
+                Object.assign(name.style, { height: '16px', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+                Object.assign(popup.style, { position: 'fixed', boxSizing: 'content-box', zIndex: '10000', padding: '6px',
+                    background: '#171d25', color: '#fff', border: '1px solid #657080', borderRadius: '5px', pointerEvents: 'none' });
                 popup.dataset.akariVisualThumbnailHover = 'true';
                 document.body.append(popup); this.visualHover = popup;
+                const updateGeometry = (): void => {
+                    if (this.visualHover !== popup || !element.isConnected || this.isDisposed) return;
+                    const output = this.editDocument?.output as { width?: unknown; height?: unknown } | undefined;
+                    const geometry = hoverPopupGeometry({
+                        naturalWidth: enlarged?.naturalWidth, naturalHeight: enlarged?.naturalHeight,
+                        width: typeof output?.width === 'number' ? output.width : undefined,
+                        height: typeof output?.height === 'number' ? output.height : undefined,
+                        bounds: element.getBoundingClientRect(), innerWidth: window.innerWidth, innerHeight: window.innerHeight,
+                        nameHeight: 16, borderWidth: 1
+                    });
+                    if (enlarged) Object.assign(enlarged.style, { width: `${geometry.imageWidth}px`, height: `${geometry.imageHeight}px` });
+                    Object.assign(popup.style, { left: `${geometry.left}px`, top: `${geometry.top}px`,
+                        width: `${geometry.imageWidth}px`, maxWidth: `${geometry.imageWidth}px` });
+                };
+                updateGeometry();
+                if (enlarged && image) {
+                    enlarged.onload = updateGeometry;
+                    enlarged.src = image.dataset.akariUncroppedImage ?? image.src;
+                }
             }, 450);
         });
     }
