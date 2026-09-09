@@ -1,0 +1,147 @@
+{
+  "label": "after",
+  "screenLayout": "0:0:1680:1050",
+  "project": "fieldtest 2026-08-31-object-tree-manual-test（非公開の内部リポジトリ）",
+  "startedAt": "2026-09-09T14:20:45.283Z",
+  "editJson": {
+    "sha256Before": "86e53b1c9874ddef93f78530c041361e8485339edb540d009955d7601eef3e65",
+    "bytes": 2222,
+    "sha256After": "86e53b1c9874ddef93f78530c041361e8485339edb540d009955d7601eef3e65",
+    "unchanged": true
+  },
+  "widgetWidthHistory": [
+    1486,
+    1486,
+    1486
+  ],
+  "normal": {
+    "window": {
+      "innerWidth": 1600,
+      "innerHeight": 927,
+      "widgetWidth": 1486
+    },
+    "viewStart": 0,
+    "trackHeights": [
+      [
+        "v-main",
+        48
+      ],
+      [
+        "v-pip",
+        48
+      ],
+      [
+        "v-telop",
+        48
+      ],
+      [
+        "v-parts",
+        48
+      ],
+      [
+        "v-deco",
+        48
+      ],
+      [
+        "t-audio-implied",
+        28
+      ]
+    ],
+    "stripItemCount": 80,
+    "cuts": [
+      {
+        "key": "timeline:cut:0",
+        "left": 143,
+        "top": 331.5,
+        "width": 658.51,
+        "height": 48,
+        "cells": 19,
+        "hasFilmstrip": true,
+        "waveformCanvas": {
+          "top": "1px",
+          "height": "46px",
+          "w": 1318,
+          "h": 92
+        },
+        "backgroundImage": ""
+      },
+      {
+        "key": "timeline:cut:1",
+        "left": 801.51,
+        "top": 331.5,
+        "width": 548.76,
+        "height": 48,
+        "cells": 16,
+        "hasFilmstrip": true,
+        "waveformCanvas": {
+          "top": "1px",
+          "height": "46px",
+          "w": 1098,
+          "h": 92
+        },
+        "backgroundImage": ""
+      }
+    ],
+    "layers": [
+      {
+        "id": "pip-b",
+        "lane": "v-pip",
+        "kind": "media",
+        "left": 252.75,
+        "top": 253.5,
+        "width": 439.01,
+        "height": 48,
+        "cells": 13,
+        "hasFilmstrip": true,
+        "waveformCanvas": {
+          "top": "1px",
+          "height": "46px",
+          "w": 878,
+          "h": 92
+        },
+        "backgroundImage": ""
+      },
+      {
+        "id": "telop-chapter",
+        "lane": "v-telop",
+        "kind": "akari-annotations-strip-layer-baked",
+        "left": 252.75,
+        "top": 201.5,
+        "width": 329.25,
+        "height": 48,
+        "cells": 0,
+        "hasFilmstrip": false,
+        "waveformCanvas": null,
+        "backgroundImage": ""
+      }
+    ],
+    "overlays": [
+      {
+        "key": "timeline:overlay:intro",
+        "label": "intro",
+        "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+        "left": 143,
+        "top": 149.5,
+        "width": 548.76,
+        "height": 48,
+        "cells": 0,
+        "hasFilmstrip": false,
+        "waveformCanvas": null,
+        "backgroundImage": ""
+      }
+    ],
+    "totalCells": 48,
+    "clipsWithCells": 3
+  },
+  "settleHistory": [
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48
+  ],
+  "finishedAt": "2026-09-09T14:21:04.991Z"
+}
