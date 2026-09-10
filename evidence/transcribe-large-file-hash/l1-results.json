@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-09-10T06:22:37.257Z",
+  "node": "v26.3.0",
+  "baselineRev": "f955a97d",
+  "tmpDir": "<TMP>",
+  "synth": {
+    "seconds": 19,
+    "sizeBytes": 2365591587,
+    "exceedsTwoGiB": true,
+    "ffmpegWallSeconds": 2.89
+  },
+  "reference": {
+    "sha256": "64e8b0b1edc67acc18793172b62a7833ae58b19c2d5db9be3aa34e6e86e60ab7",
+    "shasumWallSeconds": 15.88
+  },
+  "before": {
+    "probe": {
+      "exit": 1,
+      "stderr": "File size (2365591587) is greater than 2 GiB",
+      "stdout": ""
+    },
+    "transcribe": {
+      "exit": 1,
+      "stderr": "File size (2365591587) is greater than 2 GiB",
+      "stdout": ""
+    },
+    "sha256FileDirect": {
+      "threw": true,
+      "code": "ERR_FS_FILE_TOO_LARGE",
+      "name": "RangeError",
+      "message": "File size (2365591587) is greater than 2 GiB"
+    }
+  },
+  "after": {
+    "probe": {
+      "exit": 0,
+      "wallSeconds": 4.36,
+      "stderr": "",
+      "stderrMentionsTwoGiB": false,
+      "sha256": "64e8b0b1edc67acc18793172b62a7833ae58b19c2d5db9be3aa34e6e86e60ab7",
+      "sha256MatchesShasum": true,
+      "size_bytes": 2365591587,
+      "container": "mov",
+      "duration_s": 19,
+      "video": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "codec": "rawvideo",
+        "rotation": 0
+      },
+      "audio": {
+        "codec": "pcm_s16le",
+        "channels": 1,
+        "sample_rate": 44100
+      }
+    },
+    "transcribe": {
+      "backendRequested": "whisper-cpp",
+      "exit": 0,
+      "wallSeconds": 12.56,
+      "stderr": "",
+      "stderrMentionsTwoGiB": false,
+      "result": {
+        "backend": "whisper-cpp",
+        "range": {
+          "in": 0,
+          "out": 19
+        },
+        "no_speech": false,
+        "segmentsCount": 1,
+        "cacheKey": "64e8b0b1edc67acc18793172b62a7833ae58b19c2d5db9be3aa34e6e86e60ab7-0-19-whisper-cpp-auto",
+        "cacheHit": false
+      },
+      "cacheKeyStartsWithShasum": true
+    },
+    "sha256FileDirect": {
+      "sha256": "64e8b0b1edc67acc18793172b62a7833ae58b19c2d5db9be3aa34e6e86e60ab7",
+      "matchesShasum": true,
+      "hashSeconds": 4.63,
+      "throughputMiBPerSecond": 487.3,
+      "rssMiB": 109,
+      "heapUsedMiB": 6,
+      "isPromise": true,
+      "smallFileMatchesReadFile": true
+    }
+  },
+  "verdict": {
+    "beforeFailsWithErrFsFileTooLarge": true,
+    "afterProbeOk": true,
+    "afterTranscribeOk": true,
+    "smallFileMatchesReadFile": true,
+    "pass": true
+  },
+  "cleanup": {
+    "tmpRemoved": true
+  }
+}

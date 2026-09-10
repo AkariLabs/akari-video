@@ -1,0 +1,1 @@
+Governance gate passed — no tracked-file leaks detected.
