@@ -14,6 +14,15 @@ function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
+function writeJson(outputPath, value) {
+  const text = `${JSON.stringify(value)}\n`;
+  if (outputPath) {
+    fs.writeFileSync(outputPath, text, "utf8");
+    return;
+  }
+  process.stdout.write(text);
+}
+
 function summarize(value, fallback) {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text ? text.slice(0, 500) : fallback;
@@ -25,6 +34,48 @@ function spawn(command, args) {
   } catch (error) {
     return { error };
   }
+}
+
+function runHelper(helperBin, inputPath) {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "akari-speech-analyzer-output-"));
+  const helperOutputPath = path.join(temporaryDirectory, "stdout.json");
+  const helperFd = fs.openSync(helperOutputPath, "w");
+  let helperResult = {};
+  let helperError = null;
+  try {
+    helperResult = spawnSync(helperBin, [inputPath], { stdio: ["ignore", helperFd, "pipe"], encoding: "utf8" });
+  } catch (error) {
+    helperError = error;
+  } finally {
+    try {
+      fs.closeSync(helperFd);
+    } catch {
+      // noop
+    }
+  }
+
+  let stdoutText = "";
+  try {
+    if (!helperError) {
+      stdoutText = fs.readFileSync(helperOutputPath, "utf8");
+    }
+  } finally {
+    try {
+      fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+    } catch {
+      // noop
+    }
+  }
+
+  if (helperError) {
+    return { error: helperError };
+  }
+  return {
+    status: helperResult.status,
+    stderr: helperResult.stderr,
+    stdoutText,
+    error: helperResult.error,
+  };
 }
 
 function checkAvailability() {
@@ -59,7 +110,7 @@ function checkAvailability() {
 }
 
 function parseArguments(argv) {
-  const result = { check: false, input: null, helperBin: defaultHelperBin };
+  const result = { check: false, input: null, helperBin: defaultHelperBin, output: null };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--check") {
@@ -69,6 +120,11 @@ function parseArguments(argv) {
       if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
       if (argument === "--input") result.input = path.resolve(value);
       else result.helperBin = path.resolve(value);
+      index += 1;
+    } else if (argument === "--output") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error(`${argument} の値がありません`);
+      result.output = path.resolve(value);
       index += 1;
     } else {
       throw new Error(`不明な引数です: ${argument}`);
@@ -163,13 +219,15 @@ function main() {
     return;
   }
 
-  const helperResult = spawn(options.helperBin, [options.input]);
+  const helperResult = runHelper(options.helperBin, options.input);
+
   let helperJson = null;
   try {
-    helperJson = JSON.parse(String(helperResult.stdout ?? ""));
+    helperJson = JSON.parse(helperResult.stdoutText || "");
   } catch {
     // 非 JSON の stdout は採用しない。
   }
+
   if (helperResult.error || helperResult.status !== 0 || helperJson === null) {
     const detail = typeof helperJson?.error === "string"
       ? helperJson.error
@@ -183,7 +241,7 @@ function main() {
   if (normalized.droppedSegments > 0 || normalized.droppedWords > 0) {
     process.stderr.write(`SpeechAnalyzer の無効時刻を除外: segments=${normalized.droppedSegments}, words=${normalized.droppedWords}\n`);
   }
-  printJson({ backend: "speechanalyzer", available: true, segments: normalized.segments });
+  writeJson(options.output, { backend: "speechanalyzer", available: true, segments: normalized.segments });
 }
 
 main();

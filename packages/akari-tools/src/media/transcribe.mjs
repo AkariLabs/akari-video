@@ -271,7 +271,7 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
       "-ss", String(range.in), "-i", target.inputPath,
       "-t", String(range.out - range.in), "-map", "0:a:0", ...codecArgs, inputPath,
     ], options);
-    if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, options);
+    if (backendInfo.name === "speech-analyzer") return await runSpeechAnalyzer(inputPath, temporaryDirectory, options);
     if (backendInfo.name === "whisper-cpp") return runWhisper(inputPath, temporaryDirectory, backendInfo, lang, options);
     if (options.cloudRunner) return await options.cloudRunner({ inputPath, projectRoot: target.projectRoot, connectionId: backendInfo.connectionId, range });
     return runCloud(inputPath, target.projectRoot, backendInfo.connectionId, range, options);
@@ -280,20 +280,21 @@ async function runBackend({ backendInfo, ffmpeg, target, range, lang, options })
   }
 }
 
-async function runSpeechAnalyzer(wavPath, options) {
+async function runSpeechAnalyzer(wavPath, temporaryDirectory, options) {
+  const outputPath = path.join(temporaryDirectory, "speech-analyzer-output.json");
   const speechAnalyzerScript = resolveAnalyzeFootageScript("transcribe-sa.mjs", options);
   if (!speechAnalyzerScript) throw new Error(missingScriptMessage("SpeechAnalyzer の", "transcribe-sa.mjs", options));
   const helperDirectory = path.join(os.tmpdir(), "akari-speech-analyzer");
   const moduleCache = path.join(helperDirectory, "clang-module-cache");
   await mkdir(helperDirectory, { recursive: true });
-  const result = runChecked(process.execPath, [speechAnalyzerScript, "--input", wavPath, "--helper-bin", path.join(helperDirectory, "speechanalyzer-helper")], {
+  const result = runChecked(process.execPath, [speechAnalyzerScript, "--input", wavPath, "--helper-bin", path.join(helperDirectory, "speechanalyzer-helper"), "--output", outputPath], {
     ...options,
     spawnOptions: {
       ...options.spawnOptions,
       env: { ...process.env, ...options.spawnOptions?.env, CLANG_MODULE_CACHE_PATH: moduleCache, SWIFT_MODULECACHE_PATH: moduleCache },
     },
   });
-  const value = JSON.parse(result.stdout);
+  const value = JSON.parse(await readFile(outputPath, "utf8"));
   if (!value.available) throw new Error(value.reason || "SpeechAnalyzer が失敗しました");
   return value.segments ?? [];
 }
