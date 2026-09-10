@@ -38,6 +38,12 @@ function fixture(t) {
       }
       assert.equal(command, process.execPath);
       assert.ok(scriptNames.includes(path.basename(args[0])));
+      const outputIndex = args.indexOf("--output");
+      if (outputIndex >= 0) {
+        const outputPath = args[outputIndex + 1];
+        if (outputPath) writeFileSync(outputPath, JSON.stringify({ available: true, segments }));
+        return { status: 0, stdout: "", stderr: "" };
+      }
       return success({ available: true, segments });
     },
   };

@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-09-10T07:25:37.458Z",
+  "node": "v26.3.0",
+  "macos": "26.2",
+  "baselineRev": "8e96e81f",
+  "tmpDir": "<TMP>",
+  "synth": {
+    "voice": "Kyoko (ja_JP)",
+    "baseSeconds": 1150.32,
+    "loops": 6,
+    "longSeconds": 8052.26,
+    "longBytes": 257672528,
+    "sayWallSeconds": 17.73,
+    "ffmpegWallSeconds": 0.82
+  },
+  "helper": {
+    "exit": 0,
+    "wallSeconds": 87.46,
+    "stderr": "",
+    "jsonBytes": 6668750,
+    "exceedsOneMiB": true,
+    "ratioToOneMiB": 6.36,
+    "segmentsCount": 201,
+    "segmentWordsCount": 35197,
+    "allWordsCount": 35197,
+    "engine": "macOS SpeechAnalyzer/SpeechTranscriber",
+    "locale": "ja_JP"
+  },
+  "before": {
+    "exit": 1,
+    "wallSeconds": 85.85,
+    "stderr": "{\"backend\":\"speechanalyzer\",\"available\":false,\"reason\":\"helper failed: spawnSync <TMPDIR>/akari-speech-analyzer/speechanalyzer-helper ENOBUFS\"}",
+    "stdout": "",
+    "enobufs": true
+  },
+  "after": {
+    "exit": 0,
+    "wallSeconds": 94.49,
+    "stderr": "",
+    "enobufs": false,
+    "transcribe": {
+      "backend": "speech-analyzer",
+      "range": {
+        "in": 0,
+        "out": 8052.264063
+      },
+      "no_speech": false,
+      "segmentsCount": 201,
+      "wordsCount": 35197,
+      "firstSegment": {
+        "start": 0,
+        "end": 61.44,
+        "textHead": "これは長時間の収録を想定した文字起こしの試験です。この段落は認識される単語の数を"
+      },
+      "lastSegment": {
+        "start": 8017.86,
+        "end": 8052.264063
+      },
+      "cacheHit": false,
+      "stdoutBytes": 1678525
+    }
+  },
+  "verdict": {
+    "beforeFailsWithEnobufs": true,
+    "afterSucceeds": true
+  },
+  "cleanup": {
+    "tmpRemoved": true
+  }
+}
