@@ -19,6 +19,7 @@ assert.ok(refreshMethod);
 // Execute the actual host method without loading Theia's DOM-dependent application shell.
 const refresh = vm.runInNewContext(`({ ${refreshMethod} }).refreshPreview`, {
     PLAYABLE_VIDEO_MIME_TYPES: new Map([['.mp4', 'video/mp4']]),
+    frame_engine_render_scale_1: require('../lib/common/frame-engine-render-scale.js'),
     exports: { isImageLayerSrc: path => /\.(png|jpg)$/i.test(path) },
     UNSUPPORTED_FORMAT_MESSAGE: 'unsupported', EMPTY_PROJECT_MESSAGE: 'empty',
     OUTSIDE_WORKSPACE_MESSAGE: 'outside', console

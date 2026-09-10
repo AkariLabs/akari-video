@@ -44,7 +44,9 @@ function harness() {
         ({ renderFrame, getAccesses: () => currentAccesses })
     `, {
         disposed: false, totalDuration: 10, fps: 30,
-        timeline: {}, sources: new Map(), output: {}, compositor: {}, frameMetrics: {},
+        timeline: {}, sources: new Map(), renderOutput: {}, compositor: {}, frameMetrics: {},
+        noteRenderScaleActivity() {}, applyRenderScale() { return false; },
+        appliedRenderScale: 1, autoRenderScale: 1, scaleEvaluationPlanFn: plan => plan,
         measurements, performance: { now: () => 100 },
         engine: {
             evaluationPlanFromResolvedTimeline: (_timeline, timeUs) => ({

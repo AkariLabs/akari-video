@@ -1,0 +1,45 @@
+PROGRESS stage=prepare status=start
+PROGRESS stage=prepare status=end
+PROGRESS stage=audio-cut status=start
+PROGRESS out_time_ms=20000 total_ms=20000
+PROGRESS stage=audio-cut status=end
+PROGRESS stage=render status=start engine=gpu
+PROGRESS preview=0 path=<TMP>/project/.akari/cache/export-preview/0.jpg
+PROGRESS frame=30 total=600
+PROGRESS frame=60 total=600
+PROGRESS preview=68 path=<TMP>/project/.akari/cache/export-preview/68.jpg
+PROGRESS frame=90 total=600
+PROGRESS frame=120 total=600
+PROGRESS preview=136 path=<TMP>/project/.akari/cache/export-preview/136.jpg
+PROGRESS frame=150 total=600
+PROGRESS frame=180 total=600
+PROGRESS preview=204 path=<TMP>/project/.akari/cache/export-preview/204.jpg
+PROGRESS frame=210 total=600
+PROGRESS frame=240 total=600
+PROGRESS frame=270 total=600
+PROGRESS preview=272 path=<TMP>/project/.akari/cache/export-preview/272.jpg
+PROGRESS frame=300 total=600
+PROGRESS frame=330 total=600
+PROGRESS preview=340 path=<TMP>/project/.akari/cache/export-preview/340.jpg
+PROGRESS frame=360 total=600
+PROGRESS frame=390 total=600
+PROGRESS preview=408 path=<TMP>/project/.akari/cache/export-preview/408.jpg
+PROGRESS frame=420 total=600
+PROGRESS frame=450 total=600
+PROGRESS preview=476 path=<TMP>/project/.akari/cache/export-preview/476.jpg
+PROGRESS frame=480 total=600
+PROGRESS frame=510 total=600
+PROGRESS frame=540 total=600
+PROGRESS preview=544 path=<TMP>/project/.akari/cache/export-preview/544.jpg
+PROGRESS frame=570 total=600
+PROGRESS frame=600 total=600
+PROGRESS stage=render status=end
+PROGRESS stage=audio-mix status=start
+PROGRESS stage=audio-mix status=end
+PROGRESS stage=verify status=start
+PROGRESS stage=verify status=end
+PROGRESS done total_ms=40000
+PASS: exports/l1-gpu-export.mp4
+
+[OpenH264] this = 0x0x104049bada0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.
+sysctlbyname for kern.hv_vmm_present failed with status -1
