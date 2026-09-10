@@ -76,6 +76,7 @@ import {
 } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
+import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
 import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
@@ -3450,10 +3451,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && this.preferences.get<boolean>('akari.developerMode', false);
         const [
             frameEngineSourceOverride,
+            frameEngineRenderScaleOverride,
             frameEngineForceSoftwareOverride,
             frameEngineReadyTimeoutMs
         ] = await Promise.all([
             this.envVariables.getValue('AKARI_FRAME_ENGINE_SOURCE')
+                .then(variable => variable?.value?.trim().toLowerCase()),
+            this.envVariables.getValue('AKARI_FRAME_ENGINE_RENDER_SCALE')
                 .then(variable => variable?.value?.trim().toLowerCase()),
             this.envVariables.getValue('AKARI_FRAME_ENGINE_FORCE_SW')
                 .then(variable => variable?.value?.trim().toLowerCase()),
@@ -3469,6 +3473,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 : 'auto';
         const frameEngineForceSoftware = frameEngineForceSoftwareOverride === '1'
             || frameEngineForceSoftwareOverride === 'true';
+        const frameEngineRenderScaleMode = parseRenderScaleMode(frameEngineRenderScaleOverride
+            ?? this.preferences.get<string>('akari.preview.renderScale', 'auto'));
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -3488,7 +3494,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             frameEngineSourceMode,
             frameEngineForceSoftware,
             frameEngineReadyTimeoutMs,
-            widget.akariPreviewPlaybackRate ?? 1
+            widget.akariPreviewPlaybackRate ?? 1,
+            frameEngineRenderScaleMode
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -5817,7 +5824,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineSourceMode = 'auto',
         frameEngineForceSoftware = false,
         frameEngineReadyTimeoutMs?: number,
-        initialPlaybackRate = 1
+        initialPlaybackRate = 1,
+        frameEngineRenderScaleMode: RenderScaleMode = 'auto'
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -5852,6 +5860,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             videoSources: sourceUrlById,
             videoSourceOriginals: originalSourceUrlById,
             frameEngineSourceMode,
+            frameEngineRenderScaleMode,
             frameEngineForceSoftware,
             // フォールバック要求は配信 URL ではなく原本 URI をキーにする。v2 media item も
             // source.src の id からこの表を引き、失敗した正確なソースだけを変換する。
@@ -7499,6 +7508,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const adjustBypassIds = window.akari.adjustBypassIds || (window.akari.adjustBypassIds = new Set(initial.adjustBypassIds || []));
             const engine = window.AkariFrameEngine;
             const filterRenderableFrameEngineLayersFn = (${filterRenderableFrameEngineLayers.toString()});
+            const parseRenderScaleModeFn = (${parseRenderScaleMode.toString()});
+            const resolveRenderScaleFn = (${resolveRenderScale.toString()});
+            const scaledOutputSizeFn = (${scaledOutputSize.toString()});
+            const scaleEvaluationPlanFn = (${scaleEvaluationPlan.toString()});
             const stage = document.getElementById('preview-stage');
             const layersStage = document.getElementById('preview-layers');
             if (!engine || !stage || !layersStage) {
@@ -7643,6 +7656,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             let scheduler = null;
             let audioSupply = null;
+            let renderScaleDescription = '—';
             let rate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
             const percentile = values => {
                 if (values.length === 0) return null;
@@ -7684,6 +7698,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 metrics.dataset.audioPrefetchBytes = String(audioState.prefetch.decodedBytes);
                 metrics.textContent = [
                     'fps (presented/1s)  ' + presentedFps,
+                    'render scale        ' + renderScaleDescription,
                     'late frame          ' + measurements.lateFrames,
                     'seek reach latest   ' + formatMetric(measurements.seekLatestMs) + ' ms',
                     'seek before (cold)  ' + formatMetric(before) + ' ms',
@@ -8135,6 +8150,28 @@ body { display: grid; place-items: center; padding: 32px; }
                     colorSpace: 'bt709-limited',
                     look
                 };
+                const renderScaleMode = parseRenderScaleModeFn(initial.frameEngineRenderScaleMode);
+                const readCanvasRenderScale = () => {
+                    const rect = canvas.getBoundingClientRect();
+                    return resolveRenderScaleFn({ mode: renderScaleMode,
+                        outputWidth: output.width, outputHeight: output.height,
+                        cssWidth: rect.width, cssHeight: rect.height, dpr: window.devicePixelRatio });
+                };
+                let autoRenderScale = readCanvasRenderScale();
+                const renderOutput = { ...output };
+                let appliedRenderScale = 1;
+                const applyRenderScale = scale => {
+                    const size = scaledOutputSizeFn(output, scale);
+                    const changed = renderOutput.width !== size.width || renderOutput.height !== size.height;
+                    // Mutate the shared output in place so the scheduler keeps its warmed sessions.
+                    renderOutput.width = size.width;
+                    renderOutput.height = size.height;
+                    appliedRenderScale = scale;
+                    renderScaleDescription = scale + ' (' + size.width + 'x' + size.height
+                        + ' of ' + output.width + 'x' + output.height + ', ' + renderScaleMode + ')';
+                    return changed;
+                };
+                applyRenderScale(autoRenderScale);
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
                 const baseCompositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
                 const partitionMediaPlanes = (${partitionPreviewMediaPlanes.toString()});
@@ -8158,7 +8195,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const bandLayers = band.entries.map(entry => entry.baseIndex !== undefined
                                 ? { color: baseFrames[entry.baseIndex] } : layerFrames[entry.layerIndex]);
                             if (band.key === 0) {
-                                surface = await baseCompositor.compose(bandBase, bandLayers, outputSpec, metricsRecorder, bandPlan);
+                                surface = await baseCompositor.compose(bandBase, bandLayers, renderOutput, metricsRecorder, bandPlan);
                                 continue;
                             }
                             if (!upperCompositor) upperCompositor = new engine.WebGL2Compositor(
@@ -8172,7 +8209,7 @@ body { display: grid; place-items: center; padding: 32px; }
                                 upperPlanes.set(band.key, plane);
                             }
                             plane.style.zIndex = String(band.zIndex);
-                            const upper = await upperCompositor.compose(bandBase, bandLayers, outputSpec, metricsRecorder, bandPlan);
+                            const upper = await upperCompositor.compose(bandBase, bandLayers, renderOutput, metricsRecorder, bandPlan);
                             try {
                                 if (plane.width !== outputSpec.width) plane.width = outputSpec.width;
                                 if (plane.height !== outputSpec.height) plane.height = outputSpec.height;
@@ -8195,7 +8232,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const createSchedulerForTimeline = value => engine.createPreviewScheduler({
                     timeline: value,
                     sources,
-                    output,
+                    output: renderOutput,
                     fps,
                     pools,
                     lookahead,
@@ -8215,10 +8252,66 @@ body { display: grid; place-items: center; padding: 32px; }
                 const waitForRender = async () => {
                     if (rendering) await rendering;
                 };
-                const renderFrame = async (seconds, reason, requestedAt = performance.now()) => {
+                let renderScaleTimer = null;
+                let renderScaleRevision = 0;
+                let resizeScaleAt = null;
+                let idleScaleAt = null;
+                let renderScaleSettled = false;
+                // One timeout serves both the 100 ms display debounce and the 250 ms idle deadline.
+                const armRenderScaleTimer = () => {
+                    clearTimeout(renderScaleTimer);
+                    renderScaleTimer = null;
+                    const revision = ++renderScaleRevision;
+                    const deadlines = [resizeScaleAt, idleScaleAt].filter(value => value !== null);
+                    if (disposed || deadlines.length === 0) return;
+                    renderScaleTimer = setTimeout(() => {
+                        renderScaleTimer = null;
+                        void flushRenderScale(revision).catch(reason => showError(reason, true));
+                    }, Math.max(0, Math.min(...deadlines) - performance.now()));
+                };
+                const flushRenderScale = async revision => {
+                    await waitForRender();
+                    if (runtimeUpdating) await modelUpdateTail;
+                    if (disposed || revision !== renderScaleRevision) return;
+                    const now = performance.now();
+                    if (resizeScaleAt !== null && now >= resizeScaleAt) {
+                        resizeScaleAt = null;
+                        autoRenderScale = readCanvasRenderScale();
+                    }
+                    let idleRedraw = false;
+                    if (idleScaleAt !== null && now >= idleScaleAt) {
+                        idleScaleAt = null;
+                        renderScaleSettled = !playing;
+                        idleRedraw = renderScaleSettled;
+                    }
+                    const changed = applyRenderScale(renderScaleSettled ? 1 : autoRenderScale);
+                    armRenderScaleTimer();
+                    if (!playing && (changed || idleRedraw)) {
+                        const operation = renderFrame(position, 'seek', performance.now(), true)
+                            .catch(reason => showError(reason, true));
+                        rendering = operation;
+                        try { await operation; }
+                        finally { if (rendering === operation) rendering = null; }
+                    }
+                    updateMetrics();
+                };
+                const noteRenderScaleActivity = reason => {
+                    if (renderScaleMode !== 'auto') return;
+                    renderScaleSettled = false;
+                    idleScaleAt = reason === 'seek' && !playing ? performance.now() + 250 : null;
+                    armRenderScaleTimer();
+                };
+                const renderFrame = async (seconds, reason, requestedAt = performance.now(), scaleOnly = false) => {
                     if (disposed) return;
+                    if (!scaleOnly) {
+                        noteRenderScaleActivity(reason);
+                        applyRenderScale(autoRenderScale);
+                    }
                     const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
-                    const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
+                    const resolvedPlan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, renderOutput);
+                    // Engine layer geometry uses output pixels; project those transforms in the shell
+                    // to preserve composition at reduced resolution while keeping the engine unchanged.
+                    const plan = scaleEvaluationPlanFn(resolvedPlan, appliedRenderScale);
                     const accesses = [];
                     currentAccesses = accesses;
                     const started = performance.now();
@@ -8239,7 +8332,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (late) bucket.late += 1;
                         lastCutIndex = cutIndex;
                     }
-                    if (reason === 'seek') {
+                    if (reason === 'seek' && !scaleOnly) {
                         const reached = performance.now() - requestedAt;
                         measurements.seekLatestMs = reached;
                         const allHit = accesses.length > 0
@@ -8310,6 +8403,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         audioSupply.pause();
                     }
                     playing = next && position < totalDuration;
+                    noteRenderScaleActivity(playing ? 'playback' : 'seek');
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
                     if (playing) audioSupply.playFrom(position);
@@ -8526,6 +8620,34 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 window.akari = window.akari || {};
                 window.akari.frameEngineClock = clock;
+
+                const scheduleRenderScaleResize = () => {
+                    if (renderScaleMode !== 'auto' || disposed) return;
+                    resizeScaleAt = performance.now() + 100;
+                    armRenderScaleTimer();
+                };
+                const renderScaleObserver = new ResizeObserver(scheduleRenderScaleResize);
+                let renderScaleDprQuery = null;
+                const watchRenderScaleDpr = () => {
+                    if (renderScaleDprQuery) renderScaleDprQuery.removeEventListener('change', onRenderScaleDprChange);
+                    const dpr = window.devicePixelRatio;
+                    renderScaleDprQuery = window.matchMedia('(resolution: ' + dpr + 'dppx)');
+                    renderScaleDprQuery.addEventListener('change', onRenderScaleDprChange);
+                };
+                const onRenderScaleDprChange = () => {
+                    watchRenderScaleDpr();
+                    scheduleRenderScaleResize();
+                };
+                if (renderScaleMode === 'auto') {
+                    renderScaleObserver.observe(canvas);
+                    watchRenderScaleDpr();
+                }
+                window.addEventListener('beforeunload', () => {
+                    clearTimeout(renderScaleTimer);
+                    renderScaleRevision += 1;
+                    renderScaleObserver.disconnect();
+                    if (renderScaleDprQuery) renderScaleDprQuery.removeEventListener('change', onRenderScaleDprChange);
+                }, { once: true });
 
                 // 非同期 mount 中に受け取った A/B も初回描画へ反映する。
                 if (adjustBypassIds.size > 0) await clock.refreshAdjustBypass();

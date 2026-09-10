@@ -57,6 +57,12 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                     default: true,
                     description: 'frame-engine の製品プレビューを使います（false で従来の video プレビュー）。'
                 },
+                'akari.preview.renderScale': {
+                    type: 'string',
+                    enum: ['auto', '1', '0.5', '0.25'],
+                    default: 'auto',
+                    description: '合成面の辺あたり描画倍率。auto は表示サイズに合わせ、停止後は等倍で描き直します。プレビュー専用。書き出しと画像の位置・大きさには影響しません。'
+                },
                 'akari.preview.highPerformanceGpu': {
                     type: 'boolean',
                     default: false,

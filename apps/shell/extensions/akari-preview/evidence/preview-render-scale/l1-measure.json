@@ -1,0 +1,2537 @@
+{
+  "fixture": {
+    "output": {
+      "width": 2160,
+      "height": 2160,
+      "fps": 30
+    },
+    "pip": {
+      "id": "pip",
+      "at": 0,
+      "duration": 600,
+      "transform": {
+        "x": 534,
+        "y": 534,
+        "scale": 0.45
+      },
+      "opacity": 0.9,
+      "source": {
+        "kind": "media",
+        "src": "s2",
+        "in": 0,
+        "out": 20
+      }
+    },
+    "probeT": 10,
+    "playSeconds": 30,
+    "window": {
+      "width": 1280,
+      "height": 900
+    }
+  },
+  "sessions": {
+    "scale-1": {
+      "label": "scale-1",
+      "env": {
+        "AKARI_FRAME_ENGINE_RENDER_SCALE": "1"
+      },
+      "steps": [
+        {
+          "step": "app-ready",
+          "detail": {
+            "cdpPort": 9472,
+            "innerWidth": 1280,
+            "dpr": 1
+          }
+        },
+        {
+          "step": "ensureVisible",
+          "detail": "opened"
+        },
+        {
+          "step": "frame-engine-ready",
+          "detail": {
+            "dpr": 2,
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "scale": {
+              "scale": 1,
+              "width": 2160,
+              "height": 2160,
+              "outputWidth": 2160,
+              "outputHeight": 2160,
+              "mode": "1",
+              "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+            }
+          }
+        },
+        {
+          "step": "capture-at-T",
+          "detail": {
+            "t": 10,
+            "seekValue": "10",
+            "first": {
+              "width": 2160,
+              "height": 2160,
+              "line": "render scale        1 (2160x2160 of 2160x2160, 1)",
+              "waitedMs": 67.60000002384186,
+              "encodeMs": 75.2999999821186,
+              "file": "scale-1-canvas-at-10s-first.png",
+              "png": {
+                "width": 2160,
+                "height": 2160
+              }
+            },
+            "second": {
+              "width": 2160,
+              "height": 2160,
+              "line": "render scale        1 (2160x2160 of 2160x2160, 1)",
+              "file": "scale-1-canvas-at-10s-second.png",
+              "png": {
+                "width": 2160,
+                "height": 2160
+              }
+            }
+          }
+        },
+        {
+          "step": "dom-at-T",
+          "detail": {
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "layerId": "pip",
+            "layerRect": {
+              "left": 291.16,
+              "top": 231.16,
+              "width": 185.4,
+              "height": 185.4
+            },
+            "captionRect": {
+              "left": 240.61,
+              "top": 387.71,
+              "width": 82.78,
+              "height": 11.45
+            },
+            "captionText": "render scale probe two",
+            "overlayRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "stageScale": 0.19074074074074074,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "scaleLine": {
+              "scale": 1,
+              "width": 2160,
+              "height": 2160,
+              "outputWidth": 2160,
+              "outputHeight": 2160,
+              "mode": "1",
+              "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+            }
+          }
+        },
+        {
+          "step": "playback",
+          "detail": {
+            "seconds": 30,
+            "elapsedMs": 30434,
+            "restarts": 2,
+            "lateFramesStart": 3,
+            "lateFramesEnd": 4,
+            "lateFramesDelta": 1,
+            "fpsMedianAll": 30.5,
+            "fpsMedianSteady": 31,
+            "fpsMin": 29,
+            "fpsMax": 31,
+            "scaleDuringPlayback": [
+              1
+            ],
+            "canvasPixelsDuringPlayback": [
+              {
+                "width": 2160,
+                "height": 2160
+              }
+            ]
+          }
+        },
+        {
+          "step": "stop-resume",
+          "detail": {
+            "afterStop300ms": {
+              "scale": {
+                "scale": 1,
+                "width": 2160,
+                "height": 2160,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "1",
+                "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+              },
+              "canvasPixels": {
+                "width": 2160,
+                "height": 2160
+              },
+              "playing": false,
+              "position": 9.152
+            },
+            "afterResume600ms": {
+              "scale": {
+                "scale": 1,
+                "width": 2160,
+                "height": 2160,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "1",
+                "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+              },
+              "canvasPixels": {
+                "width": 2160,
+                "height": 2160
+              },
+              "playing": true,
+              "position": 9.667
+            },
+            "afterSecondStop400ms": {
+              "scale": {
+                "scale": 1,
+                "width": 2160,
+                "height": 2160,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "1",
+                "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+              },
+              "canvasPixels": {
+                "width": 2160,
+                "height": 2160
+              },
+              "playing": false,
+              "position": 10.095
+            }
+          }
+        },
+        {
+          "step": "cleanup",
+          "detail": {
+            "orphanSweep": {
+              "ok": true
+            },
+            "survivingUserDataDirProcesses": 0,
+            "survivingBackendMainJs": 0
+          }
+        }
+      ],
+      "electronLog": "<TMP>/electron-scale-1.log",
+      "pid": 73071,
+      "timelineOpenedBy": "auto",
+      "boot": {
+        "ready": "true",
+        "devicePixelRatio": 2,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        },
+        "captionText": "",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "metricsHidden": false,
+        "fps": 2,
+        "lateFrames": 1,
+        "renderErrors": 0,
+        "playing": false,
+        "position": 0,
+        "timeLabel": "0:00 / 0:20",
+        "stageScale": 0.19074074074074074,
+        "errorText": "",
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "1",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+        },
+        "renderScaleLineRaw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+      },
+      "iframeRect": {
+        "left": 221.9140625,
+        "top": 39,
+        "width": 564,
+        "height": 501.890625
+      },
+      "captureAtT": {
+        "t": 10,
+        "seekValue": "10",
+        "first": {
+          "width": 2160,
+          "height": 2160,
+          "line": "render scale        1 (2160x2160 of 2160x2160, 1)",
+          "waitedMs": 67.60000002384186,
+          "encodeMs": 75.2999999821186,
+          "file": "scale-1-canvas-at-10s-first.png",
+          "png": {
+            "width": 2160,
+            "height": 2160
+          }
+        },
+        "second": {
+          "width": 2160,
+          "height": 2160,
+          "line": "render scale        1 (2160x2160 of 2160x2160, 1)",
+          "file": "scale-1-canvas-at-10s-second.png",
+          "png": {
+            "width": 2160,
+            "height": 2160
+          }
+        }
+      },
+      "domAtT": {
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 240.61,
+          "top": 387.71,
+          "width": 82.78,
+          "height": 11.45
+        },
+        "captionText": "render scale probe two",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageScale": 0.19074074074074074,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "1",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+        }
+      },
+      "playback": {
+        "seconds": 30,
+        "elapsedMs": 30434,
+        "restarts": 2,
+        "samples": [
+          {
+            "second": 1,
+            "fps": 29,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 0.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 2,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 1.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 3,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 2.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 4,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 3.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 5,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 4.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 6,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 5.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 7,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 6.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 8,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 7.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 9,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 8.93,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 10,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 9.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 11,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 10.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 12,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 11.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 13,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 12.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 14,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 13.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 15,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 14.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 16,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 15.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 17,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 16.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 18,
+            "fps": 30,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 17.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 19,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 18.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 20,
+            "fps": 31,
+            "lateFrames": 3,
+            "playing": true,
+            "position": 19.97,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": true
+          },
+          {
+            "second": 21,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 20,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": true
+          },
+          {
+            "second": 22,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 1.07,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 23,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 2.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 24,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 3.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 25,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 4.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 26,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 5.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 27,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 6.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 28,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 7.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 29,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 8.1,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          },
+          {
+            "second": 30,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 9.13,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 1,
+            "restarted": false
+          }
+        ],
+        "lateFramesStart": 3,
+        "lateFramesEnd": 4,
+        "lateFramesDelta": 1,
+        "fpsMedianAll": 30.5,
+        "fpsMedianSteady": 31,
+        "fpsMin": 29,
+        "fpsMax": 31,
+        "scaleDuringPlayback": [
+          1
+        ],
+        "canvasPixelsDuringPlayback": [
+          {
+            "width": 2160,
+            "height": 2160
+          }
+        ]
+      },
+      "stopResume": {
+        "afterStop300ms": {
+          "scale": {
+            "scale": 1,
+            "width": 2160,
+            "height": 2160,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "1",
+            "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+          },
+          "canvasPixels": {
+            "width": 2160,
+            "height": 2160
+          },
+          "playing": false,
+          "position": 9.152
+        },
+        "afterResume600ms": {
+          "scale": {
+            "scale": 1,
+            "width": 2160,
+            "height": 2160,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "1",
+            "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+          },
+          "canvasPixels": {
+            "width": 2160,
+            "height": 2160
+          },
+          "playing": true,
+          "position": 9.667
+        },
+        "afterSecondStop400ms": {
+          "scale": {
+            "scale": 1,
+            "width": 2160,
+            "height": 2160,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "1",
+            "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+          },
+          "canvasPixels": {
+            "width": 2160,
+            "height": 2160
+          },
+          "playing": false,
+          "position": 10.095
+        }
+      },
+      "consoleErrors": [],
+      "finalState": {
+        "ready": "true",
+        "devicePixelRatio": 2,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 240.61,
+          "top": 387.71,
+          "width": 82.78,
+          "height": 11.45
+        },
+        "captionText": "render scale probe two",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "metricsHidden": false,
+        "fps": 28,
+        "lateFrames": 4,
+        "renderErrors": 0,
+        "playing": false,
+        "position": 10.095,
+        "timeLabel": "0:10 / 0:20",
+        "stageScale": 0.19074074074074074,
+        "errorText": "",
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "1",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, 1)"
+        }
+      },
+      "orphanSweep": {
+        "ok": true
+      },
+      "survivingUserDataDirProcesses": 0,
+      "survivingBackendMainJs": 0
+    },
+    "auto": {
+      "label": "auto",
+      "env": {},
+      "steps": [
+        {
+          "step": "app-ready",
+          "detail": {
+            "cdpPort": 9473,
+            "innerWidth": 1280,
+            "dpr": 1
+          }
+        },
+        {
+          "step": "ensureVisible",
+          "detail": "opened"
+        },
+        {
+          "step": "frame-engine-ready",
+          "detail": {
+            "dpr": 2,
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "scale": {
+              "scale": 1,
+              "width": 2160,
+              "height": 2160,
+              "outputWidth": 2160,
+              "outputHeight": 2160,
+              "mode": "auto",
+              "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+            }
+          }
+        },
+        {
+          "step": "capture-at-T",
+          "detail": {
+            "t": 10,
+            "seekValue": "10",
+            "first": {
+              "width": 1080,
+              "height": 1080,
+              "line": "render scale        0.5 (1080x1080 of 2160x2160, auto)",
+              "waitedMs": 57,
+              "encodeMs": 35.5,
+              "file": "auto-canvas-at-10s-first.png",
+              "png": {
+                "width": 1080,
+                "height": 1080
+              }
+            },
+            "second": {
+              "width": 2160,
+              "height": 2160,
+              "line": "render scale        1 (2160x2160 of 2160x2160, auto)",
+              "file": "auto-canvas-at-10s-second.png",
+              "png": {
+                "width": 2160,
+                "height": 2160
+              }
+            }
+          }
+        },
+        {
+          "step": "dom-at-T",
+          "detail": {
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "layerId": "pip",
+            "layerRect": {
+              "left": 291.16,
+              "top": 231.16,
+              "width": 185.4,
+              "height": 185.4
+            },
+            "captionRect": {
+              "left": 240.61,
+              "top": 387.71,
+              "width": 82.78,
+              "height": 11.45
+            },
+            "captionText": "render scale probe two",
+            "overlayRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "stageScale": 0.19074074074074074,
+            "canvasPixels": {
+              "width": 2160,
+              "height": 2160
+            },
+            "scaleLine": {
+              "scale": 1,
+              "width": 2160,
+              "height": 2160,
+              "outputWidth": 2160,
+              "outputHeight": 2160,
+              "mode": "auto",
+              "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+            }
+          }
+        },
+        {
+          "step": "playback",
+          "detail": {
+            "seconds": 30,
+            "elapsedMs": 30507,
+            "restarts": 2,
+            "lateFramesStart": 4,
+            "lateFramesEnd": 4,
+            "lateFramesDelta": 0,
+            "fpsMedianAll": 30.5,
+            "fpsMedianSteady": 31,
+            "fpsMin": 29,
+            "fpsMax": 31,
+            "scaleDuringPlayback": [
+              0.5
+            ],
+            "canvasPixelsDuringPlayback": [
+              {
+                "width": 1080,
+                "height": 1080
+              }
+            ]
+          }
+        },
+        {
+          "step": "stop-resume",
+          "detail": {
+            "afterStop300ms": {
+              "scale": {
+                "scale": 1,
+                "width": 2160,
+                "height": 2160,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "auto",
+                "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+              },
+              "canvasPixels": {
+                "width": 2160,
+                "height": 2160
+              },
+              "playing": false,
+              "position": 9.152
+            },
+            "afterResume600ms": {
+              "scale": {
+                "scale": 0.5,
+                "width": 1080,
+                "height": 1080,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "auto",
+                "raw": "render scale        0.5 (1080x1080 of 2160x2160, auto)"
+              },
+              "canvasPixels": {
+                "width": 1080,
+                "height": 1080
+              },
+              "playing": true,
+              "position": 9.667
+            },
+            "afterSecondStop400ms": {
+              "scale": {
+                "scale": 1,
+                "width": 2160,
+                "height": 2160,
+                "outputWidth": 2160,
+                "outputHeight": 2160,
+                "mode": "auto",
+                "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+              },
+              "canvasPixels": {
+                "width": 2160,
+                "height": 2160
+              },
+              "playing": false,
+              "position": 10.101
+            }
+          }
+        },
+        {
+          "step": "pip-click",
+          "detail": {
+            "clickX": 605.7740625000001,
+            "clickY": 362.85999999999996,
+            "selected": {
+              "visible": true,
+              "rect": {
+                "left": 291.1484375,
+                "top": 231.1484375,
+                "width": 185.3984375,
+                "height": 185.3984375
+              }
+            }
+          }
+        },
+        {
+          "step": "inspector-x",
+          "detail": {
+            "fieldBefore": "534",
+            "typed": "334",
+            "editJsonTransform": {
+              "x": 334,
+              "y": 534,
+              "scale": 0.45
+            },
+            "layerRectBefore": {
+              "left": 291.16,
+              "top": 231.16,
+              "width": 185.4,
+              "height": 185.4
+            },
+            "layerRectAfter": {
+              "left": 253.01,
+              "top": 231.16,
+              "width": 185.4,
+              "height": 185.4
+            },
+            "layerShiftCssPx": -38.15,
+            "expectedShiftCssPx": -38.15,
+            "stageScale": 0.19074074074074074,
+            "scaleLineAfter": {
+              "scale": 1,
+              "width": 2160,
+              "height": 2160,
+              "outputWidth": 2160,
+              "outputHeight": 2160,
+              "mode": "auto",
+              "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+            },
+            "captureAfter": {
+              "first": {
+                "width": 1080,
+                "height": 1080,
+                "line": "render scale        0.5 (1080x1080 of 2160x2160, auto)",
+                "waitedMs": 14.100000023841858,
+                "encodeMs": 17.5,
+                "file": "auto-canvas-at-10s-after-x-change-first.png"
+              },
+              "second": {
+                "width": 2160,
+                "height": 2160,
+                "line": "render scale        1 (2160x2160 of 2160x2160, auto)",
+                "file": "auto-canvas-at-10s-after-x-change.png"
+              }
+            },
+            "selected": {
+              "visible": true,
+              "rect": {
+                "left": 291.1484375,
+                "top": 231.1484375,
+                "width": 185.3984375,
+                "height": 185.3984375
+              }
+            }
+          }
+        },
+        {
+          "step": "cleanup",
+          "detail": {
+            "orphanSweep": {
+              "ok": true
+            },
+            "survivingUserDataDirProcesses": 0,
+            "survivingBackendMainJs": 0
+          }
+        }
+      ],
+      "electronLog": "<TMP>/electron-auto.log",
+      "pid": 73540,
+      "timelineOpenedBy": "command",
+      "boot": {
+        "ready": "true",
+        "devicePixelRatio": 2,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        },
+        "captionText": "",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "metricsHidden": false,
+        "fps": 3,
+        "lateFrames": 1,
+        "renderErrors": 0,
+        "playing": false,
+        "position": 0,
+        "timeLabel": "0:00 / 0:20",
+        "stageScale": 0.19074074074074074,
+        "errorText": "",
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "auto",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+        },
+        "renderScaleLineRaw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+      },
+      "iframeRect": {
+        "left": 221.9140625,
+        "top": 39,
+        "width": 564,
+        "height": 501.890625
+      },
+      "captureAtT": {
+        "t": 10,
+        "seekValue": "10",
+        "first": {
+          "width": 1080,
+          "height": 1080,
+          "line": "render scale        0.5 (1080x1080 of 2160x2160, auto)",
+          "waitedMs": 57,
+          "encodeMs": 35.5,
+          "file": "auto-canvas-at-10s-first.png",
+          "png": {
+            "width": 1080,
+            "height": 1080
+          }
+        },
+        "second": {
+          "width": 2160,
+          "height": 2160,
+          "line": "render scale        1 (2160x2160 of 2160x2160, auto)",
+          "file": "auto-canvas-at-10s-second.png",
+          "png": {
+            "width": 2160,
+            "height": 2160
+          }
+        }
+      },
+      "domAtT": {
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 240.61,
+          "top": 387.71,
+          "width": 82.78,
+          "height": 11.45
+        },
+        "captionText": "render scale probe two",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageScale": 0.19074074074074074,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "auto",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+        }
+      },
+      "playback": {
+        "seconds": 30,
+        "elapsedMs": 30507,
+        "restarts": 2,
+        "samples": [
+          {
+            "second": 1,
+            "fps": 29,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 0.93,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 2,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 1.97,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 3,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 2.97,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 4,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 3.97,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 5,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 4.97,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 6,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 5.97,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 7,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 7,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 8,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 8,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 9,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 9,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 10,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 10,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 11,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 11,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 12,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 12,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 13,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 13.03,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 14,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 14.03,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 15,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 15.03,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 16,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 16.03,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 17,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 17.03,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 18,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 18.07,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 19,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 19.07,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 20,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 20,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": true
+          },
+          {
+            "second": 21,
+            "fps": 29,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 20,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": true
+          },
+          {
+            "second": 22,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 1.07,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 23,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 2.07,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 24,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 3.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 25,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 4.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 26,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 5.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 27,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 6.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 28,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 7.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 29,
+            "fps": 30,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 8.1,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          },
+          {
+            "second": 30,
+            "fps": 31,
+            "lateFrames": 4,
+            "playing": true,
+            "position": 9.13,
+            "canvasPixels": {
+              "width": 1080,
+              "height": 1080
+            },
+            "canvasRect": {
+              "left": 76,
+              "top": 16,
+              "width": 412,
+              "height": 412
+            },
+            "scale": 0.5,
+            "restarted": false
+          }
+        ],
+        "lateFramesStart": 4,
+        "lateFramesEnd": 4,
+        "lateFramesDelta": 0,
+        "fpsMedianAll": 30.5,
+        "fpsMedianSteady": 31,
+        "fpsMin": 29,
+        "fpsMax": 31,
+        "scaleDuringPlayback": [
+          0.5
+        ],
+        "canvasPixelsDuringPlayback": [
+          {
+            "width": 1080,
+            "height": 1080
+          }
+        ],
+        "expectedScalePerSample": [
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "stopResume": {
+        "afterStop300ms": {
+          "scale": {
+            "scale": 1,
+            "width": 2160,
+            "height": 2160,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "auto",
+            "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+          },
+          "canvasPixels": {
+            "width": 2160,
+            "height": 2160
+          },
+          "playing": false,
+          "position": 9.152
+        },
+        "afterResume600ms": {
+          "scale": {
+            "scale": 0.5,
+            "width": 1080,
+            "height": 1080,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "auto",
+            "raw": "render scale        0.5 (1080x1080 of 2160x2160, auto)"
+          },
+          "canvasPixels": {
+            "width": 1080,
+            "height": 1080
+          },
+          "playing": true,
+          "position": 9.667
+        },
+        "afterSecondStop400ms": {
+          "scale": {
+            "scale": 1,
+            "width": 2160,
+            "height": 2160,
+            "outputWidth": 2160,
+            "outputHeight": 2160,
+            "mode": "auto",
+            "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+          },
+          "canvasPixels": {
+            "width": 2160,
+            "height": 2160
+          },
+          "playing": false,
+          "position": 10.101
+        }
+      },
+      "inspectorX": {
+        "fieldBefore": "534",
+        "typed": "334",
+        "editJsonTransform": {
+          "x": 334,
+          "y": 534,
+          "scale": 0.45
+        },
+        "layerRectBefore": {
+          "left": 291.16,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "layerRectAfter": {
+          "left": 253.01,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "layerShiftCssPx": -38.15,
+        "expectedShiftCssPx": -38.15,
+        "stageScale": 0.19074074074074074,
+        "scaleLineAfter": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "auto",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+        },
+        "captureAfter": {
+          "first": {
+            "width": 1080,
+            "height": 1080,
+            "line": "render scale        0.5 (1080x1080 of 2160x2160, auto)",
+            "waitedMs": 14.100000023841858,
+            "encodeMs": 17.5,
+            "file": "auto-canvas-at-10s-after-x-change-first.png"
+          },
+          "second": {
+            "width": 2160,
+            "height": 2160,
+            "line": "render scale        1 (2160x2160 of 2160x2160, auto)",
+            "file": "auto-canvas-at-10s-after-x-change.png"
+          }
+        },
+        "selected": {
+          "visible": true,
+          "rect": {
+            "left": 291.1484375,
+            "top": 231.1484375,
+            "width": 185.3984375,
+            "height": 185.3984375
+          }
+        }
+      },
+      "consoleErrors": [],
+      "finalState": {
+        "ready": "true",
+        "devicePixelRatio": 2,
+        "canvasPixels": {
+          "width": 2160,
+          "height": 2160
+        },
+        "canvasRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "stageRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "layerId": "pip",
+        "layerRect": {
+          "left": 253.01,
+          "top": 231.16,
+          "width": 185.4,
+          "height": 185.4
+        },
+        "captionRect": {
+          "left": 240.61,
+          "top": 387.71,
+          "width": 82.78,
+          "height": 11.45
+        },
+        "captionText": "render scale probe two",
+        "overlayRect": {
+          "left": 76,
+          "top": 16,
+          "width": 412,
+          "height": 412
+        },
+        "metricsHidden": false,
+        "fps": 2,
+        "lateFrames": 6,
+        "renderErrors": 0,
+        "playing": false,
+        "position": 10,
+        "timeLabel": "0:10 / 0:20",
+        "stageScale": 0.19074074074074074,
+        "errorText": "",
+        "scaleLine": {
+          "scale": 1,
+          "width": 2160,
+          "height": 2160,
+          "outputWidth": 2160,
+          "outputHeight": 2160,
+          "mode": "auto",
+          "raw": "render scale        1 (2160x2160 of 2160x2160, auto)"
+        }
+      },
+      "orphanSweep": {
+        "ok": true
+      },
+      "survivingUserDataDirProcesses": 0,
+      "survivingBackendMainJs": 0
+    }
+  },
+  "mad": {
+    "definition": "packages/frame-engine/src/metrics/frame-diff.ts compareRgba.meanAbsoluteDelta（RGBA 全バイトの平均絶対差、/255）。等倍側は ffmpeg scale flags=area で auto の寸法へ縮小",
+    "threshold": 2,
+    "autoScaledVsScale1Downscaled": {
+      "scaledFile": "auto-canvas-at-10s-first.png",
+      "fullFile": "scale-1-canvas-at-10s-first.png",
+      "dimensions": {
+        "width": 1080,
+        "height": 1080
+      },
+      "pixels": 1166400,
+      "differingPixels": 53655,
+      "differingRatio": 0.046000514403292184,
+      "maxDelta": 121,
+      "meanAbsoluteDelta": 0.11675904492455419,
+      "meanAbsoluteDeltaRgb": 0.15567872656607223,
+      "pipRegionMadRgb": 0.7503104766098212
+    },
+    "autoScaledVsAutoOwnFullRedrawDownscaled": {
+      "fullFile": "auto-canvas-at-10s-second.png",
+      "dimensions": {
+        "width": 1080,
+        "height": 1080
+      },
+      "pixels": 1166400,
+      "differingPixels": 53655,
+      "differingRatio": 0.046000514403292184,
+      "maxDelta": 121,
+      "meanAbsoluteDelta": 0.11675904492455419,
+      "meanAbsoluteDeltaRgb": 0.15567872656607223
+    },
+    "scale1FirstVsSecond": {
+      "pixels": 4665600,
+      "differingPixels": 0,
+      "differingRatio": 0,
+      "maxDelta": 0,
+      "meanAbsoluteDelta": 0,
+      "meanAbsoluteDeltaRgb": 0
+    }
+  },
+  "domLayerRects": {
+    "note": "ステージ（canvas 矩形）基準の出力 px。maxDeltaCssPx は auto セッションの CSS px 換算（1 CSS px = 5.24 output px）",
+    "sameLayout": true,
+    "canvas": {
+      "scale1": {
+        "left": 76,
+        "top": 16,
+        "width": 412,
+        "height": 412
+      },
+      "auto": {
+        "left": 76,
+        "top": 16,
+        "width": 412,
+        "height": 412
+      }
+    },
+    "caption": {
+      "scale1Css": {
+        "left": 240.61,
+        "top": 387.71,
+        "width": 82.78,
+        "height": 11.45
+      },
+      "autoCss": {
+        "left": 240.61,
+        "top": 387.71,
+        "width": 82.78,
+        "height": 11.45
+      },
+      "scale1OutputPx": {
+        "left": 863,
+        "top": 1948.77,
+        "width": 433.99,
+        "height": 60.03
+      },
+      "autoOutputPx": {
+        "left": 863,
+        "top": 1948.77,
+        "width": 433.99,
+        "height": 60.03
+      },
+      "maxDeltaOutputPx": 0,
+      "maxDeltaCssPx": 0
+    },
+    "overlay": {
+      "scale1Css": {
+        "left": 76,
+        "top": 16,
+        "width": 412,
+        "height": 412
+      },
+      "autoCss": {
+        "left": 76,
+        "top": 16,
+        "width": 412,
+        "height": 412
+      },
+      "scale1OutputPx": {
+        "left": 0,
+        "top": 0,
+        "width": 2160,
+        "height": 2160
+      },
+      "autoOutputPx": {
+        "left": 0,
+        "top": 0,
+        "width": 2160,
+        "height": 2160
+      },
+      "maxDeltaOutputPx": 0,
+      "maxDeltaCssPx": 0
+    },
+    "layer": {
+      "scale1Css": {
+        "left": 291.16,
+        "top": 231.16,
+        "width": 185.4,
+        "height": 185.4
+      },
+      "autoCss": {
+        "left": 291.16,
+        "top": 231.16,
+        "width": 185.4,
+        "height": 185.4
+      },
+      "scale1OutputPx": {
+        "left": 1128.02,
+        "top": 1128.02,
+        "width": 972,
+        "height": 972
+      },
+      "autoOutputPx": {
+        "left": 1128.02,
+        "top": 1128.02,
+        "width": 972,
+        "height": 972
+      },
+      "maxDeltaOutputPx": 0,
+      "maxDeltaCssPx": 0
+    }
+  },
+  "inspectorFollow": {
+    "vacatedPipStripMadRgb": 117.96263835554552,
+    "untouchedRegionMadRgb": 0,
+    "strip": {
+      "x0": 950,
+      "x1": 1045,
+      "y0": 574,
+      "y1": 1040
+    },
+    "untouched": {
+      "x0": 0,
+      "x1": 432,
+      "y0": 378,
+      "y1": 540
+    }
+  },
+  "export": {
+    "engine": "gpu",
+    "lintExitCode": 0,
+    "exitCode": 0,
+    "elapsedMs": 32733,
+    "ffprobe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 2160,
+          "height": 2160,
+          "r_frame_rate": "30/1",
+          "nb_frames": "600"
+        }
+      ],
+      "format": {
+        "duration": "20.000000"
+      }
+    },
+    "receipts": 1,
+    "receiptMentionsRenderScale": null,
+    "renderJsonMentionsRenderScale": null,
+    "logMentionsRenderScale": null,
+    "logTail": "PROGRESS frame=570 total=600\nPROGRESS frame=600 total=600\nPROGRESS stage=render status=end\nPROGRESS stage=audio-mix status=start\nPROGRESS stage=audio-mix status=end\nPROGRESS stage=verify status=start\nPROGRESS stage=verify status=end\nPROGRESS done total_ms=40000\nPASS: exports/l1-gpu-export.mp4\n\n[OpenH264] this = 0x0x104049bada0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\nsysctlbyname for kern.hv_vmm_present failed with status -1",
+    "survivingGpuExportProcesses": 0,
+    "receiptFile": ".akari/reports/render-receipts/564156b8660a3fe33e3918fe94678c51086c36a0491bc096982433c884333012.json"
+  },
+  "expectedAuto": {
+    "fromCanvasRect": {
+      "left": 76,
+      "top": 16,
+      "width": 412,
+      "height": 412
+    },
+    "webviewDevicePixelRatio": 2,
+    "scale": 0.5
+  },
+  "verdict": {
+    "scale1PanelShowsOne": true,
+    "autoPanelShowsReduced": true,
+    "autoPlaybackScaleMatchesPureFunction": true,
+    "expectedAutoFromCanvasRect": 0.5,
+    "lateFramesNotWorse": true,
+    "fpsMedian": {
+      "scale1": 30.5,
+      "auto": 30.5
+    },
+    "madWithinThreshold": true,
+    "domRectsStable": true,
+    "stopRedrawsAtOne": true,
+    "resumeReturnsToAuto": true,
+    "autoCaptureFirstIsReducedThenFull": true,
+    "inspectorXWritten": true,
+    "inspectorPreviewFollows": true,
+    "exportMatchesOutput": true,
+    "exportSilentOnRenderScale": true,
+    "noSessionErrors": true,
+    "noSurvivingProcesses": true
+  },
+  "survivingBackendMainJsAtEnd": 0,
+  "generatedAt": "2026-09-10T08:49:19.663Z",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": "Apple M1",
+    "memoryGb": 16,
+    "node": "v26.3.0"
+  }
+}

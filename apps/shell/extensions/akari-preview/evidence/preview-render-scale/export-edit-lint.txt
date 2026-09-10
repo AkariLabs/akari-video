@@ -1,0 +1,49 @@
+exit=0
+{
+  "version": 1,
+  "checked_at": "2026-09-10T08:48:46.970Z",
+  "inputs": {
+    "captions_json_sha256": "48ac820a5916eb137bcce1688e438699a7a9ecca88db47ac9100e4a8c47f1669",
+    "edit_json_sha256": "044db6add4fb79d90ce51f76f4c720c72a8e79eadef84b4db80ee77800558523"
+  },
+  "verdict": "pass",
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "warning",
+      "check": "geometry.fit-compat",
+      "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+      "path": "edit.json#output.geometry"
+    },
+    {
+      "id": "F002",
+      "severity": "warning",
+      "check": "v2.captions-content-deprecated",
+      "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
+      "path": "edit.json#tracks[2].content"
+    }
+  ],
+  "skipped": [
+    {
+      "check": "analysis.json",
+      "reason": "analysis.json is absent"
+    },
+    {
+      "check": "audio.music-grid",
+      "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+    },
+    {
+      "check": "intake",
+      "reason": ".akari/intake.json is absent"
+    },
+    {
+      "check": "media",
+      "reason": "media checks require --media"
+    },
+    {
+      "check": "review",
+      "reason": "review.json is absent"
+    }
+  ]
+}
+

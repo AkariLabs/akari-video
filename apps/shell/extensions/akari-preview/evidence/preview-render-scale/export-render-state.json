@@ -1,0 +1,643 @@
+{
+  "version": 1,
+  "phase": "verified",
+  "inputs": {
+    "captions.json": {
+      "sha256": "48ac820a5916eb137bcce1688e438699a7a9ecca88db47ac9100e4a8c47f1669",
+      "bytes": 420
+    },
+    "akari:assets/font/noto-sans-jp/NotoSansJP-Variable.ttf": {
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+      "bytes": 9589900
+    },
+    "edit.json": {
+      "sha256": "044db6add4fb79d90ce51f76f4c720c72a8e79eadef84b4db80ee77800558523",
+      "bytes": 874
+    },
+    "assets/s2.mp4": {
+      "sha256": "9ef91033346a3d2dc7097599eb8dc7ae3e4187169d94f21b6dda50f23d6ba73b",
+      "bytes": 31136841
+    },
+    "overlays/badge.html": {
+      "sha256": "7effe13af5ed5bd1d4682386e500547811e094c5e1c525d43f7764fc6303e88a",
+      "bytes": 167
+    },
+    "assets/s1.mp4": {
+      "sha256": "9786ded4203c78bc9e867cd215409b1d22434d5a858e7372230532f73c013f76",
+      "bytes": 30985513
+    }
+  },
+  "warnings": [],
+  "validation": {
+    "lint": {
+      "verdict": "pass",
+      "sha256": "ef4f2bdba3d8f368d5ede4fcddc118e4b832fcfbbe30fb762d2747d1b3484ef1",
+      "override": null
+    },
+    "environment": {
+      "node": "v26.3.0",
+      "ffmpeg": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+      "ffprobe": "ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers"
+    }
+  },
+  "plan": {
+    "predicted_duration_seconds": 20,
+    "duration_tolerance_seconds": 0.1,
+    "output": "exports/l1-gpu-export.mp4",
+    "preset": {
+      "video_codec": "h264",
+      "profile": "high",
+      "pixel_format": "yuv420p",
+      "color_range": "tv",
+      "audio_codec": "aac",
+      "width": 2160,
+      "height": 2160,
+      "fps": 30
+    },
+    "rasterizer": {
+      "selected": "gpu",
+      "order": [
+        "gpu"
+      ]
+    },
+    "intermediates": [
+      ".akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/cut-audio.mp4",
+      ".akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/composite.mp4",
+      ".akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/final.mp4"
+    ],
+    "commands": {
+      "cut_audio": {
+        "command": "ffmpeg",
+        "warnings": [],
+        "args": [
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-nostdin",
+          "-y",
+          "-ss",
+          "0",
+          "-t",
+          "20",
+          "-i",
+          "<TMP>/project/assets/s1.mp4",
+          "-filter_complex",
+          "[0:a]atrim=start=0:end=20,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=20[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+          "-map",
+          "[joineda]",
+          "-vn",
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "<TMP>/project/.akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/cut-audio.mp4"
+        ]
+      },
+      "tail_pad_audio": null,
+      "audio_mix": {
+        "operation": "copy",
+        "input": "<TMP>/project/.akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/composite.mp4",
+        "output": "<TMP>/project/.akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY/final.mp4",
+        "warnings": [],
+        "hasNarration": false,
+        "hasAudibleAudio": false,
+        "envelopes": [],
+        "envelope": {
+          "duck_keys": [
+            "narration",
+            "speech"
+          ],
+          "speech_intervals": 0,
+          "ducked_items": [],
+          "keyframed_items": []
+        },
+        "clip_fx": {
+          "processed_items": [],
+          "filters": {
+            "highpass": 0,
+            "afftdn": 0,
+            "anlmdn": 0,
+            "rubberband": 0
+          }
+        }
+      },
+      "verify": {
+        "command": "ffprobe",
+        "args": [
+          "-v",
+          "error",
+          "-show_streams",
+          "-show_format",
+          "-of",
+          "json",
+          "exports/l1-gpu-export.mp4"
+        ]
+      }
+    }
+  },
+  "provenance": {
+    "audio": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "clip_fx": {
+        "processed_items": [],
+        "filters": {
+          "highpass": 0,
+          "afftdn": 0,
+          "anlmdn": 0,
+          "rubberband": 0
+        }
+      }
+    },
+    "sources": [
+      {
+        "id": "s1",
+        "path": "assets/s1.mp4",
+        "duration_seconds": 20,
+        "has_audio": true,
+        "width": 2160,
+        "height": 2160,
+        "fps": 30,
+        "pix_fmt": "yuv420p",
+        "color_range": null
+      }
+    ],
+    "proxy_used": false,
+    "render_tmp_dir": ".akari/render-tmp/2026-09-10T08-48-47-383Z-74376-nl1EaY",
+    "rasterizer": {
+      "planned": "gpu",
+      "adopted": "gpu",
+      "attempts": [
+        {
+          "method": "gpu",
+          "status": "adopted",
+          "reason": null
+        }
+      ]
+    },
+    "environment": {
+      "node": "v26.3.0",
+      "ffmpeg": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+      "ffprobe": "ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers"
+    },
+    "engine_requested": "gpu",
+    "engine": "gpu",
+    "codec": "h264",
+    "gpu": {
+      "provenance": {
+        "engine": "gpu",
+        "launcher_tier": 2,
+        "mux": "incremental-mp4",
+        "video_reencode": false,
+        "codec": "h264",
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "gpu": {
+        "platform": "darwin",
+        "chromium": "142.0.7444.265",
+        "renderer": {
+          "vendor": "Google Inc. (Apple)",
+          "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+        },
+        "encoder_support": {
+          "prefer-hardware": true,
+          "prefer-software": true
+        },
+        "encoder": "WebCodecsH264Encoder",
+        "hardware": "prefer-hardware",
+        "uploadPath": "direct",
+        "quality": "standard",
+        "bitrate": 18000000,
+        "queueDepth": 4,
+        "queueWaits": 329,
+        "rss_peak": 494600192,
+        "readback": {
+          "webglReadbackCalls": 0,
+          "videoFrameCopyCalls": 0,
+          "canvasBlobCalls": 0,
+          "canvasDataUrlCalls": 0,
+          "canvasPixelReadCalls": 0,
+          "bitmapCreationCalls": 0
+        },
+        "captions": [
+          {
+            "id": "c-0001-01",
+            "mode": "sprite",
+            "style": null,
+            "units": 1,
+            "words": 0,
+            "rasters": 1,
+            "bands": 1,
+            "tiles": 0
+          },
+          {
+            "id": "c-0002-01",
+            "mode": "sprite",
+            "style": null,
+            "units": 1,
+            "words": 0,
+            "rasters": 1,
+            "bands": 1,
+            "tiles": 0
+          }
+        ],
+        "captionLayoutMaxDeltaPx": 0,
+        "captionMeasureAttempts": {
+          "count": 2,
+          "p50": 2,
+          "max": 2
+        },
+        "captionMeasureDiffs": {
+          "totalCount": 0,
+          "shownCount": 0,
+          "truncated": false,
+          "entries": []
+        },
+        "captionRasterTotalMs": 710.1000000238419,
+        "captionRasterBatches": {
+          "batches": 1,
+          "unitsPerBatchMax": 2,
+          "bandsMax": 2
+        },
+        "captionStartup": {
+          "totalMs": 57.599999994039536,
+          "fontEncodeMs": 268,
+          "fontBase64Bytes": 13623773,
+          "measure": {
+            "stableCalls": 2,
+            "reusedStableCalls": 0,
+            "passes": 4,
+            "variantMeasurements": 4,
+            "totalMs": 7.799999982118607,
+            "p50": 0.5999999940395355,
+            "p95": 1.199999988079071,
+            "max": 5.4000000059604645,
+            "fontWaitMs": 0.29999998211860657,
+            "layoutMs": 0.20000001788139343,
+            "rootMs": 0.4999999701976776,
+            "distinctKeys": 2,
+            "duplicatePasses": 2,
+            "degradedUnits": 0,
+            "faultInjected": false
+          },
+          "raster": {
+            "batches": 1,
+            "bands": 2,
+            "units": 2,
+            "svgBuildMs": 0.5,
+            "svgChars": 5133,
+            "assertMs": 0.19999998807907104,
+            "srcAssignMs": 46.60000002384186,
+            "decodeMs": 254.09999999403954,
+            "sheetDrawMs": 138.40000000596046,
+            "drawImageMs": 1.699999988079071,
+            "registerMs": 0.09999999403953552,
+            "totalMs": 710.1000000238419,
+            "prefetchedBatches": 1,
+            "prefetchMs": 710.1000000238419
+          }
+        },
+        "preview": {
+          "mode": "auto",
+          "frames": 9
+        },
+        "domLayer": {
+          "runs": 0,
+          "overlays": 0,
+          "policy": null,
+          "flags": [
+            "--enable-features=CanvasDrawElement",
+            "--disable-gpu-vsync",
+            "--disable-frame-rate-limit"
+          ],
+          "api": {
+            "drawElementImage": null,
+            "devicePixelRatio": 1,
+            "available": null,
+            "settlePolicy": null
+          },
+          "cost": {
+            "p50": null,
+            "p95": null,
+            "breakdown": {
+              "timeFixMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              },
+              "waitMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              },
+              "drawElementMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              },
+              "uploadMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              },
+              "domLayerCostMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              },
+              "frameCostMs": {
+                "count": 0,
+                "p50": null,
+                "p95": null
+              }
+            }
+          },
+          "sentinel": {
+            "checked": false,
+            "mode": "disabled",
+            "tolerance": 8,
+            "requested": 0,
+            "matched": 0,
+            "mismatchCount": 0,
+            "mismatches": []
+          },
+          "preserve3dOrderConflicts": []
+        },
+        "three": {
+          "overlays": [],
+          "sampling": {
+            "count": 0,
+            "p50": null,
+            "p95": null
+          }
+        },
+        "viewport": {
+          "requested": {
+            "width": 2160,
+            "height": 2160
+          },
+          "measured": {
+            "width": 2160,
+            "height": 2160
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": [
+          {
+            "kind": "overlay",
+            "id": "badge",
+            "classification": "same",
+            "reason": "static-html-sprite",
+            "conditions": []
+          },
+          {
+            "kind": "caption",
+            "id": "c-0001",
+            "classification": "same",
+            "reason": "caption-sprite",
+            "conditions": []
+          },
+          {
+            "kind": "caption",
+            "id": "c-0002",
+            "classification": "same",
+            "reason": "caption-sprite",
+            "conditions": []
+          }
+        ],
+        "forced": null
+      },
+      "memory": {
+        "profile": "gpu",
+        "warning_bytes": 3221225472,
+        "hard_stop_bytes": 4294967296,
+        "worker_budget_bytes": 4294967296,
+        "budget_scale": 2.25,
+        "machine_capped": false,
+        "machine_floor": true,
+        "total_memory_bytes": 17179869184,
+        "peak_bytes": 494600192,
+        "warning_exceeded": false,
+        "hard_stop_exceeded": false
+      },
+      "output_scale": {
+        "from": [
+          2160,
+          2160
+        ],
+        "to": [
+          2160,
+          2160
+        ],
+        "mode": "none"
+      },
+      "run": ".akari/gpu-run.json",
+      "finalVerify": {
+        "matched": true,
+        "checks": {
+          "frames": true,
+          "duration": true,
+          "dimensions": true,
+          "codec": true,
+          "audioPresence": true,
+          "audioDuration": true,
+          "avTermination": true
+        },
+        "expected": {
+          "frames": 600,
+          "fps": 30,
+          "width": 2160,
+          "height": 2160,
+          "duration": 20,
+          "requireAudio": true,
+          "audioPacketSeconds": 0.021333333333333333,
+          "audioMaxDuration": 20.035333333333334
+        },
+        "measured": {
+          "programs": [],
+          "stream_groups": [],
+          "streams": [
+            {
+              "codec_name": "h264",
+              "profile": "High",
+              "codec_type": "video",
+              "width": 2160,
+              "height": 2160,
+              "pix_fmt": "yuv420p",
+              "r_frame_rate": "30/1",
+              "duration": "20.000000",
+              "nb_read_frames": "600"
+            },
+            {
+              "codec_name": "aac",
+              "profile": "LC",
+              "codec_type": "audio",
+              "sample_rate": "48000",
+              "r_frame_rate": "0/0",
+              "duration": "20.000000",
+              "nb_read_frames": "938"
+            }
+          ],
+          "format": {
+            "duration": "20.000000"
+          }
+        },
+        "avTermination": {
+          "matched": true,
+          "deltaSeconds": 0,
+          "toleranceSeconds": 0.03333333333333333,
+          "videoDuration": 20,
+          "audioDuration": 20
+        }
+      },
+      "audio": {
+        "mode": "copy",
+        "source": "cut-audio.mp4",
+        "source_has_audio": true
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "path": "exports/l1-gpu-export.mp4",
+      "sha256": "36762efbc676eda72cca4b35720bae05ce2c65680508d398b4120eef0ce89690",
+      "ffprobe": {
+        "duration_seconds": 20,
+        "width": 2160,
+        "height": 2160,
+        "fps": 30,
+        "video_codec": "h264",
+        "video_profile": "High",
+        "pixel_format": "yuv420p",
+        "color_range": "tv",
+        "audio_codec": "aac",
+        "frame_count": 600
+      }
+    }
+  ],
+  "verify": {
+    "verdict": "pass",
+    "findings": [
+      {
+        "severity": "info",
+        "check": "verify.duration",
+        "message": "duration 20s; expected 20s ±0.1s"
+      },
+      {
+        "severity": "info",
+        "check": "verify.frame-count",
+        "message": "frame count 600; expected 600 ±3"
+      },
+      {
+        "severity": "info",
+        "check": "verify.resolution",
+        "message": "resolution 2160x2160; expected 2160x2160"
+      },
+      {
+        "severity": "info",
+        "check": "verify.fps",
+        "message": "fps 30; expected 30 ±0.05 (1 frame of 600)"
+      },
+      {
+        "severity": "info",
+        "check": "verify.video-codec",
+        "message": "video codec h264; expected h264"
+      },
+      {
+        "severity": "info",
+        "check": "verify.video-profile",
+        "message": "video profile High; expected high"
+      },
+      {
+        "severity": "info",
+        "check": "verify.pixel-format",
+        "message": "pixel format yuv420p; expected yuv420p"
+      },
+      {
+        "severity": "info",
+        "check": "verify.color-range",
+        "message": "color range tv; expected tv"
+      },
+      {
+        "severity": "info",
+        "check": "verify.audio",
+        "message": "audio codec aac; expected aac"
+      },
+      {
+        "severity": "info",
+        "check": "verify.decode",
+        "message": "all frames decoded without error"
+      },
+      {
+        "severity": "info",
+        "check": "verify.audio-level",
+        "message": "最大音量 -19.8 dB（1 区間）"
+      }
+    ],
+    "measured": {
+      "duration_seconds": 20,
+      "width": 2160,
+      "height": 2160,
+      "fps": 30,
+      "video_codec": "h264",
+      "video_profile": "High",
+      "pixel_format": "yuv420p",
+      "color_range": "tv",
+      "audio_codec": "aac",
+      "frame_count": 600
+    },
+    "declared": {
+      "audio_level": {
+        "declared": true,
+        "reasons": [
+          "素材音声"
+        ],
+        "threshold_db": -80,
+        "intervals": [
+          {
+            "start": 0,
+            "duration": 20,
+            "mean_db": -24.1,
+            "max_db": -19.8
+          }
+        ],
+        "max_db": -19.8,
+        "verdict": "pass"
+      },
+      "motion": [],
+      "blank_frames": []
+    }
+  },
+  "contact_sheet": {
+    "path": ".akari/reports/contact-sheet.png",
+    "timestamps_seconds": [
+      0,
+      3.5,
+      10,
+      19.966666666666665
+    ]
+  },
+  "render_receipt": {
+    "path": ".akari/reports/render-receipts/564156b8660a3fe33e3918fe94678c51086c36a0491bc096982433c884333012.json",
+    "sha256": "564156b8660a3fe33e3918fe94678c51086c36a0491bc096982433c884333012"
+  }
+}

@@ -12,6 +12,7 @@
 | 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR と GPU 直結の 2 本に固定し、互換経路を退役節へ移動 |
 | 2026-08-31 | v2.1 | §5.2 に断片 CSS の `vw` / `vh` 系単位の出力サイズ基準化（`viewport-units.js`。プレビューがウィンドウ幅基準で解いていた実機報告の修正）を追記 |
 | 2026-09-02 | v2.2 | §2.8 に字幕時計の規約（active cue の判定は両プレビューとも出力秒。共有カーネル `caption-clock`）を追記。Web UI を shell に揃えた 4 点（字幕時計・字幕フォント名・`slot-params.js` の差し込み・最下段 cut の track 規則）の記録 |
+| 2026-09-10 | v2.3 | §5.8 に shell 合成面の内部解像度（auto / 手動倍率・停止時等倍）と構図一致の許容差を追加 |
 
 ## 1. 役割分担
 
@@ -346,3 +347,38 @@ frame-engine が MP4 を全体ストリームとして読むか、`ftyp` / `moov
 Range として読むかは、完成画の意味論に影響しない。どちらの読み込み経路も同じ presentation 時刻の
 VideoFrame を §4.1 の評価点へ供給し、`elst.media_time`、B フレームの並べ替え、メディア終端を含めて
 golden の `diff 0` を満たさなければならない。ソース取得方法の変更をパリティ差の許容理由にしてはならない。
+
+### 5.8 プレビュー内部解像度（render scale）
+
+shell の frame-engine 合成面は、辺あたり倍率 `s ∈ {1, 0.5, 0.25}` を使える。
+設定 `akari.preview.renderScale` の語彙は `'auto' | '1' | '0.5' | '0.25'`、既定は `'auto'`。
+環境変数 `AKARI_FRAME_ENGINE_RENDER_SCALE` は設定より優先し、不正値は `auto` とする。
+設定項目のみとし、専用ボタンやポップアップは設けない。
+
+`auto` は canvas の `getBoundingClientRect()` に `devicePixelRatio` を掛けた表示寸法に対し、
+`output.width × s ≥ 表示幅` かつ `output.height × s ≥ 表示高` を満たす最小の倍率を選ぶ。
+上限は `1`、表示寸法が 0 の場合も `1` とする。canvas の `ResizeObserver` と
+`matchMedia('(resolution: <dpr>dppx)')` の change で再評価し、100 ms デバウンスする。
+内部寸法は各辺を `roundEven(output寸法 × s)`（最寄りの偶数へ丸め、中間は上へ）とし、下限は 2 px。
+
+`auto` では再生停止・スクラブ終了から 250 ms 後に `s = 1` で 1 コマ描き直し、
+再生・スクラブの再開で表示寸法に応じた倍率へ戻す。手動倍率は停止中も固定し、停止による追加描画はしない。
+倍率変更は scheduler・評価 plan・compose が共有する `renderOutput` の width / height を in-place で更新する。
+scheduler を作り直して warmup を捨てず、停止中の寸法更新は 1 コマの再描画へ反映する。
+developerMode の計測パネルに倍率・内部寸法・等倍寸法・モードを 1 行表示する。
+
+エンジンのレイヤー / layer-style cut の幾何は出力 px 基準（box = crop × 素材 px × scale、
+出力中心 + (x, y)）なので、shell は評価 plan の px 基準の transform（x / y、および px 基準の scale）を
+`s` で射影してから合成する。fit 基準の通常 cut の scale と正規化座標は不変とし、入力 plan を変更せず、
+`plan.output` は共有参照を保つ。エンジン・ゴールデン検収・書き出しは不変。
+
+一致条件は**構図一致 = 位置・大きさ・時刻・ツマミ値の一致**であり、内部画素数は異なってよい。
+[vgpu レイヤー契約 §4](./contract-2026-09-06-vgpu-layer-v0.md#4-api解像度ツマミ) の例外を
+shell の合成面全体へ拡張する。等倍の完成画を縮小した画像と縮小倍率で描いた画像を比較し、
+`packages/frame-engine/src/metrics/frame-diff.ts` の MAD で **≤ 2.0 / 255** を要求する。
+粒状ノイズ FX と dissolve 区間はこの比較から除外する。DOM 層（字幕 / overlay / 3D / ペン）、
+`summary.output`、`frameScale`、当たり判定、インスペクター、書き込み経路の規約は不変。
+
+**書き出しとゴールデン検収は常に等倍で、本設定の対象外**。GPU / OSR の page-runtime、
+書き出し receipt、§4.1・§4.2 のゴールデンと許容差、`packages/frame-engine` とその生成バンドルは変更しない。
+Web UI の合成面、デコード解像度、vgpu 固有の `previewScale`、3D の `PREVIEW_3D_MAX_RENDER_SIZE` も対象外とする。
