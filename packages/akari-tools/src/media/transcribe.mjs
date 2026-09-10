@@ -59,7 +59,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const { value, duration } = probeRaw(target.inputPath, ffprobe, options);
   const range = normalizeRange(options.in, options.out, duration);
   const lang = options.lang ?? "auto";
-  const sha256 = sha256File(target.inputPath);
+  const sha256 = await sha256File(target.inputPath);
   const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
   // 未認識は ASR cache と独立した派生値。hit / miss とも現在の設定で付与する。
   const rawResult = {

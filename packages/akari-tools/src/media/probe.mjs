@@ -12,7 +12,7 @@ export async function probeMedia(targetArgument, options = {}) {
   const audioStream = streams.find((stream) => stream.codec_type === "audio");
   const result = {
     path: target.displayPath,
-    sha256: sha256File(target.inputPath),
+    sha256: await sha256File(target.inputPath),
     size_bytes: statSync(target.inputPath).size,
     container: String(value.format?.format_name ?? "").split(",")[0],
     duration_s: duration,

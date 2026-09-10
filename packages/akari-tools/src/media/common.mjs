@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -147,9 +147,10 @@ export function probeRaw(inputPath, ffprobeCommand, options = {}) {
   return { value, duration };
 }
 
-export function sha256File(filePath) {
+export async function sha256File(filePath) {
   const hash = createHash("sha256");
-  hash.update(readFileSync(filePath));
+  const stream = createReadStream(filePath);
+  for await (const chunk of stream) hash.update(chunk);
   return hash.digest("hex");
 }
 
