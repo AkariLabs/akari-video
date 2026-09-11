@@ -54,6 +54,8 @@ export interface OverlayRuntimeAssetUrls {
     frameEngineJavaScriptUrl?: string;
     /** preview の両音声経路で使う pitch-preserving AudioWorklet。生成物が無い場合だけ undefined。 */
     previewAudioWorkletUrl?: string;
+    /** 出力プレビューのスクラブ音バンドル。生成物が無い場合だけ undefined。 */
+    scrubAudioJavaScriptUrl?: string;
     captionFontUrl: string;
 }
 

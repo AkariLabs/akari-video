@@ -99,6 +99,7 @@ import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { resolveDeferredTelopPlayback } from '../common/deferred-telop-playback';
+import { createScrubFetchGate, resolveScrubSeek } from '../common/scrub-audio-wiring';
 import { computeTransitionVisual } from '../common/transition-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { cropRectAfterEdgeDrag } from '../common/crop-edge-drag';
@@ -1192,6 +1193,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerOutputSeekCommand();
         this.registerTogglePlaybackCommand();
         this.registerCompactTracksCommand();
+        this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
+            if (event.preferenceName !== 'akari.preview.scrubAudio') return;
+            // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
+            const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true) !== false;
+            for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
+                if (widget.isAttached) {
+                    widget.sendMessage({ type: 'akari-preview-set-scrub-audio', enabled });
+                }
+            }
+        }));
         const onTimelineOverlaySelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; overlayId?: string | null }>).detail;
             if (!detail?.editUri || (typeof detail.overlayId !== 'string' && detail.overlayId !== null)) {
@@ -3043,6 +3054,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assets.interactionJavaScriptUrl,
                 assets.interactionCss,
                 assets.webviewKernelJavaScriptUrl,
+                assets.scrubAudioJavaScriptUrl ?? '',
                 assets.captionFontUrl
             ],
             captions: model.captions,
@@ -3274,7 +3286,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         imageSourceUrlById[sourceId] = videoStream.url;
                     } else {
                         sourceUrlById[sourceId] = videoStream.url;
-                        if (frameEngineEnabled && streamVideoUri.toString() !== videoUri.toString()) {
+                        if (streamVideoUri.toString() !== videoUri.toString()) {
+                            // スクラブ音はプロキシの形式や音声 track に依存せず、原本の音声 trak を読む。
                             const originalStream = await this.createVideoStream({ videoUri: videoUri.toString() });
                             extraVideoStreams.set(`original:${sourceId}`, originalStream);
                             originalSourceUrlById[sourceId] = originalStream.url;
@@ -3304,7 +3317,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const stream = await this.createVideoStream({ videoUri: streamUri.toString() });
                     extraVideoStreams.set(sourceId, stream);
                     sourceUrlById[sourceId] = stream.url;
-                    if (frameEngineEnabled && streamUri.toString() !== entry.uri.toString()) {
+                    if (streamUri.toString() !== entry.uri.toString()) {
+                        // スクラブ音はプロキシの形式や音声 track に依存せず、原本の音声 trak を読む。
                         const originalStream = await this.createVideoStream({ videoUri: entry.uri.toString() });
                         extraVideoStreams.set(`original:${sourceId}`, originalStream);
                         originalSourceUrlById[sourceId] = originalStream.url;
@@ -3475,6 +3489,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             || frameEngineForceSoftwareOverride === 'true';
         const frameEngineRenderScaleMode = parseRenderScaleMode(frameEngineRenderScaleOverride
             ?? this.preferences.get<string>('akari.preview.renderScale', 'auto'));
+        const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true);
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -3495,7 +3510,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             frameEngineForceSoftware,
             frameEngineReadyTimeoutMs,
             widget.akariPreviewPlaybackRate ?? 1,
-            frameEngineRenderScaleMode
+            frameEngineRenderScaleMode,
+            scrubAudioEnabled
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -5825,7 +5841,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineForceSoftware = false,
         frameEngineReadyTimeoutMs?: number,
         initialPlaybackRate = 1,
-        frameEngineRenderScaleMode: RenderScaleMode = 'auto'
+        frameEngineRenderScaleMode: RenderScaleMode = 'auto',
+        scrubAudioEnabled = true
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -5878,6 +5895,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             initialPlaying,
             initialPlaybackRate: clampPreviewPlaybackRate(initialPlaybackRate),
+            scrubAudioEnabled,
             previewAudioWorkletUrl: assets.previewAudioWorkletUrl ?? null,
             reloadNotice,
             frameEngineEnabled: Boolean(frameEngineScripts),
@@ -6286,7 +6304,7 @@ ${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
 ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
-<script>${this.previewBootstrapScript()}</script>
+${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${this.previewBootstrapScript()}</script>
 ${kind === 'raw' ? `<script>
 (() => {
     try {
@@ -6462,6 +6480,25 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                 })
             };
+            let sharedPreviewAudioContext = null;
+            let sharedPreviewAudioContextFailed = false;
+            window.akari.ensurePreviewAudioContext = () => {
+                if (sharedPreviewAudioContext && sharedPreviewAudioContext.state !== 'closed') {
+                    return sharedPreviewAudioContext;
+                }
+                if (sharedPreviewAudioContextFailed) return null;
+                try {
+                    sharedPreviewAudioContext = new AudioContext();
+                } catch (error) {
+                    sharedPreviewAudioContextFailed = true;
+                    console.warn('[akari-preview] audio graph unavailable; continuing with video only', error);
+                    return null;
+                }
+                window.addEventListener('pagehide', () => {
+                    void sharedPreviewAudioContext.close().catch(() => undefined);
+                }, { once: true });
+                return sharedPreviewAudioContext;
+            };
             const createPreviewAudio = () => {
                 let config = initial.summary && initial.summary.audio;
                 const hasAudio = config && (config.bgm
@@ -6470,13 +6507,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     || (Array.isArray(config.speech) && config.speech.some(item => item.role === 'speech')));
                 if (!hasAudio) return null;
 
-                let context;
-                try {
-                    context = new AudioContext();
-                } catch (error) {
-                    console.warn('[akari-preview] audio graph unavailable; continuing with video only', error);
-                    return null;
-                }
+                const context = window.akari.ensurePreviewAudioContext();
+                if (!context) return null;
                 const masterGain = context.createGain();
                 let playbackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
                 let pitchShiftNode = null;
@@ -6545,6 +6577,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 let active = [];
                 let bgmGain = null;
                 let bgmEnvelopeGain = null;
+                let scrubBgmGain = null;
                 let lastDuckGainDb = null;
                 let mutedAudioTracks = new Set();
                 let allAudioMuted = false;
@@ -6873,6 +6906,37 @@ body { display: grid; place-items: center; padding: 32px; }
                     pause: () => {
                         generation += 1;
                         stopSources();
+                    },
+                    scrubBgm: timelineTime => {
+                        if (!decoded.bgm || !decoded.bgm.buffer) return undefined;
+                        if (!scrubBgmGain) {
+                            scrubBgmGain = context.createGain();
+                            scrubBgmGain.gain.value = 0;
+                            scrubBgmGain.connect(masterGain);
+                        }
+                        const muted = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0);
+                        // 既存の envelope 埋め込みはモジュール内 helper を toString() で持ち込めず
+                        // webview で参照エラーになることがある。スクラブ断片は envelope 無しでも
+                        // 本編と BGM を鳴らし続けることを優先する。
+                        let envelopeDb = 0;
+                        try {
+                            const { keyframeGainDb, duckGainDb } = envelopeDbAt(
+                                decoded.bgm, timelineTime, 0, timelineDuration
+                            );
+                            if (Number.isFinite(keyframeGainDb + duckGainDb)) {
+                                envelopeDb = keyframeGainDb + duckGainDb;
+                            }
+                        } catch (_error) {
+                            envelopeDb = 0;
+                        }
+                        scrubBgmGain.gain.value = muted ? 0
+                            : dbToLinear(decoded.bgm.gainDb + envelopeDb)
+                                * fadeMultiplierAt(timelineTime);
+                        scrubBgmGain._buffer = decoded.bgm.buffer;
+                        return {
+                            node: scrubBgmGain,
+                            spec: { t: 0, in: decoded.bgm.sourceOffset || 0, loop: true }
+                        };
                     },
                     updateConfig: async (nextConfig, timelineTime, playing) => {
                         generation += 1;
@@ -12154,6 +12218,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncSegmentPlaybackRate();
                 preloadUpcomingTransition(outputTime);
                 preloadUpcomingCut(outputTime);
+                prepareScrubAudioSources();
             };
             const syncSegmentPlaybackRate = () => {
                 if (frameEngineMediaIdle) return;
@@ -12364,6 +12429,100 @@ body { display: grid; place-items: center; padding: 32px; }
             const stillUrlForSegment = segment => (segment && segment.kind === 'src'
                 && segment.src !== undefined && imageSources[String(segment.src)]) || null;
             const isStillSegment = segment => Boolean(stillUrlForSegment(segment));
+            const resolveScrubSeekFn = (${resolveScrubSeek.toString()});
+            const createScrubFetchGateFn = (${createScrubFetchGate.toString()});
+            // globalMuted と cut track の可聴規則をその場で評価する。frame-engine 経路でも
+            // legacy <video> の muted 状態に依存せず、同じ規則でスクラブ音を止める。
+            const scrubAudioMedia = {
+                get muted() {
+                    const segment = segments[activeSegmentIndex];
+                    const cutsTrackMuted = Boolean(segment && segment.kind === 'src'
+                        && (allTracksMutedByScope.cuts || mutedTracksByScope.cuts.has(segment.track)));
+                    return globalMuted || !isCutAudioAudibleFn(segment || {}, { muted: cutsTrackMuted });
+                },
+                get volume() { return Number.isFinite(video.volume) ? video.volume : 1; }
+            };
+            let scrubAudio = null;
+            let scrubFetchGate = null;
+            const ensureScrubAudio = () => {
+                if (scrubAudio) return scrubAudio;
+                const api = window.AkariScrubAudio;
+                if (!api || typeof api.createScrubAudioController !== 'function') return null;
+                const audioContext = window.akari.ensurePreviewAudioContext();
+                if (!audioContext) return null;
+                // 追い越された seek の fetch を残すと同一 origin の 6 接続が詰まり、後続も
+                // 連鎖的に無音になる（実 shell L1）。正本 audio-scrub.js で abort するのが筋だが
+                // 本票の境界外なので、配線側の fetch gate で古い断片取得だけを止める。
+                scrubFetchGate = createScrubFetchGateFn({
+                    fetch: (input, init) => fetch(input, init),
+                    setTimeout: (fn, ms) => setTimeout(fn, ms)
+                });
+                scrubAudio = api.createScrubAudioController({
+                    audioContext,
+                    video: scrubAudioMedia,
+                    getBgm: () => window.akari.previewAudio && window.akari.previewAudio.scrubBgm
+                        ? window.akari.previewAudio.scrubBgm(outputTime) : undefined,
+                    fetchFn: scrubFetchGate.fetchFn,
+                    enabled: true
+                });
+                window.akari.scrubAudio = scrubAudio;
+                return scrubAudio;
+            };
+            let scrubAudioEnabled = initial.scrubAudioEnabled !== false;
+            const scrubSrcForSegment = segment => {
+                if (!segment || segment.kind !== 'src' || isStillSegment(segment)) return null;
+                const srcId = segment.src;
+                return (srcId && ((initial.videoSourceOriginals || {})[srcId] || videoSources[srcId]))
+                    || video.currentSrc || video.getAttribute('src') || null;
+            };
+            const prepareScrubAudioSources = () => {
+                if (!scrubAudioEnabled) return;
+                const controller = ensureScrubAudio();
+                if (!controller) return;
+                const srcs = [...new Set(segments.map(scrubSrcForSegment).filter(Boolean))];
+                if (srcs.length) void controller.prepare(srcs);
+            };
+            const setScrubAudioEnabled = enabled => {
+                scrubAudioEnabled = enabled === true;
+                if (scrubAudioEnabled) {
+                    const controller = ensureScrubAudio();
+                    if (controller) {
+                        controller.enabled = true;
+                        prepareScrubAudioSources();
+                    }
+                } else if (scrubAudio) {
+                    scrubAudio.enabled = false;
+                }
+            };
+            const notifyScrubSeek = () => {
+                if (!scrubAudioEnabled) return;
+                const controller = ensureScrubAudio();
+                if (!controller) return;
+                const mapped = timelineToSource(outputTime);
+                const segment = segments[mapped.index];
+                const input = resolveScrubSeekFn({
+                    outputTime,
+                    isPlaying,
+                    mapped,
+                    segment,
+                    isStill: isStillSegment(segment),
+                    videoSources,
+                    videoSourceOriginals: initial.videoSourceOriginals || {},
+                    fallbackSrc: video.currentSrc || ''
+                });
+                if (input) {
+                    scrubFetchGate.beginSeek();
+                    controller.onSeek(input);
+                }
+            };
+            window.akari.scrubAudioDebug = () => ({
+                enabled: scrubAudioEnabled,
+                controller: Boolean(scrubAudio),
+                controllerEnabled: scrubAudio ? scrubAudio.enabled : null,
+                lastError: scrubAudio ? scrubAudio.lastError : null,
+                contextState: scrubAudio ? scrubAudio.context.state : null,
+                inFlightFetches: scrubFetchGate ? scrubFetchGate.inFlight() : null
+            });
             const hideStillImage = () => { stillImage.style.display = 'none'; };
             const syncStillImageVisual = () => {
                 if (stillImage.style.display === 'none') return;
@@ -12535,6 +12694,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!isPlaying) return;
                 window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 isPlaying = false;
+                if (scrubAudio) scrubAudio.onPlaybackPaused();
                 freezeHoldUntilMs = 0;
                 if (window.akari.frameEngineClock) {
                     window.akari.frameEngineClock.pause(outputTime);
@@ -14155,6 +14315,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     abortCurrentStroke();
                     abortCurrentRect();
                     isPlaying = true;
+                    if (scrubAudio) scrubAudio.stop();
                     // 描画系ツール（pen/rect）は一時停止中のみ有効 -- select はそのまま維持する
                     // （select ツールは再生中もクリックへ intent を乗せる意味を持つため、mode 自体は
                     // pen/rect のときだけ neutral へ戻して host にも伝える。penModeActive/
@@ -14189,6 +14350,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     startAnimation();
                 } else {
                     isPlaying = false;
+                    if (scrubAudio) scrubAudio.onPlaybackPaused();
                     // ㉕ 手動一時停止はフリーズホールドを打ち切る（保留中タイマーを引きずったまま
                     // 次の再開で誤って再一時停止しない — contract-2026-08-02-preview-parity.md §2.4.3）。
                     freezeHoldUntilMs = 0;
@@ -14243,10 +14405,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 if (!frameEngineMediaIdle) video.pause();
                 seekTimelineTime(outputTime + direction / fps);
+                notifyScrubSeek();
                 stopAnimation();
             };
             const skipSeconds = seconds => {
                 seekTimelineTime(outputTime + seconds);
+                notifyScrubSeek();
                 tick(true);
             };
 
@@ -14284,6 +14448,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const target = pendingScrubTime;
                 pendingScrubTime = null;
                 seekTimelineTime(target);
+                notifyScrubSeek();
                 // 一時停止中の手動シークも host の位置正本へ必ず到達させる。通常 tick の 50 ms
                 // throttle に最終ドラッグ値が落とされると、直後の編集で一つ前の位置へ戻ってしまう。
                 tick(true);
@@ -14852,6 +15017,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 // seek 以外のメッセージは「直前の seek が反映済み」という従来の順序を保つため、保留中の
                 // seek を先に flush してから処理する（間引かれるのは連続する seek 同士だけ）。
                 if (!(message && message.type === 'akari-preview-seek')) scrubThrottle.flush();
+                if (message && message.type === 'akari-preview-set-scrub-audio'
+                    && typeof message.enabled === 'boolean') {
+                    setScrubAudioEnabled(message.enabled);
+                    return;
+                }
                 if (message && message.type === 'akari-preview-set-review-recording'
                     && typeof message.active === 'boolean') {
                     const wasRecordingActive = reviewRecordingActive;
@@ -15129,6 +15299,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 stage.append(transitionPlate, transitionFallbackLabel, captionPlate);
                 refreshIndicators();
                 rebuildSegments();
+                prepareScrubAudioSources();
                 applyInitialPosition();
                 restoreInitialPlayback();
                 setZoom(1);

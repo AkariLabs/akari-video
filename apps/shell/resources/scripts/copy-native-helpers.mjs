@@ -50,6 +50,10 @@ await copyFile(
   path.join(overlayRuntimeDestination, 'preview-audio-worklet.js')
 );
 await copyFile(
+  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'scrub-audio.js'),
+  path.join(overlayRuntimeDestination, 'scrub-audio.js')
+);
+await copyFile(
   path.join(repoRoot, 'packages', 'osr-export', 'generated', 'frame-engine.js'),
   path.join(overlayRuntimeDestination, 'osr-frame-engine.js')
 );
