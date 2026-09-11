@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff8a00)](./LICENSE)
 ![Status: under construction](https://img.shields.io/badge/status-under_construction-1a1a1a)
-![Agent skills: 22](https://img.shields.io/badge/agent_skills-23-ff8a00)
+![Agent skills: 23](https://img.shields.io/badge/agent_skills-23-ff8a00)
 ![opencode compatible](https://img.shields.io/badge/opencode-compatible-1a1a1a)
 ![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-1a1a1a)
 ![Cursor Agent](https://img.shields.io/badge/Cursor_Agent-skills-1a1a1a)
