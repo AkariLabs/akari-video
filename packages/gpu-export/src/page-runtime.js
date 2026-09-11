@@ -245,6 +245,12 @@
       return FE.evaluateFrame(plan, { compositor: this.compositor, metrics: this.metrics });
     }
 
+    prefetchSummary() {
+      return FE.summarizePrefetchStats(
+        [...pools.values()].map((pool) => pool.rangeFetchStats()).filter(Boolean),
+      );
+    }
+
     dispose() {
       for (const source of lookahead.values()) source.clear();
       for (const source of images.values()) source.destroy();
@@ -2665,7 +2671,7 @@
         frameHashes,
         elapsedMs: performance.now() - started,
         stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
-        frameEngineMetrics: engine.metrics.toJSON(),
+        frameEngineMetrics: { ...engine.metrics.toJSON(), prefetch: engine.prefetchSummary() },
         gpu: {
           encoder: supported ? "WebCodecsH264Encoder" : "unsupported",
           hardware: hardwareAcceleration,

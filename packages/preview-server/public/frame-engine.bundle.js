@@ -24376,11 +24376,25 @@ var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
 var DECODER_FLUSH_TIMEOUT_MS = 1e3;
 var DECODER_DEQUEUE_TIMEOUT_MS = 2e3;
+var PREFETCH_BATCH = 8;
+var PREFETCH_BUDGET_BASE_BYTES = 32 * 1024 * 1024;
 function resolveOptimizeForLatencyDefault() {
   const runtime = globalThis;
   const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
   if (explicit === void 0 || explicit === null || explicit === "") return false;
   return explicit === true || explicit === "1" || explicit === "true";
+}
+function resolvePrefetchDefault() {
+  const runtime = globalThis;
+  const explicit = runtime.__AKARI_FRAME_ENGINE_PREFETCH__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_PREFETCH;
+  if (explicit === void 0 || explicit === null || explicit === "") return true;
+  return explicit !== false && explicit !== "0" && explicit !== "false";
+}
+function resolvePrefetchBudgetBytes(defaultBytes) {
+  const runtime = globalThis;
+  const explicit = runtime.__AKARI_FRAME_ENGINE_PREFETCH_MIB__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_PREFETCH_MIB;
+  const mib = Number(explicit);
+  return Number.isFinite(mib) && mib > 0 ? mib * 1024 * 1024 : defaultBytes;
 }
 function uint323(bytes, offset) {
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
@@ -24461,7 +24475,11 @@ var HttpRangeReader = class {
     graceWaits: 0,
     eosFlushes: 0,
     targetSkips: 0,
-    droppedTargets: 0
+    droppedTargets: 0,
+    prefetchHits: 0,
+    prefetchMisses: 0,
+    prefetchSubmitted: 0,
+    prefetchAheadHistogram: new Array(65).fill(0)
   };
   fetchImpl;
   onWarning;
@@ -24723,7 +24741,6 @@ function futureFrameTimestampsToEvict(timestamps, limit, targetUs, futureLimit =
   }
   return evicted;
 }
-var FUTURE_FRAME_LIMIT = 16;
 var TargetFrameUnavailableError = class extends Error {
   constructor(targetUs) {
     super(`target frame ${targetUs}us was not produced`);
@@ -24759,10 +24776,16 @@ var RangeMp4Source = class _RangeMp4Source {
   lastOutput = null;
   futureFrames = /* @__PURE__ */ new Map();
   currentSyncIndex = -1;
+  maxGopLength = null;
   nextDecodeIndex = 0;
   lastTargetUs = -1;
+  consumedDecodeIndex = -1;
+  lastOutputPresentationIndex = -1;
   flushedSinceSeek = false;
   destroyed = false;
+  prefetchPromise = null;
+  prefetchPauseRequested = false;
+  prefetchPauseResolve = null;
   queue = Promise.resolve();
   shared;
   options;
@@ -24845,11 +24868,43 @@ var RangeMp4Source = class _RangeMp4Source {
     this.currentSyncIndex = -1;
     this.nextDecodeIndex = 0;
     this.lastTargetUs = -1;
+    this.lastOutputPresentationIndex = -1;
     this.flushedSinceSeek = false;
   }
+  prefetchEnabled() {
+    return this.options.prefetch ?? resolvePrefetchDefault();
+  }
+  stableMaxGopLength() {
+    if (this.maxGopLength != null) return this.maxGopLength;
+    const samples = this.prepared?.table.samples ?? [];
+    let maximum = 0;
+    let start = 0;
+    for (let index = 1; index < samples.length; index += 1) {
+      if (!samples[index].isSync) continue;
+      maximum = Math.max(maximum, index - start);
+      start = index;
+    }
+    this.maxGopLength = Math.max(1, maximum, samples.length - start);
+    return this.maxGopLength;
+  }
+  aheadLimit() {
+    if (!this.prepared) return 2;
+    const table = this.prepared.table;
+    const gopLength = this.stableMaxGopLength();
+    const frameBytes = table.codedWidth * table.codedHeight * 1.5;
+    const scaledDefault = PREFETCH_BUDGET_BASE_BYTES * Math.max(
+      1,
+      table.codedWidth * table.codedHeight / (1920 * 1080)
+    );
+    const budgetBytes = this.options.prefetchBudgetBytes ?? resolvePrefetchBudgetBytes(scaledDefault);
+    const budgetFrames = Math.floor(budgetBytes / frameBytes);
+    const requested = this.options.prefetchAheadFrames == null ? gopLength : Math.max(0, Math.floor(this.options.prefetchAheadFrames));
+    return Math.max(2, Math.min(64, gopLength, requested, budgetFrames));
+  }
   handleOutput(frame) {
-    if ((!Number.isFinite(frame.duration) || frame.duration == null || frame.duration <= 0) && this.prepared) {
-      const timing = sampleAtPresentationTime(this.prepared.table, frame.timestamp);
+    const timing = this.prepared ? sampleAtPresentationTime(this.prepared.table, frame.timestamp) : null;
+    if (timing) this.lastOutputPresentationIndex = timing.presentationIndex;
+    if ((!Number.isFinite(frame.duration) || frame.duration == null || frame.duration <= 0) && timing) {
       const normalized = new VideoFrame(frame, {
         timestamp: frame.timestamp,
         duration: timing.durationUs
@@ -24888,13 +24943,14 @@ var RangeMp4Source = class _RangeMp4Source {
   storeFutureFrame(frame) {
     this.futureFrames.get(frame.timestamp)?.close();
     this.futureFrames.set(frame.timestamp, frame);
-    const limit = Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
+    const aheadLimit = this.aheadLimit();
+    const limit = aheadLimit + Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
     const targetUs = this.activeTargetUs ?? this.lastTargetUs;
     for (const timestamp of futureFrameTimestampsToEvict(
       [...this.futureFrames.keys()],
       limit,
       targetUs,
-      FUTURE_FRAME_LIMIT
+      aheadLimit
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -24977,10 +25033,26 @@ var RangeMp4Source = class _RangeMp4Source {
     const table = this.prepared.table;
     const requestedTarget = Math.max(0, Math.floor(timeUs));
     const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
-    if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) return this.lastOutput.clone();
     const targetSample = sampleAtPresentationTime(table, targetUs);
+    if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) {
+      const result = this.lastOutput.clone();
+      this.noteFrameReturned(targetSample, targetUs, true);
+      return result;
+    }
+    const shouldScheduleFromFuture = targetUs > this.lastTargetUs;
     const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
-    if (buffered) return buffered;
+    if (buffered) {
+      this.shared.reader.stats.prefetchHits += 1;
+      this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
+      return buffered;
+    }
+    await this.pausePrefetch();
+    const bufferedAfterPause = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
+    if (bufferedAfterPause) {
+      this.shared.reader.stats.prefetchHits += 1;
+      this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
+      return bufferedAfterPause;
+    }
     const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
     const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
     if (!forward) {
@@ -24989,12 +25061,17 @@ var RangeMp4Source = class _RangeMp4Source {
       this.nextDecodeIndex = syncIndex;
       this.flushedSinceSeek = false;
     }
+    this.shared.reader.stats.prefetchMisses += 1;
     const decoder = this.decoder;
     if (!decoder) throw new Error(`Range source ${this.id} decoder reset failed`);
     const targetGopEnd = this.gopEnd(table, syncIndex);
     const minimumDecodeEnd = decodeEndForPresentationSample(table, targetSample);
     const decodeCeiling = Math.min(
-      Math.max(targetGopEnd, minimumDecodeEnd),
+      Math.max(
+        targetGopEnd,
+        minimumDecodeEnd,
+        ...forward && this.prefetchEnabled() ? [targetSample.decodeIndex + this.aheadLimit()] : []
+      ),
       table.samples.length - 1
     );
     const postTargetLimit = table.maxReorderFrames + 1;
@@ -25047,11 +25124,14 @@ var RangeMp4Source = class _RangeMp4Source {
               this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
             }
             while (!waiter.isSettled()) {
+              const allSamplesSubmitted = this.nextDecodeIndex >= table.samples.length;
+              const remainingOutputFrames = table.samples.length - 1 - this.lastOutputPresentationIndex;
+              const prefetchTailAtEos = allSamplesSubmitted && decoder.decodeQueueSize === 0 && remainingOutputFrames <= this.aheadLimit();
               const waitResult = await this.waitForTargetOrProgress(
                 decoder,
                 waiter,
                 this.nextDecodeIndex <= decodeCeiling,
-                inReorderTail && this.nextDecodeIndex >= table.samples.length
+                inReorderTail && allSamplesSubmitted || prefetchTailAtEos
               );
               if (waitResult === "needs-supply") break;
               if (waitResult === "grace-expired") {
@@ -25088,11 +25168,83 @@ var RangeMp4Source = class _RangeMp4Source {
       this.lastOutput?.close();
       this.lastOutput = result.clone();
       this.lastTargetUs = targetUs;
+      this.noteFrameReturned(targetSample, targetUs, forward);
       return result;
     } finally {
       this.activeTargetUs = null;
       if (this.outputWaiter === waiter) this.outputWaiter = null;
       this.takeActiveCandidate()?.close();
+    }
+  }
+  noteFrameReturned(sample, targetUs, schedule) {
+    this.consumedDecodeIndex = sample.decodeIndex;
+    let ahead = 0;
+    for (const timestamp of this.futureFrames.keys()) {
+      if (timestamp > targetUs) ahead = Math.min(64, ahead + 1);
+    }
+    this.shared.reader.stats.prefetchAheadHistogram[ahead] += 1;
+    if (schedule) this.schedulePrefetch();
+  }
+  schedulePrefetch() {
+    if (!this.prefetchEnabled() || this.destroyed || this.flushedSinceSeek || this.prefetchPromise) return;
+    this.prefetchPauseRequested = false;
+    const scheduled = Promise.resolve().then(() => this.runPrefetch());
+    let tracked;
+    tracked = scheduled.finally(() => {
+      if (this.prefetchPromise === tracked) this.prefetchPromise = null;
+      this.prefetchPauseResolve = null;
+    });
+    this.prefetchPromise = tracked;
+  }
+  async pausePrefetch() {
+    const running = this.prefetchPromise;
+    if (!running) return;
+    this.prefetchPauseRequested = true;
+    this.prefetchPauseResolve?.();
+    await running;
+  }
+  async runPrefetch() {
+    const decoder = this.decoder;
+    const generation = this.decoderGeneration;
+    if (!decoder || !this.prepared) return;
+    const table = this.prepared.table;
+    try {
+      while (!this.destroyed && decoder === this.decoder && generation === this.decoderGeneration && !this.prefetchPauseRequested && !this.flushedSinceSeek) {
+        const aheadLimit = this.aheadLimit();
+        const aheadSubmitted = this.nextDecodeIndex - 1 - this.consumedDecodeIndex;
+        if (aheadSubmitted >= aheadLimit || this.nextDecodeIndex >= table.samples.length) return;
+        const lastIndex = Math.min(
+          table.samples.length - 1,
+          this.nextDecodeIndex + PREFETCH_BATCH - 1,
+          this.consumedDecodeIndex + aheadLimit
+        );
+        const pending = table.samples.slice(this.nextDecodeIndex, lastIndex + 1);
+        const bytes = await this.shared.samples(pending);
+        if (this.destroyed || decoder !== this.decoder || generation !== this.decoderGeneration || this.prefetchPauseRequested || this.flushedSinceSeek) return;
+        let queueLimit = Math.max(
+          1,
+          this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1
+        );
+        for (const sample of pending) {
+          const pause = new Promise((resolve) => {
+            this.prefetchPauseResolve = resolve;
+          });
+          await this.waitForQueueBelow(decoder, queueLimit, void 0, pause);
+          this.prefetchPauseResolve = null;
+          if (this.destroyed || decoder !== this.decoder || generation !== this.decoderGeneration || this.prefetchPauseRequested || this.flushedSinceSeek) return;
+          if (sample.isSync && sample.decodeIndex !== this.currentSyncIndex) {
+            this.currentSyncIndex = sample.decodeIndex;
+            queueLimit = Math.max(1, this.gopEnd(table, sample.decodeIndex) - sample.decodeIndex + 1);
+          }
+          const data = bytes.get(sample.decodeIndex);
+          if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
+          this.submitSample(decoder, sample, data);
+          this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
+          this.shared.reader.stats.prefetchSubmitted += 1;
+        }
+      }
+    } catch (error) {
+      this.options.onWarning?.(`${this.id}: prefetch stopped: ${String(error)}`);
     }
   }
   consumeFutureFrame(sampleTimestampUs, targetUs) {
@@ -25175,7 +25327,7 @@ var RangeMp4Source = class _RangeMp4Source {
       if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
     }
   }
-  async waitForQueueBelow(decoder, limit, waiter) {
+  async waitForQueueBelow(decoder, limit, waiter, pause) {
     if (decoder.decodeQueueSize < limit) return;
     let onDequeue = null;
     const drained = new Promise((resolve) => {
@@ -25191,6 +25343,7 @@ var RangeMp4Source = class _RangeMp4Source {
         Promise.race([
           drained,
           waiter?.promise ?? new Promise(() => void 0),
+          pause ?? new Promise(() => void 0),
           this.decoderFailure ?? new Promise(() => void 0)
         ]),
         Math.min(this.options.decodeTimeoutMs ?? 1e4, DECODER_DEQUEUE_TIMEOUT_MS),
@@ -25203,6 +25356,7 @@ var RangeMp4Source = class _RangeMp4Source {
     }
   }
   async resetDecoder(options = {}) {
+    await this.pausePrefetch();
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -25242,6 +25396,8 @@ var RangeMp4Source = class _RangeMp4Source {
   }
   destroy() {
     this.destroyed = true;
+    this.prefetchPauseRequested = true;
+    this.prefetchPauseResolve?.();
     this.decoderGeneration += 1;
     this.decoder?.close();
     this.decoder = null;
@@ -25351,6 +25507,9 @@ var ClipSession = class _ClipSession {
       decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1e3,
       hardwareAcceleration: options.hardwareAcceleration,
       codecSupport: options.codecSupport,
+      prefetch: options.prefetch,
+      prefetchAheadFrames: options.prefetchAheadFrames,
+      prefetchBudgetBytes: options.prefetchBudgetBytes,
       onWarning: options.onWarning,
       onDecoderDegraded: options.onDecoderDegraded,
       onCodecSupport: options.onCodecSupport,
@@ -25538,6 +25697,9 @@ var ClipSession = class _ClipSession {
       decodeTimeoutMs: this.options.tickTimeoutMs,
       hardwareAcceleration: this.options.hardwareAcceleration,
       codecSupport: this.options.codecSupport ?? this.learnedSupport,
+      prefetch: this.options.prefetch,
+      prefetchAheadFrames: this.options.prefetchAheadFrames,
+      prefetchBudgetBytes: this.options.prefetchBudgetBytes,
       onWarning: this.options.onWarning,
       onCodecSupport: (support) => {
         this.learnedSupport = support;
@@ -25751,7 +25913,7 @@ var ClipSession = class _ClipSession {
     return this.sourceMode;
   }
   getRangeFetchStats() {
-    return this.range?.stats ?? null;
+    return (this.range ?? this.preparedRange)?.stats ?? null;
   }
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id) {
@@ -26001,6 +26163,9 @@ var ClipSessionPool = class {
   }
   codecSupport() {
     return this.learnedCodecSupport;
+  }
+  rangeFetchStats() {
+    return this.base?.getRangeFetchStats() ?? null;
   }
   destroy() {
     this.stopDecoderWatch();

@@ -607,7 +607,7 @@ test('Range source pads all in-duration tail requests with the final presentatio
     forked.close();
     assert.ok(source.stats.mediaBytes < file.byteLength);
     assert.ok(source.stats.maxDecodeQueueSize <= 48 * 2);
-    assert.ok(source.stats.maxFutureFrames <= table.maxReorderFrames + 4);
+    assert.ok(source.stats.maxFutureFrames <= 64 + Math.max(4, table.maxReorderFrames + 4));
     const fallbackCalls = [];
     const fallbackWarnings = [];
     const fallback = new RangeMp4Source('tail:fallback', 'tail-file.mp4', {

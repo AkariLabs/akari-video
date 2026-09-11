@@ -24,6 +24,12 @@ const DECODER_FLUSH_TIMEOUT_MS = 1_000;
 // （実機 2026-09-05: queue=2 のまま dequeue も出力も無く、10 秒の全体 timeout まで待っていた）。
 // 「遅れて出す」正当なデコーダは dequeue はすぐ発火するので、この上限には掛からない。
 const DECODER_DEQUEUE_TIMEOUT_MS = 2_000;
+const PREFETCH_BATCH = 8;
+// 2026-09-11 M1 / 16 GB 実測では 64 MiB と 32 MiB の時間・hit 率が同等だった
+// （1080p 30 秒: 10.1 s / 9.55 s、4K PiP: 45.5 / 45.0 fps）。IOSurface は
+// workingSetSize に載らない実メモリなので、4K 2 本を 512 MiB から 256 MiB に抑える。
+// issue #28 の Windows D3D11 は 12 枚保持で枯渇したため、約 10 枚になる 32 MiB が安全側でもある。
+export const PREFETCH_BUDGET_BASE_BYTES = 32 * 1024 * 1024;
 
 export interface ByteRange {
   start: number;
@@ -47,6 +53,11 @@ export interface RangeFetchStats {
   targetSkips: number;
   /** target が出ず sync から再シークした回数。 */
   droppedTargets: number;
+  prefetchHits: number;
+  prefetchMisses: number;
+  prefetchSubmitted: number;
+  /** decode 返却時に保持していた先行 frame 数（index 0..64）の固定長ヒストグラム。 */
+  prefetchAheadHistogram: number[];
 }
 
 interface CachedRange extends ByteRange {
@@ -80,6 +91,9 @@ export interface RangeMp4SourceOptions {
    * 実験用に AKARI_FRAME_ENGINE_LOW_LATENCY=1 / globalThis.__AKARI_FRAME_ENGINE_LOW_LATENCY__ で戻せる。
    */
   optimizeForLatency?: boolean;
+  prefetch?: boolean;
+  prefetchAheadFrames?: number;
+  prefetchBudgetBytes?: number;
   onWarning?: (message: string) => void;
   onCodecSupport?: (support: CodecSupport) => void;
   onSoftwareFallbackDenied?: (support: CodecSupport) => void;
@@ -93,6 +107,68 @@ export function resolveOptimizeForLatencyDefault(): boolean {
   const explicit = runtime.__AKARI_FRAME_ENGINE_LOW_LATENCY__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_LOW_LATENCY;
   if (explicit === undefined || explicit === null || explicit === '') return false;
   return explicit === true || explicit === '1' || explicit === 'true';
+}
+
+export function resolvePrefetchDefault(): boolean {
+  const runtime = globalThis as typeof globalThis & {
+    __AKARI_FRAME_ENGINE_PREFETCH__?: unknown;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const explicit = runtime.__AKARI_FRAME_ENGINE_PREFETCH__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_PREFETCH;
+  if (explicit === undefined || explicit === null || explicit === '') return true;
+  return explicit !== false && explicit !== '0' && explicit !== 'false';
+}
+
+function resolvePrefetchBudgetBytes(defaultBytes: number): number {
+  const runtime = globalThis as typeof globalThis & {
+    __AKARI_FRAME_ENGINE_PREFETCH_MIB__?: unknown;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const explicit = runtime.__AKARI_FRAME_ENGINE_PREFETCH_MIB__
+    ?? runtime.process?.env?.AKARI_FRAME_ENGINE_PREFETCH_MIB;
+  const mib = Number(explicit);
+  return Number.isFinite(mib) && mib > 0 ? mib * 1024 * 1024 : defaultBytes;
+}
+
+export function summarizePrefetchStats(statsList: readonly RangeFetchStats[]): {
+  hit: number;
+  miss: number;
+  submitted: number;
+  aheadFrames: { count: number; p50: number; p95: number; max: number };
+} {
+  const histogram = new Array<number>(65).fill(0);
+  for (const stats of statsList) {
+    for (let ahead = 0; ahead < histogram.length; ahead += 1) {
+      histogram[ahead] = histogram[ahead]! + (stats.prefetchAheadHistogram[ahead] ?? 0);
+    }
+  }
+  let count = 0;
+  let maximum = 0;
+  for (let ahead = 0; ahead < histogram.length; ahead += 1) {
+    count += histogram[ahead]!;
+    if (histogram[ahead]! > 0) maximum = ahead;
+  }
+  const percentile = (quantile: number): number => {
+    if (count === 0) return 0;
+    const rank = Math.ceil(count * quantile / 100);
+    let cumulative = 0;
+    for (let ahead = 0; ahead < histogram.length; ahead += 1) {
+      cumulative += histogram[ahead]!;
+      if (cumulative >= rank) return ahead;
+    }
+    return maximum;
+  };
+  return {
+    hit: statsList.reduce((sum, stats) => sum + stats.prefetchHits, 0),
+    miss: statsList.reduce((sum, stats) => sum + stats.prefetchMisses, 0),
+    submitted: statsList.reduce((sum, stats) => sum + stats.prefetchSubmitted, 0),
+    aheadFrames: {
+      count,
+      p50: percentile(50),
+      p95: percentile(95),
+      max: maximum,
+    },
+  };
 }
 
 function uint32(bytes: Uint8Array, offset: number): number {
@@ -179,6 +255,10 @@ class HttpRangeReader {
     eosFlushes: 0,
     targetSkips: 0,
     droppedTargets: 0,
+    prefetchHits: 0,
+    prefetchMisses: 0,
+    prefetchSubmitted: 0,
+    prefetchAheadHistogram: new Array<number>(65).fill(0),
   };
   private readonly fetchImpl: typeof fetch;
   private readonly onWarning?: (message: string) => void;
@@ -533,9 +613,6 @@ export function futureFrameTimestampsToEvict(
   return evicted;
 }
 
-/** target より先に保持する future frame の上限（デコーダ由来の surface を握る枚数の天井）。 */
-const FUTURE_FRAME_LIMIT = 16;
-
 class TargetFrameUnavailableError extends Error {
   constructor(readonly targetUs: number) {
     super(`target frame ${targetUs}us was not produced`);
@@ -559,10 +636,16 @@ export class RangeMp4Source {
   private lastOutput: VideoFrame | null = null;
   private readonly futureFrames = new Map<number, VideoFrame>();
   private currentSyncIndex = -1;
+  private maxGopLength: number | null = null;
   private nextDecodeIndex = 0;
   private lastTargetUs = -1;
+  private consumedDecodeIndex = -1;
+  private lastOutputPresentationIndex = -1;
   private flushedSinceSeek = false;
   private destroyed = false;
+  private prefetchPromise: Promise<void> | null = null;
+  private prefetchPauseRequested = false;
+  private prefetchPauseResolve: (() => void) | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly shared: SharedRangeBytes;
   private readonly options: RangeMp4SourceOptions;
@@ -665,13 +748,56 @@ export class RangeMp4Source {
     this.currentSyncIndex = -1;
     this.nextDecodeIndex = 0;
     this.lastTargetUs = -1;
+    this.lastOutputPresentationIndex = -1;
     this.flushedSinceSeek = false;
   }
 
+  private prefetchEnabled(): boolean {
+    return this.options.prefetch ?? resolvePrefetchDefault();
+  }
+
+  private stableMaxGopLength(): number {
+    if (this.maxGopLength != null) return this.maxGopLength;
+    const samples = this.prepared?.table.samples ?? [];
+    let maximum = 0;
+    let start = 0;
+    for (let index = 1; index < samples.length; index += 1) {
+      if (!samples[index]!.isSync) continue;
+      maximum = Math.max(maximum, index - start);
+      start = index;
+    }
+    this.maxGopLength = Math.max(1, maximum, samples.length - start);
+    return this.maxGopLength;
+  }
+
+  private aheadLimit(): number {
+    if (!this.prepared) return 2;
+    const table = this.prepared.table;
+    // ポンプ位置の GOP 長を使うと、短い最終 GOP へ入った瞬間に futureLimit まで縮み、
+    // 既に出力済みの末尾フレームを消して再シークを繰り返すため、表全体の最大値で固定する。
+    const gopLength = this.stableMaxGopLength();
+    const frameBytes = table.codedWidth * table.codedHeight * 1.5;
+    // osr-export の memoryBudgetScale と同じく、1080p を基準にピクセル比で予算を増減する。
+    const scaledDefault = PREFETCH_BUDGET_BASE_BYTES * Math.max(
+      1,
+      table.codedWidth * table.codedHeight / (1920 * 1080),
+    );
+    const budgetBytes = this.options.prefetchBudgetBytes
+      ?? resolvePrefetchBudgetBytes(scaledDefault);
+    const budgetFrames = Math.floor(budgetBytes / frameBytes);
+    const requested = this.options.prefetchAheadFrames == null
+      ? gopLength
+      : Math.max(0, Math.floor(this.options.prefetchAheadFrames));
+    return Math.max(2, Math.min(64, gopLength, requested, budgetFrames));
+  }
+
   private handleOutput(frame: VideoFrame): void {
+    const timing = this.prepared
+      ? sampleAtPresentationTime(this.prepared.table, frame.timestamp)
+      : null;
+    if (timing) this.lastOutputPresentationIndex = timing.presentationIndex;
     if ((!Number.isFinite(frame.duration) || frame.duration == null || frame.duration <= 0)
-      && this.prepared) {
-      const timing = sampleAtPresentationTime(this.prepared.table, frame.timestamp);
+      && timing) {
       const normalized = new VideoFrame(frame, {
         timestamp: frame.timestamp,
         duration: timing.durationUs,
@@ -717,13 +843,14 @@ export class RangeMp4Source {
   private storeFutureFrame(frame: VideoFrame): void {
     this.futureFrames.get(frame.timestamp)?.close();
     this.futureFrames.set(frame.timestamp, frame);
-    const limit = Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
+    const aheadLimit = this.aheadLimit();
+    const limit = aheadLimit + Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
     const targetUs = this.activeTargetUs ?? this.lastTargetUs;
     for (const timestamp of futureFrameTimestampsToEvict(
       [...this.futureFrames.keys()],
       limit,
       targetUs,
-      FUTURE_FRAME_LIMIT,
+      aheadLimit,
     )) {
       this.futureFrames.get(timestamp)?.close();
       this.futureFrames.delete(timestamp);
@@ -813,10 +940,26 @@ export class RangeMp4Source {
     const table = this.prepared.table;
     const requestedTarget = Math.max(0, Math.floor(timeUs));
     const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
-    if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) return this.lastOutput.clone();
     const targetSample = sampleAtPresentationTime(table, targetUs);
+    if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) {
+      const result = this.lastOutput.clone();
+      this.noteFrameReturned(targetSample, targetUs, true);
+      return result;
+    }
+    const shouldScheduleFromFuture = targetUs > this.lastTargetUs;
     const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
-    if (buffered) return buffered;
+    if (buffered) {
+      this.shared.reader.stats.prefetchHits += 1;
+      this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
+      return buffered;
+    }
+    await this.pausePrefetch();
+    const bufferedAfterPause = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
+    if (bufferedAfterPause) {
+      this.shared.reader.stats.prefetchHits += 1;
+      this.noteFrameReturned(targetSample, targetUs, shouldScheduleFromFuture);
+      return bufferedAfterPause;
+    }
     const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
     const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0
       && targetUs > this.lastTargetUs
@@ -827,12 +970,19 @@ export class RangeMp4Source {
       this.nextDecodeIndex = syncIndex;
       this.flushedSinceSeek = false;
     }
+    this.shared.reader.stats.prefetchMisses += 1;
     const decoder = this.decoder;
     if (!decoder) throw new Error(`Range source ${this.id} decoder reset failed`);
     const targetGopEnd = this.gopEnd(table, syncIndex);
     const minimumDecodeEnd = decodeEndForPresentationSample(table, targetSample);
     const decodeCeiling = Math.min(
-      Math.max(targetGopEnd, minimumDecodeEnd),
+      Math.max(
+        targetGopEnd,
+        minimumDecodeEnd,
+        ...(forward && this.prefetchEnabled()
+          ? [targetSample.decodeIndex + this.aheadLimit()]
+          : []),
+      ),
       table.samples.length - 1,
     );
     const postTargetLimit = table.maxReorderFrames + 1;
@@ -892,11 +1042,19 @@ export class RangeMp4Source {
               this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
             }
             while (!waiter.isSettled()) {
+              const allSamplesSubmitted = this.nextDecodeIndex >= table.samples.length;
+              const remainingOutputFrames = table.samples.length - 1
+                - this.lastOutputPresentationIndex;
+              // 全入力を渡し終え、デコーダ内に残る出力が先読み予算内なら、それ以上の入力は
+              // 来ない。250 ms 待っても出ない末尾だけを即 flush し、通常 GOP の大量 flush は避ける。
+              const prefetchTailAtEos = allSamplesSubmitted
+                && decoder.decodeQueueSize === 0
+                && remainingOutputFrames <= this.aheadLimit();
               const waitResult = await this.waitForTargetOrProgress(
                 decoder,
                 waiter,
                 this.nextDecodeIndex <= decodeCeiling,
-                inReorderTail && this.nextDecodeIndex >= table.samples.length,
+                (inReorderTail && allSamplesSubmitted) || prefetchTailAtEos,
               );
               if (waitResult === 'needs-supply') break;
               if (waitResult === 'grace-expired') {
@@ -945,11 +1103,90 @@ export class RangeMp4Source {
       this.lastOutput?.close();
       this.lastOutput = result.clone();
       this.lastTargetUs = targetUs;
+      this.noteFrameReturned(targetSample, targetUs, forward);
       return result;
     } finally {
       this.activeTargetUs = null;
       if (this.outputWaiter === waiter) this.outputWaiter = null;
       this.takeActiveCandidate()?.close();
+    }
+  }
+
+  private noteFrameReturned(sample: Mp4VideoSample, targetUs: number, schedule: boolean): void {
+    this.consumedDecodeIndex = sample.decodeIndex;
+    let ahead = 0;
+    for (const timestamp of this.futureFrames.keys()) {
+      if (timestamp > targetUs) ahead = Math.min(64, ahead + 1);
+    }
+    this.shared.reader.stats.prefetchAheadHistogram[ahead]!
+      += 1;
+    if (schedule) this.schedulePrefetch();
+  }
+
+  private schedulePrefetch(): void {
+    if (!this.prefetchEnabled() || this.destroyed || this.flushedSinceSeek || this.prefetchPromise) return;
+    this.prefetchPauseRequested = false;
+    const scheduled = Promise.resolve().then(() => this.runPrefetch());
+    let tracked: Promise<void>;
+    tracked = scheduled.finally(() => {
+      if (this.prefetchPromise === tracked) this.prefetchPromise = null;
+      this.prefetchPauseResolve = null;
+    });
+    this.prefetchPromise = tracked;
+  }
+
+  private async pausePrefetch(): Promise<void> {
+    const running = this.prefetchPromise;
+    if (!running) return;
+    this.prefetchPauseRequested = true;
+    this.prefetchPauseResolve?.();
+    await running;
+  }
+
+  private async runPrefetch(): Promise<void> {
+    const decoder = this.decoder;
+    const generation = this.decoderGeneration;
+    if (!decoder || !this.prepared) return;
+    const table = this.prepared.table;
+    try {
+      while (!this.destroyed && decoder === this.decoder
+        && generation === this.decoderGeneration && !this.prefetchPauseRequested
+        && !this.flushedSinceSeek) {
+        const aheadLimit = this.aheadLimit();
+        const aheadSubmitted = (this.nextDecodeIndex - 1) - this.consumedDecodeIndex;
+        if (aheadSubmitted >= aheadLimit || this.nextDecodeIndex >= table.samples.length) return;
+        const lastIndex = Math.min(
+          table.samples.length - 1,
+          this.nextDecodeIndex + PREFETCH_BATCH - 1,
+          this.consumedDecodeIndex + aheadLimit,
+        );
+        const pending = table.samples.slice(this.nextDecodeIndex, lastIndex + 1);
+        const bytes = await this.shared.samples(pending);
+        if (this.destroyed || decoder !== this.decoder || generation !== this.decoderGeneration
+          || this.prefetchPauseRequested || this.flushedSinceSeek) return;
+        let queueLimit = Math.max(
+          1,
+          this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
+        );
+        for (const sample of pending) {
+          const pause = new Promise<void>(resolve => { this.prefetchPauseResolve = resolve; });
+          await this.waitForQueueBelow(decoder, queueLimit, undefined, pause);
+          this.prefetchPauseResolve = null;
+          if (this.destroyed || decoder !== this.decoder || generation !== this.decoderGeneration
+            || this.prefetchPauseRequested || this.flushedSinceSeek) return;
+          if (sample.isSync && sample.decodeIndex !== this.currentSyncIndex) {
+            this.currentSyncIndex = sample.decodeIndex;
+            queueLimit = Math.max(1, this.gopEnd(table, sample.decodeIndex) - sample.decodeIndex + 1);
+          }
+          const data = bytes.get(sample.decodeIndex);
+          if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
+          this.submitSample(decoder, sample, data);
+          this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
+          this.shared.reader.stats.prefetchSubmitted += 1;
+        }
+      }
+    } catch (error) {
+      this.options.onWarning?.(`${this.id}: prefetch stopped: ${String(error)}`);
     }
   }
 
@@ -1058,6 +1295,7 @@ export class RangeMp4Source {
     decoder: VideoDecoder,
     limit: number,
     waiter?: OutputWaiter,
+    pause?: Promise<void>,
   ): Promise<void> {
     if (decoder.decodeQueueSize < limit) return;
     let onDequeue: (() => void) | null = null;
@@ -1074,6 +1312,7 @@ export class RangeMp4Source {
         Promise.race([
           drained,
           waiter?.promise ?? new Promise<never>(() => undefined),
+          pause ?? new Promise<never>(() => undefined),
           this.decoderFailure ?? new Promise<never>(() => undefined),
         ]),
         Math.min(this.options.decodeTimeoutMs ?? 10_000, DECODER_DEQUEUE_TIMEOUT_MS),
@@ -1089,6 +1328,7 @@ export class RangeMp4Source {
   }
 
   private async resetDecoder(options: { keepFutureFrames?: boolean } = {}): Promise<void> {
+    await this.pausePrefetch();
     this.decoderGeneration += 1;
     try {
       this.decoder?.close();
@@ -1136,6 +1376,8 @@ export class RangeMp4Source {
 
   destroy(): void {
     this.destroyed = true;
+    this.prefetchPauseRequested = true;
+    this.prefetchPauseResolve?.();
     this.decoderGeneration += 1;
     this.decoder?.close();
     this.decoder = null;

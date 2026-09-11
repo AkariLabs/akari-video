@@ -1,0 +1,45 @@
+<!doctype html><html><body><script src="/bundle.js"></script><script>
+(async () => {
+  const FE = window.AkariFrameEngine;
+  const q = new URLSearchParams(location.search);
+  const hold = Number(q.get('hold') || 1);
+  const total = Number(q.get('frames') || 120);
+  const paceMs = Number(q.get('pace') || 0);
+  const streams = Number(q.get('streams') || 1);
+  const fps = 30;
+  const base = new FE.RangeMp4Source('probe', '/video.mp4', { decodeTimeoutMs: 6000, onWarning: m => console.log('warn ' + m) });
+  await base.prepare();
+  const sources = [];
+  for (let s = 0; s < streams; s += 1) sources.push(await base.fork('probe:' + s));
+  const held = [];
+  const times = [];
+  const slow = [];
+  let error = null;
+  let decoded = 0;
+  const started = performance.now();
+  try {
+    for (let i = 0; i < total; i += 1) {
+      const t0 = performance.now();
+      for (const source of sources) {
+        const t1 = performance.now();
+        const frame = await source.decode(Math.round(i * 1e6 / fps));
+        const dt = performance.now() - t1; times.push(dt); if (dt > 2) slow.push([i, Math.round(dt * 10) / 10]);
+        decoded += 1;
+        if (held.length < hold) held.push(frame); else frame.close();
+      }
+      const frameDt = performance.now() - t0;
+      if (paceMs > 0) await new Promise(r => setTimeout(r, Math.max(0, paceMs - frameDt)));
+    }
+  } catch (e) { error = String(e && e.message || e); }
+  const elapsed = performance.now() - started;
+  const sorted = [...times].sort((a, b) => a - b);
+  const p = qq => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * qq))];
+  const stats = { ...base.stats };
+  const histogram = stats.prefetchAheadHistogram || [];
+  delete stats.prefetchAheadHistogram;
+  const count = histogram.reduce((a, b) => a + b, 0);
+  let cumulative = 0; stats.aheadP50 = null;
+  for (let i = 0; i < histogram.length; i += 1) { cumulative += histogram[i]; if (count > 0 && cumulative >= Math.ceil(count / 2)) { stats.aheadP50 = i; break; } }
+  console.log('RESULT ' + JSON.stringify({ hold, streams, paceMs, decoded, elapsedMs: Math.round(elapsed), error, accel: sources[0].decoderAcceleration, p50: p(0.5), p95: p(0.95), max: sorted[sorted.length - 1], slowOver20: slow.filter(x => x[1] > 20).length, slowOver100: slow.filter(x => x[1] > 100).length, slow: slow.filter(x => x[1] > 20), stats }));
+})();
+</script></body></html>
