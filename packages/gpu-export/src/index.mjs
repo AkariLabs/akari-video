@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
@@ -6,7 +7,6 @@ import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
 import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preference.mjs";
 import { MEMORY_HARD_STOP_REASON } from "../../osr-export/src/memory.mjs";
 import { muxSourceAudio } from "../../osr-export/src/index.mjs";
-import { verifyFinalVideo } from "../../osr-export/src/ffprobe.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 import { describeHardwareEncoderFailure, firstLine, HARDWARE_ENCODER_UNSUPPORTED_MARKER } from "./gpu-diagnostics.mjs";
@@ -50,6 +50,8 @@ export async function exportWithGpu({
   dumpFrames = [],
   preview = "auto",
   previewOutputDirectory = null,
+  collectLuma = true,
+  progress = false,
   // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
   gpuPreference = undefined,
   eligibility,
@@ -62,7 +64,7 @@ export async function exportWithGpu({
   launcherResolver = resolveGpuLauncher,
   launcherRunner = launchGpuExportWithOutputSize,
   audioMuxer = muxSourceAudio,
-  finalVerifier = verifyFinalVideo,
+  finalVerifier = verifyFinalVideoWithDecode,
 } = {}) {
   if (eligibility?.eligible !== true && !(force && eligibility?.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(eligibility)}`);
@@ -102,6 +104,8 @@ export async function exportWithGpu({
       dumpFrames,
       preview,
       previewOutputDirectory,
+      collectLuma,
+      progress,
       gpuPreference,
       force,
       onStdout: (text) => io.log?.(text.trimEnd()),
@@ -122,6 +126,14 @@ export async function exportWithGpu({
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
     const resolvedFfprobe = ffprobeCommand ?? resolveFfprobe({ env });
+    const timing = { ...(run.timing ?? {}) };
+    const recordTiming = (name, started) => {
+      const ms = Math.max(0, Math.round(performance.now() - started));
+      timing[name] = ms;
+      if (progress) io.log?.(`PROGRESS timing name=${name} ms=${ms}`);
+      return ms;
+    };
+    const audioMuxStarted = performance.now();
     let audio;
     if (audioSourcePath === null || audioSourcePath === undefined) {
       await copyFile(videoOnlyPath, out);
@@ -145,6 +157,8 @@ export async function exportWithGpu({
         io.error?.(`gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: ${audio.source}`);
       }
     }
+    recordTiming("audio_mux", audioMuxStarted);
+    const ffprobeStarted = performance.now();
     const finalVerify = normalizeCodecVerification(await finalVerifier({
       command: resolvedFfprobe,
       path: out,
@@ -153,7 +167,9 @@ export async function exportWithGpu({
       width: outputWidth,
       height: outputHeight,
       requireAudio: audio.mode !== "none",
+      codec,
     }), codec);
+    recordTiming("final_ffprobe", ffprobeStarted);
     finalVerify.avTermination = measureAvTermination(finalVerify, fps);
     finalVerify.checks = { ...finalVerify.checks, avTermination: finalVerify.avTermination.matched };
     if (!finalVerify.matched) throw new Error(`final ffprobe verification failed: ${JSON.stringify(finalVerify.checks)}`);
@@ -162,25 +178,30 @@ export async function exportWithGpu({
     }
     const persistentRunPath = join(projectRoot, ".akari", "gpu-run.json");
     await mkdir(dirname(persistentRunPath), { recursive: true });
-    const persistentRun = { ...run, audio, finalVerify };
+    const persistentRun = { ...run, audio, finalVerify, timing };
+    persistentRun.persistentPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
+    const runJsonStarted = performance.now();
     await writeFile(runPath, `${JSON.stringify(persistentRun, null, 2)}\n`);
     await copyFile(runPath, persistentRunPath);
-    persistentRun.persistentPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
+    recordTiming("run_json", runJsonStarted);
+    const receiptStarted = performance.now();
+    const receipt = buildGpuReceipt({
+      tier: launcher.tier,
+      launcher,
+      run: persistentRun,
+      eligibility,
+      forced: force ? eligibility : null,
+      finalVerify,
+      audio,
+      profile: soft ? "soft" : "gpu",
+      gpuPreference: gpuPreferenceRecord,
+      codec,
+    });
+    recordTiming("parent_receipt", receiptStarted);
     return {
       launcher,
       run: persistentRun,
-      receipt: buildGpuReceipt({
-        tier: launcher.tier,
-        launcher,
-        run: persistentRun,
-        eligibility,
-        forced: force ? eligibility : null,
-        finalVerify,
-        audio,
-        profile: soft ? "soft" : "gpu",
-        gpuPreference: gpuPreferenceRecord,
-        codec,
-      }),
+      receipt,
     };
   } catch (error) {
     await attachGpuFailureContext(error, runPath, projectRoot);
@@ -200,6 +221,9 @@ function launchGpuExportWithOutputSize(launcher, options) {
       ...(resolvedOptions.preview === "off" ? ["--preview", "off"] : []),
       ...(resolvedOptions.previewOutputDirectory
         ? ["--preview-dir", resolvedOptions.previewOutputDirectory] : []),
+      ...(resolvedOptions.collectLuma === false ? ["--no-luma"] : []),
+      ...(resolvedOptions.progress ? ["--progress-timing"] : []),
+      "--spawn-start-ms", String(Date.now()),
     ],
   });
 }
@@ -347,6 +371,94 @@ function measureAvTermination(finalVerify, fps) {
     : Number.POSITIVE_INFINITY;
   const toleranceSeconds = 1 / fps;
   return { matched: deltaSeconds <= toleranceSeconds, deltaSeconds, toleranceSeconds, videoDuration, audioDuration };
+}
+
+export async function verifyFinalVideoWithDecode({
+  command,
+  path,
+  frames,
+  fps,
+  width,
+  height,
+  codec = "h264",
+  requireAudio = false,
+  spawnImpl = spawn,
+}) {
+  const { stdout, stderr } = await runFfprobeWithStderr(command, [
+    "-v", "error",
+    "-threads", "0",
+    "-count_frames",
+    "-show_entries",
+    "format=duration:stream=codec_type,codec_name,profile,width,height,pix_fmt,color_range,r_frame_rate,avg_frame_rate,nb_read_frames,duration,sample_rate",
+    "-of", "json",
+    path,
+  ], Math.max(120_000, Number(frames) * 100), spawnImpl);
+  const measured = JSON.parse(stdout);
+  const video = measured.streams?.find((entry) => entry.codec_type === "video") ?? {};
+  const audio = measured.streams?.find((entry) => entry.codec_type === "audio") ?? null;
+  const expectedDuration = frames / fps;
+  const videoDuration = Number(video.duration ?? measured.format?.duration);
+  const audioDuration = Number(audio?.duration);
+  const tolerance = 1 / fps;
+  const audioFrameSize = audio?.codec_name === "aac" ? 1024 : null;
+  const probedSampleRate = Number(audio?.sample_rate);
+  const audioSampleRate = Number.isFinite(probedSampleRate) && probedSampleRate > 0 ? probedSampleRate : 48_000;
+  const audioPacketSeconds = (audioFrameSize ?? 1024) / audioSampleRate;
+  const audioMaxDuration = expectedDuration + Math.max(tolerance, audioPacketSeconds) + 0.002;
+  const expectedCodec = codec === "prores422" ? "prores" : codec;
+  const checks = {
+    frames: Number(video.nb_read_frames) === frames,
+    duration: Number.isFinite(videoDuration) && Math.abs(videoDuration - expectedDuration) <= tolerance,
+    dimensions: video.width === width && video.height === height,
+    codec: video.codec_name === expectedCodec,
+    audioPresence: !requireAudio || audio !== null,
+    audioDuration: audio === null
+      ? !requireAudio
+      : Number.isFinite(audioDuration) && audioDuration <= audioMaxDuration,
+  };
+  const decode = { ok: stderr.trim() === "", stderr };
+  return {
+    matched: Object.values(checks).every(Boolean),
+    checks,
+    expected: {
+      frames,
+      fps,
+      width,
+      height,
+      duration: expectedDuration,
+      requireAudio,
+      audioPacketSeconds,
+      audioMaxDuration,
+    },
+    measured,
+    decode,
+  };
+}
+
+function runFfprobeWithStderr(command, args, timeoutMs, spawnImpl) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawnImpl(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const finish = (callback) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback();
+    };
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      finish(() => reject(new Error(`ffprobe timed out after ${timeoutMs}ms`)));
+    }, timeoutMs);
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", (error) => finish(() => reject(error)));
+    child.once("close", (code) => finish(() => {
+      if (code === 0) resolvePromise({ stdout, stderr });
+      else reject(new Error(`ffprobe exited ${code}: ${stderr.trim()}`));
+    }));
+  });
 }
 
 export async function attachGpuFailureContext(error, runPath, projectRoot) {

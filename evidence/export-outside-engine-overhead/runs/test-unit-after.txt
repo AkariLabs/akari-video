@@ -1,0 +1,150 @@
+
+> test:unit
+> node scripts/ci/run-unit-tests.mjs --lane pure
+
+unit lane: pure — 外部ツール不要・決定論（CI required）（16 entries, node v26.3.0）
+
+=== ok packages/analysis-report — npm run test (5.6s) ===
+tests 28 / pass 28 / fail 0 / skipped 0
+
+=== ok packages/asset-resolver — npm run test (1.7s) ===
+tests 41 / pass 41 / fail 0 / skipped 0
+
+=== ok packages/audio-library-setup — npm run test (2.2s) ===
+tests 101 / pass 99 / fail 0 / skipped 2
+
+=== ok packages/chat-bridge — npm run test (0.4s) ===
+tests 12 / pass 12 / fail 0 / skipped 0
+
+=== ok packages/creator-root — npm run test (0.5s) ===
+tests 33 / pass 33 / fail 0 / skipped 0
+
+=== ok packages/decision-log-report — npm run test (1.6s) ===
+tests 13 / pass 13 / fail 0 / skipped 0
+
+=== ok packages/edit-lint — npm run test (53.8s) ===
+tests 297 / pass 297 / fail 0 / skipped 0
+
+=== ok packages/edit-store — npm run test (6.5s) ===
+tests 673 / pass 673 / fail 0 / skipped 0
+
+=== ok packages/intake-form — npm run test (0.5s) ===
+tests 5 / pass 5 / fail 0 / skipped 0
+
+=== ok packages/matte-rvm — npm run test (0.7s) ===
+tests 29 / pass 26 / fail 0 / skipped 3
+
+=== ok packages/pen-visuals — npm run test (0.4s) ===
+tests 3 / pass 3 / fail 0 / skipped 0
+
+=== ok packages/project-scaffold — npm run test (1.6s) ===
+tests 16 / pass 16 / fail 0 / skipped 0
+
+=== ok packages/schemas — npm run test (15.3s) ===
+tests 426 / pass 425 / fail 0 / skipped 1
+
+=== ok packages/word-book — npm run test (0.5s) ===
+tests 29 / pass 29 / fail 0 / skipped 0
+
+=== FAIL scripts/test — node --test (4 files) (2.3s) ===
+✔ L0: bash -n akari.sh — 構文チェック green (8.4865ms)
+✔ L0: bash -n templates/project-default/akari.sh — 構文チェック green (5.992ms)
+✔ 同期テスト: ルートと雛形の akari.sh が同一内容 (3.186125ms)
+✔ app 有り環境: ~/.akari/app フォールバックで見つけて exec する（プロジェクトフォルダ単体） (147.576708ms)
+✔ app 無し + 非対話（tty 無し）: プロンプトを出さず案内 1 行 + exit 1 (48.920708ms)
+✔ app 無し + 対話 n: 案内 1 行 + exit 1（インストーラは呼ばれない） (424.00025ms)
+✔ app 無し + 対話 Y: インストーラ（モック）が呼ばれ、成功後に re-exec される (792.413458ms)
+✔ app 無し + 対話（既定 Y、空 Enter）: インストーラが呼ばれ、成功後に re-exec される (686.55875ms)
+✔ 通常 import・import type・動的 import・require を抽出し、重複をまとめて行番号を残す (3.045375ms)
+✔ 相対パス・scope・非拡張・自己参照・コメント・文字列を除外する (0.157833ms)
+✔ 複数行・CRLF・コメントを挟んだ import でも根拠行を保持する (0.097875ms)
+✔ 順序が正しければ違反なし、逆順なら違反 1 件 (0.153083ms)
+✔ 依存元・依存先・両方のトークン欠落を検出する (0.092417ms)
+✔ dependencies に file: 宣言が必要で、欠落と非 file: を検出する (0.104208ms)
+✖ 実物の build:ext から 9 拡張を依存順に取り出す (3.147125ms)
+✔ tsc -b 以外のコマンドを除外し、引用されたパスを扱う (0.1625ms)
+✔ 実物のリポを検査すると exit 0、要約は 1 行 (273.524291ms)
+✔ theme を末尾に戻すと exit 1、shell-package の差し替えでも既定 extensions-dir は不変 (204.070917ms)
+✔ extensions-dir の差し替えで全対象拡張子を走査し、宣言と順序の違反を全件列挙する (91.791667ms)
+✔ 実リポジトリは再配布ガードを通過する (156.680291ms)
+✔ メタ: shell extraResources へ RVM 実装を足すと CLI が落ち、理由を出す (135.508709ms)
+✔ メタ: vendor の ONNX を追跡対象へ足すと CLI が落ち、理由を出す (122.528916ms)
+✔ メタ: prepack VENDOR_SOURCES へ RVM src を足すと CLI が落ちる (121.461583ms)
+✔ package.json#files が RVM を配布対象にすると純粋検査が落とす (0.522125ms)
+✔ capability source の自作 metadata だけは allowlist が許可する (0.880709ms)
+✔ fail-closed: restricted path が存在しない repo root では CLI が落ちる (79.060709ms)
+✔ 実 Resources は解決関数走査を通り、restricted package を除外する (232.027375ms)
+✔ 非リテラルの変数・テンプレート・連結は参考情報に留める (2.028917ms)
+✔ 解決関数走査は chat-bridge の同梱漏れを名指しする (291.694625ms)
+✔ 解決関数走査は creator-root の同梱漏れを名指しする (257.214792ms)
+✔ 解決関数走査は media-bin の同梱漏れを名指しする (245.798542ms)
+✔ 解決関数走査は edit-store の同梱漏れを名指しする (243.481209ms)
+✔ 解決関数走査は schemas の同梱漏れを名指しする (236.646208ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2223.515875
+
+✖ failing tests:
+
+test at scripts/test/check-extension-deps.test.mjs:85:1
+✖ 実物の build:ext から 9 拡張を依存順に取り出す (3.147125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'akari-theme',
+  -   'akari-project',
+      'akari-preview',
+      'akari-annotations',
+  +   'akari-project',
+      'akari-shell-strip',
+      'akari-surfaces',
+      'akari-partner',
+      'akari-tabs',
+      'akari-transcript'
+  
+      at TestContext.<anonymous> (file://<WORKTREE>/scripts/test/check-extension-deps.test.mjs:87:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'akari-theme', 'akari-preview', 'akari-annotations', 'akari-project', 'akari-shell-strip', 'akari-surfaces', 'akari-partner', 'akari-tabs', 'akari-transcript' ],
+    expected: [ 'akari-theme', 'akari-project', 'akari-preview', 'akari-annotations', 'akari-shell-strip', 'akari-surfaces', 'akari-partner', 'akari-tabs', 'akari-transcript' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+=== ok skills/* (package.json を持たないスキル同梱テスト) — node --test (27 files) (5.5s) ===
+tests 184 / pass 184 / fail 0 / skipped 0
+
+### unit lane: pure — 外部ツール不要・決定論（CI required）
+
+| 結果 | 対象 | tests | pass | fail | skipped | 秒 |
+|---|---|---:|---:|---:|---:|---:|
+| ✅ | packages/analysis-report | 28 | 28 | 0 | 0 | 5.6 |
+| ✅ | packages/asset-resolver | 41 | 41 | 0 | 0 | 1.7 |
+| ✅ | packages/audio-library-setup | 101 | 99 | 0 | 2 | 2.2 |
+| ✅ | packages/chat-bridge | 12 | 12 | 0 | 0 | 0.4 |
+| ✅ | packages/creator-root | 33 | 33 | 0 | 0 | 0.5 |
+| ✅ | packages/decision-log-report | 13 | 13 | 0 | 0 | 1.6 |
+| ✅ | packages/edit-lint | 297 | 297 | 0 | 0 | 53.8 |
+| ✅ | packages/edit-store | 673 | 673 | 0 | 0 | 6.5 |
+| ✅ | packages/intake-form | 5 | 5 | 0 | 0 | 0.5 |
+| ✅ | packages/matte-rvm | 29 | 26 | 0 | 3 | 0.7 |
+| ✅ | packages/pen-visuals | 3 | 3 | 0 | 0 | 0.4 |
+| ✅ | packages/project-scaffold | 16 | 16 | 0 | 0 | 1.6 |
+| ✅ | packages/schemas | 426 | 425 | 0 | 1 | 15.3 |
+| ✅ | packages/word-book | 29 | 29 | 0 | 0 | 0.5 |
+| ❌ | scripts/test | 33 | 32 | 1 | 0 | 2.3 |
+| ✅ | skills/* (package.json を持たないスキル同梱テスト) | 184 | 184 | 0 | 0 | 5.5 |
+
+合計: tests 1923 / pass 1916 / fail 1 / skipped 6 — exit≠0: scripts/test

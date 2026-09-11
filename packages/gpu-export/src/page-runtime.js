@@ -119,6 +119,204 @@
     return scaled;
   }
 
+  const LUMA_BLOCK_SIZE = 16;
+
+  class CanvasLumaReducer {
+    constructor(width, height) {
+      this.width = width;
+      this.height = height;
+      this.blocksX = Math.ceil(width / LUMA_BLOCK_SIZE);
+      this.blocksY = Math.ceil(height / LUMA_BLOCK_SIZE);
+      this.blockCount = this.blocksX * this.blocksY;
+      this.canvas = new OffscreenCanvas(1, 1);
+      this.contextLost = false;
+      this.onContextLost = () => { this.contextLost = true; };
+      this.canvas.addEventListener("webglcontextlost", this.onContextLost);
+      this.gl = this.canvas.getContext("webgl2");
+      if (!this.gl) throw new Error("WebGL2 luma reduction is unavailable");
+      const gl = this.gl;
+      const vertex = compileShader(gl, gl.VERTEX_SHADER, `#version 300 es
+        precision highp float;
+        precision highp int;
+        uniform sampler2D u_source;
+        uniform ivec2 u_size;
+        uniform int u_blocks_x;
+        out vec2 v_min_max;
+        void main() {
+          int block_x = gl_VertexID % u_blocks_x;
+          int block_y = gl_VertexID / u_blocks_x;
+          ivec2 origin = ivec2(block_x, block_y) * ${LUMA_BLOCK_SIZE};
+          float ymin = 255.0;
+          float ymax = 0.0;
+          for (int y = 0; y < ${LUMA_BLOCK_SIZE}; y++) {
+            for (int x = 0; x < ${LUMA_BLOCK_SIZE}; x++) {
+              ivec2 point = origin + ivec2(x, y);
+              if (point.x < u_size.x && point.y < u_size.y) {
+                vec3 rgb = texelFetch(u_source, point, 0).rgb;
+                float value = 16.0 + 219.0 * dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+                ymin = min(ymin, value);
+                ymax = max(ymax, value);
+              }
+            }
+          }
+          v_min_max = vec2(ymin, ymax);
+          gl_Position = vec4(0.0);
+        }
+      `);
+      const fragment = compileShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
+        precision highp float;
+        out vec4 color;
+        void main() { color = vec4(0.0); }
+      `);
+      this.program = gl.createProgram();
+      gl.attachShader(this.program, vertex);
+      gl.attachShader(this.program, fragment);
+      gl.transformFeedbackVaryings(this.program, ["v_min_max"], gl.INTERLEAVED_ATTRIBS);
+      gl.linkProgram(this.program);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+      if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+        throw new Error(`luma reduction link failed: ${gl.getProgramInfoLog(this.program) ?? "unknown"}`);
+      }
+      this.uniforms = {
+        source: gl.getUniformLocation(this.program, "u_source"),
+        size: gl.getUniformLocation(this.program, "u_size"),
+        blocksX: gl.getUniformLocation(this.program, "u_blocks_x"),
+      };
+      this.texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      this.buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, this.blockCount * 2 * Float32Array.BYTES_PER_ELEMENT, gl.STREAM_READ);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      this.values = new Float32Array(this.blockCount * 2);
+      this.pending = null;
+      this.ymin = [];
+      this.ymax = [];
+      this.captureCount = 0;
+      this.resolveCount = 0;
+    }
+
+    capture(frameNumber, sourceCanvas) {
+      if (this.pending) this.resolvePending();
+      const gl = this.gl;
+      this.assertContextAvailable("capture");
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+      gl.useProgram(this.program);
+      gl.uniform1i(this.uniforms.source, 0);
+      gl.uniform2i(this.uniforms.size, this.width, this.height);
+      gl.uniform1i(this.uniforms.blocksX, this.blocksX);
+      // A transform-feedback output must not remain bound to ARRAY_BUFFER while drawing.
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, this.buffer);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, this.blockCount);
+      gl.endTransformFeedback();
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
+      this.pending = { frameNumber, sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0) };
+      gl.flush();
+      if (this.captureCount === 0) this.assertNoGlError("first capture");
+      this.captureCount += 1;
+    }
+
+    resolvePending() {
+      const pending = this.pending;
+      if (!pending) return;
+      const gl = this.gl;
+      this.assertContextAvailable("resolve");
+      const wait = gl.clientWaitSync(pending.sync, 0, 0);
+      if (wait === gl.WAIT_FAILED) throw new Error("luma reduction fence wait failed");
+      if (wait === gl.TIMEOUT_EXPIRED) gl.flush();
+      try {
+        // The indexed transform-feedback binding was cleared after draw; bind only for this read.
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+        gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
+        gl.bindBuffer(gl.COPY_READ_BUFFER, this.buffer);
+        gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, this.values);
+      } finally {
+        gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+        gl.deleteSync(pending.sync);
+        this.pending = null;
+      }
+      if (this.resolveCount === 0) this.assertNoGlError("first resolve");
+      else this.assertContextAvailable("resolve read");
+      this.resolveCount += 1;
+      let ymin = 255;
+      let ymax = 0;
+      for (let index = 0; index < this.values.length; index += 2) {
+        ymin = Math.min(ymin, this.values[index]);
+        ymax = Math.max(ymax, this.values[index + 1]);
+      }
+      this.ymin[pending.frameNumber] = clampByte(Math.round(ymin));
+      this.ymax[pending.frameNumber] = clampByte(Math.round(ymax));
+    }
+
+    finish(expectedFrames) {
+      this.resolvePending();
+      if (this.ymin.length !== expectedFrames || this.ymax.length !== expectedFrames
+        || this.ymin.some((value) => !Number.isInteger(value))
+        || this.ymax.some((value) => !Number.isInteger(value))) {
+        throw new Error(`luma reduction frame mismatch: expected ${expectedFrames}, got ${this.ymin.length}`);
+      }
+      this.assertNoGlError("finish");
+      return { ymin: this.ymin, ymax: this.ymax };
+    }
+
+    dispose() {
+      this.canvas.removeEventListener("webglcontextlost", this.onContextLost);
+      if (!this.gl.isContextLost()) {
+        if (this.pending?.sync) this.gl.deleteSync(this.pending.sync);
+        this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+        this.gl.bindBuffer(this.gl.TRANSFORM_FEEDBACK_BUFFER, null);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+        this.gl.bindBuffer(this.gl.COPY_READ_BUFFER, null);
+        this.gl.deleteBuffer(this.buffer);
+        this.gl.deleteTexture(this.texture);
+        this.gl.deleteProgram(this.program);
+      }
+      this.pending = null;
+    }
+
+    assertContextAvailable(stage) {
+      const gl = this.gl;
+      if (this.contextLost || gl.isContextLost()) throw new Error(`luma reduction context lost during ${stage}`);
+    }
+
+    assertNoGlError(stage) {
+      const gl = this.gl;
+      this.assertContextAvailable(stage);
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) throw new Error(`luma reduction GL error 0x${error.toString(16)} after ${stage}`);
+    }
+  }
+
+  function compileShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) ?? "unknown";
+      gl.deleteShader(shader);
+      throw new Error(`luma reduction shader failed: ${message}`);
+    }
+    return shader;
+  }
+
+  function clampByte(value) {
+    return Math.max(0, Math.min(255, value));
+  }
+
   function mediaUrl(value) {
     return "/media/" + String(value).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   }
@@ -2169,7 +2367,7 @@
     if (previewActive && !previewContext) { previewActive = false; previewDisabledReason = "preview-2d-context-unavailable"; }
     if (previewContext) { previewContext.imageSmoothingEnabled = true; previewContext.imageSmoothingQuality = "high"; }
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], luma: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
     const vgpuRecords = new Map();
@@ -2206,6 +2404,13 @@
     let threeComposite = null;
     let overlaySheetHasVideo = false;
     const overlayVideoWarnings = new Set();
+    let previewWriteChain = Promise.resolve();
+    let checkpointChain = Promise.resolve();
+    let deferredFailure = null;
+    let lumaReducer = null;
+    let luma = null;
+    let lumaFailed = false;
+    const runtimeTiming = {};
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
     const started = performance.now();
@@ -2571,6 +2776,19 @@
             }
             const encodeStarted = performance.now();
             encodeCanvas = scaleSurfaceForEncode(finalCanvas, config, encodeCanvas);
+            if (config.collectLuma && !lumaFailed) {
+              const lumaStarted = performance.now();
+              try {
+                lumaReducer ??= new CanvasLumaReducer(encodeCanvas.width, encodeCanvas.height);
+                lumaReducer.capture(frameNumber, encodeCanvas);
+              } catch (error) {
+                lumaFailed = true;
+                try { lumaReducer?.dispose(); } catch {}
+                lumaReducer = null;
+                warn(`luma reduction disabled: ${error?.message ?? error}`);
+              }
+              stages.luma.push(performance.now() - lumaStarted);
+            }
             let previewElapsed = 0;
             if (previewActive && frameNumber % previewEvery === 0) {
               const previewStarted = performance.now();
@@ -2579,8 +2797,13 @@
                 previewContext.drawImage(encodeCanvas, 0, 0, previewWidth, previewHeight);
                 const blob = await previewCanvas.convertToBlob({ type: "image/jpeg", quality: 0.7 });
                 const jpeg = new Uint8Array(await blob.arrayBuffer());
-                await bridge.writeDumpFrame({ kind: "preview", frameNumber, jpeg });
-                previewFrames += 1;
+                previewWriteChain = previewWriteChain
+                  .then(() => bridge.writeDumpFrame({ kind: "preview", frameNumber, jpeg }))
+                  .then(() => { previewFrames += 1; })
+                  .catch((error) => {
+                    previewActive = false;
+                    previewDisabledReason = String(error?.message ?? error);
+                  });
               } catch (error) {
                 // 制約 5: 失敗は握りつぶして以後 off。書き出しは続ける。
                 previewActive = false;
@@ -2601,11 +2824,14 @@
         } finally {
           frame.close();
         }
+        if (sequenceIndex === 0) runtimeTiming.first_frame = performance.now() - started;
+        if (deferredFailure) throw deferredFailure;
         if ((sequenceIndex + 1) % 30 === 0 || sequenceIndex + 1 === sequenceLength) {
-          await bridge.checkpoint({
+          const checkpoint = {
             status: "running",
             framesCompleted: sequenceIndex + 1,
             framesRequested: captureMode ? frameSequence : config.frames,
+            timing: { ...runtimeTiming },
             stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
             gpu: {
               renderer,
@@ -2639,16 +2865,30 @@
             // 生存デコーダセッション数。#28 の時点で「RSS はセッション数に比例」と分かって
             // いたのに記録が無く、issue #52 でまた手探りになったので run.json に残す
             decoderSessions: engine.decoderSessions,
-          });
+          };
+          checkpointChain = checkpointChain
+            .then(() => bridge.checkpoint(checkpoint))
+            .catch((error) => { deferredFailure ??= error; });
         }
       }
-      const encoderFinish = encoder ? await encoder.finish() : null;
+      const flushStarted = performance.now();
+      const encoderFinishPromise = encoder ? encoder.finish() : Promise.resolve(null);
+      const [encoderFinish] = await Promise.all([encoderFinishPromise, checkpointChain, previewWriteChain]);
+      runtimeTiming.encoder_flush = performance.now() - flushStarted;
+      if (deferredFailure) throw deferredFailure;
+      if (lumaReducer && !lumaFailed) {
+        const lumaFinishStarted = performance.now();
+        try { luma = lumaReducer.finish(sequenceLength); }
+        catch (error) { lumaFailed = true; warn(`luma reduction result discarded: ${error?.message ?? error}`); }
+        stages.luma.push(performance.now() - lumaFinishStarted);
+      }
+      runtimeTiming.luma_total = stages.luma.reduce((sum, value) => sum + value, 0);
       for (const record of vgpuRecords.values()) {
         const state = vgpuRuntime.inspect(record.container);
         if (state.deviceLost) throw new Error("VGPU-DEVICE-LOST: device lost during export");
         if (state.status !== "ready") throw new Error("VGPU-RENDER: overlay failed during export");
       }
-      const mux = encoder ? await bridge.finishChunks({ encoderFinish }) : null;
+      const mux = encoder ? await bridge.finishChunks({ encoderFinish, timing: { ...runtimeTiming } }) : null;
       return {
         status: supported ? "completed" : "unsupported",
         ...(captureMode ? { operation: "capture" } : {}),
@@ -2665,6 +2905,11 @@
         frameHashes,
         elapsedMs: performance.now() - started,
         stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
+        timing: {
+          first_frame: runtimeTiming.first_frame ?? null,
+          encoder_flush: runtimeTiming.encoder_flush,
+          luma_total: runtimeTiming.luma_total,
+        },
         frameEngineMetrics: engine.metrics.toJSON(),
         gpu: {
           encoder: supported ? "WebCodecsH264Encoder" : "unsupported",
@@ -2699,6 +2944,7 @@
         three: { ...threeSampling.summary(), composite: threeComposite.summary() },
         ...vgpuSummary(),
         mux,
+        luma: lumaFailed ? null : luma,
         eligibility: config.eligibility,
         warnings,
       };
@@ -2708,6 +2954,7 @@
       domRuntime?.dispose();
       threeSampling?.dispose();
       threeComposite?.dispose();
+      try { lumaReducer?.dispose(); } catch {}
       for (const record of vgpuRecords.values()) vgpuRuntime?.dispose(record.container);
       spriteCompositor.dispose();
       engine.dispose();

@@ -1,0 +1,162 @@
+{
+  "label": "before",
+  "index": 2,
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "totalMs": 30915,
+  "loadavg": "{ 6.10 9.64 9.46 }",
+  "verdict": "PASS: exports/out.mp4",
+  "table": {
+    "prepare": 0,
+    "audio_cut": 519,
+    "render_startup_to_first_frame_line": 2228,
+    "render_draw": 14082,
+    "render_after_last_frame": 6439,
+    "audio_mix": 13,
+    "verify": 6029,
+    "finalize_after_verify": 1223,
+    "total": 30915,
+    "outside_engine": 16833
+  },
+  "timingLines": [],
+  "output": {
+    "sha256": "8b180b6a735862c36f0526c823559cae2c4f05a066147c3f8620a988e75e09ac",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "duration": "30.000000",
+          "nb_read_frames": "900"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "duration": "30.000000",
+          "nb_read_frames": "1407"
+        }
+      ],
+      "format": {
+        "duration": "30.000000"
+      }
+    }
+  },
+  "gpuRunStages": {
+    "evaluate": {
+      "count": 900,
+      "p50": 6.899999976158142,
+      "p95": 20.30000001192093
+    },
+    "three": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0.09999996423721313
+    },
+    "dom": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0
+    },
+    "captionRaster": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captionRasterBatch": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captions": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "composite": {
+      "count": 900,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "preview": {
+      "count": 30,
+      "p50": 7.100000023841858,
+      "p95": 10.700000047683716
+    },
+    "encode": {
+      "count": 900,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "backpressure": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0
+    }
+  },
+  "verifyFindings": [
+    {
+      "severity": "info",
+      "check": "verify.duration",
+      "message": "duration 30s; expected 30s ±0.1s"
+    },
+    {
+      "severity": "info",
+      "check": "verify.frame-count",
+      "message": "frame count 900; expected 900 ±3"
+    },
+    {
+      "severity": "info",
+      "check": "verify.resolution",
+      "message": "resolution 1920x1080; expected 1920x1080"
+    },
+    {
+      "severity": "info",
+      "check": "verify.fps",
+      "message": "fps 30; expected 30 ±0.03333333333333333 (1 frame of 900)"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-codec",
+      "message": "video codec h264; expected h264"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-profile",
+      "message": "video profile High; expected high"
+    },
+    {
+      "severity": "info",
+      "check": "verify.pixel-format",
+      "message": "pixel format yuv420p; expected yuv420p"
+    },
+    {
+      "severity": "info",
+      "check": "verify.color-range",
+      "message": "color range tv; expected tv"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio",
+      "message": "audio codec aac; expected aac"
+    },
+    {
+      "severity": "info",
+      "check": "verify.decode",
+      "message": "all frames decoded without error"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio-level",
+      "message": "最大音量 -27.3 dB（1 区間）"
+    }
+  ],
+  "blankIntervals": [],
+  "leftoverElectronBeforeKill": 0,
+  "leftoverElectronAfterKill": 0
+}

@@ -1,0 +1,195 @@
+{
+  "label": "after",
+  "index": 2,
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "totalMs": 19969,
+  "loadavg": "{ 7.83 19.13 18.84 }",
+  "verdict": "PASS: exports/out.mp4",
+  "table": {
+    "prepare": 0,
+    "audio_cut": 503,
+    "render_startup_to_first_frame_line": 1732,
+    "render_draw": 15145,
+    "render_after_last_frame": 976,
+    "audio_mix": 11,
+    "verify": 57,
+    "finalize_after_verify": 1175,
+    "total": 19969,
+    "outside_engine": 4824
+  },
+  "timingLines": [
+    "PROGRESS timing name=electron_ready ms=326",
+    "PROGRESS timing name=page_build ms=94",
+    "PROGRESS timing name=window_create ms=110",
+    "PROGRESS timing name=server_start ms=115",
+    "PROGRESS timing name=gpu_info ms=173",
+    "PROGRESS timing name=load_url ms=182",
+    "PROGRESS timing name=viewport_settle ms=1",
+    "PROGRESS timing name=first_frame ms=447",
+    "PROGRESS timing name=encoder_flush ms=27",
+    "PROGRESS timing name=luma_total ms=512",
+    "PROGRESS timing name=mux_finish ms=3",
+    "PROGRESS timing name=window_destroy ms=8",
+    "PROGRESS timing name=child_run_json ms=2",
+    "PROGRESS timing name=window_destroy_to_exit ms=3",
+    "PROGRESS timing name=audio_mux ms=106",
+    "PROGRESS timing name=final_ffprobe ms=775",
+    "PROGRESS timing name=run_json ms=1",
+    "PROGRESS timing name=parent_receipt ms=1",
+    "PROGRESS timing name=audio_mix ms=12",
+    "PROGRESS timing name=verify_probe ms=0",
+    "PROGRESS timing name=verify_decode ms=0",
+    "PROGRESS timing name=verify_audio ms=55",
+    "PROGRESS timing name=verify_motion ms=0",
+    "PROGRESS timing name=verify_blank ms=1",
+    "PROGRESS timing name=verify_total ms=56",
+    "PROGRESS timing name=contact_sheet ms=1029",
+    "PROGRESS timing name=receipt ms=66"
+  ],
+  "output": {
+    "sha256": "8b180b6a735862c36f0526c823559cae2c4f05a066147c3f8620a988e75e09ac",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "duration": "30.000000",
+          "nb_read_frames": "900"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "duration": "30.000000",
+          "nb_read_frames": "1407"
+        }
+      ],
+      "format": {
+        "duration": "30.000000"
+      }
+    }
+  },
+  "gpuRunStages": {
+    "evaluate": {
+      "count": 900,
+      "p50": 7.899999976158142,
+      "p95": 20.299999952316284
+    },
+    "three": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0.09999996423721313
+    },
+    "dom": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0
+    },
+    "captionRaster": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captionRasterBatch": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captions": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "composite": {
+      "count": 900,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "preview": {
+      "count": 30,
+      "p50": 6.800000011920929,
+      "p95": 9.899999976158142
+    },
+    "luma": {
+      "count": 901,
+      "p50": 0.09999996423721313,
+      "p95": 4.299999952316284
+    },
+    "encode": {
+      "count": 900,
+      "p50": 0.10000002384185791,
+      "p95": 4.399999976158142
+    },
+    "backpressure": {
+      "count": 900,
+      "p50": 0,
+      "p95": 0
+    }
+  },
+  "verifyFindings": [
+    {
+      "severity": "info",
+      "check": "verify.duration",
+      "message": "duration 30s; expected 30s ±0.1s"
+    },
+    {
+      "severity": "info",
+      "check": "verify.frame-count",
+      "message": "frame count 900; expected 900 ±3"
+    },
+    {
+      "severity": "info",
+      "check": "verify.resolution",
+      "message": "resolution 1920x1080; expected 1920x1080"
+    },
+    {
+      "severity": "info",
+      "check": "verify.fps",
+      "message": "fps 30; expected 30 ±0.03333333333333333 (1 frame of 900)"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-codec",
+      "message": "video codec h264; expected h264"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-profile",
+      "message": "video profile High; expected high"
+    },
+    {
+      "severity": "info",
+      "check": "verify.pixel-format",
+      "message": "pixel format yuv420p; expected yuv420p"
+    },
+    {
+      "severity": "info",
+      "check": "verify.color-range",
+      "message": "color range tv; expected tv"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio",
+      "message": "audio codec aac; expected aac"
+    },
+    {
+      "severity": "info",
+      "check": "verify.decode",
+      "message": "all frames decoded without error"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio-level",
+      "message": "最大音量 -27.3 dB（1 区間）"
+    }
+  ],
+  "blankIntervals": [],
+  "leftoverElectronBeforeKill": 0,
+  "leftoverElectronAfterKill": 0
+}

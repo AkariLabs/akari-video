@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 import electron from "electron";
 
-import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
 import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
 import { createMemorySampler, memoryHardStopError, MEMORY_HARD_STOP_MARKER, MEMORY_HARD_STOP_REASON, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { installParentPipeGuard } from "../../osr-export/src/parent-pipe-guard.mjs";
@@ -66,9 +65,23 @@ export async function runGpuExport(options) {
     captureOutputDirectory = null,
     preview = "auto",
     previewOutputDirectory = null,
+    collectLuma = true,
+    progressTiming = false,
+    spawnStartMs = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
-    ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
   } = options;
+  const timing = {};
+  const recordTiming = (name, started, explicitMs = null) => {
+    const ms = Math.max(0, Math.round(explicitMs ?? (performance.now() - started)));
+    timing[name] = ms;
+    if (progressTiming) process.stdout.write(`PROGRESS timing name=${name} ms=${ms}\n`);
+    return ms;
+  };
+  const recordRendererTimings = (value) => {
+    for (const [name, ms] of Object.entries(value ?? {})) {
+      if (!Object.hasOwn(timing, name) && Number.isFinite(ms)) recordTiming(name, 0, ms);
+    }
+  };
   const captureMode = captureFrames !== null;
   const previewMode = preview === "off" ? "off" : "auto";
   const resolvedPreviewDirectory = previewOutputDirectory ?? join(dirname(out), "previews");
@@ -111,11 +124,10 @@ export async function runGpuExport(options) {
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
   app.on("window-all-closed", () => {});
-  if (!app.isReady()) await app.whenReady();
-  // どの GPU に載ったか（Windows ハイブリッド機の診断・gpu 契約 §8.1）。3 秒で打ち切り、completed / failed の両方の run.json に残す。
-  const gpuDevices = await collectGpuDevices(app);
-
-  const built = await loadAndBuildGpuPage({
+  const readyStarted = performance.now();
+  const readyPromise = app.isReady() ? Promise.resolve() : app.whenReady();
+  const pageBuildStarted = performance.now();
+  const builtPromise = loadAndBuildGpuPage({
     projectRoot,
     editPath: editPath ?? join(projectRoot, "edit.json"),
     fps,
@@ -124,14 +136,36 @@ export async function runGpuExport(options) {
     duration,
     forceDegraded: forceEligibility,
   });
+  await readyPromise;
+  recordTiming(
+    "electron_ready",
+    readyStarted,
+    Number.isFinite(spawnStartMs) ? Date.now() - spawnStartMs : null,
+  );
+  // GPU 情報は page build / server / loadURL のクリティカルパスから外す。最終 run を組む時点までにだけ必要。
+  const gpuInfoStarted = performance.now();
+  let gpuDevices = null;
+  const gpuDevicesPromise = collectGpuDevices(app).then((value) => {
+    gpuDevices = value;
+    recordTiming("gpu_info", gpuInfoStarted);
+    return value;
+  });
+  const built = await builtPromise;
+  recordTiming("page_build", pageBuildStarted);
   if (!built.eligibility.eligible && !(forceEligibility && built.eligibility.summary?.unsupported === 0)) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(built.eligibility)}`);
   }
-  const server = await startStaticServer({
+  const serverStarted = performance.now();
+  let server = null;
+  const serverPromise = startStaticServer({
     pageHtml: built.html,
     overlaySheetHtml: built.overlaySheetHtml,
     projectRoot,
     captionFontPath: findCaptionFontPath(),
+  }).then((value) => {
+    server = value;
+    recordTiming("server_start", serverStarted);
+    return value;
   });
   const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
   let fatalMemoryError = null;
@@ -167,6 +201,7 @@ export async function runGpuExport(options) {
     captureFrames: requestedCaptureFrames,
     previewEvery,
     previewWidth: PREVIEW_WIDTH,
+    collectLuma: Boolean(collectLuma),
     domLayerFlags,
     ...(process.env.AKARI_GPU_CAPTION_MEASURE_FAULT
       ? { captionMeasureFault: process.env.AKARI_GPU_CAPTION_MEASURE_FAULT }
@@ -194,6 +229,7 @@ export async function runGpuExport(options) {
     if (fatalMemoryError) throw fatalMemoryError;
     const { decoderSessions, ...checkpoint } = value ?? {};
     if (decoderSessions) lastDecoderSessions = decoderSessions;
+    recordRendererTimings(value?.timing);
     const running = {
       ...checkpoint,
       gpu: {
@@ -234,13 +270,15 @@ export async function runGpuExport(options) {
   register("gpu:chunks-finish", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
+    recordRendererTimings(value?.timing);
+    const muxStarted = performance.now();
     const mux = await state.writer.finish({ encoderFrames: value?.encoderFinish?.frames });
-    const ffprobe = normalizeCodecVerification(await verifyEncodedVideo({
-      command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
-    }), codec);
-    if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
+    recordTiming("mux_finish", muxStarted);
+    if (mux.samples !== frames || !(mux.bytes > 0)) {
+      throw new Error(`GPU mux accounting failed: samples=${mux.samples} bytes=${mux.bytes}`);
+    }
     chunkState = null;
-    return { ...mux, ffprobe };
+    return mux;
   });
   register("gpu:capture-frame", async (_event, value) => {
     if (!captureMode) throw new Error("GPU capture frame received during export");
@@ -283,6 +321,7 @@ export async function runGpuExport(options) {
   });
 
   try {
+    const windowStarted = performance.now();
     windowRef = new BrowserWindow({
       show: false,
       width,
@@ -299,22 +338,33 @@ export async function runGpuExport(options) {
     windowRef.webContents.on("render-process-gone", (_event, details) => {
       rendererFailure = new Error(`GPU renderer process gone: ${details.reason}`);
     });
+    recordTiming("window_create", windowStarted);
+    await serverPromise;
+    const loadUrlStarted = performance.now();
     await windowRef.loadURL(server.url);
+    recordTiming("load_url", loadUrlStarted);
     if (rendererFailure) throw rendererFailure;
     // Windows clamps a BrowserWindow to the physical display, so an output larger than the screen
     // (issue #40 §1: 3840x2160 on a 1920x1080 display) resolves vw / vh against the clamped
     // window. Measure the page viewport, pin it to the output size with device emulation when it
     // differs, and fail closed when the page still disagrees with the requested output.
+    const viewportStarted = performance.now();
     viewport = await settleWindowViewport(windowRef.webContents, { width, height });
+    recordTiming("viewport_settle", viewportStarted);
     if (rendererFailure) throw rendererFailure;
     const result = await executeWithTimeout(
       windowRef.webContents.executeJavaScript("window.__akariGpuRun()"),
       processTimeoutMs,
       `GPU renderer exceeded ${processTimeoutMs}ms`,
     );
+    recordRendererTimings(result?.timing);
     if (rendererFailure) throw rendererFailure;
+    const destroyStarted = performance.now();
     await destroyWindow(windowRef);
+    recordTiming("window_destroy", destroyStarted);
+    const afterWindowDestroy = performance.now();
     windowRef = null;
+    await gpuDevicesPromise;
     const memory = memorySampler.stop("afterDestroy");
     const run = {
       version: 1,
@@ -342,11 +392,19 @@ export async function runGpuExport(options) {
       memory: { ...memory, warnings: memoryWarnings, decoderSessions: lastDecoderSessions },
       eligibility: built.eligibility,
       viewport,
-      ffprobe: result?.mux?.ffprobe ?? null,
+      ffprobe: null,
+      luma: result?.luma ?? null,
+      timing: { ...timing },
     };
+    const runJsonStarted = performance.now();
+    await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
+    recordTiming("child_run_json", runJsonStarted);
+    recordTiming("window_destroy_to_exit", afterWindowDestroy);
+    run.timing = { ...timing };
     await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
     return run;
   } catch (error) {
+    gpuDevices = await gpuDevicesPromise.catch(() => null);
     const reasonCode = gpuFailureReasonCode(error);
     const captionMeasureDiffs = extractCaptionMeasureDiffs(error);
     // page-runtime の unsupported throw が添えた renderer / encoder_support（プロパティ、または message 末尾の marker）を
@@ -390,7 +448,7 @@ export async function runGpuExport(options) {
       chunkState = null;
     }
     if (windowRef && !windowRef.isDestroyed()) await destroyWindow(windowRef);
-    await server.close().catch(() => {});
+    await server?.close().catch(() => {});
   }
 }
 
@@ -544,6 +602,9 @@ export function parseElectronArguments(argv) {
     captureOutputDirectory: null,
     preview: "auto",
     previewOutputDirectory: null,
+    collectLuma: true,
+    progressTiming: false,
+    spawnStartMs: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -575,6 +636,9 @@ export function parseElectronArguments(argv) {
       options.preview = value;
     }
     else if (argument === "--preview-dir") options.previewOutputDirectory = required(argv, ++index, "--preview-dir");
+    else if (argument === "--no-luma") options.collectLuma = false;
+    else if (argument === "--progress-timing") options.progressTiming = true;
+    else if (argument === "--spawn-start-ms") options.spawnStartMs = positiveNumber(required(argv, ++index, "--spawn-start-ms"), "--spawn-start-ms");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   options.outputWidth ??= options.width;

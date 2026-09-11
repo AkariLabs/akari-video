@@ -57,6 +57,13 @@ export async function runOsrExport(options) {
     queueDepth = 3,
     dumpFrames = [],
   } = options;
+  const timing = {};
+  const recordTiming = (name, started) => {
+    const ms = Math.max(0, Math.round(performance.now() - started));
+    timing[name] = ms;
+    process.stdout.write(`PROGRESS timing name=${name} ms=${ms}\n`);
+    return ms;
+  };
   if (!["stamp", "hash", "off"].includes(verify)) throw new Error(`unknown verify mode: ${verify}`);
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("OSR duration and frame count must be positive");
@@ -77,13 +84,10 @@ export async function runOsrExport(options) {
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
   app.on("window-all-closed", () => {});
-  if (!app.isReady()) await app.whenReady();
-  // どの GPU に載ったか（Windows ハイブリッド機の診断・契約 §11.7）。3 秒で打ち切り、running / completed / failed の run.json に残す。
-  const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
-  // 空 paint の失敗文に載せる「どの GPU に載ったか」（gpu.devices の active・無ければ unknown）。
-  const activeDevice = summarizeGpuAdapters(gpu.devices)?.active_device ?? null;
-
-  const built = await loadAndBuildOsrPage({
+  const readyStarted = performance.now();
+  const readyPromise = app.isReady() ? Promise.resolve() : app.whenReady();
+  const pageBuildStarted = performance.now();
+  const builtPromise = loadAndBuildOsrPage({
     projectRoot,
     editPath: editPath ?? join(projectRoot, "edit.json"),
     fps,
@@ -92,12 +96,30 @@ export async function runOsrExport(options) {
     duration,
     stampRow: true,
   });
+  await readyPromise;
+  recordTiming("electron_ready", readyStarted);
+  let gpuDevices = null;
+  const gpuInfoStarted = performance.now();
+  const gpuDevicesPromise = collectGpuDevices(app).then((value) => {
+    gpuDevices = value;
+    recordTiming("gpu_info", gpuInfoStarted);
+    return value;
+  });
+  const built = await builtPromise;
+  recordTiming("page_build", pageBuildStarted);
+  const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: null };
   const rendererWarnings = new Set((built.warnings ?? []).map(String));
-  const server = await startStaticServer({
+  const serverStarted = performance.now();
+  let server = null;
+  const serverPromise = startStaticServer({
     pageHtml: built.html,
     overlaySheetHtml: built.overlaySheetHtml,
     projectRoot,
     captionFontPath: findCaptionFontPath(),
+  }).then((value) => {
+    server = value;
+    recordTiming("server_start", serverStarted);
+    return value;
   });
   let windowRef = null;
   let encoderSession = null;
@@ -129,6 +151,7 @@ export async function runOsrExport(options) {
   const captureStarted = performance.now();
 
   try {
+    const windowStarted = performance.now();
     windowRef = new BrowserWindow({
       show: false,
       width,
@@ -149,13 +172,22 @@ export async function runOsrExport(options) {
     windowRef.webContents.on("render-process-gone", (_event, details) => {
       rendererFailure = new Error(`renderer process gone: ${details.reason}`);
     });
+    recordTiming("window_create", windowStarted);
+    await serverPromise;
+    const loadUrlStarted = performance.now();
     await windowRef.loadURL(server.url);
+    recordTiming("load_url", loadUrlStarted);
     if (rendererFailure) throw rendererFailure;
+    gpu.devices = await gpuDevicesPromise;
+    // 空 paint の失敗文に載せる「どの GPU に載ったか」（gpu.devices の active・無ければ unknown）。
+    const activeDevice = summarizeGpuAdapters(gpu.devices)?.active_device ?? null;
     // Windows clamps the hidden window to the display work area when it is created (1920x1081 ->
     // 1920x1032 next to a 48 px taskbar) and the offscreen paint follows the content size. Pin the
     // window to the output size before the page renders; the frame loop fails closed if the paint
     // bitmap still disagrees (readPaintBitmap).
+    const viewportStarted = performance.now();
     ({ record: viewport, context: viewportContext } = await settleWindowViewport(windowRef, { width, height, paintTimeoutMs }));
+    recordTiming("viewport_settle", viewportStarted);
     // Right after start-up the compositor answers paints with an empty bitmap (0x0 / 0 bytes) for a
     // while on Intel iGPU and RTX alike (contract §11.8). Wait for one non-empty paint before the
     // frame 0 seek (budget OSR_WARM_UP_BUDGET_MS) and discard it; fail closed past the budget.
@@ -180,6 +212,7 @@ export async function runOsrExport(options) {
       ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, codec, edit: built.edit, queueDepth,
     });
 
+    const firstFrameStarted = performance.now();
     for (let frame = 0; frame < frames; frame += 1) {
       if (fatalMemoryError) throw fatalMemoryError;
       if (rendererFailure) throw rendererFailure;
@@ -235,16 +268,24 @@ export async function runOsrExport(options) {
       }
       await encoderSession.write(videoFrame);
       stages.write.push(performance.now() - writeStarted);
+      if (frame === 0) recordTiming("first_frame", firstFrameStarted);
       process.stdout.write(`PROGRESS frame=${frame + 1} total=${frames}\n`);
     }
 
+    const flushStarted = performance.now();
     const encoded = await encoderSession.finish();
+    recordTiming("encoder_flush", flushStarted);
     encoderSession = null;
+    const ffprobeStarted = performance.now();
     const ffprobe = await verifyEncodedVideo({
       command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight, codec,
     });
+    recordTiming("osr_ffprobe", ffprobeStarted);
     if (!ffprobe.matched) throw new Error(`ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
+    const destroyStarted = performance.now();
     await destroyWindow(windowRef);
+    recordTiming("window_destroy", destroyStarted);
+    const afterWindowDestroy = performance.now();
     windowRef = null;
     const memory = memorySampler.stop("afterDestroy");
     const afterDestroyMemory = memory.samples.at(-1)?.rssBytes ?? null;
@@ -271,7 +312,12 @@ export async function runOsrExport(options) {
       warm_up: warmUp,
       ffprobe,
       warnings: [...rendererWarnings],
+      timing,
     };
+    const runJsonStarted = performance.now();
+    await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
+    recordTiming("child_run_json", runJsonStarted);
+    recordTiming("window_destroy_to_exit", afterWindowDestroy);
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
     return run;
   } catch (error) {
@@ -300,7 +346,7 @@ export async function runOsrExport(options) {
       windowRef.webContents.destroy();
       windowRef.destroy();
     }
-    await server.close().catch(() => {});
+    await server?.close().catch(() => {});
   }
 }
 
