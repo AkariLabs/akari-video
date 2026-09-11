@@ -1,0 +1,166 @@
+{
+  "label": "after",
+  "fixture": "real",
+  "quality": "high",
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "totalMs": 15137,
+  "loadavg": "{ 21.45 76.56 63.60 }",
+  "wallStart": "2026-09-11T13:01:13.030Z",
+  "sourceFrames": 900,
+  "sourceRates": {
+    "r_frame_rate": "30/1",
+    "avg_frame_rate": "540000/18001"
+  },
+  "probeFrameTiming": {
+    "sampled_frames": 900,
+    "mode": "vfr",
+    "irregular_deltas": 5,
+    "max_deviation_ms": 1.667,
+    "cumulative_drift_ms": 1.666,
+    "nominal_frame_ms": 33.333
+  },
+  "sidecarExists": true,
+  "lintExit": 0,
+  "lintVerdict": "pass",
+  "sourceVfrFindings": [
+    {
+      "id": "F002",
+      "severity": "warning",
+      "check": "source.vfr",
+      "message": "この素材は可変フレームレートです（ぶれ 5 回・最大 1.667 ms）。最近傍で写像しています",
+      "path": "edit.json#sources[0].path"
+    }
+  ],
+  "output": {
+    "sha256": "df2af4f53ceb42b76669e0a9b5b1446a1b9c0420dd0bc87d4150914c451b9460",
+    "frames": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "r_frame_rate": "30/1",
+          "avg_frame_rate": "30/1",
+          "nb_read_packets": "900"
+        }
+      ],
+      "format": {
+        "duration": "30.000000"
+      }
+    }
+  },
+  "launcherTier": null,
+  "gpuRunKeys": [
+    "version",
+    "status",
+    "framesRequested",
+    "framesCompleted",
+    "frameHashes",
+    "elapsedMs",
+    "stages",
+    "timing",
+    "frameEngineMetrics",
+    "gpu",
+    "domLayer",
+    "three",
+    "mux",
+    "luma",
+    "eligibility",
+    "warnings",
+    "mode",
+    "width",
+    "height",
+    "output_scale",
+    "codec",
+    "fps",
+    "duration",
+    "preview",
+    "memory",
+    "viewport",
+    "ffprobe",
+    "audio",
+    "finalVerify",
+    "persistentPath"
+  ],
+  "psnr": {
+    "shift0": {
+      "frames": 900,
+      "min": 47.85,
+      "median": 49.28,
+      "mean": 49.26738888888888,
+      "max": 53.2,
+      "below45": 0,
+      "below40": 0,
+      "firstBelow45": null,
+      "region_0_15s": {
+        "n": 450,
+        "min": 47.85,
+        "median": 49.16,
+        "mean": 49.16213333333337
+      },
+      "region_15_30s": {
+        "n": 450,
+        "min": 48,
+        "median": 49.35,
+        "mean": 49.37264444444446
+      }
+    },
+    "shiftMinus1": {
+      "frames": 899,
+      "min": 21.72,
+      "median": 29.44,
+      "mean": 30.384749721913224,
+      "max": 44.17,
+      "below45": 899,
+      "below40": 886,
+      "firstBelow45": 1,
+      "region_0_15s": {
+        "n": 449,
+        "min": 21.72,
+        "median": 31.34,
+        "mean": 31.448596881959883
+      },
+      "region_15_30s": {
+        "n": 450,
+        "min": 22.73,
+        "median": 28.65,
+        "mean": 29.323266666666672
+      }
+    },
+    "shiftPlus1": {
+      "frames": 899,
+      "min": 21.71,
+      "median": 29.43,
+      "mean": 30.355450500556188,
+      "max": 43.78,
+      "below45": 899,
+      "below40": 888,
+      "firstBelow45": 0,
+      "region_0_15s": {
+        "n": 450,
+        "min": 21.71,
+        "median": 31.33,
+        "mean": 31.401466666666668
+      },
+      "region_15_30s": {
+        "n": 449,
+        "min": 22.72,
+        "median": 28.64,
+        "mean": 29.307104677060114
+      }
+    },
+    "argmax": {
+      "0": 898,
+      "1": 0,
+      "-1": 0
+    },
+    "wrongFrames": [],
+    "wrongFrameCount": 0,
+    "firstWrongFrame": null,
+    "lastWrongFrame": null
+  },
+  "leftoverElectronBeforeKill": 0,
+  "leftoverElectronAfterKill": 0
+}

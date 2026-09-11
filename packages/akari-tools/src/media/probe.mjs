@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 
 import { generatedAt, probeRaw, resolveTarget, resolveTools, runChecked, sha256File } from "./common.mjs";
+import { probeFrameTiming } from "./frame-timing.mjs";
 import { recordObservation } from "./record.mjs";
 
 export async function probeMedia(targetArgument, options = {}) {
@@ -10,13 +11,27 @@ export async function probeMedia(targetArgument, options = {}) {
   const streams = Array.isArray(value.streams) ? value.streams : [];
   const videoStream = streams.find((stream) => stream.codec_type === "video");
   const audioStream = streams.find((stream) => stream.codec_type === "audio");
+  const video = videoStream ? normalizeVideo(videoStream) : null;
+  if (video) {
+    try {
+      video.frame_timing = probeFrameTiming(target.inputPath, {
+        ...options,
+        ffprobe,
+        durationSeconds: duration,
+        rFrameRate: videoStream.r_frame_rate,
+        avgFrameRate: videoStream.avg_frame_rate,
+      });
+    } catch {
+      video.frame_timing = null;
+    }
+  }
   const result = {
     path: target.displayPath,
     sha256: await sha256File(target.inputPath),
     size_bytes: statSync(target.inputPath).size,
     container: String(value.format?.format_name ?? "").split(",")[0],
     duration_s: duration,
-    video: videoStream ? normalizeVideo(videoStream) : null,
+    video,
     audio: audioStream ? normalizeAudio(audioStream) : null,
     tool: { ffprobe: resolveFfprobeVersion(ffprobe, options) },
     generated_at: generatedAt(options),

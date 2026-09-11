@@ -1,0 +1,23 @@
+{
+  "path": "assets/source.mp4",
+  "sha256": "255d9ad3bb6ef0c3eb74b1386fa34056c85d4c45ed9d154bb8d59e1d56e02905",
+  "size_bytes": 58314240,
+  "container": "mov",
+  "duration_s": 30.015,
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 29.998333425920784,
+    "codec": "h264",
+    "rotation": 0
+  },
+  "audio": {
+    "codec": "aac",
+    "channels": 2,
+    "sample_rate": 48000
+  },
+  "tool": {
+    "ffprobe": "8.1.2-https://www.martin-riedl.de"
+  },
+  "generated_at": "2026-09-11T13:00:10.220Z"
+}

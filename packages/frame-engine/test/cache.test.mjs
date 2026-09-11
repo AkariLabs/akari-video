@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DecodedFrameCoverageCache,
+  exactTickContinuationTarget,
   frameCoversTimestamp,
   LookaheadCache,
   LookaheadFrameSource,
@@ -48,16 +49,60 @@ test('LookaheadFrameSource puts prefetched frames on the evaluateFrame source pa
   source.clear();
 });
 
-test('decoded frame coverage is half-open and retains sub-frame requests', () => {
+test('decoded frame coverage uses nearest half-frame boundaries and prefers the earlier frame on ties', () => {
   const frame = { timestamp: 400_000, duration: 33_333 };
   assert.equal(frameCoversTimestamp(frame, 400_000), true);
-  assert.equal(frameCoversTimestamp(frame, 416_667), true);
-  assert.equal(frameCoversTimestamp(frame, 433_332), true);
+  assert.equal(frameCoversTimestamp(frame, 416_666), true);
+  assert.equal(frameCoversTimestamp(frame, 416_667), false);
+  assert.equal(frameCoversTimestamp(frame, 383_334), true);
+  assert.equal(frameCoversTimestamp(frame, 383_333), false);
+  assert.equal(frameCoversTimestamp(frame, 433_332), false);
   assert.equal(frameCoversTimestamp(frame, 433_333), false);
+  assert.equal(frameCoversTimestamp({ timestamp: 433_334, duration: 33_334 }, 416_667), false);
   assert.equal(frameCoversTimestamp({ timestamp: 400_000, duration: null }, 416_667), false);
 });
 
-test('prime coverage serves a long first frame, then advances to shorter frames', () => {
+test('decoded frame coverage kill switch restores the previous half-open interval', () => {
+  const original = process.env.AKARI_FRAME_ENGINE_NEAREST;
+  const originalGlobal = globalThis.__AKARI_FRAME_ENGINE_NEAREST__;
+  try {
+    process.env.AKARI_FRAME_ENGINE_NEAREST = '0';
+    const frame = { timestamp: 400_000, duration: 33_333 };
+    assert.equal(frameCoversTimestamp(frame, 416_667), true);
+    assert.equal(frameCoversTimestamp(frame, 433_332), true);
+    assert.equal(frameCoversTimestamp(frame, 433_333), false);
+    globalThis.__AKARI_FRAME_ENGINE_NEAREST__ = false;
+    delete process.env.AKARI_FRAME_ENGINE_NEAREST;
+    assert.equal(frameCoversTimestamp(frame, 433_332), true);
+  } finally {
+    if (originalGlobal === undefined) delete globalThis.__AKARI_FRAME_ENGINE_NEAREST__;
+    else globalThis.__AKARI_FRAME_ENGINE_NEAREST__ = originalGlobal;
+    if (original === undefined) delete process.env.AKARI_FRAME_ENGINE_NEAREST;
+    else process.env.AKARI_FRAME_ENGINE_NEAREST = original;
+  }
+});
+
+test('mp4clip exact tick advances to the next frame only for nearest mapping', () => {
+  const original = process.env.AKARI_FRAME_ENGINE_NEAREST;
+  const originalGlobal = globalThis.__AKARI_FRAME_ENGINE_NEAREST__;
+  const frame = { timestamp: 1_000_000, duration: 33_334 };
+  try {
+    delete globalThis.__AKARI_FRAME_ENGINE_NEAREST__;
+    delete process.env.AKARI_FRAME_ENGINE_NEAREST;
+    assert.equal(exactTickContinuationTarget(frame, 1_020_000), 1_033_335);
+
+    process.env.AKARI_FRAME_ENGINE_NEAREST = '0';
+    assert.equal(exactTickContinuationTarget(frame, 1_020_000), null);
+    assert.equal(exactTickContinuationTarget(frame, 1_040_000), 1_040_001);
+  } finally {
+    if (originalGlobal === undefined) delete globalThis.__AKARI_FRAME_ENGINE_NEAREST__;
+    else globalThis.__AKARI_FRAME_ENGINE_NEAREST__ = originalGlobal;
+    if (original === undefined) delete process.env.AKARI_FRAME_ENGINE_NEAREST;
+    else process.env.AKARI_FRAME_ENGINE_NEAREST = original;
+  }
+});
+
+test('prime coverage serves through the nearest half-frame boundary, then advances', () => {
   const cache = new DecodedFrameCoverageCache();
   const first = {
     timestamp: 0,
@@ -67,13 +112,14 @@ test('prime coverage serves a long first frame, then advances to shorter frames'
     close() { this.closed = true; }
   };
   cache.adopt(first);
-  for (const target of [16_667, 33_333, 50_000, 99_999]) {
+  for (const target of [16_667, 33_333, 50_000]) {
     const frame = cache.cloneAt(target);
     assert.ok(frame, `expected prime frame to cover ${target}us`);
     assert.equal(frame.timestamp, 0);
     assert.equal(frame.duration, 100_000);
     frame.close();
   }
+  assert.equal(cache.cloneAt(50_001), null);
   const forkCache = new DecodedFrameCoverageCache();
   forkCache.adopt(cache.cloneStored());
   const forkFirstRequest = forkCache.cloneAt(16_667);
@@ -92,7 +138,7 @@ test('prime coverage serves a long first frame, then advances to shorter frames'
   };
   cache.remember(second);
   assert.equal(first.closed, true);
-  const withinSecond = cache.cloneAt(116_667);
+  const withinSecond = cache.cloneAt(116_666);
   assert.ok(withinSecond);
   assert.equal(withinSecond.timestamp, 100_000);
   withinSecond.close();
