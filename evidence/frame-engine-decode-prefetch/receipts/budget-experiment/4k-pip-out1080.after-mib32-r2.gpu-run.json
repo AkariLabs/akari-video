@@ -1,0 +1,575 @@
+{
+  "version": 1,
+  "status": "completed",
+  "framesRequested": 300,
+  "framesCompleted": 300,
+  "frameHashes": [],
+  "elapsedMs": 6666.300000011921,
+  "stages": {
+    "evaluate": {
+      "count": 300,
+      "p50": 13.5,
+      "p95": 18.700000047683716
+    },
+    "three": {
+      "count": 300,
+      "p50": 0,
+      "p95": 0.09999996423721313
+    },
+    "dom": {
+      "count": 300,
+      "p50": 0,
+      "p95": 0
+    },
+    "captionRaster": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captionRasterBatch": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captions": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "composite": {
+      "count": 300,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "preview": {
+      "count": 10,
+      "p50": 13.699999988079071,
+      "p95": 24.30000001192093
+    },
+    "encode": {
+      "count": 300,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "backpressure": {
+      "count": 300,
+      "p50": 2.199999988079071,
+      "p95": 4.900000035762787
+    }
+  },
+  "frameEngineMetrics": {
+    "decode": {
+      "count": 600,
+      "p50Ms": 0,
+      "p95Ms": 0.19999998807907104,
+      "maxMs": 117.60000002384186
+    },
+    "tick": {
+      "count": 600,
+      "p50Ms": 0,
+      "p95Ms": 0.10000002384185791,
+      "maxMs": 104.69999998807907
+    },
+    "copy": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "copyTo": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "planeCompact": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "upload": {
+      "count": 300,
+      "p50Ms": 13.100000083446503,
+      "p95Ms": 18,
+      "maxMs": 56.60000002384186
+    },
+    "shader": {
+      "count": 300,
+      "p50Ms": 0,
+      "p95Ms": 0.10000002384185791,
+      "maxMs": 0.20000004768371582
+    },
+    "shaderGpu": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "present": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "readback": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "pboWait": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "rowFlip": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "sink": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "ipcWrite": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "ffmpegDrain": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "ffmpegClose": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "uploadPath": "direct",
+    "uploadPathCounts": {
+      "direct": 300,
+      "copyTo": 0
+    },
+    "skippedLayers": 0,
+    "prefetch": {
+      "hit": 594,
+      "miss": 6,
+      "submitted": 598,
+      "aheadFrames": {
+        "count": 600,
+        "p50": 2,
+        "p95": 5,
+        "max": 6
+      }
+    }
+  },
+  "gpu": {
+    "encoder": "WebCodecsH264Encoder",
+    "hardware": "prefer-hardware",
+    "renderer": {
+      "vendor": "Google Inc. (Apple)",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "encoder_support": {
+      "prefer-hardware": true,
+      "prefer-software": true
+    },
+    "uploadPath": "direct",
+    "quality": "standard",
+    "bitrate": 8000000,
+    "bitrateSource": "quality-preset",
+    "rateControl": "quantizer",
+    "rateControlFallbackReason": null,
+    "quantizer": 26,
+    "codec": "h264",
+    "queueDepth": 4,
+    "queueWaits": 274,
+    "glTiming": null,
+    "trapReadback": false,
+    "readbackCounters": {
+      "webglReadbackCalls": 0,
+      "videoFrameCopyCalls": 0,
+      "canvasBlobCalls": 0,
+      "canvasDataUrlCalls": 0,
+      "canvasPixelReadCalls": 0,
+      "bitmapCreationCalls": 0
+    },
+    "captions": [],
+    "captionLayoutMaxDeltaPx": 0,
+    "captionMeasureAttempts": {
+      "count": 0,
+      "p50": null,
+      "max": null
+    },
+    "captionMeasureDiffs": {
+      "totalCount": 0,
+      "shownCount": 0,
+      "truncated": false,
+      "entries": []
+    },
+    "captionRasterTotalMs": 0,
+    "captionRasterBatches": {
+      "batches": 0,
+      "unitsPerBatchMax": 0,
+      "bandsMax": 0
+    },
+    "captionStartup": {
+      "totalMs": 0.10000002384185791,
+      "fontEncodeMs": 0,
+      "fontBase64Bytes": 0,
+      "measure": {
+        "stableCalls": 0,
+        "reusedStableCalls": 0,
+        "passes": 0,
+        "variantMeasurements": 0,
+        "totalMs": 0,
+        "p50": null,
+        "p95": null,
+        "max": null,
+        "fontWaitMs": 0,
+        "layoutMs": 0,
+        "rootMs": 0,
+        "distinctKeys": 0,
+        "duplicatePasses": 0,
+        "degradedUnits": 0,
+        "faultInjected": false
+      },
+      "raster": {
+        "batches": 0,
+        "bands": 0,
+        "units": 0,
+        "svgBuildMs": 0,
+        "svgChars": 0,
+        "assertMs": 0,
+        "srcAssignMs": 0,
+        "decodeMs": 0,
+        "sheetDrawMs": 0,
+        "drawImageMs": 0,
+        "registerMs": 0,
+        "totalMs": 0,
+        "prefetchedBatches": 0,
+        "prefetchMs": 0
+      }
+    },
+    "previewEvery": 30,
+    "previewFrames": 10,
+    "previewDisabledReason": null,
+    "platform": "darwin",
+    "chromium": "142.0.7444.265",
+    "devices": [
+      {
+        "vendor_id": 4203,
+        "device_id": 0,
+        "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+        "active": true,
+        "gpu_preference": 0
+      }
+    ]
+  },
+  "domLayer": {
+    "runs": 0,
+    "overlays": 0,
+    "policy": null,
+    "flags": [
+      "--enable-features=CanvasDrawElement",
+      "--disable-gpu-vsync",
+      "--disable-frame-rate-limit"
+    ],
+    "api": {
+      "drawElementImage": null,
+      "devicePixelRatio": 1,
+      "available": null,
+      "settlePolicy": null
+    },
+    "cost": {
+      "p50": null,
+      "p95": null,
+      "breakdown": {
+        "timeFixMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "waitMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "drawElementMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "uploadMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "domLayerCostMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        },
+        "frameCostMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null
+        }
+      }
+    },
+    "sentinel": {
+      "checked": false,
+      "mode": "disabled",
+      "tolerance": 8,
+      "requested": 0,
+      "matched": 0,
+      "mismatchCount": 0,
+      "mismatches": []
+    },
+    "preserve3dOrderConflicts": []
+  },
+  "three": {
+    "overlays": [],
+    "sampling": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "composite": null
+  },
+  "mux": {
+    "method": "incremental-mp4",
+    "samples": 300,
+    "bytes": 4496087,
+    "outputPath": "<TMP>/after/4k-pip-out1080/.akari/render-tmp/2026-09-11T01-01-32-400Z-7648-wz4jlg/composite.mp4.gpu-video.mp4",
+    "timescale": 30,
+    "trackDuration": 300,
+    "moovOffset": 32,
+    "mdatOffset": 1051016,
+    "reservedBytes": 1050984,
+    "moovBytes": 1851,
+    "codec": "h264",
+    "ffprobe": {
+      "matched": true,
+      "checks": {
+        "frames": true,
+        "duration": true,
+        "dimensions": true,
+        "codec": true
+      },
+      "expected": {
+        "frames": 300,
+        "fps": 30,
+        "width": 1920,
+        "height": 1080,
+        "duration": 10
+      },
+      "measured": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "profile": "High",
+            "codec_type": "video",
+            "width": 1920,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "r_frame_rate": "30/1",
+            "duration": "10.000000",
+            "nb_read_frames": "300"
+          }
+        ],
+        "format": {
+          "duration": "10.000000"
+        }
+      }
+    }
+  },
+  "eligibility": {
+    "eligible": true,
+    "entries": [],
+    "summary": {
+      "same": 0,
+      "three": 0,
+      "dom": 0,
+      "degraded": 0,
+      "unsupported": 0
+    }
+  },
+  "warnings": [],
+  "mode": "gpu",
+  "width": 1920,
+  "height": 1080,
+  "output_scale": {
+    "from": [
+      1920,
+      1080
+    ],
+    "to": [
+      1920,
+      1080
+    ],
+    "mode": "none"
+  },
+  "codec": "h264",
+  "fps": 30,
+  "duration": 10,
+  "preview": {
+    "mode": "auto",
+    "frames": 10
+  },
+  "memory": {
+    "profile": "gpu",
+    "warningBytes": 3221225472,
+    "hardStopBytes": 4294967296,
+    "workerBudgetBytes": 4294967296,
+    "budgetScale": 1,
+    "machineFloor": true,
+    "machineCapped": false,
+    "totalMemoryBytes": 17179869184,
+    "peakBytes": 336822272,
+    "warningExceeded": false,
+    "hardStopExceeded": false,
+    "samples": [
+      {
+        "elapsedMs": 0,
+        "phase": "start",
+        "rssBytes": 256999424
+      },
+      {
+        "elapsedMs": 6971,
+        "phase": "afterDestroy",
+        "rssBytes": 336822272
+      }
+    ],
+    "warnings": [],
+    "decoderSessions": {
+      "live": 2,
+      "released": 0
+    }
+  },
+  "viewport": {
+    "requested": {
+      "width": 1920,
+      "height": 1080
+    },
+    "measured": {
+      "width": 1920,
+      "height": 1080
+    },
+    "emulated": false,
+    "display": {
+      "width": 1680,
+      "height": 1050
+    }
+  },
+  "ffprobe": {
+    "matched": true,
+    "checks": {
+      "frames": true,
+      "duration": true,
+      "dimensions": true,
+      "codec": true
+    },
+    "expected": {
+      "frames": 300,
+      "fps": 30,
+      "width": 1920,
+      "height": 1080,
+      "duration": 10
+    },
+    "measured": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "profile": "High",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "r_frame_rate": "30/1",
+          "duration": "10.000000",
+          "nb_read_frames": "300"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  },
+  "audio": {
+    "mode": "copy",
+    "source": "cut-audio.mp4",
+    "source_has_audio": true
+  },
+  "finalVerify": {
+    "matched": true,
+    "checks": {
+      "frames": true,
+      "duration": true,
+      "dimensions": true,
+      "codec": true,
+      "audioPresence": true,
+      "audioDuration": true,
+      "avTermination": true
+    },
+    "expected": {
+      "frames": 300,
+      "fps": 30,
+      "width": 1920,
+      "height": 1080,
+      "duration": 10,
+      "requireAudio": true,
+      "audioPacketSeconds": 0.021333333333333333,
+      "audioMaxDuration": 10.035333333333334
+    },
+    "measured": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "profile": "High",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "r_frame_rate": "30/1",
+          "duration": "10.000000",
+          "nb_read_frames": "300"
+        },
+        {
+          "codec_name": "aac",
+          "profile": "LC",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "r_frame_rate": "0/0",
+          "duration": "10.000000",
+          "nb_read_frames": "469"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    },
+    "avTermination": {
+      "matched": true,
+      "deltaSeconds": 0,
+      "toleranceSeconds": 0.03333333333333333,
+      "videoDuration": 10,
+      "audioDuration": 10
+    }
+  }
+}

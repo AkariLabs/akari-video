@@ -33,6 +33,9 @@ export interface ClipSessionOptions {
   decoderErrorGraceMs?: number;
   hardwareAcceleration?: HardwarePreference;
   codecSupport?: CodecSupport | null;
+  prefetch?: boolean;
+  prefetchAheadFrames?: number;
+  prefetchBudgetBytes?: number;
   onWarning?: (message: string) => void;
   onDecoderDegraded?: () => void;
   onCodecSupport?: (support: CodecSupport) => void;
@@ -154,6 +157,9 @@ export class ClipSession implements NativeFrameSource {
     decoderErrorGraceMs: number;
     hardwareAcceleration?: HardwarePreference;
     codecSupport?: CodecSupport | null;
+    prefetch?: boolean;
+    prefetchAheadFrames?: number;
+    prefetchBudgetBytes?: number;
     onWarning?: (message: string) => void;
     onDecoderDegraded?: () => void;
     onCodecSupport?: (support: CodecSupport) => void;
@@ -175,6 +181,9 @@ export class ClipSession implements NativeFrameSource {
       decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1_000,
       hardwareAcceleration: options.hardwareAcceleration,
       codecSupport: options.codecSupport,
+      prefetch: options.prefetch,
+      prefetchAheadFrames: options.prefetchAheadFrames,
+      prefetchBudgetBytes: options.prefetchBudgetBytes,
       onWarning: options.onWarning,
       onDecoderDegraded: options.onDecoderDegraded,
       onCodecSupport: options.onCodecSupport,
@@ -371,6 +380,9 @@ export class ClipSession implements NativeFrameSource {
       decodeTimeoutMs: this.options.tickTimeoutMs,
       hardwareAcceleration: this.options.hardwareAcceleration,
       codecSupport: this.options.codecSupport ?? this.learnedSupport,
+      prefetch: this.options.prefetch,
+      prefetchAheadFrames: this.options.prefetchAheadFrames,
+      prefetchBudgetBytes: this.options.prefetchBudgetBytes,
       onWarning: this.options.onWarning,
       onCodecSupport: support => {
         this.learnedSupport = support;
@@ -613,7 +625,7 @@ export class ClipSession implements NativeFrameSource {
   }
 
   getRangeFetchStats(): RangeFetchStats | null {
-    return this.range?.stats ?? null;
+    return (this.range ?? this.preparedRange)?.stats ?? null;
   }
 
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */

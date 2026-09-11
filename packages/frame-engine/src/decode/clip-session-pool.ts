@@ -1,6 +1,7 @@
 import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
 import { ClipSession, type ClipSessionOptions } from './clip-session.js';
 import type { CodecSupport } from './codec-probe.js';
+import type { RangeFetchStats } from './range-mp4-source.js';
 import { watchDecoderErrors } from './guard.js';
 
 /**
@@ -67,6 +68,10 @@ export class ClipSessionPool implements NativeFrameSource {
 
   codecSupport(): CodecSupport | null {
     return this.learnedCodecSupport;
+  }
+
+  rangeFetchStats(): RangeFetchStats | null {
+    return this.base?.getRangeFetchStats() ?? null;
   }
 
   destroy(): void {
