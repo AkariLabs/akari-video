@@ -1,0 +1,640 @@
+{
+  "analyzedAt": "2026-09-11T13:13:43.713Z",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.3.0",
+    "cpus": 8,
+    "model": "Apple M1",
+    "memGb": 16,
+    "loadAvgAtStart": [
+      6.04,
+      11.09,
+      29.89
+    ]
+  },
+  "electron": {
+    "version": "39.8.7"
+  },
+  "page": {
+    "sampleRate": 48000,
+    "baseLatency": 0.005333333333333333,
+    "outputLatency": 0.034,
+    "state": "running",
+    "tapped": true,
+    "videoSrc": "http://127.0.0.1:58545/assets/main.mp4",
+    "videoDuration": 60.000363,
+    "videoReadyState": 4,
+    "videoVolume": 1,
+    "videoMuted": false,
+    "bgmDuration": null,
+    "bgmChannels": null,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+    "hasAudioDecoder": true,
+    "scrubMode": "on",
+    "scrubEnabled": true,
+    "scrubActive": true,
+    "scrubLastError": null,
+    "scrubApi": [
+      "active",
+      "context",
+      "enabled",
+      "fragmentMs",
+      "lastError",
+      "mode",
+      "onPlaybackPaused",
+      "onSeek",
+      "prepare",
+      "stop"
+    ],
+    "devicePixelRatio": 2,
+    "innerSize": [
+      1280,
+      768
+    ]
+  },
+  "tickHz": 30,
+  "fragmentMs": 40,
+  "fixture": {
+    "kind": "real",
+    "ffprobe": {
+      "streams": [
+        {
+          "codec_type": "video",
+          "codec_name": "h264",
+          "profile": "High",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "duration": "60.000000",
+          "bit_rate": "4102413"
+        },
+        {
+          "codec_type": "audio",
+          "codec_name": "aac",
+          "profile": "LC",
+          "r_frame_rate": "0/0",
+          "sample_rate": "44100",
+          "channels": 2,
+          "duration": "60.000363",
+          "bit_rate": "151164"
+        }
+      ],
+      "format": {
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "duration": "60.000363",
+        "size": "31967692"
+      }
+    },
+    "original": {
+      "streams": [
+        {
+          "codec_type": "video",
+          "codec_name": "hevc",
+          "profile": "Main 10",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1"
+        },
+        {
+          "codec_type": "audio",
+          "codec_name": "aac",
+          "profile": "LC",
+          "r_frame_rate": "0/0",
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "durationSec": 1494.111202
+    },
+    "mainTableHz": null,
+    "bgmTableHz": null,
+    "commands": [
+      {
+        "label": "real (first 60 s; video → 1080p30 H.264; audio -c:a copy)",
+        "command": "ffmpeg -hide_banner -loglevel error -y -ss 0 -t 60 -i <REAL-DIR>/<REAL-FILE> -map 0:v:0 -map 0:a:0 -vf scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30 -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -g 30 -c:a copy -movflags +faststart <TMP>/project/assets/main.mp4"
+      }
+    ],
+    "edit": {
+      "version": 2,
+      "output": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 30
+      },
+      "sources": [
+        {
+          "id": "main",
+          "path": "assets/main.mp4",
+          "proxy": null
+        }
+      ],
+      "tracks": [
+        {
+          "id": "visual-main",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "cut-main",
+              "at": 0,
+              "duration": 1800,
+              "source": {
+                "kind": "media",
+                "src": "main",
+                "in": 0,
+                "out": 60.000363
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "networkAtOpen": {
+    "total": 53,
+    "mediaRange": 19,
+    "mediaRangeFetch": 3,
+    "mediaRangeMediaElement": 16,
+    "mediaFull": 0,
+    "moovFetch": 1,
+    "previewAudioApi": 0,
+    "sidecarPcm": 0,
+    "other": 34
+  },
+  "idleSuspend": null,
+  "method": {
+    "window": 1024,
+    "hop": 240,
+    "fftN": 8192,
+    "confirmWindowSec": 0.3,
+    "staleLookbackSec": 0.25,
+    "silenceRms": 0.01,
+    "clickDelta": 0.2,
+    "mainAmpThreshold": 0.08,
+    "bgmAmpThreshold": 0.06
+  },
+  "projectCache": {
+    "dir": "<TMP>/project/.akari/cache",
+    "entries": [
+      {
+        "file": "preview-audio",
+        "bytes": 128
+      },
+      {
+        "file": "preview-audio/c1609ad5fbe8f7326121864139a5c15dd273f665.flac",
+        "bytes": 4973765
+      },
+      {
+        "file": "preview-audio/c1609ad5fbe8f7326121864139a5c15dd273f665.json",
+        "bytes": 255
+      }
+    ]
+  },
+  "cleanup": {
+    "electronPid": 62674,
+    "electronExitCode": 0,
+    "electronSignal": null,
+    "survivingElectronProcesses": 0,
+    "survivingElectronMainScript": 0,
+    "survivingShellBackend": 0,
+    "survivingPreviewServer": 0
+  },
+  "networkAll": {
+    "summary": {
+      "total": 863,
+      "mediaRange": 829,
+      "mediaRangeFetch": 791,
+      "mediaRangeMediaElement": 38,
+      "mediaFull": 0,
+      "moovFetch": 1,
+      "previewAudioApi": 0,
+      "sidecarPcm": 0,
+      "other": 34
+    },
+    "byPath": [
+      [
+        "GET /assets/main.mp4 [Range] (Fetch)",
+        791
+      ],
+      [
+        "GET /assets/main.mp4 [Range] (Media)",
+        38
+      ],
+      [
+        "GET / (Document)",
+        1
+      ],
+      [
+        "GET /overlay-interaction.css (Stylesheet)",
+        1
+      ],
+      [
+        "GET /overlay-motion-vocab.css (Stylesheet)",
+        1
+      ],
+      [
+        "GET /style.css (Stylesheet)",
+        1
+      ],
+      [
+        "GET /budoux-ja-bundle.js (Script)",
+        1
+      ],
+      [
+        "GET /text-split.js (Script)",
+        1
+      ],
+      [
+        "GET /overlay-interaction.bundle.js (Script)",
+        1
+      ],
+      [
+        "GET /video-fx.js (Script)",
+        1
+      ],
+      [
+        "GET /viewport-units.js (Script)",
+        1
+      ],
+      [
+        "GET /slot-params.js (Script)",
+        1
+      ],
+      [
+        "GET /app.js (Script)",
+        1
+      ],
+      [
+        "GET /assets/fonts/akari-noto-sans-jp.ttf (Font)",
+        1
+      ],
+      [
+        "GET /edit-kernel.bundle.js (Script)",
+        1
+      ],
+      [
+        "GET /pen-visuals.bundle.js (Script)",
+        1
+      ],
+      [
+        "GET /caption-style.js (Script)",
+        1
+      ],
+      [
+        "GET /framing-visual.js (Script)",
+        1
+      ],
+      [
+        "GET /cut-transform-visual.js (Script)",
+        1
+      ],
+      [
+        "GET /layer-perspective-visual.js (Script)",
+        1
+      ],
+      [
+        "GET /layer-crop-anchor.js (Script)",
+        1
+      ],
+      [
+        "GET /layer-keyframes-visual.js (Script)",
+        1
+      ],
+      [
+        "GET /cut-fx.js (Script)",
+        1
+      ],
+      [
+        "GET /layer-lazy-load.js (Script)",
+        1
+      ],
+      [
+        "GET /media-playback-resume.js (Script)",
+        1
+      ],
+      [
+        "GET /media-time-sync.js (Script)",
+        1
+      ],
+      [
+        "GET /audio-declick.js (Script)",
+        1
+      ],
+      [
+        "GET /audio-scrub.js (Script)",
+        1
+      ],
+      [
+        "GET /transition-write-guard.js (Script)",
+        1
+      ],
+      [
+        "GET /audio-clip.js (Script)",
+        1
+      ],
+      [
+        "GET /transition-visual.js (Script)",
+        1
+      ],
+      [
+        "GET /mp4-audio-track.js (Script)",
+        1
+      ],
+      [
+        "GET /api/timeline (Fetch)",
+        1
+      ],
+      [
+        "GET /api/summary (Fetch)",
+        1
+      ],
+      [
+        "GET /api/captions.json (Fetch)",
+        1
+      ],
+      [
+        "GET /runtimes.json (Fetch)",
+        1
+      ]
+    ],
+    "moovFetches": [
+      {
+        "at": 16589.1,
+        "path": "/assets/main.mp4",
+        "range": "bytes=32-65837"
+      }
+    ]
+  },
+  "failedRuns": [],
+  "runs": [
+    {
+      "id": "real-off-r",
+      "mode": "off",
+      "pattern": "r",
+      "label": "real footage slow drag: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "real-off-r.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 300,
+      "played": 0,
+      "skipped": 300,
+      "skippedReasons": {
+        "superseded-or-skipped": 300
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 0.1,
+        "gaps": 0,
+        "peak": 0,
+        "rms": 0,
+        "stateAtEnd": "suspended"
+      },
+      "isReal": true,
+      "lastError": null,
+      "pitch": null,
+      "fragment": {
+        "n": 0,
+        "durationP50Ms": null,
+        "durationMinMs": null,
+        "windowP50Ms": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": null,
+        "gaps10ms": 0,
+        "clicks": 0,
+        "maxSampleDelta": 0,
+        "clicksInSource": 0,
+        "artifactClicks": 0,
+        "clickDetails": []
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 1.2,
+          "psMax": 4.5,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 1.2,
+          "psMax": 1.4,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 18.7,
+          "psMax": 21,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 0.5,
+          "psMax": 1.2,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 22.4,
+          "psMax": 25.6,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.4,
+          "psMax": 0.6,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 15,
+        "mediaRange": 15,
+        "mediaRangeFetch": 0,
+        "mediaRangeMediaElement": 15,
+        "mediaFull": 0,
+        "moovFetch": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "real-on-r",
+      "mode": "on",
+      "pattern": "r",
+      "label": "real footage slow drag: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "real-on-r.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 300,
+      "played": 300,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 10,
+        "gaps": 0,
+        "peak": 0.738,
+        "rms": 0.083,
+        "stateAtEnd": "running"
+      },
+      "isReal": true,
+      "lastError": null,
+      "pitch": null,
+      "fragment": {
+        "n": 300,
+        "durationP50Ms": 40,
+        "durationMinMs": 40,
+        "windowP50Ms": 162.5
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 300,
+          "p50": 10.3,
+          "p95": 15.7
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 31.1,
+        "gaps10ms": 30,
+        "clicks": 3,
+        "maxSampleDelta": 0.222,
+        "clicksInSource": 3,
+        "artifactClicks": 0,
+        "clickDetails": [
+          {
+            "t": 9.26102,
+            "delta": 0.21,
+            "sourceSec": 12.15735,
+            "sinceStartMs": 24.02,
+            "sourceLocalMaxDelta": 0.245,
+            "inSource": true
+          },
+          {
+            "t": 9.59381,
+            "delta": 0.222,
+            "sourceSec": 12.82081,
+            "sinceStartMs": 20.81,
+            "sourceLocalMaxDelta": 0.235,
+            "inSource": true
+          },
+          {
+            "t": 9.59406,
+            "delta": 0.214,
+            "sourceSec": 12.82106,
+            "sinceStartMs": 21.06,
+            "sourceLocalMaxDelta": 0.235,
+            "inSource": true
+          }
+        ]
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 5.2,
+          "psMax": 9.4,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 7.1,
+          "psMax": 8,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 19.4,
+          "psMax": 21.8,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 9.9,
+          "psMax": 11.6,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 32.4,
+          "psMax": 34.8,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.9,
+          "psMax": 0.8,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 795,
+        "mediaRange": 795,
+        "mediaRangeFetch": 788,
+        "mediaRangeMediaElement": 7,
+        "mediaFull": 0,
+        "moovFetch": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    }
+  ]
+}

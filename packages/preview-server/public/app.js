@@ -2082,15 +2082,21 @@ function setupAudioGraph() {
         audioContext: audioCtx,
         video,
         getBgm: () => ({ node: bgmNode, spec: summary?.audio?.bgm }),
-        getMainGain: () => baseAudioDeClickGain,
       });
-      const scrubMode = new URLSearchParams(location.search).get('scrubAudio');
-      if (['A', 'B', 'C'].includes(scrubMode)) scrubAudio.mode = scrubMode;
+      const flag = new URLSearchParams(location.search).get('scrubAudio');
+      if (flag === '0') scrubAudio.enabled = false;
+      else if (flag === '1') scrubAudio.enabled = true;
       window.akari.scrubAudio = scrubAudio;
     } catch (error) {
       console.warn('[preview] base audio graph setup failed', error);
     }
   }
+
+  const scrubSources = [...new Set(segments
+    .filter(seg => !seg.isGap && seg.index >= 0 && !isStillImageCutSegment(seg))
+    .map(seg => getVideoSource(seg.index))
+    .filter(Boolean))];
+  void scrubAudio?.prepare(scrubSources);
 
   const audio = summary?.audio;
   if (!audio) return;
@@ -2727,7 +2733,10 @@ function finishPausingPlayback() {
   for (const n of [...narrationNodes, ...sfxNodes]) {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
   }
-  if (audioCtx?.state === 'running' && !scrubAudio?.active) audioCtx.suspend();
+  if (audioCtx?.state === 'running') {
+    if (scrubAudio?.active) scrubAudio.onPlaybackPaused();
+    else audioCtx.suspend();
+  }
   if (!frameEngineEnabled) {
     transitionVideo.pause();
     for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
@@ -4594,7 +4603,10 @@ function connectWs() {
   ws.onmessage = (e) => {
     try {
       const m = JSON.parse(e.data);
-      if (m.type === 'scrub-audio-mode' && scrubAudio) { scrubAudio.mode = m.mode; return; }
+      if (m.type === 'scrub-audio-mode' && scrubAudio) {
+        scrubAudio.enabled = Boolean(m.enabled);
+        return;
+      }
       if (m.type === 'preview-audio') {
         if (!frameEngineEnabled) return;
         updateAudioStatus();

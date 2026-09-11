@@ -1,144 +1,97 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  Mp4AudioTrack,
-  createScrubAudioController,
-  parseMp4AudioTrack,
-  resolveBgmOffset,
-} from '../public/audio-scrub.js';
+import { createScrubAudioController, resolveBgmOffset, SCRUB_MODES } from '../public/audio-scrub.js';
 
 function concat(...parts) {
-  const size = parts.reduce((sum, part) => sum + part.byteLength, 0);
-  const result = new Uint8Array(size);
+  const result = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
   let offset = 0;
   for (const part of parts) { result.set(part, offset); offset += part.byteLength; }
   return result;
 }
-
-function bytes(...values) { return Uint8Array.from(values); }
-function ascii(value) { return Uint8Array.from(value, character => character.charCodeAt(0)); }
-function u16(value) { return bytes(value >>> 8, value); }
-function u32(value) { return bytes(value >>> 24, value >>> 16, value >>> 8, value); }
+const bytes = (...values) => Uint8Array.from(values);
+const ascii = value => Uint8Array.from(value, character => character.charCodeAt(0));
+const u16 = value => bytes(value >>> 8, value);
+const u32 = value => bytes(value >>> 24, value >>> 16, value >>> 8, value);
 function box(type, ...payload) {
   const body = concat(...payload);
   return concat(u32(body.byteLength + 8), ascii(type), body);
 }
-function fullBox(type, ...payload) { return box(type, bytes(0, 0, 0, 0), ...payload); }
-function descriptor(tag, payload) { return concat(bytes(tag, payload.byteLength), payload); }
+const fullBox = (type, ...payload) => box(type, bytes(0, 0, 0, 0), ...payload);
+const descriptor = (tag, payload) => concat(bytes(tag, payload.byteLength), payload);
 
-function mp4Fixture() {
+function mp4Fixture({ editOffset = null, codec = 'mp4a', splitChunks = false } = {}) {
   const ftyp = box('ftyp', ascii('isom'), u32(0));
-  const media = bytes(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-  const mdat = box('mdat', media);
+  const media = splitChunks
+    ? concat(bytes(...Array.from({ length: 16 }, (_, index) => index + 1)), bytes(0, 0, 0, 0),
+      bytes(...Array.from({ length: 16 }, (_, index) => index + 17)))
+    : bytes(...Array.from({ length: 32 }, (_, index) => index + 1));
   const mediaOffset = ftyp.byteLength + 8;
-  const asc = bytes(0x11, 0x90); // AAC-LC / 48kHz / stereo
+  const mdat = box('mdat', media);
+  const asc = bytes(0x11, 0x90);
   const esdsPayload = descriptor(0x03, concat(
-    u16(1), bytes(0),
-    descriptor(0x04, concat(bytes(0x40, 0x15), u32(0), u32(0), u32(0), descriptor(0x05, asc)))
+    u16(1), bytes(0), descriptor(0x04, concat(
+      bytes(0x40, 0x15), u32(0), u32(0), u32(0), descriptor(0x05, asc),
+    )),
   ));
-  const esds = fullBox('esds', esdsPayload);
-  const mp4a = box('mp4a',
+  const entry = box(codec,
     bytes(0, 0, 0, 0, 0, 0), u16(1),
     u32(0), u32(0), u16(2), u16(16), u16(0), u16(0), u32(48000 << 16),
-    esds
+    ...(codec === 'mp4a' ? [fullBox('esds', esdsPayload)] : []),
   );
-  const stsd = fullBox('stsd', u32(1), mp4a);
-  const stts = fullBox('stts', u32(1), u32(3), u32(1024));
-  const stsc = fullBox('stsc', u32(1), u32(1), u32(3), u32(1));
-  const stsz = fullBox('stsz', u32(0), u32(3), u32(4), u32(4), u32(4));
-  const stco = fullBox('stco', u32(1), u32(mediaOffset));
+  const stsd = fullBox('stsd', u32(1), entry);
+  const stts = fullBox('stts', u32(1), u32(8), u32(1024));
+  const stsc = fullBox('stsc', u32(1), u32(1), u32(splitChunks ? 4 : 8), u32(1));
+  const stsz = fullBox('stsz', u32(0), u32(8), ...Array(8).fill(u32(4)));
+  const chunkOffsets = splitChunks ? [mediaOffset, mediaOffset + 20] : [mediaOffset];
+  const stco = fullBox('stco', u32(chunkOffsets.length), ...chunkOffsets.map(u32));
   const stbl = box('stbl', stsd, stts, stsc, stsz, stco);
-  const minf = box('minf', stbl);
-  const mdhd = fullBox('mdhd', u32(0), u32(0), u32(48000), u32(3072), u16(0), u16(0));
+  const mdhd = fullBox('mdhd', u32(0), u32(0), u32(48000), u32(8192), u16(0), u16(0));
   const hdlr = fullBox('hdlr', u32(0), ascii('soun'), new Uint8Array(12), bytes(0));
-  const mdia = box('mdia', mdhd, hdlr, minf);
-  const trak = box('trak', fullBox('tkhd', u32(0)), mdia);
-  const moov = box('moov', fullBox('mvhd', u32(0)), trak);
-  return { file: concat(ftyp, mdat, moov), moov, mediaOffset };
+  const edts = editOffset === null ? new Uint8Array() : box('edts', fullBox(
+    'elst', u32(1), u32(1000), u32(editOffset), u16(1), u16(0),
+  ));
+  const trak = box('trak', fullBox('tkhd', u32(0)), edts, box('mdia', mdhd, hdlr, box('minf', stbl)));
+  const mvhd = fullBox('mvhd', u32(0), u32(0), u32(1000), u32(1000));
+  const moov = box('moov', mvhd, trak);
+  return { file: concat(ftyp, mdat, moov), mediaOffset, secondChunkOffset: chunkOffsets[1] };
 }
 
-function rangeFetch(file, calls) {
+function rangeFetch(file, calls = [], gate = null, failPackets = false) {
   return async (_src, options) => {
     const match = /^bytes=(\d+)-(\d+)$/.exec(options.headers.Range);
-    assert.ok(match, `missing byte range: ${options.headers.Range}`);
+    assert.ok(match);
     const start = Number(match[1]);
-    const requestedEnd = Number(match[2]);
-    const end = Math.min(file.byteLength - 1, requestedEnd);
+    if (gate && start === file.byteLength - gate.moovBytes) await gate.promise;
+    if (failPackets && start < file.byteLength - gate.moovBytes && start >= gate.mediaOffset) throw new Error('packet fetch failed');
+    const end = Math.min(file.byteLength - 1, Number(match[2]));
     calls.push({ start, end });
     const chunk = file.slice(start, end + 1);
     return {
-      ok: true,
       status: 206,
-      headers: { get(name) { return name.toLowerCase() === 'content-range' ? `bytes ${start}-${end}/${file.byteLength}` : null; } },
-      async arrayBuffer() { return chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength); },
+      headers: { get: name => name.toLowerCase() === 'content-range' ? `bytes ${start}-${end}/${file.byteLength}` : null },
+      arrayBuffer: async () => chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength),
     };
   };
 }
 
-test('末尾 moov を Range 取得して AAC sample table を復元する', async () => {
-  const fixture = mp4Fixture();
-  const calls = [];
-  let clock = 10;
-  const track = new Mp4AudioTrack({
-    src: '/source.mp4',
-    fetchFn: rangeFetch(fixture.file, calls),
-    now: () => ++clock,
-  });
-  await track.open();
-
-  assert.equal(track.moovBytes, fixture.moov.byteLength);
-  assert.ok(calls.some(call => call.start === fixture.file.byteLength - fixture.moov.byteLength));
-  assert.equal(track.info.codec, 'mp4a.40.2');
-  assert.equal(track.info.sampleRate, 48000);
-  assert.equal(track.info.numberOfChannels, 2);
-  assert.deepEqual(Array.from(track.info.description), [0x11, 0x90]);
-  assert.deepEqual(track.info.samples, [
-    { index: 0, offset: fixture.mediaOffset, size: 4, dts: 0, duration: 1024 },
-    { index: 1, offset: fixture.mediaOffset + 4, size: 4, dts: 1024, duration: 1024 },
-    { index: 2, offset: fixture.mediaOffset + 8, size: 4, dts: 2048, duration: 1024 },
-  ]);
-
-  const window = track.packetsAround(1024 / 48000, 3);
-  assert.deepEqual(window.packets.map(packet => packet.index), [0, 1, 2]);
-  assert.deepEqual(window.ranges, [{ start: fixture.mediaOffset, end: fixture.mediaOffset + 11 }]);
-  assert.equal(window.windowStartSec, 0);
-  assert.equal(window.windowEndSec, 3072 / 48000);
-});
-
-test('moov 単体の parser も codec と時刻・offset を返す', () => {
-  const fixture = mp4Fixture();
-  const info = parseMp4AudioTrack(fixture.moov);
-  assert.equal(info.timescale, 48000);
-  assert.equal(info.samples[1].dts, 1024);
-  assert.equal(info.samples[1].offset, fixture.mediaOffset + 4);
-});
-
-test('BGM offset は t/in を反映し、loop と範囲外を区別する', () => {
-  assert.equal(resolveBgmOffset(8, { t: 5, in: 2, loop: false }, 10), 5);
-  assert.equal(resolveBgmOffset(15, { t: 5, in: 2, loop: true }, 10), 2);
-  assert.equal(resolveBgmOffset(15, { t: 5, in: 2, loop: false }, 10), null);
-  assert.equal(resolveBgmOffset(2, { t: 5, in: 1, loop: false }, 10), null);
-});
-
-function gainParam({ cancelAndHold = true, events = null } = {}) {
+function gainParam(cancelAndHold = true) {
   const param = {
-    value: 1,
+    _value: 1,
     calls: [],
-    cancelScheduledValues(at) { this.calls.push(['cancelScheduledValues', at]); events?.push(['cancelScheduledValues', at]); },
-    setValueAtTime(value, at) { this.value = value; this.calls.push(['setValueAtTime', value, at]); events?.push(['setValueAtTime', value, at]); },
-    linearRampToValueAtTime(value, at) { this.value = value; this.calls.push(['linearRampToValueAtTime', value, at]); events?.push(['linearRampToValueAtTime', value, at]); },
+    cancelScheduledValues(at) { this.calls.push(['cancelScheduledValues', at]); },
+    setValueAtTime(value, at) { this._value = value; this.calls.push(['setValueAtTime', value, at]); },
+    linearRampToValueAtTime(value, at) { this._value = value; this.calls.push(['linearRampToValueAtTime', value, at]); },
   };
-  if (cancelAndHold) {
-    param.cancelAndHoldAtTime = function (at) {
-      this.calls.push(['cancelAndHoldAtTime', at]);
-      events?.push(['cancelAndHoldAtTime', at]);
-    };
-  }
+  Object.defineProperty(param, 'value', {
+    get() { return this._value; },
+    set(value) { this._value = value; this.calls.push(['value', value]); },
+  });
+  if (cancelAndHold) param.cancelAndHoldAtTime = function (at) { this.calls.push(['cancelAndHoldAtTime', at]); };
   return param;
 }
 
-function fakeAudioContext(options = {}) {
+function fakeAudioContext({ cancelAndHold = true } = {}) {
   const sources = [];
   const gains = [];
   const context = {
@@ -146,17 +99,18 @@ function fakeAudioContext(options = {}) {
     state: 'suspended',
     destination: { name: 'destination' },
     resumeCalls: 0,
+    suspendCalls: 0,
     async resume() { this.resumeCalls++; this.state = 'running'; },
-    createMediaElementSource() { return { connect() {} }; },
+    async suspend() { this.suspendCalls++; this.state = 'suspended'; },
     createGain() {
-      const gain = { gain: gainParam(options), connect() {} };
+      const gain = { gain: gainParam(cancelAndHold), destinations: [], connect(node) { this.destinations.push(node); } };
       gains.push(gain);
       return gain;
     },
     createBufferSource() {
       const source = {
-        starts: [], stops: [],
-        connect() {},
+        starts: [], stops: [], destinations: [],
+        connect(node) { this.destinations.push(node); },
         start(...args) { this.starts.push(args); },
         stop(...args) { this.stops.push(args); },
       };
@@ -165,546 +119,410 @@ function fakeAudioContext(options = {}) {
     },
     createBuffer(channels, frames, sampleRate) {
       const planes = Array.from({ length: channels }, () => new Float32Array(frames));
-      return {
-        duration: frames / sampleRate,
-        getChannelData(channel) { return planes[channel]; },
-      };
+      return { duration: frames / sampleRate, getChannelData: channel => planes[channel] };
     },
   };
   return { context, sources, gains };
 }
 
-function fakeVideo(events = null) {
-  const video = new EventTarget();
-  Object.assign(video, {
-    currentTime: 0,
-    currentSrc: '/source.mp4',
-    src: '/source.mp4',
-    volume: 0.75,
-    paused: true,
-    playCalls: 0,
-    pauseCalls: 0,
-    async play() { this.playCalls++; this.paused = false; events?.push(['play']); },
-    pause() { this.pauseCalls++; this.paused = true; events?.push(['pause']); },
-  });
-  return video;
-}
-
-async function settle() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-test('off は seek 時に context・BGM・fetch・decoderへ触らない', () => {
-  let nowCalls = 0;
-  let bgmCalls = 0;
-  let fetchCalls = 0;
-  const rawContext = {};
-  const context = new Proxy(rawContext, { get(target, key) { throw new Error(`context touched: ${String(key)}`); } });
-  const controller = createScrubAudioController({
-    audioContext: context,
-    video: {},
-    getBgm() { bgmCalls++; return {}; },
-    fetchFn() { fetchCalls++; },
-    now() { nowCalls++; return 0; },
-    AudioDecoderCtor: class { constructor() { throw new Error('decoder touched'); } },
-  });
-
-  controller.onSeek({ outputTime: 1, sourceTime: 1, src: '/source.mp4', isPlaying: false });
-  assert.equal(nowCalls, 0);
-  assert.equal(bgmCalls, 0);
-  assert.equal(fetchCalls, 0);
-  assert.equal(controller.stats().summary.count, 0);
-});
-
-test('通常再生中の seek は playing として記録して何も鳴らさない', () => {
-  const { context, sources } = fakeAudioContext();
-  const controller = createScrubAudioController({ audioContext: context, video: fakeVideo(), getBgm: () => ({}) });
-  controller.mode = 'A';
-  controller.onSeek({ outputTime: 1, sourceTime: 1, src: '/source.mp4', isPlaying: true });
-  assert.equal(controller.stats().seeks[0].skipped, 'playing');
-  assert.equal(context.resumeCalls, 0);
-  assert.equal(sources.length, 0);
-});
-
-test('A は seeked 後に本編と BGM 断片を鳴らし、次の seek では BGM だけを止める', async () => {
-  const { context, sources } = fakeAudioContext();
-  const video = fakeVideo();
-  const bgmNode = { _buffer: { duration: 10 }, name: 'bgm-gain' };
-  let clock = 100;
-  const controller = createScrubAudioController({
-    audioContext: context,
-    video,
-    getBgm: () => ({ node: bgmNode, spec: { t: 2, in: 1, loop: true } }),
-    now: () => ++clock,
-  });
-  controller.mode = 'A';
-  video.currentTime = 5;
-  controller.onSeek({ outputTime: 5, sourceTime: 5, src: '/source.mp4', isPlaying: false });
-  assert.equal(video.playCalls, 0);
-  video.dispatchEvent(new Event('seeked'));
-  video.dispatchEvent(new Event('playing'));
-  await settle();
-
-  assert.equal(context.resumeCalls, 1);
-  assert.equal(video.playCalls, 1);
-  assert.equal(sources.length, 1);
-  assert.deepEqual(sources[0].starts, [[3.005, 4, 0.04]]);
-  const first = controller.stats().seeks[0];
-  assert.equal(first.bgmOffsetSec, 4);
-  assert.equal(first.mainStartedCtxSec, 3);
-  assert.equal(first.skipped, null);
-
-  video.currentTime = 6;
-  controller.onSeek({ outputTime: 6, sourceTime: 6, src: '/source.mp4', isPlaying: false });
-  assert.equal(sources[0].stops.length, 1);
-  await new Promise(resolve => setTimeout(resolve, 15));
-  assert.equal(video.pauseCalls, 0);
-  video.dispatchEvent(new Event('seeked'));
-  await settle();
-  assert.equal(sources.length, 2);
-  assert.deepEqual(sources[1].starts, [[3.005, 5, 0.04]]);
-  assert.equal(controller.stats().summary.played, 2);
-});
-
-test('B は DOM に付けない audio を一つだけ作り、seeked 後に再生する', async () => {
-  const { context } = fakeAudioContext();
-  const video = fakeVideo();
-  const audio = fakeVideo();
-  audio.src = '';
-  audio.currentSrc = '';
-  let createCalls = 0;
-  const controller = createScrubAudioController({
-    audioContext: context,
-    video,
-    getBgm: () => ({}),
-    createAudioElement() { createCalls++; return audio; },
-  });
-  controller.mode = 'B';
-  controller.onSeek({ outputTime: 7, sourceTime: 7, src: '/source.mp4', isPlaying: false });
-  assert.equal(createCalls, 1);
-  assert.equal(audio.preload, 'auto');
-  assert.equal(audio.crossOrigin, 'anonymous');
-  assert.equal(audio.volume, video.volume);
-  audio.dispatchEvent(new Event('loadeddata'));
-  audio.dispatchEvent(new Event('seeked'));
-  await settle();
-  audio.dispatchEvent(new Event('playing'));
-  await settle();
-  assert.equal(audio.playCalls, 1);
-  assert.equal(controller.stats().summary.played, 1);
-
-  controller.onSeek({ outputTime: 8, sourceTime: 8, src: '/source.mp4', isPlaying: false });
-  assert.equal(createCalls, 1);
-});
-
-test('C は 5 ms 先を基準に fade in/out と start を予約する', async () => {
-  const fixture = mp4Fixture();
-  const { context, sources, gains } = fakeAudioContext();
-  class FakeChunk { constructor(init) { Object.assign(this, init); } }
-  class FakeDecoder {
-    static async isConfigSupported(config) { return { supported: true, config }; }
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
-    configure() { this.state = 'configured'; }
-    decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
-      for (const chunk of this.chunks.splice(0)) this.callbacks.output({
-        timestamp: chunk.timestamp, numberOfChannels: 1, numberOfFrames: 3072, sampleRate: 48000,
-        copyTo(target) { target.fill(0.1); }, close() {},
-      });
-    }
-    close() { this.state = 'closed'; }
+class FakeChunk { constructor(init) { Object.assign(this, init); } }
+class FakeDecoder {
+  static supportCalls = 0;
+  static supported = true;
+  static async isConfigSupported(config) {
+    this.supportCalls++;
+    return { supported: this.supported, config };
   }
-  const controller = createScrubAudioController({
-    audioContext: context,
-    video: {},
-    getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, []),
-    AudioDecoderCtor: FakeDecoder,
-    EncodedAudioChunkCtor: FakeChunk,
-  });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.01, sourceTime: 0.01, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1 && controller.stats().summary.errors === 0) {
+  constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
+  configure(config) { this.config = config; this.state = 'configured'; }
+  decode(chunk) { this.chunks.push(chunk); }
+  async flush() {
+    for (const chunk of this.chunks.splice(0)) this.callbacks.output({
+      timestamp: chunk.timestamp,
+      numberOfChannels: 2,
+      numberOfFrames: 1024,
+      sampleRate: 48000,
+      copyTo(target) { target.fill(0.25); },
+      close() {},
+    });
+  }
+  close() { this.state = 'closed'; }
+}
+
+async function until(predicate) {
+  for (let index = 0; index < 100; index++) {
+    if (predicate()) return;
     await new Promise(resolve => setImmediate(resolve));
   }
+  assert.fail('condition was not reached');
+}
 
-  assert.deepEqual(sources[0].starts, [[3.005, 0.01, 0.04]]);
-  assert.deepEqual(gains[0].gain.calls, [
+function controllerFixture(options = {}) {
+  const fixture = options.fixture ?? mp4Fixture();
+  const calls = [];
+  const audio = fakeAudioContext({ cancelAndHold: options.cancelAndHold });
+  const video = options.video ?? { volume: 0.75, muted: false };
+  const controller = createScrubAudioController({
+    audioContext: audio.context,
+    video,
+    getBgm: options.getBgm ?? (() => ({})),
+    fetchFn: options.fetchFn ?? rangeFetch(fixture.file, calls),
+    now: (() => { let value = 0; return () => ++value; })(),
+    AudioDecoderCtor: options.Decoder ?? FakeDecoder,
+    EncodedAudioChunkCtor: FakeChunk,
+    setTimeoutFn: options.setTimeoutFn ?? (() => 1),
+    clearTimeoutFn: options.clearTimeoutFn ?? (() => {}),
+    idleSuspendMs: options.idleSuspendMs,
+  });
+  return { fixture, calls, audio, video, controller };
+}
+
+async function prepareAndSeek(bundle, input = {}) {
+  await bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({ outputTime: 0.04, sourceTime: 0.04, src: '/source.mp4', isPlaying: false, ...input });
+  await until(() => bundle.audio.sources.length > 0 || bundle.controller.lastError);
+}
+
+test('公開 mode は off/on のみで既定 ON', () => {
+  const { controller } = controllerFixture();
+  assert.deepEqual(SCRUB_MODES, ['off', 'on']);
+  assert.equal(controller.enabled, true);
+  assert.equal(controller.mode, 'on');
+  controller.mode = 'off';
+  assert.equal(controller.active, false);
+  assert.throws(() => { controller.mode = 'C'; }, TypeError);
+});
+
+test('off の seek は依存へ一切触らない', () => {
+  const touched = name => new Proxy({}, { get() { throw new Error(`${name} touched`); } });
+  const controller = createScrubAudioController({
+    audioContext: touched('context'), video: touched('video'), getBgm() { throw new Error('BGM touched'); },
+    fetchFn() { throw new Error('fetch touched'); }, now() { throw new Error('now touched'); }, enabled: false,
+  });
+  controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/x', isPlaying: false });
+  assert.equal(controller.lastError, null);
+});
+
+test('通常再生中は鳴らさず resume しない', async () => {
+  const bundle = controllerFixture();
+  await bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: true });
+  assert.equal(bundle.audio.context.resumeCalls, 0);
+  assert.equal(bundle.audio.sources.length, 0);
+});
+
+test('5ms 先へ volume を頂点にした fade と断片を予約する', async () => {
+  const bundle = controllerFixture();
+  await prepareAndSeek(bundle);
+  const source = bundle.audio.sources[0];
+  const gain = bundle.audio.gains[0].gain;
+  assert.deepEqual(source.starts[0], [3.005, 0.04, 0.04]);
+  assert.deepEqual(gain.calls, [
+    ['value', 0],
     ['setValueAtTime', 0, 3.005],
-    ['linearRampToValueAtTime', 1, 3.01],
-    ['setValueAtTime', 1, 3.04],
+    ['linearRampToValueAtTime', 0.75, 3.01],
+    ['setValueAtTime', 0.75, 3.04],
     ['linearRampToValueAtTime', 0, 3.045],
   ]);
 });
 
-test('連続 C seek は hold 対応時に将来値を保持してから fade out と stop を予約する', async () => {
-  const fixture = mp4Fixture();
-  const { context, sources, gains } = fakeAudioContext();
-  class FakeChunk { constructor(init) { Object.assign(this, init); } }
-  class FakeDecoder {
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
-    configure() { this.state = 'configured'; }
-    decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
-      for (const chunk of this.chunks.splice(0)) this.callbacks.output({
-        timestamp: chunk.timestamp, numberOfChannels: 1, numberOfFrames: 3072, sampleRate: 48000,
-        copyTo() {}, close() {},
-      });
-    }
-    close() { this.state = 'closed'; }
-  }
-  const controller = createScrubAudioController({
-    audioContext: context, video: {}, getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, []), AudioDecoderCtor: FakeDecoder, EncodedAudioChunkCtor: FakeChunk,
+test('本編と BGM はどちらも automation より前に gain 既定値をゼロにする', async () => {
+  const bgmNode = { _buffer: { duration: 10 } };
+  const bundle = controllerFixture({
+    getBgm: () => ({ node: bgmNode, spec: { t: 0, in: 0, loop: true } }),
   });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.01, sourceTime: 0.01, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1) await new Promise(resolve => setImmediate(resolve));
-  context.currentTime = 3.015;
-  controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
-
-  assert.deepEqual(gains[0].gain.calls.slice(-3), [
-    ['cancelAndHoldAtTime', 3.02],
-    ['setValueAtTime', 1, 3.02],
-    ['linearRampToValueAtTime', 0, 3.025],
+  await prepareAndSeek(bundle);
+  assert.equal(bundle.audio.sources.length, 2);
+  assert.deepEqual(bundle.audio.gains.map(gain => gain.gain.calls.slice(0, 2)), [
+    [['value', 0], ['setValueAtTime', 0, 3.005]],
+    [['value', 0], ['setValueAtTime', 0, 3.005]],
   ]);
-  assert.deepEqual(sources[0].stops, [[3.025]]);
 });
 
-test('C は自然 fade out 開始後の連続 seek で停止イベントを追加しない', async () => {
-  const fixture = mp4Fixture();
-  const { context, sources, gains } = fakeAudioContext();
-  class FakeChunk { constructor(init) { Object.assign(this, init); } }
-  class FakeDecoder {
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
-    configure() { this.state = 'configured'; }
-    decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
-      for (const chunk of this.chunks.splice(0)) this.callbacks.output({
-        timestamp: chunk.timestamp, numberOfChannels: 1, numberOfFrames: 3072, sampleRate: 48000,
-        copyTo() {}, close() {},
-      });
-    }
-    close() { this.state = 'closed'; }
-  }
-  const controller = createScrubAudioController({
-    audioContext: context, video: {}, getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, []), AudioDecoderCtor: FakeDecoder, EncodedAudioChunkCtor: FakeChunk,
-  });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.01, sourceTime: 0.01, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1) await new Promise(resolve => setImmediate(resolve));
-  const callsBefore = gains[0].gain.calls.length;
-  context.currentTime = 3.038;
-  controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
-
-  assert.equal(gains[0].gain.calls.length, callsBefore);
-  assert.deepEqual(sources[0].stops, []);
+test('連続 seek は現在値をアンカーに fade stop する', async () => {
+  const bundle = controllerFixture();
+  await prepareAndSeek(bundle);
+  bundle.audio.context.currentTime = 3.015;
+  bundle.controller.onSeek({ outputTime: 0.05, sourceTime: 0.05, src: '/source.mp4', isPlaying: false });
+  assert.deepEqual(bundle.audio.gains[0].gain.calls.slice(-3), [
+    ['cancelAndHoldAtTime', 3.02], ['setValueAtTime', 0.75, 3.02], ['linearRampToValueAtTime', 0, 3.025],
+  ]);
+  assert.deepEqual(bundle.audio.sources[0].stops, [[3.025]]);
 });
 
-test('C は開始前に supersede された断片を startAt で止めて鳴らさない', async () => {
-  const fixture = mp4Fixture();
-  const { context, sources, gains } = fakeAudioContext();
-  class FakeChunk { constructor(init) { Object.assign(this, init); } }
-  class FakeDecoder {
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
-    configure() { this.state = 'configured'; }
-    decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
-      for (const chunk of this.chunks.splice(0)) this.callbacks.output({
-        timestamp: chunk.timestamp, numberOfChannels: 1, numberOfFrames: 3072, sampleRate: 48000,
-        copyTo() {}, close() {},
-      });
-    }
-    close() { this.state = 'closed'; }
-  }
-  const controller = createScrubAudioController({
-    audioContext: context, video: {}, getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, []), AudioDecoderCtor: FakeDecoder, EncodedAudioChunkCtor: FakeChunk,
-  });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.01, sourceTime: 0.01, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1) await new Promise(resolve => setImmediate(resolve));
-  controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
-
-  assert.deepEqual(gains[0].gain.calls.slice(-2), [
+test('開始前に supersede された断片は開始予定時刻で止める', async () => {
+  const bundle = controllerFixture();
+  await prepareAndSeek(bundle);
+  bundle.controller.onSeek({ outputTime: 0.05, sourceTime: 0.05, src: '/source.mp4', isPlaying: false });
+  assert.deepEqual(bundle.audio.gains[0].gain.calls.slice(-2), [
     ['cancelScheduledValues', 0], ['setValueAtTime', 0, 0],
   ]);
-  assert.deepEqual(sources[0].stops, [[3.005]]);
+  assert.deepEqual(bundle.audio.sources[0].stops, [[3.005]]);
 });
 
-test('連続 C seek は hold 非対応時に cancel + set へフォールバックする', async () => {
-  const fixture = mp4Fixture();
-  const { context, sources, gains } = fakeAudioContext({ cancelAndHold: false });
-  class FakeChunk { constructor(init) { Object.assign(this, init); } }
-  class FakeDecoder {
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
+test('自然 fade out に入った断片へ停止イベントを追加しない', async () => {
+  const bundle = controllerFixture();
+  await prepareAndSeek(bundle);
+  bundle.audio.context.currentTime = 3.04;
+  bundle.controller.onSeek({ outputTime: 0.05, sourceTime: 0.05, src: '/source.mp4', isPlaying: false });
+  assert.deepEqual(bundle.audio.sources[0].stops, []);
+});
+
+test('cancelAndHoldAtTime 非対応時も現在値アンカーへフォールバックする', async () => {
+  const bundle = controllerFixture({ cancelAndHold: false });
+  await prepareAndSeek(bundle);
+  bundle.audio.context.currentTime = 3.015;
+  bundle.controller.onSeek({ outputTime: 0.05, sourceTime: 0.05, src: '/source.mp4', isPlaying: false });
+  assert.deepEqual(bundle.audio.gains[0].gain.calls.slice(-3), [
+    ['cancelScheduledValues', 3.02], ['setValueAtTime', 0.75, 3.02], ['linearRampToValueAtTime', 0, 3.025],
+  ]);
+});
+
+test('同じ提示時刻 window の次 seek は packet を再取得しない', async () => {
+  const bundle = controllerFixture();
+  await prepareAndSeek(bundle);
+  const fetched = bundle.calls.length;
+  bundle.controller.onSeek({ outputTime: 0.045, sourceTime: 0.045, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 2);
+  assert.equal(bundle.calls.length, fetched);
+});
+
+test('LRU は 40ms を収められる中央だけヒットし窓末尾では再取得する', async () => {
+  const bundle = controllerFixture();
+  await bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 1);
+  const firstFetchCount = bundle.calls.length;
+
+  bundle.controller.onSeek({ outputTime: 0.023, sourceTime: 0.023, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 2);
+  assert.equal(bundle.calls.length, firstFetchCount);
+
+  bundle.controller.onSeek({ outputTime: 0.1, sourceTime: 0.1, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 3);
+  assert.ok(bundle.calls.length > firstFetchCount);
+  assert.equal(bundle.audio.sources[2].starts[0][2], 0.04);
+});
+
+test('複数 packet Range は先頭の完了を待たず並列に取得する', async () => {
+  const fixture = mp4Fixture({ splitChunks: true });
+  const calls = [];
+  const packetStarts = [];
+  let releaseFirst;
+  const firstPending = new Promise(resolve => { releaseFirst = resolve; });
+  const baseFetch = rangeFetch(fixture.file, calls);
+  const fetchFn = async (src, options) => {
+    const start = Number(/^bytes=(\d+)-/.exec(options.headers.Range)[1]);
+    if (start === fixture.mediaOffset + 8 || start === fixture.secondChunkOffset) {
+      packetStarts.push(start);
+      if (packetStarts.length === 1) await firstPending;
+    }
+    return baseFetch(src, options);
+  };
+  const bundle = controllerFixture({ fixture, fetchFn });
+  await bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({
+    outputTime: 3 * 1024 / 48000,
+    sourceTime: 3 * 1024 / 48000,
+    src: '/source.mp4',
+    isPlaying: false,
+  });
+  await until(() => packetStarts.length === 2);
+  releaseFirst();
+  await until(() => bundle.audio.sources.length === 1);
+  assert.deepEqual(packetStarts, [fixture.mediaOffset + 8, fixture.secondChunkOffset]);
+});
+
+test('追い越された decode の close エラーは lastError に残さない', async () => {
+  class RacingDecoder {
+    static instances = [];
+    static async isConfigSupported(config) { return { supported: true, config }; }
+    constructor(callbacks) {
+      this.callbacks = callbacks;
+      this.state = 'unconfigured';
+      this.chunks = [];
+      this.id = RacingDecoder.instances.length;
+      RacingDecoder.instances.push(this);
+    }
     configure() { this.state = 'configured'; }
     decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
+    flush() {
+      if (this.id === 0) return new Promise((_resolve, reject) => { this.rejectFlush = reject; });
       for (const chunk of this.chunks.splice(0)) this.callbacks.output({
-        timestamp: chunk.timestamp, numberOfChannels: 1, numberOfFrames: 3072, sampleRate: 48000,
-        copyTo() {}, close() {},
+        timestamp: chunk.timestamp,
+        numberOfChannels: 2,
+        numberOfFrames: 1024,
+        sampleRate: 48000,
+        copyTo(target) { target.fill(0.25); },
+        close() {},
       });
+      return Promise.resolve();
     }
-    close() { this.state = 'closed'; }
+    close() {
+      this.state = 'closed';
+      this.rejectFlush?.(new Error('decoder closed by newer seek'));
+    }
   }
-  const controller = createScrubAudioController({
-    audioContext: context, video: {}, getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, []), AudioDecoderCtor: FakeDecoder, EncodedAudioChunkCtor: FakeChunk,
-  });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.01, sourceTime: 0.01, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1) await new Promise(resolve => setImmediate(resolve));
-  context.currentTime = 3.015;
-  controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
-
-  assert.deepEqual(gains[0].gain.calls.slice(-3), [
-    ['cancelScheduledValues', 3.02], ['setValueAtTime', 1, 3.02], ['linearRampToValueAtTime', 0, 3.025],
-  ]);
-  assert.deepEqual(sources[0].stops, [[3.025]]);
+  const bundle = controllerFixture({ Decoder: RacingDecoder });
+  await bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
+  await until(() => RacingDecoder.instances[0]?.rejectFlush);
+  bundle.controller.onSeek({ outputTime: 0.08, sourceTime: 0.08, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 1);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(bundle.controller.lastError, null);
 });
 
-test('B は play 解決後に fade in を置き、停止時は fade out 後に pause する', async () => {
-  const events = [];
-  const { context, gains } = fakeAudioContext({ events });
-  const video = fakeVideo();
-  const audio = fakeVideo(events);
-  audio.src = '';
-  audio.currentSrc = '';
-  let resolvePlay;
-  audio.play = function () {
-    this.playCalls++;
-    events.push(['play']);
-    return new Promise(resolve => { resolvePlay = resolve; });
-  };
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), createAudioElement: () => audio,
-  });
-  controller.mode = 'B';
-  controller.onSeek({ outputTime: 7, sourceTime: 7, src: '/source.mp4', isPlaying: false });
-  audio.dispatchEvent(new Event('loadeddata'));
-  audio.dispatchEvent(new Event('seeked'));
-  await settle();
-  assert.deepEqual(gains[0].gain.calls, [['cancelScheduledValues', 3], ['setValueAtTime', 0, 3]]);
-  resolvePlay();
-  await settle();
-  assert.deepEqual(gains[0].gain.calls, [['cancelScheduledValues', 3], ['setValueAtTime', 0, 3]]);
-  audio.dispatchEvent(new Event('playing'));
-  await settle();
-  assert.deepEqual(gains[0].gain.calls.slice(-2), [['setValueAtTime', 0, 3.005], ['linearRampToValueAtTime', 1, 3.01]]);
-  assert.equal(controller.stats().seeks[0].mainStartedCtxSec, 3.005);
-
-  context.currentTime = 3.02;
-  controller.stop();
-  assert.equal(audio.pauseCalls, 0);
-  assert.deepEqual(gains[0].gain.calls.slice(-3), [
-    ['cancelAndHoldAtTime', 3.025], ['setValueAtTime', 1, 3.025], ['linearRampToValueAtTime', 0, 3.03],
-  ]);
-  await new Promise(resolve => setTimeout(resolve, 15));
-  assert.equal(audio.pauseCalls, 1);
-  assert.ok(events.findIndex(event => event[0] === 'linearRampToValueAtTime' && event[1] === 0) < events.findIndex(event => event[0] === 'pause'));
+test('elst offset を decoded window の提示開始へ適用する', async () => {
+  const bundle = controllerFixture({ fixture: mp4Fixture({ editOffset: 1024 }) });
+  await bundle.controller.prepare('/source.mp4');
+  const sourceTime = 2 * 1024 / 48000;
+  bundle.controller.onSeek({ outputTime: sourceTime, sourceTime, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 1);
+  assert.equal(bundle.audio.sources[0].starts[0][1], 1024 / 48000);
 });
 
-test('B は playing が来なくても 100 ms 後に fade in を始める', async () => {
-  const { context, gains } = fakeAudioContext();
-  const video = fakeVideo();
-  const audio = fakeVideo();
-  audio.src = '';
-  audio.currentSrc = '';
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), createAudioElement: () => audio,
-  });
-  controller.mode = 'B';
-  controller.onSeek({ outputTime: 7, sourceTime: 7, src: '/source.mp4', isPlaying: false });
-  audio.dispatchEvent(new Event('loadeddata'));
-  audio.dispatchEvent(new Event('seeked'));
-  await new Promise(resolve => setTimeout(resolve, 110));
-
-  assert.deepEqual(gains[0].gain.calls.slice(-2), [
-    ['setValueAtTime', 0, 3.005], ['linearRampToValueAtTime', 1, 3.01],
-  ]);
-  assert.equal(controller.stats().seeks[0].mainStartedCtxSec, 3.005);
+test('isConfigSupported false は src ごとに記録し packet/decoder を再試行しない', async () => {
+  class Unsupported extends FakeDecoder {}
+  Unsupported.supportCalls = 0;
+  Unsupported.supported = false;
+  const bundle = controllerFixture({ Decoder: Unsupported });
+  await bundle.controller.prepare('/source.mp4');
+  const moovCalls = bundle.calls.length;
+  bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.controller.lastError !== null);
+  assert.match(bundle.controller.lastError, /mp4a\.40\.2/);
+  bundle.controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(Unsupported.supportCalls, 1);
+  assert.equal(bundle.calls.length, moovCalls);
+  assert.equal(bundle.audio.sources.length, 0);
 });
 
-test('A は main gain を fade out してから pause し、gain を 1 に戻す', async () => {
-  const events = [];
-  const { context } = fakeAudioContext();
-  const video = fakeVideo(events);
-  const mainParam = gainParam({ events });
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), getMainGain: () => ({ gain: mainParam }),
-  });
-  controller.mode = 'A';
-  video.currentTime = 5;
-  controller.onSeek({ outputTime: 5, sourceTime: 5, src: '/source.mp4', isPlaying: false });
-  video.dispatchEvent(new Event('seeked'));
-  await settle();
-  assert.deepEqual(mainParam.calls, [
-    ['cancelAndHoldAtTime', 3], ['setValueAtTime', 0, 3],
-  ]);
-  assert.equal(video.playCalls, 1);
-  assert.ok(events.findIndex(event => event[0] === 'setValueAtTime' && event[1] === 0) < events.findIndex(event => event[0] === 'play'));
-  video.dispatchEvent(new Event('playing'));
-  await settle();
-  assert.deepEqual(mainParam.calls.slice(-2), [
-    ['setValueAtTime', 0, 3.005], ['linearRampToValueAtTime', 1, 3.01],
-  ]);
-  context.currentTime = 3.02;
-  controller.stop();
-
-  assert.deepEqual(mainParam.calls.slice(-3), [
-    ['cancelAndHoldAtTime', 3.025], ['setValueAtTime', 1, 3.025], ['linearRampToValueAtTime', 0, 3.03],
-  ]);
-  assert.equal(video.pauseCalls, 0);
-  await new Promise(resolve => setTimeout(resolve, 15));
-  assert.equal(video.pauseCalls, 1);
-  assert.deepEqual(mainParam.calls.at(-1), ['setValueAtTime', 1, 3.02]);
-  const pauseIndex = events.findIndex(event => event[0] === 'pause');
-  assert.ok(events.findIndex(event => event[0] === 'linearRampToValueAtTime') < pauseIndex);
-  assert.ok(pauseIndex < events.findLastIndex(event => event[0] === 'setValueAtTime' && event[1] === 1));
+test('未対応 sample entry は decoder と packet fetch へ進まない', async () => {
+  class Decoder extends FakeDecoder {}
+  Decoder.supportCalls = 0;
+  const bundle = controllerFixture({ fixture: mp4Fixture({ codec: 'Opus' }), Decoder });
+  await bundle.controller.prepare('/source.mp4');
+  const moovCalls = bundle.calls.length;
+  bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.controller.lastError !== null);
+  assert.equal(bundle.controller.lastError, 'unsupported audio codec: Opus');
+  assert.equal(Decoder.supportCalls, 0);
+  assert.equal(bundle.calls.length, moovCalls);
 });
 
-test('A は seek による supersede では main gain と video に触れない', async () => {
-  const { context } = fakeAudioContext();
-  const video = fakeVideo();
-  const mainParam = gainParam();
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), getMainGain: () => ({ gain: mainParam }),
-  });
-  controller.mode = 'A';
-  video.currentTime = 5;
-  controller.onSeek({ outputTime: 5, sourceTime: 5, src: '/source.mp4', isPlaying: false });
-  video.dispatchEvent(new Event('seeked'));
-  await settle();
-  video.dispatchEvent(new Event('playing'));
-  await settle();
-  const gainCalls = mainParam.calls.length;
-
-  video.currentTime = 6;
-  controller.onSeek({ outputTime: 6, sourceTime: 6, src: '/source.mp4', isPlaying: false });
-  await new Promise(resolve => setTimeout(resolve, 15));
-
-  assert.equal(mainParam.calls.length, gainCalls);
-  assert.equal(video.pauseCalls, 0);
+test('prepare 中の seek は鳴らず、同じ src の moov は一度だけ開く', async () => {
+  const fixture = mp4Fixture();
+  let release;
+  const gate = { moovBytes: 0, promise: new Promise(resolve => { release = resolve; }) };
+  // 最後の box が moov なので、先に末尾ヘッダからサイズを得る。
+  const view = new DataView(fixture.file.buffer);
+  let offset = 0;
+  while (offset < fixture.file.byteLength) {
+    const size = view.getUint32(offset);
+    if (String.fromCharCode(...fixture.file.slice(offset + 4, offset + 8)) === 'moov') gate.moovBytes = size;
+    offset += size;
+  }
+  const calls = [];
+  const bundle = controllerFixture({ fixture, fetchFn: rangeFetch(fixture.file, calls, gate) });
+  const first = bundle.controller.prepare('/source.mp4');
+  const second = bundle.controller.prepare('/source.mp4');
+  bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false });
+  assert.equal(bundle.audio.sources.length, 0);
+  release();
+  await Promise.all([first, second]);
+  bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length === 1);
+  assert.equal(calls.filter(call => (
+    call.start === fixture.file.byteLength - gate.moovBytes
+      && call.end - call.start + 1 === gate.moovBytes
+  )).length, 1);
 });
 
-test('A は断片の自然終了時に fade out、pause、gain 復帰の順で止まる', async () => {
-  const events = [];
-  const { context } = fakeAudioContext();
-  const video = fakeVideo(events);
-  const mainParam = gainParam({ events });
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), getMainGain: () => ({ gain: mainParam }),
-  });
-  controller.fragmentMs = 5;
-  controller.mode = 'A';
-  video.currentTime = 5;
-  controller.onSeek({ outputTime: 5, sourceTime: 5, src: '/source.mp4', isPlaying: false });
-  video.dispatchEvent(new Event('seeked'));
-  await settle();
-  video.dispatchEvent(new Event('playing'));
-  await settle();
-  context.currentTime = 3.02;
-  await new Promise(resolve => setTimeout(resolve, 20));
-
-  const rampIndex = events.findIndex(event => event[0] === 'linearRampToValueAtTime' && event[1] === 0);
-  const pauseIndex = events.findIndex(event => event[0] === 'pause');
-  const restoreIndex = events.findLastIndex(event => event[0] === 'setValueAtTime' && event[1] === 1);
-  assert.ok(rampIndex >= 0 && rampIndex < pauseIndex && pauseIndex < restoreIndex);
+test('muted または volume 0 では本編も BGM も鳴らない', async () => {
+  for (const video of [{ volume: 0.4, muted: true }, { volume: 0, muted: false }]) {
+    let bgmCalls = 0;
+    const bundle = controllerFixture({ video, getBgm: () => { bgmCalls++; return {}; } });
+    await bundle.controller.prepare('/source.mp4');
+    bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(bundle.audio.sources.length, 0);
+    assert.equal(bgmCalls, 0);
+  }
 });
 
-test('B は前断片の pause 後に次の currentTime を変更する', async () => {
-  const events = [];
-  const { context } = fakeAudioContext({ events });
-  const video = fakeVideo();
-  const audio = fakeVideo(events);
-  audio.src = '';
-  audio.currentSrc = '';
-  let mediaTime = 0;
-  Object.defineProperty(audio, 'currentTime', {
-    get() { return mediaTime; },
-    set(value) { mediaTime = value; events.push(['currentTime', value]); },
-    configurable: true,
+test('idle suspend は再武装され stop/disabled で解除される', async () => {
+  const timers = new Map();
+  let id = 0;
+  const cleared = [];
+  const bundle = controllerFixture({
+    setTimeoutFn(fn, ms) { const key = ++id; timers.set(key, { fn, ms }); return key; },
+    clearTimeoutFn(key) { cleared.push(key); timers.delete(key); },
   });
-  const controller = createScrubAudioController({
-    audioContext: context, video, getBgm: () => ({}), createAudioElement: () => audio,
-  });
-  controller.mode = 'B';
-  controller.onSeek({ outputTime: 7, sourceTime: 7, src: '/source.mp4', isPlaying: false });
-  audio.dispatchEvent(new Event('loadeddata'));
-  audio.dispatchEvent(new Event('seeked'));
-  await settle();
-  audio.dispatchEvent(new Event('playing'));
-  await settle();
-
-  controller.onSeek({ outputTime: 8, sourceTime: 8, src: '/source.mp4', isPlaying: false });
-  assert.equal(events.filter(event => event[0] === 'currentTime').length, 1);
-  await new Promise(resolve => setTimeout(resolve, 15));
-
-  const pauseIndex = events.findIndex(event => event[0] === 'pause');
-  const secondSeekIndex = events.findIndex(event => event[0] === 'currentTime' && event[1] === 8);
-  assert.ok(pauseIndex >= 0 && pauseIndex < secondSeekIndex);
+  bundle.audio.context.state = 'running';
+  bundle.controller.onPlaybackPaused();
+  assert.equal([...timers.values()][0].ms, 30000);
+  const first = [...timers.keys()][0];
+  bundle.controller.onPlaybackPaused();
+  assert.ok(cleared.includes(first));
+  const armedKey = [...timers.keys()][0];
+  const armed = timers.get(armedKey);
+  timers.delete(armedKey);
+  armed.fn();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(bundle.audio.context.suspendCalls, 1);
+  bundle.controller.onPlaybackPaused();
+  bundle.controller.stop();
+  assert.equal(timers.size, 0);
+  bundle.controller.onPlaybackPaused();
+  bundle.controller.enabled = false;
+  assert.equal(timers.size, 0);
 });
 
-test('C は必要な AAC packet だけ復号し、同じ窓の次 seek は LRU を使う', async () => {
+test('suspend 後の seek で resume し video の再生 API に触らない', async () => {
+  const video = new Proxy({ volume: 0.4, muted: false }, {
+    get(target, key) {
+      if (!['volume', 'muted'].includes(String(key))) throw new Error(`unexpected video read: ${String(key)}`);
+      return target[key];
+    },
+    set() { throw new Error('unexpected video write'); },
+  });
+  const bundle = controllerFixture({ video });
+  await prepareAndSeek(bundle);
+  assert.equal(bundle.audio.context.resumeCalls, 1);
+  assert.ok(bundle.audio.gains[0].gain.calls.some(call => call[1] === 0.4));
+});
+
+test('async fetch 失敗は lastError に残り外へ throw しない', async () => {
   const fixture = mp4Fixture();
   const calls = [];
-  const { context, sources } = fakeAudioContext();
-  class FakeChunk {
-    constructor(init) { Object.assign(this, init); }
-  }
-  class FakeDecoder {
-    static async isConfigSupported(config) { return { supported: config.codec === 'mp4a.40.2', config }; }
-    constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
-    configure(config) { this.config = config; this.state = 'configured'; }
-    decode(chunk) { this.chunks.push(chunk); }
-    async flush() {
-      for (const chunk of this.chunks.splice(0)) {
-        this.callbacks.output({
-          timestamp: chunk.timestamp,
-          numberOfChannels: 2,
-          numberOfFrames: 1024,
-          sampleRate: 48000,
-          copyTo(target) { target.fill(0.25); },
-          close() {},
-        });
-      }
+  // packet 範囲だけ失敗させ、moov の先読みは成功させる。
+  const moovOffset = (() => {
+    const view = new DataView(fixture.file.buffer);
+    let offset = 0;
+    while (offset < fixture.file.byteLength) {
+      const size = view.getUint32(offset);
+      if (String.fromCharCode(...fixture.file.slice(offset + 4, offset + 8)) === 'moov') return offset;
+      offset += size;
     }
-    close() { this.state = 'closed'; }
-  }
-  const controller = createScrubAudioController({
-    audioContext: context,
-    video: {},
-    getBgm: () => ({}),
-    fetchFn: rangeFetch(fixture.file, calls),
-    now: (() => { let value = 0; return () => ++value; })(),
-    AudioDecoderCtor: FakeDecoder,
-    EncodedAudioChunkCtor: FakeChunk,
-  });
-  controller.mode = 'C';
-  controller.onSeek({ outputTime: 0.02, sourceTime: 0.02, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 1 && controller.stats().summary.errors === 0) {
-    await new Promise(resolve => setImmediate(resolve));
-  }
+  })();
+  const fetchFn = async (src, options) => {
+    const start = Number(/^bytes=(\d+)-/.exec(options.headers.Range)[1]);
+    if (start >= fixture.mediaOffset && start < moovOffset) throw new Error('packet fetch failed');
+    return rangeFetch(fixture.file, calls)(src, options);
+  };
+  const bundle = controllerFixture({ fixture, fetchFn });
+  await bundle.controller.prepare('/source.mp4');
+  assert.doesNotThrow(() => bundle.controller.onSeek({
+    outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: false,
+  }));
+  await until(() => bundle.controller.lastError !== null);
+  assert.equal(bundle.controller.lastError, 'packet fetch failed');
+});
 
-  const first = controller.stats().seeks[0];
-  assert.equal(first.cacheHit, false);
-  assert.equal(first.bytes, 12);
-  assert.equal(sources.length, 1);
-  assert.deepEqual(controller.stats().summary.decoderConfig.description, [0x11, 0x90]);
-  const fetchCount = calls.length;
-
-  controller.onSeek({ outputTime: 0.03, sourceTime: 0.03, src: '/source.mp4', isPlaying: false });
-  while (controller.stats().summary.played < 2 && controller.stats().summary.errors === 0) {
-    await new Promise(resolve => setImmediate(resolve));
-  }
-  const second = controller.stats().seeks[1];
-  assert.equal(second.cacheHit, true);
-  assert.equal(second.fetchMs, 0);
-  assert.equal(second.decodeMs, 0);
-  assert.equal(calls.length, fetchCount);
-  assert.equal(sources.length, 2);
+test('BGM offset は t/in/loop を適用する', () => {
+  assert.equal(resolveBgmOffset(8, { t: 5, in: 2, loop: false }, 10), 5);
+  assert.equal(resolveBgmOffset(15, { t: 5, in: 2, loop: true }, 10), 2);
+  assert.equal(resolveBgmOffset(15, { t: 5, in: 2, loop: false }, 10), null);
 });

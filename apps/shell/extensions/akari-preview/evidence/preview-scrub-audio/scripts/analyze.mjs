@@ -1,5 +1,7 @@
 /**
- * 録音（wav）+ ページ側 stats（seek 到達時刻）から、候補 A / B / C の遅延・音程一致・音切れ・クリック・CPU を出す。
+ * 録音（wav）+ ハーネスのフック記録（seek 到達時刻 = onSeek ラップ、断片の予約 = BufferSource.start ラップ）から、
+ * スクラブ音（off / on）の遅延・音程一致・音切れ・クリック・CPU・HTTP 要求を出す。実素材（pattern r）は音程解析を使わず
+ * クリック / 無音 / 要求だけを見る。
  *
  *  - 音程: 21 ms（1024 サンプル・矩形窓）を 5 ms 刻みで FFT（8192 点ゼロ詰め + 放物線補間）し、本編帯（400〜900 Hz）と
  *    BGM 帯（100〜220 Hz）それぞれのピーク周波数を半音インデックスへ写す（本編 440·2^(k/12)、BGM 110·2^(k/12)。2 帯は 2 オクターブ離れており漏れ込まない）
@@ -169,44 +171,59 @@ function analyzeRunEntry(run, evidenceDir) {
   const skippedReasons = {};
   for (const s of seeks) if (s.skipped) skippedReasons[s.skipped] = (skippedReasons[s.skipped] ?? 0) + 1;
   const errors = seeks.filter(s => s.error).map(s => s.error);
-  // CPU: role 別に累積 CPU 時間の差分 / 経過時間。
-  const cpu = {};
-  const byPid = new Map();
-  for (const sample of run.cpu ?? []) { if (!byPid.has(sample.pid)) byPid.set(sample.pid, []); byPid.get(sample.pid).push(sample); }
-  for (const list of byPid.values()) {
-    if (list.length < 2) continue;
-    const first = list[0]; const last = list.at(-1);
-    const wall = (last.t - first.t) / 1000;
-    if (wall <= 0) continue;
-    const pct = ((last.cpuSec - first.cpuSec) / wall) * 100;
-    const role = first.role;
-    cpu[role] = cpu[role] ?? { pct: 0, psMax: 0, pids: 0 };
-    cpu[role].pct += pct;
-    cpu[role].psMax = Math.max(cpu[role].psMax, ...list.map(s => s.cpuPct));
-    cpu[role].pids++;
-  }
-  for (const role of Object.keys(cpu)) { cpu[role].pct = round(cpu[role].pct, 1); cpu[role].psMax = round(cpu[role].psMax, 1); }
+  // CPU: run-l1.mjs が role 別に集計済み（累積 CPU 時間の差分 / 経過時間）。旧形式（生サンプル配列）も受ける。
+  let cpu = {};
+  if (Array.isArray(run.cpu)) {
+    const byPid = new Map();
+    for (const sample of run.cpu) { if (!byPid.has(sample.pid)) byPid.set(sample.pid, []); byPid.get(sample.pid).push(sample); }
+    for (const list of byPid.values()) {
+      if (list.length < 2) continue;
+      const first = list[0]; const last = list.at(-1);
+      const wall = (last.t - first.t) / 1000;
+      if (wall <= 0) continue;
+      const pct = ((last.cpuSec - first.cpuSec) / wall) * 100;
+      const role = first.role;
+      cpu[role] = cpu[role] ?? { pct: 0, psMax: 0, pids: 0 };
+      cpu[role].pct += pct;
+      cpu[role].psMax = Math.max(cpu[role].psMax, ...list.map(s => s.cpuPct));
+      cpu[role].pids++;
+    }
+    for (const role of Object.keys(cpu)) { cpu[role].pct = round(cpu[role].pct, 1); cpu[role].psMax = round(cpu[role].psMax, 1); }
+  } else cpu = run.cpu ?? {};
+  // 断片の長さ（BufferSource.start の duration）と復号窓の長さ。4 パケット窓なら断片は常に 40 ms のはず。
+  const fragmentDur = seeks.map(s => s.mainDurationSec).filter(Number.isFinite).map(v => v * 1000);
+  const windowDur = seeks.map(s => s.windowSec).filter(Number.isFinite).map(v => v * 1000);
+  const isReal = run.pattern === 'r';
   const finite = list => list.filter(Number.isFinite);
   return {
     id: run.id, mode: run.mode, pattern: run.pattern, label: run.label, wav: run.wav, ticks: run.ticks, tickHz: run.tickHz ?? null,
     seeksRecorded: seeks.length,
     played: run.stats.summary?.played ?? null, skipped: run.stats.summary?.skipped ?? null, skippedReasons, errors: errors.slice(0, 5), errorCount: errors.length,
     recording: { sampleRate, seconds: round(samples.length / sampleRate, 2), gaps: run.recording.gaps?.length ?? 0, peak: round(peak, 3), rms: round(Math.sqrt(sum2 / Math.max(1, to - from)), 3), stateAtEnd: run.recording.stateAtEnd },
-    pitch: {
+    isReal,
+    lastError: run.stats.lastError ?? null,
+    pitch: isReal ? null : {
       mainConfirmed: confirmedMain, bgmConfirmed: confirmedBgm, total: expected.length,
       mainConfirmRate: round(expected.length ? confirmedMain / expected.length * 100 : null, 1),
       bgmConfirmRate: round(expected.length ? confirmedBgm / expected.length * 100 : null, 1),
       audibleFrames: audibleMain, staleFrames: staleMain, staleRate: round(audibleMain ? staleMain / audibleMain * 100 : null, 1),
     },
+    fragment: { n: fragmentDur.length, durationP50Ms: round(percentile(fragmentDur, 50)), durationMinMs: round(fragmentDur.length ? Math.min(...fragmentDur) : null), windowP50Ms: round(percentile(windowDur, 50)) },
     latencyMs: {
-      recorded: { n: latencyRec.length, found: finite(latencyRec).length, p50: round(percentile(finite(latencyRec), 50)), p95: round(percentile(finite(latencyRec), 95)), max: round(finite(latencyRec).length ? Math.max(...finite(latencyRec)) : null) },
-      recordedBgm: { n: latencyBgmRec.length, found: finite(latencyBgmRec).length, p50: round(percentile(finite(latencyBgmRec), 50)), p95: round(percentile(finite(latencyBgmRec), 95)) },
+      recorded: isReal ? { n: 0, found: 0, p50: null, p95: null, max: null } : { n: latencyRec.length, found: finite(latencyRec).length, p50: round(percentile(finite(latencyRec), 50)), p95: round(percentile(finite(latencyRec), 95)), max: round(finite(latencyRec).length ? Math.max(...finite(latencyRec)) : null) },
+      recordedBgm: isReal ? { n: 0, found: 0, p50: null, p95: null } : { n: latencyBgmRec.length, found: finite(latencyBgmRec).length, p50: round(percentile(finite(latencyBgmRec), 50)), p95: round(percentile(finite(latencyBgmRec), 95)) },
       appReported: { n: appLatency.length, p50: round(percentile(appLatency, 50)), p95: round(percentile(appLatency, 95)) },
       seekComplete: { n: seekComplete.length, p50: round(percentile(seekComplete, 50)), p95: round(percentile(seekComplete, 95)) },
       decode: { n: decodeMs.length, p50: round(percentile(decodeMs, 50), 2), p95: round(percentile(decodeMs, 95), 2) },
       fetch: { n: fetchMs.length, p50: round(percentile(fetchMs, 50), 2), p95: round(percentile(fetchMs, 95), 2), bytesTotal: bytes.reduce((a, b) => a + b, 0), cacheHits },
     },
-    continuity: { silenceRate: round(driven.length ? silentFrames / driven.length * 100 : null, 1), gaps10ms: gapCount, clicks, maxSampleDelta: round(maxDelta, 3) },
+    continuity: {
+      silenceRate: round(driven.length ? silentFrames / driven.length * 100 : null, 1), gaps10ms: gapCount, clicks, maxSampleDelta: round(maxDelta, 3),
+      // 素材照合（run-l1.mjs の clickCheck）: 素材の同じ位置に同等以上の隣接差があるものは素材由来（声の過渡）。artifact = 素材に無い不連続。
+      clicksInSource: Array.isArray(run.clickCheck) ? run.clickCheck.filter(c => c.inSource).length : null,
+      artifactClicks: Array.isArray(run.clickCheck) ? run.clickCheck.filter(c => !c.inSource).length : clicks,
+      clickDetails: Array.isArray(run.clickCheck) ? run.clickCheck.slice(0, 20) : [],
+    },
     cpu,
     network: run.network?.summary ?? null,
   };
@@ -217,7 +234,8 @@ export function analyzeRun(report, evidenceDir) {
   return {
     analyzedAt: new Date().toISOString(),
     host: report.host, electron: report.electron, page: report.page, tickHz: report.tickHz, fragmentMs: report.fragmentMs,
-    fixture: { ffprobe: report.fixture.ffprobe, mainTableHz: report.fixture.mainTableHz, bgmTableHz: report.fixture.bgmTableHz, commands: report.fixture.commands, edit: report.fixture.edit },
+    fixture: { kind: report.fixture.kind ?? 'synthetic', ffprobe: report.fixture.ffprobe, original: report.fixture.original ?? null, mainTableHz: report.fixture.mainTableHz ?? null, bgmTableHz: report.fixture.bgmTableHz ?? null, commands: report.fixture.commands, edit: report.fixture.edit },
+    networkAtOpen: report.networkAtOpen?.summary ?? null, idleSuspend: report.idleSuspend ?? null,
     method: { window: WINDOW, hop: HOP, fftN: FFT_N, confirmWindowSec: CONFIRM_WINDOW_SEC, staleLookbackSec: STALE_LOOKBACK_SEC, silenceRms: SILENCE_RMS, clickDelta: CLICK_DELTA, mainAmpThreshold: MAIN_AMP_THRESHOLD, bgmAmpThreshold: BGM_AMP_THRESHOLD },
     projectCache: report.projectCache, cleanup: report.cleanup, networkAll: report.networkAll ?? null,
     failedRuns: report.failedRuns ?? [], runs,
@@ -226,29 +244,36 @@ export function analyzeRun(report, evidenceDir) {
 
 export function writeSummaryMarkdown(analysis, file) {
   const lines = [];
-  lines.push('# preview scrub audio — L1 実測サマリ（機械生成: scripts/analyze.mjs）', '');
+  lines.push(`# preview scrub audio — L1 実測サマリ（${analysis.fixture?.kind === 'real' ? '実素材' : '合成純音'}・機械生成: scripts/analyze.mjs）`, '');
   lines.push(`- 実行: ${analysis.analyzedAt} / Electron ${analysis.electron?.version} / ${analysis.host?.model} ${analysis.host?.cpus} cores ${analysis.host?.memGb} GB / Node ${analysis.host?.node}`);
   lines.push(`- seek 30 Hz・断片 ${analysis.fragmentMs} ms・AudioContext ${analysis.page?.sampleRate} Hz（baseLatency ${round(analysis.page?.baseLatency * 1000, 1)} ms / outputLatency ${round(analysis.page?.outputLatency * 1000, 1)} ms）`);
   lines.push('');
-  lines.push('| run | mode | pattern | 遅延 p50 / p95 ms（録音） | アプリ申告 p50 / p95 | 音程一致 本編 / BGM | 古い音 % | 無音 % / 10ms 途切れ | クリック | renderer / gpu / audio CPU % | seek 完了 p50 / p95 | decode p50 / p95 | fetch p50 / p95 (KB, hit) | played / skipped / err |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| run | mode | pattern | 遅延 p50 / p95 ms（録音） | アプリ予約 p50 / p95 | 音程一致 本編 / BGM | 古い音 % | 無音 % / 10ms 途切れ | クリック 総数 / 素材由来 / artifact（最大 Δ） | 断片長 p50 / min ms（窓） | renderer / gpu / audio CPU % | played / skipped | lastError |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const r of analysis.runs) {
     const c = r.cpu;
-    lines.push(`| ${r.id} | ${r.mode} | ${r.pattern}${r.tickHz && r.tickHz !== analysis.tickHz ? ` (${r.tickHz} Hz)` : ''} | ${r.latencyMs.recorded.p50 ?? '–'} / ${r.latencyMs.recorded.p95 ?? '–'} (${r.latencyMs.recorded.found}/${r.latencyMs.recorded.n}) | ${r.latencyMs.appReported.p50 ?? '–'} / ${r.latencyMs.appReported.p95 ?? '–'} | ${r.pitch.mainConfirmRate ?? '–'}% / ${r.pitch.bgmConfirmRate ?? '–'}% | ${r.pitch.staleRate ?? '–'} | ${r.continuity.silenceRate ?? '–'} / ${r.continuity.gaps10ms} | ${r.continuity.clicks} | ${c.renderer?.pct ?? '–'} / ${c.gpu?.pct ?? '–'} / ${c['audio-service']?.pct ?? '–'} | ${r.latencyMs.seekComplete.p50 ?? '–'} / ${r.latencyMs.seekComplete.p95 ?? '–'} | ${r.latencyMs.decode.p50 ?? '–'} / ${r.latencyMs.decode.p95 ?? '–'} | ${r.latencyMs.fetch.p50 ?? '–'} / ${r.latencyMs.fetch.p95 ?? '–'} (${round(r.latencyMs.fetch.bytesTotal / 1024, 0)}, ${r.latencyMs.fetch.cacheHits}) | ${r.played} / ${r.skipped} / ${r.errorCount} |`);
+    const p = r.pitch;
+    lines.push(`| ${r.id} | ${r.mode} | ${r.pattern}${r.tickHz && r.tickHz !== analysis.tickHz ? ` (${r.tickHz} Hz)` : ''} | ${r.latencyMs.recorded.p50 ?? '–'} / ${r.latencyMs.recorded.p95 ?? '–'}${r.isReal ? '' : ` (${r.latencyMs.recorded.found}/${r.latencyMs.recorded.n})`} | ${r.latencyMs.appReported.p50 ?? '–'} / ${r.latencyMs.appReported.p95 ?? '–'} | ${p ? `${p.mainConfirmRate ?? '–'}% / ${p.bgmConfirmRate ?? '–'}%` : '–（実素材）'} | ${p ? (p.staleRate ?? '–') : '–'} | ${r.continuity.silenceRate ?? '–'} / ${r.continuity.gaps10ms} | ${r.continuity.clicks} / ${r.continuity.clicksInSource ?? '–'} / **${r.continuity.artifactClicks}** (${r.continuity.maxSampleDelta}) | ${r.fragment.durationP50Ms ?? '–'} / ${r.fragment.durationMinMs ?? '–'} (${r.fragment.windowP50Ms ?? '–'}) | ${c.renderer?.pct ?? '–'} / ${c.gpu?.pct ?? '–'} / ${c['audio-service']?.pct ?? '–'} | ${r.played} / ${r.skipped} | ${r.lastError ?? '–'} |`);
   }
   lines.push('');
-  lines.push('- 遅延（録音）= seek 到達（ページ側 audioContext.currentTime）→ 期待半音と完全一致する最初の 21 ms 分析窓の中心。期待半音が直前の seek と変わる seek だけを数える（found / n）');
+  lines.push('- 遅延（録音）= seek 到達（ページ側 audioContext.currentTime・onSeek ラップで記録）→ 期待半音と完全一致する最初の 21 ms 分析窓の中心。期待半音が直前の seek と変わる seek だけを数える（found / n）。アプリ予約 = 到達 → 本編断片の BufferSource.start(when) の差');
   lines.push('- 音程一致 = seek 到達から 300 ms 以内に期待半音 ±1 の音が出た seek の割合（手順 5）。古い音 = 可聴フレームのうち直近 250 ms のどの seek の音程にも合わないもの');
-  lines.push('- 無音 % = 駆動区間の 5 ms フレームのうち RMS < 0.01。クリック = 隣接サンプル差 > 0.2 の個数（純音の最大差は 0.06）');
+  lines.push('- 無音 % = 駆動区間の 5 ms フレームのうち RMS < 0.01。クリック = 隣接サンプル差 > 0.2 の個数（純音の最大差は 0.06）。素材由来 = 素材（ffmpeg で 48 kHz mono に復号した参照）の同じ位置 ±2 ms に同等以上（差 −0.05 まで）の隣接差があるもの（声の過渡）。artifact = 素材に無い不連続 = 断片の継ぎ目で生じたクリック');
   lines.push('');
-  lines.push('| run | HTTP 要求 合計 | media Range 取得 | media 全量取得 | preview-audio API | sidecar .pcm | その他 |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push('| run | HTTP 要求 合計 | media Range 取得（fetch / media 要素） | media 全量取得 | moov 相当（fetch Range > 8 KB） | preview-audio API | sidecar .pcm | その他 |');
+  lines.push('|---|---|---|---|---|---|---|---|');
+  const openN = analysis.networkAtOpen ?? {};
+  lines.push(`| （開いた時〜ready） | ${openN.total ?? '–'} | ${openN.mediaRange ?? '–'} (${openN.mediaRangeFetch ?? '–'} / ${openN.mediaRangeMediaElement ?? '–'}) | ${openN.mediaFull ?? '–'} | ${openN.moovFetch ?? '–'} | ${openN.previewAudioApi ?? '–'} | ${openN.sidecarPcm ?? '–'} | ${openN.other ?? '–'} |`);
   for (const r of analysis.runs) {
     const n = r.network ?? {};
-    lines.push(`| ${r.id} | ${n.total ?? '–'} | ${n.mediaRange ?? '–'} | ${n.mediaFull ?? '–'} | ${n.previewAudioApi ?? '–'} | ${n.sidecarPcm ?? '–'} | ${n.other ?? '–'} |`);
+    lines.push(`| ${r.id} | ${n.total ?? '–'} | ${n.mediaRange ?? '–'} (${n.mediaRangeFetch ?? '–'} / ${n.mediaRangeMediaElement ?? '–'}) | ${n.mediaFull ?? '–'} | ${n.moovFetch ?? '–'} | ${n.previewAudioApi ?? '–'} | ${n.sidecarPcm ?? '–'} | ${n.other ?? '–'} |`);
   }
+  const all = analysis.networkAll?.summary ?? {};
+  lines.push(`| **全体（開いた時〜終了）** | ${all.total ?? '–'} | ${all.mediaRange ?? '–'} (${all.mediaRangeFetch ?? '–'} / ${all.mediaRangeMediaElement ?? '–'}) | ${all.mediaFull ?? '–'} | ${all.moovFetch ?? '–'} | ${all.previewAudioApi ?? '–'} | ${all.sidecarPcm ?? '–'} | ${all.other ?? '–'} |`);
   lines.push('');
-  lines.push('- HTTP 要求 = run 中に webview が出した要求（CDP Network.requestWillBeSent）。media Range = `/assets/*.mp4|m4a` への `Range:` 付き要求（C の断片 fetch と media 要素の部分取得）。sidecar .pcm / preview-audio API が 0 なら候補は前処理の産物に触っていない');
+  lines.push('- HTTP 要求 = webview が出した要求（CDP Network.requestWillBeSent）。media Range = `/assets/*.mp4|m4a` への `Range:` 付き要求（fetch = スクラブ音の moov / 断片取得、media 要素 = `<video>` の部分取得）。moov 相当 = fetch 由来で 8 KB を超える Range（断片は約 1.3 KB・box ヘッダ探索は 16 B）。src ごとに 1 回なら全体で 1。sidecar .pcm / preview-audio API が 0 なら前処理の産物に触っていない');
+  if (analysis.networkAll?.moovFetches?.length) lines.push(`- moov 取得の実体: ${analysis.networkAll.moovFetches.map(m => `${m.path} ${m.range} (@${m.at} ms)`).join(' / ')}`);
+  if (analysis.idleSuspend) lines.push(`- idle suspend（seek 後 ${30} s）: 1 s 後 state=${analysis.idleSuspend.stateAfter1s} → 33 s 後 state=${analysis.idleSuspend.stateAfter33s}、suspend 呼び出し ${analysis.idleSuspend.suspendCalled ? `あり（seek から ${analysis.idleSuspend.suspendAfterSeekMs} ms）` : 'なし'}、次の seek で resume ${analysis.idleSuspend.wake?.resumeCalled ? 'あり' : 'なし'} → state=${analysis.idleSuspend.wake?.stateAfterSeek}（断片 start ${analysis.idleSuspend.wake?.starts} 件）`);
   if (analysis.failedRuns?.length) lines.push(`- **失敗した run**: ${analysis.failedRuns.map(f => `${f.id} (${f.error.split('\n')[0].slice(0, 120)})`).join(' / ')}`);
   lines.push(`- 後始末: ${JSON.stringify(analysis.cleanup)}`);
   lines.push(`- プロジェクト配下キャッシュ（前処理の有無）: ${JSON.stringify(analysis.projectCache?.entries ?? [])}`);
