@@ -43,6 +43,7 @@ import {
   transitionApproximationGain,
   waitForMediaSeekCompletion,
 } from '/audio-declick.js';
+import { createScrubAudioController } from '/audio-scrub.js';
 import { editForPut } from '/transition-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
@@ -164,6 +165,7 @@ let baseAudioTransitionGain = null;
 let baseAudioDeClickGain = null;
 let baseAudioDeClick = null;
 let bgmNode = null;
+let scrubAudio = null;
 let sfxNodes = [];
 let narrationNodes = [];
 
@@ -2076,6 +2078,15 @@ function setupAudioGraph() {
         mediaSource: baseAudioSource,
         outputNode: baseAudioDeClickGain,
       };
+      scrubAudio = createScrubAudioController({
+        audioContext: audioCtx,
+        video,
+        getBgm: () => ({ node: bgmNode, spec: summary?.audio?.bgm }),
+        getMainGain: () => baseAudioDeClickGain,
+      });
+      const scrubMode = new URLSearchParams(location.search).get('scrubAudio');
+      if (['A', 'B', 'C'].includes(scrubMode)) scrubAudio.mode = scrubMode;
+      window.akari.scrubAudio = scrubAudio;
     } catch (error) {
       console.warn('[preview] base audio graph setup failed', error);
     }
@@ -2653,7 +2664,9 @@ function seekTo(t) {
         // 音量をゼロへランプしてから source/currentTime を変え、切替後に戻す。ユーザー操作の
         // シークもカット境界と同じ経路を通すことで、不連続なサンプルを直接 destination へ出さない。
         showVideoBase();
-        requestBaseVideoSeek(getVideoSource(seg.index), vt);
+        const src = getVideoSource(seg.index);
+        requestBaseVideoSeek(src, vt);
+        scrubAudio?.onSeek({ outputTime, sourceTime: vt, src, isPlaying });
       }
     }
   }
@@ -2677,6 +2690,7 @@ function seekTo(t) {
 
 function play() {
   if (isPlaying || (frameEngineEnabled ? totalDuration <= 0 : !segments.length)) return;
+  scrubAudio?.stop();
   logReviewEvent('play');
   isPlaying = true;
   lastWallMs = 0;
@@ -2713,7 +2727,7 @@ function finishPausingPlayback() {
   for (const n of [...narrationNodes, ...sfxNodes]) {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
   }
-  if (audioCtx?.state === 'running') audioCtx.suspend();
+  if (audioCtx?.state === 'running' && !scrubAudio?.active) audioCtx.suspend();
   if (!frameEngineEnabled) {
     transitionVideo.pause();
     for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
@@ -4580,6 +4594,7 @@ function connectWs() {
   ws.onmessage = (e) => {
     try {
       const m = JSON.parse(e.data);
+      if (m.type === 'scrub-audio-mode' && scrubAudio) { scrubAudio.mode = m.mode; return; }
       if (m.type === 'preview-audio') {
         if (!frameEngineEnabled) return;
         updateAudioStatus();

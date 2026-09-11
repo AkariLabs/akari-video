@@ -1,0 +1,2243 @@
+{
+  "analyzedAt": "2026-09-11T08:37:33.517Z",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.3.0",
+    "cpus": 8,
+    "model": "Apple M1",
+    "memGb": 16,
+    "loadAvgAtStart": [
+      5.42,
+      14.27,
+      21.33
+    ]
+  },
+  "electron": {
+    "version": "39.8.7"
+  },
+  "page": {
+    "sampleRate": 48000,
+    "baseLatency": 0.005333333333333333,
+    "outputLatency": 0.034,
+    "state": "running",
+    "tapped": true,
+    "videoSrc": "http://127.0.0.1:63145/assets/main.mp4",
+    "videoDuration": 180,
+    "videoReadyState": 4,
+    "bgmDuration": 180,
+    "bgmChannels": 1,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
+    "hasAudioDecoder": true,
+    "scrubMode": "off",
+    "devicePixelRatio": 2,
+    "innerSize": [
+      1280,
+      768
+    ]
+  },
+  "tickHz": 30,
+  "fragmentMs": 40,
+  "fixture": {
+    "ffprobe": {
+      "streams": [
+        {
+          "codec_type": "video",
+          "codec_name": "h264",
+          "profile": "Constrained Baseline",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "duration": "180.000000",
+          "bit_rate": "16081541"
+        },
+        {
+          "codec_type": "audio",
+          "codec_name": "aac",
+          "profile": "LC",
+          "r_frame_rate": "0/0",
+          "sample_rate": "48000",
+          "channels": 2,
+          "duration": "180.000000",
+          "bit_rate": "128082"
+        }
+      ],
+      "format": {
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "duration": "180.000000",
+        "size": "364874279"
+      }
+    },
+    "mainTableHz": [
+      440,
+      466,
+      494,
+      523,
+      554,
+      587,
+      622,
+      659,
+      698,
+      740,
+      784,
+      831
+    ],
+    "bgmTableHz": [
+      110,
+      117,
+      123,
+      131,
+      139,
+      147,
+      156,
+      165,
+      175,
+      185,
+      196,
+      208
+    ],
+    "commands": [
+      {
+        "label": "main (1080p30 H.264 + AAC 48 kHz stereo, semitone staircase, drawtext timecode)",
+        "command": "ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=1920x1080:rate=30 -f lavfi -i aevalsrc=exprs='0.5*sin(2*PI*t*round(440*pow(2,mod(floor(t),12)/12)))|0.5*sin(2*PI*t*round(440*pow(2,mod(floor(t),12)/12)))':s=48000:c=stereo -t 180 -vf drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='%{pts\\:hms}':fontsize=110:fontcolor=white:box=1:boxcolor=black@0.6:x=(w-tw)/2:y=h-th-80 -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -g 30 -c:a aac -b:a 128k -ar 48000 -movflags +faststart <TMP>/project/assets/main.mp4"
+      },
+      {
+        "label": "bgm (AAC m4a, same staircase two octaves down + 6 Hz tremolo)",
+        "command": "ffmpeg -hide_banner -loglevel error -y -f lavfi -i aevalsrc=exprs='(0.35+0.15*sin(2*PI*6*t))*sin(2*PI*t*round(110*pow(2,mod(floor(t),12)/12)))':s=48000:c=mono -t 180 -c:a aac -b:a 96k <TMP>/project/assets/bgm.m4a"
+      }
+    ],
+    "edit": {
+      "version": 2,
+      "output": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 30
+      },
+      "sources": [
+        {
+          "id": "main",
+          "path": "assets/main.mp4",
+          "proxy": null
+        },
+        {
+          "id": "a-bgm",
+          "path": "assets/bgm.m4a",
+          "proxy": null
+        }
+      ],
+      "tracks": [
+        {
+          "id": "visual-main",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "cut-main",
+              "at": 0,
+              "duration": 5400,
+              "source": {
+                "kind": "media",
+                "src": "main",
+                "in": 0,
+                "out": 180
+              }
+            }
+          ]
+        },
+        {
+          "id": "audio-bgm",
+          "lane": "audio",
+          "items": [
+            {
+              "id": "bgm",
+              "at": 0,
+              "duration": 0,
+              "role": "bgm",
+              "source": {
+                "kind": "media",
+                "src": "a-bgm",
+                "in": 0
+              },
+              "gain_db": -6
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "method": {
+    "window": 1024,
+    "hop": 240,
+    "fftN": 8192,
+    "confirmWindowSec": 0.3,
+    "staleLookbackSec": 0.25,
+    "silenceRms": 0.01,
+    "clickDelta": 0.2,
+    "mainAmpThreshold": 0.08,
+    "bgmAmpThreshold": 0.06
+  },
+  "projectCache": {
+    "dir": "<TMP>/project/.akari/cache",
+    "entries": [
+      {
+        "file": "preview-audio",
+        "bytes": 224
+      },
+      {
+        "file": "preview-audio/1e0e40c1b2f2e1c0aa995489eeab79f4d1b185b8.json",
+        "bytes": 297
+      },
+      {
+        "file": "preview-audio/1e0e40c1b2f2e1c0aa995489eeab79f4d1b185b8.pcm",
+        "bytes": 8640000
+      },
+      {
+        "file": "preview-audio/495ef752c7f6cc4687989ff264cfb9174db08a0d.json",
+        "bytes": 297
+      },
+      {
+        "file": "preview-audio/495ef752c7f6cc4687989ff264cfb9174db08a0d.pcm",
+        "bytes": 8640000
+      },
+      {
+        "file": "preview-audio/probe-dd00d6c31a505aca425dd13db93aae21ed906aa5.json",
+        "bytes": 194
+      }
+    ]
+  },
+  "cleanup": {
+    "electronPid": 50115,
+    "electronExitCode": 0,
+    "electronSignal": null,
+    "survivingElectronProcesses": 0,
+    "survivingElectronMainScript": 0,
+    "survivingShellBackend": 0,
+    "survivingPreviewServer": 0
+  },
+  "networkAll": {
+    "summary": {
+      "total": 2603,
+      "mediaRange": 2569,
+      "mediaFull": 1,
+      "previewAudioApi": 0,
+      "sidecarPcm": 0,
+      "other": 33
+    },
+    "byPath": [
+      [
+        "GET /assets/main.mp4 [Range]",
+        2569
+      ],
+      [
+        "GET /",
+        1
+      ],
+      [
+        "GET /overlay-interaction.css",
+        1
+      ],
+      [
+        "GET /overlay-motion-vocab.css",
+        1
+      ],
+      [
+        "GET /style.css",
+        1
+      ],
+      [
+        "GET /budoux-ja-bundle.js",
+        1
+      ],
+      [
+        "GET /text-split.js",
+        1
+      ],
+      [
+        "GET /overlay-interaction.bundle.js",
+        1
+      ],
+      [
+        "GET /video-fx.js",
+        1
+      ],
+      [
+        "GET /viewport-units.js",
+        1
+      ],
+      [
+        "GET /slot-params.js",
+        1
+      ],
+      [
+        "GET /app.js",
+        1
+      ],
+      [
+        "GET /assets/fonts/akari-noto-sans-jp.ttf",
+        1
+      ],
+      [
+        "GET /edit-kernel.bundle.js",
+        1
+      ],
+      [
+        "GET /pen-visuals.bundle.js",
+        1
+      ],
+      [
+        "GET /caption-style.js",
+        1
+      ],
+      [
+        "GET /framing-visual.js",
+        1
+      ],
+      [
+        "GET /cut-transform-visual.js",
+        1
+      ],
+      [
+        "GET /layer-perspective-visual.js",
+        1
+      ],
+      [
+        "GET /layer-crop-anchor.js",
+        1
+      ],
+      [
+        "GET /layer-keyframes-visual.js",
+        1
+      ],
+      [
+        "GET /cut-fx.js",
+        1
+      ],
+      [
+        "GET /layer-lazy-load.js",
+        1
+      ],
+      [
+        "GET /media-playback-resume.js",
+        1
+      ],
+      [
+        "GET /media-time-sync.js",
+        1
+      ],
+      [
+        "GET /audio-declick.js",
+        1
+      ],
+      [
+        "GET /audio-scrub.js",
+        1
+      ],
+      [
+        "GET /transition-write-guard.js",
+        1
+      ],
+      [
+        "GET /audio-clip.js",
+        1
+      ],
+      [
+        "GET /transition-visual.js",
+        1
+      ],
+      [
+        "GET /api/timeline",
+        1
+      ],
+      [
+        "GET /api/summary",
+        1
+      ],
+      [
+        "GET /api/captions.json",
+        1
+      ],
+      [
+        "GET /assets/bgm.m4a",
+        1
+      ],
+      [
+        "GET /runtimes.json",
+        1
+      ]
+    ]
+  },
+  "failedRuns": [],
+  "runs": [
+    {
+      "id": "off-a",
+      "mode": "off",
+      "pattern": "a",
+      "label": "slow: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "off-a.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 0,
+      "played": 0,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 0.01,
+        "gaps": 0,
+        "peak": 0,
+        "rms": 0,
+        "stateAtEnd": "suspended"
+      },
+      "pitch": {
+        "mainConfirmed": 0,
+        "bgmConfirmed": 0,
+        "total": 0,
+        "mainConfirmRate": null,
+        "bgmConfirmRate": null,
+        "audibleFrames": 0,
+        "staleFrames": 0,
+        "staleRate": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": null,
+        "gaps10ms": 0,
+        "clicks": 0,
+        "maxSampleDelta": 0
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 2.7,
+          "psMax": 19.2,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 2,
+          "psMax": 10,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 23.2,
+          "psMax": 26,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 1.6,
+          "psMax": 11.1,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 34,
+          "psMax": 40.7,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.6,
+          "psMax": 1.2,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 83,
+        "mediaRange": 83,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "off-b",
+      "mode": "off",
+      "pattern": "b",
+      "label": "fast: 0 → 120 s in 3 s (≈1.3 s/tick)",
+      "wav": "off-b.wav",
+      "ticks": 90,
+      "tickHz": 30,
+      "seeksRecorded": 0,
+      "played": 0,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 0.11,
+        "gaps": 0,
+        "peak": 0,
+        "rms": 0,
+        "stateAtEnd": "suspended"
+      },
+      "pitch": {
+        "mainConfirmed": 0,
+        "bgmConfirmed": 0,
+        "total": 0,
+        "mainConfirmRate": null,
+        "bgmConfirmRate": null,
+        "audibleFrames": 0,
+        "staleFrames": 0,
+        "staleRate": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 100,
+        "gaps10ms": 1,
+        "clicks": 0,
+        "maxSampleDelta": 0
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 12.3,
+          "psMax": 18.4,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 6.9,
+          "psMax": 8.9,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 13.4,
+          "psMax": 24.7,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 8.6,
+          "psMax": 12,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 28.5,
+          "psMax": 47.8,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0,
+          "psMax": 0.6,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 178,
+        "mediaRange": 178,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "off-c",
+      "mode": "off",
+      "pattern": "c",
+      "label": "back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)",
+      "wav": "off-c.wav",
+      "ticks": 180,
+      "tickHz": 30,
+      "seeksRecorded": 0,
+      "played": 0,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 0.03,
+        "gaps": 0,
+        "peak": 0,
+        "rms": 0,
+        "stateAtEnd": "suspended"
+      },
+      "pitch": {
+        "mainConfirmed": 0,
+        "bgmConfirmed": 0,
+        "total": 0,
+        "mainConfirmRate": null,
+        "bgmConfirmRate": null,
+        "audibleFrames": 0,
+        "staleFrames": 0,
+        "staleRate": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 100,
+        "gaps10ms": 1,
+        "clicks": 0,
+        "maxSampleDelta": 0
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 4.1,
+          "psMax": 14.2,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 2.8,
+          "psMax": 7.6,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 23,
+          "psMax": 32.4,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 2.4,
+          "psMax": 8.7,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 34.7,
+          "psMax": 54.5,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.1,
+          "psMax": 0.4,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 56,
+        "mediaRange": 56,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "off-d",
+      "mode": "off",
+      "pattern": "d",
+      "label": "slow-rate: 0 → 20 s in 4 s at 5 Hz (no supersede)",
+      "wav": "off-d.wav",
+      "ticks": 20,
+      "tickHz": 5,
+      "seeksRecorded": 0,
+      "played": 0,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 0.09,
+        "gaps": 0,
+        "peak": 0,
+        "rms": 0,
+        "stateAtEnd": "suspended"
+      },
+      "pitch": {
+        "mainConfirmed": 0,
+        "bgmConfirmed": 0,
+        "total": 0,
+        "mainConfirmRate": null,
+        "bgmConfirmRate": null,
+        "audibleFrames": 0,
+        "staleFrames": 0,
+        "staleRate": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null,
+          "max": null
+        },
+        "recordedBgm": {
+          "n": 0,
+          "found": 0,
+          "p50": null,
+          "p95": null
+        },
+        "appReported": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 100,
+        "gaps10ms": 1,
+        "clicks": 0,
+        "maxSampleDelta": 0
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 6.4,
+          "psMax": 16,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 3.9,
+          "psMax": 10.7,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 8.1,
+          "psMax": 13.2,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 3.9,
+          "psMax": 7.6,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 15.7,
+          "psMax": 24.7,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.2,
+          "psMax": 0.6,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 81,
+        "mediaRange": 81,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "A-a",
+      "mode": "A",
+      "pattern": "a",
+      "label": "slow: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "A-a.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 297,
+      "played": 122,
+      "skipped": 175,
+      "skippedReasons": {
+        "superseded": 175
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 10,
+        "gaps": 0,
+        "peak": 0.747,
+        "rms": 0.084,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 223,
+        "bgmConfirmed": 241,
+        "total": 297,
+        "mainConfirmRate": 75.1,
+        "bgmConfirmRate": 81.1,
+        "audibleFrames": 222,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 20,
+          "p50": 48.7,
+          "p95": 52.3,
+          "max": 57.3
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 20,
+          "p50": 53.7,
+          "p95": 61.3
+        },
+        "appReported": {
+          "n": 118,
+          "p50": 31.7,
+          "p95": 42.3
+        },
+        "seekComplete": {
+          "n": 297,
+          "p50": 32.8,
+          "p95": 34.7
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 69.1,
+        "gaps10ms": 52,
+        "clicks": 14,
+        "maxSampleDelta": 0.235
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 1.9,
+          "psMax": 9.6,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 3.6,
+          "psMax": 11.1,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 25.1,
+          "psMax": 31.7,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 1.1,
+          "psMax": 6.9,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 38.6,
+          "psMax": 50.2,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1,
+          "psMax": 1.1,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 39,
+        "mediaRange": 39,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "A-b",
+      "mode": "A",
+      "pattern": "b",
+      "label": "fast: 0 → 120 s in 3 s (≈1.3 s/tick)",
+      "wav": "A-b.wav",
+      "ticks": 90,
+      "tickHz": 30,
+      "seeksRecorded": 90,
+      "played": 22,
+      "skipped": 68,
+      "skippedReasons": {
+        "superseded": 68
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 4,
+        "gaps": 0,
+        "peak": 0.687,
+        "rms": 0.047,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 25,
+        "bgmConfirmed": 29,
+        "total": 90,
+        "mainConfirmRate": 27.8,
+        "bgmConfirmRate": 32.2,
+        "audibleFrames": 29,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 90,
+          "found": 7,
+          "p50": 28.7,
+          "p95": 107.7,
+          "max": 107.7
+        },
+        "recordedBgm": {
+          "n": 90,
+          "found": 15,
+          "p50": 35,
+          "p95": 134
+        },
+        "appReported": {
+          "n": 21,
+          "p50": 31.7,
+          "p95": 37
+        },
+        "seekComplete": {
+          "n": 90,
+          "p50": 33.3,
+          "p95": 37
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 81.1,
+        "gaps10ms": 20,
+        "clicks": 0,
+        "maxSampleDelta": 0.051
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 14,
+          "psMax": 17,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 8.7,
+          "psMax": 10.8,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 15.2,
+          "psMax": 34.7,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 9,
+          "psMax": 10.6,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 33.5,
+          "psMax": 61.7,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1.1,
+          "psMax": 1,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 164,
+        "mediaRange": 164,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "A-c",
+      "mode": "A",
+      "pattern": "c",
+      "label": "back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)",
+      "wav": "A-c.wav",
+      "ticks": 180,
+      "tickHz": 30,
+      "seeksRecorded": 179,
+      "played": 60,
+      "skipped": 119,
+      "skippedReasons": {
+        "superseded": 119
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 7,
+        "gaps": 0,
+        "peak": 0.736,
+        "rms": 0.09,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 174,
+        "bgmConfirmed": 177,
+        "total": 179,
+        "mainConfirmRate": 97.2,
+        "bgmConfirmRate": 98.9,
+        "audibleFrames": 151,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 31,
+          "found": 25,
+          "p50": 144.3,
+          "p95": 159.7,
+          "max": 217
+        },
+        "recordedBgm": {
+          "n": 31,
+          "found": 26,
+          "p50": 127,
+          "p95": 162
+        },
+        "appReported": {
+          "n": 56,
+          "p50": 31.7,
+          "p95": 37
+        },
+        "seekComplete": {
+          "n": 179,
+          "p50": 33,
+          "p95": 36
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 73.9,
+        "gaps10ms": 42,
+        "clicks": 0,
+        "maxSampleDelta": 0.056
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 2.7,
+          "psMax": 12.3,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 3.7,
+          "psMax": 8.2,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 25.6,
+          "psMax": 35.8,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 1.9,
+          "psMax": 7.9,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 38.5,
+          "psMax": 50.3,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1.1,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 49,
+        "mediaRange": 49,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "A-d",
+      "mode": "A",
+      "pattern": "d",
+      "label": "slow-rate: 0 → 20 s in 4 s at 5 Hz (no supersede)",
+      "wav": "A-d.wav",
+      "ticks": 20,
+      "tickHz": 5,
+      "seeksRecorded": 20,
+      "played": 20,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 5,
+        "gaps": 0,
+        "peak": 0.749,
+        "rms": 0.169,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 20,
+        "bgmConfirmed": 20,
+        "total": 20,
+        "mainConfirmRate": 100,
+        "bgmConfirmRate": 100,
+        "audibleFrames": 208,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 20,
+          "p50": 87,
+          "p95": 89.7,
+          "max": 92
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 20,
+          "p50": 72,
+          "p95": 79.3
+        },
+        "appReported": {
+          "n": 20,
+          "p50": 69,
+          "p95": 69
+        },
+        "seekComplete": {
+          "n": 20,
+          "p50": 62.1,
+          "p95": 66.8
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 67.5,
+        "gaps10ms": 20,
+        "clicks": 2,
+        "maxSampleDelta": 0.495
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 6.4,
+          "psMax": 13.3,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 4.7,
+          "psMax": 7.8,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 10.3,
+          "psMax": 14.7,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 4.3,
+          "psMax": 8.4,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 19.9,
+          "psMax": 29.6,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1.1,
+          "psMax": 1.1,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 78,
+        "mediaRange": 78,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "B-a",
+      "mode": "B",
+      "pattern": "a",
+      "label": "slow: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "B-a.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 300,
+      "played": 39,
+      "skipped": 261,
+      "skippedReasons": {
+        "superseded": 261
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 10,
+        "gaps": 0,
+        "peak": 0.703,
+        "rms": 0.054,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 205,
+        "bgmConfirmed": 168,
+        "total": 300,
+        "mainConfirmRate": 68.3,
+        "bgmConfirmRate": 56,
+        "audibleFrames": 150,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 19,
+          "p50": 62.3,
+          "p95": 94.3,
+          "max": 94.3
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 17,
+          "p50": 67.3,
+          "p95": 74.7
+        },
+        "appReported": {
+          "n": 39,
+          "p50": 31.7,
+          "p95": 53
+        },
+        "seekComplete": {
+          "n": 299,
+          "p50": 33.3,
+          "p95": 35.6
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 88.7,
+        "gaps10ms": 23,
+        "clicks": 6,
+        "maxSampleDelta": 0.219
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 1.7,
+          "psMax": 9,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 2.4,
+          "psMax": 7,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 27.7,
+          "psMax": 34.4,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 1,
+          "psMax": 6.1,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 57.1,
+          "psMax": 74.7,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1,
+          "psMax": 1,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 22,
+        "mediaRange": 22,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "B-b",
+      "mode": "B",
+      "pattern": "b",
+      "label": "fast: 0 → 120 s in 3 s (≈1.3 s/tick)",
+      "wav": "B-b.wav",
+      "ticks": 90,
+      "tickHz": 30,
+      "seeksRecorded": 90,
+      "played": 2,
+      "skipped": 88,
+      "skippedReasons": {
+        "superseded": 88
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 4,
+        "gaps": 0,
+        "peak": 0.733,
+        "rms": 0.035,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 2,
+        "bgmConfirmed": 4,
+        "total": 90,
+        "mainConfirmRate": 2.2,
+        "bgmConfirmRate": 4.4,
+        "audibleFrames": 0,
+        "staleFrames": 0,
+        "staleRate": null
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 90,
+          "found": 1,
+          "p50": 74,
+          "p95": 74,
+          "max": 74
+        },
+        "recordedBgm": {
+          "n": 90,
+          "found": 2,
+          "p50": 24.7,
+          "p95": 79
+        },
+        "appReported": {
+          "n": 2,
+          "p50": 15.7,
+          "p95": 74.3
+        },
+        "seekComplete": {
+          "n": 90,
+          "p50": 33.4,
+          "p95": 35.7
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 98.5,
+        "gaps10ms": 1,
+        "clicks": 0,
+        "maxSampleDelta": 0.057
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 11.8,
+          "psMax": 15.5,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 6.7,
+          "psMax": 9.6,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 15.9,
+          "psMax": 27,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 7.6,
+          "psMax": 11.8,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 40.7,
+          "psMax": 73,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.9,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 154,
+        "mediaRange": 154,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "B-c",
+      "mode": "B",
+      "pattern": "c",
+      "label": "back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)",
+      "wav": "B-c.wav",
+      "ticks": 180,
+      "tickHz": 30,
+      "seeksRecorded": 179,
+      "played": 24,
+      "skipped": 155,
+      "skippedReasons": {
+        "superseded": 155
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 7,
+        "gaps": 0,
+        "peak": 0.736,
+        "rms": 0.04,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 81,
+        "bgmConfirmed": 8,
+        "total": 179,
+        "mainConfirmRate": 45.3,
+        "bgmConfirmRate": 4.5,
+        "audibleFrames": 34,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 31,
+          "found": 9,
+          "p50": 164.7,
+          "p95": 282.3,
+          "max": 282.3
+        },
+        "recordedBgm": {
+          "n": 31,
+          "found": 1,
+          "p50": 177.3,
+          "p95": 177.3
+        },
+        "appReported": {
+          "n": 24,
+          "p50": 37,
+          "p95": 42.3
+        },
+        "seekComplete": {
+          "n": 179,
+          "p50": 33.3,
+          "p95": 36.3
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 95.3,
+        "gaps10ms": 10,
+        "clicks": 0,
+        "maxSampleDelta": 0.153
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 3.3,
+          "psMax": 18.4,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 3.3,
+          "psMax": 8,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 27.5,
+          "psMax": 38.9,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 1.9,
+          "psMax": 9.8,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 56.7,
+          "psMax": 77,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1,
+          "psMax": 1.1,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 52,
+        "mediaRange": 52,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "B-d",
+      "mode": "B",
+      "pattern": "d",
+      "label": "slow-rate: 0 → 20 s in 4 s at 5 Hz (no supersede)",
+      "wav": "B-d.wav",
+      "ticks": 20,
+      "tickHz": 5,
+      "seeksRecorded": 20,
+      "played": 20,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 5,
+        "gaps": 0,
+        "peak": 0.749,
+        "rms": 0.164,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 20,
+        "bgmConfirmed": 20,
+        "total": 20,
+        "mainConfirmRate": 100,
+        "bgmConfirmRate": 100,
+        "audibleFrames": 196,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 20,
+          "p50": 105.3,
+          "p95": 110.3,
+          "max": 110.3
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 20,
+          "p50": 90.3,
+          "p95": 97.7
+        },
+        "appReported": {
+          "n": 20,
+          "p50": 85,
+          "p95": 90.3
+        },
+        "seekComplete": {
+          "n": 20,
+          "p50": 80.5,
+          "p95": 81.7
+        },
+        "decode": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "fetch": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "bytesTotal": 0,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 69.1,
+        "gaps10ms": 20,
+        "clicks": 0,
+        "maxSampleDelta": 0.061
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 4.8,
+          "psMax": 14.6,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 3.5,
+          "psMax": 8,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 14,
+          "psMax": 22.3,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 3.4,
+          "psMax": 9,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 22.7,
+          "psMax": 41.4,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.9,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 57,
+        "mediaRange": 57,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "C-a",
+      "mode": "C",
+      "pattern": "a",
+      "label": "slow: 0 → 20 s in 10 s (≈67 ms/tick)",
+      "wav": "C-a.wav",
+      "ticks": 300,
+      "tickHz": 30,
+      "seeksRecorded": 299,
+      "played": 295,
+      "skipped": 4,
+      "skippedReasons": {
+        "superseded": 4
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 10,
+        "gaps": 0,
+        "peak": 0.751,
+        "rms": 0.309,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 296,
+        "bgmConfirmed": 296,
+        "total": 299,
+        "mainConfirmRate": 99,
+        "bgmConfirmRate": 99,
+        "audibleFrames": 1908,
+        "staleFrames": 1,
+        "staleRate": 0.1
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 20,
+          "p50": 37.7,
+          "p95": 50,
+          "max": 51.3
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 20,
+          "p50": 15,
+          "p95": 20
+        },
+        "appReported": {
+          "n": 295,
+          "p50": 10.3,
+          "p95": 21
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 299,
+          "p50": 0.5,
+          "p95": 1
+        },
+        "fetch": {
+          "n": 299,
+          "p50": 5,
+          "p95": 14.4,
+          "bytesTotal": 305925,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 2.2,
+        "gaps10ms": 3,
+        "clicks": 0,
+        "maxSampleDelta": 0.061
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 4.9,
+          "psMax": 8.4,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 7.2,
+          "psMax": 9.6,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 25.8,
+          "psMax": 33.1,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 9.4,
+          "psMax": 12.7,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 47.4,
+          "psMax": 60.4,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 643,
+        "mediaRange": 643,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "C-b",
+      "mode": "C",
+      "pattern": "b",
+      "label": "fast: 0 → 120 s in 3 s (≈1.3 s/tick)",
+      "wav": "C-b.wav",
+      "ticks": 90,
+      "tickHz": 30,
+      "seeksRecorded": 90,
+      "played": 87,
+      "skipped": 3,
+      "skippedReasons": {
+        "superseded": 3
+      },
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 4,
+        "gaps": 0,
+        "peak": 0.741,
+        "rms": 0.312,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 89,
+        "bgmConfirmed": 90,
+        "total": 90,
+        "mainConfirmRate": 98.9,
+        "bgmConfirmRate": 100,
+        "audibleFrames": 569,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 90,
+          "found": 85,
+          "p50": 16,
+          "p95": 70.7,
+          "max": 78.3
+        },
+        "recordedBgm": {
+          "n": 90,
+          "found": 89,
+          "p50": 18.3,
+          "p95": 31.3
+        },
+        "appReported": {
+          "n": 87,
+          "p50": 10.3,
+          "p95": 21
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 90,
+          "p50": 0.6,
+          "p95": 1.7
+        },
+        "fetch": {
+          "n": 90,
+          "p50": 5.6,
+          "p95": 19.2,
+          "bytesTotal": 93113,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 3.6,
+        "gaps10ms": 1,
+        "clicks": 0,
+        "maxSampleDelta": 0.057
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 10.7,
+          "psMax": 12.5,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 10.2,
+          "psMax": 14.5,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 16.2,
+          "psMax": 27.2,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 13.7,
+          "psMax": 19.3,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 40.8,
+          "psMax": 62.9,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.9,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 361,
+        "mediaRange": 361,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "C-c",
+      "mode": "C",
+      "pattern": "c",
+      "label": "back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)",
+      "wav": "C-c.wav",
+      "ticks": 180,
+      "tickHz": 30,
+      "seeksRecorded": 180,
+      "played": 180,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 7,
+        "gaps": 0,
+        "peak": 0.747,
+        "rms": 0.327,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 180,
+        "bgmConfirmed": 180,
+        "total": 180,
+        "mainConfirmRate": 100,
+        "bgmConfirmRate": 100,
+        "audibleFrames": 1189,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 31,
+          "found": 31,
+          "p50": 30.3,
+          "p95": 53,
+          "max": 53
+        },
+        "recordedBgm": {
+          "n": 31,
+          "found": 31,
+          "p50": 13.3,
+          "p95": 23
+        },
+        "appReported": {
+          "n": 180,
+          "p50": 10.3,
+          "p95": 15.7
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 180,
+          "p50": 0.5,
+          "p95": 0.8
+        },
+        "fetch": {
+          "n": 180,
+          "p50": 3.4,
+          "p95": 7.5,
+          "bytesTotal": 149705,
+          "cacheHits": 35
+        }
+      },
+      "continuity": {
+        "silenceRate": 0,
+        "gaps10ms": 0,
+        "clicks": 0,
+        "maxSampleDelta": 0.06
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 4.9,
+          "psMax": 13.9,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 6,
+          "psMax": 11.2,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 21.2,
+          "psMax": 27.7,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 7.6,
+          "psMax": 15.4,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 39.9,
+          "psMax": 54.9,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 1,
+          "psMax": 0.9,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 403,
+        "mediaRange": 403,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    },
+    {
+      "id": "C-d",
+      "mode": "C",
+      "pattern": "d",
+      "label": "slow-rate: 0 → 20 s in 4 s at 5 Hz (no supersede)",
+      "wav": "C-d.wav",
+      "ticks": 20,
+      "tickHz": 5,
+      "seeksRecorded": 20,
+      "played": 20,
+      "skipped": 0,
+      "skippedReasons": {},
+      "errors": [],
+      "errorCount": 0,
+      "recording": {
+        "sampleRate": 48000,
+        "seconds": 5,
+        "gaps": 0,
+        "peak": 0.748,
+        "rms": 0.142,
+        "stateAtEnd": "running"
+      },
+      "pitch": {
+        "mainConfirmed": 20,
+        "bgmConfirmed": 20,
+        "total": 20,
+        "mainConfirmRate": 100,
+        "bgmConfirmRate": 100,
+        "audibleFrames": 171,
+        "staleFrames": 0,
+        "staleRate": 0
+      },
+      "latencyMs": {
+        "recorded": {
+          "n": 20,
+          "found": 20,
+          "p50": 39,
+          "p95": 204,
+          "max": 214
+        },
+        "recordedBgm": {
+          "n": 20,
+          "found": 20,
+          "p50": 19,
+          "p95": 21.7
+        },
+        "appReported": {
+          "n": 20,
+          "p50": 10.3,
+          "p95": 15.7
+        },
+        "seekComplete": {
+          "n": 0,
+          "p50": null,
+          "p95": null
+        },
+        "decode": {
+          "n": 20,
+          "p50": 0.6,
+          "p95": 1.6
+        },
+        "fetch": {
+          "n": 20,
+          "p50": 5.2,
+          "p95": 8,
+          "bytesTotal": 21703,
+          "cacheHits": 0
+        }
+      },
+      "continuity": {
+        "silenceRate": 69.6,
+        "gaps10ms": 19,
+        "clicks": 0,
+        "maxSampleDelta": 0.06
+      },
+      "cpu": {
+        "preview-server": {
+          "pct": 2.4,
+          "psMax": 6.8,
+          "pids": 1
+        },
+        "browser-main": {
+          "pct": 2.4,
+          "psMax": 3.6,
+          "pids": 1
+        },
+        "gpu": {
+          "pct": 7.1,
+          "psMax": 10.6,
+          "pids": 1
+        },
+        "utility-other": {
+          "pct": 2.6,
+          "psMax": 4.4,
+          "pids": 1
+        },
+        "renderer": {
+          "pct": 12.9,
+          "psMax": 18.8,
+          "pids": 1
+        },
+        "audio-service": {
+          "pct": 0.8,
+          "psMax": 0.7,
+          "pids": 1
+        }
+      },
+      "network": {
+        "total": 118,
+        "mediaRange": 118,
+        "mediaFull": 0,
+        "previewAudioApi": 0,
+        "sidecarPcm": 0,
+        "other": 0
+      }
+    }
+  ]
+}
