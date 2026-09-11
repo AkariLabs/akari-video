@@ -1,0 +1,31 @@
+{
+  "path": "assets/source.mp4",
+  "sha256": "255d9ad3bb6ef0c3eb74b1386fa34056c85d4c45ed9d154bb8d59e1d56e02905",
+  "size_bytes": 58314240,
+  "container": "mov",
+  "duration_s": 30.015,
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 29.998333425920784,
+    "codec": "h264",
+    "rotation": 0,
+    "frame_timing": {
+      "sampled_frames": 900,
+      "mode": "vfr",
+      "irregular_deltas": 5,
+      "max_deviation_ms": 1.667,
+      "cumulative_drift_ms": 1.666,
+      "nominal_frame_ms": 33.333
+    }
+  },
+  "audio": {
+    "codec": "aac",
+    "channels": 2,
+    "sample_rate": 48000
+  },
+  "tool": {
+    "ffprobe": "8.1.2-https://www.martin-riedl.de"
+  },
+  "generated_at": "2026-09-11T13:00:48.589Z"
+}

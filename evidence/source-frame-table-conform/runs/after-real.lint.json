@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "checked_at": "2026-09-11T13:00:48.710Z",
+  "inputs": {
+    "edit_json_sha256": "5be4c66f961964ca1b01fb40a89e2f6532c385a8ffc29b0e047dae85221fda60"
+  },
+  "verdict": "pass",
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "warning",
+      "check": "geometry.fit-compat",
+      "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+      "path": "edit.json#output.geometry"
+    },
+    {
+      "id": "F002",
+      "severity": "warning",
+      "check": "source.vfr",
+      "message": "この素材は可変フレームレートです（ぶれ 5 回・最大 1.667 ms）。最近傍で写像しています",
+      "path": "edit.json#sources[0].path"
+    }
+  ],
+  "skipped": [
+    {
+      "check": "analysis.json",
+      "reason": "analysis.json is absent"
+    },
+    {
+      "check": "audio.music-grid",
+      "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+    },
+    {
+      "check": "captions",
+      "reason": "captions.json is absent"
+    },
+    {
+      "check": "intake",
+      "reason": ".akari/intake.json is absent"
+    },
+    {
+      "check": "media",
+      "reason": "media checks require --media"
+    },
+    {
+      "check": "review",
+      "reason": "review.json is absent"
+    }
+  ]
+}

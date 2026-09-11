@@ -1,0 +1,136 @@
+{
+  "label": "before",
+  "fixture": "cfr",
+  "quality": "high",
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "totalMs": 5747,
+  "loadavg": "{ 12.72 64.09 59.82 }",
+  "wallStart": "2026-09-11T13:02:13.960Z",
+  "sourceFrames": 300,
+  "sourceRates": {
+    "r_frame_rate": "30/1",
+    "avg_frame_rate": "30/1"
+  },
+  "probeFrameTiming": null,
+  "sidecarExists": true,
+  "lintExit": 0,
+  "lintVerdict": "pass",
+  "sourceVfrFindings": [],
+  "output": {
+    "sha256": "03ea1df8fbea4fb2427905b58522ec4e1b80e5db11e2089ba9d7cde404b796ba",
+    "frames": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "r_frame_rate": "30/1",
+          "avg_frame_rate": "30/1",
+          "nb_read_packets": "300"
+        }
+      ],
+      "format": {
+        "duration": "10.000000"
+      }
+    }
+  },
+  "launcherTier": null,
+  "gpuRunKeys": [
+    "version",
+    "status",
+    "framesRequested",
+    "framesCompleted",
+    "frameHashes",
+    "elapsedMs",
+    "stages",
+    "timing",
+    "frameEngineMetrics",
+    "gpu",
+    "domLayer",
+    "three",
+    "mux",
+    "luma",
+    "eligibility",
+    "warnings",
+    "mode",
+    "width",
+    "height",
+    "output_scale",
+    "codec",
+    "fps",
+    "duration",
+    "preview",
+    "memory",
+    "viewport",
+    "ffprobe",
+    "audio",
+    "finalVerify",
+    "persistentPath"
+  ],
+  "psnr": {
+    "shift0": {
+      "frames": 300,
+      "min": 24.57,
+      "median": 24.62,
+      "mean": 24.682500000000005,
+      "max": 25.49,
+      "below45": 300,
+      "below40": 300,
+      "firstBelow45": 0,
+      "region_0_15s": {
+        "n": 300,
+        "min": 24.57,
+        "median": 24.62,
+        "mean": 24.682500000000005
+      },
+      "region_15_30s": null
+    },
+    "shiftMinus1": {
+      "frames": 299,
+      "min": 20.28,
+      "median": 20.99,
+      "mean": 21.213678929765884,
+      "max": 22.17,
+      "below45": 299,
+      "below40": 299,
+      "firstBelow45": 1,
+      "region_0_15s": {
+        "n": 299,
+        "min": 20.28,
+        "median": 20.99,
+        "mean": 21.213678929765884
+      },
+      "region_15_30s": null
+    },
+    "shiftPlus1": {
+      "frames": 299,
+      "min": 20.23,
+      "median": 21,
+      "mean": 21.21254180602008,
+      "max": 22.19,
+      "below45": 299,
+      "below40": 299,
+      "firstBelow45": 0,
+      "region_0_15s": {
+        "n": 299,
+        "min": 20.23,
+        "median": 21,
+        "mean": 21.21254180602008
+      },
+      "region_15_30s": null
+    },
+    "argmax": {
+      "0": 298,
+      "1": 0,
+      "-1": 0
+    },
+    "wrongFrames": [],
+    "wrongFrameCount": 0,
+    "firstWrongFrame": null,
+    "lastWrongFrame": null
+  },
+  "leftoverElectronBeforeKill": 0,
+  "leftoverElectronAfterKill": 0
+}

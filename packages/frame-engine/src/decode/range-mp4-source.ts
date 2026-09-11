@@ -5,6 +5,7 @@ import {
   buildVideoSampleTable,
   decodeEndForPresentationSample,
   precedingSyncSample,
+  resolveNearestFrameDefault,
   sampleAtPresentationTime,
   type Mp4VideoSample,
   type Mp4VideoSampleTable,
@@ -564,8 +565,15 @@ export function encodedChunkInitForSample(
 }
 
 function frameCovers(frame: Pick<VideoFrame, 'timestamp' | 'duration'>, targetUs: number): boolean {
-  return typeof frame.duration === 'number' && frame.duration > 0
-    && targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
+  if (typeof frame.duration !== 'number' || !Number.isFinite(frame.duration) || frame.duration <= 0) {
+    return false;
+  }
+  if (!resolveNearestFrameDefault()) {
+    return targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
+  }
+  const distance = Math.abs(targetUs - frame.timestamp);
+  const halfDuration = frame.duration / 2;
+  return distance < halfDuration || (distance === halfDuration && frame.timestamp <= targetUs);
 }
 
 class DecoderExecutionError extends Error {
@@ -810,12 +818,12 @@ export class RangeMp4Source {
       this.storeFutureFrame(frame);
       return;
     }
-    if (frame.timestamp > target) {
+    const waiter = this.outputWaiter;
+    if (frame.timestamp > target && frame.timestamp !== waiter?.sampleTimestampUs) {
       this.storeFutureFrame(frame);
       // 出力は提示順なので、target より後のフレームが並べ替え窓（maxReorderFrames）を超える数だけ
       // 先に出た時点で target はもう来ない（デコーダが落とした）。猶予 250 ms と flush を待たずに
       // waiter を解いて呼び手に再シークさせる。B フレーム無しなら後続 1 枚で確定する。
-      const waiter = this.outputWaiter;
       if (waiter && !waiter.isSettled()) {
         waiter.laterFrames += 1;
         const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
@@ -941,7 +949,7 @@ export class RangeMp4Source {
     const requestedTarget = Math.max(0, Math.floor(timeUs));
     const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
     const targetSample = sampleAtPresentationTime(table, targetUs);
-    if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) {
+    if (this.lastOutput && this.lastOutput.timestamp === targetSample.timestampUs) {
       const result = this.lastOutput.clone();
       this.noteFrameReturned(targetSample, targetUs, true);
       return result;

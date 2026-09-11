@@ -380,6 +380,7 @@ export async function lintProject(input, options = {}) {
     validateIntake(intakeState.value, findings, paths);
   }
   await lintDecisionLogPredict({ projectRoot: paths.projectRoot, intake: intakeState.value, edit: rawEdit, findings });
+  runSourceVfrChecks(rawEdit, edit, findings, paths);
 
   if (options.media) {
     runReferencedMediaChecks(
@@ -5730,6 +5731,80 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
       );
     }
   }
+}
+
+function runSourceVfrChecks(rawEdit, projectedEdit, findings, paths) {
+  const declaredSources = Array.isArray(rawEdit?.sources)
+    ? rawEdit.sources
+    : Array.isArray(projectedEdit?.sources) ? projectedEdit.sources : [];
+  const sourcesById = new Map(declaredSources
+    .filter((source) => isRecord(source) && isNonEmptyString(source.id))
+    .map((source) => [source.id, source]));
+  const referencedSourceIds = new Set();
+  if (rawEdit?.version === 2 && Array.isArray(rawEdit.tracks)) {
+    for (const track of rawEdit.tracks) {
+      if (!isRecord(track) || !Array.isArray(track.items)) continue;
+      for (const item of track.items) {
+        if (isRecord(item) && isRecord(item.source) && item.source.kind === "media"
+          && isNonEmptyString(item.source.src)) {
+          referencedSourceIds.add(item.source.src);
+        }
+      }
+    }
+  } else if (Array.isArray(projectedEdit?.cuts)) {
+    for (const cut of projectedEdit.cuts) {
+      if (isRecord(cut) && isNonEmptyString(cut.src)) referencedSourceIds.add(cut.src);
+    }
+  }
+  for (const sourceId of referencedSourceIds) {
+    const source = sourcesById.get(sourceId);
+    if (source && isNonEmptyString(source.path)) {
+      addSourceVfrFinding(source, declaredSources.indexOf(source), findings, paths);
+    }
+  }
+}
+
+function addSourceVfrFinding(source, sourceIndex, findings, paths) {
+  const analysisPath = sourceAnalysisPath(paths.projectRoot, source.path);
+  if (analysisPath === null) return;
+  let timing;
+  try {
+    timing = JSON.parse(readFileSync(analysisPath, "utf8"))?.probe?.video?.frame_timing;
+  } catch {
+    return;
+  }
+  if (!isRecord(timing) || timing.mode !== "vfr") return;
+  const irregularDeltas = Number.isFinite(timing.irregular_deltas) ? timing.irregular_deltas : 0;
+  const maxDeviationMs = Number.isFinite(timing.max_deviation_ms) ? timing.max_deviation_ms : 0;
+  const cumulativeDriftMs = Number.isFinite(timing.cumulative_drift_ms)
+    ? timing.cumulative_drift_ms
+    : 0;
+  const nominalFrameMs = Number.isFinite(timing.nominal_frame_ms) ? timing.nominal_frame_ms : 0;
+  let message = `この素材は可変フレームレートです（ぶれ ${formatNumber(irregularDeltas)} 回・最大 ${formatNumber(maxDeviationMs)} ms）。最近傍で写像しています`;
+  if (nominalFrameMs > 0 && Math.abs(cumulativeDriftMs) > nominalFrameMs / 2) {
+    message += "。固定フレームレートに変換すると音ズレを防げます（任意）";
+  }
+  addFinding(findings, {
+    severity: "warning",
+    check: "source.vfr",
+    message,
+    path: `edit.json#sources[${sourceIndex}].path`,
+  });
+}
+
+function sourceAnalysisPath(projectRoot, sourcePath) {
+  if (!isNonEmptyString(sourcePath) || isAbsolute(sourcePath)) return null;
+  const resolvedSource = resolve(projectRoot, sourcePath);
+  const projectRelative = relative(projectRoot, resolvedSource);
+  if (projectRelative.startsWith("..") || isAbsolute(projectRelative)) return null;
+  const posixRelative = projectRelative.split("\\").join("/");
+  return join(
+    projectRoot,
+    ".akari",
+    "sidecars",
+    `${posixRelative}.analysis`,
+    "analysis.json",
+  );
 }
 
 function bindCaptionsToVisualSource(captionsRoot, visualSourceIds) {

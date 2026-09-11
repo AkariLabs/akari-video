@@ -319,7 +319,21 @@ export function sampleAtPresentationTime(
     if (table.samples[order[middle]!]!.timestampUs <= targetUs) low = middle;
     else high = middle - 1;
   }
-  return table.samples[order[low]!]!;
+  const previous = table.samples[order[low]!]!;
+  if (!resolveNearestFrameDefault() || low === order.length - 1) return previous;
+  const next = table.samples[order[low + 1]!]!;
+  return targetUs - previous.timestampUs <= next.timestampUs - targetUs ? previous : next;
+}
+
+export function resolveNearestFrameDefault(): boolean {
+  const runtime = globalThis as typeof globalThis & {
+    __AKARI_FRAME_ENGINE_NEAREST__?: unknown;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const explicit = runtime.__AKARI_FRAME_ENGINE_NEAREST__
+    ?? runtime.process?.env?.AKARI_FRAME_ENGINE_NEAREST;
+  if (explicit === undefined || explicit === null || explicit === '') return true;
+  return explicit !== false && explicit !== '0' && explicit !== 'false';
 }
 
 /** Last decode-order sample required to make every presentation sample through target available. */

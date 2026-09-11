@@ -17441,6 +17441,7 @@ ${indent}`);
     evaluateFrame: () => evaluateFrame,
     evaluationPlanFromResolvedTimeline: () => evaluationPlanFromResolvedTimeline,
     evaluationPlanFromTimelineMap: () => evaluationPlanFromTimelineMap,
+    exactTickContinuationTarget: () => exactTickContinuationTarget,
     fetchMp4Header: () => fetchMp4Header,
     filterQuadCornersAt: () => filterQuadCornersAt,
     forwardInverse: () => forwardInverse,
@@ -17498,6 +17499,7 @@ ${indent}`);
     resolveAdjustLut: () => resolveAdjustLut,
     resolveFrameEngineSourceMode: () => resolveFrameEngineSourceMode,
     resolveLookLutPath: () => resolveLookLutPath,
+    resolveNearestFrameDefault: () => resolveNearestFrameDefault,
     resolveOptimizeForLatencyDefault: () => resolveOptimizeForLatencyDefault,
     resolvePrefetchDefault: () => resolvePrefetchDefault,
     sampleAtPresentationTime: () => sampleAtPresentationTime,
@@ -24590,7 +24592,16 @@ void main() {
       if (table.samples[order[middle]].timestampUs <= targetUs) low = middle;
       else high = middle - 1;
     }
-    return table.samples[order[low]];
+    const previous = table.samples[order[low]];
+    if (!resolveNearestFrameDefault() || low === order.length - 1) return previous;
+    const next = table.samples[order[low + 1]];
+    return targetUs - previous.timestampUs <= next.timestampUs - targetUs ? previous : next;
+  }
+  function resolveNearestFrameDefault() {
+    const runtime = globalThis;
+    const explicit = runtime.__AKARI_FRAME_ENGINE_NEAREST__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_NEAREST;
+    if (explicit === void 0 || explicit === null || explicit === "") return true;
+    return explicit !== false && explicit !== "0" && explicit !== "false";
   }
   function decodeEndForPresentationSample(_table, target) {
     return target.decodeEndIndex;
@@ -24991,7 +25002,15 @@ void main() {
     };
   }
   function frameCovers(frame, targetUs) {
-    return typeof frame.duration === "number" && frame.duration > 0 && targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
+    if (typeof frame.duration !== "number" || !Number.isFinite(frame.duration) || frame.duration <= 0) {
+      return false;
+    }
+    if (!resolveNearestFrameDefault()) {
+      return targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
+    }
+    const distance = Math.abs(targetUs - frame.timestamp);
+    const halfDuration = frame.duration / 2;
+    return distance < halfDuration || distance === halfDuration && frame.timestamp <= targetUs;
   }
   var DecoderExecutionError = class extends Error {
     constructor(message, cause) {
@@ -25190,9 +25209,9 @@ void main() {
         this.storeFutureFrame(frame);
         return;
       }
-      if (frame.timestamp > target) {
+      const waiter = this.outputWaiter;
+      if (frame.timestamp > target && frame.timestamp !== waiter?.sampleTimestampUs) {
         this.storeFutureFrame(frame);
-        const waiter = this.outputWaiter;
         if (waiter && !waiter.isSettled()) {
           waiter.laterFrames += 1;
           const reorderWindow = this.prepared?.table.maxReorderFrames ?? 0;
@@ -25307,7 +25326,7 @@ void main() {
       const requestedTarget = Math.max(0, Math.floor(timeUs));
       const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
       const targetSample = sampleAtPresentationTime(table, targetUs);
-      if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) {
+      if (this.lastOutput && this.lastOutput.timestamp === targetSample.timestampUs) {
         const result = this.lastOutput.clone();
         this.noteFrameReturned(targetSample, targetUs, true);
         return result;
@@ -26300,7 +26319,7 @@ void main() {
         const hasUsableDuration = frame != null && typeof frame.duration === "number" && Number.isFinite(frame.duration) && frame.duration > 0;
         if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
         const wentPastTarget = frame != null && frame.timestamp > target;
-        const endedBeforeTarget = frame != null && hasUsableDuration && frame.timestamp + frame.duration <= target;
+        const continuationTarget = frame ? exactTickContinuationTarget(frame, target) : null;
         if (frame && frame.timestamp <= target) this.coverage.remember(frame);
         frame?.close();
         if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
@@ -26309,8 +26328,8 @@ void main() {
           tickTarget = target;
           continue;
         }
-        if (endedBeforeTarget) {
-          tickTarget = target + 1;
+        if (continuationTarget !== null) {
+          tickTarget = continuationTarget;
           continue;
         }
         break;
@@ -26375,9 +26394,26 @@ void main() {
       return result;
     }
   };
+  function exactTickContinuationTarget(frame, targetUs) {
+    const duration = frame.duration;
+    if (typeof duration !== "number" || !Number.isFinite(duration) || duration <= 0) return null;
+    if (frame.timestamp + duration <= targetUs) {
+      return targetUs + 1;
+    }
+    if (resolveNearestFrameDefault() && frame.timestamp <= targetUs && !frameCoversTimestamp(frame, targetUs)) {
+      return frame.timestamp + duration + 1;
+    }
+    return null;
+  }
   function frameCoversTimestamp(frame, targetUs) {
     const duration = frame.duration;
-    return typeof duration === "number" && Number.isFinite(duration) && duration > 0 && targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
+    if (typeof duration !== "number" || !Number.isFinite(duration) || duration <= 0) return false;
+    if (!resolveNearestFrameDefault()) {
+      return targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
+    }
+    const distance = Math.abs(targetUs - frame.timestamp);
+    const halfDuration = duration / 2;
+    return distance < halfDuration || distance === halfDuration && frame.timestamp <= targetUs;
   }
   function presentationFrameTiming(frame, decoderTimestampOffsetUs, nextFrameStartUs = null) {
     const offsetUs = Math.max(0, decoderTimestampOffsetUs);

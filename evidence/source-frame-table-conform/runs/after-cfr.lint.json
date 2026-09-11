@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "checked_at": "2026-09-11T13:02:14.569Z",
+  "inputs": {
+    "edit_json_sha256": "cb55aa1e1d0330d36a96bddc2fc19484b1b441f31a8fe85b8da2ea9b8b978b5b"
+  },
+  "verdict": "pass",
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "warning",
+      "check": "geometry.fit-compat",
+      "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+      "path": "edit.json#output.geometry"
+    }
+  ],
+  "skipped": [
+    {
+      "check": "analysis.json",
+      "reason": "analysis.json is absent"
+    },
+    {
+      "check": "audio.music-grid",
+      "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+    },
+    {
+      "check": "captions",
+      "reason": "captions.json is absent"
+    },
+    {
+      "check": "intake",
+      "reason": ".akari/intake.json is absent"
+    },
+    {
+      "check": "media",
+      "reason": "media checks require --media"
+    },
+    {
+      "check": "review",
+      "reason": "review.json is absent"
+    }
+  ]
+}

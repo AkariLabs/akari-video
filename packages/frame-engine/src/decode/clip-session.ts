@@ -19,6 +19,7 @@ import {
   RetainedSourceBytes,
 } from './source-bytes.js';
 import { RangeMp4Source, type RangeFetchStats } from './range-mp4-source.js';
+import { resolveNearestFrameDefault } from './sample-table.js';
 
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
 
@@ -754,9 +755,9 @@ export class ClipSession implements NativeFrameSource {
       if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
 
       const wentPastTarget = frame != null && frame.timestamp > target;
-      const endedBeforeTarget = frame != null
-        && hasUsableDuration
-        && frame.timestamp + frame.duration <= target;
+      const continuationTarget = frame
+        ? exactTickContinuationTarget(frame, target)
+        : null;
       if (frame && frame.timestamp <= target) this.coverage.remember(frame);
       frame?.close();
 
@@ -766,10 +767,8 @@ export class ClipSession implements NativeFrameSource {
         tickTarget = target;
         continue;
       }
-      if (endedBeforeTarget) {
-        // av-cliper treats the prior frame's end timestamp as inclusive. Moving one
-        // microsecond into the requested frame preserves exact frame selection.
-        tickTarget = target + 1;
+      if (continuationTarget !== null) {
+        tickTarget = continuationTarget;
         continue;
       }
       break;
@@ -842,14 +841,37 @@ export class ClipSession implements NativeFrameSource {
   }
 }
 
+export function exactTickContinuationTarget(
+  frame: Pick<VideoFrame, 'timestamp' | 'duration'>,
+  targetUs: number,
+): number | null {
+  const duration = frame.duration;
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) return null;
+  if (frame.timestamp + duration <= targetUs) {
+    // av-cliper treats the prior frame's end timestamp as inclusive. Moving one
+    // microsecond into the requested frame preserves exact frame selection.
+    return targetUs + 1;
+  }
+  if (resolveNearestFrameDefault()
+    && frame.timestamp <= targetUs
+    && !frameCoversTimestamp(frame, targetUs)) {
+    return frame.timestamp + duration + 1;
+  }
+  return null;
+}
+
 export function frameCoversTimestamp(
   frame: Pick<VideoFrame, 'timestamp' | 'duration'>,
   targetUs: number
 ): boolean {
   const duration = frame.duration;
-  return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
-    && targetUs >= frame.timestamp
-    && targetUs < frame.timestamp + duration;
+  if (typeof duration !== 'number' || !Number.isFinite(duration) || duration <= 0) return false;
+  if (!resolveNearestFrameDefault()) {
+    return targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
+  }
+  const distance = Math.abs(targetUs - frame.timestamp);
+  const halfDuration = duration / 2;
+  return distance < halfDuration || (distance === halfDuration && frame.timestamp <= targetUs);
 }
 
 export function presentationFrameTiming(
