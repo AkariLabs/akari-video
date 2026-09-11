@@ -129,3 +129,11 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 The code is under the [MIT License](./LICENSE). Assets handled via `assets/` / `catalog/`
 follow the license notice in each item's `meta.json`. Bundled third-party binaries
 (ffmpeg / ffprobe, GPL builds) are documented in [NOTICE.md](./NOTICE.md).
+
+---
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/AkariLabs/akari-video?style=for-the-badge&logo=github&logoColor=white&color=ff8a00)](https://github.com/AkariLabs/akari-video/stargazers)
+
+</div>

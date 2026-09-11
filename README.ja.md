@@ -119,3 +119,11 @@ macOS の書き出しは v2（OSR）エンジンが既定になりました。�
 
 コードは [MIT License](./LICENSE)。`assets/` / `catalog/` 経由で扱う素材は
 それぞれの `meta.json` に記載されたライセンス表記に従います。
+
+---
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/AkariLabs/akari-video?style=for-the-badge&logo=github&logoColor=white&color=ff8a00)](https://github.com/AkariLabs/akari-video/stargazers)
+
+</div>
