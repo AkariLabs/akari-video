@@ -177,6 +177,42 @@ export function blankFrameFindings(intervals, { backgroundYmax, spreadTolerance 
   });
 }
 
+/**
+ * GPU exporter がエンコード対象 canvas から集計したフレーム単位の YMIN/YMAX を、
+ * signalstats 経路と同じサンプル列へ戻して同じ判定器へ通す。欠損・不正値は null にして
+ * 呼び出し側を従来の scanBlankFrames へフォールバックさせる。
+ */
+export function blankFramesFromLuma({
+  luma,
+  fps,
+  edit = null,
+  spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
+} = {}) {
+  if (!luma || !Array.isArray(luma.ymin) || !Array.isArray(luma.ymax)
+    || luma.ymin.length === 0 || luma.ymin.length !== luma.ymax.length
+    || !Number.isFinite(fps) || fps <= 0) return null;
+  const samples = [];
+  for (let frame = 0; frame < luma.ymin.length; frame += 1) {
+    const ymin = Number(luma.ymin[frame]);
+    const ymax = Number(luma.ymax[frame]);
+    if (!Number.isInteger(ymin) || !Number.isInteger(ymax)
+      || ymin < 0 || ymin > 255 || ymax < 0 || ymax > 255 || ymin > ymax) return null;
+    samples.push({ frame, pts_time: frame / fps, ymin, ymax });
+  }
+  const backgroundYmax = estimateBackgroundYmax(samples);
+  const intervals = annotateBlankIntervals(
+    detectBlankIntervals(samples, { fps, backgroundYmax, spreadTolerance }),
+    edit,
+  );
+  return {
+    ok: true,
+    background_ymax: backgroundYmax,
+    intervals,
+    findings: blankFrameFindings(intervals, { backgroundYmax, spreadTolerance }),
+    error: null,
+  };
+}
+
 export function scanBlankFrames({
   outputPath,
   fps,

@@ -1,0 +1,83 @@
+    462   PROGRESS stage=prepare status=start
+    462   PROGRESS stage=prepare status=end
+    462   PROGRESS stage=audio-cut status=start
+    868   PROGRESS out_time_ms=20000 total_ms=20000
+    869   PROGRESS stage=audio-cut status=end
+    869   PROGRESS stage=render status=start engine=gpu
+   1467   PROGRESS timing name=electron_ready ms=597
+   1529   PROGRESS timing name=page_build ms=154
+   1696   PROGRESS timing name=window_create ms=163
+   1699   PROGRESS timing name=server_start ms=170
+   1731   PROGRESS timing name=gpu_info ms=263
+   1979   PROGRESS timing name=load_url ms=280
+   1980   PROGRESS timing name=viewport_settle ms=2
+   2058 E [OpenH264] this = 0x0x12402812610, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.
+   2195 E sysctlbyname for kern.hv_vmm_present failed with status -1
+   2433   PROGRESS preview=0 path=<TMP>/after-black-1/.akari/cache/export-preview/0.jpg
+   2968   PROGRESS timing name=first_frame ms=377
+   2969   PROGRESS frame=30 total=600
+   2980   PROGRESS preview=30 path=<TMP>/after-black-1/.akari/cache/export-preview/30.jpg
+   3461   PROGRESS frame=60 total=600
+   3474   PROGRESS preview=60 path=<TMP>/after-black-1/.akari/cache/export-preview/60.jpg
+   3952   PROGRESS frame=90 total=600
+   3965   PROGRESS preview=90 path=<TMP>/after-black-1/.akari/cache/export-preview/90.jpg
+   4429   PROGRESS frame=120 total=600
+   4442   PROGRESS preview=120 path=<TMP>/after-black-1/.akari/cache/export-preview/120.jpg
+   4917   PROGRESS frame=150 total=600
+   4930   PROGRESS preview=150 path=<TMP>/after-black-1/.akari/cache/export-preview/150.jpg
+   5389   PROGRESS frame=180 total=600
+   5401   PROGRESS preview=180 path=<TMP>/after-black-1/.akari/cache/export-preview/180.jpg
+   5880   PROGRESS frame=210 total=600
+   5891   PROGRESS preview=210 path=<TMP>/after-black-1/.akari/cache/export-preview/210.jpg
+   6366   PROGRESS frame=240 total=600
+   6379   PROGRESS preview=240 path=<TMP>/after-black-1/.akari/cache/export-preview/240.jpg
+   6859   PROGRESS frame=270 total=600
+   6872   PROGRESS preview=270 path=<TMP>/after-black-1/.akari/cache/export-preview/270.jpg
+   7346   PROGRESS frame=300 total=600
+   7374   PROGRESS preview=300 path=<TMP>/after-black-1/.akari/cache/export-preview/300.jpg
+   7573   PROGRESS frame=330 total=600
+   7617   PROGRESS preview=330 path=<TMP>/after-black-1/.akari/cache/export-preview/330.jpg
+   8085   PROGRESS frame=360 total=600
+   8097   PROGRESS preview=360 path=<TMP>/after-black-1/.akari/cache/export-preview/360.jpg
+   8554   PROGRESS frame=390 total=600
+   8570   PROGRESS preview=390 path=<TMP>/after-black-1/.akari/cache/export-preview/390.jpg
+   9056   PROGRESS frame=420 total=600
+   9069   PROGRESS preview=420 path=<TMP>/after-black-1/.akari/cache/export-preview/420.jpg
+   9536   PROGRESS frame=450 total=600
+   9547   PROGRESS preview=450 path=<TMP>/after-black-1/.akari/cache/export-preview/450.jpg
+  10042   PROGRESS frame=480 total=600
+  10054   PROGRESS preview=480 path=<TMP>/after-black-1/.akari/cache/export-preview/480.jpg
+  10548   PROGRESS frame=510 total=600
+  10560   PROGRESS preview=510 path=<TMP>/after-black-1/.akari/cache/export-preview/510.jpg
+  11083   PROGRESS frame=540 total=600
+  11103   PROGRESS preview=540 path=<TMP>/after-black-1/.akari/cache/export-preview/540.jpg
+  11587   PROGRESS frame=570 total=600
+  11598   PROGRESS preview=570 path=<TMP>/after-black-1/.akari/cache/export-preview/570.jpg
+  12072   PROGRESS frame=600 total=600
+  12090   PROGRESS timing name=encoder_flush ms=20
+  12090   PROGRESS timing name=luma_total ms=338
+  12093   PROGRESS timing name=mux_finish ms=3
+  12104   PROGRESS timing name=window_destroy ms=8
+  12111   PROGRESS timing name=child_run_json ms=6
+  12111   PROGRESS timing name=window_destroy_to_exit ms=7
+  12251   PROGRESS timing name=audio_mux ms=99
+  12774   PROGRESS timing name=final_ffprobe ms=523
+  12776   PROGRESS timing name=run_json ms=2
+  12777   PROGRESS timing name=parent_receipt ms=1
+  12777   PROGRESS stage=render status=end
+  12777   PROGRESS stage=audio-mix status=start
+  12787   PROGRESS stage=audio-mix status=end
+  12787   PROGRESS timing name=audio_mix ms=10
+  12787   PROGRESS stage=verify status=start
+  12787   PROGRESS timing name=verify_probe ms=0
+  12787   PROGRESS timing name=verify_decode ms=0
+  12838   PROGRESS timing name=verify_audio ms=50
+  12838   PROGRESS timing name=verify_motion ms=0
+  12839   PROGRESS timing name=verify_blank ms=1
+  12839   PROGRESS stage=verify status=end
+  12839   PROGRESS timing name=verify_total ms=52
+  14453   PROGRESS timing name=contact_sheet ms=1605
+  14578   PROGRESS timing name=receipt ms=64
+  14584   PROGRESS done total_ms=40000
+  14584 E WARN verify.blank-frames: 空フレーム候補 10s–11s（1 秒、YMAX 最大 16）; 活性 cut:clip-black; background_ymax 16; spread 許容 16
+  14584   PASS: exports/out.mp4

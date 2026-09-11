@@ -56,7 +56,7 @@ import {
   judgeMotion,
   measureAudioLevel,
 } from "./verify-declared.mjs";
-import { scanBlankFrames } from "./verify-blank.mjs";
+import { blankFramesFromLuma, scanBlankFrames } from "./verify-blank.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -369,6 +369,20 @@ export async function renderProject(input, options = {}, io = console) {
     io,
     totalMs: plan.predicted_duration_seconds * 2 * 1000,
   });
+  const parentTiming = {};
+  const recordParentTiming = (name, ms) => {
+    parentTiming[name] = ms;
+    if (state.provenance.gpu) {
+      state.provenance.gpu.timing = { ...(state.provenance.gpu.timing ?? {}), ...parentTiming };
+    }
+    if (progressEnabled) io.log(`PROGRESS timing name=${name} ms=${ms}`);
+  };
+  const emitTiming = (name, started) => {
+    const ms = Math.max(0, Math.round(performance.now() - started));
+    recordParentTiming(name, ms);
+    return ms;
+  };
+  let reusableGpuVerification = null;
 
   try {
     let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
@@ -445,6 +459,8 @@ export async function renderProject(input, options = {}, io = console) {
           launcher: gpuLauncher,
           preview: options.preview ?? "auto",
           previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
+          collectLuma: options.verifyBlank,
+          progress: progressEnabled,
         }),
         runOsr: async () => {
           osrLauncher = await resolveOsrLauncher();
@@ -458,7 +474,14 @@ export async function renderProject(input, options = {}, io = console) {
         },
       });
       if (execution.engine === "gpu") {
-        state.provenance.gpu = execution.result.receipt;
+        state.provenance.gpu = {
+          ...execution.result.receipt,
+          timing: execution.result.run?.timing ?? null,
+        };
+        reusableGpuVerification = {
+          finalVerify: execution.result.run?.finalVerify ?? null,
+          luma: execution.result.run?.luma ?? null,
+        };
         state.provenance.rasterizer.adopted = "gpu";
         state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
       } else {
@@ -485,6 +508,7 @@ export async function renderProject(input, options = {}, io = console) {
     reporter.stageEnd("render");
 
     reporter.stageStart("audio-mix");
+    const audioMixStarted = performance.now();
     const finalPath = container.kind === "directory"
       ? compositePath
       : join(temporaryDirectory, `final.${container.ext}`);
@@ -567,7 +591,9 @@ export async function renderProject(input, options = {}, io = console) {
       }
     }
     reporter.stageEnd("audio-mix");
+    emitTiming("audio_mix", audioMixStarted);
     reporter.stageStart("verify");
+    const verifyStarted = performance.now();
     const verification = verifyArtifact({
       outputPath,
       plan,
@@ -576,9 +602,12 @@ export async function renderProject(input, options = {}, io = console) {
       ffprobeCommand: capabilities.ffprobeCommand,
       ffmpegCommand: capabilities.ffmpegCommand,
       verifyBlank: options.verifyBlank,
+      gpuVerification: plan.commands.audio_mix.operation === "copy" ? reusableGpuVerification : null,
+      onTiming: recordParentTiming,
     });
     state.verify = verification;
     reporter.stageEnd("verify");
+    emitTiming("verify_total", verifyStarted);
     state.artifacts = codec === "png"
       ? [
           {
@@ -602,6 +631,7 @@ export async function renderProject(input, options = {}, io = console) {
         ];
     state.phase = "verified";
     if (verification.verdict === "pass" && codec !== "png") {
+      const contactSheetStarted = performance.now();
       const contactSheetTimestamps = deriveContactSheetTimestamps({
         cuts: edit.cuts,
         overlays: [...loadedOverlays, ...captionOverlays],
@@ -623,6 +653,7 @@ export async function renderProject(input, options = {}, io = console) {
           timestamps_seconds: contactSheetTimestamps,
         };
       }
+      emitTiming("contact_sheet", contactSheetStarted);
     }
     let receiptDeclaredInputs = declaredInputs;
     let receiptInputSnapshot = inputSnapshot;
@@ -633,6 +664,7 @@ export async function renderProject(input, options = {}, io = console) {
         projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
       });
       receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
+      const receiptStarted = performance.now();
       const receipt = await createImmutableRenderReceipt({
         projectRoot,
         declaredInputs: receiptDeclaredInputs,
@@ -655,6 +687,7 @@ export async function renderProject(input, options = {}, io = console) {
         path: receipt.path,
         sha256: receipt.sha256,
       };
+      emitTiming("receipt", receiptStarted);
     }
     if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
       throw new RefusalError("audio QC decoded artifact measurement failed");
@@ -1302,11 +1335,18 @@ export function verifyArtifact({
   ffmpegCommand = resolveFfmpeg(),
   spawnSyncImpl = spawnSync,
   verifyBlank = true,
+  gpuVerification = null,
+  onTiming = null,
 }) {
   if (plan.preset?.video_codec === "png") {
     return verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl });
   }
-  const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
+  const reusable = plan.commands.audio_mix?.operation === "copy"
+    ? reusableGpuVerificationResult(gpuVerification)
+    : null;
+  const probeStarted = performance.now();
+  const measured = reusable?.measured ?? probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
+  reportTiming(onTiming, "verify_probe", probeStarted);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
   const actualDuration = Number(measured.format?.duration ?? video?.duration);
@@ -1329,7 +1369,15 @@ export function verifyArtifact({
   // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
   // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
   // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
-  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
+  const decodeStarted = performance.now();
+  const decodePass = reusable
+    ? {
+        ok: reusable.decodeStderr.trim() === "",
+        frameCount: finiteFrameCount(video?.nb_read_frames),
+        errorExcerpt: reusable.decodeStderr.trim() || "ffprobe exited successfully",
+      }
+    : decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
+  reportTiming(onTiming, "verify_decode", decodeStarted);
   const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
   const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
   compare(
@@ -1388,13 +1436,19 @@ export function verifyArtifact({
   const declaredAudio = plan.commands.audio_mix?.hasAudibleAudio === true
     || inputs.some((input) => input?.has_audio === true || input?.hasAudio === true);
   const audioMeasurement = audio
-    ? measureAudioLevel({
-        outputPath,
-        durationSeconds: actualDuration,
-        ffmpegCommand,
-        spawnSyncImpl,
-      })
+    ? (() => {
+        const started = performance.now();
+        const result = measureAudioLevel({
+          outputPath,
+          durationSeconds: actualDuration,
+          ffmpegCommand,
+          spawnSyncImpl,
+        });
+        reportTiming(onTiming, "verify_audio", started);
+        return result;
+      })()
     : null;
+  if (!audio) reportTiming(onTiming, "verify_audio", performance.now());
   const audioLevel = judgeAudioLevel({
     declared: declaredAudio,
     reasons: audioReasons,
@@ -1403,6 +1457,7 @@ export function verifyArtifact({
   });
   if (audioLevel.finding) findings.push(audioLevel.finding);
 
+  const motionStarted = performance.now();
   const motion = judgeMotion({
     outputPath,
     cuts: edit?.cuts ?? [],
@@ -1411,16 +1466,20 @@ export function verifyArtifact({
     ffmpegCommand,
     spawnSyncImpl,
   });
+  reportTiming(onTiming, "verify_motion", motionStarted);
   findings.push(...motion.findings);
+  const blankStarted = performance.now();
   const blankFrames = verifyBlank
-    ? scanBlankFrames({
-        outputPath,
-        fps: expected.fps,
-        edit,
-        ffmpegCommand,
-        spawnSyncImpl,
-      })
+    ? (blankFramesFromLuma({ luma: reusable?.luma, fps: expected.fps, edit })
+      ?? scanBlankFrames({
+          outputPath,
+          fps: expected.fps,
+          edit,
+          ffmpegCommand,
+          spawnSyncImpl,
+        }))
     : { intervals: [], findings: [] };
+  reportTiming(onTiming, "verify_blank", blankStarted);
   findings.push(...blankFrames.findings);
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
@@ -1443,6 +1502,26 @@ export function verifyArtifact({
       blank_frames: blankFrames.intervals,
     },
   };
+}
+
+export function reusableGpuVerificationResult(gpuVerification) {
+  const finalVerify = gpuVerification?.finalVerify;
+  const measured = finalVerify?.measured;
+  const decodeStderr = finalVerify?.decode?.stderr;
+  const video = measured?.streams?.find((stream) => stream?.codec_type === "video");
+  if (!measured || !Array.isArray(measured.streams) || !measured.format
+    || typeof decodeStderr !== "string" || !video || finiteFrameCount(video.nb_read_frames) === null) return null;
+  return { measured, decodeStderr, luma: gpuVerification?.luma ?? null };
+}
+
+function finiteFrameCount(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function reportTiming(callback, name, started) {
+  if (typeof callback !== "function") return;
+  callback(name, Math.max(0, Math.round(performance.now() - started)));
 }
 
 function verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl }) {

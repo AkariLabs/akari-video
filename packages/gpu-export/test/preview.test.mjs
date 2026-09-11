@@ -43,3 +43,13 @@ test("parseElectronArguments: force eligibility は明示時だけ有効にな�
     true,
   );
 });
+
+test("parseElectronArguments: luma と timing は明示フラグで切り替わる", () => {
+  const defaults = parseElectronArguments(baseArguments);
+  assert.equal(defaults.collectLuma, true);
+  assert.equal(defaults.progressTiming, false);
+  const explicit = parseElectronArguments([...baseArguments, "--no-luma", "--progress-timing", "--spawn-start-ms", "123"]);
+  assert.equal(explicit.collectLuma, false);
+  assert.equal(explicit.progressTiming, true);
+  assert.equal(explicit.spawnStartMs, 123);
+});

@@ -2,9 +2,60 @@ import assert from "node:assert/strict";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions } from "../src/index.mjs";
+import { captureFramesWithGpu, FALLBACK_REASONS, exportWithGpu, resolveGpuRuntimeOptions, verifyFinalVideoWithDecode } from "../src/index.mjs";
+
+function ffprobeSpawnFixture(payload, stderr = "") {
+  return (_command, args) => {
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => {};
+    child.args = args;
+    queueMicrotask(() => {
+      child.stdout.end(JSON.stringify(payload));
+      child.stderr.end(stderr);
+      child.emit("close", 0);
+    });
+    return child;
+  };
+}
+
+test("final GPU ffprobe performs one count_frames pass and retains decode stderr", async () => {
+  const measured = {
+    streams: [
+      { codec_type: "video", codec_name: "h264", width: 320, height: 180, nb_read_frames: "30", duration: "1", avg_frame_rate: "30/1" },
+      { codec_type: "audio", codec_name: "aac", duration: "1", sample_rate: "48000" },
+    ],
+    format: { duration: "1" },
+  };
+  let calls = 0;
+  let seenArgs;
+  const fixture = ffprobeSpawnFixture(measured);
+  const result = await verifyFinalVideoWithDecode({
+    command: "ffprobe-test", path: "out.mp4", frames: 30, fps: 30, width: 320, height: 180,
+    requireAudio: true,
+    spawnImpl: (...args) => { calls += 1; seenArgs = args[1]; return fixture(...args); },
+  });
+  assert.equal(calls, 1);
+  assert.ok(seenArgs.includes("-count_frames"));
+  assert.deepEqual(seenArgs.slice(seenArgs.indexOf("-threads"), seenArgs.indexOf("-threads") + 2), ["-threads", "0"]);
+  assert.match(seenArgs[seenArgs.indexOf("-show_entries") + 1], /avg_frame_rate/u);
+  assert.match(seenArgs[seenArgs.indexOf("-show_entries") + 1], /color_range/u);
+  assert.equal(result.matched, true);
+  assert.deepEqual(result.decode, { ok: true, stderr: "" });
+
+  const decodeError = await verifyFinalVideoWithDecode({
+    command: "ffprobe-test", path: "out.mp4", frames: 30, fps: 30, width: 320, height: 180,
+    spawnImpl: ffprobeSpawnFixture(measured, "decode error\n"),
+  });
+  assert.equal(decodeError.matched, true);
+  assert.equal(decodeError.decode.ok, false);
+  assert.deepEqual(decodeError.decode, { ok: false, stderr: "decode error\n" });
+});
 
 test("GPU runtime fallback reasons are a closed shared set", () => {
   assert.deepEqual(FALLBACK_REASONS, ["caption-measure-unstable", "hevc-unsupported", "memory-hard-stop"]);
@@ -150,6 +201,7 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
       await writeFile(options.out, "encoded-video");
       await writeFile(join(renderDirectory, "run.json"), JSON.stringify({
         status: "completed", gpu: { uploadPath: "direct", quality: options.quality, bitrate: options.bitrate, queueDepth: 4 }, memory: { peakBytes: 10 },
+        luma: { ymin: [16], ymax: [235] }, timing: { electron_ready: 12 },
       }));
     },
     audioMuxer: async (options) => {
@@ -174,10 +226,14 @@ test("GPU export muxes audio by stream copy contract and removes the video-only 
   assert.equal(launchOptions.bitrate, 12_000_000);
   assert.equal(launchOptions.quantizer, 18);
   assert.deepEqual(launchOptions.dumpFrames, [0, 29]);
+  assert.equal(launchOptions.collectLuma, true);
   assert.equal(result.receipt.gpu.quality, "high");
   assert.equal(result.receipt.gpu.bitrate, 12_000_000);
   assert.equal(result.receipt.provenance.video_reencode, false);
   assert.deepEqual(result.run.audio, { mode: "copy", source: "cut.mp4", source_has_audio: true });
+  assert.deepEqual(result.run.luma, { ymin: [16], ymax: [235] });
+  assert.equal(result.run.timing.electron_ready, 12);
+  assert.equal(Number.isInteger(result.run.timing.final_ffprobe), true);
   assert.deepEqual(result.receipt.audio, { mode: "copy", source: "cut.mp4", source_has_audio: true });
   assert.equal(await readFile(out, "utf8"), "final-with-audio");
   await assert.rejects(access(`${out}.gpu-video.mp4`));

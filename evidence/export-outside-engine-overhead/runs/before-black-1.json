@@ -1,0 +1,178 @@
+{
+  "label": "before-black",
+  "index": 1,
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "totalMs": 21178,
+  "loadavg": "{ 8.92 9.05 9.21 }",
+  "verdict": "PASS: exports/out.mp4",
+  "table": {
+    "prepare": 0,
+    "audio_cut": 411,
+    "render_startup_to_first_frame_line": 2099,
+    "render_draw": 8410,
+    "render_after_last_frame": 4097,
+    "audio_mix": 5,
+    "verify": 3995,
+    "finalize_after_verify": 1721,
+    "total": 21178,
+    "outside_engine": 12768
+  },
+  "timingLines": [],
+  "output": {
+    "sha256": "e7e27c138d25a01bf23031a390d57f38eed5a02d7dafd5c426890371ff193828",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "duration": "20.000000",
+          "nb_read_frames": "600"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "duration": "20.000000",
+          "nb_read_frames": "938"
+        }
+      ],
+      "format": {
+        "duration": "20.000000"
+      }
+    }
+  },
+  "gpuRunStages": {
+    "evaluate": {
+      "count": 600,
+      "p50": 6.100000023841858,
+      "p95": 19.80000001192093
+    },
+    "three": {
+      "count": 600,
+      "p50": 0,
+      "p95": 0.09999996423721313
+    },
+    "dom": {
+      "count": 600,
+      "p50": 0,
+      "p95": 0
+    },
+    "captionRaster": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captionRasterBatch": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "captions": {
+      "count": 0,
+      "p50": null,
+      "p95": null
+    },
+    "composite": {
+      "count": 600,
+      "p50": 0.09999996423721313,
+      "p95": 0.19999998807907104
+    },
+    "preview": {
+      "count": 20,
+      "p50": 6.200000047683716,
+      "p95": 12
+    },
+    "encode": {
+      "count": 600,
+      "p50": 0.09999996423721313,
+      "p95": 0.10000002384185791
+    },
+    "backpressure": {
+      "count": 600,
+      "p50": 0,
+      "p95": 0.19999998807907104
+    }
+  },
+  "verifyFindings": [
+    {
+      "severity": "info",
+      "check": "verify.duration",
+      "message": "duration 20s; expected 20s ±0.1s"
+    },
+    {
+      "severity": "info",
+      "check": "verify.frame-count",
+      "message": "frame count 600; expected 600 ±3"
+    },
+    {
+      "severity": "info",
+      "check": "verify.resolution",
+      "message": "resolution 1920x1080; expected 1920x1080"
+    },
+    {
+      "severity": "info",
+      "check": "verify.fps",
+      "message": "fps 30; expected 30 ±0.05 (1 frame of 600)"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-codec",
+      "message": "video codec h264; expected h264"
+    },
+    {
+      "severity": "info",
+      "check": "verify.video-profile",
+      "message": "video profile High; expected high"
+    },
+    {
+      "severity": "info",
+      "check": "verify.pixel-format",
+      "message": "pixel format yuv420p; expected yuv420p"
+    },
+    {
+      "severity": "info",
+      "check": "verify.color-range",
+      "message": "color range tv; expected tv"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio",
+      "message": "audio codec aac; expected aac"
+    },
+    {
+      "severity": "info",
+      "check": "verify.decode",
+      "message": "all frames decoded without error"
+    },
+    {
+      "severity": "info",
+      "check": "verify.audio-level",
+      "message": "最大音量 -27.3 dB（1 区間）"
+    },
+    {
+      "severity": "warning",
+      "check": "verify.blank-frames",
+      "message": "空フレーム候補 10s–11s（1 秒、YMAX 最大 18）; 活性 cut:clip-black; background_ymax 17; spread 許容 16"
+    }
+  ],
+  "blankIntervals": [
+    {
+      "start": 10,
+      "duration": 1,
+      "ymax_max": 18,
+      "active_overlays": [],
+      "active_cuts": [
+        "clip-black"
+      ],
+      "severity": "warning"
+    }
+  ],
+  "leftoverElectronBeforeKill": 0,
+  "leftoverElectronAfterKill": 0
+}

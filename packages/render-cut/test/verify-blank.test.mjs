@@ -10,6 +10,7 @@ import { renderReport } from "../src/report.mjs";
 import {
   BLANK_FRAME_SPREAD_TOLERANCE,
   activeIdsForInterval,
+  blankFramesFromLuma,
   blankFrameFindings,
   blankIntervalSeverity,
   detectBlankIntervals,
@@ -43,6 +44,21 @@ function runFfmpeg(args) {
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr);
+}
+
+function lumaFromClip(path) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner", "-nostats", "-nostdin", "-i", path,
+    "-map", "0:v:0",
+    "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX",
+    "-an", "-sn", "-dn", "-f", "null", "-",
+  ], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  assert.equal(result.status, 0, result.stderr);
+  const samples = parseSignalstatsMetadata(`${result.stdout}\n${result.stderr}`);
+  return {
+    ymin: samples.map((sample) => sample.ymin),
+    ymax: samples.map((sample) => sample.ymax),
+  };
 }
 
 async function makeFourPartFixture(path) {
@@ -197,6 +213,66 @@ test("real lavfi four-part fixture reports two blank intervals within one frame"
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("engine luma判定は黒混入・正常・全黒の3 fixtureでsignalstats判定と一致する", async (t) => {
+  if (!ffmpegAvailable) return t.skip("ffmpeg unavailable");
+  const directory = await mkdtemp(join(tmpdir(), "render-cut-luma-parity-"));
+  try {
+    const mixed = join(directory, "mixed.mkv");
+    const normal = join(directory, "normal.mkv");
+    const black = join(directory, "black.mkv");
+    await makeFourPartFixture(mixed);
+    runFfmpeg(["-f", "lavfi", "-i", `testsrc2=size=160x90:rate=${fps}:duration=1`, "-c:v", "ffv1", normal]);
+    runFfmpeg(["-f", "lavfi", "-i", `color=c=black:size=160x90:rate=${fps}:duration=1`, "-c:v", "ffv1", black]);
+    for (const path of [mixed, normal, black]) {
+      const scanned = scanBlankFrames({ outputPath: path, fps });
+      const reduced = blankFramesFromLuma({ luma: lumaFromClip(path), fps });
+      assert.ok(reduced);
+      assert.deepEqual(reduced.intervals, scanned.intervals, path);
+      assert.deepEqual(reduced.findings, scanned.findings, path);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("invalid engine luma returns null for signalstats fallback", () => {
+  assert.equal(blankFramesFromLuma({ luma: null, fps }), null);
+  assert.equal(blankFramesFromLuma({ luma: { ymin: [16], ymax: [] }, fps }), null);
+  assert.equal(blankFramesFromLuma({ luma: { ymin: [17], ymax: [16] }, fps }), null);
+});
+
+test("copied GPU artifact reuses ffprobe decode and luma without probe/decode/signalstats spawns", () => {
+  const calls = [];
+  const verification = verifyArtifact({
+    outputPath: "copied.mp4",
+    plan: {
+      predicted_duration_seconds: 1,
+      duration_tolerance_seconds: 0.1,
+      preset: { width: 160, height: 90, fps: 30, video_codec: "h264", profile: "high", pixel_format: "yuv420p", audio_codec: "aac" },
+      commands: { audio_mix: { operation: "copy", hasNarration: false, hasAudibleAudio: false } },
+    },
+    edit: { cuts: [], overlays: [] },
+    gpuVerification: {
+      finalVerify: {
+        measured: {
+          streams: [{
+            codec_type: "video", codec_name: "h264", profile: "High", width: 160, height: 90,
+            pix_fmt: "yuv420p", color_range: "tv", avg_frame_rate: "30/1", nb_read_frames: "30", duration: "1",
+          }],
+          format: { duration: "1" },
+        },
+        decode: { ok: true, stderr: "" },
+      },
+      luma: { ymin: Array(30).fill(16), ymax: [16, ...Array(29).fill(200)] },
+    },
+    spawnSyncImpl: (...args) => { calls.push(args); throw new Error("unexpected spawn"); },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(verification.measured.frame_count, 30);
+  assert.equal(verification.findings.find(({ check }) => check === "verify.decode")?.severity, "info");
+  assert.deepEqual(verification.declared.blank_frames, []);
 });
 
 test("real 0.2-second dark transition is not reported", async (t) => {
