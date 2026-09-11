@@ -57,6 +57,11 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                     default: true,
                     description: 'frame-engine の製品プレビューを使います（false で従来の video プレビュー）。'
                 },
+                'akari.preview.scrubAudio': {
+                    type: 'boolean',
+                    default: true,
+                    description: 'タイムラインをドラッグ（スクラブ）したとき、その位置の音を短く鳴らします（出力プレビュー）。'
+                },
                 'akari.preview.renderScale': {
                     type: 'string',
                     enum: ['auto', '1', '0.5', '0.25'],

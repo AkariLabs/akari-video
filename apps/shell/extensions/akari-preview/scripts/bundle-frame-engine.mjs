@@ -56,6 +56,13 @@ const bundles = [
     entry: path.join(repoRoot, 'packages', 'frame-engine', 'src', 'audio', 'pitch-shift-worklet.ts'),
     output: path.join(outputDirectory, 'preview-audio-worklet.js'),
     label: 'preview-audio-worklet bundle'
+  },
+  {
+    entry: path.join(repoRoot, 'packages', 'preview-server', 'public', 'audio-scrub.js'),
+    output: path.join(outputDirectory, 'scrub-audio.js'),
+    globalName: 'AkariScrubAudio',
+    label: 'scrub-audio bundle',
+    banner: '// このファイルは生成物です。正本は packages/preview-server/public/audio-scrub.js と mp4-audio-track.js、再生成は npm run bundle:frame-engine。'
   }
 ];
 
@@ -70,7 +77,7 @@ for (const bundle of bundles) {
       ...(bundle.globalName ? { globalName: bundle.globalName } : {}),
       platform: 'browser',
       target: ['chrome122'],
-      banner: { js: banner },
+      banner: { js: bundle.banner ?? banner },
       absWorkingDir: repoRoot,
       outfile: temporaryOutput,
       logLevel: 'silent'
