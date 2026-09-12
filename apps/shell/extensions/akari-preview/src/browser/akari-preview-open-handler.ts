@@ -122,7 +122,11 @@ import {
     MotionSummary,
     normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
-import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
+import {
+    normalizePersistentStrokeItems,
+    PEN_TUNING,
+    resolveStrokeLifetimeAlpha
+} from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
@@ -1872,14 +1876,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const widget = this.openOutputPreviews.get(editUri);
         if (visibility === 'unavailable' || !widget?.isAttached) return;
         const first = replay.strokes[0];
-        let compositionSeconds = first.frame.sourceT;
-        try {
-            const model = await this.loadPreviewModel(new URI(editUri));
-            compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
-                model.summary.cuts, first.frame.sourceT, first.frame.cutIndex
-            );
-        } catch {
-            // Keep the source-seconds fallback for old snapshots and partially repaired projects.
+        // v2 edit では sourceT が 0 に退避される場合があるため、記録済みの timelineT を優先する。
+        // timelineT の無い旧データだけ、従来の sourceT/cutIndex 解決へフォールバックする。
+        let compositionSeconds = Number.isFinite(first.frame.timelineT)
+            ? first.frame.timelineT
+            : first.frame.sourceT;
+        if (!Number.isFinite(first.frame.timelineT)) {
+            try {
+                const model = await this.loadPreviewModel(new URI(editUri));
+                compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
+                    model.summary.cuts, first.frame.sourceT, first.frame.cutIndex
+                );
+            } catch {
+                // Keep the source-seconds fallback for old snapshots and partially repaired projects.
+            }
         }
         this.setReviewStrokeVisibility(editUri, true);
         this.syncReviewStrokeControls(state);
@@ -8909,6 +8919,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 実際の描画ロジック（グロー/スパークル/フェード）はここに残したまま無変更。
             const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
             const normalizePersistentStrokeItemsFn = (${normalizePersistentStrokeItems.toString()});
+            const resolveStrokeLifetimeAlphaFn = (${resolveStrokeLifetimeAlpha.toString()});
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
@@ -9157,6 +9168,10 @@ body { display: grid; place-items: center; padding: 32px; }
             let captionHitRegionPending = false;
             let activeCaptionEdit = null;
             let reviewRecordingActive = false;
+            let reviewRecordingStartedAt = 0;
+            // host の recT と原点は厳密一致しないが、表示規則は経過秒の相対差しか使わないため十分。
+            // ディスクへ書く recT は host（ReviewSessionRecorder）が唯一の正本で、ここでは一切書かない。
+            const reviewRecNow = () => (performance.now() - reviewRecordingStartedAt) / 1000;
             // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal
             // annotation-everywhere §3 (M2): neutral/pen/rect/select, mirrored from
             // ReviewSessionRecorder's toolModeState (host is authoritative -- see
@@ -9170,6 +9185,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let sparkles = [];
             let annotationStrokeItems = [];
             let persistentStrokeItems = [];
+            let localStrokeSequence = 0;
+            const nextLocalStrokeId = () => 'local-st-' + String(++localStrokeSequence).padStart(4, '0');
             let persistentStrokesVisible = true;
             let activeDrawRect = null;
             let penCanvasWidth = 0;
@@ -9178,6 +9195,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let penAnimationHandle = 0;
             let platinumGradient = null;
             let staticBitmap = null;
+            let lastStrokeLifetimeSignature = '';
+            let strokeLifetimeWasAnimating = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const penCtx = penLayer.getContext('2d');
@@ -9243,11 +9262,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const glowSize = PEN_TUNING.glowSizePx;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
                 ctx.drawImage(glowSprite, toPx[0] - glowSize / 2, toPx[1] - glowSize / 2, glowSize, glowSize);
                 ctx.restore();
                 ctx.save();
-                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = width;
                 ctx.lineCap = 'round';
@@ -9283,13 +9302,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const h = box[3] * penCanvasHeight;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = PEN_TUNING.coreWidthPx * 2.5;
                 ctx.strokeRect(x, y, w, h);
                 ctx.restore();
                 ctx.save();
-                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = PEN_TUNING.coreWidthPx;
                 ctx.strokeRect(x, y, w, h);
@@ -9300,12 +9319,40 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (item.tool === 'rect') drawRectShape(staticBitmap.ctx, item.box);
                 else paintStaticStroke(item.points);
             };
+            const strokeLifetimeContext = () => ({
+                recording: reviewRecordingActive === true,
+                visible: persistentStrokesVisible === true,
+                recT: reviewRecNow(),
+                playheadT: outputTime
+            });
+            const strokeLifetimeSignature = () => {
+                const context = strokeLifetimeContext();
+                return [...persistentStrokeItems, ...annotationStrokeItems]
+                    .map(item => resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING).toFixed(2))
+                    .join(',');
+            };
             const redrawStaticBitmap = () => {
                 if (!staticBitmap) return;
                 staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
-                if (!persistentStrokesVisible) return;
-                for (const item of persistentStrokeItems) paintStaticItem(item);
-                for (const item of annotationStrokeItems) paintStaticItem(item);
+                const context = strokeLifetimeContext();
+                if (persistentStrokesVisible) {
+                    for (const item of [...persistentStrokeItems, ...annotationStrokeItems]) {
+                        const alpha = resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING);
+                        if (alpha <= 0) continue;
+                        staticBitmap.ctx.save();
+                        staticBitmap.ctx.globalAlpha = alpha;
+                        paintStaticItem(item);
+                        staticBitmap.ctx.restore();
+                    }
+                }
+                lastStrokeLifetimeSignature = strokeLifetimeSignature();
+            };
+            const syncStrokeLifetime = () => {
+                const next = strokeLifetimeSignature();
+                if (next === lastStrokeLifetimeSignature) return;
+                lastStrokeLifetimeSignature = next;
+                redrawStaticBitmap();
+                recomposite();
             };
             const redrawRectFull = rect => {
                 rect.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
@@ -9395,12 +9442,22 @@ body { display: grid; place-items: center; padding: 32px; }
                     stroke.drawnIndex += 1;
                 }
             };
+            const strokeLifetimeAnimating = () => reviewRecordingActive && persistentStrokeItems.some(item => {
+                const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
+                return Number.isFinite(base)
+                    && (reviewRecNow() - base) < PEN_TUNING.visibleWindowSec + PEN_TUNING.fadeOutMs / 1000;
+            });
             const penTick = timestamp => {
                 if (currentStroke) drawPendingSegments(currentStroke);
                 fadingStrokes = fadingStrokes.filter(fading => penFadeAlpha(fading, timestamp) > 0);
+                syncStrokeLifetime();
+                const lifetimeAnimating = strokeLifetimeAnimating();
+                // 2 桁 signature が 0.00 へ丸まった後も、窓 + フェード終端で最後の透明化を確定する。
+                if (strokeLifetimeWasAnimating && !lifetimeAnimating) redrawStaticBitmap();
+                strokeLifetimeWasAnimating = lifetimeAnimating;
                 recomposite(timestamp);
                 const stillActive = currentStroke !== null || currentRect !== null
-                    || fadingStrokes.length > 0 || sparkles.length > 0;
+                    || fadingStrokes.length > 0 || sparkles.length > 0 || lifetimeAnimating;
                 penAnimationHandle = stillActive ? requestAnimationFrame(penTick) : 0;
             };
             const ensurePenLoopRunning = () => {
@@ -9512,7 +9569,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     captureDrawRect();
                     const point = normalizedPenPoint(event);
                     currentStroke = createActiveStroke(event.pointerId, point);
-                    window.akari.reviewStrokeStart(currentFrame());
+                    const frameAtStart = currentFrame();
+                    const recTStart = reviewRecNow();
+                    currentStroke.recTStart = recTStart;
+                    currentStroke.frameAtStart = frameAtStart;
+                    window.akari.reviewStrokeStart(frameAtStart);
                     ensurePenLoopRunning();
                 } else if (canDrawRect() && !currentRect) {
                     event.preventDefault();
@@ -9525,7 +9586,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         kind: 'rect', pointerId: event.pointerId, start: point,
                         box: [point[0], point[1], 0, 0], canvas: bitmap.canvas, ctx: bitmap.ctx
                     };
-                    window.akari.reviewRectStart(currentFrame());
+                    const frameAtStart = currentFrame();
+                    const recTStart = reviewRecNow();
+                    currentRect.recTStart = recTStart;
+                    currentRect.frameAtStart = frameAtStart;
+                    window.akari.reviewRectStart(frameAtStart);
                     ensurePenLoopRunning();
                 }
             });
@@ -9557,7 +9622,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.points.length < 2) return;
                 window.akari.reviewStrokeEnd(completed.points);
-                persistentStrokeItems.push({ tool: 'pen', points: completed.points });
+                persistentStrokeItems.push({ tool: 'pen', points: completed.points,
+                    id: nextLocalStrokeId(),
+                    recTStart: completed.recTStart,
+                    recTEnd: reviewRecNow(),
+                    ...(Number.isFinite(completed.frameAtStart?.timelineT)
+                        ? { frame: { timelineT: completed.frameAtStart.timelineT } } : {})
+                });
                 redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
@@ -9573,7 +9644,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.box[2] <= 0 || completed.box[3] <= 0) return;
                 window.akari.reviewRectEnd(completed.box);
-                persistentStrokeItems.push({ tool: 'rect', box: completed.box });
+                persistentStrokeItems.push({ tool: 'rect', box: completed.box,
+                    id: nextLocalStrokeId(),
+                    recTStart: completed.recTStart,
+                    recTEnd: reviewRecNow(),
+                    ...(Number.isFinite(completed.frameAtStart?.timelineT)
+                        ? { frame: { timelineT: completed.frameAtStart.timelineT } } : {})
+                });
                 redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
@@ -12901,6 +12978,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     playToggle.setAttribute('aria-label', label);
                     playToggle.title = label;
                 }
+                syncStrokeLifetime();
             };
             const escapeCaptionHtml = value => String(value)
                 .replace(/&/g, '&amp;')
@@ -15047,6 +15125,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     const wasRecordingActive = reviewRecordingActive;
                     reviewRecordingActive = message.active;
                     if (reviewRecordingActive && !wasRecordingActive) {
+                        reviewRecordingStartedAt = performance.now();
+                        persistentStrokeItems = [];
+                        annotationStrokeItems = [];
+                        penLayer.dataset.akariStrokeSession = '';
+                        redrawStaticBitmap();
+                        recomposite();
+                    }
+                    if (!reviewRecordingActive && wasRecordingActive) {
+                        // 表示プールだけを捨てる。記録済みデータは strokes.json に残り、
+                        // セッション行の「描線」から必要な時点へ再表示できる。
                         persistentStrokeItems = [];
                         annotationStrokeItems = [];
                         penLayer.dataset.akariStrokeSession = '';

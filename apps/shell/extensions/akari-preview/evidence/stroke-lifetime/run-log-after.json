@@ -1,0 +1,972 @@
+{
+  "status": "PASS",
+  "label": "after",
+  "summary": {
+    "label": "after",
+    "tuning": {
+      "visibleWindowSec": 8,
+      "fadeOutSec": 1.5
+    },
+    "strokesDrawn": 3,
+    "bothAandBVisible": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 11952,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 82,
+        "maxAlpha": 14
+      }
+    ],
+    "afterThirdStroke": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 11898,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 11980,
+        "maxAlpha": 255
+      }
+    ],
+    "afterTwelveSecondWait": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "afterRecordingStopped": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "replayPlayhead2s": [
+      {
+        "band": 0,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "replayPlayhead22s": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "replayPlayhead42s": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "visibilityOff": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "visibilityOn": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "strokeDrawnInsideWindow": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 54,
+        "maxAlpha": 10
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "afterStopInsideWindow": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "shots": [
+      "after-01-stroke-A-penlayer.png",
+      "after-01b-strokes-A-and-B-both-visible-penlayer.png",
+      "after-02-three-strokes-penlayer.png",
+      "after-02-three-strokes-app.png",
+      "after-03-after-10s-wait-penlayer.png",
+      "after-03-after-10s-wait-app.png",
+      "after-04-after-recording-stopped-penlayer.png",
+      "after-05-replay-playhead-2s-penlayer.png",
+      "after-08-visibility-off-penlayer.png",
+      "after-09-s2-stroke-inside-window-penlayer.png",
+      "after-10-s2-after-stop-inside-window-penlayer.png"
+    ]
+  },
+  "timeline": [
+    {
+      "atSec": 0.04,
+      "note": "before-any-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 1.84,
+      "note": "after-stroke-A",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 7.4,
+      "note": "after-stroke-B",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 82,
+          "maxAlpha": 14
+        }
+      ]
+    },
+    {
+      "atSec": 12.97,
+      "note": "after-stroke-C-all-three-drawn",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 14.15,
+      "note": "wait-1s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 11896,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11978,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 15.16,
+      "note": "wait-2s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 11642,
+          "maxAlpha": 166
+        },
+        {
+          "band": 2,
+          "inkPixels": 11964,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 16.17,
+      "note": "wait-3s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 17.18,
+      "note": "wait-4s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 18.18,
+      "note": "wait-5s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 19.2,
+      "note": "wait-6s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 20.21,
+      "note": "wait-7s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 11836,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 21.23,
+      "note": "wait-8s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 22.24,
+      "note": "wait-9s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 23.25,
+      "note": "wait-10s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 24.25,
+      "note": "wait-11s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 25.27,
+      "note": "wait-12s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 26.61,
+      "note": "after-recording-stopped",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 27.42,
+      "note": "replay-playhead-2s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 28.64,
+      "note": "replay-playhead-22s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 29.86,
+      "note": "replay-playhead-42s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 30.67,
+      "note": "stroke-visibility-off",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 31.48,
+      "note": "stroke-visibility-on",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 33.94,
+      "note": "s2-stroke-drawn-inside-window",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 35.16,
+      "note": "s2-after-stop-inside-window",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "step": "launched",
+      "pid": 17928,
+      "label": "after"
+    },
+    {
+      "step": "preview-attached"
+    },
+    {
+      "step": "recording-armed",
+      "penLayerIsActive": true
+    },
+    {
+      "step": "draw-rect",
+      "penLayerRectInWebview": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "outerFrameRectInMain": {
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 603
+      }
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 0,
+      "atSec": 0.63
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 1,
+      "atSec": 6.2
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 2,
+      "atSec": 11.76
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "label": "after",
+      "tuning": {
+        "visibleWindowSec": 8,
+        "fadeOutSec": 1.5
+      },
+      "strokesDrawn": 3,
+      "bothAandBVisible": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 82,
+          "maxAlpha": 14
+        }
+      ],
+      "afterThirdStroke": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 11898,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ],
+      "afterTwelveSecondWait": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "afterRecordingStopped": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "replayPlayhead2s": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "replayPlayhead22s": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "replayPlayhead42s": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "visibilityOff": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "visibilityOn": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "strokeDrawnInsideWindow": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "afterStopInsideWindow": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "shots": [
+        "after-01-stroke-A-penlayer.png",
+        "after-01b-strokes-A-and-B-both-visible-penlayer.png",
+        "after-02-three-strokes-penlayer.png",
+        "after-02-three-strokes-app.png",
+        "after-03-after-10s-wait-penlayer.png",
+        "after-03-after-10s-wait-app.png",
+        "after-04-after-recording-stopped-penlayer.png",
+        "after-05-replay-playhead-2s-penlayer.png",
+        "after-08-visibility-off-penlayer.png",
+        "after-09-s2-stroke-inside-window-penlayer.png",
+        "after-10-s2-after-stop-inside-window-penlayer.png"
+      ]
+    }
+  ]
+}

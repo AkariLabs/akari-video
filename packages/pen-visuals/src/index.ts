@@ -12,6 +12,8 @@
  *
  * チューニング裁定（オーナー 2026-08-02）: フェードは 600ms（Web UI 現行値）を正とする。
  * それ以外の値は shell 従来値が正本（契約 §2.8）。
+ * 描線の表示寿命も PEN_TUNING が単一正本で、visibleWindowSec が不透明な窓、fadeOutMs が
+ * 窓を過ぎた後の消失時間を定める。描き味の fadeDurationMs とは別の表示規則である。
  */
 
 export interface PenTuning {
@@ -29,12 +31,39 @@ export interface PenTuning {
     sparkleMaxSizePx: number;
     sparkleLifetimeMs: number;
     sparkleTwinkleHz: number;
+    /** 完了済み描線を不透明で表示する時間窓。 */
+    visibleWindowSec: number;
+    /** 表示時間窓を過ぎた描線が消失するまでの時間。fadeDurationMs の描き味演出とは別。 */
+    fadeOutMs: number;
+    /** pointerup 直後の既存の描き味演出。表示寿命の fadeOutMs とは別。 */
     fadeDurationMs: number;
 }
 
 export type PersistentStrokeItem =
-    | { tool: 'pen'; points: Array<[number, number]>; id?: string; recTStart?: number; recTEnd?: number }
-    | { tool: 'rect'; box: [number, number, number, number]; id?: string; recTStart?: number; recTEnd?: number };
+    | {
+        tool: 'pen'; points: Array<[number, number]>; id?: string; recTStart?: number; recTEnd?: number;
+        frame?: { timelineT?: number };
+    }
+    | {
+        tool: 'rect'; box: [number, number, number, number]; id?: string; recTStart?: number; recTEnd?: number;
+        frame?: { timelineT?: number };
+    };
+
+export interface StrokeLifetimeContext {
+    /** 録音中か（録音中 = recT 基準、録音外 = playheadT 基準） */
+    recording: boolean;
+    /** 「描線を表示」トグル。false なら全部 alpha 0 */
+    visible: boolean;
+    /** 録音中の現在録音時計（秒）。録音外では未使用 */
+    recT?: number;
+    /** 録音外のプレイヘッド（タイムライン秒） */
+    playheadT?: number;
+}
+
+export interface StrokeLifetimeTuning {
+    visibleWindowSec: number;
+    fadeOutMs: number;
+}
 
 /**
  * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
@@ -50,7 +79,11 @@ export function normalizePersistentStrokeItems(value: unknown): PersistentStroke
         const metadata = {
             ...(typeof item.id === 'string' ? { id: item.id } : {}),
             ...(Number.isFinite(item.recTStart) ? { recTStart: item.recTStart as number } : {}),
-            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd as number } : {})
+            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd as number } : {}),
+            ...(item.frame && typeof item.frame === 'object' && !Array.isArray(item.frame)
+                && Number.isFinite((item.frame as Record<string, unknown>).timelineT)
+                ? { frame: { timelineT: (item.frame as Record<string, unknown>).timelineT as number } }
+                : {})
         };
         if ((item.tool === 'pen' || item.tool === undefined) && Array.isArray(item.points)) {
             const points = item.points.filter((point): point is [number, number] => (
@@ -72,6 +105,49 @@ export function normalizePersistentStrokeItems(value: unknown): PersistentStroke
     return normalized;
 }
 
+/** 0（非表示）〜1（不透明）。webview 注入用のため外側の識別子を参照しない。 */
+export function resolveStrokeLifetimeAlpha(
+    item: PersistentStrokeItem,
+    context: StrokeLifetimeContext,
+    tuning: StrokeLifetimeTuning
+): number {
+    if (context.visible !== true) return 0;
+    if (!Number.isFinite(tuning.visibleWindowSec) || tuning.visibleWindowSec < 0) return 1;
+
+    let distance: number;
+    if (context.recording === true) {
+        const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
+        if (!Number.isFinite(base) || !Number.isFinite(context.recT)) return 1;
+        distance = Math.max(0, (context.recT as number) - (base as number));
+    } else {
+        const timelineT = item.frame?.timelineT;
+        if (!Number.isFinite(timelineT) || !Number.isFinite(context.playheadT)) return 1;
+        distance = Math.abs((context.playheadT as number) - (timelineT as number));
+    }
+
+    if (distance <= tuning.visibleWindowSec) return 1;
+    const fadeSec = Math.max(0, tuning.fadeOutMs) / 1000;
+    if (fadeSec === 0) return 0;
+    const alpha = distance < tuning.visibleWindowSec + fadeSec
+        ? 1 - (distance - tuning.visibleWindowSec) / fadeSec
+        : 0;
+    return Math.max(0, Math.min(1, alpha));
+}
+
+/** alpha が残る描線を入力順で返す。 */
+export function selectVisibleStrokeItems(
+    items: readonly PersistentStrokeItem[],
+    context: StrokeLifetimeContext,
+    tuning: StrokeLifetimeTuning = PEN_TUNING
+): Array<{ item: PersistentStrokeItem; alpha: number }> {
+    const selected: Array<{ item: PersistentStrokeItem; alpha: number }> = [];
+    for (const item of items) {
+        const alpha = resolveStrokeLifetimeAlpha(item, context, tuning);
+        if (alpha > 0) selected.push({ item, alpha });
+    }
+    return selected;
+}
+
 export const PEN_TUNING: PenTuning = {
     maxDevicePixelRatio: 2,
     coreWidthPx: 3.4,
@@ -87,6 +163,8 @@ export const PEN_TUNING: PenTuning = {
     sparkleMaxSizePx: 13,
     sparkleLifetimeMs: 620,
     sparkleTwinkleHz: 2.2,
+    visibleWindowSec: 8,
+    fadeOutMs: 1500,
     fadeDurationMs: 600
 };
 
