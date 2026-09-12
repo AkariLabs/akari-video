@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url';
 import {
   CaptionDisplayError,
   captionAnchorPositionVars,
+  dedupeCaptionOccurrences,
   measureCaptionUnits,
   mergeCaptionDisplayStyles,
+  projectCaptionWords,
   resolveCaptionDisplay,
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
@@ -230,9 +232,10 @@ test('source reference validation is driven by normalized sources, not edit.vers
   );
 });
 
-test('fails closed for timeline overrides, normalization, style, overlap, and impossible split', () => {
+test('accepts at/track projection and fails closed for transitions, normalization, style, overlap, and impossible split', () => {
   const base = { display_policy: policy, captions: [caption('c-0001', 0, 1, '正常です')] };
-  assert.throws(() => resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, at: 0 }] }), /does not support/);
+  assert.equal(resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, at: 0, track: 0 }] }).occurrence_count, 1);
+  assert.throws(() => resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, transition_out: null }] }), /does not support/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, ' é')] }, { cuts: [] }), /NFC/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, '正常です', { style: 'pop' })] }, { cuts: [] }), /cannot be combined/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, '正常'), caption('c-0001', 1, 2, '重複')] }, { cuts: [] }), /duplicated/);
@@ -240,6 +243,99 @@ test('fails closed for timeline overrides, normalization, style, overlap, and im
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', -1, 1, '範囲不正')] }, { cuts: [] }), /0 <= start < end/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 2, '重なり'), caption('c-0002', 1, 3, '重なる')] }, { cuts: [] }), /overlap/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, 'abcdefghijklmnopq')] }, { cuts: [] }), /provide display_fragments/);
+});
+
+test('(a) same cue is deduped on overlapping tracks while non-overlapping occurrences remain', () => {
+  const root = {
+    display_policy: { ...policy, max_line_units: 20 },
+    captions: [caption('c-0001', 0, 2, '重複しない字幕', { src: 'a' })],
+  };
+  const common = { sources: [{ id: 'a' }] };
+  const overlapping = resolveCaptionDisplay(root, {
+    ...common,
+    cuts: [
+      { src: 'a', in: 0, out: 2, at: 0, track: 0 },
+      { src: 'a', in: 0, out: 2, at: 0, track: 1 },
+    ],
+  });
+  assert.equal(overlapping.occurrence_count, 1);
+  assert.equal(overlapping.display_cues[0].cut_index, 1, 'upper/later track wins');
+
+  const separated = resolveCaptionDisplay(root, {
+    ...common,
+    cuts: [
+      { src: 'a', in: 0, out: 2, at: 0, track: 0 },
+      { src: 'a', in: 0, out: 2, at: 2, track: 1 },
+    ],
+  });
+  assert.equal(separated.occurrence_count, 2);
+  assert.deepEqual(separated.display_cues.map(cue => [cue.start, cue.end]), [[0, 2], [2, 4]]);
+
+  const partial = dedupeCaptionOccurrences([
+    { source_cue_id: 'c-0001', start: 0, end: 3, track: 0, source_start: 0, source_end: 3 },
+    { source_cue_id: 'c-0001', start: 1, end: 2, track: 1, source_start: 1, source_end: 2 },
+  ], [0, 1]);
+  assert.deepEqual(partial.map(({ start, end, track }) => ({ start, end, track })), [
+    { start: 0, end: 1, track: 0 },
+    { start: 1, end: 2, track: 1 },
+    { start: 2, end: 3, track: 0 },
+  ]);
+});
+
+test('(b) captions off contributes no occurrence', () => {
+  const result = resolveCaptionDisplay({
+    display_policy: policy,
+    captions: [caption('c-0001', 0, 1, '表示しない', { src: 'a' })],
+  }, {
+    sources: [{ id: 'a' }],
+    cuts: [{ src: 'a', in: 0, out: 1, captions: 'off' }],
+  });
+  assert.equal(result.occurrence_count, 0);
+  assert.deepEqual(result.display_cues, []);
+});
+
+test('(c) fully cut words disappear, partially intersecting words remain, and source data is immutable', () => {
+  const source = caption('c-0001', 0, 2, '前消残後', {
+    src: 'a',
+    words: [
+      { text: '前', start: 0, end: 0.5 },
+      { text: '消', start: 0.5, end: 0.9 },
+      { text: '残', start: 0.9, end: 1.2 },
+      { text: '後', start: 1.2, end: 2 },
+    ],
+  });
+  const before = JSON.stringify(source);
+  const projected = projectCaptionWords(source, [
+    { src: 'a', in: 0, out: 0.5 },
+    { src: 'a', in: 1, out: 2 },
+  ]);
+  assert.equal(projected.displayText, '前残後');
+  assert.deepEqual(projected.words.map(word => word.text), ['前', '残', '後']);
+  assert.equal(JSON.stringify(source), before, 'text/words[] source bytes');
+
+  const empty = projectCaptionWords(source, [{ src: 'a', in: 2, out: 3 }]);
+  assert.equal(empty.renderable, false);
+  const removed = resolveCaptionDisplay({
+    display_policy: { ...policy, max_line_units: 2 },
+    captions: [{ ...source, text: '長すぎる字幕本文', words: [
+      { text: '長すぎる字幕本文', start: 0.5, end: 0.9 },
+    ] }],
+  }, { sources: [{ id: 'a' }], cuts: [
+    { src: 'a', in: 0, out: 0.5 },
+    { src: 'a', in: 1, out: 2 },
+  ] });
+  assert.equal(removed.display_cue_count, 0, 'an entirely removed cue is not validated as visible text');
+});
+
+test('(d) no dedupe/off/cut case preserves existing occurrence bytes', () => {
+  const occurrence = {
+    source_cue_id: 'c-0001', start: 0, end: 1, track: 0,
+    source_start: 0, source_end: 1, sentinel: { keep: 'bytes' },
+  };
+  const before = JSON.stringify([occurrence]);
+  const after = dedupeCaptionOccurrences([occurrence], [0]);
+  assert.equal(JSON.stringify(after), before);
+  assert.equal(after[0], occurrence);
 });
 
 test('display-policy caption styles accept omission, preserve known conflicts, and name unknown values', () => {

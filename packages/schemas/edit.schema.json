@@ -1060,6 +1060,7 @@
       "properties": {
         "at": { "$ref": "#/$defs/seconds" },
         "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
+        "captions": { "enum": ["on", "off"], "default": "on" },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
@@ -1080,6 +1081,7 @@
       "properties": {
         "at": { "$ref": "#/$defs/seconds" },
         "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
+        "captions": { "enum": ["on", "off"], "default": "on" },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
@@ -1363,6 +1365,7 @@
       ],
       "properties": {
         "track": { "$ref": "#/$defs/nonNegativeInteger", "default": 0 },
+        "captions": { "enum": ["on", "off"], "default": "on" },
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "t": { "$ref": "#/$defs/seconds" },
         "duration": { "$ref": "#/$defs/positiveNumber" },
@@ -1568,6 +1571,9 @@
     "itemV2Media": {
       "type": "object",
       "additionalProperties": false,
+      "patternProperties": {
+        "^captions$": { "enum": ["on", "off"], "default": "on" }
+      },
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },

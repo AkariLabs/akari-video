@@ -111,6 +111,8 @@ export interface InternalItem {
     children: InternalItem[];
     /** 親があるときだけ宣言 id を保持する。 */
     parentId?: string;
+    /** この media item から source 字幕を射影するか。省略時は on。 */
+    captions?: 'on' | 'off';
     /** motion/ 袋参照。A1 ではファイルを解決しない。 */
     keyframesRef?: KeyframesReferenceV2;
     source: InternalItemSource;
@@ -326,8 +328,54 @@ function toRecord(source: string | unknown): Record<string, unknown> | undefined
 // v2
 // ---------------------------------------------------------------------------
 
+/**
+ * itemV2Media の新しい captions キーだけを strict v2 reader の手前で退避する。
+ * edit-v2.ts の一般 reader を広げず、この票が所有する字幕射影の橋だけで受理する。
+ * 不正値と media 以外の captions は退避しないため、既存の未知キー拒否にそのまま委ねる。
+ */
+function extractV2MediaCaptionSwitches(raw: Record<string, unknown>): {
+    input: Record<string, unknown>;
+    captionsByItemId: Map<string, 'on' | 'off'>;
+} {
+    const captionsByItemId = new Map<string, 'on' | 'off'>();
+    const visit = (value: unknown): unknown => {
+        if (!isRecord(value)) return value;
+        const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
+        const isMedia = isRecord(value.source) && value.source.kind === 'media';
+        const validSwitch = value.captions === 'on' || value.captions === 'off';
+        if (isMedia && validSwitch && typeof value.id === 'string') {
+            captionsByItemId.set(value.id, value.captions as 'on' | 'off');
+            const { captions: _captions, ...withoutCaptions } = value;
+            return {
+                ...withoutCaptions,
+                ...(Array.isArray(value.items) ? { items: children } : {})
+            };
+        }
+        return Array.isArray(value.items) ? { ...value, items: children } : value;
+    };
+    const tracks = Array.isArray(raw.tracks)
+        ? raw.tracks.map(track => isRecord(track) && Array.isArray(track.items)
+            ? { ...track, items: track.items.map(visit) } : track)
+        : raw.tracks;
+    return {
+        input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
+        captionsByItemId
+    };
+}
+
 function readV2Internal(raw: Record<string, unknown>): InternalEdit {
-    const edit = readEditV2(raw);
+    const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
+    const edit = readEditV2(input);
+    const restoreCaptionSwitches = (items: ItemV2[]): void => {
+        for (const item of items) {
+            const captions = captionsByItemId.get(item.id);
+            if (captions !== undefined) (item as ItemV2 & { captions: 'on' | 'off' }).captions = captions;
+            if ('items' in item && Array.isArray(item.items)) restoreCaptionSwitches(item.items);
+        }
+    };
+    for (const track of edit.tracks) {
+        if ('items' in track && track.lane === 'visual') restoreCaptionSwitches(track.items);
+    }
     const fps = edit.output.fps;
     const sources: InternalSource[] = edit.sources.map(entry => ({
         id: entry.id,
@@ -702,7 +750,8 @@ function computeOverlappingItemIds(
  * edit-lint と UI は理由文言に必要な相手 id を、この単一定義から得る。
  */
 export function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEvacuation[] {
-    const parsed = readEditV2(edit);
+    const raw = toRecord(edit);
+    const parsed = readEditV2(raw === undefined ? edit : extractV2MediaCaptionSwitches(raw).input);
     const pathOf = (id: string): string | undefined => parsed.sources.find(entry => entry.id === id)?.path;
     return analyzeOverlappingItems(parsed.tracks.flatMap(track =>
         track.lane === 'visual' && 'items' in track
@@ -807,6 +856,7 @@ function buildV2VisualItem(
     const at = atFrames / fps;
     const duration = durationFrames / fps;
     const declaredKeyframes = (item as unknown as { keyframes?: ItemV2['keyframes'] | KeyframesReferenceV2 }).keyframes;
+    const captionSwitch = (item as unknown as { captions?: 'on' | 'off' }).captions;
     const keyframes = Array.isArray(declaredKeyframes)
         ? declaredKeyframes.map(keyframe => ({ ...keyframe, t: keyframe.t / fps })) : undefined;
     const common = {
@@ -821,9 +871,11 @@ function buildV2VisualItem(
         ...(item.animator !== undefined ? { animator: structuredClone(item.animator) } : {}),
         ...(keyframes !== undefined ? { keyframes } : {}),
         ...(item.source.kind === 'media' && 'mask' in item && item.mask !== undefined
-            ? { mask: pathOf(item.mask) ?? item.mask } : {})
+            ? { mask: pathOf(item.mask) ?? item.mask } : {}),
+        ...(item.source.kind === 'media' && captionSwitch !== undefined ? { captions: captionSwitch } : {})
     };
     const finish = (built: { item: InternalItem; warning?: string }): { item: InternalItem; warning?: string } => {
+        if (item.source.kind === 'media' && captionSwitch !== undefined) built.item.captions = captionSwitch;
         if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== undefined) {
             built.item.keyframesRef = { ...declaredKeyframes };
         }
@@ -933,7 +985,7 @@ function buildV2VisualItem(
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     in: item.source.in,
-                    track: ref, ...common, ...copyMediaSourceFields(item.source),
+                    track: ref, ...common, ...copyMediaSourceFields(item.source, captionSwitch),
                 ...('audio' in item && item.audio === false ? { audio: false as const } : {})
                 };
                 const value = declaration as unknown as EditLayer;
@@ -954,7 +1006,7 @@ function buildV2VisualItem(
                 ...(speed !== undefined ? { speed } : {}),
                 ...(item.transform !== undefined ? { transform: item.transform } : {}),
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
-                ...copyMediaSourceFields(item.source),
+                ...copyMediaSourceFields(item.source, captionSwitch),
                 ...('audio' in item && item.audio === false ? { audio: false as const } : {})
             };
             return finish({
@@ -962,7 +1014,7 @@ function buildV2VisualItem(
                     id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
-                        ...common, ...copyMediaSourceFields(item.source),
+                        ...common, ...copyMediaSourceFields(item.source, captionSwitch),
                 ...('audio' in item && item.audio === false ? { audio: false as const } : {}), ...(speed !== undefined ? { speed } : {})
                     },
                     legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
@@ -1256,7 +1308,9 @@ function buildV2AudioItem(
     };
 }
 
-function copyMediaSourceFields(source: Extract<ItemV2['source'], { kind: 'media' }>): Record<string, unknown> {
+function copyMediaSourceFields(
+    source: Extract<ItemV2['source'], { kind: 'media' }>, captions?: 'on' | 'off'
+): Record<string, unknown> {
     return {
         ...(source.framing !== undefined ? { framing: source.framing } : {}),
         ...(source.transition_out !== undefined ? { transition_out: source.transition_out } : {}),
@@ -1265,7 +1319,8 @@ function copyMediaSourceFields(source: Extract<ItemV2['source'], { kind: 'media'
         ...(source.speed !== undefined ? { speed: source.speed } : {}),
         ...(source.gain_db !== undefined ? { gain_db: source.gain_db } : {}),
         ...(source.mute !== undefined ? { mute: source.mute } : {}),
-        ...(source.chroma_key !== undefined ? { chroma_key: source.chroma_key } : {})
+        ...(source.chroma_key !== undefined ? { chroma_key: source.chroma_key } : {}),
+        ...(captions !== undefined ? { captions } : {})
     };
 }
 

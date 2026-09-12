@@ -3357,6 +3357,8 @@ var require_caption_display = __commonJS({
     exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
     exports.resolveCaptionDisplay = resolveCaptionDisplay;
     exports.validateCaptionTextStyle = validateCaptionTextStyle;
+    exports.projectCaptionWords = projectCaptionWords;
+    exports.dedupeCaptionOccurrences = dedupeCaptionOccurrences;
     exports.splitCaptionFragments = splitCaptionFragments;
     exports.scheduleCaptionFragments = scheduleCaptionFragments;
     exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
@@ -3449,6 +3451,7 @@ var require_caption_display = __commonJS({
     ]);
     var CAPTION_WORD_STYLES = /* @__PURE__ */ new Set(["karaoke", "pop", "reveal", "reveal-word"]);
     var HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/u;
+    var PROJECTION_EPSILON = 1e-6;
     var CaptionDisplayError = class extends Error {
       constructor(code, message) {
         super(message);
@@ -3534,9 +3537,12 @@ var require_caption_display = __commonJS({
         fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
       const captions = captionsRoot.captions;
       const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, "default_text_style") ? validateCaptionTextStyle(captionsRoot.default_text_style, "default_text_style") : void 0;
+      const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+      validateProjectionCuts(cuts, edit);
+      const projectedCaptions = captions.map((caption) => projectCaptionWords(caption, cuts));
       const captionIds = /* @__PURE__ */ new Set();
       captions.forEach((caption, index) => {
-        validateSourceCaption(caption, index, policy);
+        validateSourceCaption(caption, index, policy, projectedCaptions[index]);
         if (Object.prototype.hasOwnProperty.call(caption, "text_style")) {
           validateCaptionTextStyle(caption.text_style, `captions[${index}].text_style`);
         }
@@ -3545,10 +3551,8 @@ var require_caption_display = __commonJS({
         captionIds.add(caption.id);
       });
       validateEmphasisConflicts(captions, edit?.emphasis_words);
-      const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
-      validateLinearCuts(cuts, edit);
       const sourceCount = validateSourceReferences(captions, cuts, edit);
-      const occurrences = projectOccurrences(captions, cuts, sourceCount);
+      const occurrences = dedupeCaptionOccurrences(projectOccurrences(captions, projectedCaptions, cuts, sourceCount), captionTrackOrder(cuts, edit));
       occurrences.sort(compareOccurrence);
       const byCue = /* @__PURE__ */ new Map();
       for (const occurrence of occurrences) {
@@ -3565,10 +3569,13 @@ var require_caption_display = __commonJS({
       const wordBookFallbacks = [];
       const fragmentsByCaption = /* @__PURE__ */ new Map();
       captions.forEach((caption, index) => {
-        const text = caption.display_text ?? caption.text;
+        const projected = projectedCaptions[index];
+        if (!projected.renderable)
+          return;
+        const text = projected.displayText;
         let fragments;
         let manual = false;
-        if (caption.display_fragments !== void 0) {
+        if (!projected.changed && caption.display_fragments !== void 0) {
           fragments = validateManualFragments(caption, text, policy, index);
           manual = true;
           boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
@@ -3851,34 +3858,150 @@ var require_caption_display = __commonJS({
       });
       return edit.sources.length;
     }
-    function validateLinearCuts(cuts, edit) {
+    function validateProjectionCuts(cuts, edit) {
       cuts.forEach((cut, index) => {
         if (!isRecord2(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
           fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
         }
-        if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
-          fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].at/track/transition_out`);
+        if (cut.at !== void 0 && !finiteNonNegative2(cut.at) || cut.track !== void 0 && (!Number.isInteger(cut.track) || cut.track < 0)) {
+          fail("INVALID_CUT", `edit.json cuts[${index}].at/track must be non-negative timeline coordinates`);
+        }
+        if (Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
+          fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].transition_out`);
         }
         if (cut.speed !== void 0 && !finitePositive3(cut.speed))
           fail("INVALID_CUT", `edit.json cuts[${index}].speed must be positive`);
       });
-      if (Array.isArray(edit?.timeline?.tracks) && edit.timeline.tracks.some((track) => track?.kind === "cuts")) {
-        fail("UNSUPPORTED_TIMELINE", "display_policy does not support timeline.tracks cuts winner overrides");
-      }
     }
-    function projectOccurrences(captions, cuts, sourceCount) {
-      const occurrences = [];
+    function projectCaptionWords(caption, cuts) {
+      const displayText = typeof caption?.display_text === "string" ? caption.display_text : caption?.text;
+      const words = Array.isArray(caption?.words) ? caption.words.filter(isProjectionWord) : void 0;
+      if (typeof displayText !== "string" || !words || words.length === 0 || caption.time_domain === "output" || cuts.length === 0) {
+        return {
+          displayText: typeof displayText === "string" ? displayText : "",
+          words,
+          changed: false,
+          renderable: typeof displayText === "string" && displayText.trim().length > 0
+        };
+      }
+      const captionSource = strictText(caption.src) ? caption.src : null;
+      const visible = words.map((word) => cuts.some((cut) => {
+        if (!isRecord2(cut) || cut.captions === "off")
+          return false;
+        if (captionSource !== null && cut.src !== captionSource)
+          return false;
+        return finiteNonNegative2(cut.in) && finitePositive3(cut.out) && word.end - cut.in > PROJECTION_EPSILON && cut.out - word.start > PROJECTION_EPSILON;
+      }));
+      if (visible.every(Boolean)) {
+        return { displayText, words, changed: false, renderable: displayText.trim().length > 0 };
+      }
+      const keptWords = words.filter((_word, index) => visible[index]);
+      const projectedText = removeHiddenWords(displayText, words, visible);
+      return {
+        displayText: projectedText,
+        words: keptWords,
+        changed: true,
+        renderable: projectedText.trim().length > 0 && keptWords.length > 0
+      };
+    }
+    function isProjectionWord(value) {
+      return isRecord2(value) && typeof value.text === "string" && value.text.length > 0 && finiteNonNegative2(value.start) && finiteNonNegative2(value.end) && value.end > value.start;
+    }
+    function removeHiddenWords(text, words, visible) {
       let cursor = 0;
+      let output = "";
+      for (let index = 0; index < words.length; index++) {
+        const wordText = String(words[index].text);
+        const offset = text.indexOf(wordText, cursor);
+        if (offset < 0) {
+          return words.filter((_word, wordIndex) => visible[wordIndex]).map((word) => String(word.text)).join("");
+        }
+        if (visible[index])
+          output += text.slice(cursor, offset + wordText.length);
+        cursor = offset + wordText.length;
+      }
+      if (visible[visible.length - 1])
+        output += text.slice(cursor);
+      return output.trim();
+    }
+    function dedupeCaptionOccurrences(occurrences, trackOrder) {
+      const inputOrder = new Map(occurrences.map((occurrence, index) => [occurrence, index]));
+      const trackRank = /* @__PURE__ */ new Map();
+      trackOrder.forEach((track, index) => trackRank.set(track, index));
+      const rankOf = (occurrence) => trackRank.get(occurrence.track) ?? occurrence.track;
+      const byCue = /* @__PURE__ */ new Map();
+      for (const occurrence of occurrences) {
+        const values = byCue.get(occurrence.source_cue_id) ?? [];
+        values.push(occurrence);
+        byCue.set(occurrence.source_cue_id, values);
+      }
+      const output = [];
+      for (const values of byCue.values()) {
+        const boundaries = [...new Set(values.flatMap((value) => [value.start, value.end]))].sort((left, right) => left - right);
+        const pieces = [];
+        for (let index = 0; index + 1 < boundaries.length; index++) {
+          const start = boundaries[index];
+          const end = boundaries[index + 1];
+          if (end - start <= PROJECTION_EPSILON)
+            continue;
+          const midpoint = (start + end) / 2;
+          const active = values.filter((value) => value.start <= midpoint && value.end > midpoint);
+          if (active.length === 0)
+            continue;
+          const winner = active.reduce((current, candidate) => {
+            const rankDifference = rankOf(candidate) - rankOf(current);
+            if (rankDifference !== 0)
+              return rankDifference > 0 ? candidate : current;
+            return (inputOrder.get(candidate) ?? 0) > (inputOrder.get(current) ?? 0) ? candidate : current;
+          });
+          const last = pieces[pieces.length - 1];
+          if (last?.winner === winner && Math.abs(last.end - start) <= PROJECTION_EPSILON)
+            last.end = end;
+          else
+            pieces.push({ winner, start, end });
+        }
+        for (const piece of pieces) {
+          const whole = piece.winner;
+          if (Math.abs(piece.start - whole.start) <= PROJECTION_EPSILON && Math.abs(piece.end - whole.end) <= PROJECTION_EPSILON) {
+            output.push(whole);
+            continue;
+          }
+          const duration = whole.end - whole.start;
+          const clipped = { ...whole, start: piece.start, end: piece.end };
+          if (duration > 0 && finiteNumber(whole.source_start) && finiteNumber(whole.source_end)) {
+            const sourceDuration = whole.source_end - whole.source_start;
+            clipped.source_start = whole.source_start + sourceDuration * ((piece.start - whole.start) / duration);
+            clipped.source_end = whole.source_start + sourceDuration * ((piece.end - whole.start) / duration);
+          }
+          output.push(clipped);
+        }
+      }
+      return output.sort((left, right) => left.start - right.start || (inputOrder.get(left) ?? inputOrder.get(left) ?? 0) - (inputOrder.get(right) ?? 0));
+    }
+    function captionTrackOrder(cuts, edit) {
+      const declared = Array.isArray(edit?.timeline?.tracks) ? edit.timeline.tracks.filter((track) => track?.kind === "cuts" && Number.isInteger(track.ref) && track.ref >= 0).map((track) => track.ref) : [];
+      const fallback = cuts.map((cut) => Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0).sort((left, right) => left - right);
+      return [...new Set(declared.length > 0 ? declared : fallback)];
+    }
+    function projectOccurrences(captions, projectedCaptions, cuts, sourceCount) {
+      const occurrences = [];
+      const cursors = /* @__PURE__ */ new Map();
       const segments = cuts.map((cut, cutIndex) => {
         const speed = finitePositive3(cut.speed) ? cut.speed : 1;
         const duration = (cut.out - cut.in) / speed;
-        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
-        cursor += duration;
+        const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
+        const cursor = cursors.get(track) ?? 0;
+        const start = finiteNonNegative2(cut.at) ? cut.at : cursor;
+        const segment = { cut, cutIndex, speed, track, start, end: start + duration };
+        cursors.set(track, segment.end);
         return segment;
       });
-      const timelineEnd = cursor;
+      const timelineEnd = segments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
       captions.forEach((caption, captionInputIndex) => {
         if (!isRecord2(caption) || caption.time_domain !== "output")
+          return;
+        const projected = projectedCaptions[captionInputIndex];
+        if (!projected.renderable)
           return;
         const clampedEnd = Math.min(caption.end, timelineEnd);
         if (!(clampedEnd > caption.start))
@@ -3892,8 +4015,9 @@ var require_caption_display = __commonJS({
           source_end: clampedEnd,
           start: caption.start,
           end: clampedEnd,
-          text: caption.display_text ?? caption.text,
-          display_fragments: caption.display_fragments,
+          track: 0,
+          text: projected.displayText,
+          display_fragments: projected.changed ? void 0 : caption.display_fragments,
           text_style: caption.text_style
         });
       });
@@ -3901,8 +4025,11 @@ var require_caption_display = __commonJS({
         captions.forEach((caption, captionInputIndex) => {
           if (caption?.time_domain === "output")
             return;
-          const text = caption?.display_text ?? caption?.text;
+          const projected = projectedCaptions[captionInputIndex];
+          const text = projected.displayText;
           if (isRecord2(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
+            if (!projected.renderable)
+              return;
             occurrences.push({
               source_cue_id: caption.id,
               src: typeof caption.src === "string" ? caption.src : null,
@@ -3912,8 +4039,9 @@ var require_caption_display = __commonJS({
               source_end: caption.end,
               start: caption.start,
               end: caption.end,
+              track: 0,
               text,
-              display_fragments: caption.display_fragments,
+              display_fragments: projected.changed ? void 0 : caption.display_fragments,
               text_style: caption.text_style
             });
           }
@@ -3925,11 +4053,16 @@ var require_caption_display = __commonJS({
           return;
         if (caption.time_domain === "output")
           return;
+        const projected = projectedCaptions[captionInputIndex];
+        if (!projected.renderable)
+          return;
         const captionSource = strictText(caption.src) ? caption.src : null;
         if (sourceCount > 1 && captionSource === null) {
           fail("MISSING_SOURCE", `captions[${captionInputIndex}].src is required for a multi-source edit`);
         }
         for (const segment of segments) {
+          if (segment.cut.captions === "off")
+            continue;
           if (captionSource !== null && segment.cut.src !== captionSource)
             continue;
           const sourceStart = Math.max(caption.start, segment.cut.in);
@@ -3945,15 +4078,16 @@ var require_caption_display = __commonJS({
             source_end: sourceEnd,
             start: segment.start + (sourceStart - segment.cut.in) / segment.speed,
             end: segment.start + (sourceEnd - segment.cut.in) / segment.speed,
-            text: caption.display_text ?? caption.text,
-            display_fragments: caption.display_fragments,
+            track: segment.track,
+            text: projected.displayText,
+            display_fragments: projected.changed ? void 0 : caption.display_fragments,
             text_style: caption.text_style
           });
         }
       });
       return occurrences;
     }
-    function validateSourceCaption(caption, index, policy) {
+    function validateSourceCaption(caption, index, policy, projected) {
       if (!isRecord2(caption) || !strictText(caption.id))
         fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
       if (!finiteNonNegative2(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
@@ -3965,16 +4099,17 @@ var require_caption_display = __commonJS({
       if (caption.time_domain !== void 0 && caption.time_domain !== "source" && caption.time_domain !== "output") {
         fail("INVALID_CAPTION", `captions[${index}].time_domain must be source or output when present`);
       }
-      const text = caption.display_text ?? caption.text;
-      if (!strictText(text))
+      const sourceText = caption.display_text ?? caption.text;
+      if (!strictText(sourceText))
         fail("INVALID_TEXT", `captions[${index}] display text must be non-empty, NFC, and trimmed`);
+      const text = projected?.renderable ? projected.displayText : sourceText;
       if (caption.style !== void 0) {
         if (CAPTION_WORD_STYLES.has(caption.style)) {
           fail("STYLE_CONFLICT", `captions[${index}].style cannot be combined with display_policy`);
         }
         fail("INVALID_CAPTION", `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style (expected one of: ${[...CAPTION_WORD_STYLES].join(", ")})`);
       }
-      if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === void 0) {
+      if (projected?.renderable !== false && measureCaptionUnits(text) > policy.max_line_units * 2 && (caption.display_fragments === void 0 || projected?.changed === true)) {
         fail("NO_WORD_BOUNDARY_SPLIT", `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
       }
     }
@@ -5676,8 +5811,46 @@ var require_internal_model = __commonJS({
         return void 0;
       }
     }
+    function extractV2MediaCaptionSwitches(raw) {
+      const captionsByItemId = /* @__PURE__ */ new Map();
+      const visit = (value) => {
+        if (!isRecord2(value))
+          return value;
+        const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
+        const isMedia = isRecord2(value.source) && value.source.kind === "media";
+        const validSwitch = value.captions === "on" || value.captions === "off";
+        if (isMedia && validSwitch && typeof value.id === "string") {
+          captionsByItemId.set(value.id, value.captions);
+          const { captions: _captions, ...withoutCaptions } = value;
+          return {
+            ...withoutCaptions,
+            ...Array.isArray(value.items) ? { items: children } : {}
+          };
+        }
+        return Array.isArray(value.items) ? { ...value, items: children } : value;
+      };
+      const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord2(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
+      return {
+        input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
+        captionsByItemId
+      };
+    }
     function readV2Internal(raw) {
-      const edit = (0, edit_v2_1.readEditV2)(raw);
+      const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
+      const edit = (0, edit_v2_1.readEditV2)(input);
+      const restoreCaptionSwitches = (items) => {
+        for (const item of items) {
+          const captions = captionsByItemId.get(item.id);
+          if (captions !== void 0)
+            item.captions = captions;
+          if ("items" in item && Array.isArray(item.items))
+            restoreCaptionSwitches(item.items);
+        }
+      };
+      for (const track of edit.tracks) {
+        if ("items" in track && track.lane === "visual")
+          restoreCaptionSwitches(track.items);
+      }
       const fps = edit.output.fps;
       const sources = edit.sources.map((entry) => ({
         id: entry.id,
@@ -5907,7 +6080,8 @@ var require_internal_model = __commonJS({
       })), pathOf).itemIds;
     }
     function findCrossTrackLayerEvacuations(edit) {
-      const parsed = (0, edit_v2_1.readEditV2)(edit);
+      const raw = toRecord(edit);
+      const parsed = (0, edit_v2_1.readEditV2)(raw === void 0 ? edit : extractV2MediaCaptionSwitches(raw).input);
       const pathOf = (id) => parsed.sources.find((entry) => entry.id === id)?.path;
       return analyzeOverlappingItems(parsed.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? [{ items: track.items, trackId: track.id }] : []), pathOf).crossTrackEvacuations;
     }
@@ -5948,6 +6122,7 @@ var require_internal_model = __commonJS({
       const at2 = atFrames / fps;
       const duration = durationFrames / fps;
       const declaredKeyframes = item.keyframes;
+      const captionSwitch = item.captions;
       const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
       const common = {
         ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
@@ -5960,9 +6135,12 @@ var require_internal_model = __commonJS({
         ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
         ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
         ...keyframes !== void 0 ? { keyframes } : {},
-        ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+        ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {},
+        ...item.source.kind === "media" && captionSwitch !== void 0 ? { captions: captionSwitch } : {}
       };
       const finish = (built) => {
+        if (item.source.kind === "media" && captionSwitch !== void 0)
+          built.item.captions = captionSwitch;
         if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
           built.item.keyframesRef = { ...declaredKeyframes };
         }
@@ -6012,7 +6190,7 @@ var require_internal_model = __commonJS({
               in: item.source.in,
               track: ref,
               ...common,
-              ...copyMediaSourceFields(item.source),
+              ...copyMediaSourceFields(item.source, captionSwitch),
               ..."audio" in item && item.audio === false ? { audio: false } : {}
             };
             const value2 = declaration;
@@ -6039,7 +6217,7 @@ var require_internal_model = __commonJS({
             ...speed !== void 0 ? { speed } : {},
             ...item.transform !== void 0 ? { transform: item.transform } : {},
             ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-            ...copyMediaSourceFields(item.source),
+            ...copyMediaSourceFields(item.source, captionSwitch),
             ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           return finish({
@@ -6059,7 +6237,7 @@ var require_internal_model = __commonJS({
                 at: at2,
                 track: ref,
                 ...common,
-                ...copyMediaSourceFields(item.source),
+                ...copyMediaSourceFields(item.source, captionSwitch),
                 ..."audio" in item && item.audio === false ? { audio: false } : {},
                 ...speed !== void 0 ? { speed } : {}
               },
@@ -6423,7 +6601,7 @@ var require_internal_model = __commonJS({
         }
       };
     }
-    function copyMediaSourceFields(source) {
+    function copyMediaSourceFields(source, captions) {
       return {
         ...source.framing !== void 0 ? { framing: source.framing } : {},
         ...source.transition_out !== void 0 ? { transition_out: source.transition_out } : {},
@@ -6432,7 +6610,8 @@ var require_internal_model = __commonJS({
         ...source.speed !== void 0 ? { speed: source.speed } : {},
         ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
         ...source.mute !== void 0 ? { mute: source.mute } : {},
-        ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
+        ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {},
+        ...captions !== void 0 ? { captions } : {}
       };
     }
     function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {

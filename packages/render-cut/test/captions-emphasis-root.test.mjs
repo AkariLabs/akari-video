@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { generateCaptionOverlays } from "../src/captions.mjs";
+import { readRenderEdit } from "../src/internal-render.mjs";
 import { loadCaptions } from "../src/render-cut.mjs";
 
 const CAPTIONS = [{
@@ -88,6 +89,46 @@ test("legacy edit.json emphasis_words remains the fallback when captions.json om
 
     assert.match(html, /data-emphasis-id="e-0003"/u);
     assert.match(html, /akari-caption__tok--color-accent/u);
+  });
+});
+
+test("loadCaptions excludes captions-off cuts before the render filtergraph is planned", async () => {
+  await withCaptionsRoot({ captions: CAPTIONS }, async (project) => {
+    const loaded = await loadCaptions(project, {
+      ...EDIT,
+      cuts: [{ ...CUTS[0], captions: "off" }],
+    });
+    assert.deepEqual(loaded.overlays, []);
+  });
+});
+
+test("v2 duplicate items carry captions switches through normalization into render planning", async () => {
+  await withCaptionsRoot({ captions: CAPTIONS }, async (project) => {
+    const makeEdit = (lower, upper) => ({
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [{ id: "main", path: "main.mp4" }],
+      tracks: [
+        { id: "lower", lane: "visual", items: [{
+          id: "lower-item", at: 0, duration: 60, captions: lower,
+          source: { kind: "media", src: "main", in: 0, out: 2 },
+        }] },
+        { id: "upper", lane: "visual", items: [{
+          id: "upper-item", at: 0, duration: 60, captions: upper,
+          source: { kind: "media", src: "main", in: 0, out: 2 },
+        }] },
+      ],
+    });
+    const planned = async (lower, upper) => {
+      const normalized = readRenderEdit(makeEdit(lower, upper), join(project, ".akari", "render-tmp"), {
+        projectRoot: project,
+      }).edit;
+      assert.deepEqual(normalized.cuts.map(cut => cut.captions), [lower, upper]);
+      return loadCaptions(project, normalized);
+    };
+    assert.equal((await planned("on", "on")).overlays.length, 1);
+    assert.equal((await planned("on", "off")).overlays.length, 1);
+    assert.equal((await planned("off", "off")).overlays.length, 0);
   });
 });
 
