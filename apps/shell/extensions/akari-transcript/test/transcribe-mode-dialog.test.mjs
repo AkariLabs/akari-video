@@ -74,9 +74,10 @@ function load(path, modules, clock) {
     callback => { clock.intervals.add(callback); return callback; }, id => clock.intervals.delete(id));
     return exports;
 }
-async function harness({ mode, done = false, pending, failSave = false } = {}) {
-    const clock = { now: 0, intervals: new Set() }, writes = [], requests = [];
-    const compareSet = ['whisper-cpp', 'cloud:scribe'];
+async function harness({ mode, done = false, pending, failSave = false, autoStart = false,
+    savedCompareSet = ['whisper-cpp', 'cloud:scribe'] } = {}) {
+    const clock = { now: 0, intervals: new Set() }, writes = [], requests = [], cancels = [];
+    const compareSet = savedCompareSet;
     const preferences = {
         get(key, fallback) {
             return ({ 'akari.transcribe.mode': mode, 'akari.transcribe.backend': 'whisper-cpp',
@@ -94,7 +95,8 @@ async function harness({ mode, done = false, pending, failSave = false } = {}) {
     }, clock);
     const dialog = new AkariTranscribeDialog(new URI('file:///fixture'), 'clip.mp4', preferences, {
         async readTranscribeArtifacts() { return { transcripts: [], diff: null, cuts: null }; },
-        async transcribeMaterial(request) { requests.push(request); await pending?.promise; }
+        async transcribeMaterial(request) { requests.push(request); await pending?.promise; },
+        async cancelTranscribe(request) { cancels.push(request); }
     }, {
         async watch() { return { dispose() {} }; },
         onDidFilesChange() { return { dispose() {} }; },
@@ -105,9 +107,9 @@ async function harness({ mode, done = false, pending, failSave = false } = {}) {
             return service.endsWith('new-project') ? { tools: [{ id: 'whisper', available: true }, { id: 'speech-analyzer', available: false, needs: ['CLT'] }] }
                 : { providers: ['elevenlabs', 'groq'].map(id => ({ id, configured: false, doctor: { status: 'unconfigured' } })) };
         }
-    }, async () => {}, done);
+    }, async () => {}, done, autoStart);
     await dialog.ready; await tick();
-    return { dialog, writes, requests, compareSet, clock };
+    return { dialog, writes, requests, cancels, compareSet, clock };
 }
 const buttons = dialog => dialog.foot.querySelectorAll('button').filter(node => !node.dataset.akariTranscribeModeSwitch).map(node => node.textContent);
 const switchLink = dialog => dialog.node.querySelectorAll('button').find(node => node.dataset.akariTranscribeModeSwitch === 'true');
@@ -237,6 +239,24 @@ test('saved advanced mode keeps the comparison execution path and does not auto-
     assert.equal(dialog.node.dataset.step, '2');
     assert.equal(dialog.node.querySelectorAll('nav').length, 1);
     pending.resolve(); await tick();
+    assert.equal(dialog.accepted, 0);
+    assert.equal(dialog.closed, 0);
+    dialog.dispose();
+});
+test('context-menu autoStart opens on step 2, exposes cancel, and does not auto-accept one engine', async () => {
+    const pending = deferred();
+    const { dialog, requests, cancels } = await harness({ mode: 'advanced', pending, autoStart: true, savedCompareSet: [] });
+    assert.equal(dialog.node.dataset.step, '2');
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].compareSet, []);
+    const cancel = dialog.foot.querySelectorAll('button').find(button => button.textContent === '中止');
+    assert.equal(cancel.disabled, false);
+    cancel.click(); await tick();
+    assert.deepEqual(cancels, [{ projectRoot: 'file:///fixture', relativePath: 'clip.mp4' }]);
+    pending.reject(new Error('文字起こしを中止しました')); await tick();
+    assert.equal(dialog.notice.textContent, '文字起こしを中止しました');
+    assert.doesNotMatch(dialog.notice.textContent, /^Error:/);
+    assert.equal(dialog.wasCancelled, true);
     assert.equal(dialog.accepted, 0);
     assert.equal(dialog.closed, 0);
     dialog.dispose();
