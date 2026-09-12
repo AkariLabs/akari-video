@@ -4,6 +4,75 @@ import { AkariAnnotationsService, Annotation, SaveCanvasRequest, SaveCanvasResul
 import { AnnotationStroke } from '../common/annotation-store';
 import { ProjectLocation } from './project-location';
 
+export type ReviewSessionLifecycle = 'recorded' | 'transcribed' | 'compiled';
+
+/** akari-preview の ReviewSessionSummary のミラー（npm 依存を作らないため型だけ写す）。 */
+export interface ReviewSessionSummaryLike {
+    id: string;
+    startedAt: string;
+    endedAt?: string | null;
+    durationSec?: number;
+    orphaned?: boolean;
+    status?: ReviewSessionLifecycle | null;
+    compiledAnnotations?: string[] | null;
+}
+
+export type ReviewSessionBadgeKey = ReviewSessionLifecycle | 'orphaned';
+
+export interface ReviewSessionBadge {
+    key: ReviewSessionBadgeKey;
+    label: string;
+    /** recorded のときだけ非 undefined（パネルの 1 行ヒント） */
+    hint?: string;
+}
+
+export function reviewSessionBadge(session: ReviewSessionSummaryLike): ReviewSessionBadge {
+    if (session.orphaned === true) {
+        return { key: 'orphaned', label: '未完了' };
+    }
+    if (session.status === 'transcribed') {
+        return { key: 'transcribed', label: '文字起こし済み' };
+    }
+    if (session.status === 'compiled') {
+        return { key: 'compiled', label: 'コンパイル済み' };
+    }
+    return {
+        key: 'recorded',
+        label: '録音済み',
+        hint: 'まだチケットになっていません — コンパイルでチケット化'
+    };
+}
+
+export function pendingCompileSessions(
+    sessions: readonly ReviewSessionSummaryLike[]
+): ReviewSessionSummaryLike[] {
+    return sessions
+        .filter(session => reviewSessionBadge(session).key !== 'compiled')
+        .sort((left, right) => {
+            const leftMatch = /^s-(\d+)$/.exec(left.id);
+            const rightMatch = /^s-(\d+)$/.exec(right.id);
+            const order = Number(leftMatch?.[1] ?? 0) - Number(rightMatch?.[1] ?? 0);
+            return order || left.id.localeCompare(right.id);
+        });
+}
+
+export function sessionIdForAnnotation(
+    annotation: { id: string; input?: string; session?: { id?: string } | null },
+    sessions: readonly ReviewSessionSummaryLike[]
+): string | undefined {
+    if (annotation.input !== 'session') {
+        return undefined;
+    }
+    const compiledSession = sessions.find(
+        session => session.compiledAnnotations?.includes(annotation.id)
+    );
+    if (compiledSession) {
+        return compiledSession.id;
+    }
+    const fallback = annotation.session?.id;
+    return fallback && /^s-\d+$/.test(fallback) ? fallback : undefined;
+}
+
 export type AnnotationStatusFilter = 'all' | Annotation['status'];
 
 /** レポート面で選択中のブロック（doc: target 注釈作成の文脈）。契約 2026-07-26 §1/§4-1。 */

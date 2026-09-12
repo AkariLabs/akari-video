@@ -5,6 +5,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
 import {
@@ -28,7 +29,7 @@ import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
-import { AnnotationStatusFilter, ReviewModel } from './review-model';
+import { AnnotationStatusFilter, ReviewModel, reviewSessionBadge } from './review-model';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
@@ -72,6 +73,8 @@ interface ReviewSessionSummary {
     durationSec: number;
     orphaned: boolean;
     ranges?: Array<{ start: number; end: number }>;
+    status?: 'recorded' | 'transcribed' | 'compiled' | null;
+    compiledAnnotations?: string[] | null;
 }
 
 interface ReviewSessionFocusDetail {
@@ -335,6 +338,13 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingElapsed.textContent = '00:00';
         recordingHeading.append(recordingTitle, this.recordingIndicator, this.recordingElapsed);
 
+        const recordingHint = document.createElement('div');
+        recordingHint.setAttribute('data-review-sessions-hint', '');
+        recordingHint.textContent = '喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります';
+        Object.assign(recordingHint.style, {
+            color: 'var(--theia-descriptionForeground)', fontSize: '11px', lineHeight: '1.4'
+        });
+
         const recordingControls = document.createElement('div');
         Object.assign(recordingControls.style, { display: 'flex', alignItems: 'center', gap: '7px' });
         this.recordingButton.type = 'button';
@@ -407,10 +417,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
             display: 'none', color: 'var(--theia-errorForeground)', fontSize: '11px', lineHeight: '1.4'
         });
         Object.assign(this.sessionList.style, {
-            display: 'grid', gap: '3px', maxHeight: '92px', overflow: 'auto', fontSize: '11px'
+            display: 'grid', gap: '3px', maxHeight: '140px', overflow: 'auto', fontSize: '11px'
         });
         this.recordingSection.append(
             recordingHeading,
+            recordingHint,
             recordingControls,
             this.toolModeRow,
             this.recordingLevelMeter,
@@ -458,8 +469,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push(this.model.onReveal(id => this.revealAnnotation(id)));
         const onReviewSessionState = (event: Event): void => {
             const state = (event as CustomEvent<ReviewSessionUiState>).detail;
-            const editUri = this.model.location?.editUri?.normalizePath().toString();
-            if (!state || !editUri || this.normalizeUri(state.editUri) !== this.normalizeUri(editUri)) {
+            const projectRootUri = this.model.location?.root.normalizePath().toString();
+            if (!state || !projectRootUri
+                || this.normalizeUri(state.projectRootUri) !== this.normalizeUri(projectRootUri)) {
                 return;
             }
             this.reviewSessionState = state;
@@ -492,6 +504,12 @@ export class AkariReviewPanelWidget extends BaseWidget {
             dispose: () => window.removeEventListener(RAW_PREVIEW_ANNOTATION_STATE_EVENT, onRawPreviewAnnotationState)
         });
         this.render();
+    }
+
+    protected override onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        this.lastReviewSessionContext = '';
+        this.refreshReviewSessionContext();
     }
 
     protected render(): void {
@@ -698,11 +716,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         for (const session of [...sessions].reverse()) {
+            const badge = reviewSessionBadge(session);
+            const wrapper = document.createElement('div');
+            Object.assign(wrapper.style, { display: 'grid', gap: '2px' });
             const row = document.createElement('div');
             row.className = 'akari-review-row';
             row.setAttribute('data-review-session', session.id);
             Object.assign(row.style, {
-                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
                 alignItems: 'center', gap: '7px'
             });
             const id = document.createElement('strong');
@@ -714,15 +735,28 @@ export class AkariReviewPanelWidget extends BaseWidget {
             started.style.textOverflow = 'ellipsis';
             started.style.whiteSpace = 'nowrap';
             const duration = document.createElement('span');
-            duration.textContent = session.orphaned
-                ? `${this.formatSessionDuration(session.durationSec)}・未完了`
-                : this.formatSessionDuration(session.durationSec);
+            duration.textContent = this.formatSessionDuration(session.durationSec);
             duration.style.fontVariantNumeric = 'tabular-nums';
-            if (session.orphaned) {
-                duration.style.color = AKARI_WARNING_TEXT_COLOR;
+            const badgeElement = document.createElement('span');
+            badgeElement.setAttribute('data-review-session-badge', badge.key);
+            badgeElement.textContent = badge.label;
+            Object.assign(badgeElement.style, {
+                border: '1px solid var(--theia-widget-border)', borderRadius: '999px',
+                padding: '0 6px', whiteSpace: 'nowrap',
+                color: badge.key === 'orphaned' ? AKARI_WARNING_TEXT_COLOR : 'var(--theia-descriptionForeground)'
+            });
+            row.append(id, started, duration, badgeElement);
+            wrapper.appendChild(row);
+            if (badge.key === 'recorded' && badge.hint) {
+                const hint = document.createElement('div');
+                hint.setAttribute('data-review-session-hint', session.id);
+                hint.textContent = badge.hint;
+                Object.assign(hint.style, {
+                    color: 'var(--theia-descriptionForeground)', paddingLeft: '4px'
+                });
+                wrapper.appendChild(hint);
             }
-            row.append(id, started, duration);
-            this.sessionList.appendChild(row);
+            this.sessionList.appendChild(wrapper);
         }
         this.revealReviewSession(this.focusedReviewSessionId);
     }
@@ -730,20 +764,20 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected refreshReviewSessionContext(): void {
         const location = this.model.location;
         const editUri = location?.editUri?.normalizePath().toString();
-        if (!location || !editUri) {
+        if (!location) {
             this.lastReviewSessionContext = '';
             this.reviewSessionState = undefined;
             return;
         }
         const projectRootUri = location.root.normalizePath().toString();
-        const context = `${projectRootUri}\n${editUri}`;
+        const context = projectRootUri;
         if (context === this.lastReviewSessionContext) {
             return;
         }
         this.lastReviewSessionContext = context;
         this.reviewSessionState = undefined;
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
-            detail: { projectRootUri, editUri }
+            detail: { projectRootUri, ...(editUri ? { editUri } : {}) }
         }));
     }
 

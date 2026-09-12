@@ -5,14 +5,26 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke, parseReview } from '../common/annotation-store';
 import { readInternalSources } from '../common/edit-store';
 import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget } from '../common/doc-target';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
-import { ReviewModel } from './review-model';
+import {
+    ReviewModel,
+    ReviewSessionSummaryLike,
+    pendingCompileSessions,
+    reviewSessionBadge,
+    sessionIdForAnnotation
+} from './review-model';
 import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
+import {
+    compileClipboardFailureNotice,
+    compileCopiedMessage,
+    planCompileHandoff
+} from '../common/compile-session-handoff';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応。akari-review-panel-widget.ts とミラー）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
@@ -24,14 +36,21 @@ type CanvasTargetHealth = 'ok' | 'dir-missing';
 // akari-preview 側の同名イベントとミラー（extension 間の npm 依存を作らない。
 // akari-review-panel-widget.ts の ✏️ ボタンと同じ経路を再利用する）。
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
+const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
+const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 
 type BoardColumn = 'open' | 'addressed' | 'resolved';
 
 const COLUMN_DEFS: ReadonlyArray<{ status: BoardColumn; title: string; hint: string }> = [
-    { status: 'open', title: '依頼中', hint: '人間からの指摘（AI 対応待ち）' },
-    { status: 'addressed', title: 'AI 対応済み', hint: '人間の確認待ち — ここだけ「完了にする」操作あり' },
-    { status: 'resolved', title: '完了', hint: '確認済み。読み取り専用アーカイブ' }
+    { status: 'open', title: '未対応', hint: '人間からの指摘（AI 対応待ち）' },
+    { status: 'addressed', title: '対応済み', hint: '人間の確認待ち — ここだけ「完了にする」操作あり' },
+    { status: 'resolved', title: '確認済み', hint: '確認済み。読み取り専用アーカイブ' }
 ];
+
+interface ReviewSessionUiState {
+    projectRootUri: string;
+    sessions: ReviewSessionSummaryLike[];
+}
 
 const INPUT_LABELS: Record<Annotation['input'], string> = {
     typed: 'タイプ',
@@ -72,6 +91,9 @@ export class AkariReviewBoardWidget extends BaseWidget {
     protected readonly openerService!: OpenerService;
 
     protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-board-notice' });
+    protected readonly sessionBand = document.createElement('section');
+    protected readonly sessionBandHeading = document.createElement('strong');
+    protected readonly sessionBandList = document.createElement('div');
     protected readonly board = document.createElement('div');
     protected readonly columnElements = new Map<BoardColumn, { list: HTMLDivElement; count: HTMLSpanElement }>();
 
@@ -80,6 +102,10 @@ export class AkariReviewBoardWidget extends BaseWidget {
     /** doc: target の block-id 存在チェック（契約 §6）。report.html の blocks マニフェストを path ごとにキャッシュする。 */
     protected readonly docTargetHealthCache = new Map<string, Promise<unknown | undefined>>();
     protected refreshToken = 0;
+    protected reviewSessions: ReviewSessionSummaryLike[] = [];
+    protected reviewSessionsProjectRootUri = '';
+    protected lastReviewSessionDispatchProjectRootUri = '';
+    protected lastReviewSessionDispatchAnnotationIds = '';
 
     @postConstruct()
     protected init(): void {
@@ -91,7 +117,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
         this.node.classList.add('akari-review-board-widget');
         Object.assign(this.node.style, {
             display: 'grid',
-            gridTemplateRows: 'auto minmax(0, 1fr)',
+            gridTemplateRows: 'auto auto minmax(0, 1fr)',
             height: '100%',
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
@@ -101,6 +127,17 @@ export class AkariReviewBoardWidget extends BaseWidget {
             display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1px',
             minHeight: '0', overflow: 'hidden', background: 'var(--theia-widget-border)'
         });
+        this.sessionBand.setAttribute('data-board-sessions', '');
+        Object.assign(this.sessionBand.style, {
+            display: 'none', padding: '8px 10px', borderBottom: '1px solid var(--theia-widget-border)',
+            background: 'var(--theia-editorWidget-background)'
+        });
+        this.sessionBandHeading.setAttribute('data-board-sessions-count', '0');
+        this.sessionBandHeading.style.fontSize = '12px';
+        Object.assign(this.sessionBandList.style, {
+            display: 'grid', gap: '5px', marginTop: '6px', maxHeight: '128px', overflow: 'auto'
+        });
+        this.sessionBand.append(this.sessionBandHeading, this.sessionBandList);
         for (const def of COLUMN_DEFS) {
             const column = document.createElement('div');
             column.setAttribute('data-board-column', def.status);
@@ -130,10 +167,35 @@ export class AkariReviewBoardWidget extends BaseWidget {
         }
 
         this.toDispose.push(this.notice);
-        this.node.append(this.notice.node, this.board);
+        this.node.append(this.notice.node, this.sessionBand, this.board);
 
-        this.toDispose.push(this.model.onChanged(() => this.refresh()));
+        this.toDispose.push(this.model.onChanged(() => {
+            this.refresh();
+            this.refreshReviewSessions();
+        }));
+        const onReviewSessionState = (event: Event): void => {
+            const state = (event as CustomEvent<ReviewSessionUiState>).detail;
+            const projectRootUri = this.model.location?.root.normalizePath().toString();
+            if (!state || !projectRootUri
+                || this.normalizeUri(state.projectRootUri) !== this.normalizeUri(projectRootUri)) {
+                return;
+            }
+            this.reviewSessionsProjectRootUri = this.normalizeUri(state.projectRootUri);
+            this.reviewSessions = state.sessions;
+            this.renderSessionBand();
+            this.renderColumns();
+        };
+        window.addEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
+        });
         this.refresh();
+        this.refreshReviewSessions();
+    }
+
+    protected override onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        this.refreshReviewSessions(true);
     }
 
     /** review.json の読み込み・監視はタイムライン側（ReviewModel 経由）に相乗りする。ここでは壊れ検知だけ独自に行う。 */
@@ -146,6 +208,99 @@ export class AkariReviewBoardWidget extends BaseWidget {
             }
         });
         void this.refreshDiagnostics();
+    }
+
+    protected refreshReviewSessions(force = false): void {
+        const location = this.model.location;
+        if (!location) {
+            this.reviewSessionsProjectRootUri = '';
+            this.lastReviewSessionDispatchProjectRootUri = '';
+            this.lastReviewSessionDispatchAnnotationIds = '';
+            this.reviewSessions = [];
+            this.renderSessionBand();
+            return;
+        }
+        const projectRootUri = location.root.normalizePath().toString();
+        const normalizedProjectRootUri = this.normalizeUri(projectRootUri);
+        const annotationIds = this.model.annotations.map(annotation => annotation.id).join('\n');
+        const projectRootChanged = this.lastReviewSessionDispatchProjectRootUri !== normalizedProjectRootUri;
+        const annotationsChanged = this.lastReviewSessionDispatchAnnotationIds !== annotationIds;
+        if (this.reviewSessionsProjectRootUri !== normalizedProjectRootUri) {
+            this.reviewSessionsProjectRootUri = normalizedProjectRootUri;
+            this.reviewSessions = [];
+            this.renderSessionBand();
+            this.renderColumns();
+        }
+        if (!force && !projectRootChanged && !annotationsChanged) {
+            return;
+        }
+        this.lastReviewSessionDispatchProjectRootUri = normalizedProjectRootUri;
+        this.lastReviewSessionDispatchAnnotationIds = annotationIds;
+        const editUri = location.editUri?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
+            detail: { projectRootUri, ...(editUri ? { editUri } : {}) }
+        }));
+    }
+
+    protected renderSessionBand(): void {
+        const sessions = pendingCompileSessions(this.reviewSessions);
+        this.sessionBandHeading.textContent = `録音済みセッション（未コンパイル）${sessions.length} 件`;
+        this.sessionBandHeading.setAttribute('data-board-sessions-count', String(sessions.length));
+        this.sessionBand.style.display = sessions.length === 0 ? 'none' : 'block';
+        this.sessionBandList.replaceChildren();
+        for (const session of sessions) {
+            const badge = reviewSessionBadge(session);
+            const row = document.createElement('div');
+            row.setAttribute('data-board-session', session.id);
+            Object.assign(row.style, {
+                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto auto',
+                alignItems: 'center', gap: '8px', fontSize: '11px'
+            });
+            const id = document.createElement('strong');
+            id.textContent = session.id;
+            const started = document.createElement('span');
+            started.textContent = this.formatSessionDate(session.startedAt);
+            Object.assign(started.style, {
+                color: 'var(--theia-descriptionForeground)', overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            });
+            const duration = document.createElement('span');
+            duration.textContent = this.formatSessionDuration(session.durationSec ?? 0);
+            duration.style.fontVariantNumeric = 'tabular-nums';
+            const badgeElement = document.createElement('span');
+            badgeElement.setAttribute('data-board-session-badge', badge.key);
+            badgeElement.textContent = badge.label;
+            Object.assign(badgeElement.style, {
+                color: badge.key === 'orphaned' ? AKARI_WARNING_TEXT_COLOR : 'var(--theia-descriptionForeground)',
+                border: '1px solid var(--theia-widget-border)', borderRadius: '999px',
+                padding: '0 6px', whiteSpace: 'nowrap'
+            });
+            const compileButton = document.createElement('button');
+            compileButton.type = 'button';
+            compileButton.className = 'theia-button secondary';
+            compileButton.textContent = 'コンパイル';
+            Object.assign(compileButton.style, { fontSize: '11px', padding: '1px 10px', minWidth: 'auto' });
+            compileButton.setAttribute('data-board-session-compile', session.id);
+            compileButton.addEventListener('click', () => void this.compileSession(session.id));
+            row.append(id, started, duration, badgeElement, compileButton);
+            this.sessionBandList.appendChild(row);
+        }
+    }
+
+    protected async compileSession(sessionId: string): Promise<void> {
+        const plan = planCompileHandoff(this.reviewSessions, sessionId);
+        if (plan.kind === 'notice') {
+            this.notice.setMessage(plan.notice);
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(plan.prompt);
+            this.notice.clear();
+            void this.messages.info(compileCopiedMessage(plan.prompt), { timeout: 3000 });
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            this.notice.setMessage(compileClipboardFailureNotice(detail));
+        }
     }
 
     protected renderColumns(): void {
@@ -211,6 +366,18 @@ export class AkariReviewBoardWidget extends BaseWidget {
             border: '1px solid var(--theia-widget-border)', borderRadius: '999px', padding: '0 7px'
         });
         head.appendChild(inputTag);
+
+        const originSessionId = sessionIdForAnnotation(annotation, this.reviewSessions);
+        if (originSessionId) {
+            const originBadge = document.createElement('span');
+            originBadge.textContent = `${originSessionId} 由来`;
+            originBadge.setAttribute('data-board-session-origin', originSessionId);
+            Object.assign(originBadge.style, {
+                fontSize: '11px', color: 'var(--theia-descriptionForeground)',
+                border: '1px solid var(--theia-widget-border)', borderRadius: '999px', padding: '0 7px'
+            });
+            head.appendChild(originBadge);
+        }
 
         const flagged = annotation.text.trim().startsWith('[要確認]');
         if (flagged) {
@@ -745,6 +912,26 @@ export class AkariReviewBoardWidget extends BaseWidget {
         const fraction = milliseconds % 1000;
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:` +
             `${String(seconds).padStart(2, '0')}.${String(fraction).padStart(3, '0')}`;
+    }
+
+    protected formatSessionDuration(value: number): string {
+        const totalSeconds = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    protected formatSessionDate(value: string): string {
+        const date = new Date(value);
+        return Number.isFinite(date.getTime())
+            ? date.toLocaleString('ja-JP', {
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+            })
+            : value;
+    }
+
+    protected normalizeUri(value: string): string {
+        return value.replace(/\/+$/, '');
     }
 
     protected errorMessage(error: unknown): string {

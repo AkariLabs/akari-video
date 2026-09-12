@@ -22,6 +22,7 @@ import {
     ListReviewSessionsRequest,
     ReadReviewSessionStrokesRequest,
     ReadReviewSessionStrokesResult,
+    ReviewSessionLifecycleStatus,
     ReviewSessionSummary,
     ReviewStroke,
     StartReviewSessionRequest,
@@ -324,7 +325,12 @@ export class ReviewSessionWriter {
                     endedAt: parsed.endedAt,
                     durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
                     orphaned: false,
-                    ranges: await this.readRanges(sessionDirectory)
+                    ranges: await this.readRanges(sessionDirectory),
+                    status: parsed.status as ReviewSessionLifecycleStatus,
+                    compiledAnnotations: Array.isArray(parsed.compiledAnnotations)
+                        && parsed.compiledAnnotations.every(value => typeof value === 'string')
+                        ? parsed.compiledAnnotations as string[]
+                        : null
                 });
             } catch (error) {
                 console.warn(`[akari-preview] skipping damaged review session ${entry.name}`, error);
@@ -436,7 +442,9 @@ export class ReviewSessionWriter {
             endedAt: null,
             durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
             orphaned: true,
-            ranges: await this.readRanges(sessionDirectory)
+            ranges: await this.readRanges(sessionDirectory),
+            status: null,
+            compiledAnnotations: null
         };
     }
 
