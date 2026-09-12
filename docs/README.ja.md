@@ -85,7 +85,7 @@
 | [contract-2026-07-22-edit-json-v1-beats.md](./contract-2026-07-22-edit-json-v1-beats.md) | v1 ビート（音楽同期） |
 | [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 演出（direction） |
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 強調ワード |
-| [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（edit.json v1 席は後方互換フォールバック） |
+| [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（台本パネルの単語選択 → 🎨 テンプレの書き先 `style_preset`、edit.json v1 席は後方互換フォールバック） |
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` の id 参照・解決順・生成 textstyle カタログ・ピッカー一括適用 RPC・行バッジ・無料字幕テンプレ 3 種 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |

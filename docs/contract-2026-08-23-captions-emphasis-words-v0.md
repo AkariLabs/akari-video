@@ -27,6 +27,7 @@
       "t_end": 12.44,
       "word": "最高",
       "emotion": "joy",
+      "style_preset": "neon",
       "style_hint": "size-pulse"
     }
   ],
@@ -49,11 +50,12 @@
    `captions.json.emphasis_words` へ移す。
 2. `edit.json` v2 へは書かない。v0/v1 の旧席は後方互換の読取専用として残す。
 
-したがって各レコードは `{ id, word, emotion, src?, t_start, t_end, style_hint? }` で、`id` は
+したがって各レコードは `{ id, word, emotion, src?, t_start, t_end, style_preset?, style_hint? }` で、`id` は
 `^e-\d{4}$` かつファイル内一意、`word` と `emotion` は空でない文字列、時刻は source 秒で
 `0 <= t_start < t_end` とする。`emotion` は `joy` / `pain` / `surprise` / `anger` / `sadness` /
 `emphasis` を標準語彙として使うが、v1 契約どおり enum 強制はしない。`style_hint` も描画側への
-提案に留まる。
+提案に留まる。`style_preset` は任意で、字幕テンプレと同じ `textstyle-catalog` の id を語の見た目として
+提案する。台本パネルの単語選択から「🎨 テンプレ」を適用すると、この席へ範囲ごとに 1 件を書く。
 
 ## 3. 読取優先順
 

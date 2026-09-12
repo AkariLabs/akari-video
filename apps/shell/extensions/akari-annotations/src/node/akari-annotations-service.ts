@@ -68,6 +68,8 @@ import {
     SetCaptionFieldsRequest,
     SetCaptionStylePresetRequest,
     SetCaptionStylePresetResult,
+    SetEmphasisWordsRequest,
+    SetEmphasisWordsResult,
     SetCaptionTimingRequest,
     SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
@@ -710,6 +712,101 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const committed = this.commitWrite(projectRoot, '字幕テンプレを適用')
             || await this.commitIfOwnRoot(projectRoot, '字幕テンプレを適用', [captionsPath]);
         return { committed, changed: updated.changed, beforeSource };
+    }
+
+    async setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const beforeSource = await fs.readFile(captionsPath, 'utf8');
+        const parsed = JSON.parse(beforeSource) as unknown;
+        const existing = !Array.isArray(parsed) && parsed && typeof parsed === 'object'
+            && Array.isArray((parsed as { emphasis_words?: unknown[] }).emphasis_words)
+            ? (parsed as { emphasis_words: Array<Record<string, unknown>> }).emphasis_words : [];
+        const remove = new Set(request.removeIds);
+        const records = existing.filter(record => typeof record.id !== 'string' || !remove.has(record.id));
+        const used = new Set(existing.flatMap(record => typeof record.id === 'string' ? [record.id] : []));
+        const ids: string[] = [];
+        const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
+            (left.src ?? null) === (right.src ?? null) && typeof left.t_start === 'number' && typeof left.t_end === 'number'
+            && Math.abs(left.t_start - right.t_start) <= 1e-6 && Math.abs(left.t_end - right.t_end) <= 1e-6
+            && left.word === right.word;
+        for (const upsert of request.upserts) {
+            const matched = existing.find(record => sameSpan(record, upsert));
+            let id = upsert.id ?? (typeof matched?.id === 'string' ? matched.id : undefined);
+            if (!id) {
+                for (let number = 1; number <= 9999; number++) {
+                    const candidate = `e-${String(number).padStart(4, '0')}`;
+                    if (!used.has(candidate)) { id = candidate; break; }
+                }
+            }
+            if (!id || !/^e-\d{4}$/u.test(id)) throw new Error('emphasis_words の id を採番できません。');
+            used.add(id); ids.push(id);
+            const previous = records.findIndex(record => record.id === id || sameSpan(record, upsert));
+            const unknown = previous >= 0 ? records[previous] : matched ?? {};
+            const next: Record<string, unknown> = { ...unknown, id };
+            if (upsert.src === undefined || upsert.src === null) delete next.src; else next.src = upsert.src;
+            Object.assign(next, { t_start: upsert.t_start, t_end: upsert.t_end, word: upsert.word, emotion: upsert.emotion });
+            if (upsert.style_preset === undefined) delete next.style_preset; else next.style_preset = upsert.style_preset;
+            if (upsert.style_hint === undefined) delete next.style_hint; else next.style_hint = upsert.style_hint;
+            if (previous >= 0) records[previous] = next; else records.push(next);
+        }
+        records.sort((left, right) => Number(left.t_start) - Number(right.t_start));
+        const ordered = records.map(record => {
+            const value: Record<string, unknown> = { id: record.id };
+            if (record.src !== undefined && record.src !== null) value.src = record.src;
+            for (const key of ['t_start', 't_end', 'word', 'emotion', 'style_preset', 'style_hint']) {
+                if (record[key] !== undefined) value[key] = record[key];
+            }
+            for (const [key, entry] of Object.entries(record)) if (!(key in value) && key !== 'src') value[key] = entry;
+            return value;
+        });
+        const updated = this.replaceEmphasisWords(beforeSource, ordered);
+        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource, ids };
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        const root = this.fsPath(request.projectRootUri);
+        const committed = this.commitWrite(root, '語の強調を変更')
+            || await this.commitIfOwnRoot(root, '語の強調を変更', [captionsPath]);
+        return { committed, changed: request.upserts.length + existing.filter(record => remove.has(String(record.id))).length,
+            beforeSource, ids };
+    }
+
+    private replaceEmphasisWords(source: string, records: Array<Record<string, unknown>>): string {
+        const first = source.search(/\S/u);
+        const arrayText = `[${records.length ? `\n${records.map(record => `    ${JSON.stringify(record)}`).join(',\n')}\n  ` : ''}]`;
+        if (first >= 0 && source[first] === '[') {
+            if (!records.length) return source;
+            const end = source.lastIndexOf(']');
+            return `{\n  "emphasis_words": ${arrayText},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
+        }
+        const key = /(^[ \t]*)"emphasis_words"\s*:\s*\[/mu.exec(source);
+        if (key) {
+            const open = key.index + key[0].lastIndexOf('[');
+            const close = this.matchingJsonBracket(source, open);
+            if (records.length) return source.slice(0, open) + arrayText + source.slice(close + 1);
+            const lineStart = key.index;
+            let end = close + 1;
+            while (end < source.length && /[ \t]/u.test(source[end])) end++;
+            if (source[end] === ',') end++;
+            if (source[end] === '\r') end++;
+            if (source[end] === '\n') end++;
+            return source.slice(0, lineStart) + source.slice(end);
+        }
+        if (!records.length) return source;
+        const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
+        if (!captions) throw new Error('captions キーが見つかりません。');
+        return source.slice(0, captions.index) + `${captions[1]}"emphasis_words": ${arrayText},\n` + source.slice(captions.index);
+    }
+
+    private matchingJsonBracket(source: string, open: number): number {
+        let depth = 0; let inString = false; let escaped = false;
+        for (let index = open; index < source.length; index++) {
+            const char = source[index];
+            if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
+            if (char === '"') inString = true;
+            else if (char === '[') depth++;
+            else if (char === ']' && --depth === 0) return index;
+        }
+        throw new Error('emphasis_words 配列が閉じていません。');
     }
 
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {

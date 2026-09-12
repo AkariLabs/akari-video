@@ -549,6 +549,31 @@ export interface SetCaptionStylePresetResult extends WriteBackResult {
     beforeSource: string;
 }
 
+export interface EmphasisWord {
+    /** Omit to reuse an equal span or allocate the lowest unused e-NNNN id. */
+    id?: string;
+    src?: string | null;
+    t_start: number;
+    t_end: number;
+    word: string;
+    emotion: string;
+    style_preset?: string;
+    style_hint?: string;
+}
+
+export interface SetEmphasisWordsRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    upserts: EmphasisWord[];
+    removeIds: string[];
+}
+
+export interface SetEmphasisWordsResult extends WriteBackResult {
+    changed: number;
+    beforeSource: string;
+    ids: string[];
+}
+
 /**
  * edit.json（と必要なら captions.json）全文スナップショットの atomic 書き戻し。
  * editSource / captionsSource の少なくとも一方は必須。両方渡すと連続保存した最新の組を
@@ -674,6 +699,7 @@ export interface AkariAnnotationsService {
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
+    setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;

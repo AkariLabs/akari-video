@@ -339,9 +339,10 @@
         "t_end": { "type": "number", "minimum": 0 },
         "word": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "emotion": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "style_preset": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
         "style_hint": { "type": "string" }
       },
-      "$comment": "docs/contract-2026-08-23-captions-emphasis-words-v0.md。レコード形・語彙・source 秒アンカーは edit.json v1 の emphasis_words と同形。emotion は joy/pain/surprise/anger/sadness/emphasis の例示に留め enum 強制しない。t_end > t_start と id のファイル内一意性は validate-captions.mjs が検証する。"
+      "$comment": "docs/contract-2026-08-23-captions-emphasis-words-v0.md。レコード形・語彙・source 秒アンカーは edit.json v1 の emphasis_words と同形。style_preset は textstyle-catalog の id を使う任意の描画提案。emotion は joy/pain/surprise/anger/sadness/emphasis の例示に留め enum 強制しない。t_end > t_start と id のファイル内一意性は validate-captions.mjs が検証する。"
     },
     "captionBreakHints": {
       "type": "object",
