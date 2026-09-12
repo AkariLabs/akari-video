@@ -679,6 +679,13 @@ test("timelineT > 0 かつ sourceT === 0 のストロークは snapshot から s
   assert.equal(strokes[1], consistent, "整合しているストロークはそのまま（同一オブジェクト）");
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /st-0001/);
+
+  // 0 以外の保存値は snapshot と食い違っても尊重する（録画中に edit が変わり snapshot が古い場合、
+  // 記録側の値の方が正しい。補正対象は退避の署名 = sourceT 0 だけ）。
+  const divergent = { ...stale, id: "st-0003", frame: { timelineT: 15, sourceT: 42, cutIndex: 0 } };
+  const kept = reconcileStrokeFrames([divergent], cutMap);
+  assert.equal(kept.strokes[0], divergent);
+  assert.equal(kept.warnings.length, 0);
 });
 
 test("v2 セッションの sourceT 0 ストロークは compile で素材時刻へ解決される", async (context) => {
