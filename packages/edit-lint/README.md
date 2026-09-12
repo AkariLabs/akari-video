@@ -42,15 +42,26 @@ item. Each source is probed once, and media finding paths include the source ID.
   warnings unless `--silence-error-seconds` promotes long intervals to errors.
 - `media.volume`: reports mean and maximum volume. Findings are warnings unless
   `--max-volume-error-db` promotes an over-limit maximum to an error.
+- `media.source-range`: errors when a media item asks for a span the source does not have. Every
+  lane is covered (visual cuts, `bgm` / `narration` / `sfx` items, nested bag items) plus the v1
+  `audio.*` declarations, and the container duration is used so sources without an audio stream are
+  checked too. `source.in` at or beyond the duration and an effective `source.out` past the duration
+  are both errors; sources whose container duration is unavailable are skipped with a reason.
 - `media.audio-shorter-than-out`: warns for each visual media item whose effective source `out`
-  exceeds that source's audio-stream duration. The message includes the missing duration.
+  exceeds that source's audio-stream duration while staying inside the container duration (the
+  source plays but its audio ends early). The message includes the missing duration. Items that run
+  past the container duration are reported by `media.source-range` instead.
 - `media.caption-silence-coverage`: warns when more than 30% of caption display time overlaps a
   silence interval of at least one second. `--caption-silence-warn-percent` changes the threshold.
 - `audio.narration.trim`: warns when a narration media item's `in` is at or beyond its audio-stream
-  duration. Invalid or reversed narration `in`/`out` values are errors even without `--media`.
+  duration but still inside the container duration. Invalid or reversed narration `in`/`out` values
+  are errors even without `--media`; an `in` past the container duration is a `media.source-range`
+  error.
 
 Silence and volume checks are skipped for a source without an audio stream or when ffprobe cannot
 inspect it. Duration-dependent checks are skipped when the audio-stream duration is unavailable.
+One ffprobe invocation per source path reads both the container duration and the first audio
+stream's duration.
 Caption/silence coverage runs only when the captions can be associated with exactly one referenced
 visual source: either every caption declares the same `src`, or the timeline references a single
 visual source and captions do not contradict it. Missing, empty, or multi-source/ambiguous captions
