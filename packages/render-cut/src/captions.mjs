@@ -14,6 +14,7 @@ const require = createRequire(import.meta.url);
 const {
   captionAnchorPositionVars,
   dedupeCaptionOccurrences,
+  expandCaptionDisplayFragments,
   normalizeCaptionClock,
   projectCaptionWords,
   resolveCaptionReferenceScale,
@@ -143,7 +144,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const sourceCount = options.sourceCount ?? 1;
   const overlays = [];
 
-  for (const caption of captions) {
+  for (const caption of expandCaptionDisplayFragments(captions)) {
     const projectedCaption = projectCaptionWords(caption, cuts);
     if (!projectedCaption.renderable) continue;
     const displayText = projectedCaption.displayText;
@@ -254,7 +255,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               words: allWords,
             });
       overlays.push({
-        id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
+        id: `${caption.id}${caption.fragmentIndex ? `-f${caption.fragmentIndex}` : ""}-${String(index + 1).padStart(2, "0")}`,
         html,
         start: range.start,
         duration: range.duration,

@@ -999,8 +999,8 @@ function validateEmphasisConflicts(captions, emphasisValue) {
     });
 }
 function validateManualFragments(caption, text, policy, index) {
-    if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 2) {
-        fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain one or two strings`);
+    if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
+        fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain between one and six strings`);
     }
     if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
         fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain non-empty NFC trimmed strings`);

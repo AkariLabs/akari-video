@@ -977,7 +977,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 ? new Set(fragmentBoundaries(row.words, extras.displayFragments))
                 : undefined;
             const breaks = manualBreaks
-                ?? new Set(row.fragmentBreakWordIndex === null ? [] : [row.fragmentBreakWordIndex]);
+                ?? new Set(row.fragmentBreakWordIndices);
             row.words.forEach((word, index) => {
                 if (index > 0) {
                     if (this.splitModeRowId === row.id && splitWordBoundaries(row).includes(index)) {
@@ -1030,10 +1030,15 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         } else {
             const span = this.word('', 0, row.id);
-            const split = row.words?.length ? null : row.fragmentBreakWordIndex;
-            if (split !== null) {
+            const splits = row.fragmentBreakCharacterOffsets;
+            if (splits.length > 0) {
                 const manual = (this.captionExtraById.get(row.id)?.displayFragments?.length ?? 0) > 0;
-                span.append(document.createTextNode(row.text.slice(0, split)), this.slash(manual ? 'manual' : 'auto'), document.createTextNode(row.text.slice(split)));
+                let offset = 0;
+                for (const split of splits) {
+                    span.append(document.createTextNode(row.text.slice(offset, split)), this.slash(manual ? 'manual' : 'auto'));
+                    offset = split;
+                }
+                span.append(document.createTextNode(row.text.slice(offset)));
             } else {
                 span.textContent = row.text;
             }
@@ -2300,13 +2305,27 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async toggleWordBreak(row: DaihonRow, index: number): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri || !row.words) return;
+        let fragments: string[] | undefined;
         await this.withHistory('表示の改行を変更', async () => {
             const source = await this.readText(this.captionsUri!);
-            const fragments = toggleFragmentBoundary(row.words!, this.captionExtraById.get(row.id)?.displayFragments, row.text, index);
+            fragments = toggleFragmentBoundary(row.words!, this.captionExtraById.get(row.id)?.displayFragments, row.text, index);
             const captionsSource = setCaptionDisplayFragmentsInSource(source, row.id, fragments);
             await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                 captionsUri: this.captionsUri!.toString(), captionsSource });
         });
+        const extras = this.captionExtraById.get(row.id) ?? {};
+        if (fragments?.length) extras.displayFragments = fragments;
+        else delete extras.displayFragments;
+        this.captionExtraById.set(row.id, extras);
+        const sourceCaption = this.sourceCaptions.find(caption => caption.id === row.id);
+        if (sourceCaption) {
+            const [nextRow] = buildDaihonRows([
+                this.toDaihonCaption(sourceCaption, extras, daihonDisplayPolicyForWrite(this.captionsRoot, this.displayKnobs))
+            ], this.segments);
+            const rowIndex = this.rows.findIndex(candidate => candidate.id === row.id);
+            if (rowIndex >= 0) this.rows[rowIndex] = nextRow;
+            this.replaceRenderedRow(nextRow);
+        }
         this.notify('表示の改行を入れました');
     }
 

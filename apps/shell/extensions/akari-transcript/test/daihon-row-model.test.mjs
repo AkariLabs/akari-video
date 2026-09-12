@@ -33,6 +33,8 @@ test('stylePreset 無しは null に正規化する', () => {
 test('2断片の切れ目を単語 index に変換する', () => {
     const [row] = buildDaihonRows([{ ...base, display_fragments: ['こんにちは', '世界'] }], null);
     assert.equal(row.fragmentBreakWordIndex, 1);
+    assert.deepEqual(row.fragmentBreakWordIndices, [1]);
+    assert.deepEqual(row.fragmentBreakCharacterOffsets, []);
 });
 
 test('words が無い2断片は文字 index を返す', () => {
@@ -40,7 +42,38 @@ test('words が無い2断片は文字 index を返す', () => {
         ...base, words: undefined, display_fragments: ['こんにちは', '世界']
     }], null);
     assert.equal(row.fragmentBreakWordIndex, 5);
+    assert.deepEqual(row.fragmentBreakWordIndices, []);
+    assert.deepEqual(row.fragmentBreakCharacterOffsets, [5]);
     assert.equal(row.words, null);
+});
+
+test('N断片の全境界を単語 index に変換する', () => {
+    const [row] = buildDaihonRows([{
+        ...base, text: 'あいうえお', display_fragments: ['あ', 'いう', 'え', 'お'],
+        words: [
+            { text: 'あ', start: 0, end: 0.2 }, { text: 'いう', start: 0.2, end: 0.8 },
+            { text: 'え', start: 0.8, end: 1.2 }, { text: 'お', start: 1.2, end: 2 }
+        ]
+    }], null);
+    assert.deepEqual(row.fragmentBreakWordIndices, [1, 2, 3]);
+    assert.deepEqual(row.fragmentBreakCharacterOffsets, []);
+});
+
+test('words が無い N 断片は全ての文字 offset を返す', () => {
+    const [row] = buildDaihonRows([{
+        ...base, text: 'あいうえお', words: undefined, display_fragments: ['あ', 'いう', 'え', 'お']
+    }], null);
+    assert.deepEqual(row.fragmentBreakWordIndices, []);
+    assert.deepEqual(row.fragmentBreakCharacterOffsets, [1, 3, 4]);
+});
+
+test('本文を覆わない words があるときも全ての文字 offset を返す', () => {
+    const [row] = buildDaihonRows([{
+        ...base, text: 'あいうえお', display_fragments: ['あ', 'いう', 'えお'],
+        words: [{ text: 'あ', start: 0, end: 0.2 }]
+    }], null);
+    assert.deepEqual(row.fragmentBreakWordIndices, []);
+    assert.deepEqual(row.fragmentBreakCharacterOffsets, [1, 3]);
 });
 
 test('全区間がカット中の行は出力窓を null にする', () => {

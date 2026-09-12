@@ -17,6 +17,22 @@ test("captionTransform accepts declared scale/rotate and ignores invalid values"
   assert.deepEqual(captionTransform({ scale: Infinity, rotate: 181 }), { x: 0, y: 0, scale: 1, rotate: 0 });
 });
 
+test('legacy display_fragments become unique overlays at word boundaries', () => {
+  const overlays = generateCaptionOverlays([{
+    id: 'c-0001', start: 0, end: 3, text: '前半後半', display_fragments: ['前半', '後半'],
+    words: [{ text: '前半', start: 0.2, end: 1.1 }, { text: '後半', start: 1.6, end: 2.8 }],
+  }], []);
+  assert.deepEqual(overlays.map(overlay => ({
+    id: overlay.id, start: overlay.start, duration: overlay.duration, generatedFrom: overlay.generatedFrom
+  })), [
+    { id: 'c-0001-f1-01', start: 0.2, duration: 0.9000000000000001, generatedFrom: 'c-0001' },
+    { id: 'c-0001-f2-01', start: 1.6, duration: 1.1999999999999997, generatedFrom: 'c-0001' }
+  ]);
+  assert.match(overlays[0].html, /前半/u);
+  assert.doesNotMatch(overlays[0].html, /後半/u);
+  assert.match(overlays[1].html, /後半/u);
+});
+
 test("resolved caption overlay consumes the Node-resolved cue without re-splitting or animation", () => {
   const [overlay] = generateResolvedCaptionOverlays({
     display_cues: [{

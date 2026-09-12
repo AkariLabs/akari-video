@@ -3123,12 +3123,103 @@ var require_caption_window = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.captionWindowSeconds = captionWindowSeconds;
+    exports.captionFragmentWindows = captionFragmentWindows;
+    exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
     exports.findActiveCaption = findActiveCaption;
     function captionWindowSeconds(caption) {
       const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
       const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
       const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
       return { start, end };
+    }
+    function captionFragmentWindows(caption) {
+      const sourceText = caption.display_text ?? caption.text;
+      const text = typeof sourceText === "string" ? sourceText : null;
+      const fragments = caption.display_fragments;
+      if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+        return null;
+      }
+      const window2 = captionWindowSeconds(caption);
+      const words = Array.isArray(caption.words) ? caption.words : null;
+      const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
+      const wordText = validWords?.map((word) => word.text).join("");
+      const fragmentEnds = [];
+      fragments.reduce((offset, fragment) => {
+        fragmentEnds.push(offset + fragment.length);
+        return offset + fragment.length;
+      }, 0);
+      let wordLength = 0;
+      const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
+      const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
+      let characterStart = 0;
+      return fragments.map((fragment, index) => {
+        const characterEnd = characterStart + fragment.length;
+        let start;
+        let end;
+        if (useWords) {
+          const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
+          const lastWord = wordEnds.indexOf(characterEnd);
+          start = clamp5(validWords[firstWord].start, window2.start, window2.end);
+          end = clamp5(validWords[lastWord].end, window2.start, window2.end);
+        } else {
+          const duration = window2.end - window2.start;
+          start = window2.start + duration * (characterStart / text.length);
+          end = window2.start + duration * (characterEnd / text.length);
+        }
+        characterStart = characterEnd;
+        return { text: fragment, start, end, index: index + 1, count: fragments.length };
+      });
+    }
+    function expandCaptionDisplayFragments(captions) {
+      return captions.flatMap((caption) => {
+        const windows = captionFragmentWindows(caption);
+        if (windows === null)
+          return [caption];
+        let characterStart = 0;
+        return windows.map((window2) => {
+          const characterEnd = characterStart + window2.text.length;
+          const expanded = {
+            ...caption,
+            text: window2.text,
+            start: window2.start,
+            end: window2.end,
+            fragmentIndex: window2.index,
+            fragmentCount: window2.count,
+            fragmentKey: `${String(caption.id)}#f${window2.index}`
+          };
+          if (Object.prototype.hasOwnProperty.call(caption, "display_text"))
+            expanded.display_text = window2.text;
+          if (Array.isArray(caption.words)) {
+            let offset = 0;
+            expanded.words = caption.words.flatMap((word) => {
+              if (!isCaptionFragmentWord(word))
+                return [];
+              const wordStart = offset;
+              const wordEnd = offset + word.text.length;
+              offset = wordEnd;
+              if (wordStart < characterStart || wordEnd > characterEnd)
+                return [];
+              return [{
+                ...word,
+                start: clamp5(word.start, window2.start, window2.end),
+                end: clamp5(word.end, window2.start, window2.end)
+              }];
+            });
+          }
+          delete expanded.display_fragments;
+          characterStart = characterEnd;
+          return expanded;
+        });
+      });
+    }
+    function isCaptionFragmentWord(value) {
+      if (!value || typeof value !== "object")
+        return false;
+      const word = value;
+      return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
+    }
+    function clamp5(value, minimum, maximum) {
+      return Math.min(maximum, Math.max(minimum, value));
     }
     function findActiveCaption(captions, sourceSeconds) {
       return captions.find((caption) => {
@@ -4438,8 +4529,8 @@ var require_caption_display = __commonJS({
       });
     }
     function validateManualFragments(caption, text, policy, index) {
-      if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 2) {
-        fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain one or two strings`);
+      if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
+        fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain between one and six strings`);
       }
       if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
         fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain non-empty NFC trimmed strings`);

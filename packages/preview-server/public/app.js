@@ -10,6 +10,7 @@ import {
   computeDuckIntervals,
   computeTransitionVisual,
   evaluateEnvelopeDb,
+  expandCaptionDisplayFragments,
   findActiveCaption,
   normalizeCaptionClock,
   outputToSource,
@@ -208,8 +209,9 @@ function refreshCaptionClock() {
 }
 
 function applyCaptionApiPayload(body) {
-  captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
   captionsResolvedTimeline = !Array.isArray(body) && body?.schema === 'caption-layout/v1';
+  const rawCaptions = Array.isArray(body) ? body : (body?.captions ?? []);
+  captionsData = captionsResolvedTimeline ? rawCaptions : expandCaptionDisplayFragments(rawCaptions);
   // legacy object ルートの既定スタイルは captions API から届くため、字幕描画が参照する
   // summary へ同居させる。display_policy 経路は解決済み style_vars を持つので対象外。
   if (!captionsResolvedTimeline && body && typeof body === 'object'
@@ -4576,8 +4578,9 @@ function updateCaption() {
   // 判定は出力秒だけ（refreshCaptionClock 参照）。source 秒への写像はここでは行わない。
   const active = findActiveCaption(caps, outputTime);
   if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
-  if (active.id === _lastCaptionId) return;
-  _lastCaptionId = active.id;
+  const activeKey = active.fragmentKey ?? active.id;
+  if (activeKey === _lastCaptionId) return;
+  _lastCaptionId = activeKey;
   applyCaptionStyle(active);
   const words = normalizeWords(active.words);
   const emphasisWords = summary?.emphasis_words;

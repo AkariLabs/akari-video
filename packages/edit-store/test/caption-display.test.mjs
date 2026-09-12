@@ -75,6 +75,41 @@ test('lines=2 wrap=multi groups two scheduled fragments into one display cue', (
   assert.equal(result.display_cues[0].fragment_count, 1);
 });
 
+test('manual 3 fragments are accepted and grouped by lines with wrap=multi', () => {
+  const root = {
+    display_policy: { ...policy, max_line_units: 4, minimum_fragment_duration_seconds: 0.1, lines: 2, wrap: 'multi' },
+    captions: [caption('c-0001', 0, 3, 'あいうえおか', { display_fragments: ['あい', 'うえ', 'おか'] })],
+  };
+  const result = resolveCaptionDisplay(root, { cuts: [] });
+  assert.deepEqual(result.display_cues.map(cue => ({ text: cue.text, lines: cue.display_lines })), [
+    { text: 'あいうえ', lines: ['あい', 'うえ'] },
+    { text: 'おか', lines: undefined },
+  ]);
+});
+
+test('manual 5 fragments are accepted and grouped sequentially with wrap=multi', () => {
+  const root = {
+    display_policy: { ...policy, max_line_units: 2, minimum_fragment_duration_seconds: 0.1, lines: 3, wrap: 'multi' },
+    captions: [caption('c-0001', 0, 5, 'あいうえお', { display_fragments: ['あ', 'い', 'う', 'え', 'お'] })],
+  };
+  const result = resolveCaptionDisplay(root, { cuts: [] });
+  assert.deepEqual(result.display_cues.map(cue => cue.display_lines ?? [cue.text]), [
+    ['あ', 'い', 'う'], ['え', 'お']
+  ]);
+});
+
+test('manual 3 and 5 fragments stay one fragment per cue with wrap=fold', () => {
+  for (const fragments of [['あ', 'い', 'う'], ['あ', 'い', 'う', 'え', 'お']]) {
+    const root = {
+      display_policy: { ...policy, max_line_units: 2, minimum_fragment_duration_seconds: 0.1, lines: 3, wrap: 'fold' },
+      captions: [caption('c-0001', 0, fragments.length, fragments.join(''), { display_fragments: fragments })],
+    };
+    const result = resolveCaptionDisplay(root, { cuts: [] });
+    assert.deepEqual(result.display_cues.map(cue => cue.text), fragments);
+    assert.ok(result.display_cues.every(cue => cue.display_lines === undefined));
+  }
+});
+
 test('emphasis style_preset resolves per word, rounds partial overlap inward, and preserves cue text', () => {
   const root = {
     display_policy: { ...englishPolicy(20), lines: 2, wrap: 'multi' },
