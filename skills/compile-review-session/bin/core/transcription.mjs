@@ -3,6 +3,9 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
+
+import { candidateInstallRoots, resolvePackageFile } from "./install-root.mjs";
 
 function concise(value, fallback = "処理に失敗しました") {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -39,11 +42,13 @@ function executable(file) {
   }
 }
 
-function findOnPath(name) {
-  for (const directory of String(process.env.PATH ?? "").split(path.delimiter)) {
+function findOnPath(name, env = process.env) {
+  const names = process.platform === "win32" ? [`${name}.exe`, name] : [name];
+  for (const directory of String(env.PATH ?? "").split(path.delimiter)) {
     if (!directory) continue;
-    const candidate = path.join(directory, name);
-    if (executable(candidate)) return candidate;
+    for (const candidate of names.map((entry) => path.join(directory, entry))) {
+      if (executable(candidate)) return candidate;
+    }
   }
   return null;
 }
@@ -72,49 +77,111 @@ function walkModels(root, depth = 0) {
   return results;
 }
 
-function findWhisperBinary(repoRoot) {
-  if (process.env.WHISPER_CPP_BIN && executable(process.env.WHISPER_CPP_BIN)) {
-    return process.env.WHISPER_CPP_BIN;
-  }
-  const fromPath = findOnPath("whisper-cli");
-  if (fromPath) return fromPath;
-  const candidates = [
-    path.join(repoRoot, "whisper.cpp", "build", "bin", "whisper-cli"),
-    path.join(path.dirname(repoRoot), "whisper.cpp", "build", "bin", "whisper-cli"),
-  ];
-  return candidates.find(executable) ?? null;
+function whisperExeName() {
+  return process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli";
 }
 
-function findWhisperModel(repoRoot) {
-  if (process.env.WHISPER_CPP_MODEL) {
+function fileIsPresent(candidate) {
+  try {
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * whisper-cli の探索候補（優先順）。issue #72: 旧実装は PATH と whisper.cpp のソースビルドしか
+ * 見ておらず、AKARI が配備する ~/.akari/tools/bin とデスクトップ版同梱の <Resources>/media-bin/
+ * （packages/media-bin の packagedBinaryPath と同じ配置）を解決できなかった。
+ * @returns {{ binary: string | null, searched: string[] }}
+ */
+export function findWhisperBinary(repoRoot, { env = process.env, homeDir = os.homedir(), roots } = {}) {
+  const searched = [];
+  const consider = (candidate) => {
+    if (candidate && !searched.includes(candidate)) searched.push(candidate);
+  };
+  for (const name of ["WHISPER_CPP_BIN", "AKARI_WHISPER_BIN"]) {
+    if (!env[name]) continue;
+    consider(`${name}=${env[name]}`);
+    if (executable(env[name])) return { binary: env[name], searched };
+  }
+  const exe = whisperExeName();
+  const target = `${process.platform}-${process.arch}`;
+  const installRoots = roots ?? candidateInstallRoots({ from: import.meta.url, env, homeDir });
+  const candidates = [];
+  for (const root of installRoots) {
+    // npm postinstall が取得する vendor 同梱（checkout / CLI インストール）
+    candidates.push(path.join(root, "packages", "media-bin", "vendor", target, exe));
+    // デスクトップ版の extraResources（<Resources>/media-bin/）
+    candidates.push(path.join(root, "media-bin", exe));
+  }
+  // brew 不在時に AKARI が DL 配置する道具の置き場（apps/shell tool-install と同じ規約）
+  candidates.push(path.join(homeDir, ".akari", "tools", "bin", exe));
+  for (const candidate of candidates) {
+    consider(candidate);
+    if (executable(candidate)) return { binary: candidate, searched };
+  }
+  const fromPath = findOnPath("whisper-cli", env);
+  consider("PATH");
+  if (fromPath) return { binary: fromPath, searched };
+  for (const candidate of [
+    path.join(repoRoot, "whisper.cpp", "build", "bin", exe),
+    path.join(path.dirname(repoRoot), "whisper.cpp", "build", "bin", exe),
+  ]) {
+    consider(candidate);
+    if (executable(candidate)) return { binary: candidate, searched };
+  }
+  return { binary: null, searched };
+}
+
+/**
+ * whisper.cpp モデル（多言語 ggml-*.bin）の探索候補。順序は packages/akari-tools の
+ * whisper-model-candidates.mjs（CLI / shell 共有の正本）と同じで、同梱物から読めるときはそれを使う。
+ * @returns {{ model: string | null, searched: string[] }}
+ */
+export async function findWhisperModel(repoRoot, { env = process.env, homeDir = os.homedir(), binary = null } = {}) {
+  const searched = [];
+  if (env.WHISPER_CPP_MODEL) {
+    searched.push(`WHISPER_CPP_MODEL=${env.WHISPER_CPP_MODEL}`);
+    if (fileIsPresent(env.WHISPER_CPP_MODEL)) return { model: env.WHISPER_CPP_MODEL, searched };
+  }
+  let roots = null;
+  const shared = resolvePackageFile("akari-tools/src/media/whisper-model-candidates.mjs", { from: import.meta.url, env, homeDir });
+  if (shared) {
     try {
-      if (fs.statSync(process.env.WHISPER_CPP_MODEL).isFile()) return process.env.WHISPER_CPP_MODEL;
+      const module = await import(pathToFileURL(shared).href);
+      roots = module.whisperModelLocations({ env: { ...env, WHISPER_CPP_MODEL: undefined }, homeDir, repoRoot, bin: binary ?? "whisper-cli" })
+        .map((location) => location.path);
     } catch {
-      // 続く既定探索へ進む。
+      roots = null;
     }
   }
-  const roots = [
-    path.join(repoRoot, "models"),
-    path.join(repoRoot, "whisper.cpp", "models"),
-    path.join(os.homedir(), ".cache", "whisper.cpp"),
-    path.join(os.homedir(), "Library", "Caches", "whisper.cpp"),
-  ];
+  if (!roots) {
+    // 共有正本が同梱されていない配置（npm vendor 等）向けのミラー。順序を正本と揃える。
+    roots = [
+      path.join(homeDir, ".akari", "tools", "models"),
+      path.join(repoRoot, "models"),
+      path.join(repoRoot, "whisper.cpp", "models"),
+      path.join(homeDir, ".cache", "whisper.cpp"),
+      path.join(homeDir, "Library", "Caches", "whisper.cpp"),
+      ...(binary ? [path.resolve(path.dirname(binary), "..", "share", "whisper-cpp")] : []),
+      "/opt/homebrew/share/whisper-cpp",
+      "/usr/local/share/whisper-cpp",
+      path.join(homeDir, "Library", "Application Support", "com.prakashjoshipax.VoiceInk", "WhisperModels"),
+    ];
+  }
   const brew = run("brew", ["--prefix", "whisper-cpp"]);
   if (!brew.error && brew.status === 0) {
-    roots.push(path.join(String(brew.stdout).trim(), "share", "whisper-cpp"));
+    const brewShare = path.join(String(brew.stdout).trim(), "share", "whisper-cpp");
+    if (!roots.includes(brewShare)) roots.push(brewShare);
   }
-  roots.push(path.join(
-    os.homedir(),
-    "Library",
-    "Application Support",
-    "com.prakashjoshipax.VoiceInk",
-    "WhisperModels",
-  ));
   for (const root of roots) {
+    if (!root || searched.includes(root)) continue;
+    searched.push(root);
     const found = walkModels(root);
-    if (found.length > 0) return found[0];
+    if (found.length > 0) return { model: found[0], searched };
   }
-  return null;
+  return { model: null, searched };
 }
 
 function wavChunks(buffer) {
@@ -506,15 +573,25 @@ async function trySpeechAnalyzer({ audioPath, repoRoot }) {
 }
 
 async function tryWhisper({ audioPath, repoRoot }) {
-  const binary = findWhisperBinary(repoRoot);
-  if (!binary) return { result: null, reason: "whisper.cpp: whisper-cli が見つかりません" };
+  const { binary, searched: searchedBinaries } = findWhisperBinary(repoRoot);
+  if (!binary) {
+    return {
+      result: null,
+      reason: `whisper.cpp: whisper-cli が見つかりません（探索: ${searchedBinaries.join(", ")}）`,
+    };
+  }
   const help = run(binary, ["-h"]);
   const helpText = `${help.stdout ?? ""}\n${help.stderr ?? ""}`;
   if (!["-m", "-f", "-l", "-oj", "-ojf", "-of"].every((option) => helpText.includes(option))) {
     return { result: null, reason: `whisper.cpp: 必要な CLI オプションに非対応です（${binary}）` };
   }
-  const model = findWhisperModel(repoRoot);
-  if (!model) return { result: null, reason: "whisper.cpp: 適合する多言語モデルが見つかりません" };
+  const { model, searched: searchedModels } = await findWhisperModel(repoRoot, { binary });
+  if (!model) {
+    return {
+      result: null,
+      reason: `whisper.cpp: 適合する多言語モデル（ggml-*.bin）が見つかりません（探索: ${searchedModels.join(", ")}）`,
+    };
+  }
 
   const temporary = await fsp.mkdtemp(path.join(os.tmpdir(), "akari-review-stt-"));
   try {

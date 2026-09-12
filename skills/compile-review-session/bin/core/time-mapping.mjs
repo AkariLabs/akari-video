@@ -1,17 +1,31 @@
 import { createRequire } from "node:module";
 
+import { describeInstallSearch, resolvePackageFile } from "./install-root.mjs";
+
 const require = createRequire(import.meta.url);
+const EDIT_STORE_RELATIVE = "edit-store/lib/index.js";
 let editStoreModule;
 let editStoreLoadError;
 
 function loadEditStoreForV2() {
   if (editStoreModule) return editStoreModule;
   if (editStoreLoadError) throw editStoreLoadError;
+  // issue #70: このスキルはプロジェクトへコピーされるため、相対 require はモノレポ checkout でしか
+  // 通らない。install-root.mjs の候補（checkout / CLI インストール / デスクトップ版 Resources）から
+  // packages/edit-store/lib/index.js を探す。
+  const editStorePath = resolvePackageFile(EDIT_STORE_RELATIVE, { from: import.meta.url });
+  if (!editStorePath) {
+    editStoreLoadError = new Error(
+      `v2 snapshot を読めません: packages/${EDIT_STORE_RELATIVE} が見つかりません（${describeInstallSearch({ from: import.meta.url })}）。`
+      + " AKARI Video の CLI（install.sh）またはデスクトップ版が導入済みか確認してください",
+    );
+    throw editStoreLoadError;
+  }
   try {
-    editStoreModule = require("../../../../packages/edit-store/lib/index.js");
+    editStoreModule = require(editStorePath);
   } catch (error) {
     editStoreLoadError = new Error(
-      `v2 snapshot を読めません: packages/edit-store/lib/index.js の読み込みに失敗しました (${error instanceof Error ? error.message : String(error)})`,
+      `v2 snapshot を読めません: ${editStorePath} の読み込みに失敗しました (${error instanceof Error ? error.message : String(error)})`,
     );
     throw editStoreLoadError;
   }
