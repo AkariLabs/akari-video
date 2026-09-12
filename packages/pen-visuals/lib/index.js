@@ -13,10 +13,14 @@
  *
  * チューニング裁定（オーナー 2026-08-02）: フェードは 600ms（Web UI 現行値）を正とする。
  * それ以外の値は shell 従来値が正本（契約 §2.8）。
+ * 描線の表示寿命も PEN_TUNING が単一正本で、visibleWindowSec が不透明な窓、fadeOutMs が
+ * 窓を過ぎた後の消失時間を定める。描き味の fadeDurationMs とは別の表示規則である。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PEN_TUNING = void 0;
 exports.normalizePersistentStrokeItems = normalizePersistentStrokeItems;
+exports.resolveStrokeLifetimeAlpha = resolveStrokeLifetimeAlpha;
+exports.selectVisibleStrokeItems = selectVisibleStrokeItems;
 exports.createGlowSprite = createGlowSprite;
 exports.createSparkleSprite = createSparkleSprite;
 exports.createPlatinumGradient = createPlatinumGradient;
@@ -37,7 +41,11 @@ function normalizePersistentStrokeItems(value) {
         const metadata = {
             ...(typeof item.id === 'string' ? { id: item.id } : {}),
             ...(Number.isFinite(item.recTStart) ? { recTStart: item.recTStart } : {}),
-            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {})
+            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {}),
+            ...(item.frame && typeof item.frame === 'object' && !Array.isArray(item.frame)
+                && Number.isFinite(item.frame.timelineT)
+                ? { frame: { timelineT: item.frame.timelineT } }
+                : {})
         };
         if ((item.tool === 'pen' || item.tool === undefined) && Array.isArray(item.points)) {
             const points = item.points.filter((point) => (Array.isArray(point) && point.length === 2
@@ -57,6 +65,45 @@ function normalizePersistentStrokeItems(value) {
     }
     return normalized;
 }
+/** 0（非表示）〜1（不透明）。webview 注入用のため外側の識別子を参照しない。 */
+function resolveStrokeLifetimeAlpha(item, context, tuning) {
+    if (context.visible !== true)
+        return 0;
+    if (!Number.isFinite(tuning.visibleWindowSec) || tuning.visibleWindowSec < 0)
+        return 1;
+    let distance;
+    if (context.recording === true) {
+        const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
+        if (!Number.isFinite(base) || !Number.isFinite(context.recT))
+            return 1;
+        distance = Math.max(0, context.recT - base);
+    }
+    else {
+        const timelineT = item.frame?.timelineT;
+        if (!Number.isFinite(timelineT) || !Number.isFinite(context.playheadT))
+            return 1;
+        distance = Math.abs(context.playheadT - timelineT);
+    }
+    if (distance <= tuning.visibleWindowSec)
+        return 1;
+    const fadeSec = Math.max(0, tuning.fadeOutMs) / 1000;
+    if (fadeSec === 0)
+        return 0;
+    const alpha = distance < tuning.visibleWindowSec + fadeSec
+        ? 1 - (distance - tuning.visibleWindowSec) / fadeSec
+        : 0;
+    return Math.max(0, Math.min(1, alpha));
+}
+/** alpha が残る描線を入力順で返す。 */
+function selectVisibleStrokeItems(items, context, tuning = exports.PEN_TUNING) {
+    const selected = [];
+    for (const item of items) {
+        const alpha = resolveStrokeLifetimeAlpha(item, context, tuning);
+        if (alpha > 0)
+            selected.push({ item, alpha });
+    }
+    return selected;
+}
 exports.PEN_TUNING = {
     maxDevicePixelRatio: 2,
     coreWidthPx: 3.4,
@@ -72,6 +119,8 @@ exports.PEN_TUNING = {
     sparkleMaxSizePx: 13,
     sparkleLifetimeMs: 620,
     sparkleTwinkleHz: 2.2,
+    visibleWindowSec: 8,
+    fadeOutMs: 1500,
     fadeDurationMs: 600
 };
 /** グロー用スプライト（動画面 `createGlowSprite` と同一実装）。 */
