@@ -124,6 +124,19 @@ test("basis のヒット数は words の文字単位・語単位・省略で変�
   }
 });
 
+test("speaker はカット候補へ影響しない", async (t) => {
+  const f = await fixture(t, ["speech-analyzer"]);
+  const file = path.join(f.directory, "transcripts/speech-analyzer.json");
+  const data = await json(file);
+  const options = { ...f.options, silencesRunner: async () => [] };
+  await transcribeCutsMedia(f.target, options);
+  const plain = await readCuts(f);
+  data.segments = data.segments.map(segment => ({ ...segment, speaker: "speaker-a" }));
+  await putJson(file, data);
+  await transcribeCutsMedia(f.target, options);
+  assert.deepEqual(await readCuts(f), plain);
+});
+
 test("basis の同数ヒットは契約の優先順で選ぶ", () => {
   const transcripts = ["cloud-groq", "speech-analyzer", "whisper-cpp", "cloud-scribe"]
     .map((backend) => ({ backend, segments: [{ text: "あの、説明" }] }));

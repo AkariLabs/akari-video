@@ -30,6 +30,11 @@ test('stylePreset 無しは null に正規化する', () => {
     assert.equal(buildDaihonRows([base], null)[0].stylePreset, null);
 });
 
+test('speaker を行へ写し、無い字幕は null にする', () => {
+    assert.equal(buildDaihonRows([{ ...base, speaker: 'speaker-a' }], null)[0].speaker, 'speaker-a');
+    assert.equal(buildDaihonRows([base], null)[0].speaker, null);
+});
+
 test('2断片の切れ目を単語 index に変換する', () => {
     const [row] = buildDaihonRows([{ ...base, display_fragments: ['こんにちは', '世界'] }], null);
     assert.equal(row.fragmentBreakWordIndex, 1);

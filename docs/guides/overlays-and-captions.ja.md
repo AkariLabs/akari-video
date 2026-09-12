@@ -76,6 +76,7 @@ akari captions <project-dir>
 - 単語帳を当てる: 解決できる単語帳を既定で適用します（`--word-book <path>` で追加、`--no-word-book` で抑止）。
 
 手直しは台本パネルか `captions.json` を直接編集します。
+`speaker` はクラウドの話者分離（ElevenLabs Scribe 等）で埋まります。ローカルエンジン（SpeechAnalyzer / whisper.cpp）では `null` のままです。
 
 ## 行数・折り方・拡大回転
 

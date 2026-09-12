@@ -80,6 +80,7 @@ akari captions <project-dir>
 - Apply the word book: use resolved entries by default (`--word-book <path>` adds a book; `--no-word-book` disables application).
 
 Make corrections in the script panel or edit `captions.json` directly.
+`speaker` is filled in by cloud diarization (such as ElevenLabs Scribe); local engines (SpeechAnalyzer / whisper.cpp) leave it `null`.
 
 ## Lines, wrapping, scale and rotation
 

@@ -24,6 +24,24 @@ const cacheDirectory = (f) => path.join(f.project, ".akari/cache/transcribe");
 const transcriptPath = (f, backend = "speech-analyzer") => path.join(f.directory, "transcripts", `${backend}.json`);
 const spanCount = (result) => result.segments.reduce((count, segment) => count + (segment.unrecognized?.length ?? 0), 0);
 
+test("backend の speaker は空でない文字列だけを segment へ写す", async (t) => {
+  const withSpeaker = await fixture(t, []);
+  const spoken = await transcribeMedia(withSpeaker.target, {
+    ...speechOptions(withSpeaker), unrecognized: false,
+    backendRunner: async () => [{ ...gapSegments()[0], speaker: "speaker-2" }],
+  });
+  assert.equal(spoken.segments[0].speaker, "speaker-2");
+  assert.deepEqual(Object.keys(spoken.segments[0]).slice(0, 5), ["start", "end", "text", "speaker", "words"]);
+
+  const withoutSpeaker = await fixture(t, []);
+  const local = await transcribeMedia(withoutSpeaker.target, {
+    ...speechOptions(withoutSpeaker), unrecognized: false,
+  });
+  assert.equal(Object.hasOwn(local.segments[0], "speaker"), false);
+  assert.deepEqual(local.segments[0], gapSegments()[0]);
+  assert.equal(JSON.stringify(local.segments[0]), JSON.stringify(gapSegments()[0]));
+});
+
 test("cache hit でも閾値を変えて再計算し、ASR は一度しか実行しない", async (t) => {
   const f = await fixture(t, []);
   let calls = 0;
