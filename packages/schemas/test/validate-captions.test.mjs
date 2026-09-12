@@ -199,6 +199,32 @@ test("display policy, manual fragments, and reference-pixel style pass together"
   assert.equal(executed.status, 0, executed.stderr);
 });
 
+test("display_policy lines/wrap and text_style scale/rotate accept their contract ranges", () => {
+  const executed = runValue({
+    display_policy: { ...displayPolicy, lines: 6, wrap: "fold" },
+    default_text_style: { scale: 0.4, rotate: -180 },
+    captions: [{ ...caption, text_style: { scale: 3, rotate: 180 } }],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("display_policy lines/wrap and text_style scale/rotate reject out-of-range values", () => {
+  for (const [seat, value, message] of [
+    ["policy", { lines: 0 }, /display_policy\.lines/u],
+    ["policy", { lines: 7 }, /display_policy\.lines/u],
+    ["policy", { wrap: "none" }, /display_policy\.wrap/u],
+    ["style", { scale: 0.3 }, /text_style\.scale/u],
+    ["style", { scale: 3.1 }, /text_style\.scale/u],
+    ["style", { rotate: 181 }, /text_style\.rotate/u],
+  ]) {
+    const executed = runValue(seat === "policy"
+      ? { display_policy: { ...displayPolicy, ...value }, captions: [caption] }
+      : { captions: [{ ...caption, text_style: value }] });
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, message);
+  }
+});
+
 test("display fragments fail closed on text loss, style conflict, and non-NFC text", () => {
   for (const [override, message] of [
     [{ display_fragments: ["今回", "設定"] }, /表示文字列を厳密に保存/u],

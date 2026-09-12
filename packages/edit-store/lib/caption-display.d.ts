@@ -20,6 +20,8 @@ export interface CaptionDisplayPolicy {
     max_line_units: number;
     minimum_fragment_duration_seconds: number;
     locale: string;
+    lines?: number;
+    wrap?: 'multi' | 'fold';
     break_hints?: CaptionBreakHints;
 }
 export interface CaptionDisplayCue {
@@ -33,6 +35,7 @@ export interface CaptionDisplayCue {
     start: number;
     end: number;
     text: string;
+    display_lines?: string[];
     units: number;
     line_override: boolean;
     text_style?: Record<string, unknown>;
@@ -98,6 +101,7 @@ export declare class CaptionDisplayError extends Error {
     constructor(code: string, message: string);
 }
 export declare function measureCaptionUnits(text: string): number;
+export declare function joinCaptionLines(lines: string[], locale: string): string;
 export declare function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPolicy;
 export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: UnknownRecord, options?: {
     output?: {
@@ -133,6 +137,7 @@ export declare function splitCaptionFragments(text: string, policy: CaptionDispl
     fragments: string[];
     boundaries: number[];
 };
+export declare function foldCaptionLines(text: string, maxLineUnits: number, lines: number, locale?: string): string[];
 export declare function scheduleCaptionFragments(start: number, end: number, fragments: string[], minimumSeconds: number): Array<{
     start: number;
     end: number;

@@ -252,7 +252,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         html,
         start: range.start,
         duration: range.duration,
-        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+        transform: captionTransform(textStyle),
         vars: textStyleVars,
         generatedFrom: caption.id,
       });
@@ -269,10 +269,10 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
 export function generateResolvedCaptionOverlays(displayResult) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: renderResolvedSingleLineCaption(cue.text),
+    html: renderResolvedSingleLineCaption(cue.text, cue.display_lines),
     start: cue.start,
     duration: cue.end - cue.start,
-    transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+    transform: captionTransform(cue.text_style),
     vars: cue.style_vars ?? {},
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
@@ -280,7 +280,16 @@ export function generateResolvedCaptionOverlays(displayResult) {
   }));
 }
 
-export function renderResolvedSingleLineCaption(text) {
+export function captionTransform(style) {
+  const scale = finiteNumber(style?.scale) && style.scale >= 0.4 && style.scale <= 3 ? style.scale : 1;
+  const rotate = finiteNumber(style?.rotate) && style.rotate >= -180 && style.rotate <= 180 ? style.rotate : 0;
+  return { x: 0, y: 0, scale, rotate };
+}
+
+export function renderResolvedSingleLineCaption(text, lines) {
+  const renderedText = Array.isArray(lines) && lines.length >= 2
+    ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
+    : escapeHtml(text);
   return `<div class="akari-caption akari-caption--single-line">
   <style>
     ${RESOLVED_CAPTION_FONT_FACE_CSS}
@@ -322,7 +331,7 @@ export function renderResolvedSingleLineCaption(text) {
       white-space:nowrap;
     }
   </style>
-  <div class="akari-caption__plate"><p class="akari-caption__line">${escapeHtml(text)}</p></div>
+  <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
 </div>`;
 }
 
@@ -515,6 +524,8 @@ function normalizeTextStyle(value) {
   return {
     ...(typeof value.color === "string" ? { color: value.color } : {}),
     ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
+    ...(finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {}),
+    ...(finiteNumber(value.rotate) && value.rotate >= -180 && value.rotate <= 180 ? { rotate: value.rotate } : {}),
     // zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1 だけ受理する。
     ...(Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1
       ? { reference_height_px: value.reference_height_px } : {}),

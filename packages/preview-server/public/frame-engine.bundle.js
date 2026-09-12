@@ -2469,6 +2469,8 @@ var require_caption_store = __commonJS({
       "max_characters",
       "text_anchor",
       "position",
+      "scale",
+      "rotate",
       "shadow",
       "glow",
       "animation",
@@ -3354,12 +3356,14 @@ var require_caption_display = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
     exports.measureCaptionUnits = measureCaptionUnits;
+    exports.joinCaptionLines = joinCaptionLines;
     exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
     exports.resolveCaptionDisplay = resolveCaptionDisplay;
     exports.validateCaptionTextStyle = validateCaptionTextStyle;
     exports.projectCaptionWords = projectCaptionWords;
     exports.dedupeCaptionOccurrences = dedupeCaptionOccurrences;
     exports.splitCaptionFragments = splitCaptionFragments;
+    exports.foldCaptionLines = foldCaptionLines;
     exports.scheduleCaptionFragments = scheduleCaptionFragments;
     exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
     exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
@@ -3393,6 +3397,8 @@ var require_caption_display = __commonJS({
       "max_characters",
       "text_anchor",
       "position",
+      "scale",
+      "rotate",
       "shadow",
       "glow",
       "animation",
@@ -3463,6 +3469,12 @@ var require_caption_display = __commonJS({
     function measureCaptionUnits(text) {
       return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
     }
+    function joinCaptionLines(lines, locale) {
+      if (/^ja/iu.test(locale)) {
+        return lines.join("");
+      }
+      return lines.join("");
+    }
     function validateCaptionDisplayPolicy(value) {
       if (!isRecord2(value))
         fail("INVALID_POLICY", "display_policy must be an object");
@@ -3473,6 +3485,8 @@ var require_caption_display = __commonJS({
         "max_line_units",
         "minimum_fragment_duration_seconds",
         "locale",
+        "lines",
+        "wrap",
         "break_hints"
       ]);
       rejectUnknown(value, allowed, "display_policy");
@@ -3489,6 +3503,12 @@ var require_caption_display = __commonJS({
       if (!strictText(value.locale)) {
         fail("INVALID_POLICY", "display_policy.locale must be a non-empty NFC trimmed string");
       }
+      if (value.lines !== void 0 && (!Number.isInteger(value.lines) || value.lines < 1 || value.lines > 6)) {
+        fail("INVALID_POLICY", "display_policy.lines must be an integer within [1, 6]");
+      }
+      if (value.wrap !== void 0 && value.wrap !== "multi" && value.wrap !== "fold") {
+        fail("INVALID_POLICY", "display_policy.wrap must be multi or fold");
+      }
       const breakHints = value.break_hints === void 0 ? void 0 : validateBreakHints(value.break_hints);
       return {
         mode: value.mode,
@@ -3497,6 +3517,8 @@ var require_caption_display = __commonJS({
         max_line_units: value.max_line_units,
         minimum_fragment_duration_seconds: value.minimum_fragment_duration_seconds,
         locale: value.locale,
+        ...value.lines !== void 0 ? { lines: value.lines } : {},
+        ...value.wrap !== void 0 ? { wrap: value.wrap } : {},
         ...breakHints ? { break_hints: breakHints } : {}
       };
     }
@@ -3520,6 +3542,9 @@ var require_caption_display = __commonJS({
         return null;
       }
       const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+      const lines = policy.lines ?? 1;
+      const wrap = policy.wrap ?? "multi";
+      const splitPolicy = wrap === "fold" ? { ...policy, max_line_units: policy.max_line_units * lines } : policy;
       if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
         fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
       }
@@ -3582,12 +3607,12 @@ var require_caption_display = __commonJS({
         } else {
           let split;
           try {
-            split = splitCaptionFragments(text, policyWithExtraTerms);
+            split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines } : policyWithExtraTerms);
           } catch (error) {
             if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
               throw error;
             }
-            split = splitCaptionFragments(text, policy);
+            split = splitCaptionFragments(text, splitPolicy);
             wordBookFallbacks.push({
               caption_id: caption.id,
               dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
@@ -3608,23 +3633,39 @@ var require_caption_display = __commonJS({
         const styleOutput = options.output ?? edit?.output;
         const styleResolution = resolvedStyle ? resolveCaptionStyleForOutput(resolvedStyle, styleOutput) : void 0;
         const scheduled = scheduleCaptionFragments(occurrence.start, occurrence.end, resolved.fragments, policy.minimum_fragment_duration_seconds);
-        scheduled.forEach((fragment, index) => displayCues.push({
-          id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
-          source_cue_id: occurrence.source_cue_id,
-          src: occurrence.src,
-          cut_index: occurrence.cut_index,
-          occurrence_index: occurrence.occurrence_index,
-          fragment_index: index + 1,
-          fragment_count: scheduled.length,
+        const groups = wrap === "fold" ? scheduled.map((fragment) => ({
           start: fragment.start,
           end: fragment.end,
-          text: fragment.text,
-          units: measureCaptionUnits(fragment.text),
-          line_override: resolved.manual,
-          ...resolvedStyle ? { text_style: resolvedStyle } : {},
-          ...styleResolution ? { style_vars: styleResolution.vars } : {},
-          ...styleResolution?.layout ? { layout: styleResolution.layout } : {}
-        }));
+          lines: resolved.manual ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale)
+        })) : Array.from({ length: Math.ceil(scheduled.length / lines) }, (_3, groupIndex) => {
+          const fragments = scheduled.slice(groupIndex * lines, (groupIndex + 1) * lines);
+          return {
+            start: fragments[0].start,
+            end: fragments[fragments.length - 1].end,
+            lines: fragments.map((fragment) => fragment.text)
+          };
+        });
+        groups.forEach((group, index) => {
+          const text = joinCaptionLines(group.lines, policy.locale);
+          displayCues.push({
+            id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
+            source_cue_id: occurrence.source_cue_id,
+            src: occurrence.src,
+            cut_index: occurrence.cut_index,
+            occurrence_index: occurrence.occurrence_index,
+            fragment_index: index + 1,
+            fragment_count: groups.length,
+            start: group.start,
+            end: group.end,
+            text,
+            ...group.lines.length >= 2 ? { display_lines: group.lines } : {},
+            units: measureCaptionUnits(text),
+            line_override: resolved.manual,
+            ...resolvedStyle ? { text_style: resolvedStyle } : {},
+            ...styleResolution ? { style_vars: styleResolution.vars } : {},
+            ...styleResolution?.layout ? { layout: styleResolution.layout } : {}
+          });
+        });
       }
       displayCues.sort(compareDisplayCue);
       for (let index = 1; index < displayCues.length; index++) {
@@ -3661,6 +3702,12 @@ var require_caption_display = __commonJS({
       }
       if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive3(value.line_height)) {
         fail("INVALID_TEXT_STYLE", `${label}.line_height must be a positive finite number`);
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "scale") && (!finiteNumber(value.scale) || value.scale < 0.4 || value.scale > 3)) {
+        fail("INVALID_TEXT_STYLE", `${label}.scale must be a finite number within [0.4, 3]`);
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "rotate") && (!finiteNumber(value.rotate) || value.rotate < -180 || value.rotate > 180)) {
+        fail("INVALID_TEXT_STYLE", `${label}.rotate must be a finite number within [-180, 180]`);
       }
       validateTextStyleV0(value, label);
       if (Object.prototype.hasOwnProperty.call(value, "stroke"))
@@ -4109,7 +4156,7 @@ var require_caption_display = __commonJS({
         }
         fail("INVALID_CAPTION", `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style (expected one of: ${[...CAPTION_WORD_STYLES].join(", ")})`);
       }
-      if (projected?.renderable !== false && measureCaptionUnits(text) > policy.max_line_units * 2 && (caption.display_fragments === void 0 || projected?.changed === true)) {
+      if (projected?.renderable !== false && measureCaptionUnits(text) > policy.max_line_units * (policy.wrap === "fold" ? policy.lines ?? 1 : 1) * 2 && (caption.display_fragments === void 0 || projected?.changed === true)) {
         fail("NO_WORD_BOUNDARY_SPLIT", `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
       }
     }
@@ -4170,6 +4217,50 @@ var require_caption_display = __commonJS({
       }
       candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
       return { fragments: candidates[0].fragments, boundaries };
+    }
+    function foldCaptionLines(text, maxLineUnits, lines, locale = "ja") {
+      if (!finitePositive3(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {
+        fail("INVALID_POLICY", "foldCaptionLines requires positive maxLineUnits and lines >= 1");
+      }
+      if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
+        return [text];
+      const Segmenter = Intl.Segmenter;
+      const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : Array.from(text);
+      const tokens = segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits));
+      const result = [];
+      let current = "";
+      for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index];
+        if (current === "" || measureCaptionUnits(current + token) <= maxLineUnits) {
+          current += token;
+          continue;
+        }
+        result.push(current);
+        if (result.length === lines - 1) {
+          current = tokens.slice(index).join("");
+          break;
+        }
+        current = token;
+      }
+      if (current !== "")
+        result.push(current);
+      return result;
+    }
+    function splitCaptionUnitChunks(text, maxLineUnits) {
+      if (measureCaptionUnits(text) <= maxLineUnits)
+        return [text];
+      const chunks = [];
+      let current = "";
+      for (const character of Array.from(text)) {
+        if (current !== "" && measureCaptionUnits(current + character) > maxLineUnits) {
+          chunks.push(current);
+          current = "";
+        }
+        current += character;
+      }
+      if (current !== "")
+        chunks.push(current);
+      return chunks;
     }
     function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
       let score = 100 - Math.abs(firstUnits - secondUnits) * 4;

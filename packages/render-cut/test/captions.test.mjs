@@ -2,12 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  captionTransform,
   generateCaptionOverlays,
   generateResolvedCaptionOverlays,
   renderCaptionFragment,
   renderStyledCaptionFragment,
   sourceRangeToTimeline,
 } from "../src/captions.mjs";
+
+test("captionTransform accepts declared scale/rotate and ignores invalid values", () => {
+  assert.deepEqual(captionTransform({ scale: 1.5, rotate: -8 }), { x: 0, y: 0, scale: 1.5, rotate: -8 });
+  assert.deepEqual(captionTransform(), { x: 0, y: 0, scale: 1, rotate: 0 });
+  assert.deepEqual(captionTransform({ scale: Infinity, rotate: 181 }), { x: 0, y: 0, scale: 1, rotate: 0 });
+});
 
 test("resolved caption overlay consumes the Node-resolved cue without re-splitting or animation", () => {
   const [overlay] = generateResolvedCaptionOverlays({
@@ -37,6 +44,16 @@ test("resolved caption overlay consumes the Node-resolved cue without re-splitti
   assert.match(overlay.html, /gap:0/u);
   assert.match(overlay.html, /padding:0/u);
   assert.doesNotMatch(overlay.html, /animation:/u);
+});
+
+test("resolved caption overlay renders display_lines as sibling line paragraphs", () => {
+  const [overlay] = generateResolvedCaptionOverlays({
+    display_cues: [{
+      id: "c-0001-occ-0001-part-1", source_cue_id: "c-0001",
+      start: 0, end: 1, text: "one & two", display_lines: ["one &", " two"],
+    }],
+  });
+  assert.match(overlay.html, /<p class="akari-caption__line">one &amp;<\/p><p class="akari-caption__line"> two<\/p>/u);
 });
 
 test("caption generation is deterministic and uses the line-fit plate structure", () => {

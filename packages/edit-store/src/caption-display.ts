@@ -18,7 +18,7 @@ const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'max_characters', 'text_anchor',
-    'position', 'shadow', 'glow', 'animation', 'reference_height_px'
+    'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -61,6 +61,8 @@ export interface CaptionDisplayPolicy {
     max_line_units: number;
     minimum_fragment_duration_seconds: number;
     locale: string;
+    lines?: number;
+    wrap?: 'multi' | 'fold';
     break_hints?: CaptionBreakHints;
 }
 
@@ -75,6 +77,7 @@ export interface CaptionDisplayCue {
     start: number;
     end: number;
     text: string;
+    display_lines?: string[];
     units: number;
     line_override: boolean;
     text_style?: Record<string, unknown>;
@@ -158,11 +161,20 @@ export function measureCaptionUnits(text: string): number {
     );
 }
 
+export function joinCaptionLines(lines: string[], locale: string): string {
+    if (/^ja/iu.test(locale)) {
+        // ja は語間に空白を入れない。
+        return lines.join('');
+    }
+    // ja 以外も断片は原文の slice なので空白は原文側に含まれ、現状どおり空文字で連結する。
+    return lines.join('');
+}
+
 export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPolicy {
     if (!isRecord(value)) fail('INVALID_POLICY', 'display_policy must be an object');
     const allowed = new Set([
         'mode', 'algorithm', 'unit_metric', 'max_line_units',
-        'minimum_fragment_duration_seconds', 'locale', 'break_hints'
+        'minimum_fragment_duration_seconds', 'locale', 'lines', 'wrap', 'break_hints'
     ]);
     rejectUnknown(value, allowed, 'display_policy');
     if (value.mode !== CAPTION_DISPLAY_MODE) fail('INVALID_POLICY', `display_policy.mode must be ${CAPTION_DISPLAY_MODE}`);
@@ -173,6 +185,12 @@ export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPoli
     if (!strictText(value.locale)) {
         fail('INVALID_POLICY', 'display_policy.locale must be a non-empty NFC trimmed string');
     }
+    if (value.lines !== undefined && (!Number.isInteger(value.lines) || value.lines < 1 || value.lines > 6)) {
+        fail('INVALID_POLICY', 'display_policy.lines must be an integer within [1, 6]');
+    }
+    if (value.wrap !== undefined && value.wrap !== 'multi' && value.wrap !== 'fold') {
+        fail('INVALID_POLICY', 'display_policy.wrap must be multi or fold');
+    }
     const breakHints = value.break_hints === undefined ? undefined : validateBreakHints(value.break_hints);
     return {
         mode: value.mode,
@@ -181,6 +199,8 @@ export function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPoli
         max_line_units: value.max_line_units,
         minimum_fragment_duration_seconds: value.minimum_fragment_duration_seconds,
         locale: value.locale,
+        ...(value.lines !== undefined ? { lines: value.lines } : {}),
+        ...(value.wrap !== undefined ? { wrap: value.wrap } : {}),
         ...(breakHints ? { break_hints: breakHints } : {})
     };
 }
@@ -208,6 +228,11 @@ export function resolveCaptionDisplay(
         return null;
     }
     const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+    const lines = policy.lines ?? 1;
+    const wrap = policy.wrap ?? 'multi';
+    const splitPolicy = wrap === 'fold'
+        ? { ...policy, max_line_units: policy.max_line_units * lines }
+        : policy;
     if (options.extra_protected_terms !== undefined
         && (!Array.isArray(options.extra_protected_terms)
             || options.extra_protected_terms.some(entry => !strictText(entry)))) {
@@ -275,14 +300,16 @@ export function resolveCaptionDisplay(
         } else {
             let split;
             try {
-                split = splitCaptionFragments(text, policyWithExtraTerms);
+                split = splitCaptionFragments(text, wrap === 'fold'
+                    ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines }
+                    : policyWithExtraTerms);
             } catch (error) {
                 if (!(error instanceof CaptionDisplayError)
                     || error.code !== 'NO_WORD_BOUNDARY_SPLIT'
                     || incrementalProtectedTerms.length === 0) {
                     throw error;
                 }
-                split = splitCaptionFragments(text, policy);
+                split = splitCaptionFragments(text, splitPolicy);
                 wordBookFallbacks.push({
                     caption_id: caption.id,
                     dropped_terms: incrementalProtectedTerms.filter(term => text.includes(term))
@@ -305,23 +332,43 @@ export function resolveCaptionDisplay(
             ? resolveCaptionStyleForOutput(resolvedStyle, styleOutput)
             : undefined;
         const scheduled = scheduleCaptionFragments(occurrence.start, occurrence.end, resolved.fragments, policy.minimum_fragment_duration_seconds);
-        scheduled.forEach((fragment, index) => displayCues.push({
-            id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
-            source_cue_id: occurrence.source_cue_id,
-            src: occurrence.src,
-            cut_index: occurrence.cut_index,
-            occurrence_index: occurrence.occurrence_index!,
-            fragment_index: index + 1,
-            fragment_count: scheduled.length,
-            start: fragment.start,
-            end: fragment.end,
-            text: fragment.text,
-            units: measureCaptionUnits(fragment.text),
-            line_override: resolved.manual,
-            ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
-            ...(styleResolution ? { style_vars: styleResolution.vars } : {}),
-            ...(styleResolution?.layout ? { layout: styleResolution.layout } : {})
-        }));
+        const groups = wrap === 'fold'
+            ? scheduled.map(fragment => ({
+                start: fragment.start,
+                end: fragment.end,
+                lines: resolved.manual
+                    ? [fragment.text]
+                    : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale)
+            }))
+            : Array.from({ length: Math.ceil(scheduled.length / lines) }, (_, groupIndex) => {
+                const fragments = scheduled.slice(groupIndex * lines, (groupIndex + 1) * lines);
+                return {
+                    start: fragments[0].start,
+                    end: fragments[fragments.length - 1].end,
+                    lines: fragments.map(fragment => fragment.text)
+                };
+            });
+        groups.forEach((group, index) => {
+            const text = joinCaptionLines(group.lines, policy.locale);
+            displayCues.push({
+                id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
+                source_cue_id: occurrence.source_cue_id,
+                src: occurrence.src,
+                cut_index: occurrence.cut_index,
+                occurrence_index: occurrence.occurrence_index!,
+                fragment_index: index + 1,
+                fragment_count: groups.length,
+                start: group.start,
+                end: group.end,
+                text,
+                ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
+                units: measureCaptionUnits(text),
+                line_override: resolved.manual,
+                ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
+                ...(styleResolution ? { style_vars: styleResolution.vars } : {}),
+                ...(styleResolution?.layout ? { layout: styleResolution.layout } : {})
+            });
+        });
     }
     displayCues.sort(compareDisplayCue);
     for (let index = 1; index < displayCues.length; index++) {
@@ -364,6 +411,14 @@ export function validateCaptionTextStyle(value: unknown, label = 'text_style'): 
     }
     if (Object.prototype.hasOwnProperty.call(value, 'line_height') && !finitePositive(value.line_height)) {
         fail('INVALID_TEXT_STYLE', `${label}.line_height must be a positive finite number`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'scale')
+        && (!finiteNumber(value.scale) || value.scale < 0.4 || value.scale > 3)) {
+        fail('INVALID_TEXT_STYLE', `${label}.scale must be a finite number within [0.4, 3]`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'rotate')
+        && (!finiteNumber(value.rotate) || value.rotate < -180 || value.rotate > 180)) {
+        fail('INVALID_TEXT_STYLE', `${label}.rotate must be a finite number within [-180, 180]`);
     }
     validateTextStyleV0(value, label);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke')) validateCaptionStroke(value.stroke, `${label}.stroke`);
@@ -864,7 +919,7 @@ function validateSourceCaption(
         );
     }
     if (projected?.renderable !== false
-        && measureCaptionUnits(text) > policy.max_line_units * 2
+        && measureCaptionUnits(text) > policy.max_line_units * (policy.wrap === 'fold' ? (policy.lines ?? 1) : 1) * 2
         && (caption.display_fragments === undefined || projected?.changed === true)) {
         fail('NO_WORD_BOUNDARY_SPLIT', `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
     }
@@ -927,6 +982,55 @@ export function splitCaptionFragments(text: string, policy: CaptionDisplayPolicy
     }
     candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
     return { fragments: candidates[0].fragments, boundaries };
+}
+
+export function foldCaptionLines(
+    text: string,
+    maxLineUnits: number,
+    lines: number,
+    locale = 'ja'
+): string[] {
+    if (!finitePositive(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {
+        fail('INVALID_POLICY', 'foldCaptionLines requires positive maxLineUnits and lines >= 1');
+    }
+    if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits) return [text];
+    const Segmenter = (Intl as any).Segmenter;
+    const segments: string[] = typeof Segmenter === 'function'
+        ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(segment => segment.segment)
+        : Array.from(text);
+    const tokens = segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits));
+    const result: string[] = [];
+    let current = '';
+    for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index];
+        if (current === '' || measureCaptionUnits(current + token) <= maxLineUnits) {
+            current += token;
+            continue;
+        }
+        result.push(current);
+        if (result.length === lines - 1) {
+            current = tokens.slice(index).join('');
+            break;
+        }
+        current = token;
+    }
+    if (current !== '') result.push(current);
+    return result;
+}
+
+function splitCaptionUnitChunks(text: string, maxLineUnits: number): string[] {
+    if (measureCaptionUnits(text) <= maxLineUnits) return [text];
+    const chunks: string[] = [];
+    let current = '';
+    for (const character of Array.from(text)) {
+        if (current !== '' && measureCaptionUnits(current + character) > maxLineUnits) {
+            chunks.push(current);
+            current = '';
+        }
+        current += character;
+    }
+    if (current !== '') chunks.push(current);
+    return chunks;
 }
 
 function captionBreakScore(first: string, second: string, firstUnits: number, secondUnits: number, hints?: CaptionBreakHints): number {

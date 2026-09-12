@@ -77,6 +77,17 @@ akari captions <project-dir>
 
 手直しは台本パネルか `captions.json` を直接編集します。
 
+## 行数・折り方・拡大回転
+
+object 形式の `captions.json` では `display_policy.lines` に 1〜6 を指定できます（既定 1）。
+`display_policy.wrap` は各行の作り方を指定します。既定の `multi` は連続する最大 N 断片を
+同時表示し、`fold` は 1 断片を `max_line_units` の行予算で最大 N 行へ折ります。
+
+`text_style.scale` は字幕プレートの等比拡大率（0.4〜3、既定 1）、`text_style.rotate` は
+回転角（-180〜180 度、既定 0）です。どちらも字幕の位置を中心に変形します。`scale` と
+`rotate` は共有字幕カーネル 1 か所で解決されるため、プレビューと書き出しは同じ宣言値を
+読みます。
+
 ## 頼み方の例
 
 - 「冒頭に番組タイトル風のテロップ。白抜き・下からスライドイン」
