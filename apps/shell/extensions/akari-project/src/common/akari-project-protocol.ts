@@ -224,10 +224,11 @@ export interface TranscribeOptions {
     approved?: boolean;
 }
 export interface TranscribeArtifactRequest { projectRoot: string; relativePath: string }
+export interface CancelTranscribeRequest extends TranscribeArtifactRequest {}
 export interface TranscribeMaterialRequest extends TranscribeArtifactRequest, TranscribeOptions {}
 export interface MaterialTranscriptEvent {
     type: 'material-transcript'; id: string; relativePath: string;
-    status: 'running' | 'completed' | 'failed';
+    status: 'running' | 'completed' | 'failed' | 'cancelled';
     stage: 'transcribing' | 'diffing' | 'cutting' | 'completed' | 'failed';
     backend?: string; error?: string; elapsed_sec?: number;
 }
@@ -257,6 +258,7 @@ export interface AkariProjectService {
     writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void>;
     applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }>;
     transcribeMaterial(request: TranscribeMaterialRequest): Promise<void>;
+    cancelTranscribe(request: CancelTranscribeRequest): Promise<void>;
     transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>>;
     buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult>;
     createProject(destinationUri: string): Promise<void>;

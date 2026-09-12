@@ -3,7 +3,7 @@ import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools
 import { interpretCaptionsResult } from '../common/captions-result';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { execFile, spawn } from 'child_process';
+import { ChildProcess, execFile, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import { constants, Dirent, existsSync, promises as fs, watch } from 'fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
@@ -12,6 +12,7 @@ import { promisify } from 'util';
 import {
     AkariProjectService,
     TranscribeArtifactRequest, TranscribeArtifacts, WriteCutsSelectionRequest, MaterialTranscriptEvent,
+    CancelTranscribeRequest,
     TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
@@ -828,6 +829,9 @@ try {
     }
 
     protected readonly transcriptions = new Set<string>();
+    protected readonly transcribeChildren = new Map<string, Set<ChildProcess>>();
+    protected readonly transcribeCancelled = new Set<string>();
+    protected readonly transcribeKillTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     protected async materialTarget(projectRoot: string, relativePath: string): Promise<{ root: string; path: string; relativePath: string }> {
         const root = await fs.realpath(this.fsPath(projectRoot));
@@ -876,6 +880,18 @@ try {
             throw new Error('文字起こしエンジンが不正です');
         }
         this.transcriptions.add(target.path);
+        const trackChild = (child: ChildProcess): void => {
+            const children = this.transcribeChildren.get(target.path) ?? new Set<ChildProcess>();
+            children.add(child);
+            this.transcribeChildren.set(target.path, children);
+            child.once('close', () => {
+                children.delete(child);
+                if (!children.size) {
+                    this.transcribeChildren.delete(target.path);
+                }
+            });
+            if (this.transcribeCancelled.has(target.path)) child.kill('SIGTERM');
+        };
         const publish = async (status: MaterialTranscriptEvent['status'], stage: MaterialTranscriptEvent['stage'],
             backend?: string, error?: string, elapsed_sec?: number): Promise<void> => {
             const id = this.eventId('material-transcript');
@@ -885,6 +901,7 @@ try {
             }).catch(error => console.warn('[akari-project] transcript event:', error));
         };
         const failures: string[] = [];
+        let cancelled = false;
         try {
             const cli = await this.findMediaTool('media');
             const results = await Promise.all(backends.map(async backend => {
@@ -895,21 +912,21 @@ try {
                     // transcribe-cloud.mjs --send --approved path; gate entry here, before spawn.
                     if (backend.startsWith('cloud:') && request.approved !== true) throw new Error('音声送信の承認がありません');
                     const result = await this.runNodeScript(cli, ['transcribe', target.relativePath,
-                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root);
+                        ...(backend === 'auto' ? [] : ['--backend', backend])], target.root, trackChild);
                     if (result.code !== 0) throw new Error(result.stderr.trim() || '文字起こしに失敗しました');
                     if (backends.length > 1) await publish('completed', 'completed', backend, undefined, (Date.now() - started) / 1000);
                     return { backend, stdout: result.stdout };
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
                     failures.push(`${backend}: ${message}`);
-                    if (backends.length > 1) await publish('failed', 'failed', backend, message);
+                    if (backends.length > 1 && !this.transcribeCancelled.has(target.path)) await publish('failed', 'failed', backend, message);
                     return undefined;
                 }
             }));
             const completed = results.filter((result): result is NonNullable<typeof result> => !!result);
             // Each CLI writes analysis under its own lock. Once all writers have finished,
             // retain the first selected engine's normalized (word-book processed) CLI result.
-            if (backends.length > 1 && results[0]) {
+            if (!this.transcribeCancelled.has(target.path) && backends.length > 1 && results[0]) {
                 const baseline = results[0].stdout.trim().split('\n').flatMap(line => {
                     try { const value = JSON.parse(line); return Array.isArray(value.segments) ? [value.segments] : []; }
                     catch { return []; }
@@ -922,23 +939,53 @@ try {
             }
             const generate = async (stage: 'diffing' | 'cutting', args: string[]): Promise<void> => {
                 await publish('running', stage);
-                const result = await this.runNodeScript(cli, args, target.root);
+                const result = await this.runNodeScript(cli, args, target.root, trackChild);
                 if (result.code !== 0) {
                     const message = result.stderr.trim() || `${stage} に失敗しました`;
                     failures.push(message);
                     await publish('failed', stage, undefined, message);
                 } else await publish('completed', stage);
             };
-            if (completed.length >= 2) await generate('diffing', ['transcribe-diff', target.relativePath,
+            if (!this.transcribeCancelled.has(target.path) && completed.length >= 2) await generate('diffing', ['transcribe-diff', target.relativePath,
                 '--engines', completed.map(result => result.backend.replace(/:/g, '-')).join(',')]);
-            if (request.autoCuts && completed.length) await generate('cutting', ['transcribe-cuts', target.relativePath]);
+            if (!this.transcribeCancelled.has(target.path) && request.autoCuts && completed.length) await generate('cutting', ['transcribe-cuts', target.relativePath]);
         } catch (error) {
             failures.push(error instanceof Error ? error.message : String(error));
         } finally {
-            await publish(failures.length ? 'failed' : 'completed', 'completed', undefined, failures.join(' / ') || undefined);
+            cancelled = this.transcribeCancelled.has(target.path);
+            await publish(cancelled ? 'cancelled' : failures.length ? 'failed' : 'completed', 'completed', undefined,
+                cancelled ? undefined : failures.join(' / ') || undefined);
             this.transcriptions.delete(target.path);
+            this.transcribeCancelled.delete(target.path);
+            const timer = this.transcribeKillTimers.get(target.path);
+            if (timer) clearTimeout(timer);
+            this.transcribeKillTimers.delete(target.path);
         }
+        if (cancelled) throw new Error('文字起こしを中止しました');
         if (failures.length) throw new Error(failures.join(' / '));
+    }
+
+    async cancelTranscribe(request: CancelTranscribeRequest): Promise<void> {
+        const target = await this.materialTarget(request.projectRoot, request.relativePath);
+        if (!this.transcriptions.has(target.path)) return;
+        this.transcribeCancelled.add(target.path);
+        const children = [...(this.transcribeChildren.get(target.path) ?? [])];
+        for (const child of children) {
+            if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+        }
+        const previousTimer = this.transcribeKillTimers.get(target.path);
+        if (previousTimer) clearTimeout(previousTimer);
+        this.transcribeKillTimers.set(target.path, setTimeout(() => {
+                this.transcribeKillTimers.delete(target.path);
+                for (const child of this.transcribeChildren.get(target.path) ?? []) {
+                    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+                }
+            }, 3000));
+        const id = this.eventId('material-transcript');
+        await this.writeJsonAtomic(join(target.root, '.akari/events', `${id}.json`), {
+            version: 1, id, type: 'material-transcript', relativePath: target.relativePath,
+            status: 'cancelled', stage: 'transcribing'
+        }).catch(error => console.warn('[akari-project] transcript event:', error));
     }
 
     /** Check every existing ancestor, including sidecars and symlinks, before reading/writing. */
@@ -1167,7 +1214,8 @@ try {
      * 指す場合に必要（akari-partner-server.ts の bootstrap と同じ流儀）。
      * 開発時の素の node プロセスでは無害に無視される。
      */
-    protected async runNodeScript(scriptPath: string, args: string[], cwd?: string): Promise<{ code: number; stdout: string; stderr: string }> {
+    protected async runNodeScript(scriptPath: string, args: string[], cwd?: string,
+        onSpawn?: (child: ChildProcess) => void): Promise<{ code: number; stdout: string; stderr: string }> {
         const mediaBinEnv = await this.mediaBinEnv();
         return new Promise((resolvePromise, reject) => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
@@ -1175,6 +1223,7 @@ try {
                 cwd,
                 stdio: ['ignore', 'pipe', 'pipe']
             });
+            onSpawn?.(child);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', chunk => stdout += chunk.toString());

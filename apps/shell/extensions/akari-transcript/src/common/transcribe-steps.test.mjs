@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceTranscribeSteps, startTranscribeSteps, completedColumns, initialEngineSelection, transcribeSummary, transcribeExitOptions, transcribeModeView } from '../../lib/common/transcribe-steps.js';
+import { advanceTranscribeSteps, analysisTranscriptSummary, startTranscribeSteps, completedColumns, initialEngineSelection, transcribeSummary, transcribeExitOptions, transcribeModeView } from '../../lib/common/transcribe-steps.js';
 const event = (backend, stage, status) => ({ backend, stage, status });
 test('columns fill in completion order, not selection order', () => {
     let state = startTranscribeSteps(['speech-analyzer', 'whisper-cpp']);
@@ -28,6 +28,15 @@ test('overall failure finishes without hiding successful columns', () => {
     state = advanceTranscribeSteps(state, event('speech-analyzer', 'failed', 'failed'));
     state = advanceTranscribeSteps(state, event(undefined, 'completed', 'failed'));
     assert.equal(state.finished, true); assert.deepEqual(state.completedOrder, ['whisper-cpp']);
+});
+test('cancelled engines return to waiting and overall cancellation finishes without becoming failed', () => {
+    let state = startTranscribeSteps(['whisper-cpp']);
+    state = advanceTranscribeSteps(state, event('whisper-cpp', 'transcribing', 'running'));
+    state = advanceTranscribeSteps(state, event(undefined, 'transcribing', 'cancelled'));
+    assert.equal(state.engines['whisper-cpp'], 'waiting');
+    state = advanceTranscribeSteps(state, event(undefined, 'completed', 'cancelled'));
+    assert.equal(state.finished, true);
+    assert.deepEqual(state.completedOrder, []);
 });
 test('session selection copies preferences', () => {
     const preferences = ['whisper-cpp']; const selection = initialEngineSelection('auto', preferences);
@@ -58,6 +67,27 @@ test('summary handles unprocessed, legacy completed, unrecorded timestamps and d
     assert.deepEqual(transcribeSummary({ transcripts: [{ backend: 'speech-analyzer', segments: [] }], diff: null }),
         ['日時不明 · speech-analyzer · 0 行', '比べる組: なし']);
     assert.deepEqual(transcribeSummary({ transcripts: [], diff: { engines: ['a', 'b'] } }), ['比べる組: a / b']);
+});
+
+test('analysis fallback uses explicit fields, then the last transcribe observation, and suppresses recordなし', () => {
+    const observed = {
+        transcript: [{ text: '一行目' }, { text: '二行目' }],
+        observations: [
+            { kind: 'transcribe', at: '2026-09-12T01:00:00Z', args: { backend: 'old' } },
+            { kind: 'probe', at: '2026-09-12T02:00:00Z' },
+            { kind: 'transcribe', at: '2026-09-12T03:00:00Z', args: { backend: 'speech-analyzer' } }
+        ]
+    };
+    const fallback = analysisTranscriptSummary(observed);
+    assert.equal(fallback, '2026-09-12T03:00:00Z · speech-analyzer · 2 行');
+    assert.deepEqual(transcribeSummary({ transcripts: [], diff: null }, true, fallback), [
+        '2026-09-12T03:00:00Z · speech-analyzer · 2 行', '比べる組: なし'
+    ]);
+    assert.doesNotMatch(transcribeSummary({ transcripts: [], diff: null }, true, fallback).join('\n'), /記録なし/);
+    assert.equal(analysisTranscriptSummary({
+        transcript_generated_at: 'explicit-time', generated_at: 'generated-time', transcript_backend: 'explicit-engine',
+        transcript: [], observations: [{ kind: 'transcribe', at: 'observed-time', args: { backend: 'observed-engine' } }]
+    }), 'explicit-time · explicit-engine · 0 行');
 });
 
 test('reuse does not request transcription even when comparison preferences are set', () => {

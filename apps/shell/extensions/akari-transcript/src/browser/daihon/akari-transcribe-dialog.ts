@@ -5,7 +5,7 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
-import { transcribeModeView, TranscribeMode, transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
+import { transcribeModeView, TranscribeMode, transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, analysisTranscriptSummary, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
 
 // Radar values: explainers/2026-09-07-transcribe-four-screens-v2-fix2.html.
@@ -110,12 +110,15 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     protected startedAt = 0;
     protected duration: number | undefined;
     protected progressTimer: ReturnType<typeof setInterval> | undefined;
+    protected fallbackSummary: string | undefined;
+    protected cancelled = false;
 
     constructor(protected readonly root: URI, protected readonly relativePath: string,
         protected readonly preferences: PreferenceService, protected readonly service: AkariProjectService,
         protected readonly files: FileService, protected readonly commands: CommandService,
         protected readonly listen: (start: number, end: number) => Promise<void>,
-        protected readonly alreadyTranscribed = false) {
+        protected readonly alreadyTranscribed = false,
+        protected readonly autoStart = false) {
         super({ title: '文字起こし' });
         this.mode = preferences.get('akari.transcribe.mode') === 'advanced' ? 'advanced' : 'simple';
         this.toDispose.push({ dispose: () => clearInterval(this.progressTimer) });
@@ -130,10 +133,12 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         this.controlPanel.style.display = 'none';
         this.contentNode.append(this.steps, this.body, this.notice, this.foot);
         this.ready = this.initialize().catch(error => { this.notice.textContent = String(error); });
+        if (this.autoStart) void this.ready.then(() => this.start());
         this.render();
         void this.refreshAvailability();
     }
     get value(): TranscribeDialogResult | undefined { return this.result; }
+    get wasCancelled(): boolean { return this.cancelled; }
     protected override handleEnter(event: KeyboardEvent): boolean {
         if (event.isComposing || event.repeat || event.target instanceof HTMLTextAreaElement || this.running || this.confirming) return false;
         if (event.target instanceof HTMLButtonElement && event.target !== this.defaultButton) return false;
@@ -148,6 +153,10 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     }
     protected async initialize(): Promise<void> {
         this.artifacts = await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.relativePath });
+        try {
+            const analysis = JSON.parse((await this.files.readFile(this.root.resolve(`.akari/sidecars/${this.relativePath}.analysis/analysis.json`))).value.toString());
+            this.fallbackSummary = analysisTranscriptSummary(analysis);
+        } catch { /* Missing or invalid legacy analysis has no fallback summary. */ }
         this.baselineReady = this.alreadyTranscribed || this.artifacts.transcripts.length > 0;
         this.artifactsLoaded = true;
         this.render();
@@ -232,6 +241,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
                 if (!this.baselineReady) this.foot.append(transcribeButton('エンジンを選び直す', () => { this.state.step = 1; this.render(); }));
             }
         }
+        if (this.running) this.foot.append(transcribeButton('中止', () => void this.cancel(), !this.running));
         const switchLink = transcribeButton(view.switchLink, () => void this.switchMode());
         switchLink.dataset.akariTranscribeModeSwitch = 'true';
         Object.assign(switchLink.style, { marginLeft: 'auto', fontSize: '12px', padding: '4px', border: 'none', background: 'transparent', textDecoration: 'underline' });
@@ -252,6 +262,15 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             if (!this.isDisposed) this.render();
         } catch (error) { this.notice.textContent = `設定を保存できませんでした: ${String(error)}`; }
     }
+    protected async cancel(): Promise<void> {
+        this.cancelled = true;
+        try {
+            await this.service.cancelTranscribe({ projectRoot: this.root.toString(), relativePath: this.relativePath });
+            this.notice.textContent = '文字起こしを中止しています…';
+        } catch (error) {
+            this.notice.textContent = error instanceof Error ? error.message : String(error);
+        }
+    }
     protected async refreshAvailability(): Promise<void> {
         if (this.checkingAvailability || this.isDisposed) { return; }
         this.checkingAvailability = true;
@@ -267,7 +286,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     }
 
     protected renderCards(view: ReturnType<typeof transcribeModeView>): void {
-        if (view.steps) for (const line of transcribeSummary(this.artifacts, this.alreadyTranscribed)) this.body.append(transcribeElement('p', line));
+        if (view.steps) for (const line of transcribeSummary(this.artifacts, this.alreadyTranscribed, this.fallbackSummary)) this.body.append(transcribeElement('p', line));
         const auto = transcribeElement('label');
         const radio = transcribeElement('input'); radio.type = 'radio'; radio.name = 'transcribe-engine'; radio.checked = this.selection.backend === 'auto'; radio.disabled = this.running;
         radio.onchange = () => { this.selection.backend = 'auto'; };
@@ -368,6 +387,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     }
     protected async start(exit?: Exclude<TranscribeExit, 'reuse'>): Promise<void> {
         if (this.running || this.confirming) return;
+        this.cancelled = false;
         this.confirming = true;
         try {
         await this.ready;
@@ -407,7 +427,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         try {
             await this.service.transcribeMaterial({ projectRoot: this.root.toString(), relativePath: this.relativePath, ...options, approved: this.approved, autoCuts: this.preferences.get('akari.transcribe.autoCuts', true) });
             this.baselineReady = true;
-        } catch (error) { this.notice.textContent = String(error); }
+        } catch (error) { this.notice.textContent = this.cancelled ? '文字起こしを中止しました' : String(error); }
         finally {
             // Scan at RPC completion as well: file watcher delivery may be coalesced or late.
             try {
@@ -418,8 +438,9 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             } catch (error) { this.notice.textContent = String(error); }
             this.baselineReady ||= this.state.engines[backendKey(backends[0])] === 'completed';
             clearInterval(this.progressTimer); this.progressTimer = undefined;
+            if (this.cancelled) this.notice.textContent = '文字起こしを中止しました';
             this.running = false; this.state.finished = true; this.render();
-            if (backends.length === 1 && this.baselineReady && !this.isDisposed) { this.result = transcribeExitOptions('reuse', options); void this.accept(); }
+            if (!this.autoStart && backends.length === 1 && this.baselineReady && !this.isDisposed) { this.result = transcribeExitOptions('reuse', options); void this.accept(); }
         }
         } finally { this.confirming = false; }
     }
