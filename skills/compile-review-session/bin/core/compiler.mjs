@@ -187,7 +187,9 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
     createdAt,
     sourceT: proposal.reference.sourceT,
     sourceRange: proposal.reference.sourceRange,
-    timelineT: proposal.reference.timelineT,
+    // timelineT は非推奨フィールド（review.schema.json: 新規書き込みは常に null。timeline 位置は
+    // cuts[] から射影する）。解決経緯の timelineT は compile-proposals.json の reference に残る。
+    timelineT: null,
     target: proposal.reference.target,
     ...(pairedStroke?.tool === "rect" ? {
       targetKind: "region",

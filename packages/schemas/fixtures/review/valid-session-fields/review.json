@@ -1,0 +1,6 @@
+{
+  "version": 0,
+  "annotations": [
+    {"id":"a-0001","createdAt":"2026-09-12T10:00:00.000Z","src":null,"sourceT":16.0,"sourceRange":null,"timelineT":null,"target":"cut:0","targetKind":null,"region":null,"strokes":[{"tool":"pen","space":"content-rect","frame":{"sourceT":16.0,"cutIndex":0},"points":[[0.1,0.2],[0.8,0.9]],"sessionRef":"s-0001/st-0001"}],"strokeRefs":[{"sessionId":"s-0001","strokeId":"st-0001","sessionRef":"s-0001/st-0001"}],"refs":null,"insertPosition":null,"intent":null,"text":"このカットを削除してください","input":"session","audio":"review/sessions/s-0001/audio.wav","transcript":"えっと、このカット削除で","session":{"id":"s-0001","recRange":[2,3],"confidence":"high"},"poses":null,"status":"open","response":null}
+  ]
+}

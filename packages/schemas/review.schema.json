@@ -128,6 +128,25 @@
       ],
       "$comment": "src = edit.json v1 sources[].id 参照。path = プロジェクト相対パス（copy-don't-link 後の実体）。1 エントリにつき排他。"
     },
+    "sessionReference": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "recRange", "confidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^s-[0-9]{4,}$" },
+        "recRange": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "number", "minimum": 0 },
+            { "type": "number", "minimum": 0 }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "confidence": { "enum": ["high", "medium", "low"] }
+      },
+      "$comment": "review セッション契約 §6 の着地出所。id = review/sessions/<id>、recRange = 発話の録音秒 [start, end]、confidence = 位置解決の信頼度（compile-review-session は high / low を書き、low は本文に要確認が付く。medium は apps/shell の annotation-store.ts AnnotationSessionConfidence が受理する値で、読み手互換のため許容する）。"
+    },
     "response": {
       "type": "object",
       "additionalProperties": true,
@@ -230,6 +249,14 @@
         },
         "audio": {
           "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }]
+        },
+        "transcript": {
+          "oneOf": [{ "type": "null" }, { "type": "string" }],
+          "$comment": "発話原文（review セッション契約 §6）。text は正規化済み指示文、transcript は聴感の温度を残す原文。session 由来以外では null / 省略。"
+        },
+        "session": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sessionReference" }],
+          "$comment": "review セッションからの着地の出所参照（review セッション契約 §6）。input: session のときに compile-review-session が書く。省略 / null は従来データとして正常。"
         },
         "poses": {
           "type": "null",
