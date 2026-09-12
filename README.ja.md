@@ -122,7 +122,17 @@ macOS の書き出しは v2（OSR）エンジンが既定になりました。�
 
 ---
 
+## Star History
+
 <div align="center">
+
+<a href="https://www.star-history.com/#AkariLabs/akari-video&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=AkariLabs/akari-video&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=AkariLabs/akari-video&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=AkariLabs/akari-video&type=Date" width="640" />
+  </picture>
+</a>
 
 [![GitHub stars](https://img.shields.io/github/stars/AkariLabs/akari-video?style=for-the-badge&logo=github&logoColor=white&color=ff8a00)](https://github.com/AkariLabs/akari-video/stargazers)
 
