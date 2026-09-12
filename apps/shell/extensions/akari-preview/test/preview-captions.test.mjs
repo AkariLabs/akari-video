@@ -51,6 +51,26 @@ test('配列ルートを従来どおり読み text_style 不在なら id 以外�
     assert.deepEqual(parsed, { id: 'c-0001', start: 0, end: 2, text: '字幕' });
 });
 
+test('scale/rotate become caption transform variables and resolved display lines are preserved', () => {
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        captions: [{ ...caption, text_style: { scale: 1.5, rotate: -8 } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-scale'], '1.5');
+    assert.equal(parsed.textStyleVars['--caption-rotate'], '-8deg');
+
+    const [resolved] = parseResolvedPreviewCaptions({
+        schema: 'caption-layout/v1',
+        captions: [{
+            id: 'c-0001-occ-0001-part-1', source_cue_id: 'c-0001', start: 0, end: 2,
+            text: '字幕二行', display_lines: ['字幕', '二行'], text_style: { scale: 1.5, rotate: -8 }
+        }]
+    });
+    assert.deepEqual(resolved.displayLines, ['字幕', '二行']);
+    assert.equal(resolved.text, '字幕二行');
+    assert.equal(resolved.textStyleVars['--caption-scale'], '1.5');
+    assert.equal(resolved.textStyleVars['--caption-rotate'], '-8deg');
+});
+
 test('text_anchor + position は共有カーネル単一定義の位置変数になる（プレビューだけ既定下段へ落ちる出力不一致の再発防止）', () => {
     // 2026-08-26 akari-reel 実機: text_style { text_anchor: 'tc', position: { y: 0.386458 } } の
     // 字幕が書き出しでは上中段・プレビューでは既定の bottom 7% に出て縦位置が不一致だった。

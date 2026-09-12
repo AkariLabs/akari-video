@@ -228,6 +228,8 @@
         "max_characters": { "type": "integer", "minimum": 1 },
         "text_anchor": { "$ref": "#/$defs/textAnchor" },
         "position": { "$ref": "#/$defs/textPosition" },
+        "scale": { "type": "number", "minimum": 0.4, "maximum": 3, "default": 1 },
+        "rotate": { "type": "number", "minimum": -180, "maximum": 180, "default": 0 },
         "shadow": { "$ref": "#/$defs/textShadowStyle" },
         "glow": { "$ref": "#/$defs/textGlowStyle" },
         "animation": { "$ref": "#/$defs/textAnimation" },
@@ -236,7 +238,7 @@
         "zone": { "$ref": "#/$defs/captionZone" },
         "layout": { "$ref": "#/$defs/referencePixelLayout" }
       },
-      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位（animation はスロット単位）で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。font_weight と weight は同じ CSS font-weight を指す別名で、weight（100..900）が textstyle v0 の正式名、font_weight（1..1000）は display_policy 経路からの既存名。両方あるときは weight を優先する。max_characters は 1 行の折り返し文字数を指定する。max_width_pct はプレート（座布団）の幅だけを広げ、折り返し文字数には影響しない。reference_height_px は zone 方式の px 系フィールドの基準出力高さで、default_text_style と captions[].text_style の両方で宣言でき cue 側がフィールド単位で上書きする。layout との併用は不可。"
+      "$comment": "全フィールド任意。captionRecord.text_style は default_text_style をフィールド単位（animation はスロット単位）で上書きする。合成処理は消費側の責務。zone 省略時の実効値は bottom。font_weight と weight は同じ CSS font-weight を指す別名で、weight（100..900）が textstyle v0 の正式名、font_weight（1..1000）は display_policy 経路からの既存名。両方あるときは weight を優先する。max_characters は 1 行の折り返し文字数を指定する。max_width_pct はプレート（座布団）の幅だけを広げ、折り返し文字数には影響しない。scale は字幕プレートを等比拡大する。rotate は字幕プレートを度単位で回転する。reference_height_px は zone 方式の px 系フィールドの基準出力高さで、default_text_style と captions[].text_style の両方で宣言でき cue 側がフィールド単位で上書きする。layout との併用は不可。"
     },
     "captionWord": {
       "type": "object",
@@ -361,8 +363,11 @@
         "max_line_units": { "type": "number", "exclusiveMinimum": 0 },
         "minimum_fragment_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
         "locale": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "lines": { "type": "integer", "minimum": 1, "maximum": 6, "default": 1 },
+        "wrap": { "type": "string", "enum": ["multi", "fold"], "default": "multi" },
         "break_hints": { "$ref": "#/$defs/captionBreakHints" }
-      }
+      },
+      "$comment": "lines は同時に出す行数。wrap の multi は N 断片を同時に表示し、fold は 1 断片を N 行に折る。"
     },
     "captionsArray": {
       "type": "array",

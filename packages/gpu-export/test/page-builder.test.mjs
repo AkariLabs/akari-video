@@ -57,6 +57,23 @@ const edit = {
   overlays: [],
 };
 
+test('caption sprite copies scale/rotate into transform and non-default vars', () => {
+  const style = { scale: 1.5, rotate: -8 };
+  const cue = { id: 'c-0001', start: 0, end: 1, text: 'caption', text_style: style };
+  const built = buildGpuPage({ edit, captions: [cue], projectRoot: process.cwd(), duration: 2 });
+  const sprite = built.spriteManifest.captions[0];
+
+  assert.deepEqual(sprite.transform, { x: 0, y: 0, scale: 1.5, rotate: -8 });
+  assert.equal(Number(sprite.vars['--scale']), 1.5);
+  assert.equal(Number.parseFloat(sprite.vars['--rotate']), -8);
+
+  const defaultBuilt = buildGpuPage({ edit, captions: [{ ...cue, text_style: {} }], projectRoot: process.cwd(), duration: 2 });
+  const defaultSprite = defaultBuilt.spriteManifest.captions[0];
+  assert.deepEqual(defaultSprite.transform, { x: 0, y: 0, scale: 1, rotate: 0 });
+  assert.equal(defaultSprite.vars['--scale'], undefined);
+  assert.equal(defaultSprite.vars['--rotate'], undefined);
+});
+
 function zAxisEdit(order) {
   const tracks = {
     low: { id: "low-track", lane: "visual", items: [{ id: "low", at: 0, duration: 30, source: { kind: "html", path: "low.html" } }] },

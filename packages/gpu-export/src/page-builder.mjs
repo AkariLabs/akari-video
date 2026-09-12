@@ -118,7 +118,8 @@ export function buildGpuPage({
         start: Number(overlay.start),
         duration: Number(overlay.duration),
         html: overlay.html.replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
-        vars: overlay.vars ?? {},
+        transform: overlay.transform ?? { x: 0, y: 0, scale: 1, rotate: 0 },
+        vars: captionSpriteVars(overlay),
         // 実効フォント px は render-cut の vars（--caption-font-size = size_px × reference_height_px
         // の scale）から取る。size_px 未宣言なら vars に無いので従来の既定（縦長 = 幅 6% / 横長 = 38）。
         // page-runtime の caption 計測（emPx）と CSS の font-size が同じ実効 px を指すための単一経路。
@@ -316,6 +317,17 @@ function resolveOverlayVars(overlay) {
   };
   if (background) Object.assign(vars, { "--x": "0px", "--y": "0px", "--scale": "1", "--rotate": "0deg" });
   return vars;
+}
+
+function captionSpriteVars(overlay) {
+  const transform = overlay.transform ?? { x: 0, y: 0, scale: 1, rotate: 0 };
+  return {
+    ...(overlay.vars ?? {}),
+    ...(Number.isFinite(transform.x) && transform.x !== 0 ? { "--x": `${transform.x}px` } : {}),
+    ...(Number.isFinite(transform.y) && transform.y !== 0 ? { "--y": `${transform.y}px` } : {}),
+    ...(Number.isFinite(transform.scale) && transform.scale !== 1 ? { "--scale": String(transform.scale) } : {}),
+    ...(Number.isFinite(transform.rotate) && transform.rotate !== 0 ? { "--rotate": `${transform.rotate}deg` } : {}),
+  };
 }
 
 export async function loadAndBuildGpuPage({
