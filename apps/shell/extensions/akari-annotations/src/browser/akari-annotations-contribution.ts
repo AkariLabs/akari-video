@@ -4,6 +4,7 @@ import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { AkariTimelineCreateDialog } from './akari-timeline-create-dialog';
 import { createTimelineEditContent, isTimelineEditFileName, sortTimelineEditFileNames, timelineCaptionsFileName, timelineDisplayName, timelineEditFileName, timelineReviewFileName, timelineSlugFromEditFileName, timelineWidgetId, uniqueTimelineSlug } from '../common/timeline-files';
 import {
+    Command,
     CommandContribution,
     CommandRegistry,
     MenuContribution,
@@ -67,6 +68,8 @@ const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
 const PREVIEW_CUT_SELECTED_EVENT = 'akari.preview.cutSelected';
 const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
+/** 台本 → タイムラインの字幕選択同期（label なし内部コマンド）。 */
+const SELECT_TIMELINE_CAPTIONS: Command = { id: 'akari.timeline.selectCaptions' };
 
 // akari-annotations-widget.ts の同名定数とミラー（拡張内で完結させ、他拡張への npm 依存を作らない）。
 const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
@@ -277,6 +280,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ATTACH_AKARI_ANNOTATIONS_PASSIVE, {
             execute: () => this.attachPassively()
+        });
+        commands.registerCommand(SELECT_TIMELINE_CAPTIONS, {
+            execute: (request: unknown) => {
+                const detail = request as { editUri?: unknown; captionIds?: unknown } | undefined;
+                if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
+                const ids = detail.captionIds.filter((id): id is string => typeof id === 'string');
+                this.timelineWidget?.selectCaptions(detail.editUri, ids);
+            }
         });
         commands.registerCommand(SELECT_DOC_BLOCK, {
             execute: (blockId: unknown) => this.handleSelectDocBlock(blockId)

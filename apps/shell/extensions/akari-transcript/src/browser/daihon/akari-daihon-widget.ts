@@ -40,8 +40,11 @@ import {
     applySelectionClick,
     clearSelection,
     EMPTY_SELECTION,
+    planRowClick,
     planSelectionUpdate,
     pruneSelection,
+    selectedRowIds,
+    selectionSyncPayload,
     selectAll,
     type DaihonSelection
 } from '../../common/daihon-selection';
@@ -89,6 +92,8 @@ import {
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
+const TIMELINE_SELECT_CAPTIONS_COMMAND_ID = 'akari.timeline.selectCaptions';
+const SELECTION_ALT_ALL_EVENT = 'akari.selection.altAll';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
@@ -166,8 +171,9 @@ const STYLE = `
 .akari-daihon-row { position:relative; border-left:3px solid transparent; border-radius:5px; padding:3px 7px 4px 8px; margin:1px 0; transition:background .12s,border-color .12s; }
 .akari-daihon-row:hover { background:#20252e; }
 .akari-daihon-row.active { background:#202b2e; border-left-color:#53d1bc; }
-.akari-daihon-row.selected { outline:1px solid #3f6f66; background:rgba(83,209,188,.07); }
-.akari-daihon-row.selected .akari-daihon-row-head::before { content:"✓"; color:#53d1bc; font-size:9px; font-weight:700; margin-right:2px; }
+.akari-daihon-row.selected { outline:1px solid #f5c451; background:rgba(245,196,81,.08); }
+.akari-daihon-row.selected .akari-daihon-row-head::before { content:"✓"; color:#f5c451; font-size:9px; font-weight:700; margin-right:2px; }
+.akari-daihon-row.selected.active { border-left-color:#53d1bc; box-shadow:inset 3px 0 0 #f5c451; }
 .akari-daihon-row.qc-hidden { display:none; }
 .akari-daihon-row.iscut { opacity:.5; }
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
@@ -372,6 +378,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected autoScrolling = false;
     protected editing: EditingState | undefined;
     protected selection: DaihonSelection = EMPTY_SELECTION;
+    protected altAll = false;
     protected rowDrag: RowDragState | undefined;
     protected wordRanges: DaihonWordRange[] = [];
     protected wordDrag: { row: string; a: number; b: number; moved: boolean; add: boolean } | undefined;
@@ -522,6 +529,12 @@ export class AkariDaihonWidget extends BaseWidget {
         );
         window.addEventListener(PREVIEW_PLAYBACK_TICK_EVENT, tick);
         this.toDispose.push({ dispose: () => window.removeEventListener(PREVIEW_PLAYBACK_TICK_EVENT, tick) });
+        const altAll = (event: Event): void => {
+            const detail = (event as CustomEvent<{ on?: unknown }>).detail;
+            if (typeof detail?.on === 'boolean') this.setAltAll(detail.on);
+        };
+        window.addEventListener(SELECTION_ALT_ALL_EVENT, altAll);
+        this.toDispose.push({ dispose: () => window.removeEventListener(SELECTION_ALT_ALL_EVENT, altAll) });
         const pointerUp = (): void => {
             if (this.wordDrag) {
                 if (this.wordDrag.moved) this.suppressRowClick = true;
@@ -898,7 +911,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
         root.classList.toggle('iscut', row.outStart === null);
         root.classList.toggle('splitting', this.splitModeRowId === row.id);
-        root.classList.toggle('selected', this.selection.selected.includes(row.id));
+        root.classList.toggle('selected', this.altAll || this.selection.selected.includes(row.id));
         root.classList.toggle('qc-hidden', this.qcFilter && rowIssues(row).length === 0);
         root.addEventListener('click', event => this.handleRowClick(event, row.id));
         root.addEventListener('pointerdown', event => this.handleRowPointerDown(event, row.id));
@@ -2500,10 +2513,15 @@ export class AkariDaihonWidget extends BaseWidget {
             this.suppressRowClick = false;
             return;
         }
-        this.setSelection(applySelectionClick(this.selection, this.rowOrder(), id, {
+        const action = planRowClick({
             shift: event.shiftKey,
             meta: event.metaKey || event.ctrlKey
-        }));
+        });
+        if (action.kind === 'seek') {
+            void this.seek(this.rows.find(row => row.id === id)?.outStart ?? null);
+            return;
+        }
+        this.setSelection(applySelectionClick(this.selection, this.rowOrder(), id, action.modifiers));
     }
 
     protected handleRowPointerDown(event: PointerEvent, id: string): void {
@@ -2539,24 +2557,37 @@ export class AkariDaihonWidget extends BaseWidget {
         return this.rows.map(row => row.id);
     }
 
+    protected applyRowSelectionClasses(): void {
+        const ids = new Set(selectedRowIds(this.rowOrder(), this.selection, this.altAll));
+        for (const [id, elements] of this.elements) {
+            elements.root.classList.toggle('selected', ids.has(id));
+        }
+        this.rowsNode.classList.toggle('akari-daihon-altall', this.altAll);
+    }
+
+    protected setAltAll(on: boolean): void {
+        if (this.altAll === on) return;
+        this.altAll = on;
+        this.applyRowSelectionClasses();
+    }
+
     protected setSelection(next: DaihonSelection): void {
         const previous = this.selection;
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
         if (!changed) return;
         this.selection = next;
-        for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
-        for (const id of plan.remove) this.elements.get(id)?.root.classList.remove('selected');
+        if (!this.altAll) {
+            for (const id of plan.add) this.elements.get(id)?.root.classList.add('selected');
+            for (const id of plan.remove) this.elements.get(id)?.root.classList.remove('selected');
+        }
         const count = next.selected.length;
         this.selectionBar.hidden = count === 0;
         this.selectionCount.textContent = `${count} 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）`;
         this.updateSelectionMerge();
-        window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, {
-            detail: {
-                editUri: this.editUri?.normalizePath().toString() ?? '',
-                captionIds: [...next.selected]
-            }
-        }));
+        const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
+        window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
+        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID, payload).catch(() => undefined);
     }
 
     protected updateQcSummary(): void {

@@ -347,6 +347,9 @@ import {
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
     TimelineSelectionModel,
+    CAPTION_CHIP_PLAYING_CLASS,
+    CAPTION_CHIP_SELECTED_CLASS,
+    captionChipState,
     captionIdForTreeSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
@@ -357,6 +360,7 @@ const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
+const SELECTION_ALT_ALL_EVENT = 'akari.selection.altAll';
 const REVIEW_SESSION_RANGES_STORAGE_KEY = 'akari.annotations.reviewSessionRanges.visible';
 const REVIEW_SESSION_REFRESH_RETRY_INTERVAL_MS = 1_000;
 const REVIEW_SESSION_REFRESH_RETRY_LIMIT = 3;
@@ -1010,6 +1014,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
+    protected captionAltAll = false;
+    protected playingCaptionId: string | undefined;
     protected thumbnailCache = new Map<string, string | MediaCacheFailure>();
     /** 各ノードが最後に参照した失敗だけを、次の描画要求で再試行判定する。 */
     protected readonly clipMediaFailures = new WeakMap<HTMLDivElement, MediaCacheFailure[]>();
@@ -1139,6 +1145,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         document.addEventListener('dragstart', pause, true);
         document.addEventListener('dragend', resume, true);
         window.addEventListener('blur', resume);
+        const onSelectionAltAll = (event: Event): void => {
+            const detail = (event as CustomEvent<{ on?: unknown }>).detail;
+            if (typeof detail?.on !== 'boolean') return;
+            this.captionAltAll = detail.on;
+            this.applyCaptionStateClasses();
+        };
+        window.addEventListener(SELECTION_ALT_ALL_EVENT, onSelectionAltAll);
         this.toDispose.push(Disposable.create(() => {
             document.removeEventListener('pointerdown', pause, true);
             document.removeEventListener('pointerup', resume, true);
@@ -1146,6 +1159,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             document.removeEventListener('dragstart', pause, true);
             document.removeEventListener('dragend', resume, true);
             window.removeEventListener('blur', resume);
+            window.removeEventListener(SELECTION_ALT_ALL_EVENT, onSelectionAltAll);
             if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
             if (this.reviewSessionRefreshTimer !== undefined) window.clearTimeout(this.reviewSessionRefreshTimer);
             if (this.reviewSessionFocusTimer !== undefined) window.clearTimeout(this.reviewSessionFocusTimer);
@@ -1619,6 +1633,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-strip-caption {
         background: color-mix(in srgb, var(--theia-charts-purple, #b180d7) 68%, transparent);
         border-radius: 5px;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected {
+        background: rgba(245, 196, 81, .35);
+        outline: 2px solid #f5c451;
+        outline-offset: -2px;
+        box-shadow: none;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-playing {
+        box-shadow: inset 0 0 0 1.5px #53d1bc;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected.akari-annotations-caption-playing {
+        box-shadow: inset 0 0 0 1.5px #53d1bc;
     }
     .akari-annotations-widget .akari-annotations-tree-tick {
         position: absolute;
@@ -3918,6 +3945,49 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 'akari-annotations-selected', selectedKeys.has(rowKey)
             );
         }
+        this.applyCaptionStateClasses();
+    }
+
+    protected applyCaptionStateClasses(): void {
+        for (const element of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind="caption"]')
+        )) {
+            const id = element.dataset.akariItemId;
+            if (!id) continue;
+            const state = captionChipState(id, {
+                selectedIds: this.selectionModel.selectedCaptionIds,
+                playingId: this.playingCaptionId,
+                altAll: this.captionAltAll
+            });
+            element.classList.toggle(CAPTION_CHIP_SELECTED_CLASS, state.selected);
+            element.classList.toggle(CAPTION_CHIP_PLAYING_CLASS, state.playing);
+        }
+    }
+
+    protected resolveCaptionAtPlayhead(): string | undefined {
+        for (const [id, layout] of this.captionLayouts) {
+            if (layout.start <= this.playheadT && this.playheadT < layout.end) return id;
+        }
+        return undefined;
+    }
+
+    /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
+    selectCaptions(editUri: string, captionIds: readonly string[]): void {
+        if (!this.canHandlePlaybackTick(editUri)) return;
+        const requested = new Set(captionIds);
+        const ids = this.captions.map(caption => caption.id).filter(id => requested.has(id));
+        if (ids.length === 0) {
+            this.applySelection(undefined, false);
+        } else if (ids.length === 1) {
+            this.applySelection({ kind: 'caption', id: ids[0] }, false);
+        } else {
+            this.selection = undefined;
+            this.multiSelection = ids.map(id => ({ kind: 'caption', id }));
+            this.pushSelectionSnapshot();
+            this.applySelectionClass();
+        }
+        this.selectionModel.selectedCaptionIds = ids;
+        this.applyCaptionStateClasses();
     }
 
     handleOverlaySelection(editUri: string, overlayId: string | null): void {
@@ -14727,6 +14797,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        const playing = this.resolveCaptionAtPlayhead();
+        if (playing !== this.playingCaptionId) {
+            this.playingCaptionId = playing;
+            this.applyCaptionStateClasses();
+        }
     }
 
     protected normalizeUri(value: string): string {

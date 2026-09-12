@@ -1,0 +1,247 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 行の余白クリックは選択を変えず、再生位置だけ動く",
+      "pass": true,
+      "detail": {
+        "clickedAt": {
+          "hit": "akari-daihon-row-text"
+        },
+        "daihon": {
+          "before": [],
+          "after": [],
+          "active": [
+            "c-0002"
+          ]
+        },
+        "playhead": {
+          "before": "13.3333%",
+          "after": "40%"
+        },
+        "timelineSelected": []
+      }
+    },
+    {
+      "name": "2. ⌘ クリック 2 行でタイムラインの同じ 2 ブロックが selected（琥珀）になり、再生中ブロックに playing（accent 枠）とプレイヘッド線が同時に出る",
+      "pass": true,
+      "detail": {
+        "daihonSelected": [
+          "c-0001",
+          "c-0002"
+        ],
+        "daihonSelectedOutline": [
+          "rgb(245, 196, 81)",
+          "rgb(245, 196, 81)"
+        ],
+        "timelineSelected": [
+          "c-0001",
+          "c-0002"
+        ],
+        "selectedAndPlaying": {
+          "id": "c-0001",
+          "selected": true,
+          "playing": true,
+          "background": "rgba(245, 196, 81, 0.35)",
+          "outlineColor": "rgb(245, 196, 81)",
+          "boxShadow": "rgb(83, 209, 188) 0px 0px 0px 1.5px inset"
+        },
+        "playhead": {
+          "left": "16.6667%",
+          "width": "2px",
+          "background": "rgb(59, 130, 246)",
+          "height": 124.4765625
+        },
+        "chips": [
+          {
+            "id": "c-0001",
+            "selected": true,
+            "playing": true,
+            "genericSelected": true,
+            "outlineColor": "rgb(245, 196, 81)",
+            "background": "rgba(245, 196, 81, 0.35)",
+            "boxShadow": "rgb(83, 209, 188) 0px 0px 0px 1.5px inset"
+          },
+          {
+            "id": "c-0002",
+            "selected": true,
+            "playing": false,
+            "genericSelected": true,
+            "outlineColor": "rgb(245, 196, 81)",
+            "background": "rgba(245, 196, 81, 0.35)",
+            "boxShadow": "none"
+          },
+          {
+            "id": "c-0003",
+            "selected": false,
+            "playing": false,
+            "genericSelected": false,
+            "outlineColor": "rgb(204, 204, 204)",
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)",
+            "boxShadow": "none"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3. 再生して現在位置が選択ブロックの上を通過しても selected（琥珀）が残る",
+      "pass": true,
+      "detail": {
+        "crossed": {
+          "playingSeen": [
+            "c-0001",
+            "c-0002"
+          ],
+          "samples": 3,
+          "drops": 0
+        },
+        "observedSamples": 3,
+        "playingSeen": [
+          "c-0001",
+          "c-0002"
+        ],
+        "drops": [],
+        "final": [
+          {
+            "id": "c-0001",
+            "selected": true,
+            "playing": false
+          },
+          {
+            "id": "c-0002",
+            "selected": true,
+            "playing": true
+          },
+          {
+            "id": "c-0003",
+            "selected": false,
+            "playing": false
+          }
+        ],
+        "daihonSelected": [
+          "c-0001",
+          "c-0002"
+        ]
+      }
+    },
+    {
+      "name": "4. ⌥ 押下で台本の全行とタイムラインの全字幕が selected になり、プレビューの枠が点線（data-alt-all）になる",
+      "pass": true,
+      "detail": {
+        "plateBefore": {
+          "selected": true,
+          "altAll": false,
+          "usesInner": false,
+          "text": "きょうは天気がとてもよいので",
+          "outlineStyle": "solid",
+          "outlineColor": "rgb(245, 196, 81)",
+          "outlineWidth": "1.5px"
+        },
+        "plateAfter": {
+          "selected": true,
+          "altAll": true,
+          "usesInner": false,
+          "text": "きょうは天気がとてもよいので",
+          "outlineStyle": "dashed",
+          "outlineColor": "rgb(83, 209, 188)",
+          "outlineWidth": "1.5px"
+        },
+        "daihonSelected": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ],
+        "daihonTotal": 3,
+        "timelineSelected": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ]
+      }
+    },
+    {
+      "name": "5. ⌥ を離すと元の 2 行（2 ブロック）の選択へ戻り、プレビューの枠が実線の琥珀へ戻る",
+      "pass": true,
+      "detail": {
+        "plate": {
+          "selected": true,
+          "altAll": false,
+          "usesInner": false,
+          "text": "きょうは天気がとてもよいので",
+          "outlineStyle": "solid",
+          "outlineColor": "rgb(245, 196, 81)",
+          "outlineWidth": "1.5px"
+        },
+        "daihonSelected": [
+          "c-0001",
+          "c-0002"
+        ],
+        "timelineSelected": [
+          "c-0001",
+          "c-0002"
+        ],
+        "restoredFrom": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "01-blank-click-seeks-without-selection.png",
+    "02-cmd-click-two-rows-amber-playing-playhead.png",
+    "03-playhead-passes-selection-stays-amber.png",
+    "04-alt-all-mode-everything-selected-dashed.png",
+    "05-alt-release-back-to-two-rows.png"
+  ],
+  "cleanup": {
+    "killedPid": 5385,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 3,
+    "mediaSeconds": 8,
+    "captions": [
+      {
+        "id": "c-0001",
+        "text": "きょうは天気がとてもよいので",
+        "start": 1,
+        "end": 3.2
+      },
+      {
+        "id": "c-0002",
+        "text": "あしたの予定を決めましょう",
+        "start": 3.6,
+        "end": 5.2
+      },
+      {
+        "id": "c-0003",
+        "text": "短い行です",
+        "start": 5.6,
+        "end": 6.6
+      }
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "width": 427,
+    "height": 47.328125
+  },
+  "timelineChips": [
+    "c-0001",
+    "c-0002",
+    "c-0003"
+  ],
+  "warmUp": {
+    "total": 3,
+    "selected": [],
+    "active": [
+      "c-0001"
+    ],
+    "selectionBarHidden": true,
+    "selectedOutline": []
+  }
+}

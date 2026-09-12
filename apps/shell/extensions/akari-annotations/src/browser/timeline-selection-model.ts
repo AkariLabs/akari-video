@@ -226,6 +226,36 @@ export type TimelineSelectionSnapshot =
     | TimelineMultiSelectionSnapshot
     | undefined;
 
+export interface CaptionChipState {
+    selected: boolean;
+    playing: boolean;
+}
+
+/**
+ * 選択（琥珀）と再生中（accent 内枠）は別々の状態として立てる。両方 true のときは
+ * 両方の形が同時に出る（= 選択が現在位置と混ざらない）。altAll は ⌥ 全体モード。
+ */
+export function captionChipState(
+    captionId: string,
+    options: { selectedIds: readonly string[]; playingId?: string | null; altAll?: boolean }
+): CaptionChipState {
+    return {
+        selected: options.altAll === true || options.selectedIds.includes(captionId),
+        playing: options.playingId === captionId
+    };
+}
+
+export const CAPTION_CHIP_SELECTED_CLASS = 'akari-annotations-caption-selected';
+export const CAPTION_CHIP_PLAYING_CLASS = 'akari-annotations-caption-playing';
+
+/** state から付けるべき class 名の配列（順序は selected → playing）。 */
+export function captionChipClasses(state: CaptionChipState): string[] {
+    return [
+        ...(state.selected ? [CAPTION_CHIP_SELECTED_CLASS] : []),
+        ...(state.playing ? [CAPTION_CHIP_PLAYING_CLASS] : [])
+    ];
+}
+
 /** edit.json の文書レベル audio.master をインスペクターへ運ぶスナップショット。 */
 export interface TimelineAudioMasterSnapshot {
     enabled: boolean;
@@ -391,6 +421,7 @@ export class TimelineSelectionModel {
     protected _audioMaster: TimelineAudioMasterSnapshot = { enabled: false };
     protected _treeSelection: TimelineTreeItemSelection | undefined;
     protected _keyframeSelection: TimelineKeyframeSelection | undefined;
+    protected _selectedCaptionIds: readonly string[] = [];
     protected _fps = 30;
 
     /**
@@ -446,6 +477,19 @@ export class TimelineSelectionModel {
 
     set keyframeSelection(value: TimelineKeyframeSelection | undefined) {
         this._keyframeSelection = value;
+        this.onChangedEmitter.fire();
+    }
+
+    get selectedCaptionIds(): readonly string[] {
+        return this._selectedCaptionIds;
+    }
+
+    set selectedCaptionIds(value: readonly string[]) {
+        if (value.length === this._selectedCaptionIds.length
+            && value.every((id, index) => id === this._selectedCaptionIds[index])) {
+            return;
+        }
+        this._selectedCaptionIds = [...value];
         this.onChangedEmitter.fire();
     }
 
