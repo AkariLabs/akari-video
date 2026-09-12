@@ -35,7 +35,8 @@ const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'bea
 const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
 const DECISION_LOG_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'decision-log.mjs');
 const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
-const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
+// capture-command.mjs のエラー文と apps/shell の同梱テストが同じ相対パスを名指しできるよう export する。
+export const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
 const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
 const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
 
