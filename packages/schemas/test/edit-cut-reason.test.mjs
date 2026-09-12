@@ -60,3 +60,22 @@ test('cut の未知の由来は拒否する', () => {
     assert.notEqual(executed.status, 0, executed.stdout);
     assert.match(executed.stderr, /"keyword":"enum"/u);
 });
+
+test('v2 media item の由来とラベルを schema / 手書き validator が受理する', () => {
+    const executed = runPatchedExample('edit-v2-valid', value => {
+        Object.assign(value.tracks[3].items[0], { reason: 'word', label: '言い直し' });
+    });
+    assert.equal(executed.status, 0, executed.stderr);
+});
+
+test('v2 media item の未知の由来を schema / 手書き validator が拒否する', () => {
+    const schema = runPatchedExample('edit-v2-valid', value => {
+        value.tracks[3].items[0].reason = 'bogus';
+    }, true);
+    assert.notEqual(schema.status, 0);
+    const cli = runPatchedExample('edit-v2-valid', value => {
+        value.tracks[3].items[0].reason = 'bogus';
+    });
+    assert.notEqual(cli.status, 0);
+    assert.match(cli.stderr, /reason は silence\/word/u);
+});

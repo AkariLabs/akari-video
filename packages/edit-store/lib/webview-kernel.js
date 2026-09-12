@@ -1793,6 +1793,8 @@ var AkariEditKernel = (() => {
     "name",
     "hidden",
     "locked",
+    "reason",
+    "label",
     "at",
     "duration",
     "transform",

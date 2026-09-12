@@ -1576,7 +1576,9 @@
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^captions$": { "enum": ["on", "off"], "default": "on" }
+        "^captions$": { "enum": ["on", "off"], "default": "on" },
+        "^reason$": { "enum": ["silence", "word"] },
+        "^label$": { "type": "string" }
       },
       "required": ["id", "at", "duration", "source"],
       "properties": {

@@ -16,8 +16,9 @@ import { readEditV2, type EditV2, type ItemV2, type MediaItemV2, type VisualItem
 export interface CutRange {
     in: number;
     out: number;
-    kind: 'row' | 'filler' | 'silence';
+    kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
+    reason?: 'silence' | 'word';
     label?: string;
 }
 
@@ -95,6 +96,9 @@ function applyLegacy(
                 source = splitCutInSource(source, index + 1, effectiveOut);
                 source = deleteCutInSource(source, index + 1).source;
             }
+            if (range.reason !== undefined || range.label !== undefined) {
+                source = annotateLegacySegments(source, cut, effectiveIn, effectiveOut, range);
+            }
         }
         if (!matched) warnings.push(`カット対象が見つかりません: ${range.in}–${range.out}`);
     }
@@ -137,6 +141,9 @@ function applyV2(
                 matched = true;
                 affectedTrackIds.add(track.id);
                 const replacement = splitAndRemove(item, overlapIn, overlapOut, edit);
+                for (const replacementItem of replacement.items) {
+                    copyRangeMetadata(replacementItem as ItemV2 & { reason?: 'silence' | 'word'; label?: string }, range);
+                }
                 removedFrames += replacement.removedFrames;
                 track.items.splice(index, 1, ...replacement.items);
             }
@@ -157,6 +164,23 @@ function applyV2(
     }
     readEditV2(edit);
     return { source: `${JSON.stringify(edit, null, 2)}\n`, removedFrames, warnings };
+}
+
+function copyRangeMetadata(target: { reason?: 'silence' | 'word'; label?: string }, range: CutRange): void {
+    if (range.reason !== undefined) target.reason = range.reason;
+    if (range.label !== undefined) target.label = range.label;
+}
+
+function annotateLegacySegments(source: string, original: EditCut, removedIn: number, removedOut: number, range: CutRange): string {
+    const edit = JSON.parse(source) as { cuts?: Array<EditCut & { reason?: 'silence' | 'word'; label?: string }> };
+    if (!Array.isArray(edit.cuts)) return source;
+    const originalTrack = normalizeTrack(original.track);
+    for (const cut of edit.cuts) {
+        if (normalizeTrack(cut.track) !== originalTrack || cut.src !== original.src) continue;
+        if (cut.in < original.in || cut.out > original.out) continue;
+        if (cut.out <= removedIn || cut.in >= removedOut) copyRangeMetadata(cut, range);
+    }
+    return `${JSON.stringify(edit, null, 2)}\n`;
 }
 
 function splitAndRemove(
