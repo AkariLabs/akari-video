@@ -1,0 +1,691 @@
+{
+ "label": "after",
+ "startedAt": "2026-09-12T02:46:53.307Z",
+ "electronPid": 97398,
+ "steps": {
+  "dragStart": {
+   "card": "assets/video/clip-a.mp4",
+   "mimeTypes": [
+    "application/x-akari-material"
+   ],
+   "dragOperationsMask": 1
+  },
+  "pilot": {
+   "over": [
+    {
+     "x": 530,
+     "y": 802,
+     "prevented": true,
+     "effect": "copy"
+    },
+    {
+     "x": 530,
+     "y": 802,
+     "prevented": true,
+     "effect": "copy"
+    },
+    {
+     "x": 975,
+     "y": 742,
+     "prevented": true,
+     "effect": "copy"
+    },
+    {
+     "x": 975,
+     "y": 742,
+     "prevented": true,
+     "effect": "copy"
+    },
+    {
+     "x": 590,
+     "y": 822,
+     "prevented": true,
+     "effect": "copy"
+    },
+    {
+     "x": 590,
+     "y": 822,
+     "prevented": true,
+     "effect": "copy"
+    }
+   ],
+   "drop": [
+    {
+     "x": 530,
+     "y": 802,
+     "prevented": true,
+     "placed": {
+      "relativePath": "assets/video/clip-a.mp4",
+      "kind": "video",
+      "t": 0.087,
+      "track": 8,
+      "options": {
+       "zone": "layers",
+       "durationSeconds": 6,
+       "targetTrackId": "v9"
+      }
+     },
+     "footer": ""
+    },
+    {
+     "x": 975,
+     "y": 742,
+     "prevented": true,
+     "placed": {
+      "relativePath": "assets/video/clip-a.mp4",
+      "kind": "video",
+      "t": 0.738,
+      "track": 8,
+      "options": {
+       "zone": "layers",
+       "durationSeconds": 6,
+       "targetTrackId": "v9"
+      }
+     },
+     "footer": ""
+    },
+    {
+     "x": 590,
+     "y": 822,
+     "prevented": true,
+     "placed": {
+      "relativePath": "assets/video/clip-a.mp4",
+      "kind": "video",
+      "t": 0.174,
+      "track": 8,
+      "options": {
+       "zone": "layers",
+       "durationSeconds": 6,
+       "targetTrackId": "v9"
+      }
+     },
+     "footer": ""
+    }
+   ],
+   "escaped": []
+  },
+  "grid": {
+   "step": 8,
+   "points": 3402,
+   "observed": 3402,
+   "silentNoOps": 0,
+   "dragoverNotPrevented": 0,
+   "escapedToDocument": 0,
+   "placed": 3402,
+   "reasonOnly": 0,
+   "silentSample": [],
+   "notPreventedSample": []
+  },
+  "realDrops": [
+   {
+    "band": "toolbar",
+    "point": {
+     "x": 1043.9,
+     "y": 745
+    },
+    "editChanged": true,
+    "itemsBefore": 9,
+    "itemsAfter": 10,
+    "tracksBefore": 10,
+    "tracksAfter": 10,
+    "newItems": [
+     {
+      "track": "v8",
+      "lane": "visual",
+      "id": "clip-1",
+      "at": 25,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ],
+    "footerBefore": "",
+    "footerAfter": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "outcome": "placed"
+   },
+   {
+    "band": "ruler",
+    "point": {
+     "x": 1043.9,
+     "y": 775
+    },
+    "editChanged": true,
+    "itemsBefore": 10,
+    "itemsAfter": 11,
+    "tracksBefore": 10,
+    "tracksAfter": 10,
+    "newItems": [
+     {
+      "track": "v8",
+      "lane": "visual",
+      "id": "clip-2",
+      "at": 118,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ],
+    "footerBefore": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "footerAfter": "タイムラインに素材を追加しました。",
+    "outcome": "placed"
+   },
+   {
+    "band": "header-column",
+    "point": {
+     "x": 402.9,
+     "y": 813
+    },
+    "editChanged": true,
+    "itemsBefore": 11,
+    "itemsAfter": 12,
+    "tracksBefore": 10,
+    "tracksAfter": 10,
+    "newItems": [
+     {
+      "track": "v8",
+      "lane": "visual",
+      "id": "clip-3",
+      "at": 0,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ],
+    "footerBefore": "タイムラインに素材を追加しました。",
+    "footerAfter": "トラックヘッダ列から再生ヘッド 00:00:00.000 に素材を置きました。",
+    "outcome": "placed"
+   },
+   {
+    "band": "footer-band",
+    "point": {
+     "x": 1043.9,
+     "y": 892
+    },
+    "editChanged": true,
+    "itemsBefore": 12,
+    "itemsAfter": 13,
+    "tracksBefore": 10,
+    "tracksAfter": 10,
+    "newItems": [
+     {
+      "track": "v8",
+      "lane": "visual",
+      "id": "clip-4",
+      "at": 165,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ],
+    "footerBefore": "トラックヘッダ列から再生ヘッド 00:00:00.000 に素材を置きました。",
+    "footerAfter": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "outcome": "placed"
+   },
+   {
+    "band": "strip-inside",
+    "point": {
+     "x": 590.9,
+     "y": 807
+    },
+    "editChanged": true,
+    "itemsBefore": 13,
+    "itemsAfter": 14,
+    "tracksBefore": 10,
+    "tracksAfter": 10,
+    "newItems": [
+     {
+      "track": "v8",
+      "lane": "visual",
+      "id": "clip-5",
+      "at": 40,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ],
+    "footerBefore": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "footerAfter": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "outcome": "placed"
+   }
+  ],
+  "unorganized": {
+   "found": true,
+   "card": {
+    "path": "raw-take01.mp4",
+    "unorganized": "true",
+    "draggable": "false",
+    "imgDraggable": "false",
+    "rect": {
+     "x": 52,
+     "y": 289.44,
+     "w": 129.94,
+     "h": 154.44,
+     "left": 52,
+     "top": 289.44,
+     "right": 181.94,
+     "bottom": 443.88
+    }
+   },
+   "dragInterceptedThumbnail": 0,
+   "dragInterceptedCentre": 0,
+   "nativeDragStarted": false,
+   "messageShown": [
+    "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 3 on the same track未整理の素材は「assets へ移動」のあとで置けますNotifications保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 3 on the same track未整理の素材は「assets へ移動」のあとで置けます",
+    "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 3 on the same track未整理の素材は「assets へ移動」のあとで置けます",
+    "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 3 on the same track未整理の素材は「assets へ移動」のあとで置けます"
+   ],
+   "messageOnPlainClick": []
+  },
+  "autoscroll": {
+   "atTop": {
+    "scrollTop": 0,
+    "scrollHeight": 728,
+    "clientHeight": 73,
+    "rows": [
+     {
+      "id": "v9",
+      "lane": "cuts",
+      "top": 807,
+      "bottom": 855,
+      "visible": true
+     },
+     {
+      "id": "v8",
+      "lane": "layers",
+      "top": 857,
+      "bottom": 1107,
+      "visible": false
+     },
+     {
+      "id": "v7",
+      "lane": "cuts",
+      "top": 1109,
+      "bottom": 1157,
+      "visible": false
+     },
+     {
+      "id": "v6",
+      "lane": "cuts",
+      "top": 1159,
+      "bottom": 1207,
+      "visible": false
+     },
+     {
+      "id": "v5",
+      "lane": "cuts",
+      "top": 1209,
+      "bottom": 1257,
+      "visible": false
+     },
+     {
+      "id": "v4",
+      "lane": "cuts",
+      "top": 1259,
+      "bottom": 1307,
+      "visible": false
+     },
+     {
+      "id": "v3",
+      "lane": "cuts",
+      "top": 1309,
+      "bottom": 1357,
+      "visible": false
+     },
+     {
+      "id": "v2",
+      "lane": "cuts",
+      "top": 1359,
+      "bottom": 1407,
+      "visible": false
+     },
+     {
+      "id": "v1",
+      "lane": "cuts",
+      "top": 1409,
+      "bottom": 1457,
+      "visible": false
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 1459,
+      "bottom": 1487,
+      "visible": false
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 1459,
+      "bottom": 1487,
+      "visible": false
+     }
+    ]
+   },
+   "shot1Bytes": 19265,
+   "afterBottomHover": {
+    "scrollTop": 655,
+    "scrollHeight": 728,
+    "clientHeight": 73,
+    "rows": [
+     {
+      "id": "v9",
+      "lane": "cuts",
+      "top": 152,
+      "bottom": 200,
+      "visible": false
+     },
+     {
+      "id": "v8",
+      "lane": "layers",
+      "top": 202,
+      "bottom": 452,
+      "visible": false
+     },
+     {
+      "id": "v7",
+      "lane": "cuts",
+      "top": 454,
+      "bottom": 502,
+      "visible": false
+     },
+     {
+      "id": "v6",
+      "lane": "cuts",
+      "top": 504,
+      "bottom": 552,
+      "visible": false
+     },
+     {
+      "id": "v5",
+      "lane": "cuts",
+      "top": 554,
+      "bottom": 602,
+      "visible": false
+     },
+     {
+      "id": "v4",
+      "lane": "cuts",
+      "top": 604,
+      "bottom": 652,
+      "visible": false
+     },
+     {
+      "id": "v3",
+      "lane": "cuts",
+      "top": 654,
+      "bottom": 702,
+      "visible": false
+     },
+     {
+      "id": "v2",
+      "lane": "cuts",
+      "top": 704,
+      "bottom": 752,
+      "visible": false
+     },
+     {
+      "id": "v1",
+      "lane": "cuts",
+      "top": 754,
+      "bottom": 802,
+      "visible": true
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 804,
+      "bottom": 832,
+      "visible": true
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 804,
+      "bottom": 832,
+      "visible": true
+     }
+    ]
+   },
+   "shot2Bytes": 19468,
+   "offscreenTargetRow": {
+    "id": "v1",
+    "lane": "cuts",
+    "top": 754,
+    "bottom": 802,
+    "visible": true
+   },
+   "offscreenRowDrop": {
+    "editChanged": true,
+    "dropPoint": {
+     "x": 1576.9,
+     "y": 778
+    },
+    "row": {
+     "id": "v1",
+     "lane": "cuts",
+     "top": 754,
+     "bottom": 802,
+     "visible": true
+    },
+    "itemsBefore": 14,
+    "itemsAfter": 15,
+    "newItems": [
+     {
+      "track": "v1",
+      "id": "clip-6",
+      "at": 369,
+      "duration": 180
+     }
+    ],
+    "footer": "タイムラインに素材を追加しました。（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）",
+    "scrollTopAtDrop": 655
+   },
+   "afterTopHover": {
+    "scrollTop": 0,
+    "scrollHeight": 728,
+    "clientHeight": 73,
+    "rows": [
+     {
+      "id": "v9",
+      "lane": "cuts",
+      "top": 807,
+      "bottom": 855,
+      "visible": true
+     },
+     {
+      "id": "v8",
+      "lane": "layers",
+      "top": 857,
+      "bottom": 1107,
+      "visible": false
+     },
+     {
+      "id": "v7",
+      "lane": "cuts",
+      "top": 1109,
+      "bottom": 1157,
+      "visible": false
+     },
+     {
+      "id": "v6",
+      "lane": "cuts",
+      "top": 1159,
+      "bottom": 1207,
+      "visible": false
+     },
+     {
+      "id": "v5",
+      "lane": "cuts",
+      "top": 1209,
+      "bottom": 1257,
+      "visible": false
+     },
+     {
+      "id": "v4",
+      "lane": "cuts",
+      "top": 1259,
+      "bottom": 1307,
+      "visible": false
+     },
+     {
+      "id": "v3",
+      "lane": "cuts",
+      "top": 1309,
+      "bottom": 1357,
+      "visible": false
+     },
+     {
+      "id": "v2",
+      "lane": "cuts",
+      "top": 1359,
+      "bottom": 1407,
+      "visible": false
+     },
+     {
+      "id": "v1",
+      "lane": "cuts",
+      "top": 1409,
+      "bottom": 1457,
+      "visible": false
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 1459,
+      "bottom": 1487,
+      "visible": false
+     },
+     {
+      "id": "a1",
+      "lane": "audio",
+      "top": 1459,
+      "bottom": 1487,
+      "visible": false
+     }
+    ]
+   }
+  }
+ },
+ "geometry": {
+  "panel": {
+   "x": 328.88,
+   "y": 736.96,
+   "w": 1294,
+   "h": 163.03,
+   "left": 328.88,
+   "top": 736.96,
+   "right": 1622.88,
+   "bottom": 899.99
+  },
+  "strip": {
+   "x": 470.88,
+   "y": 782.96,
+   "w": 1146,
+   "h": 73.03,
+   "left": 470.88,
+   "top": 782.96,
+   "right": 1616.88,
+   "bottom": 855.99
+  },
+  "header": {
+   "x": 334.88,
+   "y": 768.96,
+   "w": 136,
+   "h": 87.03,
+   "left": 334.88,
+   "top": 768.96,
+   "right": 470.88,
+   "bottom": 855.99
+  },
+  "ruler": {
+   "x": 470.88,
+   "y": 768.96,
+   "w": 1138,
+   "h": 14,
+   "left": 470.88,
+   "top": 768.96,
+   "right": 1608.88,
+   "bottom": 782.96
+  },
+  "viewport": {
+   "width": 1680,
+   "height": 926,
+   "dpr": 1
+  },
+  "scroll": {
+   "scrollHeight": 526,
+   "clientHeight": 73
+  },
+  "cards": [
+   {
+    "path": "assets/audio/bgm.mp3",
+    "unorganized": "false",
+    "draggable": "true",
+    "imgDraggable": "false",
+    "rect": {
+     "x": 52,
+     "y": 84,
+     "w": 129.94,
+     "h": 129.94,
+     "left": 52,
+     "top": 84,
+     "right": 181.94,
+     "bottom": 213.94
+    }
+   },
+   {
+    "path": "assets/video/clip-a.mp4",
+    "unorganized": "false",
+    "draggable": "true",
+    "imgDraggable": "false",
+    "rect": {
+     "x": 185.94,
+     "y": 84,
+     "w": 129.94,
+     "h": 129.94,
+     "left": 185.94,
+     "top": 84,
+     "right": 315.88,
+     "bottom": 213.94
+    }
+   },
+   {
+    "path": "raw-take01.mp4",
+    "unorganized": "true",
+    "draggable": "false",
+    "imgDraggable": "false",
+    "rect": {
+     "x": 52,
+     "y": 289.44,
+     "w": 129.94,
+     "h": 154.44,
+     "left": 52,
+     "top": 289.44,
+     "right": 181.94,
+     "bottom": 443.88
+    }
+   }
+  ]
+ },
+ "finishedAt": "2026-09-12T02:47:44.801Z"
+}

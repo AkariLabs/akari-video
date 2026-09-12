@@ -309,6 +309,8 @@ test('material drop rejects a locked target and hides its ghost', () => {
   context.laneLayout = { tracks: [{ id: 'visual', track: 0, top: 0, height: 48 }] };
   const payload = { kind: 'video', relativePath: 'media.mp4' };
   context.isMaterialDragTransfer = () => true;
+  context.materialPanelDropPoint = (x, y) => ({ x, y, zone: 'strip' });
+  context.stopMaterialDragAutoScroll = () => {};
   context.readMaterialDropPayload = () => payload;
   context.hideMaterialGhost = () => { context.ghostHidden = true; };
   context.materialDragPayload = payload;

@@ -2094,6 +2094,28 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         window.dispatchEvent(new CustomEvent(MATERIAL_DRAG_END_EVENT));
     }
 
+    protected handleUnorganizedMaterialMouseDown(event: React.MouseEvent<HTMLDivElement>): void {
+        if (event.button !== 0 || (event.target instanceof Element && event.target.closest('button'))) {
+            return;
+        }
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const cleanup = (): void => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+        const onMouseMove = (moveEvent: MouseEvent): void => {
+            if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 5) {
+                return;
+            }
+            cleanup();
+            void this.messages.info('未整理の素材は「assets へ移動」のあとで置けます');
+        };
+        const onMouseUp = (): void => cleanup();
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp, { once: true });
+    }
+
     protected async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
         const root = this.workflow.workspaceRoot;
         if (!root || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
@@ -2135,6 +2157,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 draggable={draggable}
                 onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
                 onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
+                onMouseDown={entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
                 onClick={() => void this.openFile(entry.uri)}
                 onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}
@@ -2167,12 +2190,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         ? <img
                             src={entry.thumbnailUri.toString()}
                             alt=''
+                            draggable={false}
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: layout.objectFit }}
                         />
                         : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
                             ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
                                 files={this.files} icon={this.placeholderIcon(entry.kind)} />
-                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' style={{ fontSize: '1.8em', opacity: 0.5 }} />}
+                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' draggable={false}
+                                style={{ fontSize: '1.8em', opacity: 0.5 }} />}
                     {(entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}

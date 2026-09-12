@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
+import {
+  clampTimelinePanelDropPoint,
+  hitTestTimelineTrackDrop,
+  planDragAutoScroll
+} from '../lib/common/timeline-track-drop.js';
 
 const layouts = [
   { id: 'v3', lane: 'visual', acceptsItems: true, rawIndex: 5, track: 2, top: 20, height: 40 },
@@ -71,4 +75,37 @@ test('audio が無ければ最下段から遠く下でも新しい最下段 visu
 
 test('audio 本体は距離に関わらず lane 越えとして拒否する', () => {
   assert.equal(hitTestTimelineTrackDrop(155, layouts, 2).rejected, true);
+});
+
+const panelRects = {
+  panelRect: { left: 0, right: 500, top: 0, bottom: 300 },
+  headerColumnRect: { left: 0, right: 100, top: 50, bottom: 250 },
+  stripRect: { left: 100, right: 500, top: 50, bottom: 250 }
+};
+
+test('パネル内の素材ドロップ座標を 5 ゾーンへ固定する', () => {
+  const cases = [
+    [{ pointerX: 101, pointerY: 51 }, { x: 101, y: 51, zone: 'strip' }],
+    [{ pointerX: 499, pointerY: 249 }, { x: 499, y: 249, zone: 'strip' }],
+    [{ pointerX: 100, pointerY: 49 }, { x: 100, y: 51, zone: 'ruler-above' }],
+    [{ pointerX: 499, pointerY: 0 }, { x: 499, y: 51, zone: 'ruler-above' }],
+    [{ pointerX: 100, pointerY: 250 }, { x: 100, y: 249, zone: 'below-strip' }],
+    [{ pointerX: 499, pointerY: 299 }, { x: 499, y: 249, zone: 'below-strip' }],
+    [{ pointerX: 99, pointerY: 50 }, { x: 101, y: 50, zone: 'header-column' }],
+    [{ pointerX: 0, pointerY: 249 }, { x: 101, y: 249, zone: 'header-column' }],
+    [{ pointerX: -1, pointerY: 50 }, { x: -1, y: 50, zone: 'outside' }],
+    [{ pointerX: 501, pointerY: 250 }, { x: 501, y: 250, zone: 'outside' }]
+  ];
+  for (const [pointer, expected] of cases) {
+    assert.deepEqual(clampTimelinePanelDropPoint({ ...pointer, ...panelRects }), expected);
+  }
+});
+
+test('素材ドラッグの縦オートスクロールは上下 24px だけ 8px 動かす', () => {
+  const stripRect = panelRects.stripRect;
+  for (const [pointerY, deltaY] of [
+    [49, 0], [50, -8], [74, -8], [75, 0], [225, 0], [226, 8], [249, 8], [250, 0]
+  ]) {
+    assert.deepEqual(planDragAutoScroll({ pointerY, stripRect, edge: 24, step: 8 }), { deltaY });
+  }
 });

@@ -54,7 +54,6 @@ export function createScrubAudioController(deps) {
   const EncodedAudioChunkCtor = deps.EncodedAudioChunkCtor ?? globalThis.EncodedAudioChunk;
   const setTimeoutFn = deps.setTimeoutFn ?? globalThis.setTimeout;
   const clearTimeoutFn = deps.clearTimeoutFn ?? globalThis.clearTimeout;
-  const idleSuspendMs = deps.idleSuspendMs ?? 30000;
   const requestedCacheBytes = deps.maxCacheBytes
     ?? deps.tuning?.maxCacheBytes
     ?? SCRUB_TUNING.maxCacheBytes;
@@ -70,7 +69,6 @@ export function createScrubAudioController(deps) {
   let prefetchGeneration = 0;
   let mainActive = null;
   let bgmActive = null;
-  let idleTimer = null;
   let fragmentTimer = null;
   let pendingInput = null;
   let seekState = null;
@@ -159,21 +157,6 @@ export function createScrubAudioController(deps) {
     if (fragmentTimer !== null) clearTimeoutFn(fragmentTimer);
     fragmentTimer = null;
     pendingInput = null;
-  }
-
-  function clearIdleTimer() {
-    if (idleTimer !== null) clearTimeoutFn(idleTimer);
-    idleTimer = null;
-  }
-
-  function armIdleTimer() {
-    clearIdleTimer();
-    idleTimer = setTimeoutFn(() => {
-      idleTimer = null;
-      if (isEnabled && audioContext.state === 'running') {
-        Promise.resolve(audioContext.suspend()).catch(() => {});
-      }
-    }, idleSuspendMs);
   }
 
   function updateVelocity(input, wallMs) {
@@ -299,6 +282,13 @@ export function createScrubAudioController(deps) {
   }
 
   async function prepare(srcs) {
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch (error) {
+        lastError = errorMessage(error);
+      }
+    }
     const values = Array.isArray(srcs) ? srcs : [srcs];
     const pending = [];
     for (const value of values) {
@@ -518,7 +508,6 @@ export function createScrubAudioController(deps) {
     latest = state.latest;
     if (video.muted === true || !(video.volume > 0)) {
       stopFragments(false);
-      armIdleTimer();
       return;
     }
     // 次の断片を出せるところまで旧断片を残し、取得・復号待ちの無音を作らない。
@@ -542,7 +531,6 @@ export function createScrubAudioController(deps) {
       lastStartedSourceTime = latest.input.sourceTime;
     }
     void startPrefetch(latest.input, latest.speed, entry);
-    armIdleTimer();
   }
 
   function dispatchSeek(input, speed, wallMs = now()) {
@@ -620,10 +608,8 @@ export function createScrubAudioController(deps) {
       clearFragmentTimer();
       stopFragments();
       cancelPrefetch();
-      armIdleTimer();
       return;
     }
-    armIdleTimer();
     if (fragmentTimer !== null
       || (fastMode && wallMs - lastFragmentStartedAtMs < tuning.minFragmentIntervalMs)) {
       throttledSeeks++;
@@ -638,7 +624,6 @@ export function createScrubAudioController(deps) {
     clearFragmentTimer();
     stopFragments();
     cancelPrefetch();
-    clearIdleTimer();
     velocityHistory = [];
     velocity = 0;
     direction = 0;
@@ -649,9 +634,7 @@ export function createScrubAudioController(deps) {
     lastStartedSourceTime = null;
   }
 
-  function onPlaybackPaused() {
-    if (isEnabled) armIdleTimer();
-  }
+  function onPlaybackPaused() {}
 
   const controller = {
     get enabled() { return isEnabled; },

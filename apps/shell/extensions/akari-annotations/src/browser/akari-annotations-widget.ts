@@ -205,7 +205,11 @@ import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import { setSfxGainDbInSource } from '../common/edit-store';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import {
+    clampTimelinePanelDropPoint,
     hitTestTimelineTrackDrop,
+    planDragAutoScroll,
+    TimelinePanelDropPoint,
+    TimelinePanelDropZone,
     TimelineTrackDropLayout
 } from '../common/timeline-track-drop';
 import { hitTestTimelineTreeDrop, TimelineTreeDropHit } from '../common/timeline-tree-drop';
@@ -901,6 +905,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
+    protected materialDragAutoScrollPointerY: number | undefined;
+    protected materialDragAutoScrollFrame: number | undefined;
     /** relativePath → getAudioDuration で解決済みの実尺（司令塔裁定6）。video/audio のみ使う。 */
     protected readonly materialDurationCache = new Map<string, number>();
     protected readonly materialDurationPromises = new Map<string, Promise<number | undefined>>();
@@ -1387,10 +1393,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // **内部 MIME のドラッグだけが委譲される。OS ファイルドロップ（types が Files だけ）は
         // グローバル経路（akari-project-contribution.ts）が拾う** — data-akari-dropzone が
         // 内部 MIME 以外も委譲していた頃は、素通しした先の受け皿が消えて無反応になっていた（issue #63）。
-        this.stripScroll.addEventListener('dragenter', event => this.handleMaterialDragEnter(event));
-        this.stripScroll.addEventListener('dragover', event => this.handleMaterialDragOver(event));
-        this.stripScroll.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
-        this.stripScroll.addEventListener('drop', event => this.handleMaterialDrop(event));
+        this.node.addEventListener('dragenter', event => this.handleMaterialDragEnter(event));
+        this.node.addEventListener('dragover', event => this.handleMaterialDragOver(event));
+        this.node.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
+        this.node.addEventListener('drop', event => this.handleMaterialDrop(event));
         this.stripScroll.addEventListener('dragenter', event => this.handleLibraryTransitionDragEnter(event));
         this.stripScroll.addEventListener('dragover', event => this.handleLibraryTransitionDragOver(event));
         this.stripScroll.addEventListener('dragleave', event => this.handleLibraryTransitionDragLeave(event));
@@ -2264,6 +2270,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ));
         const onMaterialDragEnd = (): void => {
             this.materialDragPayload = undefined;
+            this.stopMaterialDragAutoScroll();
             this.hideMaterialGhost();
         };
         window.addEventListener(MATERIAL_DRAG_END_EVENT, onMaterialDragEnd);
@@ -4783,8 +4790,79 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return !!transfer && transfer.types.includes(MATERIAL_DRAG_MIME);
     }
 
+    protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
+        return clampTimelinePanelDropPoint({
+            pointerX,
+            pointerY,
+            stripRect: this.stripScroll.getBoundingClientRect(),
+            headerColumnRect: this.trackHeaderColumn.getBoundingClientRect(),
+            panelRect: this.node.getBoundingClientRect()
+        });
+    }
+
+    protected updateMaterialDragAutoScroll(pointerY: number): void {
+        this.materialDragAutoScrollPointerY = pointerY;
+        const plan = planDragAutoScroll({
+            pointerY,
+            stripRect: this.stripScroll.getBoundingClientRect(),
+            edge: 24,
+            step: 8
+        });
+        if (plan.deltaY === 0) {
+            this.stopMaterialDragAutoScroll();
+            return;
+        }
+        if (this.materialDragAutoScrollFrame === undefined) {
+            this.materialDragAutoScrollFrame = requestAnimationFrame(() => this.runMaterialDragAutoScrollFrame());
+        }
+    }
+
+    protected runMaterialDragAutoScrollFrame(): void {
+        this.materialDragAutoScrollFrame = undefined;
+        const pointerY = this.materialDragAutoScrollPointerY;
+        if (pointerY === undefined) {
+            return;
+        }
+        const plan = planDragAutoScroll({
+            pointerY,
+            stripRect: this.stripScroll.getBoundingClientRect(),
+            edge: 24,
+            step: 8
+        });
+        if (plan.deltaY === 0) {
+            this.stopMaterialDragAutoScroll();
+            return;
+        }
+        const before = this.stripScroll.scrollTop;
+        this.stripScroll.scrollTop += plan.deltaY;
+        if (this.stripScroll.scrollTop === before) {
+            this.stopMaterialDragAutoScroll();
+            return;
+        }
+        const point = this.materialPanelDropPoint(
+            this.materialDragLastClientX,
+            this.materialDragLastClientY
+        );
+        if (point.zone !== 'outside') {
+            this.updateMaterialGhost(point.x, point.y);
+        }
+        this.materialDragAutoScrollFrame = requestAnimationFrame(() => this.runMaterialDragAutoScrollFrame());
+    }
+
+    protected stopMaterialDragAutoScroll(): void {
+        this.materialDragAutoScrollPointerY = undefined;
+        if (this.materialDragAutoScrollFrame !== undefined) {
+            cancelAnimationFrame(this.materialDragAutoScrollFrame);
+            this.materialDragAutoScrollFrame = undefined;
+        }
+    }
+
     protected handleMaterialDragEnter(event: DragEvent): void {
         if (!this.isMaterialDragTransfer(event.dataTransfer)) {
+            return;
+        }
+        const point = this.materialPanelDropPoint(event.clientX, event.clientY);
+        if (point.zone === 'outside') {
             return;
         }
         event.preventDefault();
@@ -4800,10 +4878,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.isMaterialDragTransfer(event.dataTransfer)) {
             return;
         }
+        const point = this.materialPanelDropPoint(event.clientX, event.clientY);
+        if (point.zone === 'outside') {
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
         const payload = this.materialDragPayload;
-        const target = payload ? this.resolveMaterialDropTarget(payload.kind, event.clientY) : undefined;
+        const target = payload ? this.resolveMaterialDropTarget(payload.kind, point.y) : undefined;
         const locked = this.isTrackLocked(target?.targetTrackId);
         const rejected = !!target?.rejected || locked;
         if (event.dataTransfer) {
@@ -4814,7 +4896,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = target.reason;
         }
         if (locked) this.showLockedTrack(target?.targetTrackId, event);
-        this.updateMaterialGhost(event.clientX, event.clientY);
+        this.updateMaterialGhost(point.x, point.y);
+        this.updateMaterialDragAutoScroll(event.clientY);
     }
 
     protected handleMaterialDragLeave(event: DragEvent): void {
@@ -4822,9 +4905,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const next = event.relatedTarget;
-        if (next instanceof Node && this.stripScroll.contains(next)) {
+        if (next instanceof Node && this.node.contains(next)) {
             return;
         }
+        this.stopMaterialDragAutoScroll();
         this.hideMaterialGhost();
     }
 
@@ -4836,23 +4920,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.isMaterialDragTransfer(event.dataTransfer)) {
             return;
         }
+        const point = this.materialPanelDropPoint(event.clientX, event.clientY);
+        this.stopMaterialDragAutoScroll();
+        if (point.zone === 'outside') {
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
-        const clientX = event.clientX;
-        const clientY = event.clientY;
         const payload = this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
         this.hideMaterialGhost();
         this.materialDragPayload = undefined;
         if (!payload) {
+            this.footer.textContent = '素材のドラッグ情報を読み取れないため置けません。';
             return;
         }
-        const target = this.resolveMaterialDropTarget(payload.kind, clientY);
+        const target = this.resolveMaterialDropTarget(payload.kind, point.y);
         const lockedTrackId = target.targetTrackId;
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId, event);
             return;
         }
-        void this.placeMaterialAtTarget(payload, target, clientX);
+        void this.placeMaterialAtTarget(payload, target, point.x, point.zone);
     }
 
     /**
@@ -4867,7 +4955,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async placeMaterialAtTarget(
         payload: MaterialDragPayload,
         target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
-        clientX: number
+        clientX: number,
+        panelZone: TimelinePanelDropZone = 'strip'
     ): Promise<void> {
         if (target.rejected) {
             this.footer.textContent = target.reason || '素材をここには置けません。';
@@ -4877,7 +4966,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
         const resolvedDuration = durationSeconds ?? this.materialGhostDurationSeconds(payload);
-        const t = this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
+        const t = panelZone === 'header-column'
+            ? (Number.isFinite(this.playheadT) ? this.playheadT : 0)
+            : this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
+        const hadNotice = this.notice.hasMessage();
+        const noticeTextBefore = this.notice.node.textContent;
         await this.addMaterialAt(
             payload.relativePath, payload.kind, t, target.track,
             {
@@ -4889,6 +4982,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(target.createAudioTrack ? { createAudioTrack: true } : {})
             }
         );
+        if (panelZone === 'header-column') {
+            const hasNewNotice = this.notice.hasMessage()
+                && (!hadNotice || this.notice.node.textContent !== noticeTextBefore);
+            this.footer.textContent = hasNewNotice
+                ? `トラックヘッダ列から再生ヘッド ${this.formatTimestamp(t)} に素材を置けませんでした。`
+                : `トラックヘッダ列から再生ヘッド ${this.formatTimestamp(t)} に素材を置きました。`;
+        }
     }
 
     protected readMaterialDropPayload(transfer: DataTransfer | null): MaterialDragPayload | undefined {
