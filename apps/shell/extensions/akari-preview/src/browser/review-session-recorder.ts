@@ -20,6 +20,11 @@ import {
     reviewToolModeForShortcutKey
 } from '../common/review-tool-mode';
 import { classifyUiEventType, resolveUiEventTarget } from '../common/ui-event-target';
+import {
+    ReviewSessionRange,
+    ReviewSessionRangeEvent,
+    reviewSessionRanges
+} from '../common/review-session-ranges';
 
 export type ReviewSessionRecorderStatus = 'idle' | 'starting' | 'recording' | 'stopping' | 'error';
 
@@ -39,6 +44,8 @@ export interface ReviewSessionUiState {
     silenceWarning: boolean;
     toolMode: ReviewToolMode;
     sessions: ReviewSessionSummary[];
+    activeSessionId?: string;
+    activeRanges?: ReviewSessionRange[];
     selectedUiTarget?: ReviewSelectedUiTarget;
     error?: string;
 }
@@ -84,6 +91,7 @@ interface ActiveReviewSession extends StartReviewSessionResult {
     nextStrokeNumber: number;
     pendingStroke?: Pick<ReviewStroke, 'id' | 'recTStart' | 'frame'>;
     pendingRect?: Pick<ReviewRectStroke, 'id' | 'recTStart' | 'frame'>;
+    rangeEvents: ReviewSessionRangeEvent[];
 }
 
 const TARGET_SAMPLE_RATE = 16_000;
@@ -182,7 +190,8 @@ export class ReviewSessionRecorder {
                 level: 0,
                 lastNonSilentAt: monotonicStartedAt,
                 writeTail: Promise.resolve(),
-                nextStrokeNumber: 1
+                nextStrokeNumber: 1,
+                rangeEvents: [{ type: 'start', timelineT: initial.timelineT, playing: initial.playing }]
             };
             processor.onaudioprocess = event => this.captureAudio(active, event);
             this.active = active;
@@ -273,6 +282,16 @@ export class ReviewSessionRecorder {
         if (!active || active.editUri !== editUri || !Number.isFinite(time)) {
             return;
         }
+        const rangeEvents = this.rangeEvents(active);
+        if (active.transport.playing !== playing) {
+            rangeEvents.push({ type: playing ? 'play' : 'pause', timelineT: time });
+        } else {
+            const event: ReviewSessionRangeEvent = { type: 'tick', timelineT: time };
+            if (rangeEvents[rangeEvents.length - 1]?.type === 'tick') {
+                rangeEvents[rangeEvents.length - 1] = event;
+            }
+            else rangeEvents.push(event);
+        }
         active.transport.timelineT = time;
         active.transport.playing = playing;
     }
@@ -292,9 +311,11 @@ export class ReviewSessionRecorder {
             active.transport.timelineT = change.timelineT;
             active.transport.playing = change.type === 'play';
             event = { recT, type: change.type, timelineT: change.timelineT };
+            this.rangeEvents(active).push({ type: change.type, timelineT: change.timelineT });
         } else if (change.type === 'seek') {
             active.transport.timelineT = change.to;
             event = { recT, type: 'seek', from: change.from, to: change.to };
+            this.rangeEvents(active).push({ type: 'seek', from: change.from, to: change.to });
         } else {
             active.transport.timelineT = change.timelineT;
             active.transport.rate = change.value;
@@ -737,6 +758,11 @@ export class ReviewSessionRecorder {
         return active.lastRecT;
     }
 
+    protected rangeEvents(active: ActiveReviewSession): ReviewSessionRangeEvent[] {
+        // 旧状態やテスト harness が作る active に新フィールドが無くても録音操作を継続できる。
+        return active.rangeEvents ??= [];
+    }
+
     protected emitState(error?: string): void {
         const active = this.active;
         const level = active?.level ?? 0;
@@ -754,6 +780,10 @@ export class ReviewSessionRecorder {
             ),
             toolMode: this.toolModeState.mode,
             sessions: [...this.sessions],
+            ...(active ? {
+                activeSessionId: active.id,
+                activeRanges: reviewSessionRanges(this.rangeEvents(active))
+            } : {}),
             ...(this.selectedUiTarget ? { selectedUiTarget: this.selectedUiTarget } : {}),
             ...(error ? { error } : {})
         });

@@ -1,0 +1,248 @@
+{
+  "observations": [
+    {
+      "step": "electron-spawned",
+      "pid": 71006
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.annotations.attachPassive"
+    },
+    {
+      "step": "mounted",
+      "count": 6,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "136.364%",
+          "width": "9px",
+          "title": "s-0001 00:00:15.000",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "45.4545%",
+          "width": "9px",
+          "title": "s-0002 00:00:05.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "72.7273%",
+          "width": "9px",
+          "title": "s-0002 00:00:08.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:30.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:45.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0003",
+          "point": false,
+          "left": "0%",
+          "width": "153.709%",
+          "title": "s-0003 00:00:00.000–00:00:16.908",
+          "label": "s-0003",
+          "top": 49,
+          "rectWidth": 378.12
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "bands-from-disk",
+      "count": 6,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "136.364%",
+          "width": "9px",
+          "title": "s-0001 00:00:15.000",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "45.4545%",
+          "width": "9px",
+          "title": "s-0002 00:00:05.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "72.7273%",
+          "width": "9px",
+          "title": "s-0002 00:00:08.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:30.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:45.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0003",
+          "point": false,
+          "left": "0%",
+          "width": "153.709%",
+          "title": "s-0003 00:00:00.000–00:00:16.908",
+          "label": "s-0003",
+          "top": 49,
+          "rectWidth": 378.12
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "bands-toggled-off",
+      "count": 0,
+      "bands": [],
+      "toggle": {
+        "pressed": "false",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "14px minmax(0px, 1fr)",
+        "14px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "bands-toggled-on",
+      "count": 6,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "136.364%",
+          "width": "9px",
+          "title": "s-0001 00:00:15.000",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "45.4545%",
+          "width": "9px",
+          "title": "s-0002 00:00:05.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "72.7273%",
+          "width": "9px",
+          "title": "s-0002 00:00:08.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:30.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0002",
+          "point": true,
+          "left": "160%",
+          "width": "9px",
+          "title": "s-0002 00:00:45.000",
+          "label": "s-0002",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0003",
+          "point": false,
+          "left": "0%",
+          "width": "153.709%",
+          "title": "s-0003 00:00:00.000–00:00:16.908",
+          "label": "s-0003",
+          "top": 49,
+          "rectWidth": 378.12
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    }
+  ],
+  "failed": false
+}

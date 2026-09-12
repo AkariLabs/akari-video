@@ -249,6 +249,7 @@ export interface ReviewSessionSummary {
     endedAt: string | null;
     durationSec: number;
     orphaned: boolean;
+    ranges: import('./review-session-ranges').ReviewSessionRange[];
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
