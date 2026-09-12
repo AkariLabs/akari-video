@@ -108,6 +108,7 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
+import { buildPreviewContextMenuMessage } from '../common/preview-context-menu';
 import {
     buildCaptionAnimatorSummaryFields,
     CaptionAnimatorSummary,
@@ -2382,6 +2383,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
         }));
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-context-menu') {
+                console.debug('[akari-preview] context menu', message);
+            }
             if (message?.type === 'akari-preview-gesture'
                 && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {
                 const result = reducePreviewGesture(
@@ -6366,6 +6370,7 @@ body { display: grid; place-items: center; padding: 32px; }
         return `(() => {
             const initial = window.__akariPreview;
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
+            const buildPreviewContextMenuMessageFn = (${buildPreviewContextMenuMessage.toString()});
             const vscode = acquireVsCodeApi();
             const audioMeterOpen = document.getElementById('audio-meter-open');
             audioMeterOpen.addEventListener('click', () => {
@@ -6408,6 +6413,21 @@ body { display: grid; place-items: center; padding: 32px; }
             const stage = document.getElementById('overlay-stage');
             const penLayer = document.getElementById('pen-layer');
             const output = initial.summary.output;
+            let contextMenuTimelineT = Number.isFinite(initial.initialSeekTime)
+                ? Math.max(0, initial.initialSeekTime) : 0;
+            let selectedPrimary = null;
+
+            document.addEventListener('contextmenu', event => {
+                event.preventDefault();
+                const message = buildPreviewContextMenuMessageFn(
+                    event.clientX,
+                    event.clientY,
+                    previewStage.getBoundingClientRect(),
+                    contextMenuTimelineT,
+                    selectedPrimary?.id
+                );
+                vscode.postMessage(message);
+            }, true);
 
             let reloadToastTimer;
             function showReloadToast() {
@@ -7108,6 +7128,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioMeterTap = null;
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
+                if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
@@ -7147,15 +7168,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
             window.akari.reportOverlaySelection = overlayId => {
+                if (overlayId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
             window.akari.reportLayerSelection = layerId => {
+                if (layerId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
             window.akari.reportCutSelection = cutId => {
+                if (cutId) selectedPrimary = { kind: 'cut', id: cutId };
+                else if (selectedPrimary?.kind === 'cut') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-cut-selected', cutId });
             };
             window.akari.reportCaptionSelection = captionId => {
+                if (captionId) selectedPrimary = { kind: 'caption', id: captionId };
+                else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
             };
             if (outputPreviewLink && initial.relatedEditUri) {

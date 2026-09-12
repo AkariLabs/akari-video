@@ -2592,8 +2592,42 @@ var AkariEditKernel = (() => {
     const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
   }
+  function extractV2MediaCaptionSwitches(raw) {
+    const captionsByItemId = /* @__PURE__ */ new Map();
+    const visit = (value) => {
+      if (!isRecord2(value)) return value;
+      const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
+      const isMedia = isRecord2(value.source) && value.source.kind === "media";
+      const validSwitch = value.captions === "on" || value.captions === "off";
+      if (isMedia && validSwitch && typeof value.id === "string") {
+        captionsByItemId.set(value.id, value.captions);
+        const { captions: _captions, ...withoutCaptions } = value;
+        return {
+          ...withoutCaptions,
+          ...Array.isArray(value.items) ? { items: children } : {}
+        };
+      }
+      return Array.isArray(value.items) ? { ...value, items: children } : value;
+    };
+    const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord2(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
+    return {
+      input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
+      captionsByItemId
+    };
+  }
   function readV2Internal(raw) {
-    const edit = readEditV2(raw);
+    const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
+    const edit = readEditV2(input);
+    const restoreCaptionSwitches = (items) => {
+      for (const item of items) {
+        const captions = captionsByItemId.get(item.id);
+        if (captions !== void 0) item.captions = captions;
+        if ("items" in item && Array.isArray(item.items)) restoreCaptionSwitches(item.items);
+      }
+    };
+    for (const track of edit.tracks) {
+      if ("items" in track && track.lane === "visual") restoreCaptionSwitches(track.items);
+    }
     const fps = edit.output.fps;
     const sources = edit.sources.map((entry) => ({
       id: entry.id,
@@ -2890,6 +2924,7 @@ var AkariEditKernel = (() => {
     const at = atFrames / fps;
     const duration = durationFrames / fps;
     const declaredKeyframes = item.keyframes;
+    const captionSwitch = item.captions;
     const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
     const common = {
       ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
@@ -2902,9 +2937,11 @@ var AkariEditKernel = (() => {
       ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
       ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
       ...keyframes !== void 0 ? { keyframes } : {},
-      ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+      ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {},
+      ...item.source.kind === "media" && captionSwitch !== void 0 ? { captions: captionSwitch } : {}
     };
     const finish = (built) => {
+      if (item.source.kind === "media" && captionSwitch !== void 0) built.item.captions = captionSwitch;
       if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
         built.item.keyframesRef = { ...declaredKeyframes };
       }
@@ -2954,7 +2991,7 @@ var AkariEditKernel = (() => {
             in: item.source.in,
             track: ref,
             ...common,
-            ...copyMediaSourceFields(item.source),
+            ...copyMediaSourceFields(item.source, captionSwitch),
             ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           const value2 = declaration;
@@ -2981,7 +3018,7 @@ var AkariEditKernel = (() => {
           ...speed !== void 0 ? { speed } : {},
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-          ...copyMediaSourceFields(item.source),
+          ...copyMediaSourceFields(item.source, captionSwitch),
           ..."audio" in item && item.audio === false ? { audio: false } : {}
         };
         return finish({
@@ -3001,7 +3038,7 @@ var AkariEditKernel = (() => {
               at,
               track: ref,
               ...common,
-              ...copyMediaSourceFields(item.source),
+              ...copyMediaSourceFields(item.source, captionSwitch),
               ..."audio" in item && item.audio === false ? { audio: false } : {},
               ...speed !== void 0 ? { speed } : {}
             },
@@ -3365,7 +3402,7 @@ var AkariEditKernel = (() => {
       }
     };
   }
-  function copyMediaSourceFields(source) {
+  function copyMediaSourceFields(source, captions) {
     return {
       ...source.framing !== void 0 ? { framing: source.framing } : {},
       ...source.transition_out !== void 0 ? { transition_out: source.transition_out } : {},
@@ -3374,7 +3411,8 @@ var AkariEditKernel = (() => {
       ...source.speed !== void 0 ? { speed: source.speed } : {},
       ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
       ...source.mute !== void 0 ? { mute: source.mute } : {},
-      ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
+      ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {},
+      ...captions !== void 0 ? { captions } : {}
     };
   }
   function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {

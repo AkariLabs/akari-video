@@ -13,7 +13,9 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   captionAnchorPositionVars,
+  dedupeCaptionOccurrences,
   normalizeCaptionClock,
+  projectCaptionWords,
   resolveCaptionReferenceScale,
   scaleCaptionPx,
 } = require("../../edit-store/lib/index.js");
@@ -137,9 +139,9 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const overlays = [];
 
   for (const caption of captions) {
-    const displayText = typeof caption.display_text === "string"
-      ? caption.display_text
-      : caption.text;
+    const projectedCaption = projectCaptionWords(caption, cuts);
+    if (!projectedCaption.renderable) continue;
+    const displayText = projectedCaption.displayText;
     const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
     if (captionSource === null && sourceCount > 1 && caption.time_domain !== "output") {
       options.onWarning?.(
@@ -153,6 +155,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       cuts,
       captionSource,
       caption.time_domain,
+      caption.id,
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
@@ -160,7 +163,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle, output);
-    const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
+    const allWords = clipWordsToRange(projectedCaption.words, caption.start, caption.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
     if (
@@ -208,7 +211,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     }
     for (const [index, range] of ranges.entries()) {
       const words = style || emphasisWords.length > 0
-        ? clipWordsToRange(caption.words, range.sourceStart, range.sourceEnd)
+        ? clipWordsToRange(projectedCaption.words, range.sourceStart, range.sourceEnd)
         : [];
       const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
       const rangeTokens = displayTokens
@@ -792,7 +795,7 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // のまま → computeContentDurationSeconds が captionsEnd を採用し、末尾に黒フレームが
 // 追加された）。両実装は cuts と同じ index で参照されるだけの並列配列を返す点で同形なので、
 // 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
-function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined) {
+function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined, cueId = "caption") {
   if (timeDomain === "output") {
     const timelineEnd = Array.isArray(cuts) && cuts.length > 0 ? predictedDuration(cuts) : 0;
     const clampedEnd = Math.min(end, timelineEnd);
@@ -807,14 +810,29 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
   if (needsGapAwareCutTimeline(cuts)) {
     const cutSegments = resolveCutSegments(cuts);
     const outputDuration = cutSegments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
-    const segments = computeVideoRuns(cutSegments, outputDuration).map((run) => (
-      run.kind === "gap"
-        ? run
-        : {
+    const segments = computeVideoRuns(cutSegments, outputDuration).map((run) => {
+      if (run.kind === "gap") {
+        return { kind: "gap", outStart: run.outStart, outEnd: run.outEnd };
+      }
+      let winner = cutSegments.find(segment => segment.cut === run.cut);
+      if (run.cut?.captions === "off") {
+        const midpoint = (run.outStart + run.outEnd) / 2;
+        winner = cutSegments
+          .filter(segment => segment.start <= midpoint && segment.end > midpoint
+            && segment.cut?.src === run.cut?.src && segment.cut?.captions !== "off")
+          .sort((left, right) => right.track - left.track)[0];
+      }
+      if (!winner) return { kind: "gap", outStart: run.outStart, outEnd: run.outEnd };
+      const speed = cutSpeed(winner.cut);
+      return {
             kind: "src", outStart: run.outStart, outEnd: run.outEnd,
-            src: run.cut.src, in: run.srcIn, out: run.srcOut, speed: cutSpeed(run.cut),
-          }
-    ));
+            src: winner.cut.src,
+            in: winner.cut.in + (run.outStart - winner.start) * speed,
+            out: winner.cut.in + (run.outEnd - winner.start) * speed,
+            speed,
+            cut: winner.cut,
+          };
+    });
     if (segments.length === 0) return [];
     // Share preview's projection over visible runs. Undeclared export cues remain source
     // cues; the preview's legacy gap-to-output heuristic must not promote them here.
@@ -822,7 +840,7 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
       start, end, clockDomain: "source",
       ...(sourceId !== null ? { clockSourceId: sourceId } : {}),
     }], segments);
-    return occurrences.map((occurrence) => {
+    const ranges = occurrences.map((occurrence) => {
       // Visible runs are disjoint and every occurrence is clipped to one run. Recover
       // its source window for word clipping and source-timed emphasis rendering.
       const midpoint = (occurrence.start + occurrence.end) / 2;
@@ -834,13 +852,16 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
         sourceStart: Math.max(start, segment.in),
         sourceEnd: Math.min(end, segment.out),
         emphasisTimeScale: 1 / segment.speed,
+        track: Number.isInteger(segment.cut?.track) ? segment.cut.track : 0,
       };
     });
+    return dedupeCaptionRanges(ranges, cueId, cuts);
   }
 
   const offsets = computeCutTimelineOffsets(cuts);
   const ranges = [];
   for (const [index, cut] of cuts.entries()) {
+    if (cut.captions === "off") continue;
     if (sourceId !== null && cut.src !== sourceId) continue;
     const overlapStart = Math.max(start, cut.in);
     const overlapEnd = Math.min(end, cut.out);
@@ -852,10 +873,38 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
         sourceStart: overlapStart,
         sourceEnd: overlapEnd,
         emphasisTimeScale: 1 / speed,
+        track: Number.isInteger(cut.track) ? cut.track : 0,
+        cutIndex: index,
       });
     }
   }
-  return ranges;
+  return dedupeCaptionRanges(ranges, cueId, cuts);
+}
+
+function dedupeCaptionRanges(ranges, cueId, cuts) {
+  const occurrences = ranges.map((range, index) => ({
+    ...range,
+    source_cue_id: String(cueId ?? "caption"),
+    start: range.start,
+    end: range.start + range.duration,
+    source_start: range.sourceStart,
+    source_end: range.sourceEnd,
+    track: range.track ?? 0,
+    rangeIndex: index,
+  }));
+  const trackOrder = [...new Set(cuts.map(cut => Number.isInteger(cut?.track) ? cut.track : 0))]
+    .sort((left, right) => left - right);
+  return dedupeCaptionOccurrences(occurrences, trackOrder).map((occurrence) => {
+    const {
+      source_cue_id: _sourceCueId,
+      source_start: sourceStart,
+      source_end: sourceEnd,
+      end: occurrenceEnd,
+      rangeIndex: _rangeIndex,
+      ...range
+    } = occurrence;
+    return { ...range, duration: occurrenceEnd - occurrence.start, sourceStart, sourceEnd };
+  });
 }
 
 export function sourceRangeToTimeline(start, end, cuts) {

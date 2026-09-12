@@ -977,3 +977,38 @@ test('cross-track media promotion preserves a trimmed source clock after resizin
   assert.equal(front.declaration.speed, 2);
   assert.equal(front.declaration.duration, 17);
 });
+
+test('v2 media captions switch is copied to internal, declaration, and cut/layer legacy projections', () => {
+  const edit = base();
+  edit.tracks[0].items[0].captions = 'off';
+  edit.tracks[1].items[0].captions = 'on';
+  edit.tracks[1].items[0].transform = { scale: 0.5 };
+  const internal = readInternalEdit(edit);
+  const items = internal.tracks.flatMap(track => track.items);
+  const lower = items.find(item => item.id === 'c1');
+  const upper = items.find(item => item.id === 'l1');
+  for (const [item, expected] of [[lower, 'off'], [upper, 'on']]) {
+    assert.equal(item.captions, expected);
+    assert.equal(item.declaration.captions, expected);
+    assert.equal(item.legacy.value.captions, expected);
+  }
+  const legacy = projectLegacyEdit(internal);
+  const projected = [...legacy.cuts, ...legacy.layers];
+  assert.equal(projected.find(item => item.captions === 'off')?.captions, 'off');
+  assert.equal(projected.find(item => item.captions === 'on')?.captions, 'on');
+});
+
+test('captions-off v2 media remains valid in readInternalEdit and cross-track evacuation analysis', () => {
+  const edit = base();
+  edit.tracks[0].items[0].captions = 'off';
+  edit.tracks[1].items[0].transform = { scale: 0.5 };
+  assert.doesNotThrow(() => readInternalEdit(edit));
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [{
+    itemId: 'l1',
+    trackId: 'upper',
+    causeItemId: 'c1',
+    causeTrackId: 'base',
+    overlapStartFrames: 15,
+    overlapEndFrames: 45,
+  }]);
+});
