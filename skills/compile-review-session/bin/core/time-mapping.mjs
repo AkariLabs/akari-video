@@ -330,6 +330,37 @@ export function buildCutMap(snapshot) {
   };
 }
 
+// issue #71: v0.1.63 以前の記録側は v2 edit で stroke.frame.sourceT を 0（video.currentTime 由来）に
+// 退避していた（timelineT は正しい）。snapshot はセッション開始時の edit なので、timelineT を
+// cutMap で写像し直せば本来の素材時刻が復元できる。保存値が写像値と一致していればそのまま通す
+// （v0 / v2 fixture のバイト一致を保つ）。timelineT が cut の外（clamped）なら保存値を尊重する。
+export function reconcileStrokeFrames(strokes, cutMap, { tolerance = 0.05 } = {}) {
+  const warnings = [];
+  const reconciled = (Array.isArray(strokes) ? strokes : []).map((stroke) => {
+    const frame = stroke?.frame;
+    if (!frame || !Number.isFinite(frame.timelineT)) return stroke;
+    let located;
+    try {
+      located = cutMap.locate(frame.timelineT);
+    } catch {
+      return stroke;
+    }
+    if (located.clamped) return stroke;
+    const savedSourceT = Number.isFinite(frame.sourceT) ? frame.sourceT : null;
+    const savedCutIndex = Number.isInteger(frame.cutIndex) ? frame.cutIndex : null;
+    const sourceMatches = savedSourceT !== null && Math.abs(savedSourceT - located.sourceT) <= tolerance;
+    const cutMatches = savedCutIndex === null || savedCutIndex === located.cutIndex;
+    if (sourceMatches && cutMatches) return stroke;
+    warnings.push(
+      `strokes.json ${stroke.id}: 保存された frame（sourceT ${savedSourceT} / cutIndex ${savedCutIndex}）が`
+      + ` snapshot と不整合のため、timelineT ${frame.timelineT} から sourceT ${located.sourceT}`
+      + ` / cutIndex ${located.cutIndex} に補正しました`,
+    );
+    return { ...stroke, frame: { ...frame, sourceT: located.sourceT, cutIndex: located.cutIndex } };
+  });
+  return { strokes: reconciled, warnings };
+}
+
 function pairableStroke(strokes, utteranceStart, utteranceEnd, maximumDistance) {
   return (Array.isArray(strokes) ? strokes : [])
     .map((stroke, index) => {
