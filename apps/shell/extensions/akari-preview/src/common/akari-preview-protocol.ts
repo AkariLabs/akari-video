@@ -243,6 +243,9 @@ export interface ListReviewSessionsRequest {
     projectRootUri: string;
 }
 
+/** session.json の status。session.json が無い（orphaned）ときは null。 */
+export type ReviewSessionLifecycleStatus = 'recorded' | 'transcribed' | 'compiled';
+
 export interface ReviewSessionSummary {
     id: string;
     startedAt: string;
@@ -250,6 +253,8 @@ export interface ReviewSessionSummary {
     durationSec: number;
     orphaned: boolean;
     ranges: import('./review-session-ranges').ReviewSessionRange[];
+    status: ReviewSessionLifecycleStatus | null;
+    compiledAnnotations: string[] | null;
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the

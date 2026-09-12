@@ -1,0 +1,332 @@
+{
+  "observations": [
+    {
+      "step": "electron-spawned",
+      "pid": 77244
+    },
+    {
+      "step": "shell-resolved",
+      "widgets": []
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.annotations.attachPassive"
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.open"
+    },
+    {
+      "step": "panel-badges",
+      "mounted": true,
+      "attached": true,
+      "headingHint": "喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります",
+      "emptyText": null,
+      "rows": [
+        {
+          "session": "s-0004",
+          "badge": "compiled",
+          "badgeLabel": "コンパイル済み",
+          "hint": null
+        },
+        {
+          "session": "s-0003",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        },
+        {
+          "session": "s-0002",
+          "badge": "transcribed",
+          "badgeLabel": "文字起こし済み",
+          "hint": null
+        },
+        {
+          "session": "s-0001",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        }
+      ]
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.board.open"
+    },
+    {
+      "step": "board-initial",
+      "mounted": true,
+      "columns": [
+        {
+          "status": "open",
+          "title": "未対応",
+          "count": "2"
+        },
+        {
+          "status": "addressed",
+          "title": "対応済み",
+          "count": "0"
+        },
+        {
+          "status": "resolved",
+          "title": "確認済み",
+          "count": "0"
+        }
+      ],
+      "band": {
+        "display": "block",
+        "heading": "録音済みセッション（未コンパイル）3 件",
+        "count": "3",
+        "rows": [
+          {
+            "session": "s-0001",
+            "badge": "recorded",
+            "compile": true,
+            "text": "s-00012026/07/24 14:0000:00録音済みコンパイル"
+          },
+          {
+            "session": "s-0002",
+            "badge": "transcribed",
+            "compile": true,
+            "text": "s-00022026/07/24 14:0500:00文字起こし済みコンパイル"
+          },
+          {
+            "session": "s-0003",
+            "badge": "recorded",
+            "compile": true,
+            "text": "s-00032026/07/24 14:1000:00録音済みコンパイル"
+          }
+        ]
+      },
+      "cards": [
+        {
+          "id": "a-0001",
+          "origin": null,
+          "originLabel": null
+        },
+        {
+          "id": "a-0002",
+          "origin": "s-0004",
+          "originLabel": "s-0004 由来"
+        }
+      ]
+    },
+    {
+      "step": "previews-before-close",
+      "ids": [
+        "akari-output-preview-1285okb"
+      ]
+    },
+    {
+      "step": "preview-closed",
+      "closed": [
+        "akari-output-preview-1285okb"
+      ]
+    },
+    {
+      "step": "previews-after-close",
+      "ids": []
+    },
+    {
+      "step": "panel-after-preview-close",
+      "mounted": true,
+      "attached": true,
+      "headingHint": "喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります",
+      "emptyText": null,
+      "rows": [
+        {
+          "session": "s-0004",
+          "badge": "compiled",
+          "badgeLabel": "コンパイル済み",
+          "hint": null
+        },
+        {
+          "session": "s-0003",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        },
+        {
+          "session": "s-0002",
+          "badge": "transcribed",
+          "badgeLabel": "文字起こし済み",
+          "hint": null
+        },
+        {
+          "session": "s-0001",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        }
+      ]
+    },
+    {
+      "step": "panel-toggled",
+      "closed": true
+    },
+    {
+      "step": "panel-while-closed",
+      "mounted": false
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.open"
+    },
+    {
+      "step": "panel-after-reopen",
+      "mounted": true,
+      "attached": true,
+      "headingHint": "喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります",
+      "emptyText": null,
+      "rows": [
+        {
+          "session": "s-0004",
+          "badge": "compiled",
+          "badgeLabel": "コンパイル済み",
+          "hint": null
+        },
+        {
+          "session": "s-0003",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        },
+        {
+          "session": "s-0002",
+          "badge": "transcribed",
+          "badgeLabel": "文字起こし済み",
+          "hint": null
+        },
+        {
+          "session": "s-0001",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        }
+      ]
+    },
+    {
+      "step": "previews-at-reopen",
+      "ids": []
+    },
+    {
+      "step": "compile-simulated",
+      "session": "s-0003",
+      "annotation": "a-0003"
+    },
+    {
+      "step": "board-after-compile",
+      "mounted": true,
+      "columns": [
+        {
+          "status": "open",
+          "title": "未対応",
+          "count": "3"
+        },
+        {
+          "status": "addressed",
+          "title": "対応済み",
+          "count": "0"
+        },
+        {
+          "status": "resolved",
+          "title": "確認済み",
+          "count": "0"
+        }
+      ],
+      "band": {
+        "display": "block",
+        "heading": "録音済みセッション（未コンパイル）2 件",
+        "count": "2",
+        "rows": [
+          {
+            "session": "s-0001",
+            "badge": "recorded",
+            "compile": true,
+            "text": "s-00012026/07/24 14:0000:00録音済みコンパイル"
+          },
+          {
+            "session": "s-0002",
+            "badge": "transcribed",
+            "compile": true,
+            "text": "s-00022026/07/24 14:0500:00文字起こし済みコンパイル"
+          }
+        ]
+      },
+      "cards": [
+        {
+          "id": "a-0003",
+          "origin": "s-0003",
+          "originLabel": "s-0003 由来"
+        },
+        {
+          "id": "a-0001",
+          "origin": null,
+          "originLabel": null
+        },
+        {
+          "id": "a-0002",
+          "origin": "s-0004",
+          "originLabel": "s-0004 由来"
+        }
+      ]
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.open"
+    },
+    {
+      "step": "panel-after-compile",
+      "mounted": true,
+      "attached": true,
+      "headingHint": "喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります",
+      "emptyText": null,
+      "rows": [
+        {
+          "session": "s-0004",
+          "badge": "compiled",
+          "badgeLabel": "コンパイル済み",
+          "hint": null
+        },
+        {
+          "session": "s-0003",
+          "badge": "compiled",
+          "badgeLabel": "コンパイル済み",
+          "hint": null
+        },
+        {
+          "session": "s-0002",
+          "badge": "transcribed",
+          "badgeLabel": "文字起こし済み",
+          "hint": null
+        },
+        {
+          "session": "s-0001",
+          "badge": "recorded",
+          "badgeLabel": "録音済み",
+          "hint": "まだチケットになっていません — コンパイルでチケット化"
+        }
+      ]
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.board.open"
+    },
+    {
+      "step": "compile-button-click",
+      "clicked": true,
+      "clipboard": "review セッション s-0001 をコンパイルして",
+      "clipboardError": null,
+      "notice": "×",
+      "toast": [
+        "「review セッション s-0001 をコンパイルして」をクリップボードにコピーしました。パートナーへ貼り付けてください。",
+        "「review セッション s-0001 をコンパイルして」をクリップボードにコピーしました。パートナーへ貼り付けてください。",
+        "「review セッション s-0001 をコンパイルして」をクリップボードにコピーしました。パートナーへ貼り付けてください。"
+      ],
+      "partnerWidgetFocused": false,
+      "activeBefore": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+      "activeAfter": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark"
+    }
+  ],
+  "failed": false
+}
