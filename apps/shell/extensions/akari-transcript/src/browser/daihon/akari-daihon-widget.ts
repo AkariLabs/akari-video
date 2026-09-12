@@ -22,7 +22,8 @@ import {
     type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
-import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
+import { AkariAnnotationsService, type EditHistoryEntry } from 'akari-annotations/lib/common/akari-annotations-protocol';
+import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { parseCaptions, type Caption } from '../caption-store';
 import { shouldAutoScroll } from '../../common/daihon-autoscroll';
 import { rowIssues, summarizeQc } from '../../common/daihon-qc';
@@ -191,6 +192,18 @@ const STYLE = `
 .akari-daihon-badge-breaklock { font-size:9px; color:#7fe7d3; border:1px solid rgba(83,209,188,.38); border-radius:999px; padding:0 6px; white-space:nowrap; }
 .akari-daihon-display { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 7px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-display:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-history { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 7px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-history:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-historylist { gap:0; padding:1px 3px 3px; }
+.akari-daihon-historyrow { border-top:1px solid #303746; padding:7px 4px; }
+.akari-daihon-historyrow:first-child { border-top:0; }
+.akari-daihon-historymeta { display:flex; align-items:center; gap:6px; min-width:0; }
+.akari-daihon-historylabel { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; color:#e9ecf2; }
+.akari-daihon-historytime { color:#77808f; font-size:9.5px; white-space:nowrap; }
+.akari-daihon-historyfiles { display:flex; gap:4px; margin-top:4px; }
+.akari-daihon-historychip { color:#8e97a9; background:#171b21; border:1px solid #333b48; border-radius:999px; padding:0 6px; font-size:9px; }
+.akari-daihon-historyrow button.akari-daihon-historyrestore { margin-top:5px; width:100%; padding:4px 7px; color:#7fe7d3; background:#223832; border:1px solid #2f5348; text-align:center; }
+.akari-daihon-historyempty { color:#8e97a9; padding:14px 8px; text-align:center; font-size:11px; }
 .akari-daihon-displaygroup { padding:4px 6px; display:flex; flex-direction:column; gap:5px; }
 .akari-daihon-displaylabel { color:#8e97a9; font-size:10.5px; }
 .akari-daihon-displayrange { display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px; }
@@ -299,6 +312,9 @@ export class AkariDaihonWidget extends BaseWidget {
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
 
+    @inject(AkariEditHistoryService)
+    protected readonly historyService!: AkariEditHistoryService;
+
     @inject(AkariProjectService)
     protected readonly projectService!: AkariProjectService;
 
@@ -312,6 +328,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected readonly captionsButton = document.createElement('button');
     protected readonly displayButton = document.createElement('button');
+    protected readonly historyButton = document.createElement('button');
     protected buildingCaptions = false;
     protected readonly count = document.createElement('span');
     protected readonly tplButton = document.createElement('button');
@@ -413,6 +430,14 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openDisplayPop(event.currentTarget as HTMLElement);
         });
+        this.historyButton.type = 'button';
+        this.historyButton.className = 'akari-daihon-history';
+        this.historyButton.textContent = '🕘 履歴';
+        this.historyButton.title = '編集履歴を一覧して、その時点へ戻す';
+        this.historyButton.addEventListener('click', event => {
+            event.stopPropagation();
+            void this.openHistoryPop(event.currentTarget as HTMLElement);
+        });
         this.cutsButton.type = 'button';
         this.cutsButton.className = 'akari-daihon-cuts';
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
@@ -425,7 +450,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         });
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -501,6 +526,16 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         document.addEventListener('click', closePopFromOutside);
         this.toDispose.push({ dispose: () => document.removeEventListener('click', closePopFromOutside) });
+        if (this.historyService) {
+            const onDidPush = this.historyService.onDidPush;
+            this.toDispose.push(onDidPush(entry => {
+                const projectRootUri = this.editUri?.parent.toString();
+                if (!projectRootUri) return;
+                void this.annotationsService.snapshotEditHistory({ projectRootUri, label: entry.label }).catch(error => {
+                    console.warn('[akari-daihon] editing succeeded but history snapshot failed', error);
+                });
+            }));
+        }
     }
 
     showError(error: unknown): void {
@@ -1777,6 +1812,88 @@ export class AkariDaihonWidget extends BaseWidget {
             action();
         });
         return button;
+    }
+
+    protected async openHistoryPop(anchor: HTMLElement): Promise<void> {
+        const pop = this.openPop(anchor, 360);
+        pop.classList.add('akari-daihon-historylist');
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = '編集履歴（新しい順）';
+        const loading = document.createElement('div');
+        loading.className = 'akari-daihon-historyempty';
+        loading.textContent = '履歴を読み込んでいます…';
+        pop.append(title, loading);
+        const projectRootUri = this.editUri?.parent.toString();
+        if (!projectRootUri) {
+            loading.textContent = 'プロジェクトが開かれていません';
+            return;
+        }
+        try {
+            const entries = await this.annotationsService.listEditHistory({ projectRootUri });
+            if (!pop.isConnected) return;
+            loading.remove();
+            if (entries.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'akari-daihon-historyempty';
+                empty.textContent = 'まだ履歴はありません';
+                pop.appendChild(empty);
+            } else {
+                for (const entry of entries) pop.appendChild(this.historyRow(entry, projectRootUri, anchor));
+            }
+            this.positionPop(pop, anchor, 360);
+        } catch (error) {
+            loading.textContent = `履歴を読み込めません: ${this.errorMessage(error)}`;
+        }
+    }
+
+    protected historyRow(entry: EditHistoryEntry, projectRootUri: string, anchor: HTMLElement): HTMLDivElement {
+        const row = document.createElement('div');
+        row.className = 'akari-daihon-historyrow';
+        row.dataset.historyId = entry.id;
+        const meta = document.createElement('div');
+        meta.className = 'akari-daihon-historymeta';
+        const label = document.createElement('span');
+        label.className = 'akari-daihon-historylabel';
+        label.textContent = entry.label.startsWith('restore-from-') ? '戻した' : entry.label;
+        const time = document.createElement('time');
+        time.className = 'akari-daihon-historytime';
+        time.dateTime = entry.at;
+        time.textContent = this.historyTime(entry.at);
+        meta.append(label, time);
+        const chips = document.createElement('div');
+        chips.className = 'akari-daihon-historyfiles';
+        for (const file of entry.files) {
+            const chip = document.createElement('span');
+            chip.className = 'akari-daihon-historychip';
+            chip.textContent = file;
+            chips.appendChild(chip);
+        }
+        const restore = this.popButton('↩ ここまで戻す', () => {
+            restore.disabled = true;
+            void this.restoreHistoryEntry(projectRootUri, entry, anchor);
+        }, 'akari-daihon-historyrestore');
+        row.append(meta, chips, restore);
+        return row;
+    }
+
+    protected historyTime(value: string): string {
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return value;
+        return date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    protected async restoreHistoryEntry(projectRootUri: string, entry: EditHistoryEntry, anchor: HTMLElement): Promise<void> {
+        try {
+            await this.annotationsService.restoreEditHistory({ projectRootUri, id: entry.id });
+            this.historyService.clear();
+            await this.reload();
+            this.notify(`「${entry.label}」まで戻しました。取り消し履歴はリセットされました。`);
+            if (anchor.isConnected) await this.openHistoryPop(anchor);
+        } catch (error) {
+            this.notify(`履歴を戻せません: ${this.errorMessage(error)}`);
+            if (anchor.isConnected) await this.openHistoryPop(anchor);
+        }
     }
 
     protected openPop(anchor: HTMLElement, width?: number): HTMLDivElement {

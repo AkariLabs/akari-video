@@ -30,6 +30,7 @@ const expectedSources = [
   'edit-v2-item-write.ts',
   'edit-v2.ts',
   'envelope.ts',
+  'history-store.ts',
   'index.ts',
   'internal-model.ts',
   'item-anchor.ts',

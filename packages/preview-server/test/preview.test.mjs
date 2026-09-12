@@ -761,19 +761,19 @@ async function main() {
     const mutated = { ...before, output: { ...before.output, fps: before.output.fps === 30 ? 24 : 30 } };
     const r1 = await put(mutated);
     const b1 = await r1.json();
-    (r1.ok && typeof b1.snapshot === 'string')
-      ? ok(`PUT edit.json snapshots the previous state (${b1.snapshot})`)
+    (r1.ok && typeof b1.snapshot?.id === 'string')
+      ? ok(`PUT edit.json snapshots the previous state (${b1.snapshot.id})`)
       : ng('PUT did not snapshot', `status=${r1.status} body=${JSON.stringify(b1)}`);
 
     const list = await fetchJson(`${BASE}/api/edit-history`);
-    const newest = list.data?.entries?.[0]?.name;
+    const newest = list.data?.entries?.[0]?.id;
     newest
       ? ok(`GET /api/edit-history lists the snapshot (${list.data.entries.length})`)
       : ng('History listing empty', JSON.stringify(list.data));
 
     // 退避された中身は「上書き前」であること
     if (newest) {
-      const saved = JSON.parse(fs.readFileSync(path.join(PROJECT, '.akari', 'history', newest), 'utf-8'));
+      const saved = JSON.parse(fs.readFileSync(path.join(PROJECT, '.akari', 'history', newest, 'edit.json'), 'utf-8'));
       saved.output.fps === before.output.fps
         ? ok('Snapshot holds the pre-write content')
         : ng('Snapshot content wrong', `fps=${saved.output.fps} expected ${before.output.fps}`);
@@ -781,7 +781,7 @@ async function main() {
       const r2 = await fetch(`${BASE}/api/edit-history/restore`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: newest }),
+        body: JSON.stringify({ id: newest }),
       });
       const restored = JSON.parse(fs.readFileSync(editPath, 'utf-8'));
       (r2.ok && restored.output.fps === before.output.fps)

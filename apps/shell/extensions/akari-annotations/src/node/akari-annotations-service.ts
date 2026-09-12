@@ -10,6 +10,7 @@ import {
 } from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
 import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/lib/item-anchor';
+import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
@@ -30,6 +31,8 @@ import {
     EditMigrationPlanResult,
     EditMigrationProposal,
     EditMigrationRequest,
+    EditHistoryEntry,
+    EditHistoryProjectRequest,
     GetAudioDurationRequest,
     GetAudioDurationResult,
     ProbeSourceDimensionsRequest,
@@ -58,6 +61,7 @@ import {
     RemoveOverlayRequest,
     RemoveSfxRequest,
     RemoveSfxResult,
+    RestoreEditHistoryRequest,
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
@@ -1181,6 +1185,38 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             })
         });
         return { committed: false };
+    }
+
+    async snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null> {
+        if (!request?.projectRootUri || typeof request.label !== 'string') throw new Error('履歴の保存先を特定できません。');
+        return snapshotHistory({ projectDir: this.fsPath(request.projectRootUri), label: request.label });
+    }
+
+    async listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]> {
+        if (!request?.projectRootUri) throw new Error('履歴の保存先を特定できません。');
+        return listHistory(this.fsPath(request.projectRootUri));
+    }
+
+    async restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }> {
+        if (!request?.projectRootUri || !request.id) throw new Error('復元する履歴を特定できません。');
+        const projectDir = this.fsPath(request.projectRootUri);
+        return restoreHistory(projectDir, request.id, {
+            write: async candidates => {
+                for (const name of Object.keys(candidates)) {
+                    this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+                }
+                await writeProjectFilesGuarded(projectDir, candidates, {
+                    onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
+                    onLintResult: result => this.client?.onLintResult({
+                        projectRootUri: request.projectRootUri,
+                        pass: result.pass,
+                        errors: result.errors,
+                        writtenFiles: Object.keys(candidates),
+                        findings: result.findings
+                    })
+                });
+            }
+        });
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {

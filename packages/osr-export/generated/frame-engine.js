@@ -4684,6 +4684,8 @@ ${indent}`);
         "name",
         "hidden",
         "locked",
+        "reason",
+        "label",
         "at",
         "duration",
         "transform",
@@ -9967,6 +9969,9 @@ ${indent}`);
               source = (0, edit_store_1.splitCutInSource)(source, index + 1, effectiveOut);
               source = (0, edit_store_1.deleteCutInSource)(source, index + 1).source;
             }
+            if (range.reason !== void 0 || range.label !== void 0) {
+              source = annotateLegacySegments(source, cut, effectiveIn, effectiveOut, range);
+            }
           }
           if (!matched)
             warnings2.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
@@ -10002,6 +10007,9 @@ ${indent}`);
               matched = true;
               affectedTrackIds.add(track.id);
               const replacement = splitAndRemove(item, overlapIn, overlapOut, edit);
+              for (const replacementItem of replacement.items) {
+                copyRangeMetadata(replacementItem, range);
+              }
               removedFrames += replacement.removedFrames;
               track.items.splice(index, 1, ...replacement.items);
             }
@@ -10023,6 +10031,28 @@ ${indent}`);
         (0, edit_v2_1.readEditV2)(edit);
         return { source: `${JSON.stringify(edit, null, 2)}
 `, removedFrames, warnings: warnings2 };
+      }
+      function copyRangeMetadata(target, range) {
+        if (range.reason !== void 0)
+          target.reason = range.reason;
+        if (range.label !== void 0)
+          target.label = range.label;
+      }
+      function annotateLegacySegments(source, original, removedIn, removedOut, range) {
+        const edit = JSON.parse(source);
+        if (!Array.isArray(edit.cuts))
+          return source;
+        const originalTrack = normalizeTrack(original.track);
+        for (const cut of edit.cuts) {
+          if (normalizeTrack(cut.track) !== originalTrack || cut.src !== original.src)
+            continue;
+          if (cut.in < original.in || cut.out > original.out)
+            continue;
+          if (cut.out <= removedIn || cut.in >= removedOut)
+            copyRangeMetadata(cut, range);
+        }
+        return `${JSON.stringify(edit, null, 2)}
+`;
       }
       function splitAndRemove(item, overlapIn, overlapOut, edit) {
         if (item.source.kind !== "media")

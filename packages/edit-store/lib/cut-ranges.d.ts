@@ -1,8 +1,9 @@
 export interface CutRange {
     in: number;
     out: number;
-    kind: 'row' | 'filler' | 'silence';
+    kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
+    reason?: 'silence' | 'word';
     label?: string;
 }
 export interface ApplyCutRangesOptions {

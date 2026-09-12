@@ -294,7 +294,7 @@ export interface CutRangeInput {
     out: number;
     kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
-    /** 台本の範囲エディタが付ける由来。edit.json への永続化は node 側（境界外）未対応。 */
+    /** 台本の範囲エディタが付け、edit.json の cuts / media items へ永続化する由来。 */
     reason?: 'silence' | 'word';
     label?: string;
 }
@@ -601,6 +601,24 @@ export interface WriteEditSnapshotRequest {
     captionsSource?: string;
 }
 
+export interface EditHistoryEntry {
+    id: string;
+    label: string;
+    at: string;
+    files: string[];
+    sha256: Record<string, string>;
+    legacy?: boolean;
+    bytes?: number;
+}
+
+export interface EditHistoryProjectRequest {
+    projectRootUri: string;
+}
+
+export interface RestoreEditHistoryRequest extends EditHistoryProjectRequest {
+    id: string;
+}
+
 export interface EditMigrationProposal {
     filePath: string;
     version: 0 | 1;
@@ -715,6 +733,9 @@ export interface AkariAnnotationsService {
     setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
     setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
+    snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null>;
+    listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]>;
+    restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }>;
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;
     revertEditMigration(proposal: EditMigrationProposal): Promise<void>;

@@ -1,0 +1,96 @@
+{
+  "status": "PASS",
+  "steps": [
+    {
+      "name": "three-operations-create-three-entries",
+      "pass": true,
+      "detail": {
+        "hashes": {
+          "operation1": {
+            "edit": "3414a8991800aa7410107114c1d283a015daef0eb6276bd616cac7ea916eb540",
+            "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+          },
+          "operation2": {
+            "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+            "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+          },
+          "operation3": {
+            "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+            "captions": "a3fb3696bf61f5788ad9c43fe39d100960fca5f23e2a2140cbcedcfd60867262"
+          },
+          "restored": {
+            "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+            "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+          }
+        }
+      }
+    },
+    {
+      "name": "history-has-three-entries",
+      "pass": true,
+      "detail": {
+        "count": 3,
+        "labels": [
+          "字幕の表示設定を変更",
+          "0.5 秒の間を追加",
+          "字幕の表示設定を変更"
+        ],
+        "fileChips": [
+          [
+            "edit.json",
+            "captions.json"
+          ],
+          [
+            "edit.json",
+            "captions.json"
+          ],
+          [
+            "edit.json",
+            "captions.json"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "restore-second-entry",
+      "pass": true,
+      "detail": {
+        "byteEqual": true
+      }
+    },
+    {
+      "name": "restore-is-fourth-history-entry",
+      "pass": true,
+      "detail": {
+        "count": 4,
+        "newest": "戻した"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-history-three-entries.png",
+    "02-before-restore-second.png",
+    "03-restored-entry-added.png"
+  ],
+  "hashes": {
+    "operation1": {
+      "edit": "3414a8991800aa7410107114c1d283a015daef0eb6276bd616cac7ea916eb540",
+      "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+    },
+    "operation2": {
+      "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+      "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+    },
+    "operation3": {
+      "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+      "captions": "a3fb3696bf61f5788ad9c43fe39d100960fca5f23e2a2140cbcedcfd60867262"
+    },
+    "restored": {
+      "edit": "9f27f1a8b7214be04b11e24683952cc55cb39f54e9f0e6622882677d5dd72a6c",
+      "captions": "11aa0379f3642af320967de35db0027821dad8b9d91078bf6b95acad25911dcf"
+    }
+  },
+  "cleanup": {
+    "killedPid": 37709
+  }
+}
