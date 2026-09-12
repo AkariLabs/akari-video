@@ -72,6 +72,27 @@ export interface ResolvedCaptionLayout {
     scale: number;
 }
 type UnknownRecord = Record<string, any>;
+export interface CaptionOccurrence {
+    source_cue_id: string;
+    src: string | null;
+    cut_index: number;
+    caption_input_index: number;
+    source_start: number;
+    source_end: number;
+    start: number;
+    end: number;
+    track: number;
+    text: string;
+    display_fragments?: string[];
+    occurrence_index?: number;
+    text_style?: UnknownRecord;
+}
+export interface ProjectedCaptionWords {
+    displayText: string;
+    words: UnknownRecord[] | undefined;
+    changed: boolean;
+    renderable: boolean;
+}
 export declare class CaptionDisplayError extends Error {
     readonly code: string;
     constructor(code: string, message: string);
@@ -91,6 +112,23 @@ export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: Unkno
  * conceal an invalid default (or vice versa).
  */
 export declare function validateCaptionTextStyle(value: unknown, label?: string): UnknownRecord;
+/**
+ * `captions.json` は変更せず、keep cut から外れた語だけを描画用の本文と words から除く。
+ * どれかの cut と一部でも交差する語は残す（語の途中で切った場合に欠落させない）。
+ */
+export declare function projectCaptionWords(caption: UnknownRecord, cuts: UnknownRecord[]): ProjectedCaptionWords;
+/**
+ * 同じ source cue が同じ出力区間へ複数回射影された場合、下→上の trackOrder で
+ * 最後に描かれる occurrence だけを残す。部分重複は境界で分割する。
+ */
+export declare function dedupeCaptionOccurrences<T extends {
+    source_cue_id: string;
+    start: number;
+    end: number;
+    track: number;
+    source_start?: number;
+    source_end?: number;
+}>(occurrences: readonly T[], trackOrder: readonly number[]): T[];
 export declare function splitCaptionFragments(text: string, policy: CaptionDisplayPolicy): {
     fragments: string[];
     boundaries: number[];
