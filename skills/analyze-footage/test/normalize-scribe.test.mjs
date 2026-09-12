@@ -10,6 +10,25 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = JSON.parse(
   fs.readFileSync(path.join(here, "fixtures", "scribe-punctuation-inflation.json"), "utf8"),
 );
+const speakerFixture = JSON.parse(
+  fs.readFileSync(path.join(here, "fixtures", "scribe-speakers.json"), "utf8"),
+);
+
+test("speaker_id の切り替わりで segment を分け、word の外形は変えない", () => {
+  const segments = normalizeScribe(speakerFixture);
+  assert.deepEqual(segments.map(({ text, speaker }) => ({ text, speaker })), [
+    { text: "こんにちは", speaker: "speaker-0" },
+    { text: "どうも", speaker: "speaker-1" },
+    { text: "またね。", speaker: "speaker-0" },
+  ]);
+  assert.ok(segments.every((segment) => segment.words.every((word) => !Object.hasOwn(word, "speaker"))));
+});
+
+test("話者なし fixture の segment キー構成は変わらない", () => {
+  const segments = normalizeScribe(fixture);
+  assert.ok(segments.every((segment) => !Object.hasOwn(segment, "speaker")));
+  assert.deepEqual(Object.keys(segments[0]), ["start", "end", "text", "words"]);
+});
 
 test("句読点トークンの無音を末尾語の end へ膨張させない（隙間の原則）", () => {
   const segments = normalizeScribe(fixture);

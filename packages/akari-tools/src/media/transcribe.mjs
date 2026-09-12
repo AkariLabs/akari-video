@@ -376,6 +376,7 @@ function normalizeSegments(segments, range) {
     const text = String(segment.text ?? "").trim();
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !text) return [];
     const normalized = { start: formatNumber(Math.max(range.in, start)), end: formatNumber(Math.min(range.out, end)), text };
+    if (typeof segment.speaker === "string" && segment.speaker.length > 0) normalized.speaker = segment.speaker;
     const words = [];
     let pending = null;
     const clampWordTime = (time) => formatNumber(Math.max(normalized.start, Math.min(normalized.end, time + offset)));

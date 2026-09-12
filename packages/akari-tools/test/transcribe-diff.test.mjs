@@ -68,6 +68,19 @@ test("時刻窓は分割 segment を合わせ、時間の離れた同一文は�
   assert.ok(result.items.every((item) => item.majority === null));
 });
 
+test("speaker は transcript diff の結果へ影響しない", () => {
+  const now = new Date("2026-09-12T00:00:00.000Z");
+  const plain = [
+    transcript("a", [segment("前後", 0, 2)]),
+    transcript("b", [segment("前誤", 0, 2)]),
+  ];
+  const withSpeakers = plain.map((item, index) => ({
+    ...item,
+    segments: item.segments.map(value => ({ ...value, speaker: `speaker-${index}` })),
+  }));
+  assert.deepEqual(compareTranscripts(withSpeakers, { now }), compareTranscripts(plain, { now }));
+});
+
 test("複数エンジンの同じ位置への挿入を 1 item に集約し、語時刻を使う", () => {
   const result = compareTranscripts([
     transcript("a", [segment("前後", 0, 3)]),

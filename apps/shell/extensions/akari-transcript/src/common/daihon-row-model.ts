@@ -12,6 +12,7 @@ export interface DaihonCaptionLike {
     start: number;
     end: number;
     text: string;
+    speaker?: string | null;
     /** 字幕テンプレ id。style の演出 enum とは別物。 */
     stylePreset?: string;
     style: string | null;
@@ -31,6 +32,7 @@ export interface DaihonRow {
     outStart: number | null;
     outEnd: number | null;
     text: string;
+    speaker: string | null;
     /** 字幕テンプレ id。style の演出 enum とは別物。 */
     stylePreset: string | null;
     style: string | null;
@@ -111,6 +113,7 @@ export function buildDaihonRows(
             outStart,
             outEnd,
             text: caption.text,
+            speaker: caption.speaker ?? null,
             stylePreset: caption.stylePreset ?? null,
             style: caption.style ?? null,
             words,

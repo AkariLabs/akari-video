@@ -89,6 +89,9 @@ import {
     validateDaihonCustomLines,
     type DaihonDisplayKnobs
 } from '../../common/daihon-display-knobs';
+import {
+    parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
+} from './daihon-speaker-chips';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
@@ -98,7 +101,7 @@ const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
-const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
+const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -175,10 +178,12 @@ const STYLE = `
 .akari-daihon-row.selected .akari-daihon-row-head::before { content:"✓"; color:#f5c451; font-size:9px; font-weight:700; margin-right:2px; }
 .akari-daihon-row.selected.active { border-left-color:#53d1bc; box-shadow:inset 3px 0 0 #f5c451; }
 .akari-daihon-row.qc-hidden { display:none; }
+.akari-daihon-row.speaker-hidden { display:none; }
 .akari-daihon-row.iscut { opacity:.5; }
 .akari-daihon-row.iscut .akari-daihon-row-text { text-decoration:line-through; text-decoration-color:rgba(255,143,115,.7); text-decoration-thickness:2px; }
 .akari-daihon-row.saving { opacity:.65; pointer-events:none; }
 .akari-daihon-row-head { display:flex; align-items:center; gap:6px; margin:0; min-height:15px; }
+.akari-daihon-speaker { font-size:9px; font-weight:700; line-height:1.35; border:1px solid; border-radius:999px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-tc { font-family:"JetBrains Mono",ui-monospace,monospace; font-size:8.5px; letter-spacing:-.02em; color:#5b6472; background:none; border:none; padding:0 1px; cursor:pointer; font-variant-numeric:tabular-nums; line-height:1.3; white-space:nowrap; }
 .akari-daihon-tc:hover { color:#53d1bc; }
 .akari-daihon-badge-edited { font-size:9.5px; font-weight:700; color:#7fe7d3; border:1px solid rgba(83,209,188,.4); border-radius:4px; padding:0 5px; white-space:nowrap; }
@@ -386,6 +391,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected reloadPendingAfterDrag = false;
     protected suppressRowClick = false;
     protected qcFilter = false;
+    protected speakerFilter: string | null = null;
+    protected speakerDictionary: SpeakerDictionary = {};
+    protected speakerColors = new Map<string, string>();
     protected configured = false;
     protected reloadTail = Promise.resolve();
     protected rowGaps: DaihonRowGap[] = [];
@@ -589,8 +597,10 @@ export class AkariDaihonWidget extends BaseWidget {
         await this.locateProject(root);
         await this.reload();
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            const dictionaryUri = this.editUri?.parent.resolve('.akari/dictionary.json');
             const relevant = (this.editUri && event.contains(this.editUri))
                 || (this.captionsUri && event.contains(this.captionsUri))
+                || (dictionaryUri && event.contains(dictionaryUri))
                 || event.changes.some(change => change.resource.path.base === 'cuts.json' && this.rootUri?.isEqualOrParent(change.resource));
             if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
@@ -699,9 +709,11 @@ export class AkariDaihonWidget extends BaseWidget {
             return;
         }
         try {
-            const [editSource, captionsSource] = await Promise.all([
-                this.readText(this.editUri), this.readText(this.captionsUri)
+            const [editSource, captionsSource, dictionarySource] = await Promise.all([
+                this.readText(this.editUri), this.readText(this.captionsUri),
+                this.readText(this.editUri.parent.resolve('.akari/dictionary.json')).catch(() => '')
             ]);
+            this.speakerDictionary = parseSpeakerDictionary(dictionarySource);
             const parsed = parseCaptions(captionsSource);
             this.captionsRoot = JSON.parse(captionsSource) as unknown;
             this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
@@ -765,6 +777,7 @@ export class AkariDaihonWidget extends BaseWidget {
             start: caption.start,
             end: caption.end,
             text: caption.text,
+            speaker: caption.speaker ?? null,
             style: caption.style ?? null,
             edited: caption.edited,
             ...(caption.words ? { words: caption.words } : {}),
@@ -856,7 +869,16 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
         this.rowGaps = findRowGaps(next);
+        this.speakerColors = speakerColorMap(next);
+        if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
+        const previousById = new Map(this.rows.map(row => [row.id, row]));
+        for (const row of next) {
+            const previous = previousById.get(row.id);
+            if (previous && previous.speaker !== row.speaker && !plan.update.some(candidate => candidate.id === row.id)) {
+                plan.update.push(row);
+            }
+        }
         for (const id of plan.remove) {
             if (this.editing?.id === id) this.editing = undefined;
             this.elements.get(id)?.root.remove();
@@ -892,6 +914,15 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         if (next.length > 0) this.rowsNode.querySelector('.akari-daihon-empty')?.remove();
         this.rows = next;
+        for (const row of next) {
+            const chip = this.elements.get(row.id)?.root.querySelector<HTMLButtonElement>('.akari-daihon-speaker');
+            if (!chip || !row.speaker) continue;
+            const color = this.speakerColors.get(row.speaker) ?? '#62d6c5';
+            chip.textContent = speakerLabel(row.speaker, this.speakerDictionary);
+            chip.style.color = color;
+            chip.style.borderColor = color;
+            chip.style.backgroundColor = `${color}18`;
+        }
         this.wordRanges = normalizeWordRanges(this.wordRanges.filter(range => {
             const row = next.find(candidate => candidate.id === range.row);
             return !!row?.words?.[range.a] && !!row.words[range.b];
@@ -918,6 +949,24 @@ export class AkariDaihonWidget extends BaseWidget {
 
         const head = document.createElement('div');
         head.className = 'akari-daihon-row-head';
+        if (row.speaker) {
+            const speaker = document.createElement('button');
+            const color = this.speakerColors.get(row.speaker) ?? '#62d6c5';
+            speaker.type = 'button';
+            speaker.className = 'akari-daihon-speaker';
+            speaker.dataset.speaker = row.speaker;
+            speaker.textContent = speakerLabel(row.speaker, this.speakerDictionary);
+            speaker.title = 'この話者の行だけ表示';
+            speaker.style.color = color;
+            speaker.style.borderColor = color;
+            speaker.style.backgroundColor = `${color}18`;
+            speaker.addEventListener('click', event => {
+                event.stopPropagation();
+                this.speakerFilter = this.speakerFilter === row.speaker ? null : row.speaker;
+                this.applyQcFilter();
+            });
+            head.appendChild(speaker);
+        }
         const tc = document.createElement('button');
         tc.type = 'button';
         tc.className = 'akari-daihon-tc';
@@ -2600,11 +2649,16 @@ export class AkariDaihonWidget extends BaseWidget {
     protected applyQcFilter(): void {
         let visible = 0;
         for (const row of this.rows) {
-            const show = !this.qcFilter || rowIssues(row).length > 0;
-            this.elements.get(row.id)?.root.classList.toggle('qc-hidden', !show);
-            if (show) visible++;
+            const showQc = !this.qcFilter || rowIssues(row).length > 0;
+            const showSpeaker = this.speakerFilter === null || row.speaker === this.speakerFilter;
+            const root = this.elements.get(row.id)?.root;
+            root?.classList.toggle('qc-hidden', !showQc);
+            root?.classList.toggle('speaker-hidden', !showSpeaker);
+            if (showQc && showSpeaker) visible++;
         }
-        this.count.textContent = this.qcFilter
+        this.count.textContent = this.speakerFilter !== null
+            ? `話者 ${speakerLabel(this.speakerFilter, this.speakerDictionary)} ${visible} 行`
+            : this.qcFilter
             ? `${visible} / ${this.rows.length} 行`
             : `${this.rows.length} 行`;
         const unknowns = this.rows.reduce((total, row) => total + row.unrecognized.length, 0);

@@ -48,7 +48,8 @@ export function buildCaptionsFromTranscript(segments, {
       captions.push({
         id: `c-${String(id).padStart(4, "0")}`,
         start: roundTime(start), end: roundTime(lastEnd + readoutSeconds), text: piece.text,
-        speaker: null, sourceRef: { segment: index }, edited: false,
+        speaker: typeof segment.speaker === "string" && segment.speaker.length > 0 ? segment.speaker : null,
+        sourceRef: { segment: index }, edited: false,
         ...(src !== undefined ? { src } : {}),
         ...(piece.words !== undefined ? { words: piece.words } : {}),
         ...(segment.unrecognized !== undefined ? { unrecognized: segment.unrecognized } : {}),

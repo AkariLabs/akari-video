@@ -360,7 +360,9 @@ export function normalizeScribe(response) {
       continue;
     }
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
-    words.push({ start, end, text: `${pendingPrefix}${text}` });
+    const speaker = typeof sourceWord?.speaker_id === "string" && sourceWord.speaker_id.length > 0
+      ? sourceWord.speaker_id : undefined;
+    words.push({ start, end, text: `${pendingPrefix}${text}`, ...(speaker ? { speaker } : {}) });
     pendingPrefix = "";
   }
 
@@ -369,16 +371,20 @@ export function normalizeScribe(response) {
   const hasSentencePunctuation = words.some((word) => /[。！？!?]/.test(word.text));
   const flush = () => {
     if (current.length === 0) return;
+    const speaker = current.find((word) => word.speaker !== undefined)?.speaker;
     segments.push({
       start: current[0].start,
       end: current[current.length - 1].end,
       text: current.map((word) => word.text).join(""),
-      words: current,
+      ...(speaker ? { speaker } : {}),
+      words: current.map(({ speaker: _speaker, ...word }) => word),
     });
     current = [];
   };
   for (let index = 0; index < words.length; index += 1) {
     const word = words[index];
+    const currentSpeaker = current.find((item) => item.speaker !== undefined)?.speaker;
+    if (word.speaker !== undefined && currentSpeaker !== undefined && word.speaker !== currentSpeaker) flush();
     current.push(word);
     const next = words[index + 1];
     if (/[。！？!?]/.test(word.text) || (!hasSentencePunctuation && next && next.start - word.end >= 2)) flush();
@@ -419,6 +425,7 @@ function addOffset(segments, offset) {
     start: segment.start + offset,
     end: segment.end + offset,
     text: segment.text,
+    ...(typeof segment.speaker === "string" && segment.speaker.length > 0 ? { speaker: segment.speaker } : {}),
     words: segment.words.map((word) => ({
       start: word.start + offset,
       end: word.end + offset,

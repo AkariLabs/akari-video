@@ -13,7 +13,7 @@ test("word boundaries preserve silence and source metadata deterministically", (
   assert.ok(result.captions[1].start - result.captions[0].end > 1);
   assert.deepEqual(result.captions.map((cue) => cue.sourceRef.segment), [1, 2, 0]);
   assert.equal(result.captions[0].id, "c-0007");
-  assert.equal(result.captions[0].speaker, null);
+  assert.equal(result.captions[0].speaker, "speaker-1");
   assert.equal(result.captions[0].src, "s1");
   assert.equal(result.captions[0].edited, false);
   assert.equal(result.captions[0].words, first.words);
@@ -91,6 +91,18 @@ test("split pieces cap readout at the following word and warn below the floor", 
   assert.equal(captions[0].end, captions[1].start);
   assert.deepEqual(captions.map((cue) => cue.sourceRef), [{ segment: 0 }, { segment: 0 }]);
   assert.equal(warnings.length, 1);
+});
+
+test("segment の speaker を全分割 caption へ写し、無ければ null にする", () => {
+  const words = [
+    { start: 0, end: 1, text: "前半" },
+    { start: 1, end: 2, text: "後半" },
+  ];
+  const { captions } = build([{ start: 0, end: 2, text: "前半後半", words, speaker: "speaker-a" }], {
+    splitMode: "none", maxCharacters: 2,
+  });
+  assert.deepEqual(captions.map(caption => caption.speaker), ["speaker-a", "speaker-a"]);
+  assert.equal(build([segment(0, 1)]).captions[0].speaker, null);
 });
 
 const phraseSegment = (text, surfaces = Array.from(text)) => ({
