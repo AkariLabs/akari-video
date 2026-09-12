@@ -20,6 +20,7 @@ import {
   buildCutMap,
   buildTimelineTrace,
   parseEventsJsonl,
+  reconcileStrokeFrames,
   resolveUtteranceReference,
 } from "../bin/core/time-mapping.mjs";
 import {
@@ -650,3 +651,167 @@ async function writePcmWav(file, duration, speechSpans, sampleRate = 16000) {
   data.copy(wav, 44);
   await fs.writeFile(file, wav);
 }
+
+// issue #71: v0.1.63 の記録側は v2 edit でストロークの frame.sourceT を 0 に退避していた。
+// timelineT は正しいので、compile 側が snapshot から sourceT / cutIndex を写像し直す。
+test("timelineT > 0 かつ sourceT === 0 のストロークは snapshot から sourceT を補正する", () => {
+  const cutMap = buildCutMap(snapshot);
+  const stale = {
+    id: "st-0001",
+    tool: "pen",
+    space: "content-rect",
+    recTStart: 3,
+    recTEnd: 3.5,
+    frame: { timelineT: 15, sourceT: 0, cutIndex: 0 },
+    points: [[0.1, 0.2], [0.8, 0.9]],
+  };
+  const consistent = {
+    ...stale,
+    id: "st-0002",
+    frame: { timelineT: 15, sourceT: cutMap.locate(15).sourceT, cutIndex: cutMap.locate(15).cutIndex },
+  };
+  const { strokes, warnings } = reconcileStrokeFrames([stale, consistent], cutMap);
+  const expected = cutMap.locate(15);
+  assert.ok(expected.cutIndex > 0, "前提: timelineT 15 は 2 本目以降の cut（配置オフセット + トリム）に落ちる");
+  assert.equal(strokes[0].frame.sourceT, expected.sourceT);
+  assert.equal(strokes[0].frame.cutIndex, expected.cutIndex);
+  assert.equal(strokes[0].frame.timelineT, 15);
+  assert.equal(strokes[1], consistent, "整合しているストロークはそのまま（同一オブジェクト）");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /st-0001/);
+
+  // 0 以外の保存値は snapshot と食い違っても尊重する（録画中に edit が変わり snapshot が古い場合、
+  // 記録側の値の方が正しい。補正対象は退避の署名 = sourceT 0 だけ）。
+  const divergent = { ...stale, id: "st-0003", frame: { timelineT: 15, sourceT: 42, cutIndex: 0 } };
+  const kept = reconcileStrokeFrames([divergent], cutMap);
+  assert.equal(kept.strokes[0], divergent);
+  assert.equal(kept.warnings.length, 0);
+});
+
+test("v2 セッションの sourceT 0 ストロークは compile で素材時刻へ解決される", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-stale-sourcet-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(temporary, "review.json"),
+    '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n',
+  );
+  const sessionId = "s-0010";
+  const sessionDirectory = path.join(temporary, "review", "sessions", sessionId);
+  await fs.mkdir(path.dirname(sessionDirectory), { recursive: true });
+  await fs.cp(path.join(fixtureSessions, sessionId), sessionDirectory, { recursive: true });
+  // s-0010 の v2 snapshot: cut-1 = 0-10 秒（in 10）、cut-2 = 10-50 秒（in 100）。timelineT 15 → sourceT 105。
+  await fs.writeFile(path.join(sessionDirectory, "strokes.json"), JSON.stringify({
+    version: 1,
+    strokes: [{
+      id: "st-0001",
+      tool: "pen",
+      space: "content-rect",
+      recTStart: 2.1,
+      recTEnd: 2.7,
+      frame: { timelineT: 15, sourceT: 0, cutIndex: 0 },
+      points: [[0.1, 0.2], [0.8, 0.9]],
+    }],
+  }));
+  await fs.writeFile(path.join(sessionDirectory, "transcript.json"), JSON.stringify({
+    version: 1,
+    backend: "fixture",
+    segments: [{
+      start: 2,
+      end: 3,
+      text: "このカットを削除してください",
+      words: [{ start: 2, end: 3, text: "このカットを削除してください" }],
+    }],
+  }));
+  await execFileAsync(process.execPath, [compileCli, temporary, "--session", sessionId, "--json"]);
+
+  const review = JSON.parse(await fs.readFile(path.join(temporary, "review.json"), "utf8"));
+  assert.equal(review.annotations.length, 1);
+  assert.equal(review.annotations[0].sourceT, 105);
+  assert.equal(review.annotations[0].target, "cut:1");
+  assert.equal(review.annotations[0].strokes[0].frame.sourceT, 105);
+  assert.equal(review.annotations[0].strokes[0].frame.cutIndex, 1);
+  const report = await fs.readFile(path.join(sessionDirectory, "compile-report.md"), "utf8");
+  assert.match(report, /st-0001.*補正しました/);
+});
+
+// issue #73: compile-review-session が正式に書く review.json（input: session / transcript / session /
+// strokeRefs / timelineT: null）が、review.schema.json と edit-lint の既知フィールド集合に同期している
+// ことを生成物そのもので固定する（警告 1 件でも drift とみなす）。
+test("compile-review-session の生成物は edit-lint の review 検査を警告なしで通る", async (context) => {
+  const { lintProject } = await import("../../../packages/edit-lint/src/edit-lint.mjs");
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-lint-sync-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.mkdir(path.join(temporary, "assets"), { recursive: true });
+  await fs.writeFile(path.join(temporary, "assets", "source.mp4"), "fixture", "utf8");
+  // edit-lint は v2 の edit.json を要求する（v1 は migrate 案内で停止）。snapshot 側は compile が
+  // 旧 cuts / v2 の両方を読めるので、ここでは v2 を直書きする（600 frames @30fps = 20 秒 = out - in）。
+  await fs.writeFile(path.join(temporary, "edit.json"), `${JSON.stringify({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: "s1", path: "assets/source.mp4", proxy: null }],
+    tracks: [{
+      id: "t1",
+      lane: "visual",
+      items: [{ id: "cut-1", at: 0, duration: 600, source: { kind: "media", src: "s1", in: 10, out: 30 } }],
+    }],
+  }, null, 2)}\n`, "utf8");
+  await fs.writeFile(
+    path.join(temporary, "review.json"),
+    '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n',
+  );
+  const sessionId = "s-0001";
+  const sessionDirectory = path.join(temporary, "review", "sessions", sessionId);
+  await fs.mkdir(sessionDirectory, { recursive: true });
+  await fs.writeFile(path.join(sessionDirectory, "session.json"), JSON.stringify({
+    version: 1,
+    id: sessionId,
+    status: "recorded",
+    audio: "audio.wav",
+    editSnapshot: "edit.snapshot.json",
+    compiledAnnotations: null,
+  }));
+  await fs.writeFile(path.join(sessionDirectory, "edit.snapshot.json"), JSON.stringify({
+    cuts: [{ src: "s1", in: 10, out: 30 }],
+  }));
+  await fs.writeFile(path.join(sessionDirectory, "events.jsonl"), [
+    '{"recT":0,"type":"start","timelineT":0,"playing":false}',
+    '{"recT":0.5,"type":"play","timelineT":0}',
+    '{"recT":4,"type":"end","timelineT":3.5}',
+  ].join("\n"));
+  await fs.writeFile(path.join(sessionDirectory, "transcript.json"), JSON.stringify({
+    version: 1,
+    backend: "fixture",
+    segments: [{
+      start: 2,
+      end: 3,
+      text: "このカットを削除してください",
+      words: [{ start: 2, end: 3, text: "このカットを削除してください" }],
+    }],
+  }));
+  await fs.writeFile(path.join(sessionDirectory, "strokes.json"), JSON.stringify({
+    version: 1,
+    strokes: [{
+      id: "st-0001",
+      tool: "pen",
+      space: "content-rect",
+      recTStart: 2.1,
+      recTEnd: 2.7,
+      frame: { timelineT: 6, sourceT: 16, cutIndex: 0 },
+      points: [[0.1, 0.2], [0.8, 0.9]],
+    }],
+  }));
+  await execFileAsync(process.execPath, [compileCli, temporary, "--session", sessionId, "--json"]);
+
+  const review = JSON.parse(await fs.readFile(path.join(temporary, "review.json"), "utf8"));
+  assert.equal(review.annotations.length, 1);
+  const [annotation] = review.annotations;
+  assert.equal(annotation.input, "session");
+  assert.equal(annotation.timelineT, null);
+  assert.equal(typeof annotation.transcript, "string");
+  assert.deepEqual(Object.keys(annotation.session).sort(), ["confidence", "id", "recRange"]);
+  assert.equal(annotation.strokeRefs[0].sessionRef, "s-0001/st-0001");
+
+  const result = await lintProject(temporary, { checkedAt: "2026-09-12T00:00:00.000Z" });
+  const reviewFindings = result.findings.filter((finding) => finding.check.startsWith("review."));
+  assert.deepEqual(reviewFindings, [], `review 検査に指摘がある:\n${JSON.stringify(reviewFindings, null, 2)}`);
+});

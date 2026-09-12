@@ -4974,6 +4974,8 @@ const REVIEW_DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 const REVIEW_IMAGE_TARGET_PATTERN = /^image:(.+)$/;
 const REVIEW_CANVAS_TARGET_PATTERN = /^canvas:(c-\d{4,})$/;
 const REVIEW_REQUIRED_FIELDS = ["id", "createdAt", "sourceT", "text", "input", "status"];
+// review.schema.json の annotation.properties と同じ集合を保つ（issue #73: compile-review-session が
+// 正式に書く strokeRefs / transcript / session がここに無く、正規の生成物に warning が出ていた）。
 const REVIEW_OPTIONAL_FIELDS = [
   "src",
   "sourceRange",
@@ -4982,10 +4984,13 @@ const REVIEW_OPTIONAL_FIELDS = [
   "targetKind",
   "region",
   "strokes",
+  "strokeRefs",
   "refs",
   "insertPosition",
   "intent",
   "audio",
+  "transcript",
+  "session",
   "poses",
   "response",
 ];

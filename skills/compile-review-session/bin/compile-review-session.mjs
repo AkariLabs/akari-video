@@ -26,6 +26,7 @@ import {
   buildTimelineTrace,
   buildUiTrace,
   parseEventsJsonl,
+  reconcileStrokeFrames,
 } from "./core/time-mapping.mjs";
 import { transcribeAudio } from "./core/transcription.mjs";
 
@@ -428,9 +429,15 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
     const eventsPath = path.join(sessionDirectory, "events.jsonl");
     const eventsSource = await fs.readFile(eventsPath, "utf8");
     const parsedEvents = parseEventsJsonl(eventsSource);
-    const parsedStrokes = await loadStrokes(sessionDirectory);
+    const loadedStrokes = await loadStrokes(sessionDirectory);
     const trace = buildTimelineTrace(parsedEvents.events);
     const cutMap = buildCutMap(snapshot);
+    // 記録側が退避した sourceT（issue #71）を snapshot から補正してから発話へ結ぶ。
+    const reconciledStrokes = reconcileStrokeFrames(loadedStrokes.strokes, cutMap);
+    const parsedStrokes = {
+      strokes: reconciledStrokes.strokes,
+      warnings: [...loadedStrokes.warnings, ...reconciledStrokes.warnings],
+    };
     const uiTrace = buildUiTrace(parsedEvents.events);
     const overlays = cutMap.overlays;
     const transcriptPath = path.join(sessionDirectory, "transcript.json");
