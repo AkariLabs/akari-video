@@ -330,6 +330,41 @@ export function buildCutMap(snapshot) {
   };
 }
 
+// issue #71: v0.1.63 以前の記録側は v2 edit で stroke.frame.sourceT を 0（video.currentTime 由来）に
+// 退避していた（timelineT は正しい）。snapshot はセッション開始時の edit なので、timelineT を
+// cutMap で写像し直せば本来の素材時刻が復元できる。
+// 補正するのは「退避の署名」= 保存 sourceT が 0（または非数）で、写像値がそれと食い違うときだけ。
+// 0 以外の保存値は記録側が現在の edit から解いた値として尊重する（snapshot はセッション開始時の
+// コピーで、録画中の編集を止める仕組みは無い — 記録側が正しい環境で snapshot 側が古いケースを
+// 壊さないため）。timelineT が cut の外（clamped）なら保存値を尊重する。
+export function reconcileStrokeFrames(strokes, cutMap, { tolerance = 0.05 } = {}) {
+  const warnings = [];
+  const reconciled = (Array.isArray(strokes) ? strokes : []).map((stroke) => {
+    const frame = stroke?.frame;
+    if (!frame || !Number.isFinite(frame.timelineT)) return stroke;
+    const savedSourceT = Number.isFinite(frame.sourceT) ? frame.sourceT : null;
+    if (savedSourceT !== null && savedSourceT !== 0) return stroke;
+    let located;
+    try {
+      located = cutMap.locate(frame.timelineT);
+    } catch {
+      return stroke;
+    }
+    if (located.clamped) return stroke;
+    const savedCutIndex = Number.isInteger(frame.cutIndex) ? frame.cutIndex : null;
+    const sourceMatches = savedSourceT !== null && Math.abs(savedSourceT - located.sourceT) <= tolerance;
+    const cutMatches = savedCutIndex === null || savedCutIndex === located.cutIndex;
+    if (sourceMatches && cutMatches) return stroke;
+    warnings.push(
+      `strokes.json ${stroke.id}: 保存された frame（sourceT ${savedSourceT} / cutIndex ${savedCutIndex}）が`
+      + ` snapshot と不整合のため、timelineT ${frame.timelineT} から sourceT ${located.sourceT}`
+      + ` / cutIndex ${located.cutIndex} に補正しました`,
+    );
+    return { ...stroke, frame: { ...frame, sourceT: located.sourceT, cutIndex: located.cutIndex } };
+  });
+  return { strokes: reconciled, warnings };
+}
+
 function pairableStroke(strokes, utteranceStart, utteranceEnd, maximumDistance) {
   return (Array.isArray(strokes) ? strokes : [])
     .map((stroke, index) => {

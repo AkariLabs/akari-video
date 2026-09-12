@@ -20,6 +20,7 @@ import {
   buildCutMap,
   buildTimelineTrace,
   parseEventsJsonl,
+  reconcileStrokeFrames,
   resolveUtteranceReference,
 } from "../bin/core/time-mapping.mjs";
 import {
@@ -650,6 +651,88 @@ async function writePcmWav(file, duration, speechSpans, sampleRate = 16000) {
   data.copy(wav, 44);
   await fs.writeFile(file, wav);
 }
+
+// issue #71: v0.1.63 の記録側は v2 edit でストロークの frame.sourceT を 0 に退避していた。
+// timelineT は正しいので、compile 側が snapshot から sourceT / cutIndex を写像し直す。
+test("timelineT > 0 かつ sourceT === 0 のストロークは snapshot から sourceT を補正する", () => {
+  const cutMap = buildCutMap(snapshot);
+  const stale = {
+    id: "st-0001",
+    tool: "pen",
+    space: "content-rect",
+    recTStart: 3,
+    recTEnd: 3.5,
+    frame: { timelineT: 15, sourceT: 0, cutIndex: 0 },
+    points: [[0.1, 0.2], [0.8, 0.9]],
+  };
+  const consistent = {
+    ...stale,
+    id: "st-0002",
+    frame: { timelineT: 15, sourceT: cutMap.locate(15).sourceT, cutIndex: cutMap.locate(15).cutIndex },
+  };
+  const { strokes, warnings } = reconcileStrokeFrames([stale, consistent], cutMap);
+  const expected = cutMap.locate(15);
+  assert.ok(expected.cutIndex > 0, "前提: timelineT 15 は 2 本目以降の cut（配置オフセット + トリム）に落ちる");
+  assert.equal(strokes[0].frame.sourceT, expected.sourceT);
+  assert.equal(strokes[0].frame.cutIndex, expected.cutIndex);
+  assert.equal(strokes[0].frame.timelineT, 15);
+  assert.equal(strokes[1], consistent, "整合しているストロークはそのまま（同一オブジェクト）");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /st-0001/);
+
+  // 0 以外の保存値は snapshot と食い違っても尊重する（録画中に edit が変わり snapshot が古い場合、
+  // 記録側の値の方が正しい。補正対象は退避の署名 = sourceT 0 だけ）。
+  const divergent = { ...stale, id: "st-0003", frame: { timelineT: 15, sourceT: 42, cutIndex: 0 } };
+  const kept = reconcileStrokeFrames([divergent], cutMap);
+  assert.equal(kept.strokes[0], divergent);
+  assert.equal(kept.warnings.length, 0);
+});
+
+test("v2 セッションの sourceT 0 ストロークは compile で素材時刻へ解決される", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-stale-sourcet-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(temporary, "review.json"),
+    '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n',
+  );
+  const sessionId = "s-0010";
+  const sessionDirectory = path.join(temporary, "review", "sessions", sessionId);
+  await fs.mkdir(path.dirname(sessionDirectory), { recursive: true });
+  await fs.cp(path.join(fixtureSessions, sessionId), sessionDirectory, { recursive: true });
+  // s-0010 の v2 snapshot: cut-1 = 0-10 秒（in 10）、cut-2 = 10-50 秒（in 100）。timelineT 15 → sourceT 105。
+  await fs.writeFile(path.join(sessionDirectory, "strokes.json"), JSON.stringify({
+    version: 1,
+    strokes: [{
+      id: "st-0001",
+      tool: "pen",
+      space: "content-rect",
+      recTStart: 2.1,
+      recTEnd: 2.7,
+      frame: { timelineT: 15, sourceT: 0, cutIndex: 0 },
+      points: [[0.1, 0.2], [0.8, 0.9]],
+    }],
+  }));
+  await fs.writeFile(path.join(sessionDirectory, "transcript.json"), JSON.stringify({
+    version: 1,
+    backend: "fixture",
+    segments: [{
+      start: 2,
+      end: 3,
+      text: "このカットを削除してください",
+      words: [{ start: 2, end: 3, text: "このカットを削除してください" }],
+    }],
+  }));
+  await execFileAsync(process.execPath, [compileCli, temporary, "--session", sessionId, "--json"]);
+
+  const review = JSON.parse(await fs.readFile(path.join(temporary, "review.json"), "utf8"));
+  assert.equal(review.annotations.length, 1);
+  assert.equal(review.annotations[0].sourceT, 105);
+  assert.equal(review.annotations[0].target, "cut:1");
+  assert.equal(review.annotations[0].strokes[0].frame.sourceT, 105);
+  assert.equal(review.annotations[0].strokes[0].frame.cutIndex, 1);
+  const report = await fs.readFile(path.join(sessionDirectory, "compile-report.md"), "utf8");
+  assert.match(report, /st-0001.*補正しました/);
+});
 
 // issue #73: compile-review-session が正式に書く review.json（input: session / transcript / session /
 // strokeRefs / timelineT: null）が、review.schema.json と edit-lint の既知フィールド集合に同期している
