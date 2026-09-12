@@ -193,5 +193,11 @@ export declare function resolveCaptionStyleForOutput(style: UnknownRecord, outpu
     vars: Record<string, string>;
     layout?: ResolvedCaptionLayout;
 };
+export declare function resolveCaptionWordStyleVars(style: UnknownRecord, output: {
+    width: number;
+    height: number;
+} | undefined): Record<string, string>;
+export declare function captionTextShadowValue(shadow: unknown, glow: unknown, scale?: number): string | null;
+export declare function colorWithOpacity(color: string, explicitOpacity?: number): string;
 export declare function formatCssNumber(value: number): string;
 export {};

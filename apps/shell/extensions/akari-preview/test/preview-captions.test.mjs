@@ -27,7 +27,7 @@ test('webview に埋め込む語プリセット CSS は render-cut と一致す�
     const source = await readFile(join(
         extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
     ), 'utf8');
-    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;white-space:pre;\}\.akari-caption__tok--preset\{[^']+\})'/u);
+    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;white-space:pre;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
     assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
 });
 
@@ -475,13 +475,27 @@ test('word preset style_vars are identical across kernel, render, preview API, a
         assert.deepEqual(render, expected);
         assert.deepEqual(api, expected);
         assert.deepEqual(shellStyles, expected);
-        assert.ok(expected.some(styles => styles?.some(style => style.preset_id === 'neon'
-            && style.style_vars['--caption-color'] === '#aefcff')));
+        for (const presetId of ['neon', 'glitch']) {
+            assert.ok(expected.some(styles => styles?.some(style => style.preset_id === presetId
+                && style.style_vars['--caption-tok-text-shadow'])));
+        }
+        assert.ok(expected.flatMap(styles => styles ?? []).every(style =>
+            Object.keys(style.style_vars).every(key => key.startsWith('--caption-tok-'))));
         const preview = parseResolvedPreviewCaptions({ schema: kernel.schema, captions: kernel.display_cues });
         assert.ok(preview.some(cue => cue.wordStyles?.[0]?.preset_id === 'neon' && cue.resolvedWords?.length));
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+test('word variable contract exactly matches render and Web preview preset consumers', async () => {
+    const renderVariables = [...RESOLVED_CAPTION_WORD_PRESET_CSS.matchAll(/var\((--caption-tok-[a-z-]+)/gu)]
+        .map(match => match[1]);
+    assert.deepEqual(new Set(renderVariables), new Set(checkedVisualContract.resolved_caption_word_style_variable_names));
+    const source = await readFile(join(repositoryRoot, 'packages/preview-server/public/app.js'), 'utf8');
+    const rule = source.match(/\.akari-caption__tok--preset \{([^}]+)\}/u)?.[1] ?? '';
+    const previewVariables = [...rule.matchAll(/var\((--caption-tok-[a-z-]+)/gu)].map(match => match[1]);
+    assert.deepEqual(previewVariables, renderVariables);
 });
 
 test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {

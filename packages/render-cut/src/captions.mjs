@@ -13,12 +13,15 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   captionAnchorPositionVars,
+  captionTextShadowValue,
+  colorWithOpacity,
   dedupeCaptionOccurrences,
   expandCaptionDisplayFragments,
   normalizeCaptionClock,
   projectCaptionWords,
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
+  resolveCaptionWordStyleVars,
   resolveCaptionStylePreset,
   scaleCaptionPx,
   TEXTSTYLE_CATALOG,
@@ -88,7 +91,7 @@ const RESOLVED_CAPTION_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 
-export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;white-space:pre;}.akari-caption__tok--preset{color:var(--caption-color,inherit);font-size:var(--caption-font-size,inherit);font-weight:var(--caption-font-weight,inherit);line-height:var(--caption-line-height,inherit);-webkit-text-stroke:var(--caption-webkit-text-stroke,inherit);paint-order:var(--caption-paint-order,inherit);text-shadow:var(--caption-text-shadow,inherit);}';
+export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,inherit);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,inherit);text-shadow:var(--caption-tok-text-shadow,inherit);}';
 
 // opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
 // 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
@@ -499,28 +502,6 @@ export function captionTextStyleVars(style, output) {
 // shadow（角度 + 距離 → オフセット）と glow（発光 = ぼかしのみの多重影）を
 // 1 本の text-shadow 値へ合成する。どちらも無ければ null（既定の薄影を維持）。
 // scale（reference_height_px 由来・既定 1）は宣言済みの px フィールドだけに掛ける。
-function captionTextShadowValue(shadow, glow, scale = 1) {
-  const parts = [];
-  if (shadow && typeof shadow.color === "string") {
-    const angle = ((shadow.angle_deg ?? 90) * Math.PI) / 180;
-    const distance = scaleCaptionPx(shadow.distance_px ?? 0, scale);
-    const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
-    const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
-    parts.push(`${dx}px ${dy}px ${scaleCaptionPx(shadow.blur_px ?? 0, scale)}px ${colorWithOpacity(shadow.color, shadow.opacity)}`);
-  }
-  if (glow && typeof glow.color === "string") {
-    const spread = glow.spread === undefined ? 40 : scaleCaptionPx(glow.spread, scale);
-    const alpha = Math.min(1, (glow.density ?? 50) / 60);
-    const offsetX = scaleCaptionPx(glow.offset_x ?? 0, scale);
-    const offsetY = scaleCaptionPx(glow.offset_y ?? 0, scale);
-    parts.push(
-      `${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`,
-      `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`,
-    );
-  }
-  return parts.length > 0 ? parts.join(", ") : null;
-}
-
 // text_anchor / position → CSS 変数の実体は共有カーネル captionAnchorPositionVars（上の import）。
 // 旧ローカル複製 anchorPositionVars はプレビュー側の実装漏れ（text_anchor/position を落として
 // 既定下段に描く）と対で drift の温床だったため撤去した。
@@ -669,18 +650,6 @@ function usesExtendedPerLineBackground(background) {
   return usesPercentageBackground(background)
     || (finiteNumber(background.offset_x) && background.offset_x !== 0)
     || (finiteNumber(background.offset_y) && background.offset_y !== 0);
-}
-
-function colorWithOpacity(color, explicitOpacity) {
-  const raw = color.slice(1);
-  const expanded = raw.length === 3
-    ? raw.split("").map((character) => character + character).join("")
-    : raw;
-  const rgb = expanded.slice(0, 6).padEnd(6, "0");
-  const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
-  const alpha = explicitOpacity ?? alphaFromColor;
-  return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
-    + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
 }
 
 function zoneVars(zone) {
@@ -1821,7 +1790,7 @@ function normalizeEmphasisWords(value, output) {
       ? resolveCaptionStylePreset({ style_preset: item.style_preset }, TEXTSTYLE_CATALOG)
       : null;
     normalized.push(preset?.resolved
-      ? { ...item, _presetStyleVars: resolveCaptionStyleForOutput(preset.record.text_style, output).vars }
+      ? { ...item, _presetStyleVars: resolveCaptionWordStyleVars(preset.record.text_style, output) }
       : item);
   }
   return normalized;

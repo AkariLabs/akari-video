@@ -565,8 +565,8 @@ function validateDisplayPolicyCaptions(captions, policy) {
     if (["karaoke", "pop", "reveal", "reveal-word"].includes(caption.style)) fail(`captions[${index}].style は display_policy と併用できません`);
     if (caption.display_fragments !== undefined) {
       const fragments = caption.display_fragments;
-      if (!Array.isArray(fragments) || fragments.length < 1 || fragments.length > 2 || fragments.some(item => !strictText(item))) {
-        fail(`captions[${index}].display_fragments は 1〜2 件の NFC かつ前後空白のない文字列である必要があります`);
+      if (!Array.isArray(fragments) || fragments.length < 1 || fragments.length > 6 || fragments.some(item => !strictText(item))) {
+        fail(`captions[${index}].display_fragments は 1〜6 件の NFC かつ前後空白のない文字列である必要があります`);
       } else {
         if (fragments.join("") !== text) fail(`captions[${index}].display_fragments は表示文字列を厳密に保存する必要があります`);
         if (fragments.some(item => measureUnits(item) > policy.max_line_units)) fail(`captions[${index}].display_fragments は max_line_units 以下である必要があります`);

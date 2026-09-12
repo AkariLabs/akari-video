@@ -104,6 +104,8 @@ test('caption sprite keeps the shared word preset DOM from render-cut', () => {
   const html = built.spriteManifest.captions[0].html;
   assert.match(html, /data-emphasis-preset="neon"/u);
   assert.match(html, /akari-caption__tok--preset/u);
+  assert.match(html, /--caption-tok-text-shadow:/u);
+  assert.match(html, /text-shadow:var\(--caption-tok-text-shadow,inherit\)/u);
 });
 
 function zAxisEdit(order) {

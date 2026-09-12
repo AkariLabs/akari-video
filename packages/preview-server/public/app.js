@@ -4506,8 +4506,8 @@ function injectCaptionStyles() {
   99.99% { opacity:1; transform:translateY(0); }
   100% { opacity:0; transform:translateY(0); }
 }
-.akari-caption__tok { display:inline-block; will-change:transform,color; }
-.akari-caption__tok--preset { color:var(--caption-color,inherit);font-size:var(--caption-font-size,inherit);font-weight:var(--caption-font-weight,inherit);line-height:var(--caption-line-height,inherit);-webkit-text-stroke:var(--caption-webkit-text-stroke,inherit);paint-order:var(--caption-paint-order,inherit);text-shadow:var(--caption-text-shadow,inherit); }
+.akari-caption__tok { display:inline-block; will-change:transform,color; --caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial; }
+.akari-caption__tok--preset { color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,inherit);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,inherit);text-shadow:var(--caption-tok-text-shadow,inherit); }
 .akari-caption__resolved-line .akari-caption__tok { white-space:pre; }
 .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
