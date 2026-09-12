@@ -1,0 +1,92 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. ⧉ 分割・語境界時刻・anchor 追従",
+      "pass": true,
+      "detail": {
+        "marks": 4,
+        "frontEnd": 1.77,
+        "backStart": 1.9,
+        "anchor": {
+          "at": 30,
+          "duration": 23
+        }
+      }
+    },
+    {
+      "name": "2. 分割直後の 2 行を結合して deepEqual 往復",
+      "pass": true,
+      "detail": {
+        "deepEqual": true
+      }
+    },
+    {
+      "name": "3. 行間 ⊕ の空ドラフト破棄と確定",
+      "pass": true,
+      "detail": {
+        "emptyDiscarded": true,
+        "insertedId": "c-0007",
+        "wordsAbsent": true
+      }
+    },
+    {
+      "name": "4. ＋ 語で既存語の時刻を保つ",
+      "pass": true,
+      "detail": {
+        "dispatch": "native",
+        "unchangedTimedWords": 6,
+        "insertedTiming": {
+          "start": 13.9,
+          "end": 14.03
+        },
+        "anchorBytesEqual": true
+      }
+    },
+    {
+      "name": "5. 非連続選択は結合 disabled + 理由",
+      "pass": true,
+      "detail": {
+        "disabled": true,
+        "title": "離れた行は結合できません。隣接する行を選んでください。"
+      }
+    },
+    {
+      "name": "6. time_domain 不一致は結合 disabled + 理由",
+      "pass": true,
+      "detail": {
+        "disabled": true,
+        "title": "タイムドメインが異なる行は結合できません。"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-split.png",
+    "02-roundtrip-merge.png",
+    "03-gap-insert.png",
+    "04-word-insert.png",
+    "05-non-contiguous-disabled.png",
+    "06-domain-disabled.png"
+  ],
+  "cleanup": {
+    "killedPid": 34210,
+    "survivingProcesses": 0
+  },
+  "dismissedNotices": 18,
+  "knownIssues": [
+    "edit.json v2 の ITEM_KEYS に anchor が無く、行アンカー item を持つ edit.json の読み込みが shell 側で失敗してトーストが出る（schema には anchor がある = main 既存の不整合・本票の境界外）"
+  ],
+  "fixture": {
+    "ok": true,
+    "rows": 6,
+    "splitRows": 3,
+    "mergePairs": 2,
+    "anchor": "c-0001"
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "w": 28.1328125,
+    "h": 17,
+    "top": 172.5
+  }
+}

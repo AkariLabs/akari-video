@@ -71,6 +71,9 @@ import { stringifyEditV2, updateItemDurationAndShiftFollowing } from 'akari-anno
 import { fragmentBoundaries, setCaptionDisplayFragmentsInSource, toggleFragmentBoundary } from './daihon-caption-surgery';
 import { emphasisIdsCovering, planEmphasisUpserts, readEmphasisWords } from './daihon-emphasis-words';
 import { openWordContextMenu, wordContextMenuGroups, type WordMenuAction } from './daihon-word-context-menu';
+import { nextDaihonCaptionId } from '../../common/daihon-caption-id';
+import { canMergeRows, canSplitRow, splitWordBoundaries } from '../../common/daihon-split-merge';
+import { insertWordIntoText } from '../../common/daihon-word-insert';
 import {
     placeUnrecognized,
     type DaihonUnrecognizedSpan,
@@ -89,7 +92,8 @@ const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
-const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
+const MIN_WORD_INSERT_GAP_SEC = 0.1;
+const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -230,9 +234,19 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut,.akari-daihon-split,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
+.akari-daihon-split:disabled,.akari-daihon-selmerge:disabled { opacity:.4; cursor:not-allowed; }
+.akari-daihon-gapzone { height:8px; margin:-3px 8px; position:relative; cursor:pointer; }
+.akari-daihon-gapzone button { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:1px solid #80662a; border-radius:999px; background:#28251b; color:#ffc74a; font-size:10px; line-height:15px; width:17px; height:17px; padding:0; }
+.akari-daihon-gapzone:hover button { display:block; }
+.akari-daihon-gapzone.tight { cursor:default; }
+.akari-daihon-gapdraft { display:flex; padding:3px 10px; }
+.akari-daihon-gapdraft input { width:100%; background:#12151a; color:#e9ecf2; border:1px solid #53d1bc; border-radius:5px; padding:4px 8px; }
+.akari-daihon-splitmark { display:inline-block; position:relative; z-index:4; width:7px; height:1.25em; margin:0 1px; border-left:2px solid #ffc74a; cursor:col-resize; vertical-align:middle; }
+.akari-daihon-splitmark:hover { border-left-color:#fff0ad; }
+.akari-daihon-row.splitting .akari-daihon-wgap { pointer-events:none; }
 .akari-daihon-pop { position:fixed; z-index:40; background:#20252e; border:1px solid #3a4356; border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,.5); min-width:168px; overflow-y:auto; overscroll-behavior:contain; }
 .akari-daihon-pop .akari-daihon-pttl { font-size:10.5px; color:#6b7480; padding:2px 6px; }
 .akari-daihon-pop button { background:none; border:none; color:#e9ecf2; text-align:left; font:inherit; font-size:12.5px; padding:5px 8px; border-radius:5px; cursor:pointer; }
@@ -338,6 +352,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly rowsNode = document.createElement('div');
     protected readonly selectionBar = document.createElement('div');
     protected readonly selectionCount = document.createElement('span');
+    protected readonly selectionMerge = document.createElement('button');
     protected readonly footer = document.createElement('div');
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
@@ -373,6 +388,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected cutRangePlayback: { spans: Array<{ from: number; to: number }>; index: number; stopAt: number } | undefined;
     protected previewPlaying = false;
     protected popOpenedAt = Number.NEGATIVE_INFINITY;
+    protected splitModeRowId: string | undefined;
 
     @postConstruct()
     protected init(): void {
@@ -491,7 +507,11 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openTplPicker(event.currentTarget as HTMLElement);
         });
-        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, selectionCut, selectionClear);
+        this.selectionMerge.type = 'button';
+        this.selectionMerge.className = 'akari-daihon-selmerge';
+        this.selectionMerge.textContent = '⧉ 選択行を結合';
+        this.selectionMerge.addEventListener('click', () => void this.mergeSelectedRows());
+        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, this.selectionMerge, selectionCut, selectionClear);
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
@@ -820,6 +840,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected renderRows(next: DaihonRow[]): void {
         this.closeCutRangeEditor();
         this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
+        this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
+        this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
         this.rowGaps = findRowGaps(next);
         const plan = planDaihonUpdate(this.rows, next);
         for (const id of plan.remove) {
@@ -849,6 +871,12 @@ export class AkariDaihonWidget extends BaseWidget {
             if (node && node.nextSibling !== anchor) this.rowsNode.insertBefore(node, anchor);
             if (node) anchor = node;
         }
+        for (let index = 0; index < next.length - 1; index++) {
+            const previous = next[index];
+            const following = next[index + 1];
+            const root = this.elements.get(previous.id)?.root;
+            if (root) root.after(this.createGapZone(previous, following));
+        }
         if (next.length > 0) this.rowsNode.querySelector('.akari-daihon-empty')?.remove();
         this.rows = next;
         this.wordRanges = normalizeWordRanges(this.wordRanges.filter(range => {
@@ -860,6 +888,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.updateQcSummary();
         this.applyQcFilter();
         this.renderCutCells();
+        this.updateSelectionMerge();
     }
 
     protected createRow(row: DaihonRow): RowElements {
@@ -868,6 +897,7 @@ export class AkariDaihonWidget extends BaseWidget {
         root.dataset.captionId = row.id;
         if (this.handEditedCaptionIds.has(row.id)) root.style.borderLeft = '3px solid #6fa8ff';
         root.classList.toggle('iscut', row.outStart === null);
+        root.classList.toggle('splitting', this.splitModeRowId === row.id);
         root.classList.toggle('selected', this.selection.selected.includes(row.id));
         root.classList.toggle('qc-hidden', this.qcFilter && rowIssues(row).length === 0);
         root.addEventListener('click', event => this.handleRowClick(event, row.id));
@@ -892,6 +922,19 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.cutRows([row]);
         });
         head.appendChild(cut);
+        const split = document.createElement('button');
+        split.type = 'button';
+        split.className = 'akari-daihon-split';
+        split.textContent = '⧉';
+        split.disabled = !canSplitRow(row);
+        split.title = split.disabled ? '単語が 2 語以上ある、カットされていない行だけ分割できます。' : '単語境界で行を分割';
+        split.classList.toggle('selected', this.splitModeRowId === row.id);
+        split.addEventListener('click', event => {
+            event.stopPropagation();
+            this.splitModeRowId = this.splitModeRowId === row.id ? undefined : row.id;
+            this.replaceRenderedRow(row);
+        });
+        head.appendChild(split);
         if (row.edited) {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-edited';
@@ -937,6 +980,17 @@ export class AkariDaihonWidget extends BaseWidget {
                 ?? new Set(row.fragmentBreakWordIndex === null ? [] : [row.fragmentBreakWordIndex]);
             row.words.forEach((word, index) => {
                 if (index > 0) {
+                    if (this.splitModeRowId === row.id && splitWordBoundaries(row).includes(index)) {
+                        const marker = document.createElement('span');
+                        marker.className = 'akari-daihon-splitmark';
+                        marker.dataset.rowId = row.id;
+                        marker.dataset.splitIndex = String(index);
+                        marker.addEventListener('click', event => {
+                            event.stopPropagation();
+                            void this.splitRow(row, index);
+                        });
+                        text.appendChild(marker);
+                    }
                     if (breaks.has(index)) text.appendChild(this.slash(manualBreaks ? 'manual' : 'auto'));
                     const gap = document.createElement('span');
                     gap.className = 'akari-daihon-wgap';
@@ -1014,6 +1068,125 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         root.append(head, text);
         return { root, words };
+    }
+
+    protected createGapZone(previous: DaihonRow, following: DaihonRow): HTMLDivElement {
+        const zone = document.createElement('div');
+        zone.className = 'akari-daihon-gapzone';
+        zone.dataset.prevRowId = previous.id;
+        zone.dataset.nextRowId = following.id;
+        const gap = following.start - previous.end;
+        if (gap < 0.35) {
+            zone.classList.add('tight');
+            zone.title = 'ここには隙間がほぼ無い — 分割（⧉）でどうぞ';
+            zone.addEventListener('click', event => {
+                event.stopPropagation();
+                this.notify('ここには隙間がほぼ無い — 分割（⧉）でどうぞ');
+            });
+            return zone;
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = '+';
+        button.title = 'この行間に字幕を挿入';
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openGapDraft(zone, previous, following);
+        });
+        zone.appendChild(button);
+        return zone;
+    }
+
+    protected openGapDraft(zone: HTMLElement, previous: DaihonRow, following: DaihonRow): void {
+        const draft = document.createElement('div');
+        draft.className = 'akari-daihon-gapdraft';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '挿入する字幕';
+        input.setAttribute('aria-label', `${previous.id} と ${following.id} の間に字幕を挿入`);
+        draft.appendChild(input);
+        zone.replaceWith(draft);
+        let cancelled = false;
+        let committing = false;
+        const finish = async (): Promise<void> => {
+            if (committing) return;
+            committing = true;
+            const value = input.value.normalize('NFC').trim();
+            if (cancelled || !value || !this.captionsUri || !this.rootUri) {
+                draft.replaceWith(this.createGapZone(previous, following));
+                return;
+            }
+            input.disabled = true;
+            try {
+                await this.withHistory('字幕を挿入', async () => {
+                    await this.annotationsService.insertCaption({
+                        captionsUri: this.captionsUri!.toString(),
+                        projectRootUri: this.rootUri!.toString(),
+                        caption: {
+                            id: nextDaihonCaptionId(this.rows.map(row => row.id)),
+                            start: previous.end + 0.06,
+                            end: following.start - 0.06,
+                            text: value,
+                            speaker: null,
+                            sourceRef: null,
+                            edited: true
+                        },
+                        label: '字幕を挿入'
+                    });
+                });
+                if (draft.isConnected) draft.replaceWith(this.createGapZone(previous, following));
+                await this.reload();
+                this.notify('字幕を挿入しました。');
+            } catch (error) {
+                draft.replaceWith(this.createGapZone(previous, following));
+                this.notify(this.errorMessage(error));
+            }
+        };
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); input.blur(); }
+            else if (event.key === 'Escape') { event.preventDefault(); cancelled = true; input.blur(); }
+        });
+        input.addEventListener('blur', () => void finish());
+        input.focus();
+    }
+
+    protected async splitRow(row: DaihonRow, wordIndex: number): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory('字幕を分割', async () => {
+                await this.annotationsService.splitCaption({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionId: row.id, wordIndex, newCaptionId: nextDaihonCaptionId(this.rows.map(item => item.id))
+                });
+            });
+            this.splitModeRowId = undefined;
+            await this.reload();
+            this.notify('2 行に分割しました。単語境界の時刻で切るので間（ま）も保たれます。');
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected async mergeSelectedRows(): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        const result = canMergeRows(this.rows, this.selection.selected);
+        if (!result.ok) { this.notify('reason' in result ? result.reason : '選択した行を結合できません。'); return; }
+        try {
+            await this.withHistory('字幕を結合', async () => {
+                await this.annotationsService.mergeCaptions({ captionsUri: this.captionsUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(), captionIds: result.orderedIds });
+            });
+            const count = result.orderedIds.length;
+            this.setSelection(clearSelection());
+            await this.reload();
+            this.notify(`${count} 行を結合しました。`);
+        } catch (error) { this.notify(this.errorMessage(error)); }
+    }
+
+    protected updateSelectionMerge(): void {
+        const result = canMergeRows(this.rows, this.selection.selected);
+        this.selectionMerge.disabled = !result.ok;
+        this.selectionMerge.title = result.ok ? '選択した隣接行を結合' : ('reason' in result ? result.reason : '選択した行を結合できません。');
     }
 
     protected openFillerPop(anchor: HTMLElement, row: DaihonRow, wordIndex: number): void {
@@ -2001,6 +2174,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.popButton('🎨 テンプレ', () => this.openWordPresetPicker(anchor)),
             this.popButton('✨ 強調', () => this.runWordOperation(() => this.applyWordPreset('emphasis-red'))),
             this.popButton('✂', () => this.openCutRangeEditorForSelection(), 'danger'),
+            this.wordInsertButton('＋ 語', first.row, Math.max(first.a, first.b), pop),
             this.popButton('✕', () => { this.wordRanges = []; this.renderWordSelection(); this.closePop(); }));
     }
 
@@ -2169,12 +2343,20 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.closePop();
         const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
+        const selectedRange = this.wordRanges.find(range => range.row === row.id && range.a <= index && index <= range.b);
+        const afterWordIndex = selectedRange ? Math.max(selectedRange.a, selectedRange.b) : index;
+        const previousRow = this.rows[this.rows.findIndex(candidate => candidate.id === row.id) - 1];
         const groups = wordContextMenuGroups({ rangeCount: summary.rangeCount, wordCount: summary.wordCount,
             text: summary.text, nextWordText: row.words?.[Math.min(index + 1, row.words.length - 1)]?.text ?? '',
-            presets: this.wordPresetCards().map(({ id, name }) => ({ id, name })), splitAvailable: false,
-            mergeAvailable: false, itemCaptionsAvailable: false });
+            presets: this.wordPresetCards().map(({ id, name }) => ({ id, name })),
+            splitAvailable: canSplitRow(row) && new Set(this.wordRanges.map(range => range.row)).size === 1,
+            mergeAvailable: !!previousRow && canMergeRows(this.rows, [previousRow.id, row.id]).ok,
+            wordInsertAvailable: this.wordInsertAvailable(row, afterWordIndex), itemCaptionsAvailable: false });
         openWordContextMenu({ x: event.clientX, y: event.clientY, groups,
-            onAction: action => { this.closePop(); void this.handleWordAction(action, row, index); } });
+            onAction: action => {
+                if (action.kind !== 'insert-word') this.closePop();
+                void this.handleWordAction(action, row, action.kind === 'insert-word' ? afterWordIndex : index);
+            } });
     }
 
     protected async handleWordAction(action: WordMenuAction, row: DaihonRow, index: number): Promise<void> {
@@ -2191,8 +2373,21 @@ export class AkariDaihonWidget extends BaseWidget {
                 case 'break': await this.toggleWordBreak(row, Math.max(1, index)); break;
                 case 'mark': await this.markWords(action.color); break;
                 case 'coming-soon': this.comingSoon(action.what); break;
-                case 'split': this.comingSoon('ここで分割'); break;
-                case 'merge-prev': this.comingSoon('前の行と結合'); break;
+                case 'split': index === 0 ? this.notify('行の先頭では分割できません。') : await this.splitRow(row, index); break;
+                case 'merge-prev': {
+                    const rowIndex = this.rows.findIndex(candidate => candidate.id === row.id);
+                    const previous = this.rows[rowIndex - 1];
+                    if (!previous || !this.captionsUri || !this.rootUri) break;
+                    const result = canMergeRows(this.rows, [previous.id, row.id]);
+                    if (!result.ok) { this.notify('reason' in result ? result.reason : '前の行と結合できません。'); break; }
+                    await this.withHistory('字幕を結合', async () => this.annotationsService.mergeCaptions({
+                        captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionIds: result.orderedIds
+                    }).then(() => undefined));
+                    await this.reload();
+                    this.notify('2 行を結合しました。');
+                    break;
+                }
+                case 'insert-word': this.openWordInsertInput(row, index); break;
                 case 'item-captions': this.comingSoon('この行だけの字幕'); break;
             }
         } catch (error) { this.notify(this.errorMessage(error)); }
@@ -2218,11 +2413,66 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openWordGapMenu(anchor: HTMLElement, row: DaihonRow, index: number): void {
         const pop = this.openPop(anchor);
         const has = !!row.words && fragmentBoundaries(row.words, this.captionExtraById.get(row.id)?.displayFragments).includes(index);
+        const insert = this.wordInsertButton('＋ 語', row.id, index - 1, pop);
         pop.append(
             this.popButton(has ? 'ここの改行をやめる' : '／ ここで改行（表示だけ）', () => this.runWordOperation(() => this.toggleWordBreak(row, index))),
-            ...['🖼 画像', '🎬 B-roll', '🅰 テロップ', '＋ 語'].map(label => this.popButton(`${label} Coming soon`, () => this.comingSoon(label))),
+            ...['🖼 画像', '🎬 B-roll', '🅰 テロップ'].map(label => this.popButton(`${label} Coming soon`, () => this.comingSoon(label))),
+            insert,
             this.popButton('⏸ 間 0.5 秒', () => this.runWordOperation(() => this.insertPause(row, index)))
         );
+    }
+
+    protected wordInsertAvailable(row: DaihonRow, afterWordIndex: number): boolean {
+        const previous = row.words?.[afterWordIndex];
+        if (!previous) return false;
+        const nextStart = row.words?.[afterWordIndex + 1]?.start ?? row.end;
+        return nextStart - previous.end >= MIN_WORD_INSERT_GAP_SEC;
+    }
+
+    protected wordInsertButton(label: string, rowId: string, afterWordIndex: number, pop: HTMLElement): HTMLButtonElement {
+        const row = this.rows.find(candidate => candidate.id === rowId);
+        const button = this.popButton(label, () => row && this.openWordInsertInput(row, afterWordIndex, pop));
+        button.disabled = !row || !this.wordInsertAvailable(row, afterWordIndex);
+        button.title = button.disabled ? '語を挿し込める 0.1 秒以上の隙間がありません。' : '選択範囲の直後に語を挿し込む';
+        return button;
+    }
+
+    protected openWordInsertInput(row: DaihonRow, afterWordIndex: number, existingPop?: HTMLElement): void {
+        const pop = existingPop ?? document.querySelector<HTMLElement>('.akari-daihon-pop');
+        if (!pop || !this.wordInsertAvailable(row, afterWordIndex)) {
+            this.notify('語を挿し込める 0.1 秒以上の隙間がありません。');
+            return;
+        }
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '挿し込む語';
+        input.setAttribute('aria-label', '挿し込む語');
+        pop.replaceChildren(input);
+        let cancelled = false;
+        const commit = async (): Promise<void> => {
+            if (cancelled || input.disabled) return;
+            const inserted = input.value.normalize('NFC').trim();
+            const result = insertWordIntoText(row, afterWordIndex, inserted);
+            if ('error' in result) { this.notify(result.error); return; }
+            if (!this.captionsUri || !this.rootUri) return;
+            input.disabled = true;
+            try {
+                await this.withHistory('語を挿入', async () => {
+                    await this.annotationsService.setCaptionFields({ captionsUri: this.captionsUri!.toString(),
+                        projectRootUri: this.rootUri!.toString(), captionId: row.id, text: result.text });
+                });
+                this.closePop();
+                this.wordRanges = [];
+                this.renderWordSelection();
+                await this.reload();
+                this.notify(`「${inserted}」を挿し込みました。`);
+            } catch (error) { input.disabled = false; this.notify(this.errorMessage(error)); }
+        };
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); void commit(); }
+            else if (event.key === 'Escape') { event.preventDefault(); cancelled = true; this.closePop(); }
+        });
+        input.focus();
     }
 
     protected handleRowClick(event: MouseEvent, id: string): void {
@@ -2281,6 +2531,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const count = next.selected.length;
         this.selectionBar.hidden = count === 0;
         this.selectionCount.textContent = `${count} 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）`;
+        this.updateSelectionMerge();
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, {
             detail: {
                 editUri: this.editUri?.normalizePath().toString() ?? '',

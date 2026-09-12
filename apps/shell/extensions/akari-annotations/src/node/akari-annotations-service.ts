@@ -55,6 +55,7 @@ import {
     MoveLayerRequest,
     MoveOverlayRequest,
     MoveSfxRequest,
+    MergeCaptionsRequest,
     RemoveCaptionRequest,
     RemoveLayerRequest,
     RemoveLayerResult,
@@ -91,6 +92,7 @@ import {
     SetSfxFadeRequest,
     SetSfxGainRequest,
     SplitCutRequest,
+    SplitCaptionRequest,
     TrimCutRequest,
     TrimSfxRequest,
     WriteBackResult,
@@ -117,7 +119,9 @@ import {
 } from '../common/annotation-store';
 import {
     insertCaptionLine,
+    mergeCaptionLines,
     removeCaptionLine,
+    splitCaptionLine,
     shiftCaptionLine,
     setCaptionTimingLine,
     updateCaptionFieldsInSource,
@@ -936,7 +940,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = insertCaptionLine(source, request.caption);
         await this.writeProjectFileGuarded(captionsPath, updated);
         await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕を複製') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), request.label ?? '字幕を複製') };
     }
 
     async removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult> {
@@ -947,6 +951,34 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await this.writeProjectFileGuarded(captionsPath, updated);
         await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
+    }
+
+    async splitCaption(request: SplitCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = splitCaptionLine(source, request.captionId, request.wordIndex, request.newCaptionId);
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+        const label = '字幕を分割';
+        const committed = await this.commitWrite(projectRoot, label)
+            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
+        return { committed };
+    }
+
+    async mergeCaptions(request: MergeCaptionsRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = mergeCaptionLines(source, request.captionIds);
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+        const label = '字幕を結合';
+        const committed = await this.commitWrite(projectRoot, label)
+            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
+        return { committed };
     }
 
     async moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult> {

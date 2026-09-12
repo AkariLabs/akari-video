@@ -1,7 +1,7 @@
 export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'dictionary' } | { kind: 'cut-video' }
     | { kind: 'caption-only' } | { kind: 'freeze' } | { kind: 'preset'; presetId: string } | { kind: 'preset-clear' }
     | { kind: 'coming-soon'; what: string } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
-    | { kind: 'merge-prev' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
+    | { kind: 'merge-prev' } | { kind: 'insert-word' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
 export interface WordMenuItem { label: string; action?: WordMenuAction; accel?: string; disabled?: boolean; title?: string; danger?: boolean }
 export interface WordMenuGroup { title: string; note?: string; items: WordMenuItem[]; presets?: { id: string; name: string }[]; colors?: string[] }
 
@@ -9,7 +9,7 @@ const COLORS = ['#ff5c5c', '#ffb347', '#f5c451', '#6fd18a', '#4fa8ff', '#c77dff'
 export function wordContextMenuGroups(input: {
     rangeCount: number; wordCount: number; text: string; nextWordText: string;
     presets: readonly { id: string; name: string }[];
-    splitAvailable: boolean; mergeAvailable: boolean; itemCaptionsAvailable: boolean;
+    splitAvailable: boolean; mergeAvailable: boolean; wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
 }): WordMenuGroup[] {
     const subject = input.rangeCount > 1 ? `${input.rangeCount} 範囲を一括`
         : input.wordCount > 1 ? 'この範囲' : 'この語';
@@ -28,7 +28,9 @@ export function wordContextMenuGroups(input: {
         ] },
         { title: '挿入', note: `「${input.nextWordText}」の前に`, items: [
             coming('🖼 画像 Coming soon', '画像'), coming('🎬 B-roll Coming soon', 'B-roll'),
-            coming('🅰 テロップ Coming soon', 'テロップ'), coming('＋ 語 Coming soon', '語'),
+            coming('🅰 テロップ Coming soon', 'テロップ'), input.wordInsertAvailable
+                ? { label: '＋ 語', action: { kind: 'insert-word' } }
+                : coming('＋ 語 Coming soon', '語'),
             { label: '⏸ 間 0.5 秒', accel: '⌘;', action: { kind: 'pause' } }
         ] },
         { title: '行', items: [

@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   insertCaptionLine,
+  mergeCaptionLines,
   mergeCaptionTextStyles,
   parseCaptions,
+  splitCaptionLine,
   setCaptionTimingLine,
   updateCaptionFieldsInSource,
   updateCaptionTextStyleInSource,
@@ -614,4 +616,109 @@ test('insert は直前行の end から次行の start までの隙間へ置き�
     { start: 9.5, end: 10.5 },
     { start: 10.5, end: 11.5 },
   ]);
+});
+
+const timedCaption = (id, start, texts, extra = {}) => ({
+  id, start, end: start + texts.length, text: texts.join(''), speaker: null,
+  sourceRef: { segment: 0 }, edited: false,
+  words: texts.map((text, index) => ({ text, start: start + index, end: start + index + 0.8 })),
+  ...extra,
+});
+const captionSource = rows => `[\n  ${rows.map(row => JSON.stringify(row)).join(',\n  ')}\n]\n`;
+
+test('splitCaptionLine は単語境界で 2 行に分割する', () => {
+  const result = JSON.parse(splitCaptionLine(captionSource([timedCaption('c-0001', 0, ['あ', 'い'])]), 'c-0001', 1, 'c-0002'));
+  assert.equal(result.length, 2); assert.deepEqual(result.map(row => row.text), ['あ', 'い']);
+});
+test('splitCaptionLine は前半 words を温存する', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b', 'c']); const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 2, 'c-0002'));
+  assert.deepEqual(result[0].words, row.words.slice(0, 2));
+});
+test('splitCaptionLine は後半 words を温存する', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b', 'c']); const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  assert.deepEqual(result[1].words, row.words.slice(1));
+});
+test('splitCaptionLine は前半 end と後半 start を語境界に置く', () => {
+  const row = timedCaption('c-0001', 4, ['a', 'b']); const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  assert.equal(result[0].end, row.words[0].end); assert.equal(result[1].start, row.words[1].start);
+});
+test('splitCaptionLine は text 不一致を拒否する', () => {
+  const row = { ...timedCaption('c-0001', 0, ['a', 'b']), text: 'ab!' };
+  assert.throws(() => splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'), /テキストと語のタイミング/);
+});
+test('splitCaptionLine は words なしを拒否する', () => {
+  const row = caption('c-0001', 0, 'a'); assert.throws(() => splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'), /2 つ以上/);
+});
+test('splitCaptionLine は 1 word を拒否する', () => {
+  const row = timedCaption('c-0001', 0, ['a']); assert.throws(() => splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'), /2 つ以上/);
+});
+test('splitCaptionLine は範囲外境界を拒否する', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b']); assert.throws(() => splitCaptionLine(captionSource([row]), row.id, 0, 'c-0002'), /2 つ以上/);
+});
+test('splitCaptionLine は unrecognized を両側へ振り分ける', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b'], { unrecognized: [{ start: .2, end: .3 }, { start: 1, end: 1.1 }] });
+  const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  assert.deepEqual(result.map(item => item.unrecognized), [[row.unrecognized[0]], [row.unrecognized[1]]]);
+});
+test('splitCaptionLine は空の unrecognized キーを出さない', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b']); const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  assert.equal(Object.hasOwn(result[0], 'unrecognized'), false); assert.equal(Object.hasOwn(result[1], 'unrecognized'), false);
+});
+test('splitCaptionLine は display_text と display_fragments を両側から削除する', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b'], { display_text: 'AB', display_fragments: ['A', 'B'] });
+  const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  for (const item of result) { assert.equal(Object.hasOwn(item, 'display_text'), false); assert.equal(Object.hasOwn(item, 'display_fragments'), false); }
+});
+test('splitCaptionLine は後半の sourceRef を null にする', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b']); const result = JSON.parse(splitCaptionLine(captionSource([row]), row.id, 1, 'c-0002'));
+  assert.equal(result[1].sourceRef, null);
+});
+test('splitCaptionLine は他行のバイト列を変えない', () => {
+  const other = JSON.stringify(caption('c-0009', 9, 'other')); const source = `[\n  ${JSON.stringify(timedCaption('c-0001', 0, ['a', 'b']))},\n  ${other}\n]\n`;
+  assert.ok(splitCaptionLine(source, 'c-0001', 1, 'c-0002').includes(other));
+});
+test('splitCaptionLine は新 id の衝突を拒否する', () => {
+  const rows = [timedCaption('c-0001', 0, ['a', 'b']), timedCaption('c-0002', 3, ['c', 'd'])];
+  assert.throws(() => splitCaptionLine(captionSource(rows), 'c-0001', 1, 'c-0002'), /既にあります/);
+});
+test('mergeCaptionLines は 2 行を結合する', () => {
+  const rows = [timedCaption('c-0001', 0, ['a']), timedCaption('c-0002', 2, ['b'])]; const result = JSON.parse(mergeCaptionLines(captionSource(rows), rows.map(row => row.id)));
+  assert.equal(result.length, 1); assert.equal(result[0].text, 'ab');
+});
+test('mergeCaptionLines は 3 行を結合する', () => {
+  const rows = ['a', 'b', 'c'].map((text, index) => timedCaption(`c-000${index + 1}`, index * 2, [text]));
+  assert.equal(JSON.parse(mergeCaptionLines(captionSource(rows), rows.map(row => row.id)))[0].text, 'abc');
+});
+test('mergeCaptionLines は words を入力 id 順に連結する', () => {
+  const rows = [timedCaption('c-0001', 0, ['a', 'b']), timedCaption('c-0002', 3, ['c'])];
+  assert.deepEqual(JSON.parse(mergeCaptionLines(captionSource(rows), rows.map(row => row.id)))[0].words.map(word => word.text), ['a', 'b', 'c']);
+});
+test('mergeCaptionLines は time_domain 不一致を拒否する', () => {
+  const rows = [timedCaption('c-0001', 0, ['a']), timedCaption('c-0002', 2, ['b'], { time_domain: 'output' })];
+  assert.throws(() => mergeCaptionLines(captionSource(rows), rows.map(row => row.id)), /タイムドメイン/);
+});
+test('mergeCaptionLines は unrecognized を連結する', () => {
+  const rows = [timedCaption('c-0001', 0, ['a'], { unrecognized: [{ start: .1, end: .2 }] }), timedCaption('c-0002', 2, ['b'], { unrecognized: [{ start: 2.1, end: 2.2 }] })];
+  assert.equal(JSON.parse(mergeCaptionLines(captionSource(rows), rows.map(row => row.id)))[0].unrecognized.length, 2);
+});
+test('mergeCaptionLines は他行のバイト列を変えない', () => {
+  const rows = [timedCaption('c-0001', 0, ['a']), timedCaption('c-0002', 2, ['b'])]; const other = JSON.stringify(caption('c-0009', 9, 'other'));
+  assert.ok(mergeCaptionLines(`[\n  ${rows.map(JSON.stringify).join(',\n  ')},\n  ${other}\n]\n`, rows.map(row => row.id)).includes(other));
+});
+test('mergeCaptionLines は 1 行入力を拒否する', () => {
+  assert.throws(() => mergeCaptionLines(captionSource([timedCaption('c-0001', 0, ['a'])]), ['c-0001']), /2 行以上/);
+});
+test('mergeCaptionLines は重複 id を拒否する', () => {
+  assert.throws(() => mergeCaptionLines(captionSource([timedCaption('c-0001', 0, ['a'])]), ['c-0001', 'c-0001']), /重複/);
+});
+test('正準順 fixture は分割して直後に結合するとバイト一致する', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b'], { edited: true, style: 'karaoke', extra_key: { keep: true } });
+  const canonical = `[\n  { "id": "c-0001", "start": 0, "end": 2, "text": "ab", "speaker": null, "sourceRef": {"segment":0}, "edited": true, "words": [{"text":"a","start":0,"end":0.8},{"text":"b","start":1,"end":1.8}], "style": "karaoke", "extra_key": {"keep":true} }\n]\n`;
+  const roundTrip = mergeCaptionLines(splitCaptionLine(canonical, row.id, 1, 'c-0002'), [row.id, 'c-0002']);
+  assert.equal(roundTrip, canonical);
+});
+test('非正準順 fixture は分割と結合で JSON deepEqual になる', () => {
+  const row = timedCaption('c-0001', 0, ['a', 'b'], { edited: true, style: 'karaoke' }); const source = captionSource([row]);
+  const result = mergeCaptionLines(splitCaptionLine(source, row.id, 1, 'c-0002'), [row.id, 'c-0002']);
+  assert.deepEqual(JSON.parse(result), JSON.parse(source));
 });
