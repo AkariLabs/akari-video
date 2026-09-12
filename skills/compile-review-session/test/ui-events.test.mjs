@@ -29,6 +29,42 @@ const snapshot = {
   ],
 };
 
+const v2Snapshot = {
+  version: 2,
+  output: { width: 1280, height: 720, fps: 30 },
+  sources: [{ id: "main", path: "source.mp4", proxy: null }],
+  tracks: [
+    {
+      id: "main-track",
+      lane: "visual",
+      items: [
+        {
+          id: "item-a",
+          at: 0,
+          duration: 300,
+          source: { kind: "media", src: "main", in: 10, out: 20 },
+        },
+        {
+          id: "item-b",
+          at: 300,
+          duration: 1200,
+          source: { kind: "media", src: "main", in: 100, out: 140 },
+        },
+      ],
+    },
+    {
+      id: "overlay-track",
+      lane: "visual",
+      items: [{
+        id: "ov-1",
+        at: 150,
+        duration: 60,
+        source: { kind: "html", path: "overlays/ov-1.html" },
+      }],
+    },
+  ],
+};
+
 function stoppedTrace(timelineT) {
   const { events } = parseEventsJsonl([
     `{"recT":0,"type":"start","timelineT":${timelineT},"playing":false}`,
@@ -108,6 +144,38 @@ test("呼称が一意に一致する ui.click は timeline:cut ターゲット�
   assert.equal(reference.timelineT, 10);
   assert.equal(reference.confidence, "high");
   assert.equal(reference.resolutionMethod, "ui-click-cut");
+});
+
+test("v2 の timeline:item:<id> は互換射影後の legacy cut index へ解決する", () => {
+  const trace = stoppedTrace(5);
+  const cutMap = buildCutMap(v2Snapshot);
+  const reference = resolveUtteranceReference({
+    utterance: { text: "カットBをこうして", recT: [12, 13], words: [] },
+    trace,
+    cutMap,
+    overlays: cutMap.overlays,
+    uiClicks: [{ recT: 12.5, target: "timeline:item:item-b", label: "カットB", intent: true }],
+  });
+  assert.equal(reference.target, "cut:1");
+  assert.equal(reference.sourceT, 100);
+  assert.equal(reference.timelineT, 10);
+  assert.equal(reference.resolutionMethod, "ui-click-item");
+});
+
+test("v2 overlay は互換射影された overlays[] の開始位置から解決する", () => {
+  const trace = stoppedTrace(5);
+  const cutMap = buildCutMap(v2Snapshot);
+  const reference = resolveUtteranceReference({
+    utterance: { text: "このオーバーレイを直して", recT: [12, 13], words: [] },
+    trace,
+    cutMap,
+    overlays: cutMap.overlays,
+    uiClicks: [{ recT: 12.5, target: "timeline:overlay:ov-1", label: "オーバーレイ", intent: true }],
+  });
+  assert.equal(reference.target, "overlay:ov-1");
+  assert.equal(reference.sourceT, 15);
+  assert.equal(reference.timelineT, 5);
+  assert.equal(reference.resolutionMethod, "ui-click-overlay");
 });
 
 test("intent: true は呼称一致より優先して一意候補として採用する", () => {

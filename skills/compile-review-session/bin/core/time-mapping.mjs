@@ -1,3 +1,62 @@
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+let editStoreModule;
+let editStoreLoadError;
+
+function loadEditStoreForV2() {
+  if (editStoreModule) return editStoreModule;
+  if (editStoreLoadError) throw editStoreLoadError;
+  try {
+    editStoreModule = require("../../../../packages/edit-store/lib/index.js");
+  } catch (error) {
+    editStoreLoadError = new Error(
+      `v2 snapshot を読めません: packages/edit-store/lib/index.js の読み込みに失敗しました (${error instanceof Error ? error.message : String(error)})`,
+    );
+    throw editStoreLoadError;
+  }
+  if (
+    typeof editStoreModule.readInternalEdit !== "function"
+    || typeof editStoreModule.projectLegacyEdit !== "function"
+  ) {
+    editStoreLoadError = new Error(
+      "v2 snapshot を読めません: edit-store の readInternalEdit / projectLegacyEdit が利用できません",
+    );
+    throw editStoreLoadError;
+  }
+  return editStoreModule;
+}
+
+function reviewSnapshotView(snapshot) {
+  if (snapshot?.version !== 2) {
+    return { snapshot, cutIdentityByIndex: new Map(), cutIndexByItemId: new Map() };
+  }
+
+  const { readInternalEdit, projectLegacyEdit } = loadEditStoreForV2();
+  let internal;
+  let projected;
+  try {
+    internal = readInternalEdit(snapshot);
+    projected = projectLegacyEdit(internal);
+  } catch (error) {
+    throw new Error(
+      `v2 snapshot を読めません: edit-store の互換射影に失敗しました (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
+
+  // projectLegacyEdit と同じ legacy.index 順を使い、v2 item id と旧 cuts[] index を結ぶ。
+  const cutEntries = internal.tracks.flatMap((track) => track.items
+    .filter((item) => item?.legacy?.collection === "cuts" && Number.isInteger(item.legacy.index))
+    .map((item) => ({ legacyIndex: item.legacy.index, itemId: item.id, trackId: track.id })))
+    .sort((left, right) => left.legacyIndex - right.legacyIndex);
+  const cutIdentityByIndex = new Map(cutEntries.map((entry, cutIndex) => [cutIndex, {
+    itemId: entry.itemId,
+    trackId: entry.trackId,
+  }]));
+  const cutIndexByItemId = new Map(cutEntries.map((entry, cutIndex) => [entry.itemId, cutIndex]));
+  return { snapshot: projected, cutIdentityByIndex, cutIndexByItemId };
+}
+
 function finiteNumber(value, label) {
   if (!Number.isFinite(value)) {
     throw new Error(`${label} が有限数ではありません`);
@@ -187,16 +246,18 @@ export function buildUiTrace(events) {
 }
 
 export function buildCutMap(snapshot) {
-  if (!snapshot || !Array.isArray(snapshot.cuts) || snapshot.cuts.length === 0) {
+  const view = reviewSnapshotView(snapshot);
+  const projectedSnapshot = view.snapshot;
+  if (!projectedSnapshot || !Array.isArray(projectedSnapshot.cuts) || projectedSnapshot.cuts.length === 0) {
     throw new Error("edit.snapshot.json に cuts がありません");
   }
-  const trackValues = snapshot.cuts.map((cut) => Number.isInteger(cut?.track) ? cut.track : 0);
+  const trackValues = projectedSnapshot.cuts.map((cut) => Number.isInteger(cut?.track) ? cut.track : 0);
   const primaryTrack = Math.min(...trackValues);
   const intervals = [];
   let previousEnd = 0;
 
-  for (let cutIndex = 0; cutIndex < snapshot.cuts.length; cutIndex += 1) {
-    const cut = snapshot.cuts[cutIndex];
+  for (let cutIndex = 0; cutIndex < projectedSnapshot.cuts.length; cutIndex += 1) {
+    const cut = projectedSnapshot.cuts[cutIndex];
     const track = Number.isInteger(cut?.track) ? cut.track : 0;
     if (track !== primaryTrack) continue;
     const sourceIn = finiteNumber(cut?.in, `cuts[${cutIndex}].in`);
@@ -258,7 +319,15 @@ export function buildCutMap(snapshot) {
     throw new Error(`timelineT=${timelineT} を cut に写像できません`);
   }
 
-  return { primaryTrack, intervals: byTimeline, boundaries, locate };
+  return {
+    primaryTrack,
+    intervals: byTimeline,
+    boundaries,
+    overlays: Array.isArray(projectedSnapshot.overlays) ? projectedSnapshot.overlays : [],
+    cutIdentityByIndex: view.cutIdentityByIndex,
+    cutIndexByItemId: view.cutIndexByItemId,
+    locate,
+  };
 }
 
 function pairableStroke(strokes, utteranceStart, utteranceEnd, maximumDistance) {
@@ -350,6 +419,8 @@ function parseUiClickTarget(target) {
   if (typeof target !== "string") return null;
   const cutMatch = /^timeline:cut:(\d+)$/.exec(target);
   if (cutMatch) return { kind: "cut", cutIndex: Number(cutMatch[1]) };
+  const itemMatch = /^timeline:item:(.+)$/.exec(target);
+  if (itemMatch) return { kind: "item", itemId: itemMatch[1] };
   const overlayMatch = /^timeline:overlay:(.+)$/.exec(target);
   if (overlayMatch) return { kind: "overlay", overlayId: overlayMatch[1] };
   const assetMatch = /^asset:(.+)$/.exec(target);
@@ -359,6 +430,11 @@ function parseUiClickTarget(target) {
 
 function locateCutByIndex(cutMap, cutIndex) {
   return cutMap.intervals.find((interval) => interval.cutIndex === cutIndex) ?? null;
+}
+
+function locateCutByItemId(cutMap, itemId) {
+  const cutIndex = cutMap.cutIndexByItemId.get(itemId);
+  return Number.isInteger(cutIndex) ? locateCutByIndex(cutMap, cutIndex) : null;
 }
 
 function locateOverlayAnchor(overlays, overlayId, cutMap) {
@@ -373,7 +449,7 @@ function locateOverlayAnchor(overlays, overlayId, cutMap) {
 
 // UI クリック解決は既存の 4 段階（停止中発話 > ストロークペア > 巻き戻し再生 > 再生中発話）の
 // 最後に適用する追加層であり、既存段の意味は変えない。一意に解決できた timeline:cut: /
-// timeline:overlay: だけが target・timelineT・sourceT を上書きする。asset: は timeline
+// timeline:item: / timeline:overlay: だけが target・timelineT・sourceT を上書きする。asset: は timeline
 // 位置を持たないため target には触れず refs だけを足す。複数候補で一意に決まらない場合は
 // 対象を書き換えず confidence だけ low に倒す（黙って断定しない）。
 function attachUiSignal(reference, { utterance, uiClicks, cutMap, overlays, windowSeconds }) {
@@ -392,17 +468,19 @@ function attachUiSignal(reference, { utterance, uiClicks, cutMap, overlays, wind
   if (parsed.kind === "asset") {
     return { ...reference, refs: [{ path: parsed.path }] };
   }
-  if (parsed.kind === "cut") {
-    const interval = locateCutByIndex(cutMap, parsed.cutIndex);
+  if (parsed.kind === "cut" || parsed.kind === "item") {
+    const interval = parsed.kind === "cut"
+      ? locateCutByIndex(cutMap, parsed.cutIndex)
+      : locateCutByItemId(cutMap, parsed.itemId);
     if (!interval) return reference;
     return {
       ...reference,
       timelineT: interval.timelineStart,
       sourceT: interval.sourceIn,
-      cutIndex: parsed.cutIndex,
-      target: `cut:${parsed.cutIndex}`,
+      cutIndex: interval.cutIndex,
+      target: `cut:${interval.cutIndex}`,
       confidence: "high",
-      resolutionMethod: "ui-click-cut",
+      resolutionMethod: parsed.kind === "cut" ? "ui-click-cut" : "ui-click-item",
       candidates: [],
       uiEvent: { target: signal.resolved.target, label: signal.resolved.label },
     };

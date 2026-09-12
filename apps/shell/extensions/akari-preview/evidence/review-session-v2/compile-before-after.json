@@ -1,0 +1,42 @@
+{
+  "note": "実機 L1 で録音した v2 セッション（test-project 複製・snapshot version 2）を、同じ記録原本に対して基点 main の compile-review-session と本票の compile-review-session の両方へ通した実測。projectRoot は <WORK> へ置換済み。transcript.json は決定論のため fixture を配置（STT 精度は本票の検証対象ではない）。",
+  "recordedSession": {
+    "sessionId": "s-0001",
+    "snapshotVersion": 2,
+    "files": ["audio.wav", "edit.snapshot.json", "events.jsonl", "session.json", "strokes.json"],
+    "startTimelineT": 7
+  },
+  "before": {
+    "skill": "main 5cdaba81 の skills/compile-review-session",
+    "result": {
+      "kind": "session",
+      "sessionId": "s-0001",
+      "status": "failed",
+      "reason": "edit.snapshot.json に cuts がありません"
+    },
+    "reviewJson": "作成されず",
+    "addressReviewList": { "targets": 0, "note": "review.json がありません（annotation ゼロ扱い）" }
+  },
+  "after": {
+    "skill": "本票の skills/compile-review-session",
+    "result": {
+      "kind": "session",
+      "sessionId": "s-0001",
+      "status": "compiled",
+      "recompiled": false,
+      "backend": "fixture",
+      "utterances": 1,
+      "annotations": [{ "id": "a-0001", "sourceT": 7, "target": "cut:1", "confidence": "high" }],
+      "discarded": 0,
+      "needsConfirmation": 0
+    },
+    "sessionJson": { "status": "compiled", "compiledAnnotations": ["a-0001"] },
+    "addressReviewList": { "targets": 1, "ids": ["a-0001"], "sourceT": [7], "target": ["cut:1"] }
+  },
+  "recordingSide": {
+    "note": "同じ L1 手順（timeline 7 秒へシーク → 録音開始 → ペンで 1 本）で strokes.json の frame を比較した。",
+    "before": { "timelineT": 7, "sourceT": 0, "cutIndex": 0 },
+    "after": { "timelineT": 7, "sourceT": 7, "cutIndex": 1, "itemId": "cut-2", "trackId": "t1" },
+    "expected": "test-project の cut-2 は timeline 5〜10 秒 / source 5〜10 秒。timelineT 7 の正解は sourceT 7 / legacy cuts[] index 1 / item id cut-2 / track id t1"
+  }
+}

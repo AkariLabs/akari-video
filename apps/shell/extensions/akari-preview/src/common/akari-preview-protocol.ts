@@ -179,6 +179,8 @@ export interface ReviewStrokeFrame {
     timelineT: number;
     sourceT: number;
     cutIndex: number | null;
+    itemId?: string;
+    trackId?: string;
 }
 
 interface ReviewStrokeBase {

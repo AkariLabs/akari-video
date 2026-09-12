@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "source.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "t1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 10,
+            "out": 20
+          }
+        },
+        {
+          "id": "cut-2",
+          "at": 300,
+          "duration": 1200,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 100,
+            "out": 140
+          }
+        }
+      ]
+    }
+  ]
+}

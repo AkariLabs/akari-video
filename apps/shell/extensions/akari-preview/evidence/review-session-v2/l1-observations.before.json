@@ -1,0 +1,83 @@
+{
+  "observations": [
+    {
+      "step": "electron-spawned",
+      "pid": 7183
+    },
+    {
+      "step": "review-panel",
+      "label": "録音開始",
+      "disabled": false
+    },
+    {
+      "step": "recording-started",
+      "label": "録音終了",
+      "indicator": "録音中",
+      "section": "録音セッション\n●\n00:00\n録音終了\n保存先を開く\nコンパイル\n選択\n1\nペン\n2\n四角\n3\n録音済みセッションはありません。\n描線を表示"
+    },
+    {
+      "step": "stage-rect",
+      "chosen": {
+        "id": "",
+        "className": "webview",
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 358.515625
+      },
+      "candidates": [
+        {
+          "id": "",
+          "className": "webview",
+          "x": 221.9140625,
+          "y": 39,
+          "width": 404,
+          "height": 358.515625
+        }
+      ]
+    },
+    {
+      "step": "recording-stopped",
+      "label": "録音開始"
+    },
+    {
+      "step": "sessions-on-disk",
+      "sessionIds": [
+        "s-0001"
+      ]
+    },
+    {
+      "step": "session-recorded",
+      "sessionId": "s-0001",
+      "files": [
+        "audio.wav",
+        "edit.snapshot.json",
+        "events.jsonl",
+        "session.json",
+        "strokes.json"
+      ],
+      "status": "recorded",
+      "snapshotVersion": 2,
+      "eventTypes": [
+        "start",
+        "ui.panel",
+        "tool.mode",
+        "ui.panel",
+        "end"
+      ],
+      "startTimelineT": 7
+    },
+    {
+      "step": "strokes-recorded",
+      "count": 1,
+      "frames": [
+        {
+          "timelineT": 7,
+          "sourceT": 0,
+          "cutIndex": 0
+        }
+      ]
+    }
+  ],
+  "failed": false
+}

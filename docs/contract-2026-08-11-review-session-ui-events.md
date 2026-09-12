@@ -46,6 +46,7 @@
 | `panel:<id>` | シェルの主要パネル | `panel:assets` / `panel:inspector` / `panel:review` / `panel:timeline` |
 | `tab:<id>` | タブ | `tab:assets-builtin` |
 | `timeline:cut:<n>` | タイムラインのカット（cuts[] index） | `timeline:cut:3` |
+| `timeline:item:<id>` | v2 タイムラインのカット（tracks[].items[].id。compile 時に legacy cuts[] index へ射影） | `timeline:item:cut-4` |
 | `timeline:overlay:<id>` | タイムラインのオーバーレイ | `timeline:overlay:o-0002` |
 | `asset:<path>` | 素材（プロジェクト相対 or カタログ id） | `asset:assets/broll/city.mp4` |
 | `asset:<category>/<id>` | 素材（カタログ由来カード。key = `<category>/<id>`） | `asset:still/br-typing-laptop` |
