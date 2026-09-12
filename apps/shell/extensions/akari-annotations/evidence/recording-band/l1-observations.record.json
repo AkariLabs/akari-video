@@ -1,0 +1,298 @@
+{
+  "observations": [
+    {
+      "step": "electron-spawned",
+      "pid": 69643
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.annotations.attachPassive"
+    },
+    {
+      "step": "command-ok",
+      "id": "akari.review.open"
+    },
+    {
+      "step": "mounted",
+      "count": 0,
+      "bands": [],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "14px minmax(0px, 1fr)",
+        "14px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "before-recording",
+      "count": 0,
+      "bands": [],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "14px minmax(0px, 1fr)",
+        "14px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "recording-started",
+      "count": 1,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "18.1818%",
+          "width": "9px",
+          "title": "s-0001 00:00:02.000",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "recording-growing-1",
+      "count": 1,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": false,
+          "left": "18.1818%",
+          "width": "26.0606%",
+          "title": "s-0001 00:00:02.000–00:00:04.867",
+          "label": "s-0001",
+          "top": 49,
+          "rectWidth": 64.13
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "recording-growing-2",
+      "count": 1,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": false,
+          "left": "18.1818%",
+          "width": "53.6364%",
+          "title": "s-0001 00:00:02.000–00:00:07.900",
+          "label": "s-0001",
+          "top": 49,
+          "rectWidth": 131.98
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "recording-after-seek",
+      "count": 3,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "4.54545%",
+          "width": "9px",
+          "title": "s-0001 00:00:00.500",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0001",
+          "point": false,
+          "left": "18.1818%",
+          "width": "54.8485%",
+          "title": "s-0001 00:00:02.000–00:00:08.033",
+          "label": "s-0001",
+          "top": 49,
+          "rectWidth": 134.97
+        },
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "73.354%",
+          "width": "9px",
+          "title": "s-0001 00:00:08.069",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "after-stop",
+      "count": 2,
+      "bands": [
+        {
+          "session": "s-0001",
+          "point": true,
+          "left": "4.54545%",
+          "width": "9px",
+          "title": "s-0001 00:00:00.500",
+          "label": "s-0001",
+          "top": 49.13604736328125,
+          "rectWidth": 12.73
+        },
+        {
+          "session": "s-0001",
+          "point": false,
+          "left": "18.1818%",
+          "width": "54.8485%",
+          "title": "s-0001 00:00:02.000–00:00:08.033",
+          "label": "s-0001",
+          "top": 49,
+          "rectWidth": 134.97
+        }
+      ],
+      "toggle": {
+        "pressed": "true",
+        "text": "録音帯"
+      },
+      "rulerRows": [
+        "32px minmax(0px, 1fr)",
+        "32px minmax(0px, 1fr)"
+      ]
+    },
+    {
+      "step": "focus-after-band-click-400ms",
+      "rows": [
+        {
+          "session": "s-0001",
+          "className": "akari-review-row akari-review-row-revealed",
+          "revealed": true
+        }
+      ]
+    },
+    {
+      "step": "focus-after-band-click-1900ms",
+      "rows": [
+        {
+          "session": "s-0001",
+          "className": "akari-review-row akari-review-row-revealed",
+          "revealed": true
+        }
+      ]
+    },
+    {
+      "step": "focus-event-direct"
+    },
+    {
+      "step": "focus-after-direct-event",
+      "rows": [
+        {
+          "session": "s-0001",
+          "className": "akari-review-row akari-review-row-revealed",
+          "revealed": true
+        }
+      ]
+    },
+    {
+      "step": "session-on-disk",
+      "sessionIds": [
+        "s-0001"
+      ],
+      "latest": "s-0001",
+      "events": [
+        {
+          "recT": 0,
+          "type": "start",
+          "timelineT": 2,
+          "playing": false
+        },
+        {
+          "recT": 0.02130000001192093,
+          "type": "play",
+          "timelineT": 2
+        },
+        {
+          "recT": 1.0039000000357627,
+          "type": "tick",
+          "timelineT": 2.833333
+        },
+        {
+          "recT": 2.004100000023842,
+          "type": "tick",
+          "timelineT": 3.866667
+        },
+        {
+          "recT": 3.003600000023842,
+          "type": "tick",
+          "timelineT": 4.866667
+        },
+        {
+          "recT": 4.004199999988079,
+          "type": "tick",
+          "timelineT": 5.9
+        },
+        {
+          "recT": 5.004100000023842,
+          "type": "tick",
+          "timelineT": 6.866667
+        },
+        {
+          "recT": 6.003699999988079,
+          "type": "tick",
+          "timelineT": 7.9
+        },
+        {
+          "recT": 6.160199999988079,
+          "type": "pause",
+          "timelineT": 8.033333
+        },
+        {
+          "recT": 6.982300000011921,
+          "type": "seek",
+          "from": 8.068938333333334,
+          "to": 0.5
+        },
+        {
+          "recT": 8.967100000023843,
+          "type": "ui.panel",
+          "target": "panel:review",
+          "label": "注釈パネル"
+        },
+        {
+          "recT": 8.997199999988078,
+          "type": "end",
+          "timelineT": 0.5
+        }
+      ]
+    }
+  ],
+  "failed": false
+}

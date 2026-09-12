@@ -27,6 +27,7 @@ import {
     StartReviewSessionRequest,
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
+import { reviewSessionRangesFromJsonl, ReviewSessionRange } from '../common/review-session-ranges';
 
 const SESSION_DIRECTORY_PATTERN = /^s-(\d{4,})$/;
 const WAV_HEADER_BYTES = 44;
@@ -322,7 +323,8 @@ export class ReviewSessionWriter {
                     startedAt: parsed.startedAt,
                     endedAt: parsed.endedAt,
                     durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
-                    orphaned: false
+                    orphaned: false,
+                    ranges: await this.readRanges(sessionDirectory)
                 });
             } catch (error) {
                 console.warn(`[akari-preview] skipping damaged review session ${entry.name}`, error);
@@ -433,8 +435,17 @@ export class ReviewSessionWriter {
             startedAt: directoryStat.birthtime.toISOString(),
             endedAt: null,
             durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
-            orphaned: true
+            orphaned: true,
+            ranges: await this.readRanges(sessionDirectory)
         };
+    }
+
+    protected async readRanges(sessionDirectory: string): Promise<ReviewSessionRange[]> {
+        try {
+            return reviewSessionRangesFromJsonl(await readFile(join(sessionDirectory, 'events.jsonl'), 'utf8'));
+        } catch {
+            return [];
+        }
     }
 
     protected async appendAndSync(path: string, content: string): Promise<void> {
