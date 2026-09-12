@@ -169,6 +169,7 @@
         "filter": [
           "package.json",
           "bin/captions.mjs",
+          "bin/capture.mjs",
           "bin/decision-log.mjs",
           "bin/media.mjs",
           "bin/word-book.mjs",
