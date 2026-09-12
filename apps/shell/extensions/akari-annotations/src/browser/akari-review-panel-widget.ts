@@ -7,6 +7,12 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
+import {
+    compileClipboardFailureFooter,
+    compileClipboardFailureNotice,
+    compileCopiedMessage,
+    planCompileHandoff
+} from '../common/compile-session-handoff';
 import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget, parseUiTarget } from '../common/doc-target';
 import { resolveRawSourceId } from '../common/raw-source-selection';
 import {
@@ -30,13 +36,6 @@ type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
 type ImageTargetHealth = 'ok' | 'path-missing';
 /** canvas: target のディレクトリ存在チェック結果（contract-2026-07-26-canvas-surface §6）。 */
 type CanvasTargetHealth = 'ok' | 'dir-missing';
-
-// パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
-// akari-partner-command-contribution.ts の AkariPartnerCommands.BEGIN_ONBOARDING と同一）。
-// 「入力欄への投入」に対応する公開 API は無く、送信専用の akari.partner.send しか無いため、
-// ここでは送信せずクリップボードコピー + パートナーペインへのフォーカスで代替する
-// （task.md の代替実装規約どおり）。
-const BEGIN_PARTNER_ONBOARDING_COMMAND_ID = 'akari.partner.beginOnboarding';
 
 // akari-preview 側の同名定数とミラー。extension 間の npm 依存を作らず outer window で連携する。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
@@ -344,7 +343,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.compileButton.setAttribute('data-review-compile', '');
         this.compileButton.className = 'theia-button secondary';
         this.compileButton.textContent = 'コンパイル';
-        this.compileButton.title = '最新の録音セッションをコンパイルする定型文をパートナーへ渡す';
+        this.compileButton.title = '最新の録音セッションのコンパイル依頼文をクリップボードへコピーする（パートナーへ貼り付けて使う）';
         this.compileButton.addEventListener('click', () => void this.compileLatestSession());
         recordingControls.append(this.recordingButton, this.openSessionsButton, this.compileButton);
 
@@ -1252,46 +1251,26 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     /**
-     * 最新の録音セッション id を含む定型文をパートナーへ渡す（task.md §指示3・最小のコンパイル導線）。
-     * akari-partner の公開 API には「入力欄へ投入するだけ（送信しない）」ものが無く、
-     * `akari.partner.send` は即送信してしまうため、ここでは送信せずクリップボードコピー +
-     * `akari.partner.beginOnboarding`（接続済みならペインを表に出すだけ・未接続なら推奨導線を開始）
-     * によるフォーカスで代替する。
+     * 2026-09-12 裁定 A: 定型文のコピーのみ行い、パートナーペインへフォーカスを移さない。
+     * 入力欄へ投入するだけの公開 API が無く、`akari.partner.send` は即送信するためここでは送信しない。
+     * sessionId 省略時は最新セッション、指定時はそのセッションを使い、ボード等からの id 指定に対応する。
      */
-    protected async compileLatestSession(): Promise<void> {
-        const sessions = this.reviewSessionState?.sessions ?? [];
-        if (sessions.length === 0) {
-            this.showNotice('録音済みセッションがありません。先に録音してください。');
+    protected async compileLatestSession(sessionId?: string): Promise<void> {
+        const plan = planCompileHandoff(this.reviewSessionState?.sessions ?? [], sessionId);
+        if (plan.kind === 'notice') {
+            this.showNotice(plan.notice);
             return;
         }
-        const latest = [...sessions].sort((left, right) => {
-            const leftOrder = this.sessionSortKey(left);
-            const rightOrder = this.sessionSortKey(right);
-            return leftOrder === rightOrder
-                ? left.startedAt.localeCompare(right.startedAt)
-                : leftOrder - rightOrder;
-        }).pop();
-        if (!latest) {
-            return;
-        }
-        const prompt = `review セッション ${latest.id} をコンパイルして`;
         try {
-            await navigator.clipboard.writeText(prompt);
+            await navigator.clipboard.writeText(plan.prompt);
             this.hideNotice();
-            this.footer.textContent = `「${prompt}」をクリップボードにコピーしました。パートナーへ貼り付けてください。`;
+            const message = compileCopiedMessage(plan.prompt);
+            this.footer.textContent = message;
+            void this.messages.info(message, { timeout: 3000 });
         } catch (error) {
-            this.showNotice(`クリップボードにコピーできません: ${this.errorMessage(error)}`);
+            this.showNotice(compileClipboardFailureNotice(this.errorMessage(error)));
+            this.footer.textContent = compileClipboardFailureFooter(plan.prompt);
         }
-        try {
-            await this.commands.executeCommand(BEGIN_PARTNER_ONBOARDING_COMMAND_ID);
-        } catch (error) {
-            console.warn('[akari-annotations] partner focus skipped:', error);
-        }
-    }
-
-    protected sessionSortKey(session: ReviewSessionSummary): number {
-        const match = /^s-(\d+)$/.exec(session.id);
-        return match ? Number(match[1]) : 0;
     }
 
     protected async resolveAnnotationById(id: string): Promise<void> {
