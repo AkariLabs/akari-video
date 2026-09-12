@@ -52,32 +52,57 @@ assert.ok(fs.existsSync(path.join(shellRoot, 'lib/backend/main.js')), 'apps/shel
 const args = process.argv.slice(2);
 const opt = (name, fallback) => (args.find(a => a.startsWith(`--${name}=`)) ?? '').slice(name.length + 3) || fallback;
 const REAL = opt('real', '');
-const CONFIGS = opt('configs', REAL ? 'real' : 'nobgm,bgm,engine').split(',');
-const PATTERN_KEYS = opt('patterns', 'a,b,c').split(',');
 const keepTmp = args.includes('--keep-tmp');
-for (const config of CONFIGS) assert.ok(['nobgm', 'bgm', 'engine', 'real'].includes(config), `config must be nobgm|bgm|engine|real: ${config}`);
-if (CONFIGS.includes('real')) assert.ok(REAL && fs.existsSync(REAL), 'real config needs --real=<file>');
+
+// セッション = Electron 1 本。駆動レート 120 Hz は rAF（= 画面更新レート）が律速なので、
+// Chromium の vsync / フレームレート上限を外した専用セッションで測る（GPU は有効のまま）。
+// 実機の既定（60 Hz / ProMotion 120 Hz）の両方を再現するため。
+const SESSIONS = {
+  // legacy <video> 経路・BGM なし: 30 Hz の既存パターン（退行確認）+ 60 Hz の実機相当
+  'nobgm-60': { config: 'nobgm', uncapFps: false, silentModes: [{ mode: 'off', pattern: 'a', hz: 30 }, { mode: 'muted', pattern: 'a', hz: 30 }, { mode: 'playing', pattern: 'a', hz: 30 }],
+    runs: [{ pattern: 'a', hz: 30 }, { pattern: 'b', hz: 30 }, { pattern: 'c', hz: 30 }, { pattern: 'a', hz: 60 }, { pattern: 'c', hz: 60 }, { pattern: 'f', hz: 60 }, { pattern: 'd', hz: 60 }] },
+  // 同じ構成を 120 Hz 駆動（vsync 解除）で
+  'nobgm-120': { config: 'nobgm', uncapFps: true, silentModes: [], runs: [{ pattern: 'a', hz: 120 }, { pattern: 'f', hz: 120 }, { pattern: 'd', hz: 120 }] },
+  // legacy・BGM あり
+  'bgm-60': { config: 'bgm', uncapFps: false, silentModes: [], runs: [{ pattern: 'a', hz: 30 }, { pattern: 'f', hz: 60 }] },
+  // frame-engine 経路
+  'engine-60': { config: 'engine', uncapFps: false, silentModes: [], runs: [{ pattern: 'a', hz: 30 }, { pattern: 'f', hz: 60 }] },
+  // 実写（声）— オーナーが耳で確かめる録音
+  'real-60': { config: 'real', uncapFps: false, silentModes: [], runs: [{ pattern: 'r', hz: 30 }, { pattern: 'f', hz: 60 }] },
+};
+const SESSION_KEYS = opt('sessions', REAL ? 'real-60' : 'nobgm-60,nobgm-120,bgm-60,engine-60').split(',').filter(Boolean);
+for (const key of SESSION_KEYS) assert.ok(SESSIONS[key], `session must be one of ${Object.keys(SESSIONS).join('|')}: ${key}`);
+if (SESSION_KEYS.some(k => SESSIONS[k].config === 'real')) assert.ok(REAL && fs.existsSync(REAL), 'real session needs --real=<file>');
 
 const MAIN_TABLE = Array.from({ length: 12 }, (_, k) => Math.round(440 * 2 ** (k / 12)));
 const BGM_TABLE = Array.from({ length: 12 }, (_, k) => Math.round(110 * 2 ** (k / 12)));
 const DURATION_S = 60;
 const FPS = 30;
-const TICK_HZ = 30;
 const FRAGMENT_MS = 40;
 const VIEW_W = 1600;
 const VIEW_H = 1000;
-// 60 秒の素材をタイムライン全幅に出した状態で、実マウスの移動（整数 px）が 30 Hz の seek になる軌跡。
+// 60 秒の素材をタイムライン全幅に出した状態での、実マウスの移動の軌跡。1 tick = 1 mousemove（駆動レートは run ごと）。
+// speed = 走査する source 秒 / ドラッグの実時間秒（= 「早送り」の倍率）。
+const SWEEP_END = DURATION_S - 1;
 const PATTERNS = {
   // 録音は契約どおり各 ≤ 10 s。ドラッグの前後（押下・host → webview の遅延・最後の断片 40 ms）を録音に収めるため、a / r のドラッグは 9.5 s にする。
-  a: { label: 'slow drag: 0 → 19 s in 9.5 s (30 Hz)', seconds: 9.5, recordSec: 10, timeAt: (i, n) => 19 * i / n },
-  b: { label: 'fast drag: 0 → 50 s in 3 s (30 Hz)', seconds: 3, recordSec: 4, timeAt: (i, n) => 50 * i / n },
-  c: { label: 'back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)', seconds: 6, recordSec: 7, timeAt: (i, n) => {
+  a: { label: 'slow drag: 0 → 19 s in 9.5 s', seconds: 9.5, recordSec: 10, speed: 2, timeAt: (i, n) => 19 * i / n },
+  b: { label: 'fast drag: 0 → 50 s in 3 s', seconds: 3, recordSec: 4, speed: 16.7, timeAt: (i, n) => 50 * i / n },
+  c: { label: 'back-and-forth: 30 ↔ 35 s for 6 s (3 round trips)', seconds: 6, recordSec: 7, speed: 5, timeAt: (i, n) => {
     const period = n / 3;
     const phase = (i % period) / period;
     const tri = phase < 0.5 ? phase * 2 : 2 - phase * 2;
     return 30 + 5 * tri;
   } },
-  r: { label: 'real footage slow drag: 0 → 19 s in 9.5 s (30 Hz)', seconds: 9.5, recordSec: 10, timeAt: (i, n) => 19 * i / n },
+  // 実機のオーナー操作に相当する速さ（契約 指示 5）: タイムライン全長を 1 秒で走査。
+  f: { label: `full-length sweep: 0 → ${SWEEP_END} s in 1 s`, seconds: 1, recordSec: 3, speed: SWEEP_END, timeAt: (i, n) => SWEEP_END * i / n },
+  // 同・0.5 秒で往復（全長を行って戻る）。
+  d: { label: `full-length round trip: 0 → ${SWEEP_END} → 0 s in 0.5 s`, seconds: 0.5, recordSec: 2, speed: SWEEP_END * 4, timeAt: (i, n) => {
+    const phase = i / n;
+    const tri = phase < 0.5 ? phase * 2 : 2 - phase * 2;
+    return SWEEP_END * tri;
+  } },
+  r: { label: 'real footage slow drag: 0 → 19 s in 9.5 s', seconds: 9.5, recordSec: 10, speed: 2, timeAt: (i, n) => 19 * i / n },
 };
 
 // ------------------------------------------------------------------ helpers
@@ -97,27 +122,41 @@ const rangeSpan = range => { const m = /^bytes=(\d+)-(\d+)$/.exec(range ?? ''); 
 const summarizeRequests = requests => {
   // mediaRangeFetch = スクラブ音由来（initiator が scrub-audio.js）の fetch Range。engineRangeFetch = frame-engine 由来の fetch Range（映像デコード用・本票の対象外）。
   // moovFetch = スクラブ音由来で 8 KB を超える Range（= moov。src ごとに 1 回のはず）。scrubFull = スクラブ音由来の Range 無し要求（0 のはず）。
-  const summary = { total: requests.length, mediaRange: 0, mediaRangeFetch: 0, mediaRangeMediaElement: 0, engineRangeFetch: 0, otherRangeFetch: 0, mediaFull: 0, scrubFull: 0, moovFetch: 0, previewAudioApi: 0, sidecarPcm: 0, bgmAssetFull: 0, other: 0,
-    scrubFetchMs: null };
+  const summary = { total: requests.length, mediaRange: 0, mediaRangeFetch: 0, mediaRangeMediaElement: 0, engineRangeFetch: 0, otherRangeFetch: 0, mediaFull: 0, scrubFull: 0, boxProbe: 0, moovFetch: 0, previewAudioApi: 0, sidecarPcm: 0, bgmAssetFull: 0, other: 0,
+    scrubFetchMs: null, scrubRangeBytes: null };
   const scrubDurations = [];
-  for (const r of requests) {
+  const scrubSpans = [];
+  // moov 取得は Mp4AudioTrack#open() の「16 B の box ヘッダ読み × n → 大きい 1 本」でしか起きない。
+  // 断片の窓は速度で最大 1 s（数十 KB）まで広がるので、サイズだけでは moov と区別できない。
+  let lastProbeAt = -Infinity;
+  for (const r of [...requests].sort((a, b) => a.at - b.at)) {
     if (/^\/asset\/[a-f0-9]{64}\.pcm$/.test(r.path)) summary.sidecarPcm++;
     else if (/^\/media\/[a-f0-9]{64}$/.test(r.path)) {
       if (r.range) {
         summary.mediaRange++;
         if (r.type === 'Fetch') {
-          if (r.initiator === 'scrub') { summary.mediaRangeFetch++; if ((rangeSpan(r.range) ?? 0) > 8192) summary.moovFetch++; if (r.doneAt !== null) scrubDurations.push(r.doneAt - r.at); }
-          else if (r.initiator === 'engine') summary.engineRangeFetch++;
+          if (r.initiator === 'scrub') {
+            summary.mediaRangeFetch++;
+            const span = rangeSpan(r.range) ?? 0;
+            if (span === 16) { summary.boxProbe++; lastProbeAt = r.at; }
+            else if (span > 8192 && r.at - lastProbeAt <= 1000) summary.moovFetch++;
+            else scrubSpans.push(span);
+            if (r.doneAt !== null) scrubDurations.push(r.doneAt - r.at);
+          } else if (r.initiator === 'engine') summary.engineRangeFetch++;
           else summary.otherRangeFetch++;
         } else summary.mediaRangeMediaElement++;
       } else { summary.mediaFull++; if (r.initiator === 'scrub') summary.scrubFull++; }
     } else if (/^\/asset\/[a-f0-9]{64}\.(m4a|mp3|wav|aac|ogg|opus|flac)$/.test(r.path)) { if (r.range) summary.mediaRange++; else summary.bgmAssetFull++; }
     else summary.other++;
   }
+  const pct = (list, q) => round1(list[Math.min(list.length - 1, Math.floor(list.length * q))]);
   if (scrubDurations.length) {
     const sorted = [...scrubDurations].sort((a, b) => a - b);
-    const pick = q => round1(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]);
-    summary.scrubFetchMs = { n: sorted.length, p50: pick(0.5), p90: pick(0.9), p99: pick(0.99), max: round1(sorted.at(-1)) };
+    summary.scrubFetchMs = { n: sorted.length, p50: pct(sorted, 0.5), p90: pct(sorted, 0.9), p99: pct(sorted, 0.99), max: round1(sorted.at(-1)) };
+  }
+  if (scrubSpans.length) {
+    const sorted = [...scrubSpans].sort((a, b) => a - b);
+    summary.scrubRangeBytes = { n: sorted.length, p50: pct(sorted, 0.5), p95: pct(sorted, 0.95), max: sorted.at(-1), totalKb: round1(sorted.reduce((a, b) => a + b, 0) / 1024) };
   }
   return summary;
 };
@@ -274,9 +313,11 @@ function buildFixture(config, project) {
   return { fixture, referencePcm: { sampleRate: 48000, samples }, withBgm };
 }
 
-// ------------------------------------------------------------------ one config = one Electron
-async function runConfig(config) {
-  const configWork = path.join(work, config);
+// ------------------------------------------------------------------ one session = one Electron
+async function runConfig(sessionKey) {
+  const session = SESSIONS[sessionKey];
+  const config = session.config;
+  const configWork = path.join(work, sessionKey);
   const project = path.join(configWork, 'project');
   const akariHome = path.join(configWork, 'akari-home');
   const userDataDir = path.join(configWork, 'electron-user-data');
@@ -286,22 +327,24 @@ async function runConfig(config) {
   const { fixture, referencePcm, withBgm } = buildFixture(config, project);
   const checkClicks = makeClickChecker(referencePcm);
   const frameEngine = config === 'engine';
-  const patternKeys = config === 'real' ? ['r'] : PATTERN_KEYS;
-  // 無音の確認は nobgm（AudioContext に scrub 以外の音源が無い）でだけ回す。
-  const silentModes = config === 'nobgm' ? ['off', 'muted', 'playing'] : [];
+  // 無音の確認（設定 OFF / globalMuted / 再生中）は nobgm セッションでだけ回す（AudioContext に scrub 以外の音源が無い）。
+  const plan = [...session.silentModes, ...session.runs.map(r => ({ mode: 'on', ...r }))];
+  const patternKeys = [...new Set(plan.map(r => r.pattern))];
   const cdpPort = await freePort();
   const electronLogPath = path.join(configWork, 'electron.log');
   const electronLog = fs.openSync(electronLogPath, 'w');
+  // 120 Hz 駆動は rAF（= 画面更新レート）が律速になるため、vsync とフレームレート上限を外す（ProMotion 相当の再現。GPU は有効のまま）。
+  const uncapArgs = session.uncapFps ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [];
   const electron = spawn(ELECTRON_BIN, [shellRoot, project, `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${userDataDir}`, '--no-sandbox',
-    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'], {
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', ...uncapArgs], {
     detached: false, stdio: ['ignore', electronLog, electronLog],
     env: { ...process.env, AKARI_HOME: akariHome, THEIA_CONFIG_DIR: theiaConfigDir, AKARI_FRAME_ENGINE: frameEngine ? '1' : '0', ELECTRON_ENABLE_LOGGING: '0' },
   });
-  const report = { config, startedAt: new Date().toISOString(),
+  const report = { config, session: sessionKey, uncapFps: session.uncapFps, startedAt: new Date().toISOString(),
     host: { platform: process.platform, arch: process.arch, node: process.version, cpus: os.cpus().length, model: os.cpus()[0]?.model, memGb: +(os.totalmem() / 2 ** 30).toFixed(1), loadAvgAtStart: os.loadavg().map(v => +v.toFixed(2)) },
     electron: { version: fs.readFileSync(path.join(path.dirname(path.dirname(path.dirname(path.dirname(ELECTRON_BIN)))), 'version'), 'utf8').trim() },
-    fixture, frameEngine, tickHz: TICK_HZ, fragmentMs: FRAGMENT_MS,
-    patterns: Object.fromEntries(patternKeys.map(k => [k, { label: PATTERNS[k].label, seconds: PATTERNS[k].seconds, recordSec: PATTERNS[k].recordSec, tickHz: TICK_HZ }])), runs: [] };
+    fixture, frameEngine, tickHz: null, fragmentMs: FRAGMENT_MS,
+    plan, patterns: Object.fromEntries(patternKeys.map(k => [k, { label: PATTERNS[k].label, seconds: PATTERNS[k].seconds, recordSec: PATTERNS[k].recordSec, speed: PATTERNS[k].speed }])), runs: [] };
   let main; let view; let ctxId; const contexts = [];
   let cleanupDone = false;
   const cleanup = async () => {
@@ -601,7 +644,7 @@ async function runConfig(config) {
     if (config !== 'real') {
       // 実素材のフレーム（オーナーの実録画）は証跡に残さない。合成素材の構成だけスクリーンショットを撮る。
       const shot = await main.send('Page.captureScreenshot', { format: 'jpeg', quality: 50 });
-      fs.writeFileSync(path.join(evidenceDir, `${config}-shell.jpg`), Buffer.from(shot.data, 'base64'));
+      fs.writeFileSync(path.join(evidenceDir, `${sessionKey}-shell.jpg`), Buffer.from(shot.data, 'base64'));
     }
     // ---------------- drag driver（実マウス）
     // プレイヘッドのつまみの位置と、その点で実際にヒットする要素（通知トーストなどが被っていないか）。被っていれば
@@ -648,8 +691,8 @@ async function runConfig(config) {
     // x は小数のまま渡す（macOS のトラックパッド / 高解像度マウスと同じく pointermove の clientX が小数になり、
     // 30 Hz の各 tick が別の時刻の seek になる。整数 px に丸めると同じ時刻の seek が連続して断片を鳴らし直す）。
     const mouse = (type, x, y, extra = {}) => main.send('Input.dispatchMouseEvent', { type, x: Math.round(x * 1000) / 1000, y: Math.round(y), button: 'left', ...(type === 'mouseMoved' ? { buttons: 1 } : type === 'mousePressed' ? { buttons: 1, clickCount: 1 } : {}), ...extra });
-    const dragPattern = async pattern => {
-      const n = Math.round(pattern.seconds * TICK_HZ);
+    const dragPattern = async (pattern, tickHz) => {
+      const n = Math.round(pattern.seconds * tickHz);
       const st = await timelineState();
       const xAt = t => st.strip.left + (t - st.viewStart) / st.visibleDuration * st.strip.width;
       await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(st.handle.x), y: Math.round(st.handle.y), button: 'none' });
@@ -658,15 +701,20 @@ async function runConfig(config) {
       await sleep(40);
       const started = performance.now();
       const sendTimes = [];
+      // 120 Hz（8.3 ms 間隔）では CDP の往復待ちが tick を食うので ack を待たずに送る（CDP は順序保証）。
+      // 送出は Promise を集めて最後にまとめて待つ。
+      const inFlight = [];
       for (let i = 0; i < n; i++) {
-        const due = started + (i * 1000) / TICK_HZ;
-        const wait = due - performance.now();
-        if (wait > 0) await sleep(wait);
+        const due = started + (i * 1000) / tickHz;
+        let wait = due - performance.now();
+        while (wait > 1.2) { await sleep(wait - 1); wait = due - performance.now(); }
+        while (performance.now() < due) { /* 1 ms 未満はスピンで詰める（sleep の分解能が足りない） */ }
         sendTimes.push(performance.now() - started);
-        await mouse('mouseMoved', xAt(pattern.timeAt(i, n)), st.handle.y);
+        inFlight.push(mouse('mouseMoved', xAt(pattern.timeAt(i, n)), st.handle.y).catch(() => undefined));
       }
       const xEnd = xAt(pattern.timeAt(n - 1, n));
-      await mouse('mouseReleased', xEnd, st.handle.y);
+      inFlight.push(mouse('mouseReleased', xEnd, st.handle.y).catch(() => undefined));
+      await Promise.all(inFlight);
       return { started, sendTimes, pxPerSec: st.strip.width / st.visibleDuration, handleY: st.handle.y, stripLeft: st.strip.left, hitTag: st.hitTag, playheadTBefore: st.playheadT };
     };
     const roleOf = line => {
@@ -716,7 +764,7 @@ async function runConfig(config) {
         let owner = null;
         for (const s of sorted) { if (s.arrivedCtxSec <= start.ctxNow + 1e-6) owner = s; else break; }
         if (!owner) continue;
-        const isMain = start.bufferDuration !== null && start.bufferDuration < 1;
+        const isMain = start.bufferDuration !== null && start.bufferDuration < 5;
         if (isMain) { owner.mainStartedCtxSec = start.when; owner.mainStartedPerfMs = start.perfMs; owner.mainOffsetSec = start.offset; owner.mainDurationSec = start.duration; owner.windowSec = start.bufferDuration; owner.windowRate = start.bufferRate; }
         else { owner.bgmStartedCtxSec = start.when; owner.bgmOffsetSec = start.offset; }
       }
@@ -737,14 +785,23 @@ async function runConfig(config) {
       await evalOn(main, `(() => { void ${COMMANDS}.executeCommand('akari.preview.togglePlayback', { editUri: ${JSON.stringify(editUri)} }); return true; })()`);
       await waitFor(`webview playing=${playing}`, async () => (await vEval(`document.getElementById('play-toggle').getAttribute('aria-pressed') === 'true' || !document.getElementById('preview-video').paused`)) === playing, 15000, 200);
     };
-    const modes = [...silentModes.map(m => ({ mode: m, keys: ['a'] })), { mode: 'on', keys: patternKeys }];
-    for (const { mode, keys } of modes) {
+    let currentMode = 'on';
+    const applyMode = async mode => {
+      if (currentMode === mode) return;
+      if (currentMode === 'off') await setPreference(true);
+      if (currentMode === 'muted') await setMuted(false);
+      if (currentMode === 'playing') await togglePlayback(false);
       if (mode === 'off') await setPreference(false);
       if (mode === 'muted') await setMuted(true);
       if (mode === 'playing') await togglePlayback(true);
-      for (const key of keys) {
+      currentMode = mode;
+    };
+    {
+      for (const entry of plan) {
+        const { mode, pattern: key, hz } = entry;
+        await applyMode(mode);
         const pattern = PATTERNS[key];
-        const runId = `${config}-${mode}-${key}`;
+        const runId = `${config}-${mode}-${key}-${hz}hz`;
         console.log(`[run] ${runId}: ${pattern.label}`);
         const runStartedAt = performance.now() - networkStartedAt;
         try {
@@ -755,7 +812,7 @@ async function runConfig(config) {
           samples.push(...sampleCpu());
           const sampler = setInterval(() => sampleCpuAsync(samples), 200);
           await vEval(`window.__rec.start()`);
-          const drag = await dragPattern(pattern);
+          const drag = await dragPattern(pattern, hz);
           const remaining = pattern.recordSec * 1000 - (performance.now() - drag.started);
           if (remaining > 0) await sleep(remaining);
           clearInterval(sampler);
@@ -779,8 +836,9 @@ async function runConfig(config) {
           const clickCheck = arrivals.length ? checkClicks(floatSamples, recording.sampleRate, rec0, seeks, Math.min(...arrivals), Math.max(...arrivals)) : [];
           const stats = { mode: hooks.mode, fragmentMs: FRAGMENT_MS, lastError: hooks.lastError, seeks, starts: hooks.starts.length, ctxOps: hooks.ctxOps, debugBefore: before, debugAfter: hooks.debug, playingDuringRun: hooks.playing,
             summary: { count: seeks.length, played, skipped: seeks.length - played, errors: 0 } };
-          const run = { id: runId, config, mode, pattern: key, label: pattern.label, ticks: Math.round(pattern.seconds * TICK_HZ), tickHz: TICK_HZ,
-            drag: { pxPerSec: round1(drag.pxPerSec * 10) / 10, sendJitterMaxMs: round1(Math.max(...drag.sendTimes.map((t, i) => Math.abs(t - i * 1000 / TICK_HZ)))), hitTag: drag.hitTag, playheadTBefore: drag.playheadTBefore, loadAvg: os.loadavg().map(v => +v.toFixed(2)) },
+          const run = { id: runId, config, session: sessionKey, mode, pattern: key, label: `${pattern.label} @ ${hz} Hz`, ticks: Math.round(pattern.seconds * hz), tickHz: hz,
+            patternSpeed: pattern.speed, dragSeconds: pattern.seconds, uncapFps: session.uncapFps,
+            drag: { pxPerSec: round1(drag.pxPerSec * 10) / 10, sendJitterMaxMs: round1(Math.max(...drag.sendTimes.map((t, i) => Math.abs(t - i * 1000 / hz)))), hitTag: drag.hitTag, playheadTBefore: drag.playheadTBefore, loadAvg: os.loadavg().map(v => +v.toFixed(2)) },
             wav: wavName, recording: { sampleRate: recording.sampleRate, firstFrame: recording.firstFrame, frames: trimmed.length, droppedTailFrames: int16.length - trimmed.length, gaps: recording.gaps, peak: recording.peak,
               startCtxSec: recording.startCtxSec, startPerfMs: recording.startPerfMs, clock: recording.clock, stateAtEnd: recording.state },
             stats, cpu: summarizeCpu(samples), clickCheck,
@@ -798,13 +856,11 @@ async function runConfig(config) {
           await sleep(800);
         }
       }
-      if (mode === 'off') await setPreference(true);
-      if (mode === 'muted') await setMuted(false);
-      if (mode === 'playing') await togglePlayback(false);
+      await applyMode('on');
     }
     report.console = consoleLog.slice(0, 200).map(e => ({ ...e, text: scrub(e.text) }));
     report.networkAll = { summary: summarizeRequests(networkLog), byPath: Object.entries(networkLog.reduce((acc, r) => { const key = `${r.method} ${r.path.replace(/[a-f0-9]{64}/, '<id>').replace(/\/static\/[a-f0-9]+\//, '/static/<hash>/')}${r.range ? ' [Range]' : ''} (${r.type})`; acc[key] = (acc[key] ?? 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 40),
-      moovFetches: networkLog.filter(r => r.type === 'Fetch' && r.initiator === 'scrub' && r.range && (rangeSpan(r.range) ?? 0) > 8192).map(r => ({ at: round1(r.at), path: r.path.replace(/[a-f0-9]{64}/, '<id>'), range: r.range, ms: r.doneAt !== null ? round1(r.doneAt - r.at) : null })) };
+      moovFetches: networkLog.filter(r => r.type === 'Fetch' && r.initiator === 'scrub' && r.range && (rangeSpan(r.range) ?? 0) > 8192 && r.at < 60000).map(r => ({ at: round1(r.at), path: r.path.replace(/[a-f0-9]{64}/, '<id>'), range: r.range, ms: r.doneAt !== null ? round1(r.doneAt - r.at) : null })).slice(0, 12) };
     const cacheDir = path.join(project, '.akari', 'cache');
     const listCache = dir => fs.existsSync(dir) ? fs.readdirSync(dir, { recursive: true }).map(f => ({ file: String(f), bytes: (() => { try { return fs.statSync(path.join(dir, String(f))).size; } catch { return null; } })() })) : [];
     report.projectCache = { dir: scrub(cacheDir), entries: listCache(cacheDir) };
@@ -817,7 +873,7 @@ async function runConfig(config) {
   }
   report.finishedAt = new Date().toISOString();
   try { report.electronLogTail = scrub(fs.readFileSync(electronLogPath, 'utf8').slice(-3000)); } catch { /* noop */ }
-  const suffix = `-${config}`;
+  const suffix = `-${sessionKey}`;
   if (report.error) {
     fs.writeFileSync(path.join(evidenceDir, `l1-raw${suffix}-failed.json`), `${JSON.stringify(report, null, 2)}\n`);
     return false;
@@ -825,16 +881,18 @@ async function runConfig(config) {
   fs.writeFileSync(path.join(evidenceDir, `l1-raw${suffix}.json`), `${JSON.stringify(report, null, 2)}\n`);
   const analysis = analyzeRun(report, evidenceDir);
   analysis.config = config;
+  analysis.session = sessionKey;
+  analysis.uncapFps = session.uncapFps;
   fs.writeFileSync(path.join(evidenceDir, `l1-results${suffix}.json`), `${JSON.stringify(analysis, null, 2)}\n`);
   writeSummaryMarkdown(analysis, path.join(evidenceDir, `l1-summary${suffix}.md`));
   console.log(fs.readFileSync(path.join(evidenceDir, `l1-summary${suffix}.md`), 'utf8'));
-  console.log(`[${config}] cleanup: ${JSON.stringify(report.cleanup)}`);
+  console.log(`[${sessionKey}] cleanup: ${JSON.stringify(report.cleanup)}`);
   return !(report.failedRuns?.length);
 }
 
 let allOk = true;
-for (const config of CONFIGS) {
-  const ok = await runConfig(config);
+for (const key of SESSION_KEYS) {
+  const ok = await runConfig(key);
   allOk = allOk && ok;
   await sleep(1500);
 }

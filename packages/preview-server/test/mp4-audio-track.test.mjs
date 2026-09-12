@@ -203,6 +203,50 @@ test('packetsAround は既定7 packet（before 1 / after 5）を端でクラン�
   assert.deepEqual(track.packetsAround(7 * 1024 / 48000).packets.map(item => item.index), [6, 7]);
 });
 
+test('maxGapBytes 以下の packet 間隙を同じ Range にまとめる', () => {
+  const track = new Mp4AudioTrack({ src: '/interleaved.mp4' });
+  track.info = {
+    timescale: 1000,
+    editOffsetTicks: 0,
+    samples: [
+      { index: 0, offset: 100, size: 4, dts: 0, duration: 100 },
+      { index: 1, offset: 110, size: 4, dts: 100, duration: 100 },
+      { index: 2, offset: 120, size: 4, dts: 200, duration: 100 },
+    ],
+  };
+  assert.deepEqual(track.packetsAround(0.1, { before: 1, after: 1 }).ranges, [
+    { start: 100, end: 103 }, { start: 110, end: 113 }, { start: 120, end: 123 },
+  ]);
+  assert.deepEqual(track.packetsAround(0.1, { before: 1, after: 1, maxGapBytes: 6 }).ranges, [
+    { start: 100, end: 123 },
+  ]);
+});
+
+test('source 秒数を現在位置の packet 数へ切り上げる', () => {
+  const track = new Mp4AudioTrack({ src: '/source.mp4' });
+  track.info = parseMp4AudioTrack(fixture().moov);
+  assert.equal(track.packetDurationAt(0), 1024 / 48000);
+  assert.equal(track.packetsForSeconds(0, 0.3), 15);
+  assert.equal(track.packetsForSeconds(0, 1), 47);
+});
+
+test('fetchRange は指定時だけ AbortSignal を渡す', async () => {
+  const options = [];
+  const fetchFn = async (_src, init) => {
+    options.push(init);
+    return {
+      status: 206,
+      headers: { get: () => 'bytes 0-0/1' },
+      arrayBuffer: async () => new ArrayBuffer(1),
+    };
+  };
+  await fetchRange(fetchFn, '/x', 0, 0);
+  const controller = new AbortController();
+  await fetchRange(fetchFn, '/x', 0, 0, controller.signal);
+  assert.equal('signal' in options[0], false);
+  assert.strictEqual(options[1].signal, controller.signal);
+});
+
 test('206 以外の Range 応答を拒否する', async () => {
   await assert.rejects(
     fetchRange(async () => ({ status: 200, headers: {}, arrayBuffer: async () => new ArrayBuffer() }), '/x', 0, 1),

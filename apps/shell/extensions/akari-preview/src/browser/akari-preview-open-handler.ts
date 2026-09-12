@@ -99,7 +99,7 @@ import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { resolveDeferredTelopPlayback } from '../common/deferred-telop-playback';
-import { createScrubFetchGate, resolveScrubSeek } from '../common/scrub-audio-wiring';
+import { resolveScrubSeek } from '../common/scrub-audio-wiring';
 import { computeTransitionVisual } from '../common/transition-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { cropRectAfterEdgeDrag } from '../common/crop-edge-drag';
@@ -12430,7 +12430,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 && segment.src !== undefined && imageSources[String(segment.src)]) || null;
             const isStillSegment = segment => Boolean(stillUrlForSegment(segment));
             const resolveScrubSeekFn = (${resolveScrubSeek.toString()});
-            const createScrubFetchGateFn = (${createScrubFetchGate.toString()});
             // globalMuted と cut track の可聴規則をその場で評価する。frame-engine 経路でも
             // legacy <video> の muted 状態に依存せず、同じ規則でスクラブ音を止める。
             const scrubAudioMedia = {
@@ -12443,26 +12442,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 get volume() { return Number.isFinite(video.volume) ? video.volume : 1; }
             };
             let scrubAudio = null;
-            let scrubFetchGate = null;
             const ensureScrubAudio = () => {
                 if (scrubAudio) return scrubAudio;
                 const api = window.AkariScrubAudio;
                 if (!api || typeof api.createScrubAudioController !== 'function') return null;
                 const audioContext = window.akari.ensurePreviewAudioContext();
                 if (!audioContext) return null;
-                // 追い越された seek の fetch を残すと同一 origin の 6 接続が詰まり、後続も
-                // 連鎖的に無音になる（実 shell L1）。正本 audio-scrub.js で abort するのが筋だが
-                // 本票の境界外なので、配線側の fetch gate で古い断片取得だけを止める。
-                scrubFetchGate = createScrubFetchGateFn({
-                    fetch: (input, init) => fetch(input, init),
-                    setTimeout: (fn, ms) => setTimeout(fn, ms)
-                });
                 scrubAudio = api.createScrubAudioController({
                     audioContext,
                     video: scrubAudioMedia,
                     getBgm: () => window.akari.previewAudio && window.akari.previewAudio.scrubBgm
                         ? window.akari.previewAudio.scrubBgm(outputTime) : undefined,
-                    fetchFn: scrubFetchGate.fetchFn,
                     enabled: true
                 });
                 window.akari.scrubAudio = scrubAudio;
@@ -12511,7 +12501,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     fallbackSrc: video.currentSrc || ''
                 });
                 if (input) {
-                    scrubFetchGate.beginSeek();
                     controller.onSeek(input);
                 }
             };
@@ -12521,7 +12510,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 controllerEnabled: scrubAudio ? scrubAudio.enabled : null,
                 lastError: scrubAudio ? scrubAudio.lastError : null,
                 contextState: scrubAudio ? scrubAudio.context.state : null,
-                inFlightFetches: scrubFetchGate ? scrubFetchGate.inFlight() : null
+                inFlightFetches: scrubAudio ? scrubAudio.inFlightFetches : null
             });
             const hideStillImage = () => { stillImage.style.display = 'none'; };
             const syncStillImageVisual = () => {

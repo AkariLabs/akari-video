@@ -223,8 +223,10 @@ function contentRangeTotal(response) {
   return match ? Number(match[1]) : null;
 }
 
-export async function fetchRange(fetchFn, src, start, end) {
-  const response = await fetchFn(src, { headers: { Range: `bytes=${start}-${end}` } });
+export async function fetchRange(fetchFn, src, start, end, signal) {
+  const init = { headers: { Range: `bytes=${start}-${end}` } };
+  if (signal !== undefined) init.signal = signal;
+  const response = await fetchFn(src, init);
   if (response.status !== 206) throw new Error(`range fetch was not honored: ${response.status}`);
   return { bytes: new Uint8Array(await response.arrayBuffer()), total: contentRangeTotal(response) };
 }
@@ -282,7 +284,7 @@ export class Mp4AudioTrack {
     return this;
   }
 
-  packetsAround(tSec, { before = 1, after = 5 } = {}) {
+  packetsAround(tSec, { before = 1, after = 5, maxGapBytes = 0 } = {}) {
     if (!this.info) throw new Error('track is not open');
     const samples = this.info.samples;
     if (!samples.length) {
@@ -304,7 +306,10 @@ export class Mp4AudioTrack {
     const ranges = [];
     for (const packet of packets) {
       const previous = ranges.at(-1);
-      if (previous && previous.end + 1 === packet.offset) previous.end = packet.offset + packet.size - 1;
+      const gapBytes = previous ? packet.offset - previous.end - 1 : Infinity;
+      if (previous && gapBytes >= 0 && gapBytes <= Math.max(0, maxGapBytes)) {
+        previous.end = packet.offset + packet.size - 1;
+      }
       else ranges.push({ start: packet.offset, end: packet.offset + packet.size - 1 });
     }
     const rawStartTick = packets[0].dts;
@@ -318,6 +323,27 @@ export class Mp4AudioTrack {
       windowStartSec: (rawStartTick - this.info.editOffsetTicks) / this.info.timescale,
       windowEndSec: (rawEndTick - this.info.editOffsetTicks) / this.info.timescale,
     };
+  }
+
+  packetDurationAt(tSec) {
+    if (!this.info) throw new Error('track is not open');
+    const samples = this.info.samples;
+    if (!samples.length) return 0;
+    const tick = Math.max(0, tSec) * this.info.timescale + this.info.editOffsetTicks;
+    let low = 0;
+    let high = samples.length;
+    while (low < high) {
+      const middle = low + Math.floor((high - low) / 2);
+      const sample = samples[middle];
+      if (tick < sample.dts + sample.duration) high = middle;
+      else low = middle + 1;
+    }
+    return samples[Math.min(low, samples.length - 1)].duration / this.info.timescale;
+  }
+
+  packetsForSeconds(tSec, seconds) {
+    const packetSec = this.packetDurationAt(tSec);
+    return packetSec > 0 ? Math.max(1, Math.ceil(Math.max(0, seconds) / packetSec)) : 1;
   }
 
   decoderConfig() {
