@@ -12,6 +12,8 @@
  *
  * チューニング裁定（オーナー 2026-08-02）: フェードは 600ms（Web UI 現行値）を正とする。
  * それ以外の値は shell 従来値が正本（契約 §2.8）。
+ * 描線の表示寿命も PEN_TUNING が単一正本で、visibleWindowSec が不透明な窓、fadeOutMs が
+ * 窓を過ぎた後の消失時間を定める。描き味の fadeDurationMs とは別の表示規則である。
  */
 export interface PenTuning {
     maxDevicePixelRatio: number;
@@ -28,6 +30,11 @@ export interface PenTuning {
     sparkleMaxSizePx: number;
     sparkleLifetimeMs: number;
     sparkleTwinkleHz: number;
+    /** 完了済み描線を不透明で表示する時間窓。 */
+    visibleWindowSec: number;
+    /** 表示時間窓を過ぎた描線が消失するまでの時間。fadeDurationMs の描き味演出とは別。 */
+    fadeOutMs: number;
+    /** pointerup 直後の既存の描き味演出。表示寿命の fadeOutMs とは別。 */
     fadeDurationMs: number;
 }
 export type PersistentStrokeItem = {
@@ -36,19 +43,46 @@ export type PersistentStrokeItem = {
     id?: string;
     recTStart?: number;
     recTEnd?: number;
+    frame?: {
+        timelineT?: number;
+    };
 } | {
     tool: 'rect';
     box: [number, number, number, number];
     id?: string;
     recTStart?: number;
     recTEnd?: number;
+    frame?: {
+        timelineT?: number;
+    };
 };
+export interface StrokeLifetimeContext {
+    /** 録音中か（録音中 = recT 基準、録音外 = playheadT 基準） */
+    recording: boolean;
+    /** 「描線を表示」トグル。false なら全部 alpha 0 */
+    visible: boolean;
+    /** 録音中の現在録音時計（秒）。録音外では未使用 */
+    recT?: number;
+    /** 録音外のプレイヘッド（タイムライン秒） */
+    playheadT?: number;
+}
+export interface StrokeLifetimeTuning {
+    visibleWindowSec: number;
+    fadeOutMs: number;
+}
 /**
  * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
  * valid pen/rect geometry is copied, and coordinates remain normalized to the preview frame.
  * The function is dependency-free so the shell can serialize it into its sandboxed webview.
  */
 export declare function normalizePersistentStrokeItems(value: unknown): PersistentStrokeItem[];
+/** 0（非表示）〜1（不透明）。webview 注入用のため外側の識別子を参照しない。 */
+export declare function resolveStrokeLifetimeAlpha(item: PersistentStrokeItem, context: StrokeLifetimeContext, tuning: StrokeLifetimeTuning): number;
+/** alpha が残る描線を入力順で返す。 */
+export declare function selectVisibleStrokeItems(items: readonly PersistentStrokeItem[], context: StrokeLifetimeContext, tuning?: StrokeLifetimeTuning): Array<{
+    item: PersistentStrokeItem;
+    alpha: number;
+}>;
 export declare const PEN_TUNING: PenTuning;
 /** グロー用スプライト（動画面 `createGlowSprite` と同一実装）。 */
 export declare function createGlowSprite(size: number): HTMLCanvasElement;
